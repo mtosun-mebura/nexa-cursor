@@ -25,6 +25,9 @@
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        [hidden] {
+            display: none !important;
+        }
         html, body { height: 100%; margin: 0; }
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -87,7 +90,7 @@
             height: 100dvh;
             max-height: 100dvh;
             overflow: hidden;
-            padding: 0 0 calc(1rem + var(--safe-bottom));
+            padding: 0 0 calc(0.5rem + var(--safe-bottom));
         }
         .dispatch-top {
             flex: 0 0 auto;
@@ -114,22 +117,37 @@
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 0 1rem;
+            padding: 0 1rem 0.35rem;
         }
         #offer-strip,
         #active-ride-strip {
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        #active-ride-strip.is-contract-ride #btn-pay-ride,
+        #active-ride-strip.is-contract-ride #btn-send-invoice,
+        #active-ride-strip.is-contract-group-ride #btn-complete-ride,
+        #active-ride-strip.is-contract-ride #payment-ride-error {
+            display: none !important;
         }
         #active-ride-strip .card {
             margin-bottom: 0;
         }
         #btn-complete-ride,
         #btn-pay-ride,
-        #btn-send-invoice {
+        #btn-send-invoice,
+        #btn-contract-back {
             width: 100%;
             margin-top: 0.75rem;
             min-height: 3.25rem;
             font-size: 1.0625rem;
+        }
+        #btn-contract-back {
+            margin-top: 1.25rem;
+            padding: 0 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
         }
         #btn-pay-ride { background: #ca8a04; color: #fff; }
         #btn-pay-ride.is-paid {
@@ -362,6 +380,11 @@
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step {
             text-align: left;
+            min-width: 0;
+        }
+        #pickup-adjust-dialog .driver-dialog__panel {
+            overflow: hidden;
+            min-width: 0;
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__title {
             text-align: center;
@@ -373,8 +396,25 @@
             color: var(--muted);
             margin: 0 0 0.35rem;
         }
-        #pickup-adjust-dialog #pickup-adjust-input {
+        #pickup-adjust-dialog .pickup-adjust-datetime-fields {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+            gap: 0.625rem;
             margin-bottom: 1.25rem;
+            min-width: 0;
+        }
+        #pickup-adjust-dialog .pickup-adjust-datetime-field {
+            min-width: 0;
+        }
+        #pickup-adjust-dialog .pickup-adjust-datetime-input {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            margin: 0;
+            font-size: 0.9375rem;
+            padding: 0.625rem 0.625rem;
+            min-height: 2.75rem;
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__actions {
             margin-top: 0.25rem;
@@ -514,6 +554,143 @@
             font-size: 0.9375rem;
         }
         .banner-ride-accepted { margin-bottom: 0.75rem; }
+        .contract-ride-badge {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.45);
+            color: #bfdbfe;
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin: 0 0 0.5rem;
+        }
+        .contract-stops-panel { margin-top: 0.75rem; }
+        .contract-stops-progress { margin: 0 0 0.75rem !important; }
+        .contract-stop-item {
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            margin-bottom: 0.5rem;
+            background: rgba(15, 23, 42, 0.35);
+        }
+        .contract-stop-item.is-done { opacity: 0.72; }
+        .contract-stop-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 0.35rem;
+        }
+        .contract-stop-seq {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #94a3b8;
+            min-width: 1.25rem;
+        }
+        .contract-stop-main { flex: 1; min-width: 0; }
+        .contract-stop-main strong { display: block; font-size: 0.875rem; }
+        .contract-stop-time { font-size: 0.75rem; color: #94a3b8; }
+        .contract-stop-status {
+            font-size: 0.6875rem;
+            color: #cbd5e1;
+            white-space: nowrap;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .contract-stop-status--planned { color: #cbd5e1; }
+        .contract-stop-status--arrived { color: #4ade80; }
+        .contract-stop-status--picked_up { color: #86efac; }
+        .contract-stop-status--skipped { color: #fca5a5; }
+        .contract-stop-status--completed { color: #94a3b8; }
+        .contract-stop-status--arriving {
+            position: relative;
+            display: inline-block;
+            min-width: 4.75rem;
+            text-align: right;
+            color: #4ade80;
+        }
+        .contract-stop-status-phase { display: inline-block; }
+        .contract-stop-status--arriving .contract-stop-status-phase--from {
+            color: #cbd5e1;
+            animation: contract-stop-from-out 0.42s ease-in forwards;
+        }
+        .contract-stop-status--arriving .contract-stop-status-phase--to {
+            position: absolute;
+            right: 0;
+            top: 0;
+            color: #4ade80;
+            opacity: 0;
+            animation: contract-stop-to-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+        }
+        @keyframes contract-stop-from-out {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-0.35rem) scale(0.92); }
+        }
+        @keyframes contract-stop-to-in {
+            0% { opacity: 0; transform: translateY(0.4rem) scale(0.88); }
+            55% { transform: translateY(0) scale(1.08); }
+            100% { opacity: 1; transform: translateY(0) scale(1); color: #4ade80; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .contract-stop-status--arriving .contract-stop-status-phase--from,
+            .contract-stop-status--arriving .contract-stop-status-phase--to {
+                animation: none;
+            }
+            .contract-stop-status--arriving .contract-stop-status-phase--from { display: none; }
+            .contract-stop-status--arriving .contract-stop-status-phase--to {
+                position: static;
+                opacity: 1;
+                color: #4ade80;
+            }
+        }
+        .contract-stop-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+        }
+        .contract-stop-actions .btn-sm {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.55rem;
+        }
+        .contract-stop-actions .btn-stop-pickup,
+        .contract-stop-actions .btn-stop-skip {
+            font-size: 0.9375rem;
+        }
+        .contract-stop-actions .btn-stop-arrive {
+            background: #c2610e;
+            border: 1px solid rgba(251, 191, 36, 0.45);
+            color: #fff7ed;
+        }
+        .contract-stop-actions .btn-stop-pickup {
+            background: #1a7a45;
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            color: #ecfdf5;
+        }
+        .contract-stop-actions .btn-stop-skip {
+            background: #b83232;
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            color: #fef2f2;
+        }
+        .contract-stop-auto-hint {
+            margin: 0.5rem 0 0;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .active-ride-collapsed-banner {
+            margin-bottom: 0.75rem;
+        }
+        .active-ride-collapsed-banner .btn {
+            width: 100%;
+            margin-top: 0.75rem;
+            min-height: 3rem;
+        }
+        .scheduled-ride-card.is-contract-ride .scheduled-ride-toggle-text .offer-title {
+            display: inline;
+            margin-left: 0.35rem;
+        }
         .active-ride-card { overflow: visible; }
         .offer-price { white-space: nowrap; }
         .offer-card { animation: pulse-border 1.5s ease-in-out infinite; }
@@ -652,6 +829,15 @@
             grid-template-columns: 1fr 1fr;
             gap: 0.75rem;
             margin-top: 0.85rem;
+        }
+        .contract-start-hint {
+            margin: 0;
+            width: 100%;
+            text-align: center;
+            color: #94a3b8;
+        }
+        .scheduled-ride-card.is-contract-ride .scheduled-ride-actions {
+            grid-template-columns: 1fr;
         }
         .scheduled-ride-actions .btn { margin-top: 0; width: 100%; }
         .scheduled-ride-actions .btn-release-ride {
@@ -1000,6 +1186,11 @@
         <div class="dispatch-scroll">
         <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
         <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
+        <div id="active-ride-collapsed-banner" class="card active-ride-collapsed-banner" hidden>
+            <p class="offer-title" id="active-ride-collapsed-title">Actieve rit</p>
+            <p class="offer-meta" id="active-ride-collapsed-meta"></p>
+            <button type="button" class="btn btn-primary" id="btn-active-ride-open">Stoplijst openen</button>
+        </div>
         <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
             <p class="scheduled-rides-title">Geplande ritten</p>
             <div id="scheduled-rides-list"></div>
@@ -1062,6 +1253,7 @@
             <p id="payment-ride-error" hidden role="alert"></p>
             <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
             <button type="button" class="btn" id="btn-send-invoice" hidden>Factuur versturen</button>
+            <button type="button" class="btn btn-ghost" id="btn-contract-back" hidden>Alle ritten weergeven</button>
             <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afronden</button>
         </div>
         <div id="inbox-empty" class="empty">
@@ -1131,8 +1323,17 @@
         </div>
         <div id="pickup-adjust-edit-step" hidden>
             <h2 class="driver-dialog__title">Nieuw ophaalmoment</h2>
-            <label for="pickup-adjust-input" class="offer-meta">Datum en tijd</label>
-            <input type="datetime-local" id="pickup-adjust-input" class="driver-field-input">
+            <div class="pickup-adjust-datetime-fields">
+                <div class="pickup-adjust-datetime-field">
+                    <label for="pickup-adjust-date" class="offer-meta">Datum</label>
+                    <input type="date" id="pickup-adjust-date" class="driver-field-input pickup-adjust-datetime-input">
+                </div>
+                <div class="pickup-adjust-datetime-field">
+                    <label for="pickup-adjust-time" class="offer-meta">Tijd</label>
+                    <input type="time" id="pickup-adjust-time" class="driver-field-input pickup-adjust-datetime-input">
+                </div>
+            </div>
+            <input type="hidden" id="pickup-adjust-input">
             <div class="driver-dialog__actions">
                 <button type="button" class="btn btn-ghost" id="pickup-adjust-back">Terug</button>
                 <button type="button" class="btn btn-primary" id="pickup-adjust-confirm">Accepteren</button>
@@ -1173,7 +1374,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=56" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=77" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

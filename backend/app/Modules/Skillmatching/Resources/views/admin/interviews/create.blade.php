@@ -198,7 +198,7 @@
                                             <input type="hidden"
                                                    name="scheduled_at"
                                                    id="scheduled_at_hidden"
-                                                   value="{{ old('scheduled_at') ? \Carbon\Carbon::parse(old('scheduled_at'))->format('Y-m-d') : (isset($prefilledData['scheduled_at']) ? \Carbon\Carbon::parse($prefilledData['scheduled_at'])->format('Y-m-d') : (isset($prefilledData['scheduled_date']) ? $prefilledData['scheduled_date'] : '')) }}"/>
+                                                   value="{{ admin_date_picker_display(old('scheduled_at') ?: ($prefilledData['scheduled_at'] ?? $prefilledData['scheduled_date'] ?? '')) }}"/>
                                         </div>
                                         @error('scheduled_at')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">

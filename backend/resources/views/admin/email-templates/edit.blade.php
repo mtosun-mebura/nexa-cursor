@@ -89,9 +89,9 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">Onderwerp *</td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <input type="text" 
-                                       class="kt-input @error('subject') border-destructive @enderror" 
+                                       class="kt-input w-full @error('subject') border-destructive @enderror" 
                                        id="subject" 
                                        name="subject" 
                                        value="{{ old('subject', $emailTemplate->subject) }}" 

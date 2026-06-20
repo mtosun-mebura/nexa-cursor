@@ -57,9 +57,52 @@ const SECTION_META: Record<string, PaletteMeta> = {
   },
 }
 
-const COMPONENT_META: PaletteMeta = {
+const COMPONENT_META_BY_KEY: Record<string, PaletteMeta> = {
+  'component:taxi.boekingsmodule': {
+    icon: 'ki-calendar-tick',
+    accent: 'from-amber-500/90 to-orange-600/90',
+    preview: 'Taxi boekingsmodule',
+  },
+  'component:taxiroyaal.boekingsmodule': {
+    icon: 'ki-calendar-tick',
+    accent: 'from-yellow-500/90 to-amber-600/90',
+    preview: 'Taxi Royaal boekingsmodule',
+  },
+  'component:taxi.tarieven': {
+    icon: 'ki-price-tag',
+    accent: 'from-teal-500/90 to-cyan-600/90',
+    preview: 'Taxi tarieven',
+  },
+  'component:taxiroyaal.tarieven': {
+    icon: 'ki-price-tag',
+    accent: 'from-emerald-500/90 to-teal-600/90',
+    preview: 'Taxi Royaal tarieven',
+  },
+  'component:website.google_reviews': {
+    icon: 'ki-star',
+    accent: 'from-yellow-400/90 to-amber-500/90',
+    preview: 'Google reviews',
+  },
+  'component:nexa.google_reviews': {
+    icon: 'ki-star',
+    accent: 'from-yellow-400/90 to-amber-500/90',
+    preview: 'Google reviews',
+  },
+  'component:website.nexa_modules_overview': {
+    icon: 'ki-element-11',
+    accent: 'from-violet-500/90 to-purple-600/90',
+    preview: 'Nexa modules overzicht',
+  },
+  'component:nexa.recente_vacatures': {
+    icon: 'ki-briefcase',
+    accent: 'from-blue-500/90 to-indigo-600/90',
+    preview: 'Recente vacatures',
+  },
+}
+
+const COMPONENT_META_DEFAULT: PaletteMeta = {
   icon: 'ki-cube-2',
-  accent: 'from-primary/80 to-primary',
+  accent: 'from-slate-500/90 to-zinc-600/90',
   preview: 'Module-component',
 }
 
@@ -71,8 +114,8 @@ export function sectionMeta(type: string): PaletteMeta {
   }
 }
 
-export function componentMeta(): PaletteMeta {
-  return COMPONENT_META
+export function componentMeta(sectionKey: string): PaletteMeta {
+  return COMPONENT_META_BY_KEY[sectionKey] ?? COMPONENT_META_DEFAULT
 }
 
 export function baseTypeFromKey(key: string): string {

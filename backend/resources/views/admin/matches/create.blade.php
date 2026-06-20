@@ -150,7 +150,7 @@
                                        data-kt-date-picker="true" 
                                        data-kt-date-picker-input-mode="true" 
                                        data-kt-date-picker-position-to-input="left"
-                                       data-kt-date-picker-format="dd-MM-yyyy"
+                                       data-kt-date-picker-date-format="DD-MM-YYYY"
                                        placeholder="Selecteer datum" 
                                        readonly 
                                        type="text"/>

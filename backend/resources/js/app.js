@@ -3,6 +3,8 @@ import './chat';
 import './admin-field-hints';
 import '../css/admin-responsive.css';
 import './admin-responsive';
+import './admin-date-picker';
+import './admin-address-autocomplete';
 import './admin-client-datatable';
 import './website-page-seo';
 import './website-page-field-panels';

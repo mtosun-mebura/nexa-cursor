@@ -75,6 +75,32 @@
     $fromRgb = $hexToRgb($overlayFrom);
     $toRgb = $hexToRgb($overlayTo);
     $heroOverlayStyle = 'background-image: linear-gradient(to right, rgba('.$fromRgb[0].','.$fromRgb[1].','.$fromRgb[2].','.$overlayAlpha.'), rgba('.$toRgb[0].','.$toRgb[1].','.$toRgb[2].','.$overlayAlpha.'));';
+    $heroTextBgRgba = function (string $hex, mixed $opacityPercent = null): string {
+        $hex = trim($hex);
+        $hasCustomHex = $hex !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $hex);
+        $defaultAlpha = $hasCustomHex ? 0.88 : 0.78;
+        if ($opacityPercent !== null && $opacityPercent !== '') {
+            $alpha = max(0, min(100, (int) $opacityPercent)) / 100;
+        } else {
+            $alpha = $defaultAlpha;
+        }
+        if (! $hasCustomHex) {
+            return 'rgba(0, 0, 0, '.$alpha.')';
+        }
+        if (strlen($hex) === 4) {
+            $hex = '#'.$hex[1].$hex[1].$hex[2].$hex[2].$hex[3].$hex[3];
+        }
+        $r = hexdec(substr($hex, 1, 2));
+        $g = hexdec(substr($hex, 3, 2));
+        $b = hexdec(substr($hex, 5, 2));
+
+        return 'rgba('.$r.', '.$g.', '.$b.', '.$alpha.')';
+    };
+    $heroTextBgColor = trim((string) ($sectionData['text_bg_color'] ?? ''));
+    $heroTextBgOpacity = $sectionData['text_bg_opacity'] ?? null;
+    $heroHasTextBg = ($heroTextBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroTextBgColor))
+        || ($heroTextBgOpacity !== null && $heroTextBgOpacity !== '');
+    $heroTextBgStyle = $heroHasTextBg ? 'background-color: '.$heroTextBgRgba($heroTextBgColor, $heroTextBgOpacity).';' : '';
 @endphp
 <!-- Hero -->
 <section class="modern-home-hero py-16 md:py-24 relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : '' }}" data-scroll-reveal>
@@ -94,6 +120,9 @@
             };
         @endphp
         <div class="w-full text-center">
+            @if($heroHasTextBg)
+            <div class="hero-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md max-w-4xl mx-auto" style="{{ $heroTextBgStyle }}">
+            @endif
             @if($v('_title'))
             @php
                 $heroTitle = $sectionData['title'] ?? 'Vind je droombaan met AI';
@@ -127,6 +156,9 @@
             @endphp
             <div class="scroll-reveal-item hero-reveal-zoom text-xl mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}">
                 {!! $sectionData['subtitle'] ?? 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' !!}
+            </div>
+            @endif
+            @if($heroHasTextBg)
             </div>
             @endif
             @if($v('_cta'))

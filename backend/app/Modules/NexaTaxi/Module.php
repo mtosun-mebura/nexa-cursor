@@ -68,6 +68,28 @@ class Module extends BaseModule
                 'order' => 20,
             ],
             [
+                'key' => 'transport_customers',
+                'title' => 'Contractvervoer',
+                'route' => 'admin.taxi.transport_customers.index',
+                'icon' => 'ki-filled ki-people',
+                'permission' => 'rides.view',
+                'order' => 22,
+                'children' => [
+                    [
+                        'title' => 'Contractklanten',
+                        'route' => 'admin.taxi.transport_customers.index',
+                    ],
+                    [
+                        'title' => 'Planning',
+                        'route' => 'admin.taxi.transport_planning.index',
+                    ],
+                    [
+                        'title' => 'Uitzonderingen',
+                        'route' => 'admin.taxi.transport_schedule_exceptions.index',
+                    ],
+                ],
+            ],
+            [
                 'key' => 'dispatch_settings',
                 'title' => 'Chauffeur dispatch',
                 'route' => 'admin.taxi.dispatch_settings.edit',

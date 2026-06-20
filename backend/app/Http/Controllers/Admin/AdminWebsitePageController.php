@@ -2053,8 +2053,9 @@ class AdminWebsitePageController extends Controller
                     ? $highlightColor
                     : '';
                 $data = $this->normalizeSubtitleColor($data);
+                $data = $this->normalizeTextBgFields($data);
                 // Behoud hero-afbeeldingen (atom-v2) ook als leeg, zodat "geen custom" = thema-default
-                $keepEmptyKeys = ['overlay', 'background_image_url', 'author_image_url', 'title_highlight_color', 'subtitle_color'];
+                $keepEmptyKeys = ['overlay', 'background_image_url', 'author_image_url', 'title_highlight_color', 'subtitle_color', 'text_bg_color'];
 
                 return array_filter($data, fn ($v, $k) => in_array($k, $keepEmptyKeys, true) ? true : $v !== '' && $v !== null, ARRAY_FILTER_USE_BOTH);
             case 'stats':
@@ -2390,6 +2391,26 @@ class AdminWebsitePageController extends Controller
         $data['subtitle_color'] = ($color !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $color))
             ? $color
             : '';
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeTextBgFields(array $data): array
+    {
+        $textBgColor = isset($data['text_bg_color']) ? trim((string) $data['text_bg_color']) : '';
+        $data['text_bg_color'] = ($textBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $textBgColor))
+            ? $textBgColor
+            : '';
+
+        $textBgOpacity = null;
+        if (isset($data['text_bg_opacity']) && $data['text_bg_opacity'] !== '' && $data['text_bg_opacity'] !== null) {
+            $textBgOpacity = max(0, min(100, (int) $data['text_bg_opacity']));
+        }
+        $data['text_bg_opacity'] = $textBgOpacity;
 
         return $data;
     }
@@ -2944,6 +2965,8 @@ class AdminWebsitePageController extends Controller
                 'index' => route('admin.website-pages.index', $wizardIndexQuery),
                 'self' => $builderV2EditUrl,
                 'uploadHeroImage' => route('admin.website-pages.upload-hero-image'),
+                'uploadWebsiteMedia' => route('admin.website-media.upload'),
+                'websiteMediaServeBase' => url('/website-media'),
             ],
             'wizardBackUrl' => $wizardBackUrl,
         ];

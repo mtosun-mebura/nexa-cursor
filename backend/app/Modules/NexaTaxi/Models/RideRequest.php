@@ -17,6 +17,11 @@ class RideRequest extends Model
         'vehicle_id',
         'driver_id',
         'status',
+        'source',
+        'ride_type',
+        'transport_contract_id',
+        'transport_occurrence_id',
+        'transport_passenger_id',
         'pickup_address',
         'dropoff_address',
         'pickup_lat',
@@ -70,11 +75,25 @@ class RideRequest extends Model
 
     public const PAYMENT_METHOD_DRIVER = 'driver';
 
+    public const PAYMENT_METHOD_CONTRACT = 'contract';
+
     public const PAYMENT_STATUS_PENDING = 'pending';
 
     public const PAYMENT_STATUS_PAID = 'paid';
 
     public const PAYMENT_STATUS_NOT_REQUIRED = 'not_required';
+
+    public const RIDE_TYPE_STANDARD = 'standard';
+
+    public const RIDE_TYPE_CONTRACT_GROUP = 'contract_group';
+
+    public const RIDE_TYPE_CONTRACT_INDIVIDUAL = 'contract_individual';
+
+    public const SOURCE_BOOKING = 'booking';
+
+    public const SOURCE_CONTRACT = 'contract';
+
+    public const SOURCE_MANUAL = 'manual';
 
     public static function statusLabels(): array
     {
@@ -107,6 +126,11 @@ class RideRequest extends Model
     public function dispatchOffers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(RideDispatchOffer::class, 'ride_request_id');
+    }
+
+    public function rideStops(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(RideStop::class, 'ride_request_id')->orderBy('sequence');
     }
 
     public function notificationLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -166,6 +190,26 @@ class RideRequest extends Model
         }
 
         return (int) ($this->company_id ?? 0) > 0;
+    }
+
+    public function isContractRide(): bool
+    {
+        if ($this->payment_method === self::PAYMENT_METHOD_CONTRACT) {
+            return true;
+        }
+
+        if ($this->source === self::SOURCE_CONTRACT) {
+            return true;
+        }
+
+        if ((int) ($this->transport_contract_id ?? 0) > 0) {
+            return true;
+        }
+
+        return in_array($this->ride_type, [
+            self::RIDE_TYPE_CONTRACT_GROUP,
+            self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
+        ], true);
     }
 
     /** Rit duur in minuten (afgerond). */

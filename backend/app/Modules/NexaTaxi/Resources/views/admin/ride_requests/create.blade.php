@@ -39,15 +39,31 @@
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">Ophaaladres *</td>
                         <td class="min-w-48 w-full">
-                            <input type="text" name="pickup_address" class="kt-input w-full @error('pickup_address') border-destructive @enderror" value="{{ old('pickup_address') }}" required>
-                            @error('pickup_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            @include('admin.partials.google-address-input', [
+                                'name' => 'pickup_address',
+                                'value' => old('pickup_address'),
+                                'latName' => 'pickup_lat',
+                                'lngName' => 'pickup_lng',
+                                'latValue' => old('pickup_lat'),
+                                'lngValue' => old('pickup_lng'),
+                                'required' => true,
+                                'placeholder' => 'Zoek ophaaladres...',
+                            ])
                         </td>
                     </tr>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">Afzetadres *</td>
                         <td class="min-w-48 w-full">
-                            <input type="text" name="dropoff_address" class="kt-input w-full @error('dropoff_address') border-destructive @enderror" value="{{ old('dropoff_address') }}" required>
-                            @error('dropoff_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            @include('admin.partials.google-address-input', [
+                                'name' => 'dropoff_address',
+                                'value' => old('dropoff_address'),
+                                'latName' => 'dropoff_lat',
+                                'lngName' => 'dropoff_lng',
+                                'latValue' => old('dropoff_lat'),
+                                'lngValue' => old('dropoff_lng'),
+                                'required' => true,
+                                'placeholder' => 'Zoek afzetadres...',
+                            ])
                         </td>
                     </tr>
                     <tr>

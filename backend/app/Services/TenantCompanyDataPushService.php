@@ -347,6 +347,15 @@ final class TenantCompanyDataPushService
             }
         }
 
+        $childTables = $cfg['child_tables'] ?? [];
+        if (is_array($childTables)) {
+            foreach (array_keys($childTables) as $t) {
+                if (is_string($t) && $t !== '') {
+                    $tables[] = $t;
+                }
+            }
+        }
+
         return array_values(array_unique($tables));
     }
 
@@ -446,12 +455,38 @@ final class TenantCompanyDataPushService
             $updated += $scopedStats['updated'];
         }
 
+        $updated += $this->reconcileTaxiOccurrenceRideRequestLinks(
+            $sourceModuleConn,
+            $targetModuleConn,
+            $sourceCompanyId,
+            $idMaps
+        );
+
+        $childTables = config('tenant_sync.taxi_module.child_tables', []);
+        if (is_array($childTables)) {
+            foreach (array_keys($childTables) as $table) {
+                if (! is_string($table) || $table === '') {
+                    continue;
+                }
+                $childStats = $this->syncTaxiChildTable(
+                    $sourceModuleConn,
+                    $targetModuleConn,
+                    $table,
+                    $sourceCompanyId,
+                    $idMaps
+                );
+                $inserted += $childStats['inserted'];
+                $skipped += $childStats['skipped'];
+                $updated += $childStats['updated'];
+            }
+        }
+
         return [
             'inserted' => $inserted,
             'skipped' => $skipped,
             'updated' => $updated,
             'message' => sprintf(
-                'Taxi-module (schema %s): %d rijen toegevoegd (voertuigen, ritten, tarieven, AI-kennis), %d bijgewerkt, %d overgeslagen.',
+                'Taxi-module (schema %s): %d rijen toegevoegd (voertuigen, contractvervoer, ritten, tarieven, AI-kennis), %d bijgewerkt, %d overgeslagen.',
                 app(ModuleDatabaseService::class)->getModuleSchemaName('taxi'),
                 $inserted,
                 $updated,
@@ -822,6 +857,12 @@ final class TenantCompanyDataPushService
 
                 continue;
             }
+            $row = $this->remapTaxiPolymorphicForeignKeys($table, $row, $idMaps);
+            if ($row === null) {
+                $skipped++;
+
+                continue;
+            }
 
             $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
             if ($payload === []) {
@@ -867,6 +908,208 @@ final class TenantCompanyDataPushService
         }
 
         return ['inserted' => $inserted, 'skipped' => $skipped, 'updated' => $updated];
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, skipped: int, updated: int}
+     */
+    private function syncTaxiChildTable(
+        string $sourceModuleConn,
+        string $targetModuleConn,
+        string $table,
+        int $sourceCompanyId,
+        array &$idMaps
+    ): array {
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+
+        $childConfig = config("tenant_sync.taxi_module.child_tables.{$table}");
+        if (! is_array($childConfig)) {
+            return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
+        }
+
+        $parentTable = $childConfig['parent_table'] ?? '';
+        $foreignKey = $childConfig['foreign_key'] ?? '';
+        if (! is_string($parentTable) || $parentTable === ''
+            || ! is_string($foreignKey) || $foreignKey === ''
+            || ! Schema::connection($sourceModuleConn)->hasTable($table)
+            || ! Schema::connection($targetModuleConn)->hasTable($table)
+            || ! Schema::connection($sourceModuleConn)->hasColumn($table, $foreignKey)) {
+            return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
+        }
+
+        $parentScope = $childConfig['parent_scope'] ?? 'company_scoped_parent';
+        if ($parentScope === 'company_ride_requests') {
+            $sourceParentIds = $this->collectTaxiRideRequestsForCompany($sourceModuleConn, $sourceCompanyId)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        } else {
+            if (! Schema::connection($sourceModuleConn)->hasTable($parentTable)
+                || ! Schema::connection($sourceModuleConn)->hasColumn($parentTable, 'company_id')) {
+                return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
+            }
+
+            $sourceParentIds = DB::connection($sourceModuleConn)->table($parentTable)
+                ->where('company_id', $sourceCompanyId)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        if ($sourceParentIds === []) {
+            return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
+        }
+
+        $query = DB::connection($sourceModuleConn)->table($table)
+            ->whereIn($foreignKey, $sourceParentIds);
+        $this->applySyncRowOrdering($query, $sourceModuleConn, $table);
+        $rows = $query->get();
+
+        foreach ($rows as $rowObj) {
+            $row = (array) $rowObj;
+            $oldId = isset($row['id']) ? (int) $row['id'] : null;
+            unset($row['id']);
+            $row = $this->remapConfiguredForeignKeys('tenant_sync.taxi_module.manual_foreign_keys', $table, $row, $idMaps);
+            if ($row === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
+            if ($payload === []) {
+                $skipped++;
+
+                continue;
+            }
+
+            $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, $table, $payload);
+            if ($existingId !== null && $existingId > 0) {
+                $updatePayload = $payload;
+                unset($updatePayload['created_at']);
+                if ($updatePayload !== []) {
+                    $this->updateExistingRowOnTarget($targetModuleConn, $table, $existingId, $updatePayload);
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+                if ($oldId !== null) {
+                    $idMaps[$table][$oldId] = $existingId;
+                }
+
+                continue;
+            }
+
+            $outcome = $this->insertRowOnTarget(
+                $sourceModuleConn,
+                $targetModuleConn,
+                $table,
+                $payload,
+                $oldId,
+                0,
+                $idMaps
+            );
+            if ($outcome === 'inserted' || $outcome === 'updated') {
+                $inserted++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped, 'updated' => $updated];
+    }
+
+    /**
+     * Occurrences worden vóór ride_requests gesynchroniseerd; ride_request_id wordt daarna gezet.
+     *
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function reconcileTaxiOccurrenceRideRequestLinks(
+        string $sourceModuleConn,
+        string $targetModuleConn,
+        int $sourceCompanyId,
+        array $idMaps
+    ): int {
+        if (! Schema::connection($sourceModuleConn)->hasTable('transport_occurrences')
+            || ! Schema::connection($targetModuleConn)->hasTable('transport_occurrences')) {
+            return 0;
+        }
+
+        $rows = DB::connection($sourceModuleConn)->table('transport_occurrences')
+            ->where('company_id', $sourceCompanyId)
+            ->whereNotNull('ride_request_id')
+            ->get(['id', 'ride_request_id']);
+
+        $updated = 0;
+        foreach ($rows as $rowObj) {
+            $oldOccurrenceId = (int) $rowObj->id;
+            $oldRideRequestId = (int) $rowObj->ride_request_id;
+            if ($oldOccurrenceId <= 0 || $oldRideRequestId <= 0) {
+                continue;
+            }
+
+            $newOccurrenceId = $idMaps['transport_occurrences'][$oldOccurrenceId] ?? null;
+            $newRideRequestId = $idMaps['ride_requests'][$oldRideRequestId] ?? null;
+            if ($newOccurrenceId === null || $newRideRequestId === null) {
+                continue;
+            }
+
+            DB::connection($targetModuleConn)->table('transport_occurrences')
+                ->where('id', $newOccurrenceId)
+                ->update(['ride_request_id' => $newRideRequestId]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $row
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array<string, mixed>|null
+     */
+    private function remapTaxiPolymorphicForeignKeys(string $table, ?array $row, array $idMaps): ?array
+    {
+        if ($row === null || $row === []) {
+            return $row;
+        }
+
+        $configured = config("tenant_sync.taxi_module.polymorphic_foreign_keys.{$table}");
+        if (! is_array($configured)) {
+            return $row;
+        }
+
+        $idColumn = $configured['id_column'] ?? '';
+        $typeColumn = $configured['type_column'] ?? '';
+        $typeMap = $configured['type_map'] ?? null;
+        if (! is_string($idColumn) || $idColumn === ''
+            || ! is_string($typeColumn) || $typeColumn === ''
+            || ! is_array($typeMap)
+            || ! array_key_exists($idColumn, $row)
+            || $row[$idColumn] === null) {
+            return $row;
+        }
+
+        $type = (string) ($row[$typeColumn] ?? '');
+        $parentTable = $typeMap[$type] ?? null;
+        if (! is_string($parentTable) || $parentTable === '') {
+            return null;
+        }
+
+        $oldFk = (int) $row[$idColumn];
+        if ($oldFk === 0) {
+            return $row;
+        }
+        if (! isset($idMaps[$parentTable][$oldFk])) {
+            return null;
+        }
+
+        $row[$idColumn] = $idMaps[$parentTable][$oldFk];
+
+        return $row;
     }
 
     /**

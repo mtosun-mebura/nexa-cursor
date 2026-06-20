@@ -85,7 +85,7 @@ Author: Keenthemes
         <div class="kt-card max-w-[370px] w-full">
             <form action="{{ route('admin.login.post') }}" class="kt-card-content flex flex-col gap-5 p-10" id="sign_in_form" method="POST">
                 @csrf
-                @php $intendedValue = old('intended', request()->query('intended') ?? session('url.intended')); @endphp
+                @php $intendedValue = \App\Support\AdminReturnUrl::resolveIntended(old('intended', request()->query('intended') ?? session('url.intended'))); @endphp
                 @if($intendedValue)
                     <input type="hidden" name="intended" value="{{ $intendedValue }}">
                 @endif

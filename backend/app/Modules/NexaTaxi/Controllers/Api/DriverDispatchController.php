@@ -272,12 +272,26 @@ class DriverDispatchController extends Controller
         Request $request,
         int $ride,
         ModuleDatabaseService $moduleDb,
-        RideClaimService $claim
+        RideClaimService $claim,
+        TaxiDispatchSettingsService $dispatchSettings,
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $rideModel = RideRequest::on($conn)->find($ride);
+        $allowOverdueContractComplete = $rideModel
+            && $rideModel->isContractRide()
+            && $rideModel->status === RideRequest::STATUS_ACCEPTED
+            && $dispatchSettings->scheduledRideIsOverdue(
+                $rideModel,
+                (int) ($rideModel->company_id ?? 0) > 0 ? (int) $rideModel->company_id : null
+            );
 
         try {
-            $completed = $claim->completeRide($conn, $request->user(), $ride);
+            $completed = $claim->completeRide(
+                $conn,
+                $request->user(),
+                $ride,
+                $allowOverdueContractComplete,
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet afronden.',

@@ -92,6 +92,28 @@ class AdminLoginTest extends TestCase
         
         $response->assertRedirect('/admin/login');
     }
+
+    #[Test]
+    public function login_with_login_page_as_intended_redirects_to_dashboard(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'email' => 'admin@test.com',
+            'password' => bcrypt('password'),
+            'email_verified_at' => now(),
+        ]);
+        $user->assignRole('super-admin');
+
+        $response = $this->post('/admin/login', [
+            'email' => 'admin@test.com',
+            'password' => 'password',
+            'intended' => 'http://localhost/admin/login',
+        ]);
+
+        $response->assertRedirect(route('admin.dashboard'));
+        $this->assertAuthenticatedAs($user);
+    }
 }
 
 

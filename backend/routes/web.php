@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminCompanyController;
@@ -333,17 +334,13 @@ Route::middleware(['web', 'auth:web'])->prefix('admin')->name('admin.')->group(f
 
 // Admin meld: sessie verlopen (toegankelijk zonder login)
 Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
-    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's)
-    $intended = $request->query('intended');
-    $path = $intended ? (parse_url($intended, PHP_URL_PATH) ?? '') : '';
-    if ($intended && is_string($intended) && $path !== '' && \Illuminate\Support\Str::startsWith($path, '/admin')) {
+    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's, nooit login/meld zelf)
+    $intended = AdminReturnUrl::resolveIntended($request->query('intended'));
+    if ($intended !== null) {
         session(['url.intended' => $intended]);
     }
     $appName = \App\Models\GeneralSetting::get('site_name', config('app.name'));
-    $redirectUrl = route('admin.login');
-    if (! empty($intended) && is_string($intended)) {
-        $redirectUrl .= '?intended='.rawurlencode($intended);
-    }
+    $redirectUrl = AdminReturnUrl::loginUrlWithIntended($intended);
 
     return view('admin.meld.redirect', [
         'title' => 'Sessie verlopen',

@@ -16,6 +16,9 @@ const props = defineProps<{
   componentInfo: ComponentCatalogItem | null
   componentDefaults: Record<string, Record<string, unknown>>
   uploadUrl: string
+  websiteMediaUploadUrl?: string
+  websiteMediaServeBase?: string
+  layout?: 'compact' | 'expanded'
 }>()
 
 const emit = defineEmits<{
@@ -57,8 +60,8 @@ const extraScalarFields = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div>
+  <div class="flex flex-col gap-4" :class="{ 'builder-config-panel--expanded': layout === 'expanded' }">
+    <div v-if="layout !== 'expanded'">
       <p class="text-xs uppercase tracking-wide text-muted-foreground">Geselecteerd</p>
       <h3 class="text-base font-semibold text-foreground mt-1">{{ label }}</h3>
       <p class="text-xs text-muted-foreground mt-1">{{ blockKey }}</p>
@@ -84,6 +87,8 @@ const extraScalarFields = computed(() => {
       :fields="schemaFields"
       :data="displayData"
       :upload-url="uploadUrl"
+      :website-media-upload-url="websiteMediaUploadUrl"
+      :website-media-serve-base="websiteMediaServeBase"
       @patch="emit('patch', $event)"
     />
 
@@ -131,5 +136,45 @@ const extraScalarFields = computed(() => {
 .builder-field > span {
   color: var(--muted-foreground);
   font-weight: 500;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-item) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1.25rem;
+  align-items: start;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-item__header) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-field:has(textarea)) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-field:has(.builder-image-preview)),
+.builder-config-panel--expanded :deep(.builder-field:has(.builder-media-image-row)) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-image-preview),
+.builder-config-panel--expanded :deep(.builder-media-image-row__preview) {
+  max-height: 14rem;
+  max-width: min(100%, 28rem);
+}
+
+.builder-config-panel--expanded :deep(.builder-media-upload-area) {
+  min-height: 8rem;
+}
+
+@media (max-width: 768px) {
+  .builder-config-panel--expanded :deep(.builder-config-item) {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
