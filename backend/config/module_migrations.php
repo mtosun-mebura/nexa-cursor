@@ -25,7 +25,19 @@ return [
     | Minimale tabellen per module; ensureModuleStorageReady draait migraties als ze ontbreken.
     */
     'required_tables' => [
-        'taxi' => ['vehicles', 'ride_requests', 'default_rates', 'knowledge_documents', 'knowledge_chunks'],
+        'taxi' => [
+            'vehicles',
+            'ride_requests',
+            'default_rates',
+            'knowledge_documents',
+            'knowledge_chunks',
+            // Contractvervoer: ontbrekende tabellen triggeren modules/taxi-migraties (incl. ride_requests-kolommen).
+            'transport_customers',
+            'transport_individual_bookings',
+            'transport_occurrences',
+            'ride_stops',
+            'transport_schedule_exceptions',
+        ],
         'skillmatching' => ['branches', 'vacancies', 'job_configurations'],
     ],
 
