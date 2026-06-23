@@ -84,7 +84,7 @@
 
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-2">
-                <h3 class="kt-card-title mb-0">Leden ({{ $activeMembers->count() }})</h3>
+                <h3 class="kt-card-title mb-0" id="transport-group-members-title">Leden ({{ $activeMembers->count() }})</h3>
                 @can('rides.update')
                 <button type="button"
                         class="kt-btn kt-btn-primary kt-btn-sm shrink-0"
@@ -96,49 +96,8 @@
                 </button>
                 @endcan
             </div>
-            <div class="kt-card-content p-0 min-w-0">
-                <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
-                    <table id="transport-group-members-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
-                        <thead>
-                            <tr>
-                                <th data-label="Naam">Naam</th>
-                                <th data-label="Ophaaladres">Ophaaladres</th>
-                                <th data-label="Sinds">Sinds</th>
-                                @can('rides.update')
-                                <th class="transport-group-members-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties"></th>
-                                @endcan
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($activeMembers as $member)
-                            <tr>
-                                <td class="font-medium">{{ $member->passenger?->full_name ?? '—' }}</td>
-                                <td class="text-muted-foreground">{{ Str::limit($member->passenger?->pickup_address ?? '—', 50) }}</td>
-                                <td class="text-muted-foreground">
-                                    {{ $member->valid_from ? $member->valid_from->format('d-m-Y') : '—' }}
-                                </td>
-                                @can('rides.update')
-                                <td class="transport-group-members-table__actions-col">
-                                    <form method="POST" action="{{ route('admin.taxi.transport_groups.member_remove', [$customer->id, $contract->id, $group->id, $member->id]) }}" class="inline" onsubmit="return confirm('Passagier uit deze groep halen?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive" title="Uit groep halen" aria-label="Uit groep halen">
-                                            <i class="ki-filled ki-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                                @endcan
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="{{ auth()->user()->can('rides.update') ? 4 : 3 }}" class="text-center text-muted-foreground py-8">
-                                    Nog geen leden in deze groep.
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+            <div class="kt-card-content p-0 min-w-0" id="transport-group-members-panel">
+                @include('taxi::admin.transport_groups.partials.members-table')
             </div>
         </div>
 
@@ -152,24 +111,8 @@
                 </a>
                 @endcan
             </div>
-            <div class="kt-card-content p-0 min-w-0">
-                @if($routeTemplate && $routePickupStops->isNotEmpty())
-                    @include('taxi::admin.transport_groups.partials.route-summary')
-                @elseif($routeTemplate)
-                    <div class="px-3 sm:px-5 pb-5 text-sm text-muted-foreground">
-                        Route-instellingen staan klaar, maar er zijn nog geen stops berekend.
-                        @can('rides.update')
-                        Open de routeplanner en druk op <strong>Route berekenen</strong>.
-                        @endcan
-                    </div>
-                @else
-                    <div class="px-3 sm:px-5 pb-5 text-sm text-muted-foreground">
-                        Nog geen route gepland.
-                        @can('rides.update')
-                        Open de routeplanner om weekdagen, stopvolgorde, tijden en vaste chauffeur in te stellen.
-                        @endcan
-                    </div>
-                @endif
+            <div class="kt-card-content p-0 min-w-0" id="transport-group-route-panel">
+                @include('taxi::admin.transport_groups.partials.route-panel')
             </div>
         </div>
 
@@ -183,8 +126,8 @@
      aria-modal="true"
      aria-labelledby="transport-group-add-members-modal-title"
      aria-hidden="true">
-    <div class="w-full max-w-xl rounded-xl border border-input bg-background shadow-xl">
-        <div class="flex items-center justify-between gap-3 border-b border-input px-5 py-4">
+    <div class="w-full max-w-3xl max-h-[min(90vh,44rem)] flex flex-col rounded-xl border border-input bg-background shadow-xl overflow-hidden">
+        <div class="flex items-center justify-between gap-3 border-b border-input px-6 py-4 shrink-0">
             <h3 id="transport-group-add-members-modal-title" class="text-lg font-semibold text-foreground mb-0">
                 Leden toevoegen
             </h3>
@@ -195,69 +138,9 @@
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
-        @if($availablePassengers->isNotEmpty())
-        <form method="POST"
-              action="{{ route('admin.taxi.transport_groups.member_store', [$customer->id, $contract->id, $group->id]) }}"
-              class="px-5 py-4 space-y-4">
-            @csrf
-            <div>
-                <label class="text-sm text-secondary-foreground mb-1 block" for="transport_passenger_ids">Passagiers</label>
-                @php
-                    $selectedPassengerIds = collect(old('transport_passenger_id', []))->map(fn ($id) => (int) $id)->all();
-                    $selectSize = min(10, max(5, $availablePassengers->count()));
-                @endphp
-                <select name="transport_passenger_id[]"
-                        id="transport_passenger_ids"
-                        class="kt-select w-full transport-group-member-select"
-                        multiple
-                        required
-                        size="{{ $selectSize }}">
-                    @foreach($availablePassengers as $passenger)
-                        <option value="{{ $passenger->id }}" @selected(in_array($passenger->id, $selectedPassengerIds, true))>
-                            {{ $passenger->full_name }} — {{ Str::limit($passenger->pickup_address, 50) }}
-                        </option>
-                    @endforeach
-                </select>
-                <p class="text-xs text-muted-foreground mt-2">
-                    Selecteer één of meerdere passagiers.
-                    Houd <kbd class="px-1 py-0.5 rounded border border-input text-[0.7rem]">Ctrl</kbd> of
-                    <kbd class="px-1 py-0.5 rounded border border-input text-[0.7rem]">⌘</kbd> ingedrukt voor meerdere.
-                </p>
-                @error('transport_passenger_id')
-                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                @enderror
-            </div>
-            <div>
-                <label class="text-sm text-secondary-foreground mb-1 block">Ingangsdatum</label>
-                @include('taxi::admin.transport_customers.partials.date-picker-input', [
-                    'name' => 'valid_from',
-                    'value' => old('valid_from', now()->format('Y-m-d')),
-                    'wrapperClass' => 'w-44',
-                ])
-            </div>
-            <p class="text-xs text-muted-foreground m-0">
-                Na toevoegen wordt de route automatisch opnieuw berekend (indien er al een route is).
-            </p>
-            <div class="flex flex-wrap justify-end gap-2 pt-1">
-                <button type="button" class="kt-btn kt-btn-outline" data-transport-group-add-members-close>Annuleren</button>
-                <button type="submit" class="kt-btn kt-btn-primary">Toevoegen</button>
-            </div>
-        </form>
-        @elseif($activeMembers->isEmpty())
-        <div class="px-5 py-6 text-sm text-muted-foreground space-y-3">
-            <p class="m-0">Er zijn nog geen passagiers op dit abonnement.</p>
-            <a href="{{ route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-primary kt-btn-sm">
-                Passagier aanmaken
-            </a>
+        <div id="transport-group-add-members-modal-body" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            @include('taxi::admin.transport_groups.partials.add-members-modal-body')
         </div>
-        @else
-        <div class="px-5 py-6 text-sm text-muted-foreground space-y-3">
-            <p class="m-0">Alle actieve passagiers zitten al in deze groep.</p>
-            <a href="{{ route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-outline kt-btn-sm">
-                Nieuwe passagier aanmaken
-            </a>
-        </div>
-        @endif
     </div>
 </div>
 @endcan
@@ -265,13 +148,60 @@
 
 @push('styles')
 <style>
-    #content .transport-group-member-select {
-        min-height: 8.5rem;
-        height: auto;
+    #transport-group-add-members-modal .transport-group-passenger-picker__list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: min(22rem, 50vh);
+        overflow-y: auto;
+        padding: 0.25rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border);
+        background: color-mix(in oklab, var(--muted) 18%, transparent);
     }
 
-    #content .transport-group-member-select option {
-        padding: 0.35rem 0.5rem;
+    #transport-group-add-members-modal .transport-group-passenger-picker__item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        border-radius: 0.625rem;
+        border: 1px solid transparent;
+        background: var(--background);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    #transport-group-add-members-modal .transport-group-passenger-picker__item:hover {
+        border-color: color-mix(in oklab, var(--primary) 25%, var(--border));
+        background: color-mix(in oklab, var(--primary) 4%, var(--background));
+    }
+
+    #transport-group-add-members-modal .transport-group-passenger-picker__item:has(input:checked) {
+        border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+        background: color-mix(in oklab, var(--primary) 8%, var(--background));
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 12%, transparent);
+    }
+
+    #transport-group-add-members-modal .transport-group-passenger-picker__item.is-hidden {
+        display: none;
+    }
+
+    #transport-group-add-members-modal .transport-group-passenger-picker__name {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--foreground);
+        line-height: 1.35;
+    }
+
+    #transport-group-add-members-modal .transport-group-passenger-picker__address {
+        display: block;
+        margin-top: 0.125rem;
+        font-size: 0.75rem;
+        color: var(--muted-foreground);
+        line-height: 1.4;
+        word-break: break-word;
     }
 
     #content #transport-group-members-table .transport-group-members-table__actions-col {
@@ -292,39 +222,222 @@
 (function () {
     var openBtn = document.getElementById('transport-group-add-members-open');
     var modal = document.getElementById('transport-group-add-members-modal');
-    if (!openBtn || !modal) return;
+    var membersPanel = document.getElementById('transport-group-members-panel');
+    var routePanel = document.getElementById('transport-group-route-panel');
+    var membersTitle = document.getElementById('transport-group-members-title');
+    var memberModalBody = document.getElementById('transport-group-add-members-modal-body');
+
+    function getPassengerPickerPanel() {
+        return document.getElementById('transport-group-passenger-picker-panel');
+    }
+
+    function bindPassengerPickerSearch(root) {
+        if (!root) return;
+
+        var searchInput = root.querySelector('[data-transport-group-passenger-search]');
+        var items = root.querySelectorAll('[data-passenger-picker-item]');
+        var emptyHint = root.querySelector('[data-transport-group-passenger-empty]');
+        var countHint = root.querySelector('[data-transport-group-passenger-count]');
+
+        if (!searchInput || items.length === 0) return;
+
+        if (searchInput.dataset.searchBound === '1') return;
+        searchInput.dataset.searchBound = '1';
+
+        searchInput.addEventListener('input', function () {
+            var query = searchInput.value.trim().toLowerCase();
+            var visibleCount = 0;
+
+            items.forEach(function (item) {
+                var haystack = item.getAttribute('data-search-text') || '';
+                var visible = query === '' || haystack.indexOf(query) !== -1;
+                item.classList.toggle('is-hidden', !visible);
+                if (visible) visibleCount += 1;
+            });
+
+            if (emptyHint) {
+                emptyHint.classList.toggle('hidden', visibleCount > 0 || query === '');
+            }
+            if (countHint) {
+                countHint.classList.toggle('hidden', query !== '' && visibleCount === 0);
+            }
+        });
+    }
+
+    function resetPassengerPicker(root) {
+        if (!root) return;
+
+        var searchInput = root.querySelector('[data-transport-group-passenger-search]');
+        if (searchInput) searchInput.value = '';
+
+        root.querySelectorAll('[data-passenger-picker-item].is-hidden').forEach(function (item) {
+            item.classList.remove('is-hidden');
+        });
+
+        root.querySelectorAll('input[name="transport_passenger_id[]"]').forEach(function (input) {
+            input.checked = false;
+        });
+
+        var emptyHint = root.querySelector('[data-transport-group-passenger-empty]');
+        var countHint = root.querySelector('[data-transport-group-passenger-count]');
+        if (emptyHint) emptyHint.classList.add('hidden');
+        if (countHint) countHint.classList.remove('hidden');
+    }
 
     function openModal() {
+        if (!modal || !openBtn) return;
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         modal.setAttribute('aria-hidden', 'false');
         openBtn.setAttribute('aria-expanded', 'true');
-        var select = document.getElementById('transport_passenger_ids');
-        if (select) select.focus();
+        var searchInput = document.getElementById('transport-group-passenger-search');
+        if (searchInput) searchInput.focus();
     }
 
     function closeModal() {
+        if (!modal || !openBtn) return;
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         modal.setAttribute('aria-hidden', 'true');
         openBtn.setAttribute('aria-expanded', 'false');
+        resetPassengerPicker(getPassengerPickerPanel());
         openBtn.focus();
     }
 
-    openBtn.addEventListener('click', openModal);
-    modal.querySelectorAll('[data-transport-group-add-members-close]').forEach(function (btn) {
-        btn.addEventListener('click', closeModal);
-    });
-    modal.addEventListener('click', function (e) {
-        if (e.target === modal) closeModal();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
-    });
+    function refreshMemberModal(data) {
+        if (memberModalBody && data.member_modal_html) {
+            memberModalBody.innerHTML = data.member_modal_html;
+            bindPassengerPickerSearch(getPassengerPickerPanel());
+            return;
+        }
+
+        var pickerPanel = getPassengerPickerPanel();
+        if (pickerPanel && data.passengers_picker_html) {
+            pickerPanel.innerHTML = data.passengers_picker_html;
+            bindPassengerPickerSearch(pickerPanel);
+        }
+    }
+
+    if (memberModalBody) {
+        bindPassengerPickerSearch(getPassengerPickerPanel());
+    }
+
+    if (openBtn && modal) {
+        openBtn.addEventListener('click', openModal);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal || e.target.closest('[data-transport-group-add-members-close]')) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+        });
+    }
 
     @if($errors->has('transport_passenger_id') || $errors->has('valid_from'))
     openModal();
     @endif
+
+    function showLiveFlash(message, type) {
+        var existing = document.getElementById('transport-group-live-flash');
+        if (existing) existing.remove();
+
+        var alert = document.createElement('div');
+        alert.id = 'transport-group-live-flash';
+        alert.className = 'kt-alert kt-alert-' + (type || 'success') + ' mb-5';
+        alert.setAttribute('role', 'alert');
+        alert.innerHTML = '<i class="ki-filled ki-' + (type === 'danger' ? 'cross-circle' : 'check-circle') + ' me-2"></i> ' + message;
+
+        var pageHeader = document.querySelector('#content .kt-container-fixed.min-w-0 > .flex.flex-wrap.items-center.justify-between');
+        if (pageHeader && pageHeader.parentNode) {
+            pageHeader.parentNode.insertBefore(alert, pageHeader.nextSibling);
+        }
+    }
+
+    function applyMemberChangePayload(data) {
+        if (membersPanel && data.members_html) {
+            membersPanel.innerHTML = data.members_html;
+        }
+        if (routePanel && data.route_html) {
+            routePanel.innerHTML = data.route_html;
+        }
+        refreshMemberModal(data);
+        if (membersTitle && typeof data.members_count === 'number') {
+            membersTitle.textContent = 'Leden (' + data.members_count + ')';
+        }
+        if (data.success) {
+            showLiveFlash(data.success, 'success');
+        }
+    }
+
+    function memberFormErrorMessage(payload) {
+        if (payload && payload.errors) {
+            return Object.values(payload.errors).flat().join(' ');
+        }
+
+        return (payload && payload.message) ? payload.message : 'Opslaan mislukt.';
+    }
+
+    function submitMemberForm(form) {
+        var submitBtn = form.querySelector('[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        return fetch(form.action, {
+            method: (form.getAttribute('method') || 'POST').toUpperCase(),
+            body: new FormData(form),
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        })
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) {
+                        throw data;
+                    }
+
+                    return data;
+                });
+            })
+            .then(function (data) {
+                applyMemberChangePayload(data);
+                if (form.id === 'transport-group-add-members-form') {
+                    resetPassengerPicker(getPassengerPickerPanel());
+                    closeModal();
+                }
+            })
+            .catch(function (error) {
+                showLiveFlash(memberFormErrorMessage(error), 'danger');
+            })
+            .finally(function () {
+                if (submitBtn) submitBtn.disabled = false;
+            });
+    }
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (!/\/groepen\/\d+\/leden/.test(form.action)) return;
+
+        var isDelete = form.querySelector('input[name="_method"][value="DELETE"]');
+        if (isDelete && !window.confirm('Passagier uit deze groep halen?')) {
+            event.preventDefault();
+            return;
+        }
+
+        if (form.id === 'transport-group-add-members-form') {
+            var checkedPassengers = form.querySelectorAll('input[name="transport_passenger_id[]"]:checked');
+            if (!checkedPassengers.length) {
+                event.preventDefault();
+                showLiveFlash('Selecteer minimaal één passagier.', 'danger');
+                return;
+            }
+        }
+
+        event.preventDefault();
+        submitMemberForm(form);
+    });
 })();
 </script>
 @endcan

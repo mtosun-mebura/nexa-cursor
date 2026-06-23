@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import TaxiPortalPerPageSelect from './TaxiPortalPerPageSelect.vue'
 
 type TabKey = 'dashboard' | 'rides' | 'profile' | 'invoices'
 
@@ -246,6 +247,8 @@ const invoicesSortDir = ref<SortDir>('desc')
 const invoicesLoading = ref(false)
 const invoicesError = ref<string | null>(null)
 const invoicesLoaded = ref(false)
+const invoicesPage = ref(1)
+const invoicesPerPage = ref(10)
 
 const profile = ref<PortalProfile>({
   first_name: '',
@@ -568,6 +571,62 @@ const sortedInvoices = computed(() => {
   })
 
   return list
+})
+
+const invoicesTotal = computed(() => sortedInvoices.value.length)
+
+const invoicesTotalPages = computed(() =>
+  invoicesTotal.value === 0 ? 0 : Math.ceil(invoicesTotal.value / invoicesPerPage.value)
+)
+
+const paginatedInvoices = computed(() => {
+  if (invoicesTotal.value === 0) return []
+  const start = (invoicesPage.value - 1) * invoicesPerPage.value
+  return sortedInvoices.value.slice(start, start + invoicesPerPage.value)
+})
+
+const invoicesPageRangeStart = computed(() => {
+  if (invoicesTotal.value === 0) return 0
+  return (invoicesPage.value - 1) * invoicesPerPage.value + 1
+})
+
+const invoicesPageRangeEnd = computed(() =>
+  Math.min(invoicesPage.value * invoicesPerPage.value, invoicesTotal.value)
+)
+
+const invoicesVisiblePages = computed(() => {
+  const total = invoicesTotalPages.value
+  const current = invoicesPage.value
+  if (total <= 1) return total === 1 ? [1] : []
+
+  const pages = new Set<number>([1, total, current])
+  if (current > 1) pages.add(current - 1)
+  if (current < total) pages.add(current + 1)
+
+  return [...pages].sort((a, b) => a - b)
+})
+
+function goToInvoicesPage(page: number): void {
+  const total = invoicesTotalPages.value
+  if (total < 1) {
+    invoicesPage.value = 1
+    return
+  }
+  invoicesPage.value = Math.min(Math.max(1, page), total)
+}
+
+watch(invoicesPerPage, () => {
+  invoicesPage.value = 1
+})
+
+watch(invoicesTotalPages, (total) => {
+  if (total < 1) {
+    invoicesPage.value = 1
+    return
+  }
+  if (invoicesPage.value > total) {
+    invoicesPage.value = total
+  }
 })
 
 function invoicePdfUrl(invoiceId: number): string {
@@ -1129,11 +1188,6 @@ onUnmounted(() => {
       <main class="grow">
         <div class="container-custom pt-2.5 pb-10">
           <header class="mb-4 md:mb-6">
-            <div class="flex w-full items-center gap-3 lg:hidden">
-              <button class="kt-btn kt-btn-icon kt-btn-ghost shrink-0" data-kt-drawer-toggle="#taxi_portal_sidebar" type="button" aria-label="Menu">
-                <i class="ki-filled ki-menu"></i>
-              </button>
-            </div>
             <div class="mt-3 md:mt-4 min-w-0 flex flex-col items-center text-center">
               <h1 class="text-xl md:text-2xl font-semibold text-foreground leading-tight">
                 {{ title }}
@@ -1217,8 +1271,8 @@ onUnmounted(() => {
             </div>
 
             <!-- Rides -->
-            <section v-else-if="tab === 'rides'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
-              <div class="kt-card-header flex items-center justify-between gap-3">
+            <section v-else-if="tab === 'rides'" class="kt-card taxi-portal-list-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600 min-w-0 max-w-full">
+              <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
                 <h3 class="kt-card-title">Ritten</h3>
                 <button type="button" :class="portalPrimaryBtnClass" @click="openNewRide">
                   <i class="ki-filled ki-plus"></i> Nieuwe rit
@@ -1293,8 +1347,8 @@ onUnmounted(() => {
                     Geen ritten gevonden voor deze filters.
                   </p>
 
-                  <div v-else class="kt-scrollable-x-auto">
-                  <table class="kt-table table-auto kt-table-border">
+                  <div v-else class="taxi-portal-table-wrap kt-scrollable-x-auto">
+                  <table class="kt-table table-auto kt-table-border taxi-portal-responsive-table">
                     <thead>
                       <tr>
                         <th
@@ -1358,7 +1412,10 @@ onUnmounted(() => {
                     </thead>
                     <tbody>
                       <tr v-for="r in paginatedRides" :key="r.id">
-                        <td class="align-top whitespace-normal leading-snug">
+                        <td
+                          class="align-top whitespace-normal leading-snug taxi-portal-table-route"
+                          data-label="Van → Naar"
+                        >
                           <div
                             v-if="r.from && r.to"
                             class="taxi-portal-route-address inline-flex flex-col items-start text-left gap-0.5 font-medium"
@@ -1371,14 +1428,14 @@ onUnmounted(() => {
                           </div>
                           <span v-else>{{ r.route || '—' }}</span>
                         </td>
-                        <td>{{ r.at }}</td>
-                        <td>
+                        <td data-label="Datum">{{ r.at }}</td>
+                        <td data-label="Status">
                           <span class="kt-badge" :class="rideBadgeClass(r.status_badge)">
                             {{ r.status_label }}
                           </span>
                         </td>
-                        <td class="tabular-nums">{{ r.amount }}</td>
-                        <td class="text-center align-middle">
+                        <td class="tabular-nums" data-label="Bedrag">{{ r.amount }}</td>
+                        <td class="text-center align-middle taxi-portal-table-actions" data-label="">
                           <div class="inline-flex items-center justify-center">
                             <button
                               type="button"
@@ -1402,15 +1459,11 @@ onUnmounted(() => {
                   >
                     <div class="admin-datatable-footer__perpage flex items-center gap-2">
                       <span>Toon</span>
-                      <select
-                        v-model.number="ridesPerPage"
-                        class="taxi-portal-datatable-select w-24"
+                      <TaxiPortalPerPageSelect
+                        v-model="ridesPerPage"
+                        :options="RIDES_PER_PAGE_OPTIONS"
                         aria-label="Ritten per pagina"
-                      >
-                        <option v-for="size in RIDES_PER_PAGE_OPTIONS" :key="size" :value="size">
-                          {{ size }}
-                        </option>
-                      </select>
+                      />
                       <span class="whitespace-nowrap">per pagina</span>
                     </div>
                     <div class="admin-datatable-footer__pagination">
@@ -1458,7 +1511,7 @@ onUnmounted(() => {
             </section>
 
             <!-- Invoices -->
-            <section v-else-if="tab === 'invoices'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
+            <section v-else-if="tab === 'invoices'" class="kt-card taxi-portal-list-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600 min-w-0 max-w-full">
               <div class="kt-card-header">
                 <h3 class="kt-card-title">Facturen</h3>
               </div>
@@ -1470,8 +1523,9 @@ onUnmounted(() => {
                 <p v-else-if="invoices.length === 0" class="text-sm text-muted-foreground">
                   Er zijn nog geen facturen voor jouw ritten.
                 </p>
-                <div v-else class="kt-scrollable-x-auto">
-                  <table class="kt-table table-auto kt-table-border">
+                <template v-else>
+                <div class="taxi-portal-table-wrap kt-scrollable-x-auto">
+                  <table class="kt-table table-auto kt-table-border taxi-portal-responsive-table">
                     <thead>
                       <tr>
                         <th
@@ -1548,9 +1602,12 @@ onUnmounted(() => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="inv in sortedInvoices" :key="inv.id">
-                        <td class="font-medium whitespace-nowrap min-w-[160px]">{{ inv.invoice_number }}</td>
-                        <td class="align-top whitespace-normal leading-snug">
+                      <tr v-for="inv in paginatedInvoices" :key="inv.id">
+                        <td class="font-medium whitespace-nowrap min-w-[160px]" data-label="Factuurnr.">{{ inv.invoice_number }}</td>
+                        <td
+                          class="align-top whitespace-normal leading-snug taxi-portal-table-route"
+                          data-label="Rit"
+                        >
                           <div
                             v-if="inv.from && inv.to"
                             class="taxi-portal-route-address inline-flex flex-col items-start text-left gap-0.5 font-medium"
@@ -1565,14 +1622,14 @@ onUnmounted(() => {
                             {{ inv.route || (inv.ride_id ? 'Rit #' + inv.ride_id : '—') }}
                           </template>
                         </td>
-                        <td>{{ inv.date }}</td>
-                        <td>
+                        <td data-label="Datum">{{ inv.date }}</td>
+                        <td data-label="Status">
                           <span class="kt-badge" :class="rideBadgeClass(inv.status_badge)">
                             {{ inv.status_label }}
                           </span>
                         </td>
-                        <td class="tabular-nums">{{ inv.amount }}</td>
-                        <td class="text-center align-middle">
+                        <td class="tabular-nums" data-label="Bedrag">{{ inv.amount }}</td>
+                        <td class="text-center align-middle taxi-portal-table-actions" data-label="">
                           <div class="inline-flex items-center justify-center">
                             <a
                               :href="invoicePdfUrl(inv.id)"
@@ -1590,6 +1647,61 @@ onUnmounted(() => {
                     </tbody>
                   </table>
                 </div>
+
+                <div
+                  v-if="invoicesTotalPages > 0"
+                  class="taxi-portal-datatable-footer kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium !px-0 !pb-0 !pt-4 !border-0"
+                >
+                  <div class="admin-datatable-footer__perpage flex items-center gap-2">
+                    <span>Toon</span>
+                    <TaxiPortalPerPageSelect
+                      v-model="invoicesPerPage"
+                      :options="RIDES_PER_PAGE_OPTIONS"
+                      aria-label="Facturen per pagina"
+                    />
+                    <span class="whitespace-nowrap">per pagina</span>
+                  </div>
+                  <div class="admin-datatable-footer__pagination">
+                    <div class="kt-datatable-pagination">
+                      <button
+                        type="button"
+                        class="kt-btn kt-btn-icon kt-btn-ghost kt-datatable-pagination-button"
+                        :disabled="invoicesPage <= 1"
+                        title="Vorige pagina"
+                        aria-label="Vorige pagina"
+                        @click="goToInvoicesPage(invoicesPage - 1)"
+                      >
+                        <i class="ki-filled ki-left"></i>
+                      </button>
+                      <button
+                        v-for="page in invoicesVisiblePages"
+                        :key="`invoices-page-${page}`"
+                        type="button"
+                        class="kt-btn kt-btn-icon kt-btn-ghost kt-datatable-pagination-button"
+                        :class="page === invoicesPage ? 'kt-btn-primary' : 'kt-btn-ghost'"
+                        :aria-label="`Pagina ${page}`"
+                        :aria-current="page === invoicesPage ? 'page' : undefined"
+                        @click="goToInvoicesPage(page)"
+                      >
+                        {{ page }}
+                      </button>
+                      <button
+                        type="button"
+                        class="kt-btn kt-btn-icon kt-btn-ghost kt-datatable-pagination-button"
+                        :disabled="invoicesPage >= invoicesTotalPages"
+                        title="Volgende pagina"
+                        aria-label="Volgende pagina"
+                        @click="goToInvoicesPage(invoicesPage + 1)"
+                      >
+                        <i class="ki-filled ki-right"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <span class="admin-datatable-footer__info">
+                    {{ invoicesPageRangeStart }}-{{ invoicesPageRangeEnd }} van {{ invoicesTotal }}
+                  </span>
+                </div>
+                </template>
               </div>
             </section>
 

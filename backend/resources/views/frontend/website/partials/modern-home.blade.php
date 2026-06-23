@@ -101,17 +101,32 @@
     $heroHasTextBg = ($heroTextBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroTextBgColor))
         || ($heroTextBgOpacity !== null && $heroTextBgOpacity !== '');
     $heroTextBgStyle = $heroHasTextBg ? 'background-color: '.$heroTextBgRgba($heroTextBgColor, $heroTextBgOpacity).';' : '';
+    $heroHasImage = $heroBgUrl !== '';
+    $heroTitleSizePx = max(12, min(50, (int) ($sectionData['title_font_size_px'] ?? 32)));
+    $heroTitleSizePx = (int) (round($heroTitleSizePx / 2) * 2);
+    $heroSubtitleSizePx = max(12, min(50, (int) ($sectionData['subtitle_font_size_px'] ?? 16)));
+    $heroSubtitleSizePx = (int) (round($heroSubtitleSizePx / 2) * 2);
+    $heroTextPosition = $sectionData['text_position'] ?? 'center';
+    $heroTextPosition = in_array($heroTextPosition, ['top', 'center', 'bottom'], true) ? $heroTextPosition : 'center';
+    $heroCaptionPositionClass = match ($heroTextPosition) {
+        'top' => 'items-start pt-6 pb-4 sm:pt-10 sm:pb-6',
+        'bottom' => 'items-end pb-6 pt-10 sm:pb-10 sm:pt-14 md:pb-12 md:pt-16',
+        default => 'items-center py-6 sm:py-8',
+    };
 @endphp
 <!-- Hero -->
-<section class="modern-home-hero py-16 md:py-24 relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : '' }}" data-scroll-reveal>
+<section class="modern-home-hero relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'py-16 md:py-24 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : 'modern-home-hero--has-image' }}" data-scroll-reveal>
     @if($heroBgUrl !== '')
-    <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style="{{ $heroBgStyle }}" aria-hidden="true"></div>
-    <div class="absolute inset-0 z-[1] bg-cover bg-center bg-no-repeat" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
+    <div class="website-image-carousel-media modern-home-hero__media relative z-0 w-full" aria-hidden="true">
+        <img src="{{ $heroBgUrl }}" alt="" class="website-image-carousel-fit" loading="eager" decoding="async" referrerpolicy="no-referrer">
+    </div>
+    <div class="absolute inset-0 z-[1] pointer-events-none" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
     @endif
     @if(!empty($sectionData['overlay']))
-    <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20" aria-hidden="true"></div>
+    <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20 pointer-events-none" aria-hidden="true"></div>
     @endif
-    <div class="website-section-inner relative z-10">
+    <div class="{{ $heroHasImage ? 'absolute inset-0 z-10 flex justify-center px-4 sm:px-6 md:px-12 pointer-events-none ' . $heroCaptionPositionClass : '' }}">
+    <div class="website-section-inner {{ $heroHasImage ? 'w-full relative pointer-events-auto' : 'relative z-10' }}">
         @php
             $heroRevealDur = '0.7s';
             $heroRevealEase = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
@@ -121,7 +136,7 @@
         @endphp
         <div class="w-full text-center">
             @if($heroHasTextBg)
-            <div class="hero-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md max-w-4xl mx-auto" style="{{ $heroTextBgStyle }}">
+            <div class="hero-caption-text-block carousel-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md mx-auto {{ $heroHasImage ? '' : 'max-w-4xl' }}" style="{{ $heroTextBgStyle }}">
             @endif
             @if($v('_title'))
             @php
@@ -132,7 +147,7 @@
                 $heroTitleParts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                 $heroTitleRightDelayMs = 500;
             @endphp
-            <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            <h1 class="{{ $heroHasImage ? 'hero-caption-title font-bold text-white mb-2 sm:mb-3 leading-snug' : 'text-4xl md:text-6xl font-bold text-white mb-6 leading-tight' }}"@if($heroHasImage) style="--hero-title-size-max: {{ $heroTitleSizePx }}px;"@endif>
                 @if(count($heroTitleParts) === 2)
                     <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
@@ -154,7 +169,7 @@
                 $heroSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
                 $heroSubtitleColorStyle = ($heroSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroSubtitleColor)) ? 'color: ' . $heroSubtitleColor . ';' : '';
             @endphp
-            <div class="scroll-reveal-item hero-reveal-zoom text-xl mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}">
+            <div class="scroll-reveal-item hero-reveal-zoom hero-caption-subtitle w-full mx-auto max-w-none {{ $heroHasImage ? 'prose prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 leading-snug' : 'text-xl mb-8 leading-relaxed max-w-3xl prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}@if($heroHasImage) --hero-subtitle-size-max: {{ $heroSubtitleSizePx }}px;@endif">
                 {!! $sectionData['subtitle'] ?? 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' !!}
             </div>
             @endif
@@ -189,6 +204,9 @@
             @endif
         </div>
     </div>
+    @if($heroBgUrl !== '')
+    </div>
+    @endif
 </section>
     @endif
 

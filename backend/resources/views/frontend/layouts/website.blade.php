@@ -147,10 +147,26 @@
             #website-desktop-nav,
             #website-desktop-right { display: none !important; }
             #website-hamburger-row { display: flex !important; }
+            #website-mobile-menu-toggle-wrap { display: flex !important; }
+            header:has(#website-mobile-menu) { position: sticky; }
+            #website-mobile-menu {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+                max-height: calc(100dvh - 4rem);
+                overflow-y: auto;
+            }
+            @media (min-width: 768px) {
+                #website-mobile-menu { max-height: calc(100dvh - 5rem); }
+            }
         }
         @media (min-width: 1025px) {
             #website-hamburger-row,
-            #website-mobile-menu { display: none !important; }
+            #website-mobile-menu,
+            #website-mobile-menu-toggle-wrap { display: none !important; }
         }
         html.dark footer,
         html.dark footer p,
@@ -383,6 +399,13 @@
         <div class="container-custom">
             <div class="flex justify-between items-center h-16 md:h-20">
                 <div class="flex items-center gap-2 flex-shrink-0">
+                    @unless($hideWebsiteMenu)
+                    <div id="website-mobile-menu-toggle-wrap" class="hidden flex-shrink-0">
+                        <button type="button" id="website-mobile-menu-toggle" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        </button>
+                    </div>
+                    @endunless
                     @php
                         $logoHref = route('home');
                         if (!empty($isStaging) && isset($stagingParams) && isset($menuPages) && $menuPages->isNotEmpty()) {
@@ -473,11 +496,6 @@
                     @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')
                     @include('frontend.components.ai-chatbot-trigger')
                     @endif
-                    @unless($hideWebsiteMenu)
-                    <button type="button" id="website-mobile-menu-toggle" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                    </button>
-                    @endunless
                 </div>
             </div>
         </div>

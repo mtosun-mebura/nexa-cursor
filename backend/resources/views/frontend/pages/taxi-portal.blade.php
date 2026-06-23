@@ -76,6 +76,130 @@
             box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
         }
 
+        #taxi-portal-app .kt-card-header {
+            padding-block: calc(var(--spacing) * 5);
+        }
+
+        #taxi-portal-app,
+        #taxi-portal-app .kt-wrapper,
+        #taxi-portal-app main,
+        #taxi-portal-app .container-custom,
+        #taxi-portal-app .taxi-portal-list-card,
+        #taxi-portal-app .taxi-portal-list-card .kt-card-content {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        #taxi-portal-app .taxi-portal-datatable-footer,
+        #taxi-portal-app .taxi-portal-datatable-footer .admin-datatable-footer__perpage,
+        #taxi-portal-app .taxi-portal-perpage-select {
+            overflow: visible;
+        }
+
+        #taxi-portal-app .taxi-portal-table-wrap {
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+            min-width: 0;
+        }
+
+        @media (min-width: 640px) {
+            #taxi-portal-app .taxi-portal-table-wrap .taxi-portal-responsive-table {
+                width: max-content;
+                min-width: 100%;
+            }
+        }
+
+        @media (max-width: 639px) {
+            #taxi-portal-app .taxi-portal-table-wrap {
+                overflow-x: visible;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table {
+                width: 100% !important;
+                min-width: 0 !important;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table thead {
+                display: none;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table tbody tr {
+                display: block;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.75rem;
+                margin-bottom: 0.75rem;
+                padding: 0.75rem;
+                background-color: #ffffff;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 0.75rem;
+                min-height: 0;
+                padding: 0.375rem 0 !important;
+                border: 0 !important;
+                text-align: right;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td::before {
+                content: attr(data-label);
+                flex: 0 0 auto;
+                max-width: 42%;
+                font-size: 0.8125rem;
+                font-weight: 500;
+                line-height: 1.35;
+                color: var(--muted-foreground);
+                text-align: left;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td:not([data-label])::before,
+            #taxi-portal-app .taxi-portal-responsive-table td[data-label=""]::before {
+                content: none;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-route {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.375rem;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-route::before {
+                max-width: none;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-route > * {
+                text-align: left;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-actions {
+                justify-content: center;
+                text-align: center;
+                padding-top: 0.5rem !important;
+                margin-top: 0.25rem;
+                border-top: 1px solid #e5e7eb !important;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-actions > .inline-flex {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .dark #taxi-portal-app .taxi-portal-responsive-table tbody tr,
+            html.dark #taxi-portal-app .taxi-portal-responsive-table tbody tr {
+                background-color: #111827;
+                border-color: #4b5563;
+            }
+
+            .dark #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-actions,
+            html.dark #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-actions {
+                border-top-color: #4b5563 !important;
+            }
+        }
+
         #taxi-portal-app .taxi-portal-cost-chart {
             background-color: #ffffff;
         }
@@ -348,6 +472,31 @@
             box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
         }
 
+        #taxi-portal-app .taxi-portal-datatable-footer .taxi-portal-datatable-perpage-select,
+        #taxi-portal-app .taxi-portal-perpage-select__trigger {
+            display: inline-flex;
+            width: auto;
+            min-width: 3.25rem;
+            max-width: 100%;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+
+        #taxi-portal-app .taxi-portal-perpage-select__menu {
+            min-width: 100%;
+        }
+
+        .dark #taxi-portal-app .taxi-portal-perpage-select__menu,
+        html.dark #taxi-portal-app .taxi-portal-perpage-select__menu {
+            background-color: #111827 !important;
+            border-color: #4b5563 !important;
+        }
+
+        .dark #taxi-portal-app .taxi-portal-perpage-select__option:hover,
+        html.dark #taxi-portal-app .taxi-portal-perpage-select__option:hover {
+            background-color: #1f2937 !important;
+        }
+
         #taxi-portal-app .taxi-portal-datatable-search-inner {
             display: flex;
             align-items: center;
@@ -482,6 +631,16 @@
             #taxi-portal-app .taxi-portal-datatable-footer .admin-datatable-footer__pagination,
             #taxi-portal-app .taxi-portal-datatable-footer .admin-datatable-footer__info {
                 justify-self: center;
+            }
+
+            #taxi-portal-app .taxi-portal-datatable-footer .admin-datatable-footer__perpage {
+                width: auto;
+                max-width: 100%;
+                justify-content: center;
+            }
+
+            #taxi-portal-app .taxi-portal-datatable-footer .admin-datatable-footer__pagination,
+            #taxi-portal-app .taxi-portal-datatable-footer .admin-datatable-footer__info {
                 width: 100%;
             }
         }

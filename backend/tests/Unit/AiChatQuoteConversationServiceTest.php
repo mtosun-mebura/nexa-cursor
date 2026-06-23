@@ -39,6 +39,24 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $this->assertSame('pickup', $reply->input['step'] ?? null);
     }
 
+    public function test_travel_intent_starts_quote_flow_with_destination(): void
+    {
+        $service = $this->makeService();
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Public,
+            sessionId: 'quote-test-travel',
+        );
+
+        $reply = $service->handle($context, 'Ik wil naar Schiphol');
+
+        $this->assertStringContainsString('Schiphol', $reply->reply);
+        $this->assertStringContainsString('Vanaf welk adres', $reply->reply);
+        $this->assertTrue($service->hasActiveSession($context));
+        $this->assertSame('address', $reply->input['type'] ?? null);
+        $this->assertSame('pickup', $reply->input['step'] ?? null);
+    }
+
     public function test_full_route_question_asks_to_confirm_pickup_before_passengers(): void
     {
         $service = $this->makeService();

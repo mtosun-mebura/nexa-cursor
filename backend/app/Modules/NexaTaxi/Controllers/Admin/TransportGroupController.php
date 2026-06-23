@@ -121,13 +121,8 @@ class TransportGroupController extends Controller
 
         $activeMembers = $this->activeMembersQuery($conn, $group->id)->get();
 
-        $availablePassengers = TransportPassenger::on($conn)
-            ->where('transport_contract_id', $contract->id)
-            ->where('active', true)
-            ->whereNotIn('id', $activeMembers->pluck('transport_passenger_id'))
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->get();
+        $availablePassengers = $this->availablePassengersQuery($conn, $contract, $group)->get();
+        $hasContractPassengers = $this->contractHasActivePassengers($conn, $contract);
 
         $backUrl = transport_admin_back_url(
             $request,
@@ -140,22 +135,8 @@ class TransportGroupController extends Controller
             ->with(['stops.passenger', 'assignment.driver', 'assignment.vehicle'])
             ->first();
 
-        $routePickupStops = collect();
-        $routeDestinationStop = null;
-        $routeDepartureTime = null;
-
-        if ($routeTemplate) {
-            $routePickupStops = $routeTemplate->stops->where('stop_type', 'pickup')->values();
-            $routeDestinationStop = $routeTemplate->stops->firstWhere('stop_type', 'destination');
-            if ($routePickupStops->isNotEmpty()) {
-                $routeDepartureTime = app(TransportRoutePlannerService::class)
-                    ->estimateDepartureTimeForTemplate(
-                        $routeTemplate,
-                        $routePickupStops,
-                        $routePickupStops->first()
-                    );
-            }
-        }
+        $routeContext = $this->loadRouteContext($routeTemplate);
+        extract($routeContext);
 
         return view('taxi::admin.transport_groups.show', compact(
             'customer',
@@ -163,6 +144,7 @@ class TransportGroupController extends Controller
             'group',
             'activeMembers',
             'availablePassengers',
+            'hasContractPassengers',
             'backUrl',
             'routeTemplate',
             'routePickupStops',
@@ -267,7 +249,7 @@ class TransportGroupController extends Controller
             'valid_from' => ['nullable', 'date'],
         ]);
 
-        [$conn, , $contract, $group] = $this->resolveGroup($customerId, $contractId, $groupId);
+        [$conn, $customer, $contract, $group] = $this->resolveGroup($customerId, $contractId, $groupId);
 
         $validFrom = $data['valid_from'] ?? now()->toDateString();
         $passengerIds = array_values(array_unique(array_map('intval', $data['transport_passenger_id'])));
@@ -314,13 +296,12 @@ class TransportGroupController extends Controller
             $success .= ' '.count($skippedNames).' overgeslagen (al lid).';
         }
 
-        $routeMessage = $this->recalculateGroupRouteAfterMemberChange($conn, $group);
+        $routeMessage = $this->refreshRouteAfterMemberChange($conn, $group);
         if ($routeMessage) {
             $success .= ' '.$routeMessage;
         }
 
-        return redirect()->route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
-            ->with('success', $success);
+        return $this->memberChangeResponse($request, $conn, $customer, $contract, $group, $success);
     }
 
     /**
@@ -355,31 +336,44 @@ class TransportGroupController extends Controller
         return 'added';
     }
 
-    public function memberRemove(int $customerId, int $contractId, int $groupId, int $memberId)
+    public function memberRemove(Request $request, int $customerId, int $contractId, int $groupId, int $memberId)
     {
         $this->authorizeOrPermission('rides.update');
 
-        [$conn, , , $group] = $this->resolveGroup($customerId, $contractId, $groupId);
+        [$conn, $customer, $contract, $group] = $this->resolveGroup($customerId, $contractId, $groupId);
 
         $member = TransportGroupMember::on($conn)
             ->where('transport_group_id', $group->id)
             ->findOrFail($memberId);
 
         if (! $this->membershipIsActive($member)) {
-            return redirect()->route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
-                ->with('success', 'Lidmaatschap was al beëindigd.');
+            return $this->memberChangeResponse(
+                $request,
+                $conn,
+                $customer,
+                $contract,
+                $group,
+                'Lidmaatschap was al beëindigd.'
+            );
         }
 
-        $member->update(['valid_until' => now()->toDateString()]);
+        // valid_until is inclusief: einddatum = gisteren zodat lid direct uit actieve lijst verdwijnt.
+        $member->update(['valid_until' => now()->subDay()->toDateString()]);
 
         $success = 'Passagier uit groep gehaald. Historie blijft bewaard.';
-        $routeMessage = $this->recalculateGroupRouteAfterMemberChange($conn, $group);
+        $routeMessage = $this->refreshRouteAfterMemberChange($conn, $group);
         if ($routeMessage) {
             $success .= ' '.$routeMessage;
         }
 
-        return redirect()->route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
-            ->with('success', $success);
+        return $this->memberChangeResponse(
+            $request,
+            $conn,
+            $customer,
+            $contract,
+            $group,
+            $success
+        );
     }
 
     /** @return array{0: string, 1: TransportCustomer, 2: TransportContract} */
@@ -452,6 +446,50 @@ class TransportGroupController extends Controller
             ->orderBy('id');
     }
 
+    private function availablePassengersQuery(string $conn, TransportContract $contract, TransportGroup $group)
+    {
+        $activeMemberPassengerIds = $this->activeMembersQuery($conn, $group->id)->pluck('transport_passenger_id');
+
+        $query = TransportPassenger::on($conn)
+            ->where('transport_contract_id', $contract->id)
+            ->where('active', true);
+
+        if ($activeMemberPassengerIds->isNotEmpty()) {
+            $query->whereNotIn('id', $activeMemberPassengerIds);
+        }
+
+        return $query->orderBy('last_name')->orderBy('first_name');
+    }
+
+    private function contractHasActivePassengers(string $conn, TransportContract $contract): bool
+    {
+        return TransportPassenger::on($conn)
+            ->where('transport_contract_id', $contract->id)
+            ->where('active', true)
+            ->exists();
+    }
+
+    /** @return array{availablePassengers: \Illuminate\Support\Collection, hasContractPassengers: bool} */
+    private function memberModalViewData(string $conn, TransportContract $contract, TransportGroup $group): array
+    {
+        return [
+            'availablePassengers' => $this->availablePassengersQuery($conn, $contract, $group)->get(),
+            'hasContractPassengers' => $this->contractHasActivePassengers($conn, $contract),
+        ];
+    }
+
+    private function renderMemberModalBody(
+        TransportCustomer $customer,
+        TransportContract $contract,
+        TransportGroup $group,
+        array $modalData,
+    ): string {
+        return view('taxi::admin.transport_groups.partials.add-members-modal-body', array_merge(
+            ['customer' => $customer, 'contract' => $contract, 'group' => $group],
+            $modalData
+        ))->render();
+    }
+
     private function membershipIsActive(TransportGroupMember $member): bool
     {
         if ($member->valid_until === null) {
@@ -459,6 +497,86 @@ class TransportGroupController extends Controller
         }
 
         return $member->valid_until >= now()->toDateString();
+    }
+
+    private function refreshRouteAfterMemberChange(string $conn, TransportGroup $group): ?string
+    {
+        $this->routeSync->syncDepartureFromGroup($conn, $group);
+
+        return $this->recalculateGroupRouteAfterMemberChange($conn, $group, forceFullPlan: true);
+    }
+
+    /**
+     * @return array{
+     *   routeTemplate: TransportRouteTemplate|null,
+     *   routePickupStops: \Illuminate\Support\Collection,
+     *   routeDestinationStop: \App\Modules\NexaTaxi\Models\TransportRouteStop|null,
+     *   routeDepartureTime: string|null
+     * }
+     */
+    private function loadRouteContext(?TransportRouteTemplate $routeTemplate): array
+    {
+        $routePickupStops = collect();
+        $routeDestinationStop = null;
+        $routeDepartureTime = null;
+
+        if ($routeTemplate) {
+            $routePickupStops = $routeTemplate->stops->where('stop_type', 'pickup')->values();
+            $routeDestinationStop = $routeTemplate->stops->firstWhere('stop_type', 'destination');
+            if ($routePickupStops->isNotEmpty()) {
+                $routeDepartureTime = app(TransportRoutePlannerService::class)
+                    ->estimateDepartureTimeForTemplate(
+                        $routeTemplate,
+                        $routePickupStops,
+                        $routePickupStops->first()
+                    );
+            }
+        }
+
+        return compact('routeTemplate', 'routePickupStops', 'routeDestinationStop', 'routeDepartureTime');
+    }
+
+    /** @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse */
+    private function memberChangeResponse(
+        Request $request,
+        string $conn,
+        TransportCustomer $customer,
+        TransportContract $contract,
+        TransportGroup $group,
+        string $successMessage,
+    ) {
+        if (! $request->expectsJson()) {
+            return redirect()->route('admin.taxi.transport_groups.show', [$customer->id, $contract->id, $group->id])
+                ->with('success', $successMessage);
+        }
+
+        $activeMembers = $this->activeMembersQuery($conn, $group->id)->get();
+        $routeTemplate = TransportRouteTemplate::on($conn)
+            ->where('transport_group_id', $group->id)
+            ->where('active', true)
+            ->with(['stops.passenger', 'assignment.driver', 'assignment.vehicle'])
+            ->first();
+        $routeContext = $this->loadRouteContext($routeTemplate);
+        $modalData = $this->memberModalViewData($conn, $contract, $group);
+
+        return response()->json([
+            'success' => $successMessage,
+            'members_count' => $activeMembers->count(),
+            'members_html' => view('taxi::admin.transport_groups.partials.members-table', [
+                'customer' => $customer,
+                'contract' => $contract,
+                'group' => $group,
+                'activeMembers' => $activeMembers,
+            ])->render(),
+            'route_html' => view('taxi::admin.transport_groups.partials.route-panel', array_merge(
+                ['customer' => $customer, 'contract' => $contract, 'group' => $group],
+                $routeContext
+            ))->render(),
+            'member_modal_html' => $this->renderMemberModalBody($customer, $contract, $group, $modalData),
+            'passengers_picker_html' => view('taxi::admin.transport_groups.partials.add-members-passenger-picker', [
+                'availablePassengers' => $modalData['availablePassengers'],
+            ])->render(),
+        ]);
     }
 
     private function recalculateGroupRouteAfterMemberChange(

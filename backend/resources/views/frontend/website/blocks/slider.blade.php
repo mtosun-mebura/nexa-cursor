@@ -6,8 +6,8 @@
         @php $imgUrl = $item['url'] ?? ''; $cap = $item['caption'] ?? ''; @endphp
         @if($imgUrl !== '')
         <div class="slider-slide flex-shrink-0 w-full snap-center min-w-full">
-            <div class="relative w-full aspect-[21/9] md:aspect-[3/1] bg-gray-100 dark:bg-gray-800">
-                <img src="{{ $imgUrl }}" alt="{{ $cap ?: 'Slider' }}" class="w-full h-full object-cover">
+            <div class="website-image-carousel-media relative w-full bg-gray-100 dark:bg-gray-800">
+                <img src="{{ $imgUrl }}" alt="{{ $cap ?: 'Slider' }}" class="website-image-carousel-fit">
                 @if($cap !== '')
                 <div class="absolute bottom-0 left-0 right-0 py-3 px-4 bg-black/50 text-white text-sm text-center">{{ $cap }}</div>
                 @endif

@@ -56,6 +56,7 @@ class TransportRoutePlannerService
 
         $orderedPickups = $this->orderPickups(
             $pickups,
+            $destination,
             $template->driver_start_mode,
             $this->resolveStartPoint($template, $pickups)
         );
@@ -269,90 +270,123 @@ class TransportRoutePlannerService
     }
 
     /**
-     * @param  list<array{lat: float|null, lng: float|null, ...}>  $pickups
+     * @param  list<array{lat: float|null, lng: float|null, transport_passenger_id?: int|null, ...}>  $pickups
+     * @param  array{lat: float|null, lng: float|null, ...}  $destination
      * @param  array{lat: float|null, lng: float|null, address: string|null}|null  $startPoint
      * @return list<array{lat: float|null, lng: float|null, ...}>
      */
-    private function orderPickups(array $pickups, string $driverStartMode, ?array $startPoint): array
-    {
+    private function orderPickups(
+        array $pickups,
+        array $destination,
+        string $driverStartMode,
+        ?array $startPoint,
+    ): array {
         if ($pickups === []) {
             return [];
         }
 
-        if ($driverStartMode === 'first_stop') {
-            return $this->nearestNeighborFromBestStart($pickups, null);
+        if (count($pickups) === 1) {
+            return $pickups;
+        }
+
+        $lastPickup = $this->pickupClosestToDestination($pickups, $destination);
+        $others = array_values(array_filter(
+            $pickups,
+            fn (array $stop) => (int) ($stop['transport_passenger_id'] ?? 0)
+                !== (int) ($lastPickup['transport_passenger_id'] ?? 0)
+        ));
+
+        if ($others === []) {
+            return [$lastPickup];
         }
 
         $seedLat = $startPoint['lat'] ?? null;
         $seedLng = $startPoint['lng'] ?? null;
+        $hasDepotStart = $driverStartMode !== 'first_stop'
+            && $seedLat !== null
+            && $seedLng !== null;
 
-        if ($seedLat === null || $seedLng === null) {
-            return $this->nearestNeighborFromBestStart($pickups, null);
+        if ($hasDepotStart) {
+            return $this->orderPickupsFromDepotEndingAt($others, $lastPickup, $seedLat, $seedLng);
         }
 
-        return $this->nearestNeighborChain($pickups, $seedLat, $seedLng);
+        return $this->orderPickupsBackwardFromDestination($others, $lastPickup);
     }
 
     /**
      * @param  list<array{lat: float|null, lng: float|null, ...}>  $pickups
-     * @return list<array{lat: float|null, lng: float|null, ...}>
+     * @param  array{lat: float|null, lng: float|null, ...}  $destination
+     * @return array{lat: float|null, lng: float|null, ...}
      */
-    private function nearestNeighborFromBestStart(array $pickups, ?float $seedLat, ?float $seedLng = null): array
+    private function pickupClosestToDestination(array $pickups, array $destination): array
     {
-        if (count($pickups) <= 1) {
-            return $pickups;
-        }
+        $closest = $pickups[0];
+        $closestDistance = PHP_FLOAT_MAX;
 
-        $bestOrder = $pickups;
-        $bestDistance = PHP_FLOAT_MAX;
-
-        foreach ($pickups as $candidate) {
-            $startLat = $seedLat ?? $candidate['lat'];
-            $startLng = $seedLng ?? $candidate['lng'];
-            if ($startLat === null || $startLng === null) {
-                continue;
-            }
-
-            $order = $this->nearestNeighborChain($pickups, $startLat, $startLng);
-            $distance = $this->totalPathDistance($order, $startLat, $startLng);
-
-            if ($distance < $bestDistance) {
-                $bestDistance = $distance;
-                $bestOrder = $order;
+        foreach ($pickups as $pickup) {
+            $distance = $this->estimateTravelSeconds(
+                $pickup['lat'],
+                $pickup['lng'],
+                $destination['lat'],
+                $destination['lng']
+            );
+            if ($distance < $closestDistance) {
+                $closestDistance = $distance;
+                $closest = $pickup;
             }
         }
 
-        return $bestOrder;
+        return $closest;
     }
 
     /**
-     * @param  list<array{lat: float|null, lng: float|null, ...}>  $pickups
-     * @return list<array{lat: float|null, lng: float|null, ...}>
+     * @param  list<array{lat: float|null, lng: float|null, ...}>  $others
+     * @return list<array{lat: float|null, lng: float|null, ...>>
      */
-    private function nearestNeighborChain(array $pickups, float $startLat, float $startLng): array
+    private function orderPickupsBackwardFromDestination(array $others, array $lastPickup): array
     {
-        $remaining = $pickups;
-        $ordered = [];
-        $currentLat = $startLat;
-        $currentLng = $startLng;
+        $chain = [$lastPickup];
+        $remaining = $others;
+        $currentLat = $lastPickup['lat'];
+        $currentLng = $lastPickup['lng'];
 
         while ($remaining !== []) {
-            $nearestIndex = 0;
-            $nearestDistance = PHP_FLOAT_MAX;
+            $nearestIndex = $this->indexOfNearestStop($remaining, $currentLat, $currentLng);
+            $next = $remaining[$nearestIndex];
+            unset($remaining[$nearestIndex]);
+            $remaining = array_values($remaining);
+            $chain[] = $next;
 
-            foreach ($remaining as $index => $stop) {
-                $distance = $this->estimateTravelSeconds(
-                    $currentLat,
-                    $currentLng,
-                    $stop['lat'],
-                    $stop['lng']
-                );
-                if ($distance < $nearestDistance) {
-                    $nearestDistance = $distance;
-                    $nearestIndex = $index;
-                }
+            if ($next['lat'] !== null && $next['lng'] !== null) {
+                $currentLat = $next['lat'];
+                $currentLng = $next['lng'];
             }
+        }
 
+        return array_reverse($chain);
+    }
+
+    /**
+     * @param  list<array{lat: float|null, lng: float|null, ...}>  $others
+     * @return list<array{lat: float|null, lng: float|null, ...>>
+     */
+    private function orderPickupsFromDepotEndingAt(
+        array $others,
+        array $lastPickup,
+        float $depotLat,
+        float $depotLng,
+    ): array {
+        $firstIndex = $this->indexOfNearestStop($others, $depotLat, $depotLng);
+        $ordered = [$others[$firstIndex]];
+        $remaining = $others;
+        unset($remaining[$firstIndex]);
+        $remaining = array_values($remaining);
+
+        $currentLat = $ordered[0]['lat'] ?? $depotLat;
+        $currentLng = $ordered[0]['lng'] ?? $depotLng;
+
+        while ($remaining !== []) {
+            $nearestIndex = $this->indexOfNearestStop($remaining, $currentLat, $currentLng);
             $next = $remaining[$nearestIndex];
             unset($remaining[$nearestIndex]);
             $remaining = array_values($remaining);
@@ -364,33 +398,35 @@ class TransportRoutePlannerService
             }
         }
 
+        $ordered[] = $lastPickup;
+
         return $ordered;
     }
 
     /**
-     * @param  list<array{lat: float|null, lng: float|null, ...}>  $ordered
+     * @param  list<array{lat: float|null, lng: float|null, ...}>  $stops
      */
-    private function totalPathDistance(array $ordered, float $startLat, float $startLng): float
+    private function indexOfNearestStop(array $stops, ?float $fromLat, ?float $fromLng): int
     {
-        $total = 0.0;
-        $currentLat = $startLat;
-        $currentLng = $startLng;
+        $nearestIndex = 0;
+        $nearestDistance = PHP_FLOAT_MAX;
 
-        foreach ($ordered as $stop) {
-            $total += $this->estimateTravelSeconds(
-                $currentLat,
-                $currentLng,
+        foreach ($stops as $index => $stop) {
+            $distance = $this->estimateTravelSeconds(
+                $fromLat,
+                $fromLng,
                 $stop['lat'],
                 $stop['lng']
             );
-            if ($stop['lat'] !== null && $stop['lng'] !== null) {
-                $currentLat = $stop['lat'];
-                $currentLng = $stop['lng'];
+            if ($distance < $nearestDistance) {
+                $nearestDistance = $distance;
+                $nearestIndex = $index;
             }
         }
 
-        return $total;
+        return $nearestIndex;
     }
+
 
     /**
      * @param  list<array{lat: float|null, lng: float|null, ...}>  $orderedPickups

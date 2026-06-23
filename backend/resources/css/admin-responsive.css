@@ -210,6 +210,14 @@ body.dark #header [data-ai-chat-toggle] svg,
     width: 100%;
 }
 
+/* Kaart + tabel: rij-achtergronden netjes binnen afgeronde onderhoeken */
+#content .kt-card > .kt-card-content.p-0:last-child:has(.kt-table),
+#content .kt-card-grid > .kt-card-content:last-child:has(.kt-table) {
+    overflow: hidden;
+    border-bottom-left-radius: calc(var(--radius, 0.5rem) + 4px);
+    border-bottom-right-radius: calc(var(--radius, 0.5rem) + 4px);
+}
+
 #content .kt-scrollable-x-auto,
 #content .kt-card-table,
 #content .kt-table-responsive,

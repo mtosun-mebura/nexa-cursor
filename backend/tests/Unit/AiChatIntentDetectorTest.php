@@ -31,6 +31,35 @@ class AiChatIntentDetectorTest extends TestCase
         $this->assertSame(AiChatIntent::Tarieven, $result['intent']);
     }
 
+    public function test_travel_intent_question_maps_to_rit_offerte(): void
+    {
+        $public = $this->detector->detect('Ik wil naar Schiphol', new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Public,
+        ));
+
+        $this->assertSame(AiChatIntent::RitOfferte, $public['intent']);
+
+        $admin = $this->detector->detect('Ik wil naar Schiphol', new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Admin,
+            userId: 1,
+        ));
+
+        $this->assertSame(AiChatIntent::RitOfferte, $admin['intent']);
+    }
+
+    public function test_travel_intent_does_not_override_admin_operational_question(): void
+    {
+        $result = $this->detector->detect('Welke chauffeur rijdt morgen naar Schiphol?', new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Admin,
+            userId: 1,
+        ));
+
+        $this->assertSame(AiChatIntent::ChauffeursSchipholMorgen, $result['intent']);
+    }
+
     public function test_route_price_question_maps_to_rit_offerte(): void
     {
         $schiphol = $this->detector->detect('Wat kost een rit naar Schiphol?', new AiChatRequestContext(
