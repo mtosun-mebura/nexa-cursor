@@ -23,6 +23,14 @@ class AiChatRouteQuoteParserTest extends TestCase
         $this->assertSame('Schiphol', $route['dropoff_address']);
     }
 
+    public function test_parses_travel_intent_destination(): void
+    {
+        $route = $this->parser->parseRouteFromQuestion('Ik wil naar Schiphol');
+
+        $this->assertNull($route['pickup_address']);
+        $this->assertSame('Schiphol', $route['dropoff_address']);
+    }
+
     public function test_parses_full_route_question(): void
     {
         $route = $this->parser->parseRouteFromQuestion('Wat kost een rit van Enschede naar Düsseldorf Airport?');

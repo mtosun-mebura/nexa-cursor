@@ -54,8 +54,8 @@
                     {{-- Tekst rechts: afbeelding/component links; beide bovenaan uitgelijnd --}}
                     <div class="order-2 lg:order-1 w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
-                        <div class="flex justify-center lg:justify-start">
-                            <img src="{{ $imageUrl }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
+                        <div class="website-image-carousel-media flex justify-center lg:justify-start w-full">
+                            <img src="{{ $imageUrl }}" alt="" class="website-image-carousel-fit rounded-xl">
                         </div>
                         @endif
                         @if($showSideComponent)
@@ -72,8 +72,8 @@
                     </div>
                     <div class="w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
-                        <div class="flex justify-center lg:justify-end">
-                            <img src="{{ $imageUrl }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
+                        <div class="website-image-carousel-media flex justify-center lg:justify-end w-full">
+                            <img src="{{ $imageUrl }}" alt="" class="website-image-carousel-fit rounded-xl">
                         </div>
                         @endif
                         @if($showSideComponent)

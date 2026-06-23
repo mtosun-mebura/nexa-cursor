@@ -114,6 +114,12 @@
         html.dark header,
         html.dark footer { background-color: #111827 !important; }
         html.dark header { border-bottom-color: #4b5563 !important; }
+        html.dark .frontend-header-mobile-menu {
+            background-color: #111827 !important;
+            border-color: #374151 !important;
+        }
+        html.dark .frontend-header-mobile-menu a { color: #f3f4f6 !important; }
+        html.dark .frontend-header-mobile-menu a:hover { background-color: #1f2937 !important; }
         html.dark body { color: #f3f4f6; }
         /* Dark mode: footertekst leesbaar */
         html.dark footer,

@@ -16,11 +16,13 @@
     $profileMenuUrl = $isTaxiContext
         ? route('taxi.portal.dashboard', ['tab' => 'profile'])
         : route('profile');
+    $mobileMenuHiddenClass = $isTaxiPortalPage ? 'lg:hidden' : 'md:hidden';
+    $desktopNavVisibleClass = $isTaxiPortalPage ? 'hidden lg:flex' : 'hidden md:flex';
 @endphp
 <!-- Header -->
 <header
     @class([
-        'bg-white dark:bg-gray-900 border-b border-gray-200 sticky top-0 z-50',
+        'relative bg-white dark:bg-gray-900 border-b border-gray-200 sticky top-0 z-50',
         'dark:border-gray-800' => $isTaxiPortalPage,
         'dark:border-gray-600' => ! $isTaxiPortalPage,
         'shadow-none' => $isTaxiPortalPage,
@@ -30,18 +32,11 @@
 >
     <div class="container-custom">
         <div class="flex justify-between items-center h-16 md:h-20">
-            <!-- Logo + Hamburger (hamburger alleen zichtbaar onder md) -->
+            <!-- Hamburger (links) + logo -->
             <div class="flex items-center gap-2 flex-shrink-0">
-                <div class="ml-2 md:ml-8 py-1">
-                    @include('frontend.layouts.partials.brand-logo', [
-                        'branding' => $branding,
-                        'logoHref' => route('home'),
-                    ])
-                </div>
-                <!-- Hamburger menu button (rechts naast logo, tonen onder md) -->
-                <div class="md:hidden">
-                    <button @click="mobileMenuOpen = !mobileMenuOpen" 
-                            class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
+                <div class="{{ $mobileMenuHiddenClass }} flex-shrink-0">
+                    <button @click="mobileMenuOpen = !mobileMenuOpen"
+                            class="frontend-header-mobile-menu-toggle p-2 rounded-lg text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-white/90 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors duration-200"
                             :aria-expanded="mobileMenuOpen"
                             :aria-label="mobileMenuOpen ? 'Menu sluiten' : 'Menu openen'">
                         <svg x-show="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-cloak>
@@ -52,10 +47,16 @@
                         </svg>
                     </button>
                 </div>
+                <div class="ml-2 md:ml-8 py-1">
+                    @include('frontend.layouts.partials.brand-logo', [
+                        'branding' => $branding,
+                        'logoHref' => route('home'),
+                    ])
+                </div>
             </div>
 
             <!-- Navigatie (desktop) -->
-            <nav class="hidden md:flex items-center justify-center flex-1 px-4 gap-4 lg:gap-6" role="navigation" aria-label="Hoofdnavigatie">
+            <nav class="{{ $desktopNavVisibleClass }} items-center justify-center flex-1 px-4 gap-4 lg:gap-6" role="navigation" aria-label="Hoofdnavigatie">
                 @auth
                     <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Home
@@ -148,50 +149,68 @@
                 @endauth
             </div>
         </div>
-        
-        <!-- Hamburger menu inhoud (zichtbaar onder md) -->
-        <div x-show="mobileMenuOpen"
-             x-cloak
-             x-transition:enter="transition ease-out duration-150"
-             x-transition:enter-start="opacity-0 -translate-y-2"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             x-transition:leave="transition ease-in duration-100"
-             x-transition:leave-start="opacity-100 translate-y-0"
-             x-transition:leave-end="opacity-0 -translate-y-2"
-             class="md:hidden overflow-hidden">
-            <div class="px-4 pt-3 pb-4 space-y-1 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
-                @auth
-                    <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+    </div>
+
+    <!-- Mobiel menu: overlay over content (niet meeschuiven) -->
+    <div x-show="mobileMenuOpen"
+         x-cloak
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="frontend-header-mobile-menu {{ $mobileMenuHiddenClass }} absolute top-full left-0 right-0 z-50 shadow-lg max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <div class="container-custom py-4 space-y-1">
+                @if($isTaxiPortalPage)
+                    @php
+                        $taxiPortalMobileNav = [
+                            'dashboard' => 'Dashboard',
+                            'rides' => 'Ritten',
+                            'invoices' => 'Facturen',
+                            'profile' => 'Mijn gegevens',
+                        ];
+                        $taxiPortalMobileLinkClass = 'block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800';
+                    @endphp
+                    @foreach($taxiPortalMobileNav as $tabKey => $tabLabel)
+                        <a href="{{ route('taxi.portal.dashboard', ['tab' => $tabKey]) }}"
+                           @click="mobileMenuOpen = false"
+                           class="{{ $taxiPortalMobileLinkClass }}">
+                            {{ $tabLabel }}
+                        </a>
+                    @endforeach
+                @elseif(auth()->check())
+                    <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Home
                     </a>
                     @if($showSkillmatchingNav)
-                    <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('dashboard') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Dashboard
                     </a>
-                    <a href="{{ route('jobs.index') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('jobs.*') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('jobs.index') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Vacatures
                     </a>
-                    <a href="{{ route('matches') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('matches') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('matches') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Matches
                     </a>
                     @if(auth()->user() && auth()->user()->can('view-agenda'))
-                    <a href="{{ route('agenda') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('agenda') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('agenda') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Agenda
                     </a>
                     @endif
                     @endif
                 @else
-                    <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Home
                     </a>
                     @if($showGuestSkillmatchingLinks)
-                    <a href="{{ route('jobs.index') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('jobs.*') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('jobs.index') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Vacatures
                     </a>
-                    <a href="{{ route('about') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('about') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('about') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Over Ons
                     </a>
-                    <a href="{{ route('contact') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('contact') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
+                    <a href="{{ route('contact') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Contact
                     </a>
                     @endif
@@ -207,8 +226,7 @@
                         @endif
                     </div>
                     @endunless
-                @endauth
-            </div>
+                @endif
         </div>
     </div>
 </header>

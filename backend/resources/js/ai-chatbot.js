@@ -1,3 +1,27 @@
+function normalizeAddressSearchQuery(query) {
+    let value = String(query || '').trim();
+    if (value === '') {
+        return '';
+    }
+
+    const patterns = [
+        /^(?:ik\s+)?(?:wil|moet|ga|wilt)\s+(?:graag\s+)?(?:naar|to)\s+/iu,
+        /^(?:kan|kun)\s+ik\s+(?:ook\s+)?(?:naar|to)\s+/iu,
+        /^(?:wat\s+kost\s+(?:een\s+)?(?:rit|taxirit)\s+)?(?:naar|to)\s+/iu,
+        /^(?:boek(?:\s+(?:een|een\s+))?(?:rit|taxirit)|rit\s+boeken)\s+(?:naar|to)\s+/iu,
+        /^(?:taxi|taxirit|rit)\s+naar\s+/iu,
+    ];
+
+    for (const pattern of patterns) {
+        if (pattern.test(value)) {
+            value = value.replace(pattern, '').trim();
+            break;
+        }
+    }
+
+    return value;
+}
+
 export function registerAiChatbot(Alpine) {
     document.addEventListener('click', (event) => {
         if (!event.target.closest('[data-ai-chat-toggle]')) {
@@ -492,7 +516,7 @@ export function registerAiChatbot(Alpine) {
         },
 
         onAddressInput() {
-            const query = this.addressQuery.trim();
+            const query = normalizeAddressSearchQuery(this.addressQuery);
             this.addressSelectedFromSuggestions = false;
             this.addressSelectedPlaceId = '';
             this.addressSelectedLat = null;

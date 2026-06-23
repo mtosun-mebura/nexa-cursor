@@ -226,13 +226,30 @@
   /* Frontend header: thema-toggle + AI-chat icoon wit in dark mode */
   html.dark header [data-ai-chat-toggle] svg,
   html.dark header button[onclick="toggleDarkMode()"] svg,
+  html.dark header .frontend-header-mobile-menu-toggle svg,
   html.dark header #theme-toggle-btn svg,
   html.dark header #theme-toggle-btn-mobile svg,
   .dark header [data-ai-chat-toggle] svg,
   .dark header button[onclick="toggleDarkMode()"] svg,
+  .dark header .frontend-header-mobile-menu-toggle svg,
   .dark header #theme-toggle-btn svg,
   .dark header #theme-toggle-btn-mobile svg {
     color: #fff;
+  }
+
+  /* Frontend mobiel menu: dark mode (class-based, gelijk aan #website-mobile-menu) */
+  html.dark .frontend-header-mobile-menu,
+  .dark .frontend-header-mobile-menu {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+  }
+  html.dark .frontend-header-mobile-menu a,
+  .dark .frontend-header-mobile-menu a {
+    color: #f3f4f6 !important;
+  }
+  html.dark .frontend-header-mobile-menu a:hover,
+  .dark .frontend-header-mobile-menu a:hover {
+    background-color: #1f2937 !important;
   }
 
   .dark .ai-chat-panel {
@@ -555,6 +572,43 @@
     }
   }
 
+  /* Carousel / sectie-afbeeldingen: volledige breedte, natuurlijke verhouding, geen crop */
+  .website-image-carousel-fit {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none;
+    object-fit: unset;
+  }
+  .website-image-carousel-media {
+    width: 100%;
+    height: auto;
+    aspect-ratio: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+  }
+  .carousel-caption-text-block,
+  .hero-caption-text-block.carousel-caption-text-block {
+    max-width: min(36rem, 92vw);
+  }
+  .carousel-caption-text-block p,
+  .modern-home-hero--has-image .hero-caption-subtitle p {
+    line-height: 1.35;
+  }
+  .modern-home-hero--has-image .hero-caption-title {
+    font-size: clamp(1.0625rem, 3.2vw + 0.4rem, var(--hero-title-size-max, 2rem));
+    font-weight: 700;
+  }
+  .modern-home-hero--has-image .hero-caption-subtitle {
+    font-size: clamp(0.75rem, 2vw + 0.32rem, var(--hero-subtitle-size-max, 1rem));
+    font-weight: 400;
+  }
+  .modern-home-hero--has-image .hero-caption-subtitle :where(p, li, span, a) {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
   /* Website builder: sectie-inhoud volle breedte op mobiel, container-padding vanaf md */
   .website-section-inner {
     width: 100%;
@@ -633,6 +687,12 @@
       width: 100% !important;
       flex: 1 1 100% !important;
       max-width: 100% !important;
+    }
+    .cards-ronde-hoeken-section .cards-ronde-hoeken-image-wrap {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      margin-left: calc(50% - 50vw) !important;
+      margin-right: calc(50% - 50vw) !important;
     }
     .text-block-section__inner {
       padding-left: 0 !important;

@@ -29,16 +29,18 @@ final class AiChatIntentDetector
             ];
         }
 
+        if ($this->isRouteTravelQuestion($text, $context)
+            || $this->isRouteQuoteQuestion($text, $context)
+            || $this->isRouteBookingQuestion($text, $context)) {
+            return ['intent' => AiChatIntent::RitOfferte, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
         if ($this->isAdminOperationalQuestion($text, $context)) {
             return $this->detectAdminIntent($text, $responseMode);
         }
 
         if ($this->isPublicOperationalProbe($text, $context)) {
             return $this->detectAdminIntent($text, $responseMode);
-        }
-
-        if ($this->isRouteQuoteQuestion($text, $context) || $this->isRouteBookingQuestion($text, $context)) {
-            return ['intent' => AiChatIntent::RitOfferte, 'query_hint' => null, 'response_mode' => $responseMode];
         }
 
         if ($this->matchesAny($text, [
@@ -280,9 +282,38 @@ final class AiChatIntentDetector
         return AiChatResponseMode::List;
     }
 
+    private function isRouteTravelQuestion(string $text, AiChatRequestContext $context): bool
+    {
+        if ($context->isMijnTaxiChannel()) {
+            return false;
+        }
+
+        if ($this->matchesAny($text, [
+            'mijn rit', 'volgende rit', 'eerst volgende', 'eerste volgende',
+            'welke rit', 'welke ritten', 'hoeveel rit', 'hoeveel ritten',
+            'chauffeur', 'chauffeurs', 'klant', 'klanten', 'omzet', 'planning',
+        ])) {
+            return false;
+        }
+
+        if (preg_match('/\b(?:ik\s+)?(?:wil|moet|ga|wilt)\s+(?:graag\s+)?(?:naar|to)\s+.+/iu', $text)) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:kan|kun)\s+ik\s+(?:ook\s+)?(?:naar|to)\s+.+/iu', $text)) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:taxi|taxirit|rit)\s+naar\s+.+/iu', $text)) {
+            return true;
+        }
+
+        return false;
+    }
+
     private function isRouteQuoteQuestion(string $text, AiChatRequestContext $context): bool
     {
-        if ($context->isAdminChannel() || $context->isMijnTaxiChannel()) {
+        if ($context->isMijnTaxiChannel()) {
             return false;
         }
 
@@ -314,7 +345,7 @@ final class AiChatIntentDetector
 
     private function isRouteBookingQuestion(string $text, AiChatRequestContext $context): bool
     {
-        if ($context->isAdminChannel() || $context->isMijnTaxiChannel()) {
+        if ($context->isMijnTaxiChannel()) {
             return false;
         }
 

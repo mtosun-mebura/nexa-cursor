@@ -29,6 +29,20 @@ final class AiChatRouteQuoteParser
             ];
         }
 
+        if (preg_match('/\b(?:ik\s+)?(?:wil|moet|ga|wilt)\s+(?:graag\s+)?(?:naar|to)\s+(.+)$/iu', $message, $matches)) {
+            return [
+                'pickup_address' => null,
+                'dropoff_address' => $this->cleanAddress($matches[1]),
+            ];
+        }
+
+        if (preg_match('/\b(?:kan|kun)\s+ik\s+(?:ook\s+)?(?:naar|to)\s+(.+)$/iu', $message, $matches)) {
+            return [
+                'pickup_address' => null,
+                'dropoff_address' => $this->cleanAddress($matches[1]),
+            ];
+        }
+
         if (preg_match('/\b(?:rit\s+)?naar\s+(.+)$/iu', $message, $matches)) {
             return [
                 'pickup_address' => null,

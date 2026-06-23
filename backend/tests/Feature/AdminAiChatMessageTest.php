@@ -93,6 +93,41 @@ class AdminAiChatMessageTest extends TestCase
         $this->assertStringContainsString('tenant', mb_strtolower((string) $response->json('error')));
     }
 
+    public function test_admin_travel_intent_starts_local_quote_flow_without_n8n(): void
+    {
+        Http::fake();
+
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
+
+        $company = Company::query()->create([
+            'name' => 'Tenant Taxi BV',
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create([
+            'company_id' => $company->id,
+        ]);
+        $user->assignRole('company-admin');
+        $user->givePermissionTo('rides.view');
+
+        $response = $this->actingAs($user)->postJson(route('admin.ai-chat.message'), [
+            'message' => 'ik wil naar schiphol',
+            'module' => 'taxi',
+            'sessionId' => 'admin-travel-intent-test',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('input.type', 'address')
+            ->assertJsonPath('input.step', 'pickup');
+
+        $reply = mb_strtolower((string) $response->json('reply'));
+        $this->assertStringContainsString('schiphol', $reply);
+        $this->assertStringContainsString('vanaf welk adres', $reply);
+
+        Http::assertNothingSent();
+    }
+
     public function test_super_admin_uses_selected_tenant_for_admin_chat(): void
     {
         Http::fake([

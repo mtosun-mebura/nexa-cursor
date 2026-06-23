@@ -14,7 +14,7 @@
 @endphp
 <figure class="website-block website-block-image-aligned mb-6 clear-both {{ $alignment === 'left' || $alignment === 'right' ? '' : 'overflow-hidden' }}">
     <div class="{{ $alignClass }} rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 {{ $alignment === 'center' || $alignment === 'full' ? 'w-full' : '' }}">
-        <img src="{{ $url }}" alt="{{ $caption ?: 'Afbeelding' }}" class="w-full h-auto object-cover">
+        <img src="{{ $url }}" alt="{{ $caption ?: 'Afbeelding' }}" class="website-image-carousel-fit">
     </div>
     @if($caption !== '')
     <figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400 {{ $alignment === 'center' || $alignment === 'full' ? 'text-center' : '' }}">{{ $caption }}</figcaption>

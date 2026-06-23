@@ -54,10 +54,7 @@ function resolveInputForCalendar(calendar) {
             continue;
         }
 
-        const calendarInstance = instance.getCalendar?.();
-        const linkedCalendar =
-            calendarInstance?.context?.mainElement?.closest?.('[data-vc="calendar"]') ??
-            calendarInstance?.context?.mainElement;
+        const linkedCalendar = resolveCalendarElement(input, instance.getCalendar?.());
 
         if (linkedCalendar === calendar) {
             return input;
@@ -244,13 +241,47 @@ function isCalendarOpen(calendar) {
     return calendar instanceof HTMLElement && !calendar.hasAttribute('data-vc-calendar-hidden');
 }
 
-function resetHiddenCalendarState(calendarApi, calendarEl) {
+function resolveCalendarElement(input, calendarApi) {
+    const main = calendarApi?.context?.mainElement;
+
+    if (main instanceof HTMLElement) {
+        if (main.matches('[data-vc="calendar"]')) {
+            return main;
+        }
+
+        const closest = main.closest('[data-vc="calendar"]');
+        if (closest instanceof HTMLElement) {
+            return closest;
+        }
+    }
+
+    for (const candidate of document.querySelectorAll('[data-vc="calendar"][data-vc-input]')) {
+        if (resolveInputForCalendar(candidate) === input) {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+function getLinkedCalendar(input) {
+    const instance = window.KTDatePicker?.getInstance?.(input);
+    const calendarApi = instance?.getCalendar?.();
+    const linkedCalendar = resolveCalendarElement(input, calendarApi);
+
+    return { instance, calendarApi, linkedCalendar };
+}
+
+function forceResetClosedCalendarState(calendarApi, calendarEl) {
     const context = calendarApi?.context;
-    if (!context || !(calendarEl instanceof HTMLElement)) {
+    if (!context) {
         return;
     }
 
-    if (!calendarEl.hasAttribute('data-vc-calendar-hidden') || !context.isShowInInputMode) {
+    const calendarOpen =
+        calendarEl instanceof HTMLElement && !calendarEl.hasAttribute('data-vc-calendar-hidden');
+
+    if (calendarOpen) {
         return;
     }
 
@@ -269,32 +300,36 @@ function openDatePickerInput(input) {
 
     activeDatePickerInput = input;
 
-    const instance = window.KTDatePicker?.getInstance?.(input);
-    const calendarApi = instance?.getCalendar?.();
-    const linkedCalendar =
-        calendarApi?.context?.mainElement?.closest?.('[data-vc="calendar"]') ??
-        document.querySelector('[data-vc="calendar"][data-vc-input]');
+    const { calendarApi, linkedCalendar } = getLinkedCalendar(input);
 
-    resetHiddenCalendarState(calendarApi, linkedCalendar);
+    forceResetClosedCalendarState(calendarApi, linkedCalendar);
 
     if (linkedCalendar instanceof HTMLElement && isCalendarOpen(linkedCalendar)) {
         ensureCalendarVisible(linkedCalendar);
-    } else {
-        instance?.show?.();
-        if (linkedCalendar instanceof HTMLElement) {
-            ensureCalendarVisible(linkedCalendar);
-        }
+        return;
     }
 
     if (document.activeElement !== input) {
         input.focus({ preventScroll: true });
     }
+
+    calendarApi?.show?.();
+
+    const { linkedCalendar: openedCalendar } = getLinkedCalendar(input);
+    if (openedCalendar instanceof HTMLElement && isCalendarOpen(openedCalendar)) {
+        ensureCalendarVisible(openedCalendar);
+    }
 }
 
-function scheduleOpenDatePickerInput(input) {
-    window.setTimeout(() => {
-        openDatePickerInput(input);
-    }, 0);
+function prepareDatePickerInteraction(input) {
+    if (!(input instanceof HTMLElement)) {
+        return;
+    }
+
+    activeDatePickerInput = input;
+
+    const { calendarApi, linkedCalendar } = getLinkedCalendar(input);
+    forceResetClosedCalendarState(calendarApi, linkedCalendar);
 }
 
 function patchAdminDatePickerInstance(input) {
@@ -310,6 +345,15 @@ function patchAdminDatePickerInstance(input) {
 
     input.setAttribute(PATCHED_ATTR, '1');
     calendar.__adminHidePatched = true;
+
+    const originalShow = calendar.show?.bind(calendar);
+    if (originalShow && !calendar.__adminShowPatched) {
+        calendar.__adminShowPatched = true;
+        calendar.show = function adminDatePickerShow(...args) {
+            forceResetClosedCalendarState(calendar, resolveCalendarElement(input, calendar));
+            return originalShow(...args);
+        };
+    }
 
     const originalHide = calendar.hide.bind(calendar);
     calendar.hide = function adminDatePickerHide(...args) {
@@ -335,6 +379,7 @@ function ensureDatePickersInitialized() {
     }
 
     patchAllAdminDatePickers();
+    bindDatePickerInputOpens();
 }
 
 function bindDatePickerDeferHideOnDayClick() {
@@ -381,16 +426,13 @@ function bindDatePickerOutsideClickGuard() {
                 return;
             }
 
-            const calendar =
-                window.KTDatePicker?.getInstance?.(input)?.getCalendar?.()?.context?.mainElement?.closest?.(
-                    '[data-vc="calendar"]',
-                ) ?? null;
+            const { linkedCalendar } = getLinkedCalendar(input);
 
-            if (!calendar || calendar.hasAttribute('data-vc-calendar-hidden')) {
+            if (!linkedCalendar || linkedCalendar.hasAttribute('data-vc-calendar-hidden')) {
                 return;
             }
 
-            if (event.target === input || calendar.contains(event.target)) {
+            if (event.target === input || linkedCalendar.contains(event.target)) {
                 return;
             }
 
@@ -398,6 +440,40 @@ function bindDatePickerOutsideClickGuard() {
         },
         true,
     );
+}
+
+function bindDatePickerInputOpens() {
+    document.querySelectorAll('[data-kt-date-picker]').forEach((input) => {
+        if (input.dataset.adminDatePickerInputOpenBound === '1') {
+            return;
+        }
+
+        input.dataset.adminDatePickerInputOpenBound = '1';
+
+        input.addEventListener(
+            'pointerdown',
+            (event) => {
+                if (event.button !== 0) {
+                    return;
+                }
+
+                prepareDatePickerInteraction(input);
+            },
+            true,
+        );
+
+        input.addEventListener(
+            'click',
+            (event) => {
+                if (event.button !== 0) {
+                    return;
+                }
+
+                prepareDatePickerInteraction(input);
+            },
+            true,
+        );
+    });
 }
 
 function bindDatePickerWrapperClicks() {
@@ -411,6 +487,22 @@ function bindDatePickerWrapperClicks() {
         wrapper.style.cursor = 'pointer';
 
         wrapper.addEventListener(
+            'pointerdown',
+            (event) => {
+                if (event.button !== 0) {
+                    return;
+                }
+
+                if (event.target.closest('[data-vc="calendar"]')) {
+                    return;
+                }
+
+                prepareDatePickerInteraction(input);
+            },
+            true,
+        );
+
+        wrapper.addEventListener(
             'click',
             (event) => {
                 if (event.button !== 0) {
@@ -421,23 +513,15 @@ function bindDatePickerWrapperClicks() {
                     return;
                 }
 
-                // Input-klik: vanilla-calendar opent zelf via setTimeout(Ue).
-                if (event.target === input) {
-                    return;
-                }
+                const { linkedCalendar } = getLinkedCalendar(input);
 
-                const calendar =
-                    window.KTDatePicker?.getInstance?.(input)?.getCalendar?.()?.context?.mainElement?.closest?.(
-                        '[data-vc="calendar"]',
-                    ) ?? null;
-
-                if (calendar && !calendar.hasAttribute('data-vc-calendar-hidden')) {
+                if (linkedCalendar instanceof HTMLElement && isCalendarOpen(linkedCalendar)) {
                     return;
                 }
 
                 event.preventDefault();
-                // Open pas na deze click (icoon/padding), zodat outside-click van vorige sessie niet meteen sluit.
-                scheduleOpenDatePickerInput(input);
+                event.stopImmediatePropagation();
+                openDatePickerInput(input);
             },
             true,
         );
@@ -494,6 +578,12 @@ function bindAdminDatePickerScrollFix() {
                 if (target.hasAttribute('data-vc-calendar-hidden')) {
                     closed = true;
                     clearFloatingCalendar(target);
+
+                    const linkedInput = resolveInputForCalendar(target);
+                    if (linkedInput) {
+                        const { calendarApi } = getLinkedCalendar(linkedInput);
+                        forceResetClosedCalendarState(calendarApi, target);
+                    }
                 } else {
                     ensureCalendarVisible(target);
                 }
@@ -519,6 +609,7 @@ function bindAdminDatePickerScrollFix() {
         const contentObserver = new MutationObserver(() => {
             ensureDatePickersInitialized();
             bindDatePickerWrapperClicks();
+            bindDatePickerInputOpens();
         });
         contentObserver.observe(content, { childList: true, subtree: true });
     }
@@ -528,6 +619,7 @@ function bootAdminDatePicker() {
     bindAdminDatePickerScrollFix();
     window.setTimeout(ensureDatePickersInitialized, 0);
     window.setTimeout(bindDatePickerWrapperClicks, 0);
+    window.setTimeout(bindDatePickerInputOpens, 0);
 }
 
 if (document.readyState === 'loading') {
