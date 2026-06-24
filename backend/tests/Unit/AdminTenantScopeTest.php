@@ -24,7 +24,11 @@ class AdminTenantScopeTest extends TestCase
     protected function bindRoute(string $uri, string $name): void
     {
         $request = Request::create($uri, 'GET');
-        $request->setRouteResolver(fn () => new Route('GET', $uri, fn () => null)->name($name));
+        $request->setRouteResolver(function () use ($uri, $name) {
+            return (new Route('GET', $uri, function () {
+                return null;
+            }))->name($name);
+        });
         $this->app->instance('request', $request);
     }
 
