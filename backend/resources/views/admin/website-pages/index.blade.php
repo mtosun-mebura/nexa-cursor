@@ -60,8 +60,6 @@
         </div>
     @endif
 
-    @include('admin.website-pages.partials.tenant-scope-notice')
-
     @if($websitePagesTenantScopedActive ?? false)
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-content p-0 min-w-0">

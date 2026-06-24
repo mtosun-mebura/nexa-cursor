@@ -30,6 +30,11 @@
             <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
         </div>
+        @if(session('tenant_sync_report'))
+            <div class="mb-5">
+                @include('admin.settings.partials.tenant-sync-report', ['report' => session('tenant_sync_report')])
+            </div>
+        @endif
     @endif
 
     @if(session('success'))
@@ -54,9 +59,8 @@
         </div>
     @endif
 
-    @include('admin.settings.partials.tenant-scope-notice')
-
     <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
+    @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
         <!-- Mail Server Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
@@ -998,6 +1002,8 @@
             </div>
         </div>
 
+        @endif
+
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="tenant-sync">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)'])
             <div class="settings-collapsible-body">
@@ -1239,7 +1245,7 @@
                         @csrf
                         <div>
                             <label for="source_company_id" class="text-sm text-secondary-foreground block mb-1">Bron-tenant (bedrijf) <span class="text-destructive">*</span></label>
-                            <select name="source_company_id" id="source_company_id" class="kt-select w-full max-w-xl @error('source_company_id') border-destructive @enderror">
+                            <select name="source_company_id" id="source_company_id" class="kt-select tenant-sync-company-select @error('source_company_id') border-destructive @enderror">
                                 <option value="" disabled @selected(old('source_company_id') === null || old('source_company_id') === '')>— Kies een bedrijf —</option>
                                 @foreach ($companiesForSync ?? [] as $c)
                                     <option value="{{ $c->id }}" @selected((string) old('source_company_id') === (string) $c->id)>{{ $c->name }} (id {{ $c->id }})</option>
@@ -1268,7 +1274,7 @@
                                     @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
                                 <i class="ki-filled ki-cloud-add me-2"></i> Start tenant-sync
                             </button>
-                            <span id="tenant-sync-submit-status" class="inline-flex items-center gap-2 text-sm min-h-[2.125rem] max-w-xl" aria-live="polite"></span>
+                            <span id="tenant-sync-submit-status" class="block w-full text-xs min-h-[2.125rem]" aria-live="polite"></span>
                         </div>
                     </form>
                 </div>
@@ -1281,18 +1287,18 @@
                         'infoId' => 'tenant-sync-zip-info',
                         'info' => 'Eén bundle per bedrijf: <strong>bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code>private_files/invoices/…</code>), <strong>website_pages</strong> in het manifest, en <strong>tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys). Bestandsnaam begint met <code>tenant-export-</code>. Manifest: <code>bundle_type</code> <code>tenant_media</code>, <code>bundle_version</code> 2. Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.',
                     ])
-                    <div class="space-y-6 max-w-2xl">
-                        <div>
-                            <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
-                            <select id="tenant-sync-zip-company-id" class="kt-select w-full" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
-                                <option value="">— Kies een bedrijf —</option>
-                                @foreach (($companiesForSync ?? []) as $c)
-                                    <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
-                                @endforeach
-                            </select>
-                            <p id="tenant-sync-zip-company-error" class="mt-1.5 hidden text-sm text-destructive" role="alert"></p>
-                        </div>
+                    <div>
+                        <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
+                        <select id="tenant-sync-zip-company-id" class="kt-select tenant-sync-company-select" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
+                            <option value="">— Kies een bedrijf —</option>
+                            @foreach (($companiesForSync ?? []) as $c)
+                                <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
+                            @endforeach
+                        </select>
+                        <p id="tenant-sync-zip-company-error" class="mt-1.5 hidden text-sm text-destructive" role="alert"></p>
+                    </div>
 
+                    <div class="max-w-2xl mt-6 space-y-6">
                         <div class="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-3">
                             @include('admin.settings.partials.heading-with-info', [
                                 'title' => 'Tenant-export (ZIP)',
@@ -1669,8 +1675,287 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function setTenantSyncStatusSuccess(message) {
+    function tenantSyncRowIsNotable(row) {
+        if (!row) return false;
+        var inserted = Number(row.inserted || 0);
+        var updated = Number(row.updated || 0);
+        var skipped = Number(row.skipped || 0);
+        var status = row.status || 'ok';
+        return (inserted + updated + skipped) > 0
+            || status === 'error' || status === 'warning' || status === 'skipped'
+            || !!row.error;
+    }
+
+    function renderTenantSyncReport(container, report) {
+        if (!container || !report) return;
+
+        container.textContent = '';
+        container.className = 'block w-full text-xs min-h-[2.125rem]';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'tenant-sync-report rounded-md border border-border bg-muted/20 p-4 text-xs leading-snug text-left w-full max-w-4xl';
+
+        var summary = document.createElement('p');
+        summary.className = 'font-medium text-foreground mb-3';
+        summary.textContent = report.summary || 'Tenant-sync voltooid.';
+        wrap.appendChild(summary);
+
+        if (report.errors && report.errors.length) {
+            var errTitle = document.createElement('p');
+            errTitle.className = 'text-xs font-semibold uppercase tracking-wide text-destructive mb-2';
+            errTitle.textContent = 'Fouten';
+            wrap.appendChild(errTitle);
+
+            var errList = document.createElement('ul');
+            errList.className = 'space-y-1.5 mb-4';
+            report.errors.forEach(function(error) {
+                var li = document.createElement('li');
+                li.className = 'text-destructive';
+                li.textContent = (error.section || 'Algemeen') + ': ' + (error.message || '');
+                errList.appendChild(li);
+            });
+            wrap.appendChild(errList);
+        }
+
+        (report.sections || []).forEach(function(section) {
+            var rows = (section.rows || []).filter(tenantSyncRowIsNotable);
+            if (!rows.length) return;
+
+            var block = document.createElement('div');
+            block.className = 'mb-4 last:mb-0';
+
+            var title = document.createElement('p');
+            title.className = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2';
+            title.textContent = section.title || 'Overig';
+            block.appendChild(title);
+
+            var list = document.createElement('ul');
+            list.className = 'space-y-1.5';
+
+            rows.forEach(function(row) {
+                list.appendChild(buildTenantSyncReportRowLi(row));
+            });
+
+            block.appendChild(list);
+            wrap.appendChild(block);
+        });
+
+        if (report.notes && report.notes.length) {
+            var notesWrap = document.createElement('div');
+            notesWrap.className = 'mt-4 pt-3 border-t border-border/70 space-y-1';
+
+            var notesTitle = document.createElement('p');
+            notesTitle.className = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground';
+            notesTitle.textContent = 'Opmerkingen';
+            notesWrap.appendChild(notesTitle);
+
+            report.notes.forEach(function(note) {
+                var p = document.createElement('p');
+                p.className = 'text-muted-foreground mb-0';
+                p.textContent = note;
+                notesWrap.appendChild(p);
+            });
+
+            wrap.appendChild(notesWrap);
+        }
+
+        var ok = document.createElement('div');
+        ok.className = 'flex items-start gap-2 text-emerald-600 dark:text-emerald-400 font-medium mb-3';
+        ok.innerHTML = '<i class="ki-filled ki-check-circle text-lg shrink-0 mt-0.5" aria-hidden="true"></i><span>Sync voltooid</span>';
+
+        container.appendChild(ok);
+        container.appendChild(wrap);
+    }
+
+    function buildTenantSyncReportRowLi(row) {
+        var li = document.createElement('li');
+        li.className = 'flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3';
+
+        var label = document.createElement('span');
+        label.className = 'font-mono text-foreground min-w-[12rem]';
+        label.textContent = row.label || '—';
+
+        var counts = document.createElement('span');
+        counts.className = 'text-muted-foreground';
+        counts.textContent = '+' + (row.inserted || 0) + ' toegevoegd, ~' + (row.updated || 0) + ' bijgewerkt, -' + (row.skipped || 0) + ' overgeslagen';
+
+        li.appendChild(label);
+        li.appendChild(counts);
+
+        if (row.error) {
+            var err = document.createElement('span');
+            err.className = 'text-destructive sm:basis-full';
+            err.textContent = row.error;
+            li.appendChild(err);
+        }
+
+        return li;
+    }
+
+    function initTenantSyncProgressUi(container) {
+        if (!container) return null;
+
+        container.textContent = '';
+        container.className = 'block w-full text-xs min-h-[2.125rem]';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left';
+
+        var heading = document.createElement('p');
+        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-2.5 flex items-center gap-2';
+        heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0" aria-hidden="true"></i><span>Sync bezig…</span>';
+
+        var list = document.createElement('ul');
+        list.className = 'tenant-sync-progress-list space-y-1.5';
+        list.setAttribute('aria-live', 'polite');
+
+        wrap.appendChild(heading);
+        wrap.appendChild(list);
+        container.appendChild(wrap);
+
+        return {
+            wrap: wrap,
+            heading: heading,
+            list: list,
+            sections: {},
+        };
+    }
+
+    function appendTenantSyncProgressSection(progressUi, sectionTitle) {
+        if (!progressUi || !sectionTitle || progressUi.sections[sectionTitle]) return;
+
+        progressUi.sections[sectionTitle] = true;
+
+        var li = document.createElement('li');
+        li.className = 'tenant-sync-progress-item text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0';
+        li.textContent = sectionTitle;
+        progressUi.list.appendChild(li);
+    }
+
+    function appendTenantSyncProgressItem(progressUi, li) {
+        if (!progressUi || !li) return;
+        li.classList.add('tenant-sync-progress-item');
+        progressUi.list.appendChild(li);
+        if (progressUi.list.lastElementChild) {
+            progressUi.list.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function handleTenantSyncProgressEvent(progressUi, event) {
+        if (!progressUi || !event || !event.type) return;
+
+        if (event.type === 'step') {
+            var stepLi = document.createElement('li');
+            stepLi.className = 'flex items-start gap-2 text-foreground';
+            stepLi.innerHTML = '<i class="ki-filled ki-check-circle text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (event.label || 'Stap voltooid') + '</span>';
+            appendTenantSyncProgressItem(progressUi, stepLi);
+            return;
+        }
+
+        if (event.type === 'note') {
+            var noteLi = document.createElement('li');
+            noteLi.className = 'text-muted-foreground text-[11px]';
+            noteLi.textContent = event.note || '';
+            appendTenantSyncProgressItem(progressUi, noteLi);
+            return;
+        }
+
+        if (event.type === 'row') {
+            var row = event.row || {};
+            if (!tenantSyncRowIsNotable(row)) return;
+
+            if (event.section) {
+                appendTenantSyncProgressSection(progressUi, event.section);
+            }
+
+            appendTenantSyncProgressItem(progressUi, buildTenantSyncReportRowLi(row));
+            return;
+        }
+
+        if (event.type === 'summary' && event.summary) {
+            progressUi.summaryText = event.summary;
+        }
+    }
+
+    function finishTenantSyncProgressUi(progressUi, success, message) {
+        if (!progressUi) return;
+
+        if (progressUi.heading) {
+            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-2.5 flex items-start gap-2 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            progressUi.heading.innerHTML = success
+                ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || progressUi.summaryText || 'Sync voltooid.') + '</span>'
+                : '<i class="ki-filled ki-information text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || 'Sync mislukt.') + '</span>';
+        }
+    }
+
+    function consumeTenantSyncStream(response, onEvent) {
+        if (!response.body || typeof response.body.getReader !== 'function') {
+            return response.text().then(function(text) {
+                var data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (e) {
+                    throw new Error('Ongeldig antwoord van de server (HTTP ' + response.status + ').');
+                }
+                return { ok: response.ok, status: response.status, data: data, streamed: false };
+            });
+        }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+        var completeEvent = null;
+
+        function processBuffer(finalChunk) {
+            if (finalChunk) {
+                buffer += finalChunk;
+            }
+            var lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            lines.forEach(function(line) {
+                line = line.trim();
+                if (!line) return;
+                var event = JSON.parse(line);
+                if (event.type === 'complete') {
+                    completeEvent = event;
+                    return;
+                }
+                onEvent(event);
+            });
+        }
+
+        function pump() {
+            return reader.read().then(function(result) {
+                if (result.done) {
+                    if (buffer.trim() !== '') {
+                        processBuffer('');
+                    }
+                    return {
+                        ok: response.ok,
+                        status: response.status,
+                        data: completeEvent || {},
+                        streamed: true,
+                    };
+                }
+                processBuffer(decoder.decode(result.value, { stream: true }));
+                return pump();
+            });
+        }
+
+        return pump().catch(function(err) {
+            if (err instanceof SyntaxError) {
+                throw new Error('Ongeldige stream van de server.');
+            }
+            throw err;
+        });
+    }
+
+    function setTenantSyncStatusSuccess(message, report) {
         if (!tenantSyncSubmitStatus) return;
+        if (report) {
+            renderTenantSyncReport(tenantSyncSubmitStatus, report);
+            return;
+        }
         tenantSyncSubmitStatus.textContent = '';
         var wrap = document.createElement('span');
         wrap.className = 'inline-flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium';
@@ -1730,31 +2015,49 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sel) sel.disabled = true;
             if (cb) cb.disabled = true;
 
+            var progressUi = initTenantSyncProgressUi(tenantSyncSubmitStatus);
+
             fetch('{{ route("admin.settings.tenant-sync.run") }}', {
                 method: 'POST',
                 body: fd,
                 credentials: 'same-origin',
                 headers: {
-                    'Accept': 'application/json',
+                    'Accept': 'application/x-ndjson',
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-Tenant-Sync-Stream': '1',
                     'X-CSRF-TOKEN': token,
                 },
             })
                 .then(function(r) {
-                    return r.text().then(function(text) {
-                        var data = null;
-                        try {
-                            data = text ? JSON.parse(text) : null;
-                        } catch (e) {
-                            throw new Error('Ongeldig antwoord van de server (HTTP ' + r.status + ').');
-                        }
-                        return { ok: r.ok, status: r.status, data: data };
+                    var contentType = (r.headers.get('content-type') || '').toLowerCase();
+                    if (contentType.indexOf('ndjson') === -1) {
+                        return r.text().then(function(text) {
+                            var data = null;
+                            try {
+                                data = text ? JSON.parse(text) : null;
+                            } catch (e) {
+                                throw new Error('Ongeldig antwoord van de server (HTTP ' + r.status + ').');
+                            }
+                            return { ok: r.ok, status: r.status, data: data, streamed: false };
+                        });
+                    }
+                    return consumeTenantSyncStream(r, function(event) {
+                        handleTenantSyncProgressEvent(progressUi, event);
                     });
                 })
                 .then(function(res) {
                     var d = res.data || {};
+                    if (res.streamed) {
+                        if (d.success) {
+                            finishTenantSyncProgressUi(progressUi, true, d.message || 'Sync voltooid.');
+                            if (cb) cb.checked = false;
+                            return;
+                        }
+                        finishTenantSyncProgressUi(progressUi, false, d.message || ('Fout (HTTP ' + res.status + ')'));
+                        return;
+                    }
                     if (res.ok && d.success) {
-                        setTenantSyncStatusSuccess(d.message || 'Sync voltooid.');
+                        setTenantSyncStatusSuccess(d.message || 'Sync voltooid.', d.report || (d.result && d.result.report));
                         if (cb) cb.checked = false;
                         return;
                     }
@@ -1763,13 +2066,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         applyTenantSyncValidationErrors(d.errors);
                     }
                     if (!hasFieldErrors) {
-                        setTenantSyncStatusError(d.message || ('Fout (HTTP ' + res.status + ')'));
+                        finishTenantSyncProgressUi(progressUi, false, d.message || ('Fout (HTTP ' + res.status + ')'));
                     } else {
                         setTenantSyncStatusIdle();
                     }
                 })
                 .catch(function(err) {
-                    setTenantSyncStatusError(err && err.message ? err.message : 'Netwerkfout.');
+                    finishTenantSyncProgressUi(progressUi, false, err && err.message ? err.message : 'Netwerkfout.');
                 })
                 .finally(function() {
                     tenantSyncSubmitBtn.disabled = false;

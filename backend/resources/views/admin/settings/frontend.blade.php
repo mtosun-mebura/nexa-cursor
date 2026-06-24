@@ -30,8 +30,6 @@
         </div>
     @endif
 
-    @include('admin.settings.partials.tenant-scope-notice')
-
     <div class="grid gap-5 lg:gap-7.5">
         <!-- Coming Soon pagina -->
         <div class="kt-card min-w-full">

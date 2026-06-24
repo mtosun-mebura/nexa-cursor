@@ -259,6 +259,14 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function main_required_tables_includes_ride_payments_migration(): void
+    {
+        $required = config('tenant_sync.main_required_tables', []);
+        $this->assertArrayHasKey('ride_payments', $required);
+        $this->assertStringContainsString('add_taxi_ride_payments', (string) $required['ride_payments']);
+    }
+
+    #[Test]
     public function update_on_existing_tables_includes_domains_and_settings(): void
     {
         $tables = config('tenant_sync.update_on_existing_tables', []);

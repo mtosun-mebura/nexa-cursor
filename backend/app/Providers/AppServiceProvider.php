@@ -10,6 +10,7 @@ use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\WebsiteBuilderService;
+use App\Support\Admin\AdminTenantScope;
 use App\Support\Tenancy\CentralDomains;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Config;
@@ -54,6 +55,33 @@ class AppServiceProvider extends ServiceProvider
         $this->registerWebsitePageRouteBinding();
         $this->loadGoogleMapsApiKeyFromRootEnv();
         $this->forceLocalDevRootUrlFromRequest();
+
+        View::composer('admin.layouts.app', function ($view) {
+            if (! auth()->check()) {
+                return;
+            }
+
+            $scope = app(AdminTenantScope::class);
+            $data = $view->getData();
+
+            $tenantScopedActive = $data['adminTenantScopedActive']
+                ?? $data['websitePagesTenantScopedActive']
+                ?? $data['tenantScopedSettingsActive']
+                ?? $data['moduleConfigTenantScopedActive']
+                ?? $scope->isTenantScopedActive();
+
+            $showNotice = ($data['adminShowTenantNotice'] ?? $scope->shouldShowTenantNotice())
+                && ! ($data['adminTenantScopeNoticeSuppressed'] ?? false);
+
+            $hideContent = $data['adminHideContentWithoutTenant'] ?? $scope->shouldHideContent();
+
+            $view->with([
+                'adminTenantScopedActive' => $tenantScopedActive,
+                'adminShowTenantNotice' => $showNotice,
+                'adminHideContentWithoutTenant' => $hideContent,
+                'adminTenantScopeVariant' => $data['adminTenantScopeVariant'] ?? $scope->noticeVariant(),
+            ]);
+        });
 
         View::composer(['frontend.layouts.website', 'frontend.layouts.app', 'frontend.layouts.partials.header'], function ($view) {
             $data = $view->getData();

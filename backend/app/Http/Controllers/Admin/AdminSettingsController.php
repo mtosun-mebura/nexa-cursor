@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminSettingsController extends Controller
 {
@@ -348,8 +349,15 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
+        $sourceCompanyId = (int) $request->input('source_company_id');
+        $wantsStream = $wantsJson && $request->header('X-Tenant-Sync-Stream') === '1';
+
+        if ($wantsStream) {
+            return $this->streamTenantSyncRun($sourceCompanyId);
+        }
+
         try {
-            $result = $this->tenantCompanyDataPush->pushFullTenant((int) $request->input('source_company_id'));
+            $result = $this->tenantCompanyDataPush->pushFullTenant($sourceCompanyId);
         } catch (\Throwable $e) {
             $msg = 'Sync mislukt: '.$e->getMessage();
             if ($wantsJson) {
@@ -359,16 +367,16 @@ class AdminSettingsController extends Controller
             return $tenantSyncRedirect()->with('error', $msg);
         }
 
-        $msg = 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
-            .'. Ingevoegd: '.$result['inserted'].', overgeslagen (duplicaat / bestond al): '.$result['skipped'].'.';
-        if ($result['messages'] !== []) {
-            $msg .= ' '.implode(' ', $result['messages']);
-        }
+        $msg = $result['report']['summary'] ?? (
+            'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
+            .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+        );
 
         if ($wantsJson) {
             return response()->json([
                 'success' => true,
                 'message' => $msg,
+                'report' => $result['report'] ?? null,
                 'result' => $result,
             ]);
         }
@@ -376,7 +384,59 @@ class AdminSettingsController extends Controller
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
             ->with('success', $msg)
+            ->with('tenant_sync_report', $result['report'] ?? null)
             ->with('tenant_sync_completed', true);
+    }
+
+    private function streamTenantSyncRun(int $sourceCompanyId): StreamedResponse
+    {
+        return response()->stream(function () use ($sourceCompanyId): void {
+            $this->flushTenantSyncStream();
+
+            $emit = function (array $event): void {
+                echo json_encode($event, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)."\n";
+                $this->flushTenantSyncStream();
+            };
+
+            try {
+                $result = $this->tenantCompanyDataPush->pushFullTenant($sourceCompanyId, $emit);
+                $emit([
+                    'type' => 'complete',
+                    'success' => true,
+                    'message' => $result['report']['summary'] ?? (
+                        'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
+                        .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                    ),
+                    'report' => $result['report'] ?? null,
+                ]);
+            } catch (\Throwable $e) {
+                $emit([
+                    'type' => 'complete',
+                    'success' => false,
+                    'message' => 'Sync mislukt: '.$e->getMessage(),
+                ]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    private function flushTenantSyncStream(): void
+    {
+        if (function_exists('apache_setenv')) {
+            @apache_setenv('no-gzip', '1');
+        }
+
+        @ini_set('zlib.output_compression', '0');
+        @ini_set('implicit_flush', '1');
+
+        while (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+
+        flush();
     }
 
     /**
