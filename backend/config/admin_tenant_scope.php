@@ -20,6 +20,7 @@ return [
         'admin.modules.*.database-dummydata',
         'admin.modules.*.run-migrations',
         'admin.permissions.*',
+        'admin.roles.*',
         'admin.profile',
         'admin.profile.*',
         'admin.playground.*',
