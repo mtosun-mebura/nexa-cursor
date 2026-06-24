@@ -31,8 +31,6 @@
             </div>
         @endif
 
-        @include('admin.settings.partials.tenant-scope-notice')
-
         <!-- Huidige logo en favicon bovenaan gecentreerd -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 py-8 mb-8 rounded-xl bg-muted/30 dark:bg-muted/10 border border-border">
             <div class="flex flex-col items-center gap-2">

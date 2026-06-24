@@ -33,12 +33,17 @@ return [
             'knowledge_chunks',
             // Contractvervoer: ontbrekende tabellen triggeren modules/taxi-migraties (incl. ride_requests-kolommen).
             'transport_customers',
+            'transport_contracts',
+            'transport_passengers',
+            'transport_groups',
+            'transport_route_templates',
             'transport_individual_bookings',
+            'transport_assignments',
             'transport_occurrences',
             'ride_stops',
             'transport_schedule_exceptions',
         ],
-        'skillmatching' => ['branches', 'vacancies', 'job_configurations'],
+        'skillmatching' => ['vacancies', 'job_configurations'],
     ],
 
     'default_set' => ['core', 'shared'],

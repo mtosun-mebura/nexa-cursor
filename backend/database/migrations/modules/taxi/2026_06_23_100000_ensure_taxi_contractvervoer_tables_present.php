@@ -3,11 +3,6 @@
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use Illuminate\Database\Migrations\Migration;
 
-/**
- * Contractklanten / abonnementen (contractvervoer MVP).
- *
- * @see database/migrations/modules/taxi/
- */
 return new class extends Migration
 {
     public function up(): void
@@ -17,6 +12,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // MVP down-migrations weglaten (veiligheid). Re-run deploy in production via nieuwe migrations.
+        // Geen down: tabellen blijven behouden.
     }
 };

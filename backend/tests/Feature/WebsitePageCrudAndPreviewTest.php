@@ -146,9 +146,12 @@ class WebsitePageCrudAndPreviewTest extends TestCase
     #[Test]
     public function website_pages_create_form_loads_for_super_admin(): void
     {
+        $tenant = Company::query()->create(['name' => 'Create Form Tenant', 'slug' => 'create-form-'.uniqid()]);
         $user = User::factory()->create();
         $user->assignRole('super-admin');
-        $response = $this->actingAs($user)->get(route('admin.website-pages.create'));
+        $response = $this->actingAs($user)
+            ->withSession(['selected_tenant' => $tenant->id])
+            ->get(route('admin.website-pages.create'));
         $response->assertStatus(200);
         $response->assertSee('Pagina-informatie');
         $response->assertSee('Menuitem');

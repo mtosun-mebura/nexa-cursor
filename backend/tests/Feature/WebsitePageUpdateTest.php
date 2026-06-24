@@ -907,7 +907,9 @@ class WebsitePageUpdateTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('super-admin');
 
-        $response = $this->actingAs($user)->get(route('admin.website-pages.edit', $page));
+        $response = $this->actingAs($user)
+            ->withSession(['selected_tenant' => $companyId])
+            ->get(route('admin.website-pages.edit', $page));
 
         $response->assertOk();
         $response->assertSee('name="frontend_theme_id"', false);

@@ -61,6 +61,7 @@ return [
     'main_required_tables' => [
         'company_domains' => 'database/migrations/2026_04_20_000002_create_company_domains_table.php',
         'ai_chat_audit_logs' => 'database/migrations/2026_06_08_140000_create_ai_chat_audit_logs_table.php',
+        'ride_payments' => 'database/migrations/modules/taxi/2026_05_21_100000_add_taxi_ride_payments.php',
     ],
 
     /*
