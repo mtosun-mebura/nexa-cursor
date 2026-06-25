@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { inject, onUnmounted, provide, ref, watch, type Ref } from 'vue'
 import BuilderConfigFields from './BuilderConfigFields.vue'
-import type { ConfigField } from './section-config-schemas'
+import BuilderWysiwygField from './BuilderWysiwygField.vue'
+import type { ConfigField, FieldVisibleWhen, SelectOption } from './section-config-schemas'
 import { buildPatchForPath, getByPath } from './nested-data'
 import { websiteMediaPreviewUrl } from './section-data-normalize'
 
@@ -20,6 +21,9 @@ const props = defineProps<{
   websiteMediaUploadUrl?: string
   websiteMediaServeBase?: string
   collapsePrefix?: string
+  blockKey?: string
+  sideComponentOptions?: SelectOption[]
+  emailTemplateOptions?: SelectOption[]
 }>()
 
 const emit = defineEmits<{
@@ -124,6 +128,42 @@ function str(key: string, fallback = ''): string {
   const v = getByPath(props.data, key)
   if (v === null || v === undefined) return fallback
   return String(v)
+}
+
+function fieldVisible(field: ConfigField): boolean {
+  const when = (field as { visibleWhen?: FieldVisibleWhen }).visibleWhen
+  if (!when) {
+    return true
+  }
+  const value = String(getByPath(props.data, when.key) ?? '').trim()
+  if (when.notEmpty) {
+    return value !== ''
+  }
+  return true
+}
+
+function dynamicSelectOptions(field: Extract<ConfigField, { type: 'dynamic-select' }>): SelectOption[] {
+  if (field.source === 'sideComponents') {
+    return props.sideComponentOptions ?? [{ value: '', label: '— Geen —' }]
+  }
+  return props.emailTemplateOptions ?? [{ value: '', label: '— Kies een e-mailtemplate —' }]
+}
+
+function updateDynamicSelect(field: Extract<ConfigField, { type: 'dynamic-select' }>, value: string) {
+  if (field.key === 'side_component_key' && value === '') {
+    emit('patch', { side_component_key: '', side_template_id: '' })
+    return
+  }
+  if (field.key === 'side_template_id') {
+    updateField(field.key, value === '' ? '' : Number(value))
+    return
+  }
+  updateField(field.key, value)
+}
+
+function wysiwygEditorKey(fieldKey: string): string {
+  const block = props.blockKey ?? 'block'
+  return `${block}-${fieldKey}`
 }
 
 function num(key: string, fallback = 0): number {
@@ -489,6 +529,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 <template>
   <div class="builder-config-fields">
     <template v-for="(field, fi) in fields" :key="`${field.type}-${fi}`">
+      <template v-if="fieldVisible(field)">
       <div
         v-if="field.type === 'group'"
         class="builder-config-group"
@@ -514,6 +555,9 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             :website-media-upload-url="websiteMediaUploadUrl"
             :website-media-serve-base="websiteMediaServeBase"
             :collapse-prefix="childCollapsePrefix(fi, field.label)"
+            :block-key="blockKey"
+            :side-component-options="sideComponentOptions"
+            :email-template-options="emailTemplateOptions"
             @patch="emit('patch', $event)"
           />
         </div>
@@ -754,6 +798,29 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         </template>
       </div>
 
+      <BuilderWysiwygField
+        v-else-if="field.type === 'wysiwyg'"
+        :editor-key="wysiwygEditorKey(field.key)"
+        :label="field.label"
+        :model-value="str(field.key)"
+        :placeholder="field.placeholder"
+        @update:model-value="updateField(field.key, $event)"
+      />
+
+      <label v-else-if="field.type === 'dynamic-select'" class="builder-field">
+        <span>{{ field.label }}</span>
+        <select
+          class="kt-input"
+          :value="field.key === 'side_template_id' ? str(field.key) : str(field.key, '')"
+          @change="updateDynamicSelect(field, ($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="opt in dynamicSelectOptions(field)" :key="`${field.key}-${opt.value}`" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
+      </label>
+
       <label v-else-if="field.type === 'text'" class="builder-field">
         <span>{{ field.label }}</span>
         <input
@@ -785,6 +852,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         >
           <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
+        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
 
       <div v-else-if="field.type === 'range'" class="builder-field">
@@ -872,35 +940,55 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 
       <div v-else-if="field.type === 'image'" class="builder-field">
         <span>{{ field.label }}</span>
-        <div class="builder-image-field">
-          <input
-            class="kt-input text-sm"
-            :value="str(field.key)"
-            placeholder="URL of upload afbeelding"
-            @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
-          />
-          <label class="kt-btn kt-btn-xs kt-btn-outline shrink-0 cursor-pointer">
-            {{ uploadingKey === field.key ? 'Uploaden…' : 'Upload' }}
+        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
+        <div class="builder-media-image-row">
+          <div v-if="str(field.key)" class="builder-hero-image-preview-wrap shrink-0 flex flex-col items-center">
+            <img
+              :src="str(field.key)"
+              alt=""
+              class="builder-image-preview builder-image-preview--clickable builder-media-image-row__preview"
+              role="button"
+              tabindex="0"
+              title="Klik om te vergroten"
+              @click="openImagePreview(str(field.key))"
+              @keydown.enter.prevent="openImagePreview(str(field.key))"
+            />
+            <button
+              type="button"
+              class="builder-hero-image-remove kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1"
+              title="Afbeelding verwijderen"
+              aria-label="Afbeelding verwijderen"
+              @click="updateField(field.key, '')"
+            >
+              <i class="ki-filled ki-trash" aria-hidden="true" />
+            </button>
+          </div>
+          <div v-else class="builder-media-image-row__placeholder" aria-hidden="true">
+            <i class="ki-filled ki-picture" />
+            <span>Geen afbeelding</span>
+          </div>
+          <label
+            class="hero-image-upload-area builder-media-upload-area"
+            :class="{
+              'builder-media-upload-area--dragover': mediaDragOverKey === field.key,
+              'builder-media-upload-area--busy': uploadingKey === field.key,
+            }"
+            @dragover="onMediaDragOver(field.key, $event)"
+            @dragleave="onMediaDragLeave(field.key, $event)"
+            @drop="onMediaDrop(field.key, $event, (file) => uploadImage(field.key, file))"
+          >
+            <span class="builder-media-upload-area__title">
+              {{ uploadingKey === field.key ? 'Uploaden…' : 'Klik of sleep afbeelding' }}
+            </span>
+            <span class="builder-media-upload-area__hint">JPG, PNG, WebP (max. 5MB)</span>
             <input
               type="file"
-              class="hidden"
+              class="hero-image-file-input hidden"
               accept="image/jpeg,image/png,image/webp,image/gif"
               @change="onImagePick(field.key, $event)"
             />
           </label>
         </div>
-        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
-        <img
-          v-if="str(field.key)"
-          :src="str(field.key)"
-          alt=""
-          class="builder-image-preview builder-image-preview--clickable"
-          role="button"
-          tabindex="0"
-          title="Klik om te vergroten"
-          @click="openImagePreview(str(field.key))"
-          @keydown.enter.prevent="openImagePreview(str(field.key))"
-        />
       </div>
 
       <div v-else-if="field.type === 'website-media-image'" class="builder-field">
@@ -955,6 +1043,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         />
         <span>{{ field.label }}</span>
       </label>
+      </template>
     </template>
   </div>
 
@@ -1179,6 +1268,18 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   border-radius: 0.4rem;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.builder-hero-image-remove {
+  flex-shrink: 0;
+}
+
+.builder-hero-image-preview-wrap {
+  align-self: center;
+}
+
+.builder-hero-image-remove:hover {
+  background: color-mix(in srgb, #dc2626 10%, transparent);
 }
 
 .builder-image-field {

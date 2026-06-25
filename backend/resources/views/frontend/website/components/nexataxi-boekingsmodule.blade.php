@@ -236,9 +236,20 @@
                                     <div class="relative booking-route-field-row" data-route-row="pickup">
                                         <div class="relative w-full min-w-0" data-route-icon-align-target>
                                             <span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none z-[1] pointer-events-none" data-route-field-label>van</span>
-                                            <input type="text" style="padding-left: 70px;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full pe-3 py-3.5 shadow-xs placeholder:text-body" data-field="pickup_address" name="pickup_address" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="{{ e($texts['pickup_placeholder'] ?? 'straatnaam met huisnummer') }}">
+                                            <input type="text" style="padding-left: 70px;" class="booking-route-input-short booking-route-input-short--with-locate bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full py-3.5 shadow-xs placeholder:text-body" data-field="pickup_address" name="pickup_address" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="{{ e($texts['pickup_placeholder'] ?? 'straatnaam met huisnummer') }}">
+                                            <button type="button"
+                                                    class="booking-route-locate-btn"
+                                                    data-pickup-locate-btn
+                                                    aria-label="Gebruik mijn huidige locatie"
+                                                    title="Gebruik mijn huidige locatie">
+                                                <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c-2.899 0-5.25 2.351-5.25 5.25 0 4.125 5.25 10.5 5.25 10.5s5.25-6.375 5.25-10.5C17.25 4.601 14.899 2.25 12 2.25Z"/>
+                                                </svg>
+                                            </button>
                                         </div>
                                         <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300 w-full" data-booking-field-error="pickup_address" role="alert"></p>
+                                        <p class="hidden mt-1.5 text-sm text-amber-700 dark:text-amber-400 w-full" data-booking-field-hint="pickup_address" role="status"></p>
                                     </div>
                                     <div class="booking-route-middle booking-route-field-row flex items-center justify-between" data-route-row="middle">
                                         <span class="inline-flex items-center text-fg-brand text-xs md:text-sm font-medium" data-stopover-text>
@@ -1187,6 +1198,47 @@ body.booking-modal-open {
     border-color: rgba(148, 163, 184, 0.45) !important;
 }
 
+[data-nexataxi-booking-module] .booking-route-fields input.booking-route-input-short--with-locate {
+    padding-right: 3rem !important;
+}
+
+[data-nexataxi-booking-module] .booking-route-locate-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--theme-primary, #2563eb);
+    cursor: pointer;
+}
+
+[data-nexataxi-booking-module] .booking-route-locate-btn:hover:not(:disabled) {
+    background: rgb(37 99 235 / 0.08);
+}
+
+[data-nexataxi-booking-module] .booking-route-locate-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+[data-nexataxi-booking-module] .dark .booking-route-locate-btn,
+.dark [data-nexataxi-booking-module] .booking-route-locate-btn {
+    color: #93c5fd;
+}
+
+[data-nexataxi-booking-module] .dark .booking-route-locate-btn:hover:not(:disabled),
+.dark [data-nexataxi-booking-module] .booking-route-locate-btn:hover:not(:disabled) {
+    background: rgb(147 197 253 / 0.12);
+}
+
 [data-nexataxi-booking-module] input.border-default-medium,
 [data-nexataxi-booking-module] textarea.border-default-medium,
 [data-nexataxi-booking-module] select.border-default-medium {
@@ -1455,6 +1507,7 @@ body.booking-modal-open {
         pickup_lat: null,
         pickup_lng: null,
         pickup_place_id: null,
+        pickup_gps_locked: false,
         stopovers_geo: [],
         dropoff_lat: null,
         dropoff_lng: null,
@@ -1920,6 +1973,10 @@ body.booking-modal-open {
             errEl.textContent = '';
             errEl.classList.add('hidden');
         });
+        root.querySelectorAll('[data-booking-field-hint]').forEach(function(hintEl) {
+            hintEl.textContent = '';
+            hintEl.classList.add('hidden');
+        });
         root.querySelectorAll('.booking-field-input--error').forEach(function(el) {
             el.classList.remove('booking-field-input--error');
         });
@@ -1936,7 +1993,25 @@ body.booking-modal-open {
         }
     }
 
+    function clearFieldHintFor(fieldKey) {
+        if (!fieldKey) return;
+        var hintEl = root.querySelector('[data-booking-field-hint="' + fieldKey + '"]');
+        if (hintEl) {
+            hintEl.textContent = '';
+            hintEl.classList.add('hidden');
+        }
+    }
+
+    function setFieldHint(fieldKey, message) {
+        var hintEl = root.querySelector('[data-booking-field-hint="' + fieldKey + '"]');
+        if (hintEl) {
+            hintEl.textContent = message || '';
+            hintEl.classList.toggle('hidden', !message);
+        }
+    }
+
     function setFieldError(fieldKey, message) {
+        clearFieldHintFor(fieldKey);
         var input = root.querySelector('[data-field="' + fieldKey + '"]');
         var errEl = root.querySelector('[data-booking-field-error="' + fieldKey + '"]');
         if (input) input.classList.add('booking-field-input--error');
@@ -2066,6 +2141,7 @@ body.booking-modal-open {
             pickup_lat: null,
             pickup_lng: null,
             pickup_place_id: null,
+            pickup_gps_locked: false,
             stopovers_geo: [],
             dropoff_lat: null,
             dropoff_lng: null,
@@ -3673,6 +3749,9 @@ body.booking-modal-open {
                     requestQuotes();
                     return;
                 }
+                if (state.pickup_gps_locked && isFinite(state.pickup_lat) && isFinite(state.pickup_lng)) {
+                    points[0] = { lat: state.pickup_lat, lng: state.pickup_lng };
+                }
                 state.pickup_lat = points[0].lat;
                 state.pickup_lng = points[0].lng;
                 state.stopovers_geo = points.slice(1, -1).map(function(p) {
@@ -4724,11 +4803,299 @@ body.booking-modal-open {
                 state.pickup_place_id = null;
                 state.pickup_lat = null;
                 state.pickup_lng = null;
+                state.pickup_gps_locked = false;
             } else if (field === 'dropoff_address') {
                 state.dropoff_place_id = null;
                 state.dropoff_lat = null;
                 state.dropoff_lng = null;
             }
+        }
+
+        var pickupGeolocationLoading = false;
+        var GEOLOCATION_ACCURACY_WARN_METERS = 80;
+
+        function geolocationErrorMessage(error) {
+            var code = error && error.code;
+            if (code === 1) {
+                return 'Locatietoegang geweigerd. Sta locatie toe in je browser of vul het adres handmatig in.';
+            }
+            if (code === 2) {
+                return 'Je locatie kon niet worden bepaald. Probeer het opnieuw of vul het adres handmatig in.';
+            }
+            if (code === 3) {
+                return 'Locatie ophalen duurde te lang. Probeer het opnieuw of vul het adres handmatig in.';
+            }
+            return 'Je huidige locatie kon niet worden gebruikt. Vul het ophaaladres handmatig in.';
+        }
+
+        function formatGeolocationAccuracyHint(accuracyMeters) {
+            if (!isFinite(accuracyMeters) || accuracyMeters <= GEOLOCATION_ACCURACY_WARN_METERS) {
+                return '';
+            }
+            return 'Locatie is bij benadering (±' + Math.round(accuracyMeters) + ' m). Controleer het ophaaladres.';
+        }
+
+        function haversineMeters(lat1, lng1, lat2, lng2) {
+            var toRad = Math.PI / 180;
+            var dLat = (lat2 - lat1) * toRad;
+            var dLng = (lng2 - lng1) * toRad;
+            var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function googleResultHasStreetNumber(result) {
+            return (result.address_components || []).some(function(c) {
+                return (c.types || []).indexOf('street_number') >= 0;
+            });
+        }
+
+        function formatGoogleGeocodeAddress(result) {
+            if (!result) return '';
+            var components = result.address_components || [];
+            var byType = {};
+            components.forEach(function(c) {
+                (c.types || []).forEach(function(t) {
+                    if (!byType[t]) byType[t] = c.long_name;
+                });
+            });
+            var street = byType.route || byType.pedestrian || '';
+            var number = byType.street_number || '';
+            var streetPart = [street, number].filter(Boolean).join(' ').trim();
+            var postcode = byType.postal_code || '';
+            var city = byType.locality || byType.postal_town || byType.administrative_area_level_2 || '';
+            var second = [postcode, city].filter(Boolean).join(' ').trim();
+            var value = [streetPart, second].filter(Boolean).join(', ').trim();
+            return value || String(result.formatted_address || '').trim();
+        }
+
+        function pickBestReverseGeocodeResult(results, lat, lng) {
+            if (!Array.isArray(results) || !results.length) return null;
+            var typePenalty = { ROOFTOP: 0, RANGE_INTERPOLATED: 10, GEOMETRIC_CENTER: 70, APPROXIMATE: 100 };
+            var best = null;
+            var bestScore = Infinity;
+            for (var i = 0; i < results.length; i++) {
+                var result = results[i];
+                if (!result.geometry || !result.geometry.location) continue;
+                var loc = result.geometry.location;
+                var rLat = typeof loc.lat === 'function' ? loc.lat() : parseFloat(loc.lat);
+                var rLng = typeof loc.lng === 'function' ? loc.lng() : parseFloat(loc.lng);
+                if (!isFinite(rLat) || !isFinite(rLng)) continue;
+                var dist = haversineMeters(lat, lng, rLat, rLng);
+                var penalty = typePenalty[result.geometry.location_type] || 45;
+                var types = result.types || [];
+                var isAddress = types.indexOf('street_address') >= 0 || types.indexOf('premise') >= 0 || types.indexOf('subpremise') >= 0;
+                var score = dist + penalty;
+                if (!isAddress) score += 55;
+                if (!googleResultHasStreetNumber(result)) score += 75;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = result;
+                }
+            }
+            return best || results[0];
+        }
+
+        function parseNominatimReverseResult(row) {
+            if (!row || typeof row !== 'object') return null;
+            var formatted = formatNominatimAddress(row);
+            var label = formatted && formatted.value ? formatted.value : String(row.display_name || '').trim();
+            if (!label) return null;
+            var rLat = parseFloat(row.lat);
+            var rLng = parseFloat(row.lon);
+            return {
+                label: label,
+                place_id: '',
+                hasHouseNumber: !!(row.address && row.address.house_number),
+                lat: isFinite(rLat) ? rLat : null,
+                lng: isFinite(rLng) ? rLng : null
+            };
+        }
+
+        function scoreReverseCandidate(candidate, gpsLat, gpsLng) {
+            var dist = (isFinite(candidate.lat) && isFinite(candidate.lng))
+                ? haversineMeters(gpsLat, gpsLng, candidate.lat, candidate.lng)
+                : 0;
+            var score = dist;
+            if (!candidate.hasHouseNumber) score += 80;
+            if (dist > 45) score += 120;
+            candidate.distFromGps = dist;
+            candidate.score = score;
+            return score;
+        }
+
+        function pickBestReverseLabel(lat, lng, candidates) {
+            var usable = (candidates || []).filter(function(c) { return c && c.label; });
+            if (!usable.length) return null;
+            usable.forEach(function(c) { scoreReverseCandidate(c, lat, lng); });
+            usable.sort(function(a, b) { return a.score - b.score; });
+            return usable[0];
+        }
+
+        function getCurrentPosition() {
+            return new Promise(function(resolve, reject) {
+                if (!navigator.geolocation) {
+                    reject(new Error('unsupported'));
+                    return;
+                }
+                var geoOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+                var best = null;
+                var settled = false;
+                var watchId = null;
+                var deadline = setTimeout(function() {
+                    if (settled) return;
+                    settled = true;
+                    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                    if (best) resolve(best);
+                    else reject(Object.assign(new Error('timeout'), { code: 3 }));
+                }, 15000);
+                function consider(position) {
+                    if (!best || position.coords.accuracy < best.coords.accuracy) {
+                        best = position;
+                    }
+                    if (position.coords.accuracy <= 35) {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(deadline);
+                        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                        resolve(best);
+                    }
+                }
+                watchId = navigator.geolocation.watchPosition(
+                    consider,
+                    function(error) {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(deadline);
+                        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                        if (best) resolve(best);
+                        else reject(error);
+                    },
+                    geoOptions
+                );
+            });
+        }
+
+        function fetchNominatimReverseLabel(lat, lng) {
+            var base = (config.address_search_url || '').trim();
+            if (!base) {
+                return Promise.resolve(null);
+            }
+            var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + new URLSearchParams({
+                lat: String(lat),
+                lon: String(lng)
+            }).toString();
+            return fetchWithTimeout(url, GEOCODE_TIMEOUT_MS)
+                .then(function(res) {
+                    if (!res.ok) return null;
+                    return res.json();
+                })
+                .then(function(row) {
+                    return parseNominatimReverseResult(row);
+                })
+                .catch(function() {
+                    return null;
+                });
+        }
+
+        function fetchGoogleReverseLabel(lat, lng) {
+            return new Promise(function(resolve) {
+                if (!mapsApiKey || !window.google || !google.maps || !google.maps.Geocoder) {
+                    resolve(null);
+                    return;
+                }
+                var geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ location: { lat: lat, lng: lng }, language: 'nl', region: 'NL' }, function(results, status) {
+                    var best = status === 'OK' ? pickBestReverseGeocodeResult(results, lat, lng) : null;
+                    if (!best || !best.geometry || !best.geometry.location) {
+                        resolve(null);
+                        return;
+                    }
+                    var loc = best.geometry.location;
+                    var rLat = typeof loc.lat === 'function' ? loc.lat() : parseFloat(loc.lat);
+                    var rLng = typeof loc.lng === 'function' ? loc.lng() : parseFloat(loc.lng);
+                    resolve({
+                        label: formatGoogleGeocodeAddress(best),
+                        place_id: '',
+                        hasHouseNumber: googleResultHasStreetNumber(best),
+                        lat: isFinite(rLat) ? rLat : null,
+                        lng: isFinite(rLng) ? rLng : null
+                    });
+                });
+            });
+        }
+
+        function reverseGeocodeLatLng(lat, lng) {
+            return Promise.all([
+                fetchNominatimReverseLabel(lat, lng),
+                fetchGoogleReverseLabel(lat, lng)
+            ]).then(function(pair) {
+                var best = pickBestReverseLabel(lat, lng, pair);
+                if (!best) return null;
+                return {
+                    label: best.label,
+                    place_id: '',
+                    distFromGps: best.distFromGps || 0,
+                    hasHouseNumber: !!best.hasHouseNumber
+                };
+            });
+        }
+
+        function applyPickupFromResolved(resolved, lat, lng) {
+            if (!pickupInput || !resolved || !resolved.label) return;
+            clearFieldErrorFor('pickup_address');
+            pickupInput.value = resolved.label;
+            updateRouteInputVisualState(pickupInput);
+            state.pickup_address = resolved.label;
+            state.pickup_place_id = null;
+            state.pickup_lat = lat;
+            state.pickup_lng = lng;
+            state.pickup_gps_locked = true;
+            syncStateFromFields();
+            hideSuggestionPanel('pickup');
+            if (window.__nexataxiBookingRouteCalc) {
+                window.__nexataxiBookingRouteCalc();
+            }
+        }
+
+        function usePickupCurrentLocation() {
+            if (!pickupInput || pickupGeolocationLoading || !navigator.geolocation) {
+                return;
+            }
+            pickupGeolocationLoading = true;
+            var locateBtn = root.querySelector('[data-pickup-locate-btn]');
+            if (locateBtn) locateBtn.disabled = true;
+            clearFieldErrorFor('pickup_address');
+            clearFieldHintFor('pickup_address');
+            getCurrentPosition()
+                .then(function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    return reverseGeocodeLatLng(lat, lng).then(function(resolved) {
+                        if (!resolved || !resolved.label) {
+                            setFieldError('pickup_address', 'Kon je adres niet bepalen. Vul het ophaaladres handmatig in.');
+                            return;
+                        }
+                        applyPickupFromResolved(resolved, lat, lng);
+                        var accuracyHint = formatGeolocationAccuracyHint(position.coords.accuracy);
+                        if (!accuracyHint && resolved.distFromGps > 45) {
+                            accuracyHint = 'Het ingevulde adres kan enkele huizen verderop liggen. Controleer het ophaaladres.';
+                        } else if (!accuracyHint && !resolved.hasHouseNumber) {
+                            accuracyHint = 'Kon geen huisnummer bepalen. Vul het ophaaladres aan indien nodig.';
+                        }
+                        if (accuracyHint) {
+                            setFieldHint('pickup_address', accuracyHint);
+                        }
+                    });
+                })
+                .catch(function(error) {
+                    setFieldError('pickup_address', geolocationErrorMessage(error));
+                })
+                .finally(function() {
+                    pickupGeolocationLoading = false;
+                    if (locateBtn) locateBtn.disabled = false;
+                    pickupInput.focus();
+                });
         }
 
         function bindOneAddressInput(input) {
@@ -4738,6 +5105,9 @@ body.booking-modal-open {
             ensureSuggestionPanel(input, key);
             updateRouteInputVisualState(input);
             input.addEventListener('input', function() {
+                if (key === 'pickup') {
+                    clearFieldHintFor('pickup_address');
+                }
                 clearAddressMetaForInput(input);
                 updateRouteInputVisualState(input);
                 runTypeahead(input);
@@ -4781,6 +5151,17 @@ body.booking-modal-open {
         }
         bindAllRouteAddressInputs();
         root._bindAllRouteAddressInputs = bindAllRouteAddressInputs;
+        var pickupLocateBtn = root.querySelector('[data-pickup-locate-btn]');
+        if (pickupLocateBtn) {
+            if (!navigator.geolocation) {
+                pickupLocateBtn.classList.add('hidden');
+            } else {
+                pickupLocateBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    usePickupCurrentLocation();
+                });
+            }
+        }
         root._onBookingPlacesReady = function() {
             suggestionCache.clear();
             [pickupInput, dropoffInput].forEach(function(input) {

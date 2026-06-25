@@ -130,11 +130,25 @@
                            @focus="onAddressInput()"
                            @keydown.escape="addressSuggestionsOpen = false"
                            class="input w-full text-sm"
+                           :class="canUseCurrentLocationForAddress() ? 'ai-chat-address-input--with-locate' : ''"
                            :placeholder="activeQuoteInput()?.placeholder || 'Zoek adres…'"
-                           :disabled="isTyping"
+                           :disabled="isTyping || addressGeolocationLoading"
                            autocomplete="off">
-                    <div x-show="addressLoading"
-                         class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    <button type="button"
+                            x-show="canUseCurrentLocationForAddress()"
+                            x-cloak
+                            @click="useCurrentLocationForAddress()"
+                            :disabled="isTyping || addressGeolocationLoading || addressLoading"
+                            class="ai-chat-address-locate-btn"
+                            title="Gebruik mijn huidige locatie"
+                            aria-label="Gebruik mijn huidige locatie">
+                        <i class="ki-filled ki-geolocation text-base leading-none"
+                           :class="addressGeolocationLoading ? 'opacity-40' : ''"
+                           aria-hidden="true"></i>
+                    </button>
+                    <div x-show="addressLoading || addressGeolocationLoading"
+                         class="ai-chat-address-loading absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+                         :class="canUseCurrentLocationForAddress() ? 'right-11' : 'right-3'">
                         …
                     </div>
                     <div x-show="addressSuggestionsOpen"
@@ -157,6 +171,12 @@
                    class="text-xs text-muted-foreground">
                     Kies een adres uit de suggesties om te bevestigen.
                 </p>
+                <p x-show="addressLocationWarning"
+                   class="text-xs text-amber-700 dark:text-amber-400"
+                   x-text="addressLocationWarning"></p>
+                <p x-show="addressLocationError"
+                   class="text-xs text-destructive"
+                   x-text="addressLocationError"></p>
             </form>
 
             <!-- Datum/tijd picker -->

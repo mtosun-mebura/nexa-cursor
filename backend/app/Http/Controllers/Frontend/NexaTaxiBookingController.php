@@ -459,6 +459,12 @@ class NexaTaxiBookingController extends Controller
      */
     public function addressSearch(Request $request): JsonResponse
     {
+        $lat = $request->input('lat');
+        $lon = $request->input('lon');
+        if (is_numeric($lat) && is_numeric($lon)) {
+            return $this->reverseAddressSearch((float) $lat, (float) $lon);
+        }
+
         $q = $request->input('q', '');
         $q = is_string($q) ? trim($q) : '';
         if ($q === '') {
@@ -503,6 +509,40 @@ class NexaTaxiBookingController extends Controller
 
             return is_array($body) ? $body : [];
         });
+
+        return response()->json($data);
+    }
+
+    private function reverseAddressSearch(float $lat, float $lon): JsonResponse
+    {
+        $lat = round($lat, 6);
+        $lon = round($lon, 6);
+
+        $cacheKey = 'nominatim_reverse:v2:'.$lat.':'.$lon;
+        $data = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($lat, $lon) {
+            $url = 'https://nominatim.openstreetmap.org/reverse?'.http_build_query([
+                'format' => 'jsonv2',
+                'lat' => $lat,
+                'lon' => $lon,
+                'zoom' => 18,
+                'layer' => 'address',
+                'addressdetails' => 1,
+                'accept-language' => 'nl',
+            ]);
+            $response = Http::withHeaders([
+                'User-Agent' => config('app.name', 'NexaTaxiBooking').'/1.0 (address reverse)',
+            ])->timeout(8)->get($url);
+            if (! $response->successful()) {
+                return null;
+            }
+            $body = $response->json();
+
+            return is_array($body) ? $body : null;
+        });
+
+        if (! is_array($data)) {
+            return response()->json(['display_name' => null], 404);
+        }
 
         return response()->json($data);
     }

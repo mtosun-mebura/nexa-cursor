@@ -2172,7 +2172,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BfIRCsUx.css",
+    "file": "assets/app-DloNam2V.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2180,7 +2180,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-Cn7Pf-5h.js",
+    "file": "assets/app-Bbx0DBJY.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2192,7 +2192,7 @@
     ]
   },
   "resources/js/frontend-app.js": {
-    "file": "assets/frontend-app-DK9WIls6.js",
+    "file": "assets/frontend-app-CPkzYBNQ.js",
     "name": "frontend-app",
     "src": "resources/js/frontend-app.js",
     "isEntry": true
@@ -2219,7 +2219,7 @@
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-D_Odf-Wl.js",
+    "file": "assets/website-page-builder-v2-CYJKzWFM.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
@@ -2227,7 +2227,7 @@
       "_runtime-dom.esm-bundler-DWmhPG3t.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-CzUNuRn6.css"
+      "assets/website-page-builder-v2-D14CiH8w.css"
     ]
   }
 }

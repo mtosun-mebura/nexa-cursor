@@ -5,7 +5,8 @@ import { schemaForComponent } from './component-config-schemas'
 import { baseTypeFromKey } from './palette-meta'
 import { deepMerge } from './nested-data'
 import { schemaForBaseType } from './section-config-schemas'
-import type { ComponentCatalogItem } from './types'
+import { emailTemplateSelectOptions, sideComponentSelectOptions } from './text-block-field-options'
+import type { CanvasBlock, ComponentCatalogItem, EmailTemplateOption } from './types'
 
 const props = defineProps<{
   blockKey: string
@@ -19,6 +20,8 @@ const props = defineProps<{
   websiteMediaUploadUrl?: string
   websiteMediaServeBase?: string
   layout?: 'compact' | 'expanded'
+  canvasBlocks?: CanvasBlock[]
+  emailTemplates?: EmailTemplateOption[]
 }>()
 
 const emit = defineEmits<{
@@ -57,6 +60,14 @@ const extraScalarFields = computed(() => {
     })
     .map(([key, value]) => ({ key, value }))
 })
+
+const sideComponentOptions = computed(() =>
+  sideComponentSelectOptions(props.blockKey, props.canvasBlocks ?? []),
+)
+
+const emailTemplateOptions = computed(() =>
+  emailTemplateSelectOptions(props.emailTemplates ?? []),
+)
 </script>
 
 <template>
@@ -89,6 +100,9 @@ const extraScalarFields = computed(() => {
       :upload-url="uploadUrl"
       :website-media-upload-url="websiteMediaUploadUrl"
       :website-media-serve-base="websiteMediaServeBase"
+      :block-key="blockKey"
+      :side-component-options="sideComponentOptions"
+      :email-template-options="emailTemplateOptions"
       @patch="emit('patch', $event)"
     />
 
@@ -138,6 +152,21 @@ const extraScalarFields = computed(() => {
   font-weight: 500;
 }
 
+.builder-config-panel--expanded :deep(.builder-config-fields) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1.25rem;
+  align-items: start;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field--wysiwyg),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(.builder-media-image-row)),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-group),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-item-list),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-step-order) {
+  grid-column: 1 / -1;
+}
+
 .builder-config-panel--expanded :deep(.builder-config-item) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -149,7 +178,8 @@ const extraScalarFields = computed(() => {
   grid-column: 1 / -1;
 }
 
-.builder-config-panel--expanded :deep(.builder-field:has(textarea)) {
+.builder-config-panel--expanded :deep(.builder-field:has(textarea)),
+.builder-config-panel--expanded :deep(.builder-field--wysiwyg) {
   grid-column: 1 / -1;
 }
 
@@ -173,6 +203,7 @@ const extraScalarFields = computed(() => {
 }
 
 @media (max-width: 768px) {
+  .builder-config-panel--expanded :deep(.builder-config-fields),
   .builder-config-panel--expanded :deep(.builder-config-item) {
     grid-template-columns: 1fr;
   }
