@@ -1,10 +1,17 @@
 export type SelectOption = { value: string; label: string }
 
+export type FieldVisibleWhen = {
+  key: string
+  notEmpty?: boolean
+}
+
 export type ConfigField =
-  | { type: 'text'; key: string; label: string; placeholder?: string }
-  | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean }
-  | { type: 'select'; key: string; label: string; options: SelectOption[] }
-  | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string }
+  | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'wysiwyg'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'dynamic-select'; key: string; label: string; source: 'sideComponents' | 'emailTemplates'; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
   | { type: 'color'; key: string; label: string; hint?: string }
   | { type: 'image'; key: string; label: string; hint?: string }
@@ -73,11 +80,56 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
     { type: 'color', key: 'subtitle_color', label: 'Tekstkleur' },
   ],
   text_block: [
-    { type: 'textarea', key: 'content', label: 'Tekst (HTML toegestaan)', rows: 8, mono: true },
-    { type: 'select', key: 'alignment', label: 'Uitlijning', options: alignmentOptions },
-    { type: 'image', key: 'image_url', label: 'Afbeelding' },
-    { type: 'number', key: 'width_percent', label: 'Breedte (%)', min: 25, max: 100, step: 5 },
-    { type: 'text', key: 'side_component_key', label: 'Sidebar component (optioneel)' },
+    { type: 'wysiwyg', key: 'content', label: 'Tekst (rich text)', placeholder: 'Voeg hier uw tekst toe...' },
+    {
+      type: 'select',
+      key: 'alignment',
+      label: 'Tekstuitlijning op de website',
+      options: [
+        { value: 'left', label: 'Links' },
+        { value: 'center', label: 'Midden' },
+        { value: 'right', label: 'Rechts' },
+        { value: 'full', label: 'Volledige breedte' },
+      ],
+      hint: 'Bepaalt hoe de tekst wordt uitgelijnd en of er ruimte is voor een component ernaast.',
+    },
+    {
+      type: 'dynamic-select',
+      key: 'side_component_key',
+      label: 'Component naast de tekst',
+      source: 'sideComponents',
+      hint: 'Toon een informatieaanvraag-formulier naast de tekst. Alleen bij uitlijning Links of Rechts.',
+    },
+    {
+      type: 'dynamic-select',
+      key: 'side_template_id',
+      label: 'E-mailtemplate voor het formulier',
+      source: 'emailTemplates',
+      visibleWhen: { key: 'side_component_key', notEmpty: true },
+      hint: 'Verplicht wanneer u een formulier naast de tekst toont.',
+    },
+    {
+      type: 'select',
+      key: 'width_percent',
+      label: 'Sectiebreedte op de website',
+      options: [
+        { value: '100', label: '100%' },
+        { value: '90', label: '90%' },
+        { value: '80', label: '80%' },
+        { value: '70', label: '70%' },
+        { value: '60', label: '60%' },
+        { value: '50', label: '50%' },
+        { value: '40', label: '40%' },
+        { value: '30', label: '30%' },
+      ],
+      hint: 'Breedte van de sectie ten opzichte van de pagina (in procenten).',
+    },
+    {
+      type: 'image',
+      key: 'image_url',
+      label: 'Afbeelding naast de tekst',
+      hint: 'Optioneel: toon een afbeelding links of rechts van de tekst (zelfde zijde als het component). Alleen bij uitlijning Links of Rechts.',
+    },
   ],
   features: [
     { type: 'text', key: 'section_title', label: 'Sectietitel' },

@@ -2901,6 +2901,42 @@ class AdminWebsitePageController extends Controller
             ? WebsitePage::defaultHomeSectionsForTheme($themeSlug)
             : WebsitePage::defaultPageSectionsForNonHome($themeSlug);
 
+        $includeTemplateIds = [];
+        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
+            if (! is_string($sectionKey)) {
+                continue;
+            }
+            $base = preg_replace('/_\d+$/', '', $sectionKey);
+            if ($base === 'email_template') {
+                $tid = $homeSections[$sectionKey]['template_id'] ?? null;
+                if ($tid !== null && $tid !== '') {
+                    $includeTemplateIds[] = (int) $tid;
+                }
+            }
+            if ($base === 'text_block') {
+                $sideTemplateId = $homeSections[$sectionKey]['side_template_id'] ?? null;
+                if ($sideTemplateId !== null && $sideTemplateId !== '') {
+                    $includeTemplateIds[] = (int) $sideTemplateId;
+                }
+            }
+        }
+        $includeFromConnection = null;
+        $moduleNameForDb = $website_page->module_name;
+        if ($moduleNameForDb && $this->moduleDb->supportsModuleDatabases()) {
+            $connName = $this->moduleDb->getModuleConnectionName($moduleNameForDb);
+            if (Config::has("database.connections.{$connName}")) {
+                $includeFromConnection = $connName;
+            }
+        }
+        $emailTemplatesForBuilder = $this->getEmailTemplatesForWebsiteForm(null, array_unique($includeTemplateIds), $includeFromConnection)
+            ->map(static fn ($template) => [
+                'id' => (int) $template->id,
+                'name' => (string) $template->name,
+                'type' => (string) $template->type,
+            ])
+            ->values()
+            ->all();
+
         $moduleNameForComponents = $this->moduleNameForWebsiteComponents($website_page->module_name, $request);
         $componentService = app(FrontendComponentService::class);
         $catalogComponents = $componentService->availableForPage($moduleNameForComponents)
@@ -2969,6 +3005,7 @@ class AdminWebsitePageController extends Controller
                 'websiteMediaServeBase' => url('/website-media'),
             ],
             'wizardBackUrl' => $wizardBackUrl,
+            'emailTemplates' => $emailTemplatesForBuilder,
         ];
 
         return view('admin.website-pages-v2.edit', [

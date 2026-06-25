@@ -48,10 +48,21 @@
             </a>
             @php
                 $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('admin.website-pages.preview', $page).($page->module_name ? '?module='.rawurlencode($page->module_name) : '');
+                $builderV2EditUrl = route('admin.website-pages.builder-v2.edit', $page);
+                if ($page->module_name) {
+                    $builderV2EditUrl .= '?module='.rawurlencode($page->module_name);
+                }
+                if (!empty($wizardIndexQuery)) {
+                    $builderV2EditUrl .= (str_contains($builderV2EditUrl, '?') ? '&' : '?').http_build_query($wizardIndexQuery);
+                }
             @endphp
             <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
                 Pagina voorbeeld
+            </a>
+            <a href="{{ $builderV2EditUrl }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-design-1 me-2"></i>
+                Visuele editor
             </a>
         </div>
     </div>

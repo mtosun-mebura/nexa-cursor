@@ -15,6 +15,12 @@ export type PaletteDragPayload =
   | { kind: 'section'; type: string; label: string }
   | { kind: 'component'; sectionKey: string; label: string }
 
+export type EmailTemplateOption = {
+  id: number
+  name: string
+  type: string
+}
+
 export type BuilderBootstrap = {
   page: {
     id: number
@@ -44,6 +50,7 @@ export type BuilderBootstrap = {
     websiteMediaServeBase: string
   }
   wizardBackUrl: string | null
+  emailTemplates: EmailTemplateOption[]
 }
 
 export type CanvasBlock = {

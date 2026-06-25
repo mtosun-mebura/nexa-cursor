@@ -306,6 +306,38 @@
     position: relative;
     z-index: 30;
   }
+  .ai-chat-address-input--with-locate {
+    padding-right: 2.75rem;
+  }
+  .ai-chat-address-locate-btn {
+    position: absolute;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--theme-primary, #2563eb);
+    cursor: pointer;
+  }
+  .ai-chat-address-locate-btn:hover:not(:disabled) {
+    background: rgb(37 99 235 / 0.08);
+  }
+  .ai-chat-address-locate-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .dark .ai-chat-address-locate-btn {
+    color: #93c5fd;
+  }
+  .dark .ai-chat-address-locate-btn:hover:not(:disabled) {
+    background: rgb(147 197 253 / 0.12);
+  }
   .dark .ai-chat-panel__footer {
     border-top-color: #4b5563;
     background-color: #1f2937;

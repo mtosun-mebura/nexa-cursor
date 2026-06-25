@@ -305,6 +305,8 @@ onUnmounted(() => {
             :upload-url="bootstrap.routes.uploadHeroImage"
             :website-media-upload-url="bootstrap.routes.uploadWebsiteMedia"
             :website-media-serve-base="bootstrap.routes.websiteMediaServeBase"
+            :canvas-blocks="canvasBlocks"
+            :email-templates="bootstrap.emailTemplates"
             @patch="patchSelected"
             @update:visible="setSectionVisible(selectedBlock.key, $event)"
           />
@@ -362,6 +364,8 @@ onUnmounted(() => {
               :upload-url="bootstrap.routes.uploadHeroImage"
               :website-media-upload-url="bootstrap.routes.uploadWebsiteMedia"
               :website-media-serve-base="bootstrap.routes.websiteMediaServeBase"
+              :canvas-blocks="canvasBlocks"
+              :email-templates="bootstrap.emailTemplates"
               layout="expanded"
               @patch="patchSelected"
               @update:visible="setSectionVisible(selectedBlock.key, $event)"

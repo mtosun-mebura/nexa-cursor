@@ -128,6 +128,27 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $this->assertSame('first_name', $reply->input['step'] ?? null);
     }
 
+    public function test_travel_intent_on_public_channel_asks_for_contact_after_remarks(): void
+    {
+        $service = $this->makeService();
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Public,
+            sessionId: 'travel-booking-contact',
+        );
+
+        $service->handle($context, 'Ik wil naar Schiphol');
+        $service->handle($context, 'Stationsplein 1, Enschede');
+        $service->handle($context, 'Luchthaven Schiphol');
+        $service->handle($context, '2');
+        $service->handle($context, '0', null, ['baggage' => [], 'special_baggage' => []]);
+        $service->handle($context, now()->addDay()->format('Y-m-d H:i'));
+        $reply = $service->handle($context, 'geen');
+
+        $this->assertStringContainsString('voornaam', mb_strtolower($reply->reply));
+        $this->assertSame('first_name', $reply->input['step'] ?? null);
+    }
+
     public function test_quote_flow_does_not_ask_for_contact(): void
     {
         $service = $this->makeService();

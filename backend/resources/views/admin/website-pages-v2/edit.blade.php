@@ -56,4 +56,5 @@
     window.__WEBSITE_BUILDER_V2__ = @json($bootstrap);
 </script>
 @vite(['resources/js/website-page-builder-v2.ts'])
+@include('admin.website-pages-v2.partials.wysiwyg-scripts')
 @endsection
