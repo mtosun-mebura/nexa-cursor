@@ -1221,6 +1221,13 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   font-weight: 500;
 }
 
+.builder-field select.kt-input {
+  align-self: flex-start;
+  width: auto;
+  max-width: 100%;
+  min-width: 4.5rem;
+}
+
 .builder-field-hint {
   font-size: 0.75rem;
   color: var(--muted-foreground);

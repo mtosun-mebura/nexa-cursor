@@ -3,9 +3,12 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\EmailTemplate;
+use App\Modules\NexaTaxi\Services\Concerns\ResolvesScopedEmailTemplate;
 
 class TaxiCustomerLoginCodeEmailTemplateService
 {
+    use ResolvesScopedEmailTemplate;
+
     public const TYPE = 'taxi_customer_login_code';
 
     /**
@@ -26,10 +29,7 @@ class TaxiCustomerLoginCodeEmailTemplateService
 
     public function findTemplate(?int $companyId): ?EmailTemplate
     {
-        return EmailTemplate::query()
-            ->where('type', self::TYPE)
-            ->where('company_id', $companyId)
-            ->first();
+        return $this->findScopedEmailTemplate(self::TYPE, $companyId);
     }
 
     /**
@@ -52,24 +52,20 @@ class TaxiCustomerLoginCodeEmailTemplateService
 
     public function ensureGlobalTemplateExists(): EmailTemplate
     {
-        $global = $this->findTemplate(null);
-        if ($global) {
-            return $global;
-        }
-
-        return EmailTemplate::query()->create($this->defaultPayload(null));
+        return $this->upsertScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
     }
 
     /**
      * Zorg dat een tenant een bewerkbaar template in de e-maillijst heeft (kopie van globaal indien nodig).
+     * Alleen aanroepen vanuit admin/seeders — niet bij elke e-mailverzending.
      */
     public function ensureTenantTemplateExists(int $companyId): EmailTemplate
     {
         $this->ensureGlobalTemplateExists();
 
-        $tenant = $this->findTemplate($companyId);
-        if ($tenant) {
-            return $tenant;
+        $existing = $this->findTemplate($companyId);
+        if ($existing) {
+            return $existing;
         }
 
         $global = $this->findTemplate(null);
@@ -81,7 +77,7 @@ class TaxiCustomerLoginCodeEmailTemplateService
             $payload['description'] = $global->description ?? $payload['description'];
         }
 
-        return EmailTemplate::query()->create($payload);
+        return $this->upsertScopedEmailTemplate(self::TYPE, $companyId, $payload);
     }
 
     /**

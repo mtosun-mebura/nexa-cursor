@@ -219,6 +219,13 @@ class AdminEmailTemplateController extends Controller
     protected function provisionTaxiEmailTemplatesIfNeeded(MenuService $menuService): void
     {
         $allowed = $this->getAllowedEmailTemplateTypes($menuService);
+        $tenantId = $this->getTenantId();
+        $tenantId = $tenantId && (int) $tenantId > 0 ? (int) $tenantId : null;
+
+        if (in_array(TaxiCustomerAcceptEmailTemplateService::TYPE, $allowed, true)) {
+            app(TaxiCustomerAcceptEmailTemplateService::class)->ensureGlobalTemplateExists();
+        }
+
         if (! in_array(TaxiCustomerLoginCodeEmailTemplateService::TYPE, $allowed, true)) {
             return;
         }
@@ -226,9 +233,8 @@ class AdminEmailTemplateController extends Controller
         $service = app(TaxiCustomerLoginCodeEmailTemplateService::class);
         $service->ensureGlobalTemplateExists();
 
-        $tenantId = $this->getTenantId();
-        if ($tenantId && (int) $tenantId > 0) {
-            $service->ensureTenantTemplateExists((int) $tenantId);
+        if ($tenantId !== null) {
+            $service->ensureTenantTemplateExists($tenantId);
         }
     }
 
