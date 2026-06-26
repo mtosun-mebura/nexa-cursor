@@ -145,28 +145,47 @@ watch(
 .builder-wysiwyg-host {
   width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-wrapper) {
+  width: 100%;
   max-width: 100%;
+  overflow: hidden;
 }
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-toolbar) {
   min-width: 0;
+  overflow: hidden;
 }
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-toolbar > div) {
   flex-wrap: wrap;
   row-gap: 0.25rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.builder-wysiwyg-host :deep(.flowbite-wysiwyg-icon-picker) {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.builder-wysiwyg-host :deep(.flowbite-wysiwyg-icon-pick-btn .sr-only) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-content) {
   max-width: 100%;
-}
-
-@media (max-width: 640px) {
-  .builder-wysiwyg-host :deep(.flowbite-wysiwyg-icon-picker) {
-    max-width: 100%;
-  }
 }
 </style>
