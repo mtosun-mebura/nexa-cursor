@@ -21,6 +21,47 @@ export type EmailTemplateOption = {
   type: string
 }
 
+export type PageMetaForm = {
+  title: string
+  slug: string
+  pageType: string
+  moduleName: string | null
+  frontendThemeId: number | null
+  isActive: boolean
+  showInMenu: boolean
+  sortOrder: number
+  metaDescription: string
+  companyId: number | null
+}
+
+export type ModuleOption = {
+  name: string
+  displayName: string
+  themeId: number | null
+}
+
+export type ThemeOption = {
+  id: number
+  name: string
+  slug: string
+}
+
+export type PageMetaTenantContext = {
+  visible: boolean
+  showCompanyDropdown: boolean
+  storedCompanyName: string | null
+  effectiveCompanyName: string | null
+  companies: { id: number; name: string }[]
+}
+
+export type PageMetaOptions = {
+  modules: ModuleOption[]
+  themes: ThemeOption[]
+  isCentralWelcome: boolean
+  slugReadonly: boolean
+  tenant: PageMetaTenantContext
+}
+
 export type BuilderBootstrap = {
   page: {
     id: number
@@ -30,6 +71,8 @@ export type BuilderBootstrap = {
     moduleName: string | null
     companyId: number | null
   }
+  pageMeta: PageMetaForm
+  pageMetaOptions: PageMetaOptions
   themeSlug: string
   themeName: string
   homeSections: Record<string, unknown>
@@ -41,14 +84,21 @@ export type BuilderBootstrap = {
   componentDefaults: Record<string, Record<string, unknown>>
   routes: {
     save: string
+    updateMeta: string
+    generateSeo: string
     preview: string
     classicEdit: string
     index: string
     self: string
     uploadHeroImage: string
+    uploadFooterLogo: string
     uploadWebsiteMedia: string
     websiteMediaServeBase: string
+    postcodeLookup: string
   }
+  googleMapsApiKey: string
+  googleMapsMapId: string
+  siteBrandingLogoUrl: string
   wizardBackUrl: string | null
   emailTemplates: EmailTemplateOption[]
 }

@@ -77,5 +77,13 @@ return [
             'view' => 'frontend.website.components.nexataxi-boekingsmodule',
             'description' => 'Meerstaps boekingsmodule met bagage, aanbiedingen, reisgegevens en contactgegevens.',
         ],
+        [
+            'id' => 'taxi.boekingsmodule_v2',
+            'name' => 'Nexa Taxi boekingsmodule v2',
+            'module_name' => 'Nexa Taxi',
+            'module_key' => 'taxi',
+            'view' => 'frontend.website.components.nexataxi-boekingsmodule-v2',
+            'description' => 'Boekingsmodule met formulier links en live routekaart rechts (zoals taxiprijs.info).',
+        ],
     ],
 ];

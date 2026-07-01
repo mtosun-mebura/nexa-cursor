@@ -75,6 +75,14 @@ class InvoiceSetting extends Model
 
     public static function invoicePaymentTermsTextForInvoice(Invoice $invoice): string
     {
+        if ($invoice->isPaid()) {
+            $paidOn = $invoice->paid_date?->format('d-m-Y');
+
+            return $paidOn
+                ? 'Deze factuur is volledig betaald op '.$paidOn.'. Bedankt voor uw betaling.'
+                : 'Deze factuur is volledig betaald. Bedankt voor uw betaling.';
+        }
+
         $companyId = (int) ($invoice->company_id ?? 0);
         $settings = static::getSettingsForCompany($companyId > 0 ? $companyId : null);
         $template = trim((string) ($settings->invoice_payment_terms_text ?? ''));

@@ -42,6 +42,39 @@
             line-height: 1.5;
             text-align: left;
         }
+        .paid-banner {
+            margin: 0 0 18px;
+            padding: 10px 14px;
+            background: #dcfce7;
+            border: 2px solid #16a34a;
+            color: #14532d;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 0.04em;
+        }
+        .paid-banner .paid-date {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            font-weight: normal;
+            color: #166534;
+            letter-spacing: normal;
+        }
+        .paid-summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+        }
+        .paid-summary td {
+            padding: 8px 10px;
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            font-size: 12px;
+            color: #14532d;
+        }
+        .paid-summary .paid-summary-label { font-weight: bold; }
+        .paid-summary .paid-summary-amount { text-align: right; font-weight: bold; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -49,6 +82,7 @@
     $taxRate = (float) ($details['tax_rate'] ?? 21);
     $taxRateLabel = 'BTW ('.(fmod(round($taxRate, 2), 1) === 0.0 ? (int) round($taxRate).'%' : number_format($taxRate, 2, ',', '.').'%').')';
     $fmt = fn (float $n) => number_format($n, 2, ',', '.');
+    $isPaid = $invoice->isPaid();
 @endphp
 <div class="page-body">
 <table class="header" cellpadding="0" cellspacing="0">
@@ -74,7 +108,16 @@
     </tr>
 </table>
 
-<p class="title">Factuur</p>
+<p class="title">{{ $details['invoice_title'] ?? 'Factuur' }}</p>
+
+@if($isPaid)
+<div class="paid-banner">
+    BETALING VOLDAAN
+    @if($invoice->paid_date)
+    <span class="paid-date">Betaald op {{ $invoice->paid_date->format('d-m-Y') }}</span>
+    @endif
+</div>
+@endif
 
 <table class="meta" cellpadding="0" cellspacing="0">
     <tr>
@@ -82,7 +125,9 @@
             <table cellpadding="0" cellspacing="0">
                 <tr><td class="label">Factuurnummer</td><td class="value"><strong>{{ $invoice->invoice_number }}</strong></td></tr>
                 <tr><td class="label">Factuurdatum</td><td class="value">{{ $invoice->invoice_date?->format('d-m-Y') }}</td></tr>
-                @if($invoice->due_date)
+                @if($isPaid && $invoice->paid_date)
+                <tr><td class="label">Betaald op</td><td class="value"><strong>{{ $invoice->paid_date->format('d-m-Y') }}</strong></td></tr>
+                @elseif($invoice->due_date)
                 <tr><td class="label">Vervaldatum</td><td class="value">{{ $invoice->due_date->format('d-m-Y') }}</td></tr>
                 @endif
             </table>
@@ -144,6 +189,15 @@
         <td class="totals-amount">{{ $fmt((float) $invoice->total_amount) }}</td>
     </tr>
 </table>
+
+@if($isPaid)
+<table class="paid-summary" cellpadding="0" cellspacing="0">
+    <tr>
+        <td class="paid-summary-label">Openstaand bedrag</td>
+        <td class="paid-summary-amount">€ 0,00 — volledig voldaan</td>
+    </tr>
+</table>
+@endif
 
 @if(!empty($details['footer_text']))
 <p class="footer">{{ $details['footer_text'] }}</p>

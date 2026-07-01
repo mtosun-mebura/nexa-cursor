@@ -55,6 +55,16 @@ const SECTION_META: Record<string, PaletteMeta> = {
     accent: 'from-neutral-500/90 to-stone-600/90',
     preview: 'Vrije tekst met optionele sidebar',
   },
+  footer: {
+    icon: 'ki-row-horizontal',
+    accent: 'from-zinc-500/90 to-slate-600/90',
+    preview: 'Footer met logo, links en kaart',
+  },
+  copyright: {
+    icon: 'ki-note-2',
+    accent: 'from-slate-500/90 to-zinc-600/90',
+    preview: 'Copyrighttekst onderaan de pagina',
+  },
 }
 
 const COMPONENT_META_BY_KEY: Record<string, PaletteMeta> = {
@@ -62,6 +72,11 @@ const COMPONENT_META_BY_KEY: Record<string, PaletteMeta> = {
     icon: 'ki-calendar-tick',
     accent: 'from-amber-500/90 to-orange-600/90',
     preview: 'Taxi boekingsmodule',
+  },
+  'component:taxi.boekingsmodule_v2': {
+    icon: 'ki-map',
+    accent: 'from-amber-500/90 to-orange-600/90',
+    preview: 'Boekingsmodule met live kaart',
   },
   'component:taxiroyaal.boekingsmodule': {
     icon: 'ki-calendar-tick',

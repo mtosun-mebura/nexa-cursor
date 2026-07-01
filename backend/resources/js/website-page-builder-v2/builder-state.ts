@@ -5,6 +5,10 @@ import { denormalizeHomeSectionsForSave, normalizeHomeSectionsForBuilder } from 
 
 const FIXED_KEYS = new Set(['footer', 'copyright'])
 
+export function isFixedSectionKey(key: string | null | undefined): key is 'footer' | 'copyright' {
+  return key === 'footer' || key === 'copyright'
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -74,6 +78,20 @@ export function useBuilderState(bootstrap: BuilderBootstrap) {
 
   function setSectionData(key: string, patch: Record<string, unknown>) {
     homeSections.value[key] = { ...sectionData(key), ...patch }
+    dirty.value = true
+  }
+
+  function getCopyrightText(): string {
+    const raw = homeSections.value.copyright
+    if (typeof raw === 'string' && raw.trim() !== '') {
+      return raw
+    }
+    const fallback = bootstrap.defaults.copyright
+    return typeof fallback === 'string' ? fallback : ''
+  }
+
+  function setCopyrightText(text: string) {
+    homeSections.value.copyright = text
     dirty.value = true
   }
 
@@ -231,6 +249,8 @@ export function useBuilderState(bootstrap: BuilderBootstrap) {
     canvasKeys,
     sectionData,
     setSectionData,
+    getCopyrightText,
+    setCopyrightText,
     addBlock,
     removeBlock,
     moveBlock,

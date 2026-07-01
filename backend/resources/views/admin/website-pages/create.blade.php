@@ -3,8 +3,17 @@
 @section('title', 'Pagina aanmaken')
 
 @section('content')
+@php
+    $useVisualBuilderCreate = ! empty($useVisualBuilderCreate);
+@endphp
 <div class="kt-container-fixed min-w-0">
-    <p class="text-sm text-muted-foreground mb-5">Kies <strong>bij welke module</strong> deze pagina hoort. Kernpagina's (geen module) gebruik je voor Home, Over ons, Contact en custom pagina's. Pagina's worden altijd getoond in het actieve thema (instelbaar onder Frontend Thema's).</p>
+    <p class="text-sm text-muted-foreground mb-5">
+        @if($useVisualBuilderCreate)
+            Kies <strong>bij welke module</strong> deze pagina hoort en vul de basisgegevens in. Na het aanmaken opent de <strong>visuele editor</strong> om secties en inhoud samen te stellen.
+        @else
+            Kies <strong>bij welke module</strong> deze pagina hoort. Kernpagina's (geen module) gebruik je voor Home, Over ons, Contact en custom pagina's. Pagina's worden altijd getoond in het actieve thema (instelbaar onder Frontend Thema's).
+        @endif
+    </p>
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
@@ -237,6 +246,7 @@
                     ? \App\Models\WebsitePage::defaultHomeSectionsForTheme($createThemeSlug)
                     : \App\Models\WebsitePage::defaultPageSectionsForNonHome($createThemeSlug);
             @endphp
+            @unless($useVisualBuilderCreate)
             <div id="home_sections_card" class="kt-card w-full min-w-0" data-theme-name="{{ $defaultTheme->name ?? 'Metronic' }}">
                 <div class="kt-card-header website-page-sections-header flex flex-wrap items-center justify-between gap-2 min-w-0">
                     <h3 class="kt-card-title" id="home_sections_card_title">Pagina-secties ({{ $defaultTheme->name ?? 'Metronic' }} thema)</h3>
@@ -264,6 +274,7 @@
                     @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => true, 'collapseSectionsByDefault' => true, 'emailTemplates' => $emailTemplates ?? collect(), 'websitePageCompanyId' => ! empty($wizardIndexQuery['wizard_company']) ? (int) $wizardIndexQuery['wizard_company'] : null])
                 </div>
             </div>
+            @endunless
 
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
@@ -272,7 +283,7 @@
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Pagina aanmaken
+                    {{ $useVisualBuilderCreate ? 'Aanmaken en bewerken' : 'Pagina aanmaken' }}
                 </button>
             </div>
         </div>

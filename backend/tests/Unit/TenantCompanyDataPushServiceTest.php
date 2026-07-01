@@ -165,6 +165,136 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function find_existing_email_template_matches_global_template_with_null_company_id(): void
+    {
+        if (! Schema::hasTable('email_templates')) {
+            $this->markTestSkipped('email_templates required');
+        }
+
+        DB::table('email_templates')->insert([
+            'name' => 'Contact informatieaanvraag',
+            'subject' => 'Nieuwe aanvraag',
+            'html_content' => '<p>Hi</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => null,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'findExistingEmailTemplateId');
+        $method->setAccessible(true);
+        $service = app(TenantCompanyDataPushService::class);
+        $conn = (string) config('database.default');
+
+        $found = $method->invoke($service, $conn, [
+            'company_id' => null,
+            'type' => 'informatieaanvraag',
+            'name' => 'Other name',
+        ]);
+
+        $this->assertNotNull($found);
+    }
+
+    #[Test]
+    public function collect_email_templates_includes_global_and_tenant_rows(): void
+    {
+        if (! Schema::hasTable('email_templates') || ! Schema::hasTable('companies')) {
+            $this->markTestSkipped('email_templates required');
+        }
+
+        $company = Company::query()->create(['name' => 'Tpl Collect Co', 'slug' => 'tpl-collect-'.uniqid()]);
+
+        $tenantTemplateId = DB::table('email_templates')->insertGetId([
+            'name' => 'Tenant template',
+            'subject' => 'Onderwerp',
+            'html_content' => '<p>Tenant</p>',
+            'type' => 'contact_form',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $globalTemplateId = DB::table('email_templates')->insertGetId([
+            'name' => 'Global informatieaanvraag',
+            'subject' => 'Global',
+            'html_content' => '<p>Global</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => null,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'collectEmailTemplatesRowsForCompany');
+        $method->setAccessible(true);
+        $service = app(TenantCompanyDataPushService::class);
+        $conn = (string) config('database.default');
+
+        $rows = $method->invoke($service, $conn, (int) $company->id);
+        $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $this->assertContains($tenantTemplateId, $ids);
+        $this->assertContains($globalTemplateId, $ids);
+    }
+
+    #[Test]
+    public function push_email_templates_updates_existing_row_on_unique_type_conflict(): void
+    {
+        if (! Schema::hasTable('email_templates') || ! Schema::hasTable('companies')) {
+            $this->markTestSkipped('email_templates required');
+        }
+
+        $company = Company::query()->create(['name' => 'Tpl Upsert Co', 'slug' => 'tpl-upsert-'.uniqid()]);
+
+        $existingId = DB::table('email_templates')->insertGetId([
+            'name' => 'Oud sjabloon',
+            'subject' => 'Oud',
+            'html_content' => '<p>oud</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'insertRowOnTarget');
+        $method->setAccessible(true);
+        $conn = (string) config('database.default');
+        $idMaps = [];
+        $payload = [
+            'name' => 'Contact - Taxi Royaal',
+            'subject' => 'Nieuw',
+            'html_content' => '<p>nieuw</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'updated_at' => now(),
+        ];
+
+        $outcome = $method->invokeArgs($service, [
+            $conn,
+            $conn,
+            'email_templates',
+            $payload,
+            424242,
+            (int) $company->id,
+            &$idMaps,
+        ]);
+
+        $this->assertSame('updated', $outcome);
+        $this->assertSame($existingId, $idMaps['email_templates'][424242] ?? null);
+
+        $updated = DB::table('email_templates')->where('id', $existingId)->first();
+        $this->assertNotNull($updated);
+        $this->assertSame('Contact - Taxi Royaal', $updated->name);
+        $this->assertSame('Nieuw', $updated->subject);
+        $this->assertSame(1, DB::table('email_templates')->where('company_id', $company->id)->where('type', 'informatieaanvraag')->count());
+    }
+
+    #[Test]
     public function backfill_timestamps_fills_null_created_at_on_target(): void
     {
         if (! Schema::hasTable('companies')) {

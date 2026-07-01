@@ -153,7 +153,7 @@ class TaxiDispatchSettingsService
         return $dueAt->copy()->addSeconds($ttl)->lte($base);
     }
 
-    private function scheduledRideDueAt(RideRequest $ride): ?Carbon
+    private function scheduledRideDueAt(RideRequest $ride): ?CarbonInterface
     {
         if ($ride->isContractRide()) {
             $schedule = app(ContractOccurrenceGeneratorService::class)
@@ -168,7 +168,13 @@ class TaxiDispatchSettingsService
             }
         }
 
-        return $ride->pickup_at ? $ride->pickup_at->copy() : null;
+        if ($ride->isReturnTrip() && $ride->hasOutboundCompleted()) {
+            $dueAt = $ride->effectivePickupAt();
+
+            return $dueAt ? Carbon::parse($dueAt) : null;
+        }
+
+        return $ride->pickup_at ? Carbon::parse($ride->pickup_at) : null;
     }
 
     public function bookingWhatsappEnabled(?int $companyId = null): bool
@@ -203,12 +209,16 @@ class TaxiDispatchSettingsService
 
     public function bookingWhatsappClickToChatEnabled(?int $companyId = null): bool
     {
+        if (! $this->clickToChatMasterEnabled($companyId)) {
+            return false;
+        }
+
         $stored = GeneralSetting::get(self::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT, null, $companyId);
         if ($stored !== null && $stored !== '') {
             return $stored === '1';
         }
 
-        return (string) $this->env->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0') === '1';
+        return true;
     }
 
     public function setBookingWhatsappClickToChatEnabled(bool $enabled, ?int $companyId = null): void
@@ -254,7 +264,15 @@ class TaxiDispatchSettingsService
 
     public function defaultBookingWhatsappEnabled(): bool
     {
-        return $this->envFallbackWhatsappNumber() !== '';
+        return false;
+    }
+
+    /**
+     * Admin-instelling: WhatsApp Direct / click-to-chat (Instellingen → WhatsApp).
+     */
+    private function clickToChatMasterEnabled(?int $companyId = null): bool
+    {
+        return GeneralSetting::get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0', $companyId) === '1';
     }
 
     public function envFallbackWhatsappNumber(): string

@@ -64,6 +64,8 @@ class TaxiRidePaymentService
             'method' => $ride->payment_method,
             'status' => $ride->payment_status,
             'amount_due' => $ride->chargeableAmount(),
+            'leg_amount' => $ride->requiresPerLegDriverPayment() ? $ride->legChargeableAmount() : null,
+            'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'final_price' => $ride->final_price !== null ? (float) $ride->final_price : null,
             'can_complete' => $this->canCompleteRide($ride),
@@ -71,6 +73,8 @@ class TaxiRidePaymentService
             'driver_payment_enabled' => $options['driver'],
             'booking_payment_enabled' => $options['booking'],
             'payment_error' => $this->driverPaymentErrorMessage($ride),
+            'payment_leg' => $ride->requiresPerLegDriverPayment() ? $ride->currentReturnLeg() : null,
+            'payment_leg_label' => $ride->currentPaymentLegLabel(),
         ];
     }
 
@@ -411,10 +415,14 @@ class TaxiRidePaymentService
 
         $fresh = $ride->fresh();
 
-        try {
-            app(TaxiRideInvoiceService::class)->ensureInvoiceForPaidRide($conn, $fresh);
-        } catch (\Throwable $e) {
-            report($e);
+        $skipInvoice = $fresh->requiresPerLegDriverPayment();
+
+        if (! $skipInvoice) {
+            try {
+                app(TaxiRideInvoiceService::class)->ensureInvoiceForPaidRide($conn, $fresh);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return $fresh;

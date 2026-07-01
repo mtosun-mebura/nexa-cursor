@@ -14,6 +14,8 @@
         : ($textBgColor !== '' ? 88 : 78);
     $colorId = 'hero-text-bg-'.$sectionKey;
     $opacityId = 'hero-text-bg-opacity-'.$sectionKey;
+    $textBgWidthPct = (int) old('home_sections.'.$sectionKey.'.text_bg_width_percent', $sectionData['text_bg_width_percent'] ?? 70);
+    $textBgWidthPct = max(30, min(100, $textBgWidthPct));
 @endphp
 <div class="hero-text-bg-fields rounded-lg border border-border p-3 bg-muted/20 space-y-1">
     <p class="text-sm font-medium text-secondary-foreground mb-2">Achtergrond tekstblok</p>
@@ -62,5 +64,14 @@
               title="Voorbeeld achtergrondvlak"
               role="img"
               aria-label="Voorbeeld achtergrond"></span>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">
+        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Breedte</span>
+        <select name="home_sections[{{ $sectionKey }}][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem]" title="Breedte tekstblok op banner (%)">
+            @foreach ([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
+                <option value="{{ $pct }}" @selected($textBgWidthPct === $pct)>{{ $pct }}%</option>
+            @endforeach
+        </select>
+        <span class="text-xs text-muted-foreground">Ten opzichte van sectiebreedte op banner</span>
     </div>
 </div>

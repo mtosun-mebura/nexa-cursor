@@ -401,6 +401,10 @@ class ModuleDatabaseService
             fn (string $table) => ! Schema::connection($connectionName)->hasTable($table)
         ));
         if ($missing === []) {
+            if ($slug === 'taxi') {
+                app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($connectionName);
+            }
+
             return;
         }
 

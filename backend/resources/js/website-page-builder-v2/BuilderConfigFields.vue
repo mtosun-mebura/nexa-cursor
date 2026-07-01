@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { inject, onUnmounted, provide, ref, watch, type Ref } from 'vue'
 import BuilderConfigFields from './BuilderConfigFields.vue'
+import BuilderFooterLogoField from './BuilderFooterLogoField.vue'
+import BuilderFooterMapField from './BuilderFooterMapField.vue'
+import BuilderFooterSocialIcon from './BuilderFooterSocialIcon.vue'
 import BuilderWysiwygField from './BuilderWysiwygField.vue'
 import type { ConfigField, FieldVisibleWhen, SelectOption } from './section-config-schemas'
 import { buildPatchForPath, getByPath } from './nested-data'
@@ -24,10 +27,18 @@ const props = defineProps<{
   blockKey?: string
   sideComponentOptions?: SelectOption[]
   emailTemplateOptions?: SelectOption[]
+  footerLogoUploadUrl?: string
+  footerLogoFallbackUrl?: string
+  googleMapsApiKey?: string
+  googleMapsMapId?: string
+  postcodeLookupUrl?: string
+  moduleName?: string | null
+  visibility?: Record<string, unknown>
 }>()
 
 const emit = defineEmits<{
   patch: [Record<string, unknown>]
+  'patch-visibility': [string, boolean]
 }>()
 
 const injectedExpanded = inject<Ref<Set<string>> | null>(EXPAND_KEY, null)
@@ -161,9 +172,37 @@ function updateDynamicSelect(field: Extract<ConfigField, { type: 'dynamic-select
   updateField(field.key, value)
 }
 
-function wysiwygEditorKey(fieldKey: string): string {
+function socialNetworkFromFieldKey(key: string): string | null {
+  if (!key.startsWith('social_')) return null
+  return key.slice('social_'.length)
+}
+
+function isFooterSocialField(key: string): boolean {
+  return socialNetworkFromFieldKey(key) !== null
+}
+
+function isFooterLinkList(field: ConfigField): boolean {
+  if (props.blockKey !== 'footer' || field.type !== 'item-list') {
+    return false
+  }
+  return field.key === 'quick_links' || field.key === 'support_links'
+}
+
+function wysiwygEditorKey(fieldKey: string, itemIndex?: number): string {
   const block = props.blockKey ?? 'block'
+  if (itemIndex !== undefined) {
+    return `${block}-${fieldKey}-${itemIndex}`
+  }
   return `${block}-${fieldKey}`
+}
+
+function subVisibilityVisible(key: string): boolean {
+  const v = props.visibility?.[key]
+  return v !== false && v !== '0' && v !== 0
+}
+
+function toggleSubVisibility(key: string) {
+  emit('patch-visibility', key, !subVisibilityVisible(key))
 }
 
 function num(key: string, fallback = 0): number {
@@ -527,7 +566,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 </script>
 
 <template>
-  <div class="builder-config-fields">
+  <div
+    class="builder-config-fields"
+    :class="{ 'builder-config-fields--compact': blockKey === 'footer' || blockKey === 'copyright' }"
+  >
     <template v-for="(field, fi) in fields" :key="`${field.type}-${fi}`">
       <template v-if="fieldVisible(field)">
       <div
@@ -537,15 +579,46 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
       >
         <div class="builder-config-group__header">
           <span class="builder-config-group__legend">{{ field.label }}</span>
-          <button
-            type="button"
-            class="builder-icon-btn"
-            :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
-            :aria-expanded="!isCollapsed(fi, field.label)"
-            @click="toggleCollapsed(fi, field.label)"
-          >
-            <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
-          </button>
+          <div class="builder-config-section__actions">
+            <button
+              v-if="field.subVisibilityKey"
+              type="button"
+              class="builder-icon-btn"
+              :title="subVisibilityVisible(field.subVisibilityKey) ? 'Verbergen op website' : 'Tonen op website'"
+              :aria-label="subVisibilityVisible(field.subVisibilityKey) ? 'Verbergen op website' : 'Tonen op website'"
+              @click.stop="toggleSubVisibility(field.subVisibilityKey)"
+            >
+              <i
+                class="ki-filled"
+                :class="subVisibilityVisible(field.subVisibilityKey) ? 'ki-eye' : 'ki-eye-slash'"
+              />
+            </button>
+            <button
+              type="button"
+              class="builder-icon-btn"
+              :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
+              :aria-expanded="!isCollapsed(fi, field.label)"
+              @click="toggleCollapsed(fi, field.label)"
+            >
+              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+            </button>
+          </div>
+        </div>
+        <p v-if="field.hint" class="builder-field-hint builder-config-group__hint">{{ field.hint }}</p>
+        <div
+          v-if="field.label === 'Social media' && !isCollapsed(fi, field.label)"
+          class="builder-social-preview-row"
+          aria-hidden="true"
+        >
+          <BuilderFooterSocialIcon
+            v-for="network in ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok']"
+            :key="network"
+            :network="network"
+            :class="{
+              'builder-social-icon--inactive': !str(`social_${network}`).trim(),
+              'builder-social-icon--instagram': network === 'instagram',
+            }"
+          />
         </div>
         <div v-show="!isCollapsed(fi, field.label)" class="builder-config-group__body">
           <BuilderConfigFields
@@ -554,11 +627,19 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             :upload-url="uploadUrl"
             :website-media-upload-url="websiteMediaUploadUrl"
             :website-media-serve-base="websiteMediaServeBase"
+            :footer-logo-upload-url="footerLogoUploadUrl"
+            :footer-logo-fallback-url="footerLogoFallbackUrl"
+            :google-maps-api-key="googleMapsApiKey"
+            :google-maps-map-id="googleMapsMapId"
+            :postcode-lookup-url="postcodeLookupUrl"
+            :module-name="moduleName"
+            :visibility="visibility"
             :collapse-prefix="childCollapsePrefix(fi, field.label)"
             :block-key="blockKey"
             :side-component-options="sideComponentOptions"
             :email-template-options="emailTemplateOptions"
             @patch="emit('patch', $event)"
+            @patch-visibility="(key, visible) => emit('patch-visibility', key, visible)"
           />
         </div>
       </div>
@@ -597,7 +678,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
       <div
         v-else-if="field.type === 'item-list'"
         class="builder-config-item-list"
-        :class="{ 'builder-config-section--collapsed': isCollapsed(fi, field.label) }"
+        :class="{
+          'builder-config-section--collapsed': !isFooterLinkList(field) && isCollapsed(fi, field.label),
+          'builder-config-item-list--footer-links': isFooterLinkList(field),
+        }"
       >
         <div class="builder-config-section__header">
           <span class="builder-config-item-list__title">{{ field.label }}</span>
@@ -613,6 +697,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               <i class="ki-filled ki-plus" aria-hidden="true" />
             </button>
             <button
+              v-if="!isFooterLinkList(field)"
               type="button"
               class="builder-icon-btn"
               :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
@@ -623,12 +708,40 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             </button>
           </div>
         </div>
-        <template v-if="!isCollapsed(fi, field.label)">
+        <template v-if="isFooterLinkList(field) || !isCollapsed(fi, field.label)">
         <div
           v-for="(item, index) in ensureItemCount(field.key, field.minItems ?? 0, field.maxItems ?? 99, {})"
           :key="`${field.key}-${index}`"
           class="builder-config-item"
+          :class="{ 'builder-config-item--footer-link': isFooterLinkList(field) }"
         >
+          <template v-if="isFooterLinkList(field)">
+            <label
+              v-for="(sub, si) in field.fields"
+              :key="`${field.key}-${index}-${si}`"
+              class="builder-config-footer-link-field"
+            >
+              <span class="builder-config-footer-link-field__label">{{ sub.label }}</span>
+              <input
+                v-if="sub.type === 'text'"
+                class="kt-input kt-input-sm"
+                :value="itemFieldDisplay(item, sub.key)"
+                :placeholder="sub.placeholder"
+                @input="patchItemField(field.key, index, sub.key, ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <button
+              v-if="items(field.key).length > (field.minItems ?? 0)"
+              type="button"
+              class="builder-config-item__remove"
+              title="Verwijderen"
+              aria-label="Verwijderen"
+              @click="removeItem(field.key, index, field.minItems ?? 0)"
+            >
+              <i class="ki-filled ki-trash" />
+            </button>
+          </template>
+          <template v-else>
           <div class="builder-config-item__header">
             <span>{{ field.itemLabel ?? 'Item' }} {{ index + 1 }}</span>
             <button
@@ -651,7 +764,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
                 @input="patchItemField(field.key, index, sub.key, ($event.target as HTMLInputElement).value)"
               />
             </label>
-            <label v-else-if="sub.type === 'textarea'" class="builder-field">
+            <label v-else-if="sub.type === 'textarea' && sub.key === 'features_text'" class="builder-field">
               <span>{{ sub.label }}</span>
               <textarea
                 class="kt-input"
@@ -661,6 +774,14 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
                 @input="patchItemField(field.key, index, sub.key, ($event.target as HTMLTextAreaElement).value)"
               />
             </label>
+            <BuilderWysiwygField
+              v-else-if="sub.type === 'textarea' || sub.type === 'wysiwyg'"
+              :editor-key="wysiwygEditorKey(`${field.key}-${sub.key}`, index)"
+              :label="sub.label"
+              :model-value="itemFieldDisplay(item, sub.key)"
+              :placeholder="sub.placeholder"
+              @update:model-value="patchItemField(field.key, index, sub.key, $event)"
+            />
             <label v-else-if="sub.type === 'select'" class="builder-field">
               <span>{{ sub.label }}</span>
               <select
@@ -771,7 +892,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
                   <span>Geen afbeelding</span>
                 </div>
                 <label
-                  class="hero-image-upload-area builder-media-upload-area"
+                  class="builder-media-upload-area"
                   :class="{
                     'builder-media-upload-area--dragover': mediaDragOverKey === `${field.key}.${index}.${sub.key}`,
                     'builder-media-upload-area--busy': uploadingKey === `${field.key}.${index}.${sub.key}`,
@@ -794,9 +915,63 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               </div>
             </div>
           </template>
+          </template>
         </div>
         </template>
       </div>
+
+      <div
+        v-else-if="field.type === 'footer-map'"
+        class="builder-config-group"
+        :class="{ 'builder-config-section--collapsed': isCollapsed(fi, field.label) }"
+      >
+        <div class="builder-config-group__header">
+          <span class="builder-config-group__legend">{{ field.label }}</span>
+          <div class="builder-config-section__actions">
+            <button
+              v-if="field.subVisibilityKey"
+              type="button"
+              class="builder-icon-btn"
+              :title="subVisibilityVisible(field.subVisibilityKey) ? 'Verbergen op website' : 'Tonen op website'"
+              @click.stop="toggleSubVisibility(field.subVisibilityKey)"
+            >
+              <i
+                class="ki-filled"
+                :class="subVisibilityVisible(field.subVisibilityKey) ? 'ki-eye' : 'ki-eye-slash'"
+              />
+            </button>
+            <button
+              type="button"
+              class="builder-icon-btn"
+              :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
+              @click="toggleCollapsed(fi, field.label)"
+            >
+              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+            </button>
+          </div>
+        </div>
+        <div v-show="!isCollapsed(fi, field.label)" class="builder-config-group__body">
+          <BuilderFooterMapField
+            v-if="postcodeLookupUrl && googleMapsApiKey !== undefined"
+            :data="data"
+            :label="field.label"
+            :google-maps-api-key="googleMapsApiKey ?? ''"
+            :google-maps-map-id="googleMapsMapId ?? ''"
+            :postcode-lookup-url="postcodeLookupUrl"
+            @patch="emit('patch', $event)"
+          />
+        </div>
+      </div>
+
+      <BuilderFooterLogoField
+        v-else-if="field.type === 'footer-logo' && footerLogoUploadUrl"
+        :label="field.label"
+        :model-value="str(field.key)"
+        :upload-url="footerLogoUploadUrl"
+        :module-name="moduleName"
+        :fallback-logo-url="footerLogoFallbackUrl"
+        @update:model-value="updateField(field.key, $event)"
+      />
 
       <BuilderWysiwygField
         v-else-if="field.type === 'wysiwyg'"
@@ -821,15 +996,35 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
 
-      <label v-else-if="field.type === 'text'" class="builder-field">
-        <span>{{ field.label }}</span>
+      <label v-else-if="field.type === 'text'" class="builder-field" :class="{ 'builder-field--social': isFooterSocialField(field.key) }">
+        <span class="builder-field__label-row">
+          <BuilderFooterSocialIcon
+            v-if="isFooterSocialField(field.key)"
+            :network="socialNetworkFromFieldKey(field.key)!"
+            :class="{
+              'builder-social-icon--inactive': !str(field.key).trim(),
+              'builder-social-icon--instagram': socialNetworkFromFieldKey(field.key) === 'instagram',
+            }"
+          />
+          <span>{{ field.label }}</span>
+        </span>
         <input
           class="kt-input"
           :value="str(field.key)"
           :placeholder="field.placeholder"
           @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
         />
+        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
+
+      <BuilderWysiwygField
+        v-else-if="field.type === 'textarea' && field.key !== 'features_text'"
+        :editor-key="wysiwygEditorKey(field.key)"
+        :label="field.label"
+        :model-value="str(field.key)"
+        :placeholder="field.placeholder"
+        @update:model-value="updateField(field.key, $event)"
+      />
 
       <label v-else-if="field.type === 'textarea'" class="builder-field">
         <span>{{ field.label }}</span>
@@ -847,7 +1042,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <span>{{ field.label }}</span>
         <select
           class="kt-input"
-          :value="str(field.key, field.options[0]?.value ?? '')"
+          :value="str(field.key, field.defaultValue ?? field.options[0]?.value ?? '')"
           @change="updateField(field.key, ($event.target as HTMLSelectElement).value)"
         >
           <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
@@ -968,7 +1163,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             <span>Geen afbeelding</span>
           </div>
           <label
-            class="hero-image-upload-area builder-media-upload-area"
+            class="builder-media-upload-area"
             :class="{
               'builder-media-upload-area--dragover': mediaDragOverKey === field.key,
               'builder-media-upload-area--busy': uploadingKey === field.key,
@@ -1011,7 +1206,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             <span>Geen afbeelding</span>
           </div>
           <label
-            class="hero-image-upload-area builder-media-upload-area"
+            class="builder-media-upload-area"
             :class="{
               'builder-media-upload-area--dragover': mediaDragOverKey === field.key,
               'builder-media-upload-area--busy': uploadingKey === field.key,
@@ -1043,6 +1238,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         />
         <span>{{ field.label }}</span>
       </label>
+      <p v-if="field.type === 'checkbox' && field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </template>
     </template>
   </div>
@@ -1099,6 +1295,78 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   gap: 0.85rem;
 }
 
+.builder-config-fields--compact {
+  gap: 0.55rem;
+}
+
+.builder-config-fields--compact .builder-config-group,
+.builder-config-fields--compact .builder-config-item-list,
+.builder-config-fields--compact .builder-config-step-order {
+  padding: 0.5rem 0.6rem;
+  gap: 0.45rem;
+}
+
+.builder-config-fields--compact .builder-config-group__body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.5rem;
+  row-gap: 0.45rem;
+  align-items: start;
+}
+
+.builder-config-fields--compact .builder-config-group__body > .builder-config-fields {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.builder-config-fields--compact .builder-config-group__body > .builder-field:has(.builder-footer-logo),
+.builder-config-fields--compact .builder-field--footer-logo,
+.builder-config-fields--compact .builder-config-group__body > .builder-field--wysiwyg,
+.builder-config-fields--compact .builder-config-group__body > .builder-config-item-list,
+.builder-config-fields--compact .builder-config-group__body > .builder-config-group,
+.builder-config-fields--compact .builder-config-group__body > .builder-footer-map,
+.builder-config-fields--compact .builder-config-group__body > .builder-field:last-child,
+.builder-config-fields--compact .builder-config-group__body > .builder-social-preview-row,
+.builder-config-fields--compact .builder-field--wysiwyg,
+.builder-config-fields--compact .builder-config-item-list,
+.builder-config-fields--compact > .builder-config-group,
+.builder-config-fields--compact > .builder-field--wysiwyg,
+.builder-config-fields--compact > .builder-config-item-list {
+  grid-column: 1 / -1;
+}
+
+.builder-config-fields--compact .builder-field {
+  gap: 0.25rem;
+}
+
+.builder-config-fields--compact .builder-field > span,
+.builder-config-fields--compact .builder-config-group__legend,
+.builder-config-fields--compact .builder-config-item-list__title {
+  font-size: 0.75rem;
+}
+
+.builder-config-fields--compact .builder-config-item {
+  padding: 0.5rem 0.55rem;
+  gap: 0.45rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.45rem;
+  row-gap: 0.35rem;
+}
+
+.builder-config-fields--compact .builder-config-item__header {
+  grid-column: 1 / -1;
+}
+
+.builder-config-fields--compact .builder-field-hint {
+  font-size: 0.6875rem;
+  margin-top: 0.1rem;
+}
+
+.builder-config-fields--compact .builder-checkbox {
+  font-size: 0.8125rem;
+}
+
 .builder-config-group {
   border: 1px solid var(--border);
   border-radius: 0.65rem;
@@ -1127,6 +1395,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   font-weight: 600;
   color: var(--foreground);
   min-width: 0;
+}
+
+.builder-config-group__hint {
+  margin: -0.25rem 0 0.5rem;
 }
 
 .builder-config-group__body {
@@ -1209,6 +1481,42 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   background: color-mix(in srgb, #dc2626 10%, transparent);
 }
 
+.builder-config-item-list--footer-links {
+  gap: 0.35rem;
+}
+
+.builder-config-item--footer-link {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 0.85fr) minmax(7rem, 1.35fr) auto;
+  gap: 0.4rem;
+  align-items: end;
+  padding: 0.35rem 0.4rem;
+}
+
+.builder-config-footer-link-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.builder-config-footer-link-field__label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.builder-config-item--footer-link .builder-config-item__remove {
+  align-self: end;
+  margin-bottom: 0.05rem;
+}
+
+.builder-config-fields--compact .builder-config-item--footer-link {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 0.85fr) minmax(7rem, 1.35fr) auto;
+  padding: 0.3rem 0.35rem;
+}
+
 .builder-field {
   display: flex;
   flex-direction: column;
@@ -1219,6 +1527,44 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 .builder-field > span {
   color: var(--muted-foreground);
   font-weight: 500;
+}
+
+.builder-field__label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.builder-field--social .builder-social-icon--inactive {
+  opacity: 0.38;
+  filter: grayscale(0.35);
+}
+
+.builder-field--social .builder-social-icon--inactive.builder-social-icon--instagram {
+  filter: none;
+}
+
+.builder-social-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.builder-social-preview-row .builder-social-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.builder-social-preview-row .builder-social-icon--inactive {
+  opacity: 0.32;
+  filter: grayscale(0.4);
+}
+
+.builder-social-preview-row .builder-social-icon--inactive.builder-social-icon--instagram {
+  filter: none;
 }
 
 .builder-field select.kt-input {
@@ -1297,7 +1643,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 
 .builder-media-image-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
@@ -1312,38 +1658,42 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-width: 7rem;
-  width: min(100%, 14rem);
-  min-height: 6rem;
-  max-height: 14rem;
+  gap: 0.25rem;
+  width: min(100%, 16rem);
+  min-width: 5.5rem;
+  min-height: 4.5rem;
+  max-height: 10rem;
   border: 1px dashed var(--border);
   border-radius: 0.4rem;
   background: color-mix(in srgb, var(--muted) 22%, transparent);
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   flex-shrink: 0;
 }
 
 .builder-media-image-row__placeholder i {
-  font-size: 1.35rem;
+  font-size: 1.1rem;
   opacity: 0.7;
 }
 
 .builder-media-upload-area {
-  flex: 1 1 10rem;
-  min-height: 6rem;
-  max-height: 14rem;
+  flex: none;
+  align-self: flex-start;
+  width: 16rem;
+  max-width: 16rem;
+  min-height: 4.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0.85rem 1rem;
+  gap: 0.15rem;
+  padding: 0.5rem 0.65rem;
   border: 1px dashed var(--border);
-  border-radius: 0.65rem;
+  border-radius: 0.5rem;
   background: color-mix(in srgb, var(--muted) 28%, transparent);
   cursor: pointer;
   text-align: center;
+  box-sizing: border-box;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
@@ -1360,15 +1710,16 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 }
 
 .builder-media-upload-area__title {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--foreground);
+  line-height: 1.25;
 }
 
 .builder-media-upload-area__hint {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--muted-foreground);
-  margin-top: 0.25rem;
+  line-height: 1.25;
 }
 
 .builder-image-preview {

@@ -30,7 +30,7 @@
                 <tbody id="send-test-form-fields-tbody">
                     @foreach($formFields as $field)
                         <tr data-field-id="{{ $field->id }}">
-                            <td class="text-secondary-foreground font-normal w-px whitespace-nowrap pr-4">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</td>
+                            <td class="text-secondary-foreground font-normal w-px whitespace-nowrap pr-4">{{ $field->label }}{{ $emailTemplate->isFormFieldRequired($field) ? ' *' : '' }}</td>
                             <td>
                                 @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                     <textarea class="kt-input max-w-md @error('test_' . $field->name) border-destructive @enderror"

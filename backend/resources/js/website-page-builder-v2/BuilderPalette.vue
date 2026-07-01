@@ -48,16 +48,16 @@ function matches(text: string, query: string) {
 
 <template>
   <aside class="builder-panel builder-panel--left">
-    <div class="builder-panel__header">
+    <div class="builder-panel__header builder-panel__header--palette">
       <h2 class="text-sm font-semibold">Blokken</h2>
-      <p class="text-xs text-muted-foreground mt-1">Sleep naar de pagina of klik om toe te voegen</p>
       <input
-        class="kt-input mt-3"
+        class="kt-input builder-panel__search mt-2"
         type="search"
         placeholder="Zoek blok..."
         :value="query"
         @input="emit('update:query', ($event.target as HTMLInputElement).value)"
       />
+      <p class="text-xs text-muted-foreground mt-2 mb-0">Sleep naar de pagina of klik om toe te voegen</p>
     </div>
 
     <div class="builder-panel__scroll">

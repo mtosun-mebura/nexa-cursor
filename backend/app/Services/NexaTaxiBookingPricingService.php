@@ -39,6 +39,7 @@ class NexaTaxiBookingPricingService
                 'title_font_size_px' => '36',
                 'step_heading_font_size_px' => '30',
                 'route_map_zoom' => '14',
+                'live_map_position' => 'beside_card',
                 'background_color' => '#ffffff',
                 'text_color' => '#111827',
                 'card_bg_color' => '#ffffff',
@@ -170,6 +171,11 @@ class NexaTaxiBookingPricingService
         $routeMapZoom = (int) ($section['style']['route_map_zoom'] ?? $defaults['style']['route_map_zoom']);
         $routeMapZoom = max(1, min(21, $routeMapZoom));
         $section['style']['route_map_zoom'] = (string) $routeMapZoom;
+
+        $liveMapPosition = strtolower(trim((string) ($section['style']['live_map_position'] ?? $defaults['style']['live_map_position'])));
+        $section['style']['live_map_position'] = in_array($liveMapPosition, ['beside_card', 'inside_content'], true)
+            ? $liveMapPosition
+            : $defaults['style']['live_map_position'];
 
         $logic = is_array($raw['logic'] ?? null) ? $raw['logic'] : [];
         $section['logic']['min_passengers'] = max(1, min(8, (int) ($logic['min_passengers'] ?? $defaults['logic']['min_passengers'])));

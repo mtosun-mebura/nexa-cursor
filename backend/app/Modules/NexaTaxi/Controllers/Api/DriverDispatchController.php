@@ -90,11 +90,19 @@ class DriverDispatchController extends Controller
 
         $unclaimedRides = $dispatch->unclaimedRidesForCompany($conn, $companyId);
 
-        $activeRide = RideRequest::on($conn)
+        $assignedRides = RideRequest::on($conn)
             ->where('driver_id', $user->id)
             ->where('status', RideRequest::STATUS_ASSIGNED)
             ->orderBy('pickup_at')
-            ->first();
+            ->get();
+
+        $activeRide = $assignedRides->first(
+            fn (RideRequest $ride) => $ride->blocksDriverFromOtherRides()
+        ) ?? $assignedRides->first();
+
+        $parkedAssignedRides = $assignedRides
+            ->filter(fn (RideRequest $ride) => $activeRide && (int) $ride->id !== (int) $activeRide->id)
+            ->values();
 
         if ($activeRide && $activeRide->payment_status !== RideRequest::PAYMENT_STATUS_PAID) {
             $openPayment = RidePayment::on($conn)
@@ -135,6 +143,9 @@ class DriverDispatchController extends Controller
                 'active_ride' => $activeRide
                     ? TaxiDispatchOfferResource::rideSummary($activeRide)
                     : null,
+                'parked_assigned_rides' => $parkedAssignedRides
+                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
+                    ->values(),
                 'scheduled_rides' => $scheduledRides
                     ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
                     ->values(),
@@ -248,6 +259,53 @@ class DriverDispatchController extends Controller
         ]);
     }
 
+    public function releaseReturn(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $claim->releaseReturnLeg($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan retourrit niet vrijgeven.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Retourrit vrijgegeven. Andere chauffeurs kunnen de terugweg overnemen.',
+        ]);
+    }
+
+    public function startReturn(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $started = $claim->startReturnLeg($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan retourrit niet starten.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Retourrit gestart.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($started),
+            ],
+        ]);
+    }
+
     public function decline(
         Request $request,
         int $offer,
@@ -299,10 +357,19 @@ class DriverDispatchController extends Controller
             ], 422);
         }
 
+        $isOutboundOnlyComplete = $completed->isReturnTrip()
+            && $completed->hasOutboundCompleted()
+            && ! $completed->hasReturnLegStarted();
+
+        $message = $isOutboundOnlyComplete
+            ? 'Heenrit afgerond. Start de retour of geef deze vrij voor een andere chauffeur.'
+            : 'Rit afgerond. Je bent weer beschikbaar voor nieuwe ritten.';
+
         return response()->json([
-            'message' => 'Rit afgerond. Je bent weer beschikbaar voor nieuwe ritten.',
+            'message' => $message,
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($completed),
+                'outbound_completed' => $isOutboundOnlyComplete,
             ],
         ]);
     }

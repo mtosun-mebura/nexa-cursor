@@ -10,6 +10,7 @@ return [
     'exempt_route_names' => [
         'admin.dashboard',
         'admin.tenant.switch',
+        'admin.handleiding.*',
         'admin.companies.*',
         'admin.modules.index',
         'admin.modules.install',

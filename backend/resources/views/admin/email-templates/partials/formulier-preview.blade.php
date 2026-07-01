@@ -3,6 +3,11 @@
     $formFields = $formFields ?? collect();
     $hasFields = $formFields->isNotEmpty();
     $sectionKey = 'preview';
+    $previewFieldRequired = function ($field) use ($emailTemplate) {
+        return isset($emailTemplate)
+            ? $emailTemplate->isFormFieldRequired($field)
+            : (bool) $field->is_required;
+    };
 @endphp
 {{-- Zelfde structuur als frontend.website.components.email-template-section (1-op-1 weergave) --}}
 <div class="admin-form-preview-shell rounded-xl border border-border bg-muted/30 p-3 sm:p-5">
@@ -21,7 +26,7 @@
                             <div class="grid gap-4 sm:grid-cols-2">
                                 @foreach($firstTwo as $field)
                                     <div class="form-preview-field-row" data-field-id="{{ $field->id }}">
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $previewFieldRequired($field) ? ' *' : '' }}</label>
                                         @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                             <textarea rows="5" disabled readonly class="{{ $inputClass }} opacity-75"></textarea>
                                         @else
@@ -33,7 +38,7 @@
                         @else
                             @foreach($firstTwo as $field)
                                 <div class="form-preview-field-row" data-field-id="{{ $field->id }}">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $previewFieldRequired($field) ? ' *' : '' }}</label>
                                     @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                         <textarea rows="5" disabled readonly class="{{ $inputClass }} opacity-75"></textarea>
                                     @else
@@ -44,7 +49,7 @@
                         @endif
                         @foreach($rest as $field)
                             <div class="form-preview-field-row" data-field-id="{{ $field->id }}">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $previewFieldRequired($field) ? ' *' : '' }}</label>
                                 @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                     <textarea rows="5" disabled readonly class="{{ $inputClass }} opacity-75"></textarea>
                                 @else

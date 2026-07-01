@@ -38,12 +38,7 @@ class RideClaimService
                 ]);
             }
 
-            $hasActiveRide = RideRequest::on($conn)
-                ->where('driver_id', $driver->id)
-                ->where('status', RideRequest::STATUS_ASSIGNED)
-                ->exists();
-
-            if ($hasActiveRide) {
+            if ($this->driverHasBlockingAssignedRide($conn, (int) $driver->id)) {
                 throw ValidationException::withMessages([
                     'offer' => ['Rond eerst je lopende rit af voordat je een nieuwe rit accepteert.'],
                 ]);
@@ -125,13 +120,7 @@ class RideClaimService
     public function startRide(string $conn, User $driver, int $rideId): RideRequest
     {
         return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId) {
-            $hasActiveRide = RideRequest::on($conn)
-                ->where('driver_id', $driver->id)
-                ->where('status', RideRequest::STATUS_ASSIGNED)
-                ->whereKeyNot($rideId)
-                ->exists();
-
-            if ($hasActiveRide) {
+            if ($this->driverHasBlockingAssignedRide($conn, (int) $driver->id, $rideId)) {
                 throw ValidationException::withMessages([
                     'ride' => ['Je hebt al een lopende rit. Rond die eerst af.'],
                 ]);
@@ -154,7 +143,12 @@ class RideClaimService
                 $this->assertContractRideCanStartToday($conn, $ride);
             }
 
-            $ride->update(['status' => RideRequest::STATUS_ASSIGNED]);
+            $updates = ['status' => RideRequest::STATUS_ASSIGNED];
+            if ($ride->isReturnTrip() && $ride->hasOutboundCompleted() && ! $ride->hasReturnLegStarted()) {
+                $updates['return_started_at'] = now();
+            }
+
+            $ride->update($updates);
 
             return $ride->fresh();
         });
@@ -240,6 +234,98 @@ class RideClaimService
         return $released->fresh() ?? $released;
     }
 
+    public function releaseReturnLeg(string $conn, User $driver, int $rideId): RideRequest
+    {
+        app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($conn);
+
+        $companyId = 0;
+
+        $released = DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId, &$companyId) {
+            $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
+            if (! $ride || ! $ride->canReleaseReturnLeg((int) $driver->id)) {
+                throw ValidationException::withMessages([
+                    'ride' => ['De retourrit kan nu niet worden vrijgegeven.'],
+                ]);
+            }
+
+            if ($ride->isContractRide()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Contractritten kunnen niet worden vrijgegeven.'],
+                ]);
+            }
+
+            $companyId = (int) ($ride->company_id ?? 0);
+            $now = now();
+
+            RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('driver_id', $driver->id)
+                ->whereIn('status', [
+                    RideDispatchOffer::STATUS_ACCEPTED,
+                    RideDispatchOffer::STATUS_PENDING,
+                ])
+                ->update([
+                    'status' => RideDispatchOffer::STATUS_DECLINED,
+                    'responded_at' => $now,
+                ]);
+
+            $rideUpdates = [
+                'driver_id' => null,
+                'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            ];
+
+            if (! $ride->outbound_driver_id) {
+                $rideUpdates['outbound_driver_id'] = $driver->id;
+            }
+
+            $ride->update($rideUpdates);
+
+            return $ride->fresh();
+        });
+
+        if ($companyId > 0) {
+            $this->dispatch->startDispatch($conn, $released, $companyId, [(int) $driver->id]);
+        }
+
+        return $released->fresh() ?? $released;
+    }
+
+    public function startReturnLeg(string $conn, User $driver, int $rideId): RideRequest
+    {
+        app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($conn);
+
+        return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId) {
+            $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
+            if (! $ride || (int) $ride->driver_id !== (int) $driver->id) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Rit niet gevonden.'],
+                ]);
+            }
+
+            if (! $ride->isReturnTrip() || ! $ride->hasOutboundCompleted()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Deze rit heeft geen openstaande retour.'],
+                ]);
+            }
+
+            if ($ride->hasReturnLegStarted()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['De retourrit is al gestart.'],
+                ]);
+            }
+
+            if ($ride->status !== RideRequest::STATUS_ASSIGNED) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Start eerst de rit voordat je de retour begint.'],
+                ]);
+            }
+
+            $ride->update(['return_started_at' => now()]);
+
+            return $ride->fresh();
+        });
+    }
+
     public function declineOffer(string $conn, User $driver, int $offerId): RideDispatchOffer
     {
         $offer = RideDispatchOffer::on($conn)
@@ -270,6 +356,8 @@ class RideClaimService
         int $rideId,
         bool $allowOverdueContractComplete = false,
     ): RideRequest {
+        app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($conn);
+
         return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId, $allowOverdueContractComplete) {
             $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
             if (! $ride || (int) $ride->driver_id !== (int) $driver->id) {
@@ -293,10 +381,30 @@ class RideClaimService
                 ]);
             }
 
+            if ($ride->isReturnTrip() && $ride->hasOutboundCompleted() && ! $ride->hasReturnLegStarted()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Start de retourrit of geef deze vrij voordat je afrondt.'],
+                ]);
+            }
+
             if (! $this->ridePayments->canCompleteRide($ride)) {
                 throw ValidationException::withMessages([
                     'ride' => ['Rond eerst de betaling af voordat je de rit afrondt.'],
                 ]);
+            }
+
+            if ($ride->isReturnTrip() && ! $ride->hasOutboundCompleted()) {
+                $updates = [
+                    'outbound_completed_at' => now(),
+                    'outbound_driver_id' => $ride->outbound_driver_id ?: $driver->id,
+                ];
+                if ($ride->requiresPerLegDriverPayment()) {
+                    $updates['payment_status'] = RideRequest::PAYMENT_STATUS_NOT_REQUIRED;
+                    $updates['final_price'] = null;
+                }
+                $ride->update($updates);
+
+                return $ride->fresh();
             }
 
             if ($allowOverdueContractComplete && $ride->isContractRide()) {
@@ -311,5 +419,20 @@ class RideClaimService
 
             return $ride->fresh();
         });
+    }
+
+    private function driverHasBlockingAssignedRide(string $conn, int $driverId, ?int $exceptRideId = null): bool
+    {
+        $query = RideRequest::on($conn)
+            ->where('driver_id', $driverId)
+            ->where('status', RideRequest::STATUS_ASSIGNED);
+
+        if ($exceptRideId !== null) {
+            $query->whereKeyNot($exceptRideId);
+        }
+
+        return $query->get()->contains(
+            fn (RideRequest $ride) => $ride->blocksDriverFromOtherRides()
+        );
     }
 }

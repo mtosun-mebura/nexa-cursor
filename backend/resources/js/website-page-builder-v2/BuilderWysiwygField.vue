@@ -150,7 +150,7 @@ watch(
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-wrapper) {
   width: 100%;
-  max-width: 100%;
+  max-width: none !important;
   overflow: hidden;
 }
 

@@ -44,8 +44,8 @@
     }
 </style>
 <section class="text-block-section py-12 md:py-16 max-w-full overflow-x-hidden">
-    <div class="text-block-section__inner mx-auto box-border w-full max-w-full md:max-w-none" style="width: {{ $widthPercent }}%; max-width: 100%;">
-        <div class="website-section-inner max-w-6xl mx-auto">
+    <div class="text-block-section__inner mx-auto box-border w-full max-w-full" style="width: {{ $widthPercent }}%;">
+        <div class="website-section-inner mx-auto w-full max-w-full">
             @if($showSideColumn)
             {{-- Links of rechts: tekst en optioneel afbeelding/component op de helft van de pagina --}}
             <div class="text-block-content-fade-in flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
