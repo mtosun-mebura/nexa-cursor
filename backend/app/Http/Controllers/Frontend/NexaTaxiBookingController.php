@@ -154,10 +154,20 @@ class NexaTaxiBookingController extends Controller
         }
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
-        $email = trim((string) ($data['email'] ?? ''));
+        $submittedEmail = trim((string) ($data['email'] ?? ''));
         $wantsAccount = $request->boolean('create_account');
+        $notificationCompanyId = $this->resolveNotificationCompanyId($companyId, $resolved);
+        $bookingAsLoggedInCustomer = $this->bookingActsAsLoggedInCustomer($notificationCompanyId);
+        $email = $submittedEmail;
 
-        if ($dispatchSettings->customerEmailRequiredForBooking($companyId) && $email === '' && ! auth()->check()) {
+        if ($bookingAsLoggedInCustomer) {
+            $authEmail = trim((string) (auth()->user()->email ?? ''));
+            if ($authEmail !== '') {
+                $email = $authEmail;
+            }
+        }
+
+        if ($dispatchSettings->customerEmailRequiredForBooking($companyId) && $email === '' && ! $bookingAsLoggedInCustomer) {
             return response()->json([
                 'success' => false,
                 'message' => 'E-mailadres is verplicht.',
@@ -165,7 +175,7 @@ class NexaTaxiBookingController extends Controller
             ], 422);
         }
 
-        if ($wantsAccount && $email === '' && ! auth()->check()) {
+        if ($wantsAccount && $submittedEmail === '' && ! $bookingAsLoggedInCustomer) {
             return response()->json([
                 'success' => false,
                 'message' => 'E-mailadres is verplicht om een account aan te maken.',
@@ -173,51 +183,60 @@ class NexaTaxiBookingController extends Controller
             ], 422);
         }
 
-        // Als de gebruiker al is ingelogd, gebruiken we diens e-mail voor koppeling/validatie.
-        if (auth()->check()) {
-            $authEmail = trim((string) (auth()->user()->email ?? ''));
-            if ($authEmail !== '') {
-                $email = $authEmail;
+        $accountEmail = $bookingAsLoggedInCustomer ? $email : $submittedEmail;
+        $existingUser = $this->findExistingCustomerByEmail($accountEmail, $notificationCompanyId);
+
+        $createdCustomer = null;
+        $linkedExistingCustomer = null;
+        $loginCodeEmailSent = false;
+        $pendingLoginCodeSend = null;
+        $loginUrl = route('login', [
+            'code_login' => 1,
+            'email' => $accountEmail,
+            'intended' => route('taxi.portal.dashboard'),
+        ]);
+
+        if (! $bookingAsLoggedInCustomer && $wantsAccount && $accountEmail !== '') {
+            if ($existingUser) {
+                $linkedExistingCustomer = $existingUser;
+                $pendingLoginCodeSend = [
+                    'user' => $existingUser,
+                    'company_id' => $notificationCompanyId,
+                    'login_url' => $loginUrl,
+                ];
+            } else {
+                $createdCustomer = User::query()->create([
+                    'first_name' => (string) ($data['first_name'] ?? ''),
+                    'last_name' => (string) ($data['last_name'] ?? ''),
+                    'email' => $accountEmail,
+                    'phone' => (string) ($data['phone'] ?? ''),
+                    'company_id' => $notificationCompanyId,
+                    'password' => Str::password(64),
+                    'password_must_be_set' => true,
+                    'email_verified_at' => null,
+                    'is_active' => true,
+                ]);
+
+                $role = Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
+                $registrar = app(PermissionRegistrar::class);
+                $previousTeamId = $registrar->getPermissionsTeamId();
+                $registrar->setPermissionsTeamId($notificationCompanyId);
+                $createdCustomer->assignRole($role);
+                $createdCustomer->unsetRelation('roles');
+                $registrar->setPermissionsTeamId($previousTeamId);
+                $registrar->forgetCachedPermissions();
+
+                $pendingLoginCodeSend = [
+                    'user' => $createdCustomer,
+                    'company_id' => $notificationCompanyId,
+                    'login_url' => $loginUrl,
+                ];
             }
         }
 
-        $existingUser = $this->findExistingCustomerByEmail($email, $companyId);
-
-        $createdCustomer = null;
-        $loginCodeEmailSent = false;
-        $pendingLoginCodeSend = null;
-        if (! auth()->check() && ! $existingUser && $wantsAccount && $email !== '') {
-            $createdCustomer = User::query()->create([
-                'first_name' => (string) ($data['first_name'] ?? ''),
-                'last_name' => (string) ($data['last_name'] ?? ''),
-                'email' => $email,
-                'phone' => (string) ($data['phone'] ?? ''),
-                'company_id' => $companyId > 0 ? $companyId : null,
-                'password' => Str::password(64),
-                'password_must_be_set' => true,
-                'email_verified_at' => null,
-                'is_active' => true,
-            ]);
-
-            $role = Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
-            $registrar = app(PermissionRegistrar::class);
-            $previousTeamId = $registrar->getPermissionsTeamId();
-            $registrar->setPermissionsTeamId($companyId > 0 ? $companyId : null);
-            $createdCustomer->assignRole($role);
-            $createdCustomer->unsetRelation('roles');
-            $registrar->setPermissionsTeamId($previousTeamId);
-            $registrar->forgetCachedPermissions();
-
-            $pendingLoginCodeSend = [
-                'user' => $createdCustomer,
-                'company_id' => $companyId > 0 ? $companyId : null,
-                'login_url' => route('login', [
-                    'code_login' => 1,
-                    'email' => $email,
-                    'intended' => route('taxi.portal.dashboard'),
-                ]),
-            ];
-        }
+        $customerUserForRide = $bookingAsLoggedInCustomer
+            ? auth()->user()
+            : ($createdCustomer ?? $linkedExistingCustomer);
 
         $paymentService = app(TaxiRidePaymentService::class);
         try {
@@ -260,6 +279,7 @@ class NexaTaxiBookingController extends Controller
                 'distance_meters' => $data['distance_meters'],
                 'duration_seconds' => $data['duration_seconds'],
                 'return_trip' => ! empty($data['return_trip']),
+                'return_at' => $data['return_at'] ?? null,
                 'baggage' => $data['baggage'] ?? [],
                 'special_baggage' => $data['special_baggage'] ?? [],
                 'remarks' => $data['remarks'] ?? '',
@@ -269,8 +289,12 @@ class NexaTaxiBookingController extends Controller
             'pricing' => $quotes,
         ];
 
+        $rideCompanyId = ($companyId !== null && $companyId > 0) ? $companyId : $notificationCompanyId;
+
+        $rideCustomerEmail = $bookingAsLoggedInCustomer ? $email : $submittedEmail;
+
         $rideData = [
-            'company_id' => $companyId,
+            'company_id' => $rideCompanyId,
             'vehicle_id' => $vehicleId,
             'driver_id' => null,
             'status' => $initialStatus,
@@ -288,7 +312,7 @@ class NexaTaxiBookingController extends Controller
             'pickup_at' => $data['pickup_at'],
             'quoted_price' => $selected['price'] ?? null,
             'customer_name' => $customerName,
-            'customer_email' => $email !== '' ? $email : null,
+            'customer_email' => $rideCustomerEmail !== '' ? $rideCustomerEmail : null,
             'customer_phone' => $data['phone'],
             'customer_note' => $data['remarks'] ?? null,
             'quote_expires_at' => now()->addHours(12),
@@ -296,18 +320,20 @@ class NexaTaxiBookingController extends Controller
             'selected_offer_payload' => $selected,
         ];
         if (Schema::connection($conn)->hasColumn('ride_requests', 'customer_user_id')) {
-            $rideData['customer_user_id'] = auth()->check()
-                ? (int) auth()->id()
-                : ($createdCustomer ? (int) $createdCustomer->id : null);
+            $rideData['customer_user_id'] = $customerUserForRide ? (int) $customerUserForRide->id : null;
+        }
+        if (! empty($data['return_trip']) && ! empty($data['return_at'])
+            && Schema::connection($conn)->hasColumn('ride_requests', 'return_at')) {
+            $rideData['return_at'] = $data['return_at'];
         }
         $ride = RideRequest::on($conn)->create($rideData);
 
         // Succes: eventuele bewaarde boeking opruimen.
         $request->session()->forget('nexataxi.pending_booking');
 
-        if ($companyId && $companyId > 0 && ! $payAtBooking) {
+        if ($rideCompanyId && $rideCompanyId > 0 && ! $payAtBooking) {
             try {
-                app(RideDispatchService::class)->startDispatch($conn, $ride, $companyId);
+                app(RideDispatchService::class)->startDispatch($conn, $ride, $rideCompanyId);
             } catch (\Throwable $e) {
                 Log::warning('Boeking opgeslagen, chauffeur-dispatch mislukt.', [
                     'ride_request_id' => $ride->id,
@@ -340,20 +366,10 @@ class NexaTaxiBookingController extends Controller
         }
 
         if ($pendingLoginCodeSend !== null) {
-            $loginCompanyId = $pendingLoginCodeSend['company_id'];
-            if (! $loginCompanyId && $companyId && $companyId > 0) {
-                $loginCompanyId = $companyId;
-            }
-            if (! $loginCompanyId && app()->bound('resolved_tenant_id')) {
-                $resolved = (int) app('resolved_tenant_id');
-                if ($resolved > 0) {
-                    $loginCompanyId = $resolved;
-                }
-            }
             try {
                 $loginCodeEmailSent = app(TaxiCustomerLoginCodeService::class)->issueAndSend(
                     $pendingLoginCodeSend['user'],
-                    $loginCompanyId,
+                    $pendingLoginCodeSend['company_id'],
                     $pendingLoginCodeSend['login_url']
                 );
             } catch (\Throwable $e) {
@@ -366,13 +382,14 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
-        if ($companyId && $companyId > 0 && ! $payAtBooking) {
+        if (! $payAtBooking && trim((string) ($ride->customer_email ?? '')) !== '') {
             try {
                 app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $ride, [
-                'stopovers' => $stopovers,
-                'return_at' => $data['return_at'] ?? null,
-                'section_config' => $sectionConfig,
-            ]);
+                    'stopovers' => $stopovers,
+                    'return_at' => $data['return_at'] ?? null,
+                    'section_config' => $sectionConfig,
+                    'settings_company_id' => $notificationCompanyId,
+                ]);
             } catch (\Throwable $e) {
                 Log::warning('Boeking opgeslagen, notificaties mislukt.', [
                     'ride_request_id' => $ride->id,
@@ -390,6 +407,12 @@ class NexaTaxiBookingController extends Controller
             } else {
                 $successMessage .= ' We hebben een account voor u aangemaakt. De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
             }
+        } elseif ($linkedExistingCustomer && $pendingLoginCodeSend !== null) {
+            if ($loginCodeEmailSent) {
+                $successMessage .= ' Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
+            } else {
+                $successMessage .= ' De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
+            }
         }
 
         $response = [
@@ -399,6 +422,7 @@ class NexaTaxiBookingController extends Controller
             'payment_required' => $payAtBooking,
             'checkout_url' => $checkoutUrl,
             'account_created' => $createdCustomer !== null,
+            'account_linked' => $linkedExistingCustomer !== null,
             'login_code_email_sent' => $loginCodeEmailSent,
         ];
 
@@ -406,14 +430,63 @@ class NexaTaxiBookingController extends Controller
             $loginParams = [
                 'intended' => route('taxi.portal.dashboard'),
             ];
-            if ($createdCustomer !== null && $email !== '') {
+            if (($createdCustomer !== null || $linkedExistingCustomer !== null) && $accountEmail !== '') {
                 $loginParams['code_login'] = 1;
-                $loginParams['email'] = $email;
+                $loginParams['email'] = $accountEmail;
             }
             $response['portal_login_url'] = route('login', $loginParams);
         }
 
         return response()->json($response);
+    }
+
+    /**
+     * Publieke boeking als ingelogde klant (Mijn Taxi); niet voor admin/chauffeur op de website.
+     */
+    protected function bookingActsAsLoggedInCustomer(?int $companyId = null): bool
+    {
+        if (! auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+        $roleNames = array_map(static fn (string $role): string => mb_strtolower(trim($role)), $user->webRoleNames());
+        $staffRoles = ['super-admin', 'admin', 'staff', 'chauffeur', 'dispatcher', 'manager'];
+
+        foreach ($staffRoles as $staffRole) {
+            if (in_array($staffRole, $roleNames, true)) {
+                return false;
+            }
+        }
+
+        if (in_array('klant', $roleNames, true)) {
+            return true;
+        }
+
+        $teamCompanyId = $companyId;
+        if (($teamCompanyId === null || $teamCompanyId <= 0) && $user->company_id) {
+            $teamCompanyId = (int) $user->company_id;
+        }
+        if (($teamCompanyId === null || $teamCompanyId <= 0) && app()->bound('resolved_tenant_id')) {
+            $resolvedTenantId = (int) app('resolved_tenant_id');
+            if ($resolvedTenantId > 0) {
+                $teamCompanyId = $resolvedTenantId;
+            }
+        }
+
+        if ($teamCompanyId === null || $teamCompanyId <= 0) {
+            return false;
+        }
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId($teamCompanyId);
+
+        try {
+            return $user->hasRole('klant');
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+        }
     }
 
     protected function findExistingCustomerByEmail(string $email, ?int $companyId): ?User
@@ -428,6 +501,30 @@ class NexaTaxiBookingController extends Controller
         }
 
         return $query->first();
+    }
+
+    /**
+     * @param  array{tenant_company_id?: int|null, config?: array<string, mixed>}  $resolved
+     */
+    protected function resolveNotificationCompanyId(?int $companyId, array $resolved): ?int
+    {
+        if ($companyId !== null && $companyId > 0) {
+            return $companyId;
+        }
+
+        $tenantCompanyId = $resolved['tenant_company_id'] ?? null;
+        if ($tenantCompanyId !== null && (int) $tenantCompanyId > 0) {
+            return (int) $tenantCompanyId;
+        }
+
+        if (app()->bound('resolved_tenant_id')) {
+            $resolvedTenantId = (int) app('resolved_tenant_id');
+            if ($resolvedTenantId > 0) {
+                return $resolvedTenantId;
+            }
+        }
+
+        return null;
     }
 
     public function pending(Request $request): JsonResponse

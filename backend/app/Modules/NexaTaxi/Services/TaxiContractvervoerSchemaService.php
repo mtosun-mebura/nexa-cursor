@@ -266,6 +266,38 @@ final class TaxiContractvervoerSchemaService
                 $table->string('payment_method', 20)->nullable();
             });
         }
+
+        $cols = $schema->getColumnListing('ride_requests');
+
+        if (! in_array('return_at', $cols, true)) {
+            $schema->table('ride_requests', function (Blueprint $table) {
+                $table->dateTime('return_at')->nullable();
+            });
+        }
+
+        $cols = $schema->getColumnListing('ride_requests');
+
+        if (! in_array('outbound_completed_at', $cols, true)) {
+            $schema->table('ride_requests', function (Blueprint $table) {
+                $table->dateTime('outbound_completed_at')->nullable();
+            });
+        }
+
+        $cols = $schema->getColumnListing('ride_requests');
+
+        if (! in_array('outbound_driver_id', $cols, true)) {
+            $schema->table('ride_requests', function (Blueprint $table) {
+                $table->unsignedBigInteger('outbound_driver_id')->nullable();
+            });
+        }
+
+        $cols = $schema->getColumnListing('ride_requests');
+
+        if (! in_array('return_started_at', $cols, true)) {
+            $schema->table('ride_requests', function (Blueprint $table) {
+                $table->dateTime('return_started_at')->nullable();
+            });
+        }
     }
 
     private function schema(?string $connection): \Illuminate\Database\Schema\Builder

@@ -367,8 +367,9 @@
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">Spring naar hoofdinhoud</a>
     @php
         $previewThemeSuffix = !empty($theme->name ?? null) ? ': thema: '.$theme->name : '';
+        $hidePreviewChrome = request()->boolean('embed');
     @endphp
-    @if(isset($isPreview) && $isPreview && isset($previewEditUrl))
+    @if(isset($isPreview) && $isPreview && isset($previewEditUrl) && ! $hidePreviewChrome)
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" role="banner" aria-label="Voorbeeldmodus">
         <a href="{{ $previewEditUrl }}" class="preview-bar-back shrink-0">
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
@@ -376,11 +377,11 @@
         </a>
         <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
     </div>
-    @if(!empty($previewPageInactive))
-    <div class="sticky top-11 z-[99] w-full border-b border-amber-300 bg-amber-50 px-3 py-2 text-center text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100 sm:px-4" role="status">
+    @endif
+    @if(isset($isPreview) && $isPreview && !empty($previewPageInactive))
+    <div class="sticky {{ $hidePreviewChrome ? 'top-0' : 'top-11' }} z-[99] w-full border-b border-amber-300 bg-amber-50 px-3 py-2 text-center text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100 sm:px-4" role="status">
         Deze pagina staat op <strong>Inactief</strong>. Op de live website (inclusief &ldquo;Website openen (dev)&rdquo;) is hij niet zichtbaar totdat je <strong>Actief</strong> aanvinkt en opslaat.
     </div>
-    @endif
     @endif
     @if(!empty($isStaging) && !empty($stagingBackUrl))
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" data-staging-theme-id="{{ $theme->id ?? '' }}" data-staging-theme-slug="{{ $themeSlug ?? '' }}" role="banner" aria-label="Stagingmodus">
@@ -782,6 +783,7 @@
                 setStored(next ? 'dark' : 'light');
                 applyTheme(next);
                 updateIcons();
+                document.dispatchEvent(new CustomEvent('nexataxi-website-theme-changed'));
             }
             function initTheme() {
                 var stored = getStored();

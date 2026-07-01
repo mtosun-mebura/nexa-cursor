@@ -134,20 +134,19 @@
         }
         #btn-complete-ride,
         #btn-pay-ride,
-        #btn-send-invoice,
-        #btn-contract-back {
+        #btn-send-invoice {
             width: 100%;
             margin-top: 0.75rem;
             min-height: 3.25rem;
             font-size: 1.0625rem;
         }
-        #btn-contract-back {
-            margin-top: 1.25rem;
-            padding: 0 1rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1.2;
+        .btn-toolbar-inbox-back {
+            width: 100%;
+            margin: 0 0 0.5rem;
+            min-height: 2.75rem;
+            font-size: 0.9375rem;
+            justify-content: flex-start;
+            padding-left: 0.25rem;
         }
         #btn-pay-ride { background: #ca8a04; color: #fff; }
         #btn-pay-ride.is-paid {
@@ -567,6 +566,44 @@
             text-transform: uppercase;
             margin: 0 0 0.5rem;
         }
+        .return-ride-badge {
+            display: inline-block;
+            background: rgba(168, 85, 247, 0.18);
+            border: 1px solid rgba(168, 85, 247, 0.45);
+            color: #e9d5ff;
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin: 0 0.35rem 0.5rem 0;
+        }
+        .return-outbound-done {
+            color: #c4b5fd !important;
+            margin: -0.15rem 0 0.5rem !important;
+        }
+        .offer-return-at {
+            color: #ddd6fe !important;
+            margin: -0.15rem 0 0.65rem !important;
+        }
+        #btn-start-return {
+            width: 100%;
+            margin-top: 0.75rem;
+            min-height: 3.25rem;
+            font-size: 1.0625rem;
+            background: #7c3aed;
+            color: #fff;
+        }
+        #btn-release-return {
+            width: 100%;
+            margin-top: 0.5rem;
+            min-height: 3rem;
+            font-size: 1rem;
+            background: transparent;
+            color: #cbd5e1;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
         .contract-stops-panel { margin-top: 0.75rem; }
         .contract-stops-progress { margin: 0 0 0.75rem !important; }
         .contract-stop-item {
@@ -687,6 +724,17 @@
             margin-top: 0.75rem;
             min-height: 3rem;
         }
+        .parked-assigned-rides-strip {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .parked-assigned-ride-card .btn {
+            width: 100%;
+            margin-top: 0.75rem;
+            min-height: 3rem;
+        }
         .scheduled-ride-card.is-contract-ride .scheduled-ride-toggle-text .offer-title {
             display: inline;
             margin-left: 0.35rem;
@@ -740,6 +788,20 @@
             outline: none;
         }
         .offer-price { font-size: 1.5rem; font-weight: 700; color: #86efac; margin: 0.75rem 0; }
+        .offer-price-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 0.75rem 0 0;
+        }
+        .offer-price-wrap .offer-price { margin: 0; }
+        .offer-price-total {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #94a3b8;
+            margin: 0.75rem 0 0.75rem;
+        }
+        .offer-price-wrap .offer-price-total { margin: 0; }
         #offer-container { flex-shrink: 0; }
         .offer-card {
             margin-bottom: 0.75rem;
@@ -794,6 +856,19 @@
             gap: 0.2rem;
             min-width: 0;
             flex: 1;
+        }
+        .scheduled-ride-card .scheduled-ride-toggle-text .contract-ride-badge,
+        .scheduled-ride-card .scheduled-ride-toggle-text .return-ride-badge {
+            align-self: flex-start;
+            width: auto;
+            max-width: max-content;
+        }
+        .scheduled-ride-card .scheduled-ride-toggle-text .return-ride-badge {
+            margin-top: 0.25rem;
+            margin-bottom: 0;
+        }
+        .scheduled-ride-card.is-expanded .scheduled-ride-toggle-text .return-ride-badge {
+            margin-bottom: 0.15rem;
         }
         .scheduled-ride-card .scheduled-ride-toggle .offer-title {
             margin: 0;
@@ -917,7 +992,51 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.72; }
         }
-        .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; }
+        .empty { text-align: center; color: var(--muted); padding: 2.5rem 1rem 2rem; }
+        .inbox-empty-icon {
+            width: 5.5rem;
+            height: 5.5rem;
+            margin: 0.75rem auto 1.35rem;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #94a3b8;
+        }
+        .inbox-empty-icon svg {
+            width: 2.85rem;
+            height: 2.85rem;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.35;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .inbox-empty-icon[data-state="offline"] {
+            background: rgba(100, 116, 139, 0.14);
+            border-color: rgba(100, 116, 139, 0.28);
+            color: #64748b;
+        }
+        .inbox-empty-icon[data-state="inactive"],
+        .inbox-empty-icon[data-state="error"] {
+            background: rgba(248, 113, 113, 0.12);
+            border-color: rgba(248, 113, 113, 0.28);
+            color: #f87171;
+        }
+        #inbox-empty-title {
+            margin: 0 0 0.5rem;
+            font-size: 1.0625rem;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+        #inbox-empty-hint {
+            margin: 0;
+            max-width: 18rem;
+            margin-inline: auto;
+            line-height: 1.45;
+        }
         .error { color: #fca5a5; font-size: 0.875rem; margin-top: 0.5rem; }
         .toggle-row {
             display: flex;
@@ -1067,7 +1186,8 @@
             font-size: 0.8125rem;
             margin-bottom: 1rem;
         }
-        .banner-notifications-hint {
+        .banner-notifications-hint,
+        .banner-install-app {
             position: relative;
             background: rgba(22, 163, 74, 0.12);
             border: 1px solid rgba(22, 163, 74, 0.35);
@@ -1077,6 +1197,10 @@
             font-size: 0.8125rem;
             margin-bottom: 1rem;
             line-height: 1.45;
+        }
+        #install-app-hint {
+            margin: 1rem 1rem 0;
+            flex-shrink: 0;
         }
         .banner-dismiss-btn {
             position: absolute;
@@ -1095,7 +1219,8 @@
             -webkit-appearance: none;
             touch-action: manipulation;
         }
-        .banner-notifications-hint .btn-inline {
+        .banner-notifications-hint .btn-inline,
+        .banner-install-app .btn-inline {
             display: inline-block;
             margin-top: 0.5rem;
             padding: 0.45rem 0.75rem;
@@ -1132,6 +1257,11 @@
 </head>
 <body>
 <div id="app">
+    <div id="install-app-hint" class="banner-install-app" hidden role="note">
+        <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
+        <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
+        <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
+    </div>
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Chauffeur inloggen</h1>
         <div class="card">
@@ -1181,15 +1311,15 @@
                 <span>Online voor ritten</span>
                 <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
             </div>
+            <button type="button" class="btn btn-ghost btn-toolbar-inbox-back" id="btn-toolbar-inbox-back" hidden>← Rittenoverzicht</button>
             <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
         </div>
         <div class="dispatch-scroll">
         <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
         <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
-        <div id="active-ride-collapsed-banner" class="card active-ride-collapsed-banner" hidden>
-            <p class="offer-title" id="active-ride-collapsed-title">Actieve rit</p>
-            <p class="offer-meta" id="active-ride-collapsed-meta"></p>
-            <button type="button" class="btn btn-primary" id="btn-active-ride-open">Stoplijst openen</button>
+        <div id="parked-assigned-rides-strip" class="parked-assigned-rides-strip" hidden>
+            <p class="scheduled-rides-title">Jouw actieve ritten</p>
+            <div id="parked-assigned-rides-list"></div>
         </div>
         <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
             <p class="scheduled-rides-title">Geplande ritten</p>
@@ -1219,6 +1349,7 @@
             <div id="offer-container">
                 <div class="card offer-card" id="offer-card">
                     <p class="offer-title" id="offer-title">Nieuwe rit</p>
+                    <div id="offer-return-meta" hidden></div>
                     <p class="offer-meta" id="offer-queue-hint" hidden style="margin:-0.25rem 0 0.5rem;font-size:0.8125rem;color:#94a3b8;">
                         Je reageert op deze rit. Andere openstaande ritten blijven wachten tot je afwijst of accepteert.
                     </p>
@@ -1240,7 +1371,7 @@
                         <a id="offer-dropoff" class="offer-address" href="#" target="_blank" rel="noopener noreferrer">—</a>
                     </p>
                     <p class="offer-meta" id="offer-customer"></p>
-                    <p class="offer-price" id="offer-price"></p>
+                    <div class="offer-price-wrap" id="offer-price"></div>
                 </div>
             </div>
             <div id="offer-actions-panel" class="offer-actions">
@@ -1253,10 +1384,22 @@
             <p id="payment-ride-error" hidden role="alert"></p>
             <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
             <button type="button" class="btn" id="btn-send-invoice" hidden>Factuur versturen</button>
-            <button type="button" class="btn btn-ghost" id="btn-contract-back" hidden>Alle ritten weergeven</button>
+            <button type="button" class="btn btn-primary" id="btn-start-return" hidden>Retour starten</button>
+            <button type="button" class="btn btn-ghost" id="btn-release-return" hidden>Retour vrijgeven</button>
             <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afronden</button>
         </div>
         <div id="inbox-empty" class="empty">
+            <div id="inbox-empty-icon" class="inbox-empty-icon" data-state="no-rides" aria-hidden="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 11h14" />
+                    <path d="M6 11l1.2-3.6A1.5 1.5 0 0 1 8.62 6h6.76a1.5 1.5 0 0 1 1.42 1.04L18 11" />
+                    <path d="M6 11v5a1 1 0 0 0 1 1h1" />
+                    <path d="M16 17h1a1 1 0 0 0 1-1v-5" />
+                    <circle cx="8" cy="17" r="1.35" />
+                    <circle cx="16" cy="17" r="1.35" />
+                    <path d="M9 17h6" />
+                </svg>
+            </div>
             <p id="inbox-empty-title">Geen openstaande ritten.</p>
             <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
         </div>
@@ -1374,7 +1517,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=77" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=79" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

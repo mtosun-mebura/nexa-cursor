@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Models\Company;
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Models\Module;
 use App\Services\AiChatAssistantService;
 use App\Services\EnvService;
@@ -16,6 +17,7 @@ use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantSyncSettingsService;
 use App\Services\TenantWebsiteBundleService;
+use App\Services\InfoRequestFormPreviewContextService;
 use App\Services\WebsiteBuilderService;
 use App\Support\DutchPhoneNumber;
 use Illuminate\Http\Request;
@@ -951,6 +953,12 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
+            GeneralSetting::set(
+                TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT,
+                $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'],
+                $companyId
+            );
+
             return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->with('success', 'WhatsApp Business instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
@@ -1092,6 +1100,7 @@ class AdminSettingsController extends Controller
         $infoRequestSuccessImage = GeneralSetting::get('info_request_success_image');
         $infoRequestSuccessIcon = GeneralSetting::get('info_request_success_icon', 'ki-filled ki-check-circle');
         $infoRequestSuccessSize = GeneralSetting::get('info_request_success_icon_size', '80');
+        $infoRequestSuccessImageSizePercent = GeneralSetting::get('info_request_success_image_size_percent', '80');
         $adminFooterBrand = GeneralSetting::get('admin_footer_brand', 'Nexa Skillmatching');
 
         if ($infoRequestSuccessImage && ! Storage::disk('public')->exists($infoRequestSuccessImage)) {
@@ -1129,7 +1138,12 @@ class AdminSettingsController extends Controller
         $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta($settingsCompanyId);
         $faviconDisplayUrl = $faviconMeta['url'];
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'settingsCompanyId', 'tenantScopedSettingsActive'));
+        $infoRequestFormPreviewContexts = app(InfoRequestFormPreviewContextService::class)
+            ->contextsForCompany($settingsCompanyId);
+        $infoRequestFormPreviewContext = app(InfoRequestFormPreviewContextService::class)
+            ->defaultContext($infoRequestFormPreviewContexts);
+
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive'));
     }
 
     /**
@@ -1157,6 +1171,7 @@ class AdminSettingsController extends Controller
             'info_request_success_texts_enabled' => 'nullable|in:0,1',
             'info_request_success_icon' => 'nullable|string|max:100',
             'info_request_success_icon_size' => 'nullable|integer|min:32|max:200',
+            'info_request_success_image_size_percent' => 'nullable|integer|min:10|max:100',
             'admin_footer_brand' => 'nullable|string|max:255',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
@@ -1224,6 +1239,9 @@ class AdminSettingsController extends Controller
             }
             if ($request->has('info_request_success_icon_size')) {
                 GeneralSetting::set('info_request_success_icon_size', (string) $request->input('info_request_success_icon_size', '80'), $companyId);
+            }
+            if ($request->has('info_request_success_image_size_percent')) {
+                GeneralSetting::set('info_request_success_image_size_percent', (string) $request->input('info_request_success_image_size_percent', '80'), $companyId);
             }
 
             // Ensure settings directory exists

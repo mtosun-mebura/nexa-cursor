@@ -4,56 +4,7 @@
 
 @section('content')
 
-<style>
-    .hero-bg {
-        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
-    }
-    .dark .hero-bg {
-        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
-    }
-    /* Alleen divs met inline background in de e-mailpreview: lichtgrijze achtergrond in dark mode */
-    .dark .email-preview-content div[style*="background"] {
-        background: #a3a3a3 !important;
-        color: #1f2937 !important;
-    }
-    /* Preview-container: ronde hoeken zoals in edit, originele e-mailweergave behouden */
-    .email-preview-content {
-        border-radius: 0.75rem !important;
-        overflow: hidden;
-    }
-    /* E-mailinhoud: alleen typografie links; table/td/th behouden hun inline styling (bv. padding: 20px 0; text-align: center) zoals in de e-mail */
-    .email-preview-content .prose,
-    .email-preview-content .prose *:not(table):not(td):not(th) {
-        text-align: left !important;
-    }
-    .email-preview-content table {
-        border-radius: 0.5rem;
-        overflow: hidden;
-    }
-    /* Zelfde typografie als TinyMCE-editor (editor en detailweergave gelijk) */
-    .email-preview-content .prose {
-        font-family: Arial, sans-serif !important;
-        font-size: 14px !important;
-        line-height: 1.6 !important;
-        color: #333 !important;
-    }
-    .email-preview-content .prose p { margin: 0 0 0.75em 0 !important; }
-    .email-preview-content .prose h1 { font-size: 1.875em !important; font-weight: 700 !important; margin: 0 0 0.5em 0 !important; }
-    .email-preview-content .prose h2 { font-size: 1.5em !important; font-weight: 600 !important; margin: 0 0 0.5em 0 !important; }
-    .email-preview-content .prose h3 { font-size: 1.25em !important; font-weight: 600 !important; margin: 0 0 0.5em 0 !important; }
-    .email-preview-content .prose ul,
-    .email-preview-content .prose ol { margin: 0 0 0.75em 0 !important; padding-left: 1.5em !important; }
-    .email-preview-content .prose a { color: #2563eb !important; }
-    .dark .email-preview-content .prose { color: #e5e7eb !important; }
-    .dark .email-preview-content .prose a { color: #93c5fd !important; }
-    .email-preview-content img {
-        width: auto !important;
-        height: auto !important;
-        max-width: 100% !important;
-        object-fit: contain !important;
-        display: block !important;
-    }
-</style>
+@include('admin.email-templates.partials.preview-styles')
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
     <div class="kt-container-fixed">
@@ -197,8 +148,14 @@
 
         <!-- Email Content Preview -->
         <div class="kt-card">
-            <div class="kt-card-header">
-                <h5 class="kt-card-title">E-mail Preview</h5>
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
+                <h5 class="kt-card-title mb-0">E-mail Preview</h5>
+                @can('edit-email-templates')
+                <a href="{{ route('admin.email-templates.edit', $emailTemplate) }}#html_content" class="kt-btn kt-btn-sm kt-btn-outline">
+                    <i class="ki-filled ki-notepad-edit me-1"></i>
+                    Template bewerken
+                </a>
+                @endcan
             </div>
             <div class="kt-card-content">
                 <div class="mb-4">
@@ -208,7 +165,10 @@
                 
                 @if($emailTemplate->html_content)
                 <div class="mb-4">
-                    <h6 class="text-sm font-semibold text-foreground mb-2">HTML Inhoud:</h6>
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <h6 class="text-sm font-semibold text-foreground mb-0">HTML Inhoud:</h6>
+                        <p class="text-xs text-muted-foreground mb-0">Preview toont light mode — zoals in de meeste e-mailclients.</p>
+                    </div>
                     @if(!$emailTemplate->company_id)
                     <p class="text-xs text-muted-foreground mb-3">
                         Dit is een <strong>algemeen</strong> template. In de preview en bij verzenden wordt het logo (en bedrijfsnaam) van de
@@ -217,7 +177,7 @@
                     </p>
                     @endif
                     <div class="border border-border rounded-xl p-4 bg-muted/30 email-preview-content">
-                        <div class="prose prose-sm max-w-none dark:prose-invert text-left">
+                        <div class="prose prose-sm max-w-none text-left">
                             {!! $previewHtml ?? $emailTemplate->html_content !!}
                         </div>
                     </div>

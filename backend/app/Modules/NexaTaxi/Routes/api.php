@@ -40,6 +40,14 @@ Route::prefix('v1/driver')
             ->middleware('throttle:30,1')
             ->whereNumber('ride');
 
+        Route::post('dispatch/rides/{ride}/release-return', [DriverDispatchController::class, 'releaseReturn'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('ride');
+
+        Route::post('dispatch/rides/{ride}/start-return', [DriverDispatchController::class, 'startReturn'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('ride');
+
         Route::post('dispatch/rides/{ride}/complete', [DriverDispatchController::class, 'complete'])
             ->middleware('throttle:30,1')
             ->whereNumber('ride');

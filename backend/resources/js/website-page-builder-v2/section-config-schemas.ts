@@ -9,17 +9,19 @@ export type ConfigField =
   | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'wysiwyg'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
-  | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen; defaultValue?: string }
   | { type: 'dynamic-select'; key: string; label: string; source: 'sideComponents' | 'emailTemplates'; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
   | { type: 'color'; key: string; label: string; hint?: string }
   | { type: 'image'; key: string; label: string; hint?: string }
   | { type: 'website-media-image'; key: string; label: string; hint?: string }
-  | { type: 'checkbox'; key: string; label: string }
+  | { type: 'checkbox'; key: string; label: string; hint?: string }
   | { type: 'star-rating'; key: string; label: string; min?: number; max?: number; hint?: string }
   | { type: 'step-order'; key: string; label: string; options: SelectOption[] }
-  | { type: 'group'; label: string; fields: ConfigField[] }
+  | { type: 'group'; label: string; fields: ConfigField[]; subVisibilityKey?: string; hint?: string }
+  | { type: 'footer-logo'; key: string; label: string }
+  | { type: 'footer-map'; label: string; subVisibilityKey?: string }
   | {
       type: 'item-list'
       key: string
@@ -34,6 +36,32 @@ const alignmentOptions: SelectOption[] = [
   { value: 'left', label: 'Links' },
   { value: 'center', label: 'Gecentreerd' },
   { value: 'right', label: 'Rechts' },
+]
+
+function pxSelectOptions(min: number, max: number, step: number): SelectOption[] {
+  const options: SelectOption[] = []
+  for (let px = min; px <= max; px += step) {
+    options.push({ value: String(px), label: `${px} px` })
+  }
+  return options
+}
+
+const heroBannerFontPxOptions = pxSelectOptions(12, 50, 2)
+
+const footerLogoHeightOptions: SelectOption[] = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30].map((px) => ({
+  value: String(px),
+  label: `${px}px`,
+}))
+
+const sectionWidthPercentOptions: SelectOption[] = [
+  { value: '100', label: '100%' },
+  { value: '90', label: '90%' },
+  { value: '80', label: '80%' },
+  { value: '70', label: '70%' },
+  { value: '60', label: '60%' },
+  { value: '50', label: '50%' },
+  { value: '40', label: '40%' },
+  { value: '30', label: '30%' },
 ]
 
 const ctaButtonFields = (prefix: 'cta_primary' | 'cta_secondary', label: string): ConfigField[] => [
@@ -51,11 +79,14 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
     { type: 'text', key: 'title', label: 'Titel' },
     { type: 'text', key: 'title_highlight', label: 'Highlight woord' },
     { type: 'color', key: 'title_highlight_color', label: 'Highlight kleur' },
-    { type: 'textarea', key: 'subtitle', label: 'Ondertitel', rows: 4 },
+    { type: 'wysiwyg', key: 'subtitle', label: 'Ondertitel', placeholder: 'Korte introductietekst op de banner…' },
     { type: 'color', key: 'subtitle_color', label: 'Ondertitel kleur' },
+    { type: 'select', key: 'title_font_size_px', label: 'Tekstgrootte titel', options: heroBannerFontPxOptions, defaultValue: '44', hint: 'Op banner met achtergrondafbeelding', visibleWhen: { key: 'background_image_url', notEmpty: true } },
+    { type: 'select', key: 'subtitle_font_size_px', label: 'Tekstgrootte ondertitel', options: heroBannerFontPxOptions, defaultValue: '22', hint: 'Op banner met achtergrondafbeelding', visibleWhen: { key: 'background_image_url', notEmpty: true } },
     { type: 'group', label: 'Achtergrond tekstblok', fields: [
       { type: 'color', key: 'text_bg_color', label: 'Achtergrond', hint: 'Kleurvlak achter titel en ondertitel' },
       { type: 'range', key: 'text_bg_opacity', label: 'Transparantie', min: 0, max: 100, step: 1, unit: '%', previewColorKey: 'text_bg_color', hint: '0 = doorzichtig, 100 = ondoorzichtig' },
+      { type: 'select', key: 'text_bg_width_percent', label: 'Breedte tekstblok', options: sectionWidthPercentOptions, defaultValue: '70', hint: '100% = volle bannerbreedte met 20 px marge links/rechts', visibleWhen: { key: 'background_image_url', notEmpty: true } },
     ]},
     { type: 'image', key: 'background_image_url', label: 'Achtergrond banner', hint: 'Atom-v2 / modern thema' },
     { type: 'image', key: 'author_image_url', label: 'Ronde foto in banner', hint: 'Atom-v2 thema' },
@@ -69,14 +100,14 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
   ],
   cta: [
     { type: 'text', key: 'title', label: 'Titel' },
-    { type: 'textarea', key: 'subtitle', label: 'Ondertitel', rows: 3 },
+    { type: 'wysiwyg', key: 'subtitle', label: 'Ondertitel', placeholder: 'Korte tekst onder de titel…' },
     { type: 'color', key: 'subtitle_color', label: 'Ondertitel kleur' },
     ...ctaButtonFields('cta_primary', 'Knop 1'),
     ...ctaButtonFields('cta_secondary', 'Knop 2'),
   ],
   why_nexa: [
     { type: 'text', key: 'title', label: 'Titel' },
-    { type: 'textarea', key: 'subtitle', label: 'Tekst', rows: 4 },
+    { type: 'wysiwyg', key: 'subtitle', label: 'Tekst', placeholder: 'Introductietekst…' },
     { type: 'color', key: 'subtitle_color', label: 'Tekstkleur' },
   ],
   text_block: [
@@ -112,16 +143,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       type: 'select',
       key: 'width_percent',
       label: 'Sectiebreedte op de website',
-      options: [
-        { value: '100', label: '100%' },
-        { value: '90', label: '90%' },
-        { value: '80', label: '80%' },
-        { value: '70', label: '70%' },
-        { value: '60', label: '60%' },
-        { value: '50', label: '50%' },
-        { value: '40', label: '40%' },
-        { value: '30', label: '30%' },
-      ],
+      options: sectionWidthPercentOptions,
       hint: 'Breedte van de sectie ten opzichte van de pagina (in procenten).',
     },
     {
@@ -142,7 +164,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       itemLabel: 'Kenmerk',
       fields: [
         { type: 'text', key: 'title', label: 'Titel' },
-        { type: 'textarea', key: 'description', label: 'Tekst', rows: 3 },
+        { type: 'wysiwyg', key: 'description', label: 'Tekst', placeholder: 'Beschrijving…' },
         { type: 'text', key: 'icon', label: 'Icoon (heroicon-id)' },
         { type: 'select', key: 'icon_size', label: 'Icoongrootte', options: [
           { value: 'small', label: 'Klein' },
@@ -231,7 +253,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
   ],
   featured_services: [
     { type: 'text', key: 'title', label: 'Titel' },
-    { type: 'textarea', key: 'subtitle', label: 'Ondertitel', rows: 2 },
+    { type: 'wysiwyg', key: 'subtitle', label: 'Ondertitel', placeholder: 'Ondertitel…' },
     { type: 'number', key: 'title_font_size_px', label: 'Titelgrootte (px)', min: 14, max: 48, step: 1 },
     { type: 'number', key: 'subtitle_font_size_px', label: 'Ondertitelgrootte (px)', min: 12, max: 32, step: 1 },
     { type: 'number', key: 'blocks_per_row', label: 'Blokken per rij', min: 1, max: 4, step: 1 },
@@ -250,7 +272,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       fields: [
         { type: 'text', key: 'icon', label: 'Icoon' },
         { type: 'text', key: 'title', label: 'Titel' },
-        { type: 'textarea', key: 'description', label: 'Beschrijving', rows: 3 },
+        { type: 'wysiwyg', key: 'description', label: 'Beschrijving', placeholder: 'Beschrijving…' },
       ],
     },
   ],
@@ -269,10 +291,115 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       itemLabel: 'Kaart',
       fields: [
         { type: 'image', key: 'image_url', label: 'Afbeelding' },
-        { type: 'textarea', key: 'text', label: 'Tekst', rows: 2 },
+        { type: 'wysiwyg', key: 'text', label: 'Tekst', placeholder: 'Tekst op de kaart…' },
         { type: 'number', key: 'font_size', label: 'Lettergrootte (px)', min: 10, max: 32, step: 1 },
         { type: 'select', key: 'text_align', label: 'Tekstuitlijning', options: alignmentOptions },
       ],
+    },
+  ],
+  footer: [
+    {
+      type: 'checkbox',
+      key: 'inherit_from_home',
+      label: 'Overnemen van Home',
+      hint: 'Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.',
+    },
+    {
+      type: 'group',
+      label: 'Logo',
+      subVisibilityKey: 'footer_logo',
+      fields: [
+        { type: 'footer-logo', key: 'logo_url', label: 'Footer-logo' },
+        {
+          type: 'select',
+          key: 'logo_height',
+          label: 'Logo-hoogte (px)',
+          options: footerLogoHeightOptions,
+          defaultValue: '12',
+        },
+        { type: 'select', key: 'logo_align', label: 'Logo-uitlijning', options: alignmentOptions },
+        { type: 'text', key: 'logo_alt', label: 'Logo alt-tekst', placeholder: 'Bijv. Nexa Skillmatching' },
+      ],
+    },
+    { type: 'footer-map', label: 'Footer-kaart (Google Maps)', subVisibilityKey: 'footer_map' },
+    {
+      type: 'group',
+      label: 'Tagline',
+      subVisibilityKey: 'footer_tagline',
+      fields: [
+        {
+          type: 'wysiwyg',
+          key: 'tagline',
+          label: 'Tagline',
+          placeholder: 'Ontdek de perfecte match...',
+          hint: 'Wordt onder het logo in de footer getoond.',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'Snelle Links',
+      subVisibilityKey: 'footer_quick_links',
+      fields: [
+        { type: 'text', key: 'quick_links_title', label: 'Titel kolom', placeholder: 'Snelle Links' },
+        { type: 'select', key: 'quick_links_align', label: 'Uitlijning', options: alignmentOptions },
+        {
+          type: 'item-list',
+          key: 'quick_links',
+          label: 'Links',
+          minItems: 0,
+          maxItems: 20,
+          itemLabel: 'Link',
+          fields: [
+            { type: 'text', key: 'label', label: 'Label', placeholder: 'Home' },
+            { type: 'text', key: 'url', label: 'URL', placeholder: '/pad of https://...' },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'Ondersteuning-links',
+      subVisibilityKey: 'footer_support_links',
+      fields: [
+        { type: 'text', key: 'support_links_title', label: 'Titel kolom', placeholder: 'Ondersteuning' },
+        { type: 'select', key: 'support_links_align', label: 'Uitlijning', options: alignmentOptions },
+        {
+          type: 'item-list',
+          key: 'support_links',
+          label: 'Links',
+          minItems: 0,
+          maxItems: 20,
+          itemLabel: 'Link',
+          fields: [
+            { type: 'text', key: 'label', label: 'Label', placeholder: 'Help & FAQ' },
+            { type: 'text', key: 'url', label: 'URL', placeholder: '/pad of https://...' },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'Social media',
+      subVisibilityKey: 'footer_social',
+      hint: 'Vul alleen de unieke identifier in. Alleen ingevulde velden worden als icoon getoond.',
+      fields: [
+        { type: 'text', key: 'social_facebook', label: 'Facebook', placeholder: 'jouwpagina', hint: 'facebook.com/' },
+        { type: 'text', key: 'social_instagram', label: 'Instagram', placeholder: 'gebruikersnaam', hint: 'instagram.com/' },
+        { type: 'text', key: 'social_x', label: 'X (Twitter)', placeholder: 'handle', hint: 'x.com/' },
+        { type: 'text', key: 'social_linkedin', label: 'LinkedIn', placeholder: 'company/bedrijfsnaam', hint: 'linkedin.com/' },
+        { type: 'text', key: 'social_youtube', label: 'YouTube', placeholder: '@kanaal', hint: 'youtube.com/' },
+        { type: 'text', key: 'social_tiktok', label: 'TikTok', placeholder: 'gebruikersnaam', hint: 'tiktok.com/@' },
+      ],
+    },
+  ],
+  copyright: [
+    {
+      type: 'text',
+      key: 'text',
+      label: 'Copyrighttekst',
+      placeholder: '© {year} Nexa Skillmatching. Alle rechten voorbehouden.',
+      hint: 'Gebruik {year} voor het huidige jaar.',
     },
   ],
 }

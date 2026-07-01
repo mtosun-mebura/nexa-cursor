@@ -9,6 +9,8 @@ class InfoRequestFormField extends Model
 {
     use HasFactory;
 
+    public const TEXTAREA_MAX_LENGTH = 500;
+
     protected $table = 'info_request_form_fields';
 
     protected $fillable = [
@@ -22,6 +24,12 @@ class InfoRequestFormField extends Model
     protected $casts = [
         'is_required' => 'boolean',
     ];
+
+    public function isTextareaField(): bool
+    {
+        return in_array($this->validation_rule, [null, ''], true)
+            && str_contains(strtolower((string) $this->label), 'omschrijving');
+    }
 
     /**
      * Laravel validation rules voor dit veld (voor request).
@@ -42,7 +50,7 @@ class InfoRequestFormField extends Model
             }
         } else {
             $rules[] = 'string';
-            $rules[] = 'max:5000';
+            $rules[] = 'max:' . ($this->isTextareaField() ? self::TEXTAREA_MAX_LENGTH : 5000);
         }
         return $rules;
     }

@@ -16,7 +16,7 @@ class InfoRequestFormFieldSeeder extends Seeder
             ['name' => 'voornaam', 'label' => 'Voornaam', 'is_required' => true, 'validation_rule' => null, 'sort_order' => 10],
             ['name' => 'achternaam', 'label' => 'Achternaam', 'is_required' => true, 'validation_rule' => null, 'sort_order' => 20],
             ['name' => 'email_aanvraag', 'label' => 'E-mailadres', 'is_required' => true, 'validation_rule' => 'email', 'sort_order' => 30],
-            ['name' => 'telefoonnummer', 'label' => 'Telefoonnummer', 'is_required' => false, 'validation_rule' => 'tel', 'sort_order' => 40],
+            ['name' => 'telefoonnummer', 'label' => 'Telefoonnummer', 'is_required' => true, 'validation_rule' => 'tel', 'sort_order' => 40],
             ['name' => 'omschrijving', 'label' => 'Omschrijving / vraag', 'is_required' => true, 'validation_rule' => null, 'sort_order' => 50],
         ];
 

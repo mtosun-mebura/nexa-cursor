@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\CompanyDomain;
 use App\Models\User;
+use App\Models\WebsitePage;
 use App\Support\Tenancy\TenantParentDomains;
 use Illuminate\Support\Str;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TaxiKnowledgeTableService;
 use App\Modules\NexaTaxi\Support\NexaTaxiSchema;
 use App\Services\TenantSync\TenantSyncReportBuilder;
+use App\Services\WebsiteBuilderService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
@@ -245,6 +247,10 @@ final class TenantCompanyDataPushService
                     continue;
                 }
 
+                if ($table === 'email_templates') {
+                    continue;
+                }
+
                 $tableInserted = 0;
                 $tableUpdated = 0;
                 $tableSkipped = 0;
@@ -336,6 +342,26 @@ final class TenantCompanyDataPushService
                 (int) ($globalSettingsStats['inserted'] ?? 0),
                 0,
                 (int) ($globalSettingsStats['skipped'] ?? 0)
+            );
+
+            $emailTemplateStats = $this->pushEmailTemplatesForTenantSync(
+                $sourceConn,
+                $targetConn,
+                $sourceCompanyId,
+                $remoteCompanyId,
+                $idMaps,
+                $allFkEdges
+            );
+            $inserted += (int) ($emailTemplateStats['inserted'] ?? 0);
+            $inserted += (int) ($emailTemplateStats['updated'] ?? 0);
+            $updated += (int) ($emailTemplateStats['updated'] ?? 0);
+            $skipped += (int) ($emailTemplateStats['skipped'] ?? 0);
+            $report->addRow(
+                'Overig',
+                'email_templates',
+                (int) ($emailTemplateStats['inserted'] ?? 0),
+                (int) ($emailTemplateStats['updated'] ?? 0),
+                (int) ($emailTemplateStats['skipped'] ?? 0)
             );
 
             $pageStats = $this->websiteBundle->pushWebsitePagesForTenantSync($company, $remoteCompanyId);
@@ -1436,7 +1462,12 @@ final class TenantCompanyDataPushService
         array $fkEdges
     ): ?array {
         unset($row['id']);
-        $row['company_id'] = $remoteCompanyId;
+        if ($table === 'email_templates') {
+            $row['company_id'] = ($row['company_id'] ?? null) === null ? null : $remoteCompanyId;
+            $row = $this->sanitizeEmailTemplateRowForSync($row, $idMaps);
+        } else {
+            $row['company_id'] = $remoteCompanyId;
+        }
         $row = $this->remapRowForeignKeys($table, $row, $fkEdges, $idMaps);
         if ($row === null) {
             return null;
@@ -1612,9 +1643,7 @@ final class TenantCompanyDataPushService
             return;
         }
         $q = DB::connection($targetConn)->table($table);
-        if (isset($payload['company_id'])) {
-            $q->where('company_id', $payload['company_id']);
-        }
+        $this->applyPayloadCompanyIdFilter($q, $payload);
         if ($table === 'users' && isset($payload['email'])) {
             $q->where('email', $payload['email']);
         } elseif ($table === 'roles' && isset($payload['name'], $payload['guard_name'])) {
@@ -2234,7 +2263,178 @@ final class TenantCompanyDataPushService
             return $this->collectUsersRowsForCompany($sourceConn, $sourceCompanyId);
         }
 
+        if ($table === 'email_templates') {
+            return $this->collectEmailTemplatesRowsForCompany($sourceConn, $sourceCompanyId);
+        }
+
         return DB::connection($sourceConn)->table($table)->where('company_id', $sourceCompanyId)->get();
+    }
+
+    /**
+     * Tenant-templates, globale templates (company_id null) en templates die de tenant gebruikt.
+     *
+     * @return Collection<int, object>
+     */
+    private function collectEmailTemplatesRowsForCompany(string $sourceConn, int $sourceCompanyId): Collection
+    {
+        if (! Schema::connection($sourceConn)->hasTable('email_templates')) {
+            return collect();
+        }
+
+        $templateIds = [];
+
+        foreach (DB::connection($sourceConn)->table('email_templates')
+            ->where('company_id', $sourceCompanyId)
+            ->pluck('id') as $id) {
+            $templateIds[(int) $id] = true;
+        }
+
+        foreach (DB::connection($sourceConn)->table('email_templates')
+            ->whereNull('company_id')
+            ->pluck('id') as $id) {
+            $templateIds[(int) $id] = true;
+        }
+
+        foreach ($this->discoverReferencedEmailTemplateIds($sourceConn, $sourceCompanyId) as $id) {
+            $templateIds[$id] = true;
+        }
+
+        foreach ($this->discoverEmailTemplateIdsFromWebsiteBuilderPages($sourceCompanyId) as $id) {
+            $templateIds[$id] = true;
+        }
+
+        if ($templateIds === []) {
+            return collect();
+        }
+
+        return DB::connection($sourceConn)->table('email_templates')
+            ->whereIn('id', array_keys($templateIds))
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function discoverReferencedEmailTemplateIds(string $sourceConn, int $sourceCompanyId): array
+    {
+        $ids = [];
+
+        if (Schema::connection($sourceConn)->hasTable('notifications')
+            && Schema::connection($sourceConn)->hasColumn('notifications', 'email_template_id')) {
+            foreach (DB::connection($sourceConn)->table('notifications')
+                ->where('company_id', $sourceCompanyId)
+                ->whereNotNull('email_template_id')
+                ->pluck('email_template_id') as $id) {
+                if ($id !== null) {
+                    $ids[(int) $id] = true;
+                }
+            }
+        }
+
+        if (Schema::connection($sourceConn)->hasTable('general_settings')) {
+            $templateId = DB::connection($sourceConn)->table('general_settings')
+                ->where('company_id', $sourceCompanyId)
+                ->where('key', 'contact_email_template_id')
+                ->value('value');
+            if ($templateId !== null && $templateId !== '' && is_numeric($templateId)) {
+                $ids[(int) $templateId] = true;
+            }
+        }
+
+        if (Schema::connection($sourceConn)->hasTable('website_pages')) {
+            foreach (DB::connection($sourceConn)->table('website_pages')
+                ->where('company_id', $sourceCompanyId)
+                ->pluck('home_sections') as $homeSectionsRaw) {
+                $homeSections = is_string($homeSectionsRaw)
+                    ? json_decode($homeSectionsRaw, true)
+                    : (is_array($homeSectionsRaw) ? $homeSectionsRaw : null);
+                if (! is_array($homeSections)) {
+                    continue;
+                }
+                foreach ($this->extractEmailTemplateIdsFromHomeSections($homeSections) as $templateId) {
+                    $ids[$templateId] = true;
+                }
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function discoverEmailTemplateIdsFromWebsiteBuilderPages(int $sourceCompanyId): array
+    {
+        try {
+            $pages = app(WebsiteBuilderService::class)->loadAllPagesForAdminIndex($sourceCompanyId, true);
+        } catch (Throwable) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($pages as $page) {
+            if (! $page instanceof WebsitePage) {
+                continue;
+            }
+            $homeSections = $page->getHomeSections();
+            if (! is_array($homeSections)) {
+                continue;
+            }
+            foreach (WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections) as $template) {
+                if ($template !== null) {
+                    $ids[$template->id] = true;
+                }
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function extractEmailTemplateIdsFromHomeSections(array $homeSections): array
+    {
+        $ids = [];
+
+        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
+            if (! is_string($sectionKey)) {
+                continue;
+            }
+            if (preg_replace('/_\d+$/', '', $sectionKey) !== 'email_template') {
+                continue;
+            }
+            $raw = $homeSections[$sectionKey] ?? null;
+            if (! is_array($raw) || ! isset($raw['template_id']) || ! is_numeric($raw['template_id'])) {
+                continue;
+            }
+            $ids[] = (int) $raw['template_id'];
+        }
+
+        foreach ($homeSections as $sectionKey => $data) {
+            if (! is_string($sectionKey) || ! is_array($data)) {
+                continue;
+            }
+            if (preg_replace('/_\d+$/', '', $sectionKey) !== 'text_block') {
+                continue;
+            }
+            $sideTemplateId = $data['side_template_id'] ?? null;
+            if (is_numeric($sideTemplateId)) {
+                $ids[] = (int) $sideTemplateId;
+            }
+            $sideKey = $data['side_component_key'] ?? null;
+            if (! is_string($sideKey) || $sideKey === '') {
+                continue;
+            }
+            $sideData = $homeSections[$sideKey] ?? null;
+            if (! is_array($sideData) || ! isset($sideData['template_id']) || ! is_numeric($sideData['template_id'])) {
+                continue;
+            }
+            $ids[] = (int) $sideData['template_id'];
+        }
+
+        return $ids;
     }
 
     /**
@@ -2562,13 +2762,90 @@ final class TenantCompanyDataPushService
         return $found !== null ? (int) $found : null;
     }
 
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @param  list<array{child:string, child_column:string, parent:string}>  $fkEdges
+     * @return array{inserted: int, updated: int, skipped: int}
+     */
+    private function pushEmailTemplatesForTenantSync(
+        string $sourceConn,
+        string $targetConn,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps,
+        array $fkEdges
+    ): array {
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        if (! Schema::connection($targetConn)->hasTable('email_templates')) {
+            return compact('inserted', 'updated', 'skipped');
+        }
+
+        foreach ($this->collectEmailTemplatesRowsForCompany($sourceConn, $sourceCompanyId) as $rowObj) {
+            $row = (array) $rowObj;
+            $oldId = isset($row['id']) ? (int) $row['id'] : null;
+            $payload = $this->prepareInsertPayload($table = 'email_templates', $row, $remoteCompanyId, $idMaps, $fkEdges);
+
+            if ($payload === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $outcome = $this->insertRowOnTarget(
+                $sourceConn,
+                $targetConn,
+                $table,
+                $payload,
+                $oldId,
+                $remoteCompanyId,
+                $idMaps
+            );
+
+            if ($outcome === 'inserted') {
+                $inserted++;
+            } elseif ($outcome === 'updated') {
+                $updated++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return compact('inserted', 'updated', 'skipped');
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array<string, mixed>
+     */
+    private function sanitizeEmailTemplateRowForSync(array $row, array $idMaps): array
+    {
+        if (! array_key_exists('recipient_user_id', $row) || $row['recipient_user_id'] === null || $row['recipient_user_id'] === '') {
+            return $row;
+        }
+
+        $userId = (int) $row['recipient_user_id'];
+        if ($userId > 0 && ! isset($idMaps['users'][$userId])) {
+            $row['recipient_user_id'] = null;
+            if (($row['recipient_type'] ?? null) === 'user') {
+                $row['recipient_type'] = null;
+            }
+        }
+
+        return $row;
+    }
+
     private function findExistingEmailTemplateId(string $targetConn, array $payload): ?int
     {
-        if (! isset($payload['company_id'])) {
+        if (! array_key_exists('company_id', $payload)) {
             return null;
         }
 
-        $q = DB::connection($targetConn)->table('email_templates')->where('company_id', $payload['company_id']);
+        $q = DB::connection($targetConn)->table('email_templates');
+        $this->applyPayloadCompanyIdFilter($q, $payload);
         if (! empty($payload['type'])) {
             $q->where('type', $payload['type']);
         } elseif (isset($payload['name']) && $payload['name'] !== '') {
@@ -2577,9 +2854,25 @@ final class TenantCompanyDataPushService
             return null;
         }
 
-        $found = $q->value('id');
+        $found = $q->orderByDesc('updated_at')->orderByDesc('id')->value('id');
 
         return $found !== null ? (int) $found : null;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyPayloadCompanyIdFilter($query, array $payload, string $column = 'company_id'): void
+    {
+        if (! array_key_exists($column, $payload)) {
+            return;
+        }
+
+        if ($payload[$column] === null) {
+            $query->whereNull($column);
+        } else {
+            $query->where($column, $payload[$column]);
+        }
     }
 
     private function findExistingModelHasRolesRow(string $targetConn, array $payload): bool
@@ -2723,7 +3016,7 @@ final class TenantCompanyDataPushService
 
     /**
      * @param  array<string, array<int, int>>  $idMaps
-     * @return 'inserted'|'skipped'
+     * @return 'inserted'|'updated'|'skipped'
      */
     private function handleDuplicateRowOnTarget(
         string $targetConn,
@@ -2746,7 +3039,44 @@ final class TenantCompanyDataPushService
 
         $this->tryLearnIdFromUniqueHit($targetConn, $table, $payload, $oldId, $idMaps);
 
+        $existingId = ($oldId !== null && isset($idMaps[$table][$oldId]))
+            ? (int) $idMaps[$table][$oldId]
+            : null;
+        if (($existingId === null || $existingId <= 0) && $this->shouldUpdateExistingRowOnTarget($table)) {
+            $existingId = $this->findExistingRowIdOnTarget($targetConn, $table, $this->existingLookupPayloadForDuplicate($table, $payload));
+            if ($existingId !== null && $existingId > 0 && $oldId !== null) {
+                $idMaps[$table][$oldId] = $existingId;
+            }
+        }
+
+        if ($existingId !== null && $existingId > 0 && $this->shouldUpdateExistingRowOnTarget($table)) {
+            $updatePayload = $payload;
+            unset($updatePayload['id'], $updatePayload['created_at']);
+            if ($updatePayload !== []) {
+                $this->updateExistingRowOnTarget($targetConn, $table, $existingId, $updatePayload);
+                $this->backfillTimestampsIfMissingOnTarget($targetConn, $table, $existingId, $payload);
+
+                return 'updated';
+            }
+        }
+
         return 'skipped';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function existingLookupPayloadForDuplicate(string $table, array $payload): array
+    {
+        if ($table !== 'email_templates') {
+            return $payload;
+        }
+
+        $lookup = $payload;
+        unset($lookup['name']);
+
+        return $lookup;
     }
 
     /**

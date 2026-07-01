@@ -220,6 +220,9 @@ class WebsitePage extends Model
                 'title_highlight' => 'droombaan',
                 'title_highlight_color' => '',
                 'subtitle_color' => '',
+                'title_font_size_px' => 44,
+                'subtitle_font_size_px' => 22,
+                'text_bg_width_percent' => 70,
                 'subtitle' => 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.',
                 'cta_primary_text' => 'Gratis account aanmaken',
                 'cta_primary_url' => '/register',
@@ -837,9 +840,13 @@ class WebsitePage extends Model
                         'image_fade_duration' => $imageFadeDuration,
                         'items' => array_values($items),
                     ];
-                } elseif ($sectionKey === 'component:taxi.boekingsmodule') {
-                    $canonicalKey = 'component:taxi.boekingsmodule';
-                    $raw = $stored[$canonicalKey] ?? $stored['component:taxiroyaal.boekingsmodule'] ?? [];
+                } elseif ($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2') {
+                    $canonicalKey = $sectionKey === 'component:taxi.boekingsmodule_v2'
+                        ? 'component:taxi.boekingsmodule_v2'
+                        : 'component:taxi.boekingsmodule';
+                    $raw = $sectionKey === 'component:taxi.boekingsmodule_v2'
+                        ? ($stored[$canonicalKey] ?? [])
+                        : ($stored[$canonicalKey] ?? $stored['component:taxiroyaal.boekingsmodule'] ?? []);
                     if (! is_array($raw)) {
                         $raw = [];
                     }

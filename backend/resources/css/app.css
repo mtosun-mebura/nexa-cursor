@@ -620,21 +620,46 @@
     max-height: none;
     overflow: hidden;
   }
-  .carousel-caption-text-block,
-  .hero-caption-text-block.carousel-caption-text-block {
+  .carousel-caption-text-block:not(.hero-caption-text-block) {
     max-width: min(36rem, 92vw);
+  }
+  .hero-caption-text-block.carousel-caption-text-block {
+    display: block;
+    box-sizing: border-box;
+    width: calc(var(--hero-caption-width-pct, 70) * 1%);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .modern-home-hero--has-image .modern-home-hero__caption-inner {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .modern-home-hero--has-image .hero-caption-width-context {
+    width: 100%;
+    max-width: 100%;
   }
   .carousel-caption-text-block p,
   .modern-home-hero--has-image .hero-caption-subtitle p {
     line-height: 1.35;
   }
   .modern-home-hero--has-image .hero-caption-title {
-    font-size: clamp(1.0625rem, 3.2vw + 0.4rem, var(--hero-title-size-max, 2rem));
+    font-size: clamp(1.125rem, calc(var(--hero-title-size-max, 44px) * 0.72), var(--hero-title-size-max, 44px));
     font-weight: 700;
   }
+  @media (min-width: 768px) {
+    .modern-home-hero--has-image .hero-caption-title {
+      font-size: var(--hero-title-size-max, 44px);
+    }
+  }
   .modern-home-hero--has-image .hero-caption-subtitle {
-    font-size: clamp(0.75rem, 2vw + 0.32rem, var(--hero-subtitle-size-max, 1rem));
+    font-size: clamp(0.8125rem, calc(var(--hero-subtitle-size-max, 22px) * 0.85), var(--hero-subtitle-size-max, 22px));
     font-weight: 400;
+  }
+  @media (min-width: 768px) {
+    .modern-home-hero--has-image .hero-caption-subtitle {
+      font-size: var(--hero-subtitle-size-max, 22px);
+    }
   }
   .modern-home-hero--has-image .hero-caption-subtitle :where(p, li, span, a) {
     font-size: inherit;

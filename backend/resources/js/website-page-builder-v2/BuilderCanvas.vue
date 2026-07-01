@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { baseTypeFromKey, sectionMeta, componentMeta } from './palette-meta'
 import type { CanvasBlock } from './types'
 import { readBlockKeyDrag, readDragPayload, writeBlockKeyDrag } from './builder-state'
@@ -10,6 +10,8 @@ const props = defineProps<{
   previewUrl: string
   mode: 'build' | 'live'
   paletteDragging: boolean
+  copyrightPreview?: string
+  visibleForBlock: (key: string) => boolean
 }>()
 
 const emit = defineEmits<{
@@ -18,11 +20,14 @@ const emit = defineEmits<{
   reorder: [string, number]
   remove: [string]
   move: [string, -1 | 1]
+  'toggle-visibility': [string]
 }>()
 
 const dragOverIndex = defineModel<number | null>('dragOverIndex', { default: null })
 const draggingKey = defineModel<string | null>('draggingKey', { default: null })
 const pageRef = ref<HTMLElement | null>(null)
+const popoutOpen = ref(false)
+let bodyOverflowBeforePopout = ''
 
 const isDragging = computed(
   () => props.paletteDragging || draggingKey.value !== null || dragOverIndex.value !== null
@@ -125,13 +130,75 @@ function onPageDragLeave(event: DragEvent) {
   }
   dragOverIndex.value = null
 }
+
+function fixedMeta(key: 'footer' | 'copyright') {
+  return sectionMeta(key)
+}
+
+function visibilityTitle(key: string): string {
+  return props.visibleForBlock(key) ? 'Verbergen op website' : 'Tonen op website'
+}
+
+function openPopout() {
+  popoutOpen.value = true
+}
+
+function closePopout() {
+  popoutOpen.value = false
+}
+
+function onPopoutKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && popoutOpen.value) {
+    closePopout()
+  }
+}
+
+watch(popoutOpen, (open) => {
+  if (open) {
+    bodyOverflowBeforePopout = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onPopoutKeydown)
+  } else {
+    document.body.style.overflow = bodyOverflowBeforePopout
+    window.removeEventListener('keydown', onPopoutKeydown)
+  }
+})
+
+watch(
+  () => props.mode,
+  (mode) => {
+    if (mode !== 'live' && popoutOpen.value) {
+      closePopout()
+    }
+  },
+)
+
+onUnmounted(() => {
+  if (popoutOpen.value) {
+    document.body.style.overflow = bodyOverflowBeforePopout
+    window.removeEventListener('keydown', onPopoutKeydown)
+  }
+})
 </script>
 
 <template>
   <main class="builder-canvas-wrap">
-    <div v-if="mode === 'live'" class="builder-live-preview">
-      <iframe :key="previewUrl" :src="previewUrl" title="Pagina voorbeeld" class="builder-live-preview__frame" />
-    </div>
+    <template v-if="mode === 'live'">
+      <div class="builder-live-preview">
+        <div class="builder-live-preview__chrome">
+          <button
+            type="button"
+            class="builder-live-preview__popout-btn kt-btn kt-btn-sm kt-btn-outline"
+            title="Volledig scherm"
+            @click="openPopout"
+          >
+            <i class="ki-filled ki-maximize" aria-hidden="true" />
+            Volledig scherm
+          </button>
+        </div>
+        <iframe :key="previewUrl" :src="previewUrl" title="Pagina voorbeeld" class="builder-live-preview__frame" />
+      </div>
+    </template>
 
     <div v-else class="builder-canvas">
       <div
@@ -178,6 +245,7 @@ function onPageDragLeave(event: DragEvent) {
                 'builder-block--dragging': draggingKey === block.key,
                 'builder-block--drop-before': dragOverIndex === index,
                 'builder-block--drop-after': dragOverIndex === index + 1,
+                'builder-block--hidden': !visibleForBlock(block.key),
               }"
               @click="emit('select', block.key)"
             >
@@ -198,6 +266,16 @@ function onPageDragLeave(event: DragEvent) {
                   <span class="builder-block__type">{{ block.label }}</span>
                 </div>
                 <div class="builder-block__actions" @click.stop>
+                  <button
+                    type="button"
+                    class="builder-icon-btn"
+                    :class="{ 'builder-icon-btn--inactive': !visibleForBlock(block.key) }"
+                    :title="visibilityTitle(block.key)"
+                    :aria-label="visibilityTitle(block.key)"
+                    @click="emit('toggle-visibility', block.key)"
+                  >
+                    <i class="ki-filled" :class="visibleForBlock(block.key) ? 'ki-eye' : 'ki-eye-slash'" />
+                  </button>
                   <button
                     v-if="index > 0"
                     type="button"
@@ -239,19 +317,90 @@ function onPageDragLeave(event: DragEvent) {
           </div>
         </template>
 
-        <article class="builder-block builder-block--fixed">
+        <article
+          class="builder-block builder-block--fixed"
+          data-fixed-key="footer"
+          :class="{
+            'builder-block--selected': selectedKey === 'footer',
+            'builder-block--hidden': !visibleForBlock('footer'),
+          }"
+          @click="emit('select', 'footer')"
+        >
           <div class="builder-block__toolbar builder-block__toolbar--static">
             <div class="builder-block__toolbar-start">
               <span class="builder-block__type">Footer</span>
             </div>
+            <div class="builder-block__actions" @click.stop>
+              <button
+                type="button"
+                class="builder-icon-btn"
+                :class="{ 'builder-icon-btn--inactive': !visibleForBlock('footer') }"
+                :title="visibilityTitle('footer')"
+                :aria-label="visibilityTitle('footer')"
+                @click="emit('toggle-visibility', 'footer')"
+              >
+                <i class="ki-filled" :class="visibleForBlock('footer') ? 'ki-eye' : 'ki-eye-slash'" />
+              </button>
+            </div>
           </div>
-          <div class="builder-block__preview builder-block__preview--muted bg-zinc-300 dark:bg-zinc-600">
-            <i class="ki-filled ki-row-horizontal text-2xl opacity-90" />
-            <p class="builder-block__preview-title">Footer &amp; copyright</p>
-            <p class="builder-block__preview-hint">Bewerk je in de klassieke editor.</p>
+          <div
+            class="builder-block__preview builder-block__preview--muted bg-gradient-to-br text-white"
+            :class="fixedMeta('footer').accent"
+          >
+            <i class="ki-filled text-2xl opacity-90" :class="fixedMeta('footer').icon" />
+            <p class="builder-block__preview-title">Footer</p>
+            <p class="builder-block__preview-hint">Klik om footer-instellingen te bewerken.</p>
+          </div>
+        </article>
+
+        <article
+          class="builder-block builder-block--fixed"
+          data-fixed-key="copyright"
+          :class="{ 'builder-block--selected': selectedKey === 'copyright' }"
+          @click="emit('select', 'copyright')"
+        >
+          <div class="builder-block__toolbar builder-block__toolbar--static">
+            <div class="builder-block__toolbar-start">
+              <span class="builder-block__type">Copyright</span>
+            </div>
+          </div>
+          <div
+            class="builder-block__preview builder-block__preview--muted bg-gradient-to-br text-white"
+            :class="fixedMeta('copyright').accent"
+          >
+            <i class="ki-filled text-2xl opacity-90" :class="fixedMeta('copyright').icon" />
+            <p class="builder-block__preview-title">
+              {{ copyrightPreview || 'Copyrighttekst' }}
+            </p>
+            <p class="builder-block__preview-hint">Klik om de copyrighttekst te bewerken.</p>
           </div>
         </article>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="popoutOpen && mode === 'live'"
+        class="builder-preview-popout"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pagina voorbeeld volledig scherm"
+      >
+        <header class="builder-preview-popout__header">
+          <span class="builder-preview-popout__title">Pagina voorbeeld</span>
+          <button
+            type="button"
+            class="builder-preview-popout__close kt-btn kt-btn-sm kt-btn-outline"
+            title="Sluiten (Esc)"
+            aria-label="Volledig scherm sluiten"
+            @click="closePopout"
+          >
+            <i class="ki-filled ki-cross" aria-hidden="true" />
+            Sluiten
+          </button>
+        </header>
+        <iframe :key="`popout-${previewUrl}`" :src="previewUrl" title="Pagina voorbeeld" class="builder-preview-popout__frame" />
+      </div>
+    </Teleport>
   </main>
 </template>

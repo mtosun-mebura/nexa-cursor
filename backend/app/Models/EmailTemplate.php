@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\InformatieaanvraagEmailHtmlNormalizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,12 +13,13 @@ class EmailTemplate extends Model
     protected $fillable = [
         'name', 'subject', 'type', 'html_content', 'text_content', 'description', 'is_active', 'company_id',
         'recipient_type', 'recipient_user_id', 'recipient_email',
-        'form_field_order',
+        'form_field_order', 'form_field_required',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'form_field_order' => 'array',
+        'form_field_required' => 'array',
     ];
 
     /**
@@ -36,6 +38,45 @@ class EmailTemplate extends Model
             return collect($ids)->map(fn ($id) => $fields->get($id))->filter()->values();
         }
         return InfoRequestFormField::ordered()->get();
+    }
+
+    public function isFormFieldRequired(InfoRequestFormField $field): bool
+    {
+        $overrides = $this->form_field_required;
+        if (is_array($overrides)) {
+            $id = (string) $field->id;
+            if (array_key_exists($id, $overrides)) {
+                return (bool) $overrides[$id];
+            }
+            if (array_key_exists($field->id, $overrides)) {
+                return (bool) $overrides[$field->id];
+            }
+        }
+
+        return (bool) $field->is_required;
+    }
+
+    /**
+     * @return array<int, string|callable>
+     */
+    public function validationRulesForFormField(InfoRequestFormField $field): array
+    {
+        $rules = $field->getValidationRules();
+        $required = $this->isFormFieldRequired($field);
+
+        if ($required) {
+            $rules = array_values(array_filter($rules, fn ($rule) => $rule !== 'nullable'));
+            if (! in_array('required', $rules, true)) {
+                array_unshift($rules, 'required');
+            }
+        } else {
+            $rules = array_values(array_filter($rules, fn ($rule) => $rule !== 'required'));
+            if (! in_array('nullable', $rules, true)) {
+                array_unshift($rules, 'nullable');
+            }
+        }
+
+        return $rules;
     }
 
     /**
@@ -57,13 +98,26 @@ class EmailTemplate extends Model
             return '';
         }
         $formFields = $this->getOrderedFormFields();
-        $rowStyle = 'padding: 8px 0; border-bottom: 1px solid #e5e7eb; background-color: #ffffff; text-align: left;';
-        $rows = [];
+        $labelStyle = 'padding: 6px 10px 6px 14px; background-color: #ffffff; color: #374151; text-align: right; vertical-align: top; width: 175px; white-space: nowrap;';
+        $valueStyle = 'padding: 6px 10px 6px 10px; background-color: #ffffff; color: #111827; text-align: left; vertical-align: top;';
+        $textareaValueStyle = $valueStyle.' white-space: pre-wrap; word-break: break-word;';
+        $divider = InformatieaanvraagEmailHtmlNormalizer::fieldDividerRowHtml();
+        $fieldRows = [];
         foreach ($formFields as $field) {
             $varKey = static::fieldNameToVariableKey($field->name);
-            $rows[] = '<tr><td style="' . $rowStyle . '"><strong>' . e($field->label) . ':</strong></td><td style="' . $rowStyle . '">{{ ' . $varKey . ' }}</td></tr>';
+            $cellStyle = $field->isTextareaField() ? $textareaValueStyle : $valueStyle;
+            $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" style="' . $labelStyle . '"><strong>' . e($field->label) . ':</strong></td><td class="info-request-field-value' . ($field->isTextareaField() ? ' info-request-field-value--multiline' : '') . '" style="' . $cellStyle . '">{{ ' . $varKey . ' }}</td></tr>';
         }
-        $rows[] = '<tr><td style="' . $rowStyle . '"><strong>Datum aanvraag:</strong></td><td style="' . $rowStyle . '">{{ DATUM_AANVRAAG }}</td></tr>';
+        $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" style="' . $labelStyle . '"><strong>Datum aanvraag:</strong></td><td class="info-request-field-value" style="' . $valueStyle . '">{{ DATUM_AANVRAAG }}</td></tr>';
+
+        $rows = [];
+        foreach ($fieldRows as $index => $row) {
+            $rows[] = $row;
+            if ($index < count($fieldRows) - 1) {
+                $rows[] = $divider;
+            }
+        }
+
         return implode("\n", $rows);
     }
 

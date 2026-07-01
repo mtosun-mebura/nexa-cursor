@@ -203,4 +203,77 @@ class InvoicePdfFooterTest extends TestCase
             InvoiceSetting::invoicePaymentTermsTextForInvoice($invoice)
         );
     }
+
+    public function test_paid_invoice_uses_paid_payment_terms_text(): void
+    {
+        $company = Company::create(['name' => 'Taxi Royaal', 'is_active' => true]);
+
+        InvoiceSetting::query()->create([
+            'company_id' => $company->id,
+            'invoice_number_prefix' => 'TR',
+            'invoice_number_format' => '{prefix}{year}-{number}',
+            'next_invoice_number' => 1,
+            'current_year' => 2026,
+            'default_tax_rate' => 21,
+            'payment_terms_days' => 14,
+        ]);
+
+        $paidDate = now()->startOfDay();
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'TR2026-0099',
+            'company_id' => $company->id,
+            'amount' => 28.31,
+            'tax_amount' => 5.95,
+            'total_amount' => 34.26,
+            'currency' => 'EUR',
+            'status' => 'sent',
+            'invoice_date' => $paidDate,
+            'due_date' => $paidDate->copy()->addDays(14),
+            'paid_date' => $paidDate,
+            'company_details' => ['name' => 'Taxi Royaal', 'tax_rate' => 21],
+            'line_items' => [],
+        ]);
+
+        $this->assertTrue($invoice->isPaid());
+        $this->assertStringContainsString(
+            'volledig betaald op '.$paidDate->format('d-m-Y'),
+            InvoiceSetting::invoicePaymentTermsTextForInvoice($invoice)
+        );
+    }
+
+    public function test_paid_invoice_pdf_template_shows_settled_banner(): void
+    {
+        $company = Company::create(['name' => 'Taxi Royaal', 'is_active' => true]);
+        $paidDate = now()->startOfDay();
+
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'TR2026-0100',
+            'company_id' => $company->id,
+            'amount' => 28.31,
+            'tax_amount' => 5.95,
+            'total_amount' => 34.26,
+            'currency' => 'EUR',
+            'status' => 'sent',
+            'invoice_date' => $paidDate,
+            'due_date' => $paidDate->copy()->addDays(14),
+            'paid_date' => $paidDate,
+            'company_details' => ['name' => 'Taxi Royaal', 'tax_rate' => 21],
+            'line_items' => [
+                ['description' => 'Taxirit', 'quantity' => 1, 'unit_price' => 28.31, 'total' => 28.31],
+            ],
+        ]);
+
+        $html = view('invoices.pdf.document', [
+            'invoice' => $invoice,
+            'company' => $company,
+            'details' => app(InvoicePdfService::class)->resolvePdfDetails($invoice),
+            'logoDataUri' => null,
+            'lineItems' => $invoice->line_items,
+            'paymentTermsText' => InvoiceSetting::invoicePaymentTermsTextForInvoice($invoice),
+        ])->render();
+
+        $this->assertStringContainsString('BETALING VOLDAAN', $html);
+        $this->assertStringContainsString('Openstaand bedrag', $html);
+        $this->assertStringContainsString('volledig voldaan', $html);
+    }
 }

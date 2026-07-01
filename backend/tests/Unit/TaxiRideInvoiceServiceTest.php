@@ -42,8 +42,11 @@ class TaxiRideInvoiceServiceTest extends TestCase
         $ride->customer_name = 'Klant';
         $ride->shouldReceive('fresh')->andReturnSelf();
         $ride->shouldReceive('getConnectionName')->andReturn('module_taxi');
+        $ride->shouldReceive('requiresPerLegDriverPayment')->andReturn(false);
 
+        $service->shouldReceive('findInvoiceForRide')->with($ride, Mockery::any())->andReturn(null);
         $service->shouldReceive('findInvoiceForRide')->with($ride)->andReturn(null);
+        $service->shouldReceive('resolveSendableInvoiceBillingPeriod')->with($ride)->andReturn('');
         $service->shouldReceive('ensureInvoiceForPaidRide')
             ->once()
             ->with('module_taxi', $ride, false)
@@ -101,8 +104,11 @@ class TaxiRideInvoiceServiceTest extends TestCase
         $ride->payment_status = RideRequest::PAYMENT_STATUS_PAID;
         $ride->customer_email = 'klant@example.com';
         $ride->shouldReceive('getConnectionName')->andReturn('module_taxi');
+        $ride->shouldReceive('requiresPerLegDriverPayment')->andReturn(false);
 
+        $service->shouldReceive('findInvoiceForRide')->with($ride, Mockery::any())->andReturn(null);
         $service->shouldReceive('findInvoiceForRide')->with($ride)->andReturn($invoice);
+        $service->shouldReceive('resolveSendableInvoiceBillingPeriod')->with($ride)->andReturn('');
 
         $payload = $service->driverInvoicePayload($ride);
 
@@ -151,5 +157,102 @@ class TaxiRideInvoiceServiceTest extends TestCase
 
         $this->assertSame(42, $summary['id']);
         $this->assertFalse($summary['invoice']['has_invoice']);
+    }
+
+    public function test_resolve_sendable_billing_period_prioritizes_return_invoice(): void
+    {
+        $service = new TaxiRideInvoiceService(
+            Mockery::mock(InvoicePdfService::class),
+            Mockery::mock(EmailTemplateService::class),
+            Mockery::mock(EnvService::class),
+            Mockery::mock(CompanyEmailLogoService::class),
+        );
+
+        $ride = Mockery::mock(RideRequest::class)->makePartial();
+        $ride->shouldReceive('requiresPerLegDriverPayment')->andReturn(true);
+        $ride->shouldReceive('returnPaidAmount')->andReturn(25.0);
+        $ride->shouldReceive('outboundPaidAmount')->andReturn(25.0);
+
+        $returnInvoice = new \App\Models\Invoice(['status' => 'paid']);
+        $outboundInvoice = new \App\Models\Invoice(['status' => 'sent']);
+
+        $partial = Mockery::mock($service)->makePartial();
+        $partial->shouldReceive('findInvoiceForRide')
+            ->with($ride, RideRequest::INVOICE_BILLING_TERUG)
+            ->andReturn($returnInvoice);
+        $partial->shouldReceive('findInvoiceForRide')
+            ->with($ride, RideRequest::INVOICE_BILLING_HEEN)
+            ->andReturn($outboundInvoice);
+
+        $this->assertSame(
+            RideRequest::INVOICE_BILLING_TERUG,
+            $partial->resolveSendableInvoiceBillingPeriod($ride)
+        );
+    }
+
+    public function test_resolve_sendable_billing_period_allows_outbound_after_return_sent(): void
+    {
+        $service = new TaxiRideInvoiceService(
+            Mockery::mock(InvoicePdfService::class),
+            Mockery::mock(EmailTemplateService::class),
+            Mockery::mock(EnvService::class),
+            Mockery::mock(CompanyEmailLogoService::class),
+        );
+
+        $ride = Mockery::mock(RideRequest::class)->makePartial();
+        $ride->shouldReceive('requiresPerLegDriverPayment')->andReturn(true);
+        $ride->shouldReceive('returnPaidAmount')->andReturn(null);
+        $ride->shouldReceive('outboundPaidAmount')->andReturn(25.0);
+
+        $outboundInvoice = new \App\Models\Invoice(['status' => 'paid']);
+
+        $partial = Mockery::mock($service)->makePartial();
+        $partial->shouldReceive('findInvoiceForRide')
+            ->with($ride, RideRequest::INVOICE_BILLING_HEEN)
+            ->andReturn($outboundInvoice);
+
+        $this->assertSame(
+            RideRequest::INVOICE_BILLING_HEEN,
+            $partial->resolveSendableInvoiceBillingPeriod($ride)
+        );
+    }
+
+    public function test_driver_invoice_payload_includes_leg_label_for_return_trip(): void
+    {
+        $invoice = new \App\Models\Invoice([
+            'invoice_number' => 'NX2026-0099',
+            'status' => 'paid',
+            'total_amount' => 25.00,
+            'customer_email' => 'factuur@example.com',
+        ]);
+        $invoice->id = 101;
+
+        $service = Mockery::mock(
+            TaxiRideInvoiceService::class,
+            [
+                Mockery::mock(InvoicePdfService::class),
+                Mockery::mock(EmailTemplateService::class),
+                Mockery::mock(EnvService::class),
+                Mockery::mock(CompanyEmailLogoService::class),
+            ]
+        )->makePartial();
+
+        $ride = Mockery::mock(RideRequest::class)->makePartial();
+        $ride->customer_email = 'klant@example.com';
+        $ride->shouldReceive('requiresPerLegDriverPayment')->andReturn(true);
+        $ride->shouldReceive('invoiceLegLabelForBillingPeriod')->with(RideRequest::INVOICE_BILLING_HEEN)->andReturn('Heenrit');
+        $ride->shouldReceive('getConnectionName')->andReturn('module_taxi');
+
+        $service->shouldReceive('resolveSendableInvoiceBillingPeriod')->with($ride)->andReturn(RideRequest::INVOICE_BILLING_HEEN);
+        $service->shouldReceive('findInvoiceForRide')->with($ride, RideRequest::INVOICE_BILLING_HEEN)->andReturn($invoice);
+        $service->shouldReceive('findInvoiceForRide')->with($ride, RideRequest::INVOICE_BILLING_TERUG)->andReturn(null);
+
+        $payload = $service->driverInvoicePayload($ride);
+
+        $this->assertSame('heen', $payload['invoice_leg']);
+        $this->assertSame('Heenrit', $payload['invoice_leg_label']);
+        $this->assertTrue($payload['can_send']);
+        $this->assertFalse($payload['outbound_invoice_sent']);
+        $this->assertFalse($payload['return_invoice_sent']);
     }
 }

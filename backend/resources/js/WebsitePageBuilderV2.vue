@@ -3,8 +3,11 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import BuilderPalette from './website-page-builder-v2/BuilderPalette.vue'
 import BuilderCanvas from './website-page-builder-v2/BuilderCanvas.vue'
 import BuilderConfigPanel from './website-page-builder-v2/BuilderConfigPanel.vue'
-import { useBuilderState } from './website-page-builder-v2/builder-state'
-import type { BuilderBootstrap, PaletteDragPayload } from './website-page-builder-v2/types'
+import BuilderPageInfoModal from './website-page-builder-v2/BuilderPageInfoModal.vue'
+import { useBuilderState, isFixedSectionKey } from './website-page-builder-v2/builder-state'
+import { mergeFooterData } from './website-page-builder-v2/footer-data'
+import { deepMerge } from './website-page-builder-v2/nested-data'
+import type { BuilderBootstrap, PageMetaForm, PaletteDragPayload } from './website-page-builder-v2/types'
 import { baseTypeFromKey } from './website-page-builder-v2/palette-meta'
 
 const props = defineProps<{
@@ -24,6 +27,8 @@ const {
   canvasBlocks,
   sectionData,
   setSectionData,
+  getCopyrightText,
+  setCopyrightText,
   addBlock,
   removeBlock,
   moveBlock,
@@ -40,14 +45,97 @@ const paletteDragging = ref(false)
 const previewRevision = ref(0)
 const canvasColumnPercent = ref(45)
 const configModalOpen = ref(false)
+const pageInfoModalOpen = ref(false)
+const pageMeta = ref<PageMetaForm>(JSON.parse(JSON.stringify(props.bootstrap.pageMeta)) as PageMetaForm)
+const pageHeader = ref({
+  title: props.bootstrap.page.title,
+  slug: props.bootstrap.page.slug,
+  themeName: props.bootstrap.themeName,
+})
 
 const previewUrl = computed(() => {
   const base = bootstrap.routes.preview
   const sep = base.includes('?') ? '&' : '?'
-  return `${base}${sep}_preview_rev=${previewRevision.value}`
+  return `${base}${sep}_preview_rev=${previewRevision.value}&embed=1`
 })
 
 const selectedBlock = computed(() => canvasBlocks.value.find((b) => b.key === selectedKey.value) ?? null)
+
+const FIXED_SECTION_LABELS: Record<string, string> = {
+  footer: 'Footer',
+  copyright: 'Copyright',
+}
+
+const hasConfigSelection = computed(() => {
+  const key = selectedKey.value
+  return !!key && (!!selectedBlock.value || isFixedSectionKey(key))
+})
+
+const selectedConfigLabel = computed(() => {
+  const key = selectedKey.value
+  if (!key) return ''
+  if (isFixedSectionKey(key)) {
+    return FIXED_SECTION_LABELS[key] ?? key
+  }
+  return selectedBlock.value?.label ?? key
+})
+
+const selectedConfigData = computed(() => {
+  const key = selectedKey.value
+  if (!key) return {}
+  if (key === 'copyright') {
+    return { text: getCopyrightText() }
+  }
+  if (key === 'footer') {
+    return mergeFooterData(bootstrap.defaults.footer, sectionData('footer'))
+  }
+  const base = baseTypeFromKey(key)
+  const defaults = bootstrap.defaults[base]
+  const stored = sectionData(key)
+  if (defaults && typeof defaults === 'object' && !Array.isArray(defaults)) {
+    return deepMerge(defaults as Record<string, unknown>, stored)
+  }
+  return stored
+})
+
+const isNonHomePage = computed(() => bootstrap.page.pageType !== 'home')
+
+const copyrightInheritedFromHome = computed(() => {
+  if (!isNonHomePage.value) return false
+  return !!sectionData('footer').inherit_from_home
+})
+
+const footerInheritedFromHome = computed(() => {
+  if (!isNonHomePage.value) return false
+  return !!sectionData('footer').inherit_from_home
+})
+
+const sectionVisibility = computed(() => {
+  const vis = homeSections.value.visibility
+  return vis && typeof vis === 'object' && !Array.isArray(vis)
+    ? (vis as Record<string, unknown>)
+    : {}
+})
+
+const configReadonly = computed(() => {
+  if (selectedKey.value === 'copyright' && copyrightInheritedFromHome.value) return true
+  if (selectedKey.value === 'footer' && footerInheritedFromHome.value) return true
+  return false
+})
+
+const configReadonlyMessage = computed(() => {
+  if (selectedKey.value === 'footer' && footerInheritedFromHome.value) {
+    return 'De footer van de Home-pagina wordt op deze pagina getoond. Zet Overnemen van Home uit om eigen footer-instellingen te bewerken.'
+  }
+  if (!configReadonly.value) return null
+  return 'Als Overnemen van Home bij Footer aan staat, wordt de copyrighttekst overgenomen van de Home-pagina. Zet die optie uit om hier een eigen copyrighttekst in te stellen.'
+})
+
+const copyrightPreview = computed(() => {
+  const text = getCopyrightText()
+  if (!text.trim()) return ''
+  return text.replace(/\{year\}/gi, String(new Date().getFullYear()))
+})
 
 const selectedComponentInfo = computed(() => {
   if (!selectedBlock.value?.isComponent) return null
@@ -85,6 +173,12 @@ function handleCanvasReorder(key: string, index: number) {
 
 function patchSelected(patch: Record<string, unknown>) {
   if (!selectedKey.value) return
+  if (selectedKey.value === 'copyright') {
+    if ('text' in patch) {
+      setCopyrightText(String(patch.text ?? ''))
+    }
+    return
+  }
   setSectionData(selectedKey.value, patch)
 }
 
@@ -103,6 +197,10 @@ async function saveAndPreview() {
 }
 
 function onSaveShortcut(event: KeyboardEvent) {
+  if (event.key === 'Escape' && pageInfoModalOpen.value) {
+    pageInfoModalOpen.value = false
+    return
+  }
   if (event.key === 'Escape' && configModalOpen.value) {
     configModalOpen.value = false
     return
@@ -121,14 +219,44 @@ function closeConfigModal() {
   configModalOpen.value = false
 }
 
-watch(selectedBlock, (block) => {
-  if (!block) {
+function openPageInfoModal() {
+  pageInfoModalOpen.value = true
+}
+
+function onPageInfoSaved(payload: {
+  pageMeta: PageMetaForm
+  themeName: string
+  themeSlug: string
+  page: BuilderBootstrap['page']
+}) {
+  pageMeta.value = payload.pageMeta
+  pageHeader.value = {
+    title: payload.page.title,
+    slug: payload.page.slug,
+    themeName: payload.themeName,
+  }
+  saveMessage.value = 'Pagina-informatie opgeslagen.'
+  previewRevision.value += 1
+}
+
+watch(pageInfoModalOpen, (open) => {
+  if (open) {
+    document.body.style.overflow = 'hidden'
+    return
+  }
+  if (!configModalOpen.value) {
+    document.body.style.overflow = ''
+  }
+})
+
+watch(hasConfigSelection, (has) => {
+  if (!has) {
     configModalOpen.value = false
   }
 })
 
 watch(configModalOpen, (open) => {
-  document.body.style.overflow = open ? 'hidden' : ''
+  document.body.style.overflow = open || pageInfoModalOpen.value ? 'hidden' : ''
 })
 
 let saveMessageTimer: ReturnType<typeof setTimeout> | null = null
@@ -167,11 +295,22 @@ onUnmounted(() => {
         <a :href="bootstrap.routes.index" class="builder-toolbar__back" title="Terug naar overzicht">
           <i class="ki-filled ki-left" />
         </a>
-        <div class="min-w-0">
+        <div class="min-w-0 builder-toolbar__title-wrap">
           <p class="text-xs uppercase tracking-wide text-muted-foreground">Page Builder v2</p>
-          <h1 class="text-base font-semibold truncate">{{ bootstrap.page.title }}</h1>
+          <div class="builder-toolbar__title-row">
+            <h1 class="text-base font-semibold truncate">{{ pageHeader.title }}</h1>
+            <button
+              type="button"
+              class="builder-toolbar__edit-page-btn"
+              title="Pagina-informatie bewerken"
+              aria-label="Pagina-informatie bewerken"
+              @click="openPageInfoModal"
+            >
+              <i class="ki-filled ki-pencil" aria-hidden="true" />
+            </button>
+          </div>
           <p class="text-xs text-muted-foreground truncate">
-            /{{ bootstrap.page.slug }} · {{ bootstrap.themeName }}
+            /{{ pageHeader.slug }} · {{ pageHeader.themeName }}
           </p>
         </div>
       </div>
@@ -264,11 +403,14 @@ onUnmounted(() => {
         :preview-url="previewUrl"
         :mode="previewMode"
         :palette-dragging="paletteDragging"
+        :copyright-preview="copyrightPreview"
+        :visible-for-block="sectionVisible"
         @select="selectBlock"
         @add="handleCanvasAdd"
         @reorder="handleCanvasReorder"
         @remove="removeBlock"
         @move="moveBlock"
+        @toggle-visibility="(key) => setSectionVisible(key, !sectionVisible(key))"
       >
         <template #preview="{ block }">
           {{ previewText(block.key, block.label, block.isComponent) }}
@@ -282,7 +424,7 @@ onUnmounted(() => {
             <p class="text-xs text-muted-foreground mt-1">Klik op een blok op de pagina om te configureren</p>
           </div>
           <button
-            v-if="selectedBlock"
+            v-if="hasConfigSelection"
             type="button"
             class="builder-panel__expand-btn"
             title="Instellingen vergroten"
@@ -294,12 +436,22 @@ onUnmounted(() => {
         </div>
         <div class="builder-panel__scroll">
           <BuilderConfigPanel
-            v-if="selectedBlock"
-            :block-key="selectedBlock.key"
-            :label="selectedBlock.label"
-            :is-component="selectedBlock.isComponent"
-            :data="sectionData(selectedBlock.key)"
-            :visible="sectionVisible(selectedBlock.key)"
+            v-if="hasConfigSelection && selectedKey"
+            :block-key="selectedKey"
+            :label="selectedConfigLabel"
+            :is-component="!!selectedBlock?.isComponent"
+            :data="selectedConfigData"
+            :is-non-home-page="isNonHomePage"
+            :config-readonly="configReadonly"
+            :config-readonly-message="configReadonlyMessage"
+            :footer-inherited-from-home="footerInheritedFromHome"
+            :footer-logo-upload-url="bootstrap.routes.uploadFooterLogo"
+            :footer-logo-fallback-url="bootstrap.siteBrandingLogoUrl"
+            :google-maps-api-key="bootstrap.googleMapsApiKey"
+            :google-maps-map-id="bootstrap.googleMapsMapId"
+            :postcode-lookup-url="bootstrap.routes.postcodeLookup"
+            :module-name="bootstrap.page.moduleName"
+            :visibility="sectionVisibility"
             :component-info="selectedComponentInfo"
             :component-defaults="bootstrap.componentDefaults"
             :upload-url="bootstrap.routes.uploadHeroImage"
@@ -308,7 +460,7 @@ onUnmounted(() => {
             :canvas-blocks="canvasBlocks"
             :email-templates="bootstrap.emailTemplates"
             @patch="patchSelected"
-            @update:visible="setSectionVisible(selectedBlock.key, $event)"
+            @patch-visibility="setSectionVisible"
           />
           <div v-else class="builder-empty-config">
             <i class="ki-filled ki-setting-2 text-3xl text-muted-foreground/60" />
@@ -320,7 +472,7 @@ onUnmounted(() => {
 
     <Teleport to="body">
       <div
-        v-if="configModalOpen && selectedBlock"
+        v-if="configModalOpen && hasConfigSelection && selectedKey"
         class="builder-config-modal"
         role="dialog"
         aria-modal="true"
@@ -337,9 +489,9 @@ onUnmounted(() => {
             <div class="builder-config-modal__header-text">
               <p class="text-xs uppercase tracking-wide text-muted-foreground">Instellingen</p>
               <h2 id="builder-config-modal-title" class="text-lg font-semibold text-foreground mt-0.5">
-                {{ selectedBlock.label }}
+                {{ selectedConfigLabel }}
               </h2>
-              <p class="text-xs text-muted-foreground mt-0.5">{{ selectedBlock.key }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ selectedKey }}</p>
             </div>
             <button
               type="button"
@@ -354,11 +506,21 @@ onUnmounted(() => {
 
           <div class="builder-config-modal__body">
             <BuilderConfigPanel
-              :block-key="selectedBlock.key"
-              :label="selectedBlock.label"
-              :is-component="selectedBlock.isComponent"
-              :data="sectionData(selectedBlock.key)"
-              :visible="sectionVisible(selectedBlock.key)"
+              :block-key="selectedKey"
+              :label="selectedConfigLabel"
+              :is-component="!!selectedBlock?.isComponent"
+              :data="selectedConfigData"
+              :is-non-home-page="isNonHomePage"
+              :config-readonly="configReadonly"
+              :config-readonly-message="configReadonlyMessage"
+              :footer-inherited-from-home="footerInheritedFromHome"
+              :footer-logo-upload-url="bootstrap.routes.uploadFooterLogo"
+            :footer-logo-fallback-url="bootstrap.siteBrandingLogoUrl"
+              :google-maps-api-key="bootstrap.googleMapsApiKey"
+              :google-maps-map-id="bootstrap.googleMapsMapId"
+              :postcode-lookup-url="bootstrap.routes.postcodeLookup"
+              :module-name="bootstrap.page.moduleName"
+              :visibility="sectionVisibility"
               :component-info="selectedComponentInfo"
               :component-defaults="bootstrap.componentDefaults"
               :upload-url="bootstrap.routes.uploadHeroImage"
@@ -368,7 +530,7 @@ onUnmounted(() => {
               :email-templates="bootstrap.emailTemplates"
               layout="expanded"
               @patch="patchSelected"
-              @update:visible="setSectionVisible(selectedBlock.key, $event)"
+              @patch-visibility="setSectionVisible"
             />
           </div>
 
@@ -394,6 +556,13 @@ onUnmounted(() => {
         </div>
       </div>
     </Teleport>
+
+    <BuilderPageInfoModal
+      v-model:open="pageInfoModalOpen"
+      v-model="pageMeta"
+      :bootstrap="bootstrap"
+      @saved="onPageInfoSaved"
+    />
   </div>
 </template>
 
@@ -546,6 +715,49 @@ onUnmounted(() => {
   color: var(--muted-foreground);
 }
 
+.builder-toolbar__title-wrap {
+  min-width: 0;
+}
+
+.builder-toolbar__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.builder-toolbar__edit-page-btn {
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.15rem;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  appearance: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s;
+  font-size: 0.9375rem;
+  line-height: 1;
+}
+
+.builder-toolbar__edit-page-btn:hover,
+.builder-toolbar__edit-page-btn:focus,
+.builder-toolbar__edit-page-btn:focus-visible {
+  color: var(--foreground);
+  border: none;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+}
+
 .builder-mode-toggle {
   display: inline-flex;
   padding: 0.2rem;
@@ -589,7 +801,7 @@ onUnmounted(() => {
 .builder-workspace {
   display: grid;
   grid-template-columns:
-    minmax(16rem, max-content)
+    minmax(13rem, max-content)
     minmax(16rem, calc(var(--builder-canvas-column-percent, 45) * 1%))
     minmax(14rem, 1fr);
   min-height: 0;
@@ -616,7 +828,8 @@ onUnmounted(() => {
 
 :deep(.builder-panel--left) {
   width: max-content;
-  max-width: min(26rem, 34vw);
+  max-width: min(19rem, 26vw);
+  min-width: 13rem;
 }
 
 :deep(.builder-panel__header) {
@@ -626,6 +839,17 @@ onUnmounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+:deep(.builder-panel__header--palette) {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+:deep(.builder-panel__header--palette .builder-panel__search) {
+  width: 100%;
+  max-width: 100%;
 }
 
 :deep(.builder-panel__header-text) {
@@ -677,8 +901,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 :deep(.builder-palette-tile) {
@@ -688,7 +913,8 @@ onUnmounted(() => {
   justify-content: flex-start;
   gap: 0.65rem;
   width: 100%;
-  min-width: max-content;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
@@ -718,15 +944,16 @@ onUnmounted(() => {
   line-height: 1.25;
   text-align: left;
   color: var(--foreground);
-  white-space: nowrap;
+  min-width: 0;
 }
 
 :deep(.builder-palette-list) {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 :deep(.builder-palette-row) {
@@ -734,7 +961,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.65rem;
   width: 100%;
-  min-width: max-content;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
@@ -873,6 +1101,18 @@ onUnmounted(() => {
   opacity: 0.45;
 }
 
+:deep(.builder-block--hidden .builder-block__preview) {
+  opacity: 0.42;
+}
+
+:deep(.builder-block--hidden .builder-block__type) {
+  opacity: 0.65;
+}
+
+:deep(.builder-icon-btn--inactive) {
+  opacity: 0.55;
+}
+
 :deep(.builder-block--drop-before) {
   box-shadow: inset 0 3px 0 color-mix(in srgb, var(--primary) 70%, transparent);
 }
@@ -978,12 +1218,17 @@ onUnmounted(() => {
 }
 
 :deep(.builder-block--fixed) {
-  margin: 0.75rem 1rem 1rem;
-  cursor: default;
+  margin: 0.75rem 1rem 0;
+  cursor: pointer;
+}
+
+:deep(.builder-block--fixed:last-child) {
+  margin-bottom: 1rem;
 }
 
 :deep(.builder-block--fixed .builder-block__toolbar--static) {
   padding-left: 0.65rem;
+  justify-content: space-between;
 }
 
 :deep(.builder-block__preview--muted) {
@@ -1007,6 +1252,10 @@ onUnmounted(() => {
   color: inherit;
 }
 
+:deep(.builder-block__preview--muted.bg-gradient-to-br .builder-block__preview-hint) {
+  color: rgba(255, 255, 255, 0.82);
+}
+
 :deep(.builder-block__preview--muted .builder-block__preview-hint) {
   color: #3f3f46;
 }
@@ -1025,16 +1274,29 @@ onUnmounted(() => {
 :deep(.builder-live-preview) {
   height: 100%;
   min-height: 0;
-  padding: 1rem;
+  padding: 0.75rem 1rem 1rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+:deep(.builder-live-preview__chrome) {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+:deep(.builder-live-preview__popout-btn) {
+  gap: 0.35rem;
 }
 
 :deep(.builder-live-preview__frame) {
   width: 100%;
-  max-width: 1120px;
-  height: 100%;
+  max-width: none;
+  flex: 1;
   min-height: 0;
+  height: auto;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   background: white;
@@ -1183,6 +1445,13 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
+.builder-config-modal__body :deep(.builder-media-upload-area) {
+  flex: none !important;
+  width: 16rem !important;
+  max-width: 16rem !important;
+  min-height: 4.5rem;
+}
+
 .builder-config-modal__footer {
   display: flex;
   flex-wrap: wrap;
@@ -1215,7 +1484,7 @@ onUnmounted(() => {
 @media (max-width: 1200px) {
   .builder-workspace:not(.builder-workspace--preview) {
     grid-template-columns:
-      minmax(14rem, max-content)
+      minmax(13rem, max-content)
       minmax(14rem, calc(var(--builder-canvas-column-percent, 45) * 1%))
       minmax(12rem, 1fr);
   }
@@ -1229,5 +1498,45 @@ onUnmounted(() => {
   :deep(.builder-panel--left) {
     display: none;
   }
+}
+</style>
+
+<style>
+.builder-preview-popout {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  flex-direction: column;
+  background: var(--background, #fff);
+}
+
+.builder-preview-popout__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: color-mix(in srgb, var(--background, #fff) 92%, var(--muted, #f4f4f5) 8%);
+}
+
+.builder-preview-popout__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground, #18181b);
+}
+
+.builder-preview-popout__close {
+  gap: 0.35rem;
+}
+
+.builder-preview-popout__frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
 }
 </style>

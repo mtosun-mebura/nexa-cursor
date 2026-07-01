@@ -29,12 +29,20 @@
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
         @if($visibility[$sectionKey] ?? true)
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
         @elseif($sectionKey === 'component:taxi.tarieven' && view()->exists('frontend.website.components.nexataxi-tarieven'))
             @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey, 'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null])
+        @elseif($sectionKey === 'component:taxi.boekingsmodule_v2' && view()->exists('frontend.website.components.nexataxi-boekingsmodule-v2'))
+            @include('frontend.website.components.nexataxi-boekingsmodule-v2', [
+                'homeSections' => $homeSections ?? [],
+                'sectionKey' => $sectionKey,
+                'page' => $page ?? null,
+                'googleMapsApiKey' => $googleMapsApiKey ?? '',
+                'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null,
+            ])
         @elseif($sectionKey === 'component:taxi.boekingsmodule' && view()->exists('frontend.website.components.nexataxi-boekingsmodule'))
             @include('frontend.website.components.nexataxi-boekingsmodule', [
                 'homeSections' => $homeSections ?? [],
@@ -102,10 +110,12 @@
         || ($heroTextBgOpacity !== null && $heroTextBgOpacity !== '');
     $heroTextBgStyle = $heroHasTextBg ? 'background-color: '.$heroTextBgRgba($heroTextBgColor, $heroTextBgOpacity).';' : '';
     $heroHasImage = $heroBgUrl !== '';
-    $heroTitleSizePx = max(12, min(50, (int) ($sectionData['title_font_size_px'] ?? 32)));
+    $heroTitleSizePx = max(12, min(50, (int) ($sectionData['title_font_size_px'] ?? 44)));
     $heroTitleSizePx = (int) (round($heroTitleSizePx / 2) * 2);
-    $heroSubtitleSizePx = max(12, min(50, (int) ($sectionData['subtitle_font_size_px'] ?? 16)));
+    $heroSubtitleSizePx = max(12, min(50, (int) ($sectionData['subtitle_font_size_px'] ?? 22)));
     $heroSubtitleSizePx = (int) (round($heroSubtitleSizePx / 2) * 2);
+    $heroCaptionWidthPct = max(30, min(100, (int) ($sectionData['text_bg_width_percent'] ?? 70)));
+    $heroCaptionWidthStyle = $heroHasTextBg ? '--hero-caption-width-pct: '.$heroCaptionWidthPct.';' : '';
     $heroTextPosition = $sectionData['text_position'] ?? 'center';
     $heroTextPosition = in_array($heroTextPosition, ['top', 'center', 'bottom'], true) ? $heroTextPosition : 'center';
     $heroCaptionPositionClass = match ($heroTextPosition) {
@@ -125,8 +135,8 @@
     @if(!empty($sectionData['overlay']))
     <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20 pointer-events-none" aria-hidden="true"></div>
     @endif
-    <div class="{{ $heroHasImage ? 'absolute inset-0 z-10 flex justify-center px-4 sm:px-6 md:px-12 pointer-events-none ' . $heroCaptionPositionClass : '' }}">
-    <div class="website-section-inner {{ $heroHasImage ? 'w-full relative pointer-events-auto' : 'relative z-10' }}">
+    <div class="{{ $heroHasImage ? 'absolute inset-0 z-10 flex justify-center px-5 pointer-events-none ' . $heroCaptionPositionClass : '' }}">
+    <div class="website-section-inner {{ $heroHasImage ? 'w-full relative pointer-events-auto modern-home-hero__caption-inner' : 'relative z-10' }}">
         @php
             $heroRevealDur = '0.7s';
             $heroRevealEase = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
@@ -136,7 +146,8 @@
         @endphp
         <div class="w-full text-center">
             @if($heroHasTextBg)
-            <div class="hero-caption-text-block carousel-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md mx-auto {{ $heroHasImage ? '' : 'max-w-4xl' }}" style="{{ $heroTextBgStyle }}">
+            <div class="hero-caption-width-context w-full mx-auto box-border" style="{{ $heroCaptionWidthStyle }}">
+            <div class="hero-caption-text-block carousel-caption-text-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md mx-auto" style="{{ $heroTextBgStyle }}">
             @endif
             @if($v('_title'))
             @php
@@ -174,6 +185,7 @@
             </div>
             @endif
             @if($heroHasTextBg)
+            </div>
             </div>
             @endif
             @if($v('_cta'))

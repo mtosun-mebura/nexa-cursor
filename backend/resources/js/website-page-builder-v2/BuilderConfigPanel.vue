@@ -13,7 +13,6 @@ const props = defineProps<{
   label: string
   isComponent: boolean
   data: Record<string, unknown>
-  visible: boolean
   componentInfo: ComponentCatalogItem | null
   componentDefaults: Record<string, Record<string, unknown>>
   uploadUrl: string
@@ -22,30 +21,50 @@ const props = defineProps<{
   layout?: 'compact' | 'expanded'
   canvasBlocks?: CanvasBlock[]
   emailTemplates?: EmailTemplateOption[]
+  isNonHomePage?: boolean
+  configReadonly?: boolean
+  configReadonlyMessage?: string | null
+  footerInheritedFromHome?: boolean
+  footerLogoUploadUrl?: string
+  footerLogoFallbackUrl?: string
+  googleMapsApiKey?: string
+  googleMapsMapId?: string
+  postcodeLookupUrl?: string
+  moduleName?: string | null
+  visibility?: Record<string, unknown>
 }>()
 
 const emit = defineEmits<{
   patch: [Record<string, unknown>]
-  'update:visible': [boolean]
+  'patch-visibility': [string, boolean]
 }>()
 
 const baseType = computed(() => baseTypeFromKey(props.blockKey))
 
 const schemaFields = computed(() => {
+  let fields: ReturnType<typeof schemaForBaseType>
   if (props.isComponent) {
-    return schemaForComponent(props.blockKey)
+    fields = schemaForComponent(props.blockKey)
+  } else {
+    fields = schemaForBaseType(baseType.value)
   }
-  return schemaForBaseType(baseType.value)
+  if (props.blockKey === 'footer' && !props.isNonHomePage) {
+    fields = fields.filter((field) => !('key' in field) || field.key !== 'inherit_from_home')
+  }
+  if (props.blockKey === 'footer' && props.footerInheritedFromHome) {
+    fields = fields.filter((field) => 'key' in field && field.key === 'inherit_from_home')
+  }
+  return fields
 })
 
 const displayData = computed(() => {
-  if (!props.isComponent) {
-    return props.data
+  if (props.isComponent) {
+    const defaults = props.componentDefaults[props.blockKey]
+      ?? props.componentDefaults[props.blockKey.toLowerCase()]
+      ?? {}
+    return deepMerge(defaults, props.data)
   }
-  const defaults = props.componentDefaults[props.blockKey]
-    ?? props.componentDefaults[props.blockKey.toLowerCase()]
-    ?? {}
-  return deepMerge(defaults, props.data)
+  return props.data
 })
 
 const extraScalarFields = computed(() => {
@@ -78,32 +97,37 @@ const emailTemplateOptions = computed(() =>
       <p class="text-xs text-muted-foreground mt-1">{{ blockKey }}</p>
     </div>
 
-    <label class="builder-visibility-toggle">
-      <input
-        type="checkbox"
-        class="kt-checkbox"
-        :checked="visible"
-        @change="emit('update:visible', ($event.target as HTMLInputElement).checked)"
-      />
-      <span>Zichtbaar op website</span>
-    </label>
+    <p
+      v-if="configReadonly && configReadonlyMessage"
+      class="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground leading-relaxed"
+    >
+      {{ configReadonlyMessage }}
+    </p>
 
     <p v-if="isComponent && componentInfo?.description" class="text-xs text-muted-foreground leading-relaxed">
       {{ componentInfo.description }}
     </p>
 
     <BuilderConfigFields
-      v-if="schemaFields.length > 0"
+      v-if="schemaFields.length > 0 && (!configReadonly || blockKey === 'footer')"
       :key="blockKey"
       :fields="schemaFields"
       :data="displayData"
       :upload-url="uploadUrl"
       :website-media-upload-url="websiteMediaUploadUrl"
       :website-media-serve-base="websiteMediaServeBase"
+      :footer-logo-upload-url="footerLogoUploadUrl"
+      :footer-logo-fallback-url="footerLogoFallbackUrl"
+      :google-maps-api-key="googleMapsApiKey"
+      :google-maps-map-id="googleMapsMapId"
+      :postcode-lookup-url="postcodeLookupUrl"
+      :module-name="moduleName"
+      :visibility="visibility"
       :block-key="blockKey"
       :side-component-options="sideComponentOptions"
       :email-template-options="emailTemplateOptions"
       @patch="emit('patch', $event)"
+      @patch-visibility="(key, visible) => emit('patch-visibility', key, visible)"
     />
 
     <div v-if="extraScalarFields.length > 0" class="space-y-3">
@@ -119,7 +143,7 @@ const emailTemplateOptions = computed(() =>
     </div>
 
     <div
-      v-if="schemaFields.length === 0 && extraScalarFields.length === 0"
+      v-if="!configReadonly && schemaFields.length === 0 && extraScalarFields.length === 0 && blockKey !== 'footer'"
       class="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground"
     >
       Geen bekende instellingen voor dit blok. Voeg het component opnieuw toe of gebruik de klassieke editor.
@@ -128,18 +152,6 @@ const emailTemplateOptions = computed(() =>
 </template>
 
 <style scoped>
-.builder-visibility-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 0.5rem 0.65rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--muted) 15%, transparent);
-}
-
 .builder-field {
   display: flex;
   flex-direction: column;
@@ -167,11 +179,25 @@ const emailTemplateOptions = computed(() =>
   grid-column: 1 / -1;
 }
 
-.builder-config-panel--expanded :deep(.builder-config-item) {
+.builder-config-panel--expanded :deep(.builder-config-group__body > .builder-config-fields) {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group__body .builder-field--wysiwyg),
+.builder-config-panel--expanded :deep(.builder-config-group__body .builder-config-item-list) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-item:not(.builder-config-item--footer-link)) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem 1.25rem;
   align-items: start;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-item--footer-link) {
+  grid-template-columns: minmax(6rem, 0.9fr) minmax(8rem, 1.5fr) auto;
 }
 
 .builder-config-panel--expanded :deep(.builder-config-item__header) {
@@ -199,7 +225,8 @@ const emailTemplateOptions = computed(() =>
 }
 
 .builder-config-panel--expanded :deep(.builder-media-upload-area) {
-  min-height: 8rem;
+  min-height: 4.5rem;
+  max-width: 16rem;
 }
 
 @media (max-width: 768px) {

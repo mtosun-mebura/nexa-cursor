@@ -25,10 +25,23 @@ class InfoRequestController extends Controller
      * Validatie en velden komen uit Formulier velden beheer (info_request_form_fields).
      */
     /** Minimale tijd dat het formulier zichtbaar moet zijn voordat verzenden is toegestaan (seconden). */
-    private const MIN_FORM_TIME_SECONDS = 3;
+    private const MIN_FORM_TIME_SECONDS = 0;
 
     /** Maximale geldigheid van het formulier-token (seconden). */
     private const MAX_FORM_TIME_SECONDS = 7200;
+
+    /**
+     * @return array{form_time: int, form_time_token: string}
+     */
+    public static function formTimeFields(): array
+    {
+        $time = time();
+
+        return [
+            'form_time' => $time,
+            'form_time_token' => self::signFormTimeValue($time),
+        ];
+    }
 
     public function submit(Request $request)
     {
@@ -37,21 +50,16 @@ class InfoRequestController extends Controller
                 return $this->respond($request, redirect: fn () => redirect()->back()->with('error', 'Er is iets misgegaan. Probeer het formulier opnieuw.')->withInput(), json: fn () => response()->json(['message' => 'Er is iets misgegaan. Probeer het formulier opnieuw.'], 422));
             }
 
-            $timeToken = $request->input('form_time_token');
-            try {
-                if (! $timeToken || ! is_string($timeToken)) {
-                    throw new \Exception('Missing token');
-                }
-                $submittedAt = (int) Crypt::decryptString($timeToken);
-                $elapsed = time() - $submittedAt;
-                if ($elapsed < self::MIN_FORM_TIME_SECONDS) {
-                    throw new \Exception('Too fast');
-                }
-                if ($elapsed > self::MAX_FORM_TIME_SECONDS) {
-                    throw new \Exception('Form expired');
-                }
-            } catch (\Exception $e) {
-                return $this->respond($request, redirect: fn () => redirect()->back()->with('error', 'Het formulier is verlopen of ongeldig. Vernieuw de pagina en probeer opnieuw.')->withInput(), json: fn () => response()->json(['message' => 'Het formulier is verlopen of ongeldig. Vernieuw de pagina en probeer opnieuw.'], 422));
+            $submittedAt = $this->resolveFormTime($request);
+            if ($submittedAt === null || ! $this->isFormTimeValid($submittedAt)) {
+                return $this->respond(
+                    $request,
+                    redirect: fn () => redirect()->back()->with('error', 'Het formulier is verlopen of ongeldig. Vernieuw de pagina en probeer opnieuw.')->withInput(),
+                    json: fn () => response()->json(array_merge(
+                        ['message' => 'Het formulier is verlopen of ongeldig. Vernieuw de pagina en probeer opnieuw.'],
+                        self::formTimeFields()
+                    ), 422)
+                );
             }
 
             $request->validate(['template_id' => 'required|integer|min:1'], ['template_id.required' => 'Geen template gekozen.']);
@@ -68,9 +76,9 @@ class InfoRequestController extends Controller
             $rules = ['template_id' => 'required|integer|min:1'];
             $messages = ['template_id.required' => 'Geen template gekozen.'];
             foreach ($formFields as $field) {
-                $fieldRules = $field->getValidationRules();
+                $fieldRules = $template->validationRulesForFormField($field);
                 if ($field->validation_rule === 'email') {
-                    $fieldRules = array_filter($fieldRules, fn ($r) => $r !== 'email');
+                    $fieldRules = array_values(array_filter($fieldRules, fn ($r) => $r !== 'email'));
                     $fieldRules[] = function (string $attribute, mixed $value, \Closure $fail) {
                         $msg = self::validateEmailDetailed($value);
                         if ($msg !== null) {
@@ -223,5 +231,55 @@ class InfoRequestController extends Controller
             }
         }
         return null;
+    }
+
+    private function resolveFormTime(Request $request): ?int
+    {
+        $formTime = $request->input('form_time');
+        $timeToken = $request->input('form_time_token');
+
+        if ($formTime !== null && $formTime !== '' && is_numeric($formTime) && is_string($timeToken) && $timeToken !== '') {
+            $timestamp = (int) $formTime;
+            $expected = self::signFormTimeValue($timestamp);
+            if (hash_equals($expected, $timeToken)) {
+                return $timestamp;
+            }
+        }
+
+        if (is_string($timeToken) && $timeToken !== '') {
+            try {
+                return (int) Crypt::decryptString($timeToken);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private function isFormTimeValid(int $submittedAt): bool
+    {
+        if ($submittedAt <= 0) {
+            return false;
+        }
+
+        $elapsed = time() - $submittedAt;
+
+        return $elapsed >= self::MIN_FORM_TIME_SECONDS && $elapsed <= self::MAX_FORM_TIME_SECONDS;
+    }
+
+    private static function signFormTimeValue(int $timestamp): string
+    {
+        return hash_hmac('sha256', (string) $timestamp, self::appKeyBytes());
+    }
+
+    private static function appKeyBytes(): string
+    {
+        $key = (string) Config::get('app.key', '');
+        if (str_starts_with($key, 'base64:')) {
+            return base64_decode(substr($key, 7), true) ?: '';
+        }
+
+        return $key;
     }
 }

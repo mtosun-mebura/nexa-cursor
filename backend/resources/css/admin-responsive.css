@@ -287,6 +287,162 @@ body.dark #header [data-ai-chat-toggle] svg,
     max-width: 100%;
 }
 
+/* Formulier succesbericht: website-voorbeeld (zelfde layout als tekstblok + page builder sectiebreedte) */
+#general-settings-form .admin-success-website-preview {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
+    background: var(--background);
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+#general-settings-form .admin-success-website-preview-context-select {
+    max-width: 100%;
+}
+
+#general-settings-form .admin-success-website-preview-scaler {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-block: 0.25rem;
+}
+
+#general-settings-form .admin-success-website-preview-stage {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    margin-inline: auto;
+    box-sizing: border-box;
+}
+
+/* --section-width-pct is unitless (30–100), same as page builder width_percent */
+#general-settings-form .admin-success-website-preview--text-block-half .admin-success-website-preview-stage {
+    width: min(100%, calc(var(--preview-ref-viewport, 90rem) * var(--section-width-pct, 100) / 200 - 1.5rem));
+}
+
+#general-settings-form .admin-success-website-preview--standalone .admin-success-website-preview-stage {
+    width: min(100%, min(48rem, calc(var(--preview-ref-viewport, 90rem) * var(--section-width-pct, 100) / 100)));
+}
+
+#general-settings-form .admin-success-website-preview-inner {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+    padding-inline: 10px;
+    box-sizing: border-box;
+}
+
+#general-settings-form .admin-success-website-preview-grid {
+    width: 100%;
+    align-items: start;
+}
+
+#general-settings-form .admin-success-website-preview--text-block-half .admin-success-website-preview-grid {
+    display: flex;
+    justify-content: center;
+}
+
+#general-settings-form .admin-success-website-preview--text-block-half .admin-success-website-preview-grid-spacer {
+    display: none;
+}
+
+#general-settings-form .admin-success-website-preview--text-block-half .admin-success-website-preview-form-col {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+#general-settings-form .admin-success-website-preview--standalone .admin-success-website-preview-grid {
+    display: flex;
+    justify-content: center;
+}
+
+#general-settings-form .admin-success-website-preview--standalone .admin-success-website-preview-grid-spacer {
+    display: none;
+}
+
+#general-settings-form .admin-success-website-preview--standalone .admin-success-website-preview-form-col {
+    width: 100%;
+    max-width: 48rem;
+    margin-inline: auto;
+}
+
+#general-settings-form .admin-success-website-preview-form-col {
+    min-width: 0;
+}
+
+#general-settings-form .admin-success-website-preview-label {
+    margin: 0 0 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--muted-foreground);
+}
+
+#general-settings-form .admin-success-website-preview-success {
+    width: 100%;
+    min-width: 0;
+    margin-inline: auto;
+}
+
+#general-settings-form .admin-success-website-preview-image-wrap {
+    margin-bottom: 1rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+#general-settings-form .admin-success-website-preview-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    cursor: pointer;
+    border-radius: 0.5rem;
+    transition: opacity 0.15s ease;
+}
+
+#general-settings-form .admin-success-website-preview-image:hover {
+    opacity: 0.9;
+}
+
+#general-settings-form .admin-success-website-preview-text {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+#general-settings-form .admin-success-website-preview-text--title {
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--foreground);
+}
+
+#general-settings-form .admin-success-website-preview-text--subtitle {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--secondary-foreground);
+}
+
+#general-settings-form .admin-success-website-preview-text--footer {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+}
+
 /* Vloeibare datatables: kolommen passen zich aan beschikbare breedte aan */
 #content .admin-fluid-table {
     width: 100% !important;

@@ -121,8 +121,9 @@ class AdminWebsitePageController extends Controller
         $suggestedSortOrder = WebsitePage::nextSortOrderForTenant($connectionForSortSuggest, $companyIdForSortSuggest);
 
         $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, null);
+        $useVisualBuilderCreate = true;
 
-        return view('admin.website-pages.create', array_merge(compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder', 'websiteDevPreviewUrl'), $themeFormContext));
+        return view('admin.website-pages.create', array_merge(compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder', 'websiteDevPreviewUrl', 'useVisualBuilderCreate'), $themeFormContext));
     }
 
     public function store(Request $request)
@@ -208,10 +209,24 @@ class AdminWebsitePageController extends Controller
                 $this->syncWebsitePageMirrorConnection($page, $mirrorSyncData);
             }
         } else {
-            WebsitePage::create($data);
+            $page = WebsitePage::create($data);
         }
 
-        return redirect()->route('admin.website-pages.index', $this->websitePagesIndexQuery($request))->with('success', 'Pagina aangemaakt.');
+        return $this->redirectToWebsitePageBuilderV2($request, $page)->with('success', 'Pagina aangemaakt. Bouw de pagina verder in de visuele editor.');
+    }
+
+    private function redirectToWebsitePageBuilderV2(Request $request, WebsitePage $page): \Illuminate\Http\RedirectResponse
+    {
+        $url = route('admin.website-pages.builder-v2.edit', ['website_page' => $page->id]);
+        if ($page->module_name) {
+            $url .= '?module='.rawurlencode((string) $page->module_name);
+        }
+        $wizardQ = $this->websitePagesIndexQuery($request);
+        if ($wizardQ !== []) {
+            $url .= (str_contains($url, '?') ? '&' : '?').http_build_query($wizardQ);
+        }
+
+        return redirect($url);
     }
 
     /**
@@ -1951,9 +1966,9 @@ class AdminWebsitePageController extends Controller
                     $sections[$sectionKey] = $this->normalizeNexaTaxiTarievenSection(
                         $input[$sectionKey] ?? $input['component:taxiroyaal.tarieven'] ?? []
                     );
-                } elseif ($sectionKey === 'component:taxi.boekingsmodule') {
+                } elseif ($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2') {
                     $sections[$sectionKey] = $this->normalizeNexaTaxiBoekingsmoduleSection(
-                        $input[$sectionKey] ?? $input['component:taxiroyaal.boekingsmodule'] ?? []
+                        $input[$sectionKey] ?? ($sectionKey === 'component:taxi.boekingsmodule' ? ($input['component:taxiroyaal.boekingsmodule'] ?? []) : [])
                     );
                 } elseif ($sectionKey === 'component:website.nexa_modules_overview') {
                     $sections[$sectionKey] = $this->normalizeNexaModulesOverviewSection(
@@ -2054,6 +2069,21 @@ class AdminWebsitePageController extends Controller
                     : '';
                 $data = $this->normalizeSubtitleColor($data);
                 $data = $this->normalizeTextBgFields($data);
+                $allowedHeroFontPx = range(12, 50, 2);
+                $titleFontPx = isset($raw['title_font_size_px']) && $raw['title_font_size_px'] !== ''
+                    ? (int) $raw['title_font_size_px']
+                    : (int) ($defaults['hero']['title_font_size_px'] ?? 44);
+                if (! in_array($titleFontPx, $allowedHeroFontPx, true)) {
+                    $titleFontPx = (int) (round(max(12, min(50, $titleFontPx)) / 2) * 2);
+                }
+                $subtitleFontPx = isset($raw['subtitle_font_size_px']) && $raw['subtitle_font_size_px'] !== ''
+                    ? (int) $raw['subtitle_font_size_px']
+                    : (int) ($defaults['hero']['subtitle_font_size_px'] ?? 22);
+                if (! in_array($subtitleFontPx, $allowedHeroFontPx, true)) {
+                    $subtitleFontPx = (int) (round(max(12, min(50, $subtitleFontPx)) / 2) * 2);
+                }
+                $data['title_font_size_px'] = $titleFontPx;
+                $data['subtitle_font_size_px'] = $subtitleFontPx;
                 // Behoud hero-afbeeldingen (atom-v2) ook als leeg, zodat "geen custom" = thema-default
                 $keepEmptyKeys = ['overlay', 'background_image_url', 'author_image_url', 'title_highlight_color', 'subtitle_color', 'text_bg_color'];
 
@@ -2411,6 +2441,11 @@ class AdminWebsitePageController extends Controller
             $textBgOpacity = max(0, min(100, (int) $data['text_bg_opacity']));
         }
         $data['text_bg_opacity'] = $textBgOpacity;
+
+        $textBgWidthPct = isset($data['text_bg_width_percent']) && $data['text_bg_width_percent'] !== ''
+            ? (int) $data['text_bg_width_percent']
+            : 70;
+        $data['text_bg_width_percent'] = max(30, min(100, $textBgWidthPct));
 
         return $data;
     }
@@ -2973,6 +3008,18 @@ class AdminWebsitePageController extends Controller
             $previewUrl .= '?module='.rawurlencode($website_page->module_name);
         }
 
+        $env = app(\App\Services\EnvService::class);
+        $googleMapsApiKey = $this->websiteBuilder->resolveGoogleMapsApiKeyForPage($website_page);
+        if ($googleMapsApiKey === '') {
+            $googleMapsApiKey = trim((string) ($env->getGoogleMapsApiKey() ?? ''));
+        }
+        $googleMapsMapId = $this->websiteBuilder->resolveGoogleMapsMapIdForPage($website_page);
+        if ($googleMapsMapId === '') {
+            $googleMapsMapId = $env->getGoogleMapsMapId() ?? '';
+        }
+
+        $siteBranding = $this->websiteBuilder->getSiteBrandingForWebsitePage($website_page);
+
         $bootstrap = [
             'page' => [
                 'id' => (int) $website_page->id,
@@ -2982,6 +3029,8 @@ class AdminWebsitePageController extends Controller
                 'moduleName' => $website_page->module_name,
                 'companyId' => $website_page->company_id,
             ],
+            'pageMeta' => $this->buildPageMetaPayloadForBuilder($request, $website_page),
+            'pageMetaOptions' => $this->buildPageMetaOptionsForBuilder($request, $website_page),
             'themeSlug' => $themeSlug,
             'themeName' => $themeFormContext['defaultTheme']?->name ?? $themeSlug,
             'homeSections' => $homeSections,
@@ -2992,18 +3041,26 @@ class AdminWebsitePageController extends Controller
             ],
             'componentDefaults' => array_merge([
                 'component:taxi.boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
+                'component:taxi.boekingsmodule_v2' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
                 'component:taxiroyaal.boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
             ], $this->googleReviewsComponentDefaultsForBuilder($website_page)),
             'routes' => [
                 'save' => route('admin.website-pages.builder-v2.update', ['website_page' => $website_page]),
+                'updateMeta' => route('admin.website-pages.builder-v2.update-meta', ['website_page' => $website_page]),
+                'generateSeo' => route('admin.website-pages.generate-seo'),
                 'preview' => $previewUrl,
                 'classicEdit' => $classicEditUrl,
                 'index' => route('admin.website-pages.index', $wizardIndexQuery),
                 'self' => $builderV2EditUrl,
                 'uploadHeroImage' => route('admin.website-pages.upload-hero-image'),
+                'uploadFooterLogo' => route('admin.website-pages.upload-footer-logo'),
                 'uploadWebsiteMedia' => route('admin.website-media.upload'),
                 'websiteMediaServeBase' => url('/website-media'),
+                'postcodeLookup' => route('admin.postcode.lookup'),
             ],
+            'googleMapsApiKey' => $googleMapsApiKey,
+            'googleMapsMapId' => $googleMapsMapId,
+            'siteBrandingLogoUrl' => (string) ($siteBranding['logo_url'] ?? ''),
             'wizardBackUrl' => $wizardBackUrl,
             'emailTemplates' => $emailTemplatesForBuilder,
         ];
@@ -3013,6 +3070,197 @@ class AdminWebsitePageController extends Controller
             'bootstrap' => $bootstrap,
             'wizardBackUrl' => $wizardBackUrl,
         ]);
+    }
+
+    /**
+     * Pagina-informatie (titel, slug, module, SEO, …) vanuit de v2 builder.
+     */
+    public function updatePageMetaV2(Request $request, WebsitePage $website_page): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+        $this->hydrateWebsitePageWizardParamsFromSession($request);
+
+        $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
+        $usesModuleDatabase = $this->websitePageUsesSeparateModuleDatabase($website_page, $moduleName);
+        $connection = $usesModuleDatabase ? $website_page->getConnectionName() : null;
+        $slugRule = $this->buildSlugUniqueRule(
+            $connection,
+            $moduleName,
+            (int) $website_page->id,
+            $this->resolveCompanyIdForWebsitePageSlugRule($request, $website_page)
+        );
+        $companyIdRules = $this->websitePageCompanyIdValidationRules($request, $website_page, $connection);
+
+        try {
+            $data = $request->validate(array_merge([
+                'slug' => [
+                    'required',
+                    'string',
+                    'max:255',
+                    'regex:/^[a-z0-9\-]+$/',
+                    $slugRule,
+                ],
+                'title' => 'required|string|max:255',
+                'meta_description' => 'nullable|string|max:500',
+                'page_type' => 'required|in:home,about,contact,custom,module',
+                'module_name' => 'nullable|string|max:255',
+                'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
+                'is_active' => 'boolean',
+                'show_in_menu' => 'boolean',
+                'sort_order' => 'nullable|integer|min:0',
+            ], $companyIdRules), [
+                'slug.unique' => 'Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.',
+                'company_id.required' => 'Kies een bedrijf waaraan deze pagina wordt gekoppeld.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        $data['is_active'] = $request->boolean('is_active', true);
+        $connForSchema = $website_page->getConnection()->getName();
+        $showInMenuValue = $this->requestHasInput($request, 'show_in_menu')
+            ? $request->boolean('show_in_menu')
+            : (bool) $website_page->getAttribute('show_in_menu');
+        if (! $this->websitePagesTableHasColumn($connForSchema, 'show_in_menu')) {
+            unset($data['show_in_menu']);
+        } else {
+            $data['show_in_menu'] = $showInMenuValue;
+        }
+        $this->ensureWebsitePagesSortOrderColumn($connForSchema);
+        if (! $this->websitePagesTableHasColumn($connForSchema, 'sort_order')) {
+            unset($data['sort_order']);
+        } else {
+            $data['sort_order'] = $this->resolveWebsitePageSortOrderForSave($request, $website_page);
+        }
+        $data['module_name'] = $moduleName;
+        if (WebsitePage::isCentralMarketingWelcomeSlug((string) $website_page->slug)
+            && ($website_page->module_name === null || $website_page->module_name === '')) {
+            $data['slug'] = WebsitePage::CENTRAL_WELCOME_SLUG;
+            $data['module_name'] = null;
+            $data['page_type'] = 'custom';
+            if (\Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($website_page->getTable(), 'company_id')) {
+                $data['company_id'] = null;
+            }
+        }
+        $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForSchema, $website_page);
+        $activeTheme = $this->resolveThemeModelForWebsitePageSave($request, $data, $moduleName);
+        $resolvedThemeId = $activeTheme ? (int) $activeTheme->id : null;
+        if ($this->websitePagesTableHasColumn($connForSchema, 'frontend_theme_id')) {
+            $data['frontend_theme_id'] = $resolvedThemeId;
+        } else {
+            unset($data['frontend_theme_id']);
+        }
+
+        try {
+            $website_page->update($data);
+            $mirrorSyncData = $data;
+            if ($resolvedThemeId !== null) {
+                $mirrorSyncData['frontend_theme_id'] = $resolvedThemeId;
+            }
+            $this->syncWebsitePageMirrorConnection($website_page->fresh(), $mirrorSyncData);
+        } catch (\Throwable $e) {
+            \Log::error('Website page builder v2 meta update failed', [
+                'page_id' => $website_page->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Opslaan mislukt: '.$e->getMessage(),
+            ], 422);
+        }
+
+        $fresh = $website_page->fresh();
+        $resolvedTheme = $this->websiteBuilder->getThemeForPage($fresh);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Pagina-informatie opgeslagen.',
+            'pageMeta' => $this->buildPageMetaPayloadForBuilder($request, $fresh),
+            'page' => [
+                'title' => (string) $fresh->title,
+                'slug' => (string) $fresh->slug,
+                'pageType' => (string) $fresh->page_type,
+                'moduleName' => $fresh->module_name,
+                'companyId' => $fresh->company_id,
+            ],
+            'themeSlug' => $resolvedTheme?->slug ?? 'modern',
+            'themeName' => $resolvedTheme?->name ?? ($resolvedTheme?->slug ?? 'modern'),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildPageMetaPayloadForBuilder(Request $request, WebsitePage $page): array
+    {
+        $themeFormContext = $this->websitePageThemeFormContext($request, $page);
+        $selectedThemeId = $themeFormContext['selectedThemeId'];
+
+        return [
+            'title' => (string) $page->title,
+            'slug' => (string) $page->slug,
+            'pageType' => (string) $page->page_type,
+            'moduleName' => $page->module_name,
+            'frontendThemeId' => $selectedThemeId !== null && $selectedThemeId !== ''
+                ? (int) $selectedThemeId
+                : null,
+            'isActive' => (bool) $page->is_active,
+            'showInMenu' => (bool) ($page->show_in_menu ?? true),
+            'sortOrder' => (int) ($page->sort_order ?? 0),
+            'metaDescription' => (string) ($page->meta_description ?? ''),
+            'companyId' => $page->company_id !== null && $page->company_id !== ''
+                ? (int) $page->company_id
+                : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildPageMetaOptionsForBuilder(Request $request, WebsitePage $page): array
+    {
+        $installedModules = $this->moduleManager->getInstalledModules();
+        $moduleThemes = $this->getModuleThemesForForm($installedModules);
+        $themeFormContext = $this->websitePageThemeFormContext($request, $page);
+        $tenant = $this->buildWebsitePageCompanyContext($request, $page);
+        $isCentralWelcome = WebsitePage::isCentralMarketingWelcomeSlug((string) $page->slug)
+            && ($page->module_name === null || $page->module_name === '');
+
+        return [
+            'modules' => collect($installedModules)->map(function ($module) use ($moduleThemes) {
+                $name = $module->getName();
+                $moduleModel = $moduleThemes->get($name);
+                $themeId = $moduleModel?->frontend_theme_id ?? $moduleModel?->theme?->id;
+
+                return [
+                    'name' => $name,
+                    'displayName' => $module->getDisplayName(),
+                    'themeId' => $themeId !== null && $themeId !== '' ? (int) $themeId : null,
+                ];
+            })->values()->all(),
+            'themes' => $themeFormContext['selectableThemes']->map(static fn ($theme) => [
+                'id' => (int) $theme->id,
+                'name' => (string) $theme->name,
+                'slug' => (string) ($theme->slug ?? ''),
+            ])->values()->all(),
+            'isCentralWelcome' => $isCentralWelcome,
+            'slugReadonly' => $isCentralWelcome,
+            'tenant' => [
+                'visible' => (bool) $tenant['visible'],
+                'showCompanyDropdown' => (bool) $tenant['show_company_dropdown'],
+                'storedCompanyName' => $tenant['stored_company']?->name,
+                'effectiveCompanyName' => $tenant['effective_company']?->name,
+                'companies' => $tenant['companies']->map(static fn ($company) => [
+                    'id' => (int) $company->id,
+                    'name' => (string) $company->name,
+                ])->values()->all(),
+            ],
+        ];
     }
 
     /**

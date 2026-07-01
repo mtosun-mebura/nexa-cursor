@@ -161,11 +161,11 @@ class EmailTemplateService
         $htmlContent = $template->html_content ?? '';
         if ($template->type === 'informatieaanvraag') {
             $htmlContent = str_replace('{{ DYNAMIC_FORM_FIELDS }}', $template->renderDynamicFormFieldsHtml(), $htmlContent);
+            $merged = $this->formatInformatieaanvraagVariables($template, $merged);
         }
         $htmlContent = $this->parseTemplate($htmlContent, $merged);
         if ($template->type === 'informatieaanvraag' && $htmlContent !== '') {
-            $htmlContent = '<style>.info-request-email-body, .info-request-email-body table, .info-request-email-body td, .info-request-email-body th, .info-request-email-body p, .info-request-email-body div { text-align: left !important; }</style>'
-                . '<div class="info-request-email-body" style="text-align: left !important; background-color: #f3f4f6 !important; padding: 1rem;">' . $htmlContent . '</div>';
+            $htmlContent = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($htmlContent);
         }
         $textContent = $template->text_content
             ? $this->parseTemplate($template->text_content, $merged)
@@ -212,6 +212,47 @@ class EmailTemplateService
     public function parseTemplateVariables(string $template, array $variables): string
     {
         return $this->parseTemplate($template, $variables);
+    }
+
+    /**
+     * @param  array<string, mixed>  $variables
+     * @return array<string, string>
+     */
+    public function formatInformatieaanvraagVariables(EmailTemplate $template, array $variables): array
+    {
+        $formatted = $variables;
+
+        foreach ($template->getOrderedFormFields() as $field) {
+            $key = EmailTemplate::fieldNameToVariableKey($field->name);
+            if (! array_key_exists($key, $formatted)) {
+                continue;
+            }
+
+            $value = $formatted[$key];
+            if ($value === '' || $value === '-') {
+                continue;
+            }
+
+            $formatted[$key] = $this->formatInformatieaanvraagFieldValue($field, (string) $value);
+        }
+
+        if (array_key_exists('OMSCHRIJVING', $formatted)
+            && $formatted['OMSCHRIJVING'] !== ''
+            && $formatted['OMSCHRIJVING'] !== '-'
+            && ! str_contains((string) $formatted['OMSCHRIJVING'], '<br')) {
+            $formatted['OMSCHRIJVING'] = nl2br(e((string) $formatted['OMSCHRIJVING'], ENT_QUOTES, 'UTF-8'), false);
+        }
+
+        return $formatted;
+    }
+
+    protected function formatInformatieaanvraagFieldValue(\App\Models\InfoRequestFormField $field, string $value): string
+    {
+        if ($field->isTextareaField()) {
+            return nl2br(e($value, ENT_QUOTES, 'UTF-8'), false);
+        }
+
+        return e($value, ENT_QUOTES, 'UTF-8');
     }
 
     private function parseTemplate(string $template, array $variables): string

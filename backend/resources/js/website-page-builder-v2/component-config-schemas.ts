@@ -33,7 +33,12 @@ function pxSelectOptions(min: number, max: number, step: number): SelectOption[]
   return options
 }
 
-const TAXI_BOOKING_KEYS = new Set(['component:taxi.boekingsmodule', 'component:taxiroyaal.boekingsmodule'])
+const containerMaxWidthOptions: SelectOption[] = [100, 90, 80, 70, 60, 50, 40, 30].map((percent) => ({
+  value: `${percent}%`,
+  label: `${percent}%`,
+}))
+
+const TAXI_BOOKING_KEYS = new Set(['component:taxi.boekingsmodule', 'component:taxiroyaal.boekingsmodule', 'component:taxi.boekingsmodule_v2'])
 
 export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
   { type: 'group', label: 'Uiterlijk & titel', fields: [
@@ -45,7 +50,7 @@ export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
     { type: 'select', key: 'style.tab_font_size_px', label: 'Tekstgrootte tabbladen', options: pxSelectOptions(10, 24, 2) },
     { type: 'select', key: 'style.step_heading_font_size_px', label: 'Tekstgrootte stapkop', options: pxSelectOptions(16, 48, 2) },
     { type: 'number', key: 'style.route_map_zoom', label: 'Zoom routekaarten', min: 1, max: 21, step: 1 },
-    { type: 'text', key: 'style.container_max_width', label: 'Max breedte', placeholder: '100%' },
+    { type: 'select', key: 'style.container_max_width', label: 'Max breedte', options: containerMaxWidthOptions, defaultValue: '100%' },
     { type: 'text', key: 'style.container_min_height', label: 'Min. hoogte blok', placeholder: 'auto of 600px' },
     { type: 'number', key: 'style.border_radius', label: 'Border radius (px)', min: 0, max: 40, step: 1 },
     { type: 'select', key: 'style.align', label: 'Uitlijning blok', options: alignOptions },
@@ -137,8 +142,19 @@ export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
   },
 ]
 
+export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
+  ...TAXI_BOOKING_MODULE_SCHEMA,
+  { type: 'group', label: 'Live kaart (v2)', fields: [
+    { type: 'select', key: 'style.live_map_position', label: 'Kaartpositie', options: [
+      { value: 'beside_card', label: 'Rechts naast het blok' },
+      { value: 'inside_content', label: 'In het blok, rechts van de inhoud' },
+    ]},
+  ]},
+]
+
 const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
   'component:taxi.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
+  'component:taxi.boekingsmodule_v2': TAXI_BOOKING_MODULE_V2_SCHEMA,
   'component:taxiroyaal.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.tarieven': [
     { type: 'text', key: 'title', label: 'Bloktitel' },
@@ -184,7 +200,7 @@ const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
       itemLabel: 'Module',
       fields: [
         { type: 'text', key: 'name', label: 'Naam' },
-        { type: 'textarea', key: 'description', label: 'Beschrijving', rows: 3 },
+        { type: 'wysiwyg', key: 'description', label: 'Beschrijving', placeholder: 'Beschrijving…' },
         { type: 'text', key: 'badge', label: 'Badge' },
         { type: 'text', key: 'icon', label: 'Icoon (heroicon-id)' },
         { type: 'textarea', key: 'features_text', label: 'Features (1 per regel)', rows: 3 },

@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
+use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 // AdminVacancyController moved to Skillmatching module
 // AdminMatchController and AdminInterviewController moved to Skillmatching module
@@ -24,6 +25,7 @@ use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
+use App\Http\Controllers\Frontend\InfoRequestController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
@@ -367,6 +369,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
 
+    Route::get('handleiding', [AdminHandleidingController::class, 'index'])->name('handleiding.index');
+    Route::get('handleiding/{slug}', [AdminHandleidingController::class, 'show'])
+        ->name('handleiding.show')
+        ->where('slug', '[a-z0-9\-]+');
+
     // Companies
     Route::get('companies/wizard', [AdminCompanyWizardController::class, 'start'])->name('companies.wizard.start');
     Route::post('companies/wizard/step-1', [AdminCompanyWizardController::class, 'storeStep1'])->name('companies.wizard.store-step1');
@@ -702,6 +709,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
         Route::get('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
         Route::put('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
+        Route::patch('website-pages/{website_page}/builder-v2/meta', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
         Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
@@ -818,6 +826,10 @@ Route::get('/logout', [FrontendAuthController::class, 'logout'])->name('logout.g
 Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController::class, 'sendMessage'])
     ->middleware('throttle:30,1')
     ->name('frontend.ai-chat.message');
+
+Route::post('/info-request', [InfoRequestController::class, 'submit'])
+    ->middleware('throttle:10,1')
+    ->name('frontend.send-info-request');
 
 // Test routes voor error pagina's (alleen in development)
 if (app()->environment('local', 'development')) {

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
+use App\Services\InformatieaanvraagEmailHtmlNormalizer;
 use App\Services\MenuService;
 use App\Models\InfoRequestFormField;
 use Illuminate\Http\Request;
@@ -400,7 +401,6 @@ class AdminEmailTemplateController extends Controller
 </html>';
 
         // Standaard template voor type Informatieaanvraag (met VOORNAAM, ACHTERNAAM, TELEFOONNUMMER, OMSCHRIJVING, DATUM_AANVRAAG, EMAIL_AANVRAAG)
-        // Styling gelijk aan admin-preview: witte kaart 600px, blauwe header, witte content met donkere tekst.
         $defaultHtmlTemplateInformatieaanvraag = '<!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -413,18 +413,19 @@ class AdminEmailTemplateController extends Controller
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
             <td style="padding: 20px 0; text-align: center;">
-                <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <table role="presentation" class="info-request-email-card" width="100%" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-collapse: separate; border-spacing: 0; overflow: hidden;">
                     <tr>
-                        <td style="padding: 30px; background-color: #2563eb; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 24px;">Nieuwe informatieaanvraag</h1>
+                        <td class="info-request-email-header" width="100%" bgcolor="#2563eb" style="padding: 24px 30px; background-color: #2563eb; border-radius: 8px 8px 0 0; width: 100%;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 24px; line-height: 1.3;">Nieuwe informatieaanvraag</h1>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding: 30px; background-color: #ffffff; color: #333333;">
-                            <p style="margin: 0 0 15px 0; color: #333333; font-size: 16px; line-height: 1.6;">
+                        <td class="info-request-email-body" width="100%" bgcolor="#ffffff" style="padding: 30px; background-color: #ffffff; color: #333333; width: 100%;">
+                            <p style="margin: 0; color: #333333; font-size: 16px; line-height: 1.5;">
                                 Er is een informatieaanvraag binnengekomen met de volgende gegevens:
                             </p>
-                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left;">
+                            <table role="presentation" class="info-request-fields" width="100%" style="width: 100%; border-collapse: collapse; margin: 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left; table-layout: fixed;">
+                                <colgroup><col style="width: 175px;"><col></colgroup>
 {{ DYNAMIC_FORM_FIELDS }}
                             </table>
                             <p style="margin: 0 0 8px 0; color: #333333; font-size: 16px; font-weight: bold;">Omschrijving / vraag:</p>
@@ -432,7 +433,7 @@ class AdminEmailTemplateController extends Controller
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding: 20px 30px; background-color: #f9fafb; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb;">
+                        <td class="info-request-email-footer" width="100%" bgcolor="#f9fafb" style="padding: 20px 30px; background-color: #f9fafb; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb; width: 100%;">
                             <p style="margin: 0; color: #6b7280; font-size: 14px; text-align: center;">
                                 Met vriendelijke groet,<br>
                                 {{ COMPANY_NAME }}
@@ -574,6 +575,7 @@ class AdminEmailTemplateController extends Controller
         $previewHtml = $emailTemplate->html_content ?? '';
         if ($isInfoRequestType && $previewHtml !== '') {
             $previewHtml = str_replace('{{ DYNAMIC_FORM_FIELDS }}', $emailTemplate->renderDynamicFormFieldsHtml(), $previewHtml);
+            $previewHtml = $this->normalizeInformatieaanvraagPreviewHtml($previewHtml);
         }
         $previewHtml = $this->injectEmailTemplatePreviewLogo($emailTemplate, $previewHtml);
 
@@ -654,6 +656,8 @@ class AdminEmailTemplateController extends Controller
             'recipient_email' => 'nullable|email',
             'form_field_order' => 'nullable|array',
             'form_field_order.*' => 'integer|exists:info_request_form_fields,id',
+            'form_field_required' => 'nullable|array',
+            'form_field_required.*' => 'boolean',
         ]);
 
         $emailTemplateData = $request->only([
@@ -663,6 +667,11 @@ class AdminEmailTemplateController extends Controller
         ]);
         if (isset($emailTemplateData['form_field_order']) && is_array($emailTemplateData['form_field_order'])) {
             $emailTemplateData['form_field_order'] = array_values(array_map('intval', $emailTemplateData['form_field_order']));
+            $required = [];
+            foreach ($emailTemplateData['form_field_order'] as $fieldId) {
+                $required[(string) $fieldId] = $request->boolean('form_field_required.' . $fieldId);
+            }
+            $emailTemplateData['form_field_required'] = $required;
         }
         if ($request->filled('recipient_type') && $request->recipient_type === 'email') {
             $emailTemplateData['recipient_user_id'] = null;
@@ -713,6 +722,7 @@ class AdminEmailTemplateController extends Controller
             'recipient_user_id' => $emailTemplate->recipient_user_id,
             'recipient_email' => $emailTemplate->recipient_email,
             'form_field_order' => $emailTemplate->form_field_order,
+            'form_field_required' => $emailTemplate->form_field_required,
         ]);
 
         return redirect()
@@ -747,6 +757,11 @@ class AdminEmailTemplateController extends Controller
         }
 
         return null;
+    }
+
+    protected function normalizeInformatieaanvraagPreviewHtml(string $html): string
+    {
+        return app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
     }
 
     protected function injectEmailTemplatePreviewLogo(EmailTemplate $emailTemplate, string $previewHtml): string
@@ -837,7 +852,7 @@ class AdminEmailTemplateController extends Controller
         $rules = [];
         foreach ($formFields as $field) {
             $key = 'test_' . $field->name;
-            $rules[$key] = $field->getValidationRules();
+            $rules[$key] = $emailTemplate->validationRulesForFormField($field);
         }
         if ($rules) {
             $request->validate($rules);

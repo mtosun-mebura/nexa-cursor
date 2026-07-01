@@ -158,3 +158,64 @@ export function websiteMediaPreviewUrl(serveBase: string, uuid: string): string 
   const base = serveBase.replace(/\/$/, '')
   return `${base}/${encodeURIComponent(id)}`
 }
+
+/** Zelfde logica als WebsiteBuilderService::storageUrlToDisplayUrl (voor admin-previews). */
+export function websiteImageDisplayUrl(url: string): string {
+  const u = url.trim()
+  if (!u) {
+    return ''
+  }
+  if (u.startsWith('data:')) {
+    return u
+  }
+
+  let path: string | null = null
+  if (u.startsWith('/storage/')) {
+    path = u.replace(/^\/storage\//, '')
+  } else {
+    const storageMatch = u.match(/^https?:\/\/[^/]+\/storage\/([^?#]+)/)
+    if (storageMatch) {
+      path = storageMatch[1]
+    }
+  }
+
+  if (path) {
+    const encoded = path.replace(/\.\./g, '').replace(/\//g, '--').replace(/^\/+/, '')
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return `${origin}/file/${encoded}`
+  }
+
+  if (/^https?:\/\//.test(u)) {
+    const fileMatch = u.match(/^https?:\/\/[^/]+(\/file\/[^?#]+)/)
+    if (fileMatch && typeof window !== 'undefined') {
+      return `${window.location.origin}${fileMatch[1]}`
+    }
+    return u
+  }
+
+  if (typeof window !== 'undefined') {
+    return u.startsWith('/') ? `${window.location.origin}${u}` : `${window.location.origin}/${u}`
+  }
+
+  return u
+}
+
+/** Admin-preview src: normaliseer paden; geen cache-buster op data:/blob:-URL's. */
+export function websiteImagePreviewSrc(url: string, cacheToken?: number): string {
+  const trimmed = url.trim()
+  if (!trimmed) {
+    return ''
+  }
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed
+  }
+  const normalized = websiteImageDisplayUrl(trimmed)
+  if (!normalized) {
+    return ''
+  }
+  if (cacheToken === undefined) {
+    return normalized
+  }
+  const sep = normalized.includes('?') ? '&' : '?'
+  return `${normalized}${sep}t=${cacheToken}`
+}
