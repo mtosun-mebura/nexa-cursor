@@ -15,6 +15,7 @@ use App\Services\AdminDashboardModuleContext;
 use App\Services\AdminPaymentOverviewService;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
+use App\Services\SystemStackSnapshotService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -31,6 +32,7 @@ class AdminDashboardController extends Controller
         protected AdminPaymentOverviewService $paymentOverview,
         protected AdminDashboardModuleContext $dashboardModuleContext,
         protected ModuleDatabaseService $moduleDatabaseService,
+        protected SystemStackSnapshotService $stackSnapshots,
     ) {
         $this->envService = $envService;
     }
@@ -150,6 +152,13 @@ class AdminDashboardController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
+        $systemStack = null;
+        $releaseVersion = null;
+        if (auth()->user()->hasRole('super-admin') && ! session('selected_tenant')) {
+            $systemStack = $this->stackSnapshots->labeledStack();
+            $releaseVersion = $this->stackSnapshots->currentReleaseVersion();
+        }
+
         return view('admin.dashboard', [
             'stats' => $stats,
             'recent_users' => $recent_users,
@@ -174,6 +183,8 @@ class AdminDashboardController extends Controller
             'showTaxi' => $showTaxi,
             'taxiStats' => $taxiDashboard['stats'],
             'recent_rides' => $taxiDashboard['recent_rides'],
+            'systemStack' => $systemStack,
+            'releaseVersion' => $releaseVersion,
         ]);
     }
 
