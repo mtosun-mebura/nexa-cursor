@@ -31,7 +31,7 @@
                 <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
                 <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
             @else
-                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
+                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ \App\Support\NexaBranding::defaultLogoUrl() }}" alt="NEXA" />
             @endif
         </a>
         <button

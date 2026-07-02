@@ -20,13 +20,19 @@ class SystemUpgradeService
     }
 
     /**
+     * @param  list<string>  $selections
      * @param  callable(array<string, mixed>): void|null  $emit
      * @return array{log: SystemUpgradeLog, success: bool, message: string}
      */
-    public function runUpgrade(User $user, ?callable $emit = null): array
+    public function runUpgrade(User $user, array $selections, ?callable $emit = null): array
     {
         if (! $this->webUpgradeEnabled()) {
             throw new \RuntimeException('Web-upgrades zijn uitgeschakeld. Zet NEXA_WEB_UPGRADE_ENABLED=true in .env.');
+        }
+
+        $selections = array_values(array_unique(array_filter($selections, fn ($id) => is_string($id) && $id !== '')));
+        if ($selections === []) {
+            throw new \InvalidArgumentException('Selecteer minimaal één item om te upgraden.');
         }
 
         $fromRelease = $this->snapshots->currentReleaseVersion();
@@ -46,19 +52,39 @@ class SystemUpgradeService
 
         try {
             $this->step($emit, $steps, 'Huidige stack vastgelegd', 'done');
-            $this->step($emit, $steps, 'Upgrade naar release '.$toRelease.' gestart', 'running');
+            $this->step($emit, $steps, count($selections).' item(s) geselecteerd voor upgrade', 'done');
 
-            $this->runShellStep($emit, $steps, 'Composer dependencies bijwerken', 'composer update --no-interaction --no-ansi --prefer-dist', 900);
+            $composerPackages = $this->composerPackagesFromSelections($selections);
+            if ($composerPackages !== [] || in_array('step:composer', $selections, true)) {
+                $command = $composerPackages !== []
+                    ? 'composer update '.implode(' ', array_map('escapeshellarg', $composerPackages)).' --no-interaction --no-ansi --prefer-dist'
+                    : 'composer update --no-interaction --no-ansi --prefer-dist';
+                $this->runShellStep($emit, $steps, 'Composer dependencies bijwerken', $command, 900);
+            }
 
-            if ($this->commandExists('npm')) {
-                $this->runShellStep($emit, $steps, 'NPM dependencies bijwerken', 'npm update --no-fund --no-audit', 600);
+            $npmPackages = $this->npmPackagesFromSelections($selections);
+            $runNpm = $npmPackages !== [] || in_array('step:npm', $selections, true);
+            if ($runNpm && $this->commandExists('npm')) {
+                $npmCommand = $npmPackages !== []
+                    ? 'npm update '.implode(' ', array_map('escapeshellarg', $npmPackages)).' --no-fund --no-audit'
+                    : 'npm update --no-fund --no-audit';
+                $this->runShellStep($emit, $steps, 'NPM dependencies bijwerken', $npmCommand, 600);
+            }
+
+            $shouldBuild = in_array('step:npm_build', $selections, true);
+            if ($shouldBuild && $this->commandExists('npm')) {
                 $this->runShellStep($emit, $steps, 'Frontend assets bouwen', 'npm run build', 600);
-            } else {
+            } elseif ($shouldBuild) {
                 $this->step($emit, $steps, 'NPM niet beschikbaar — frontend build overgeslagen', 'skipped');
             }
 
-            $this->runArtisanStep($emit, $steps, 'Database migraties uitvoeren', ['migrate', '--force'], 300);
-            $this->runArtisanStep($emit, $steps, 'Unit tests uitvoeren', ['test', '--colors=never'], 1200);
+            if (in_array('step:migrations', $selections, true)) {
+                $this->runArtisanStep($emit, $steps, 'Database migraties uitvoeren', ['migrate', '--force'], 300);
+            }
+
+            if (in_array('step:tests', $selections, true)) {
+                $this->runArtisanStep($emit, $steps, 'Unit tests uitvoeren', ['test', '--colors=never'], 1200);
+            }
 
             $toStack = $this->snapshots->capture();
             GeneralSetting::set('nexa_release_version', $toRelease);
@@ -77,6 +103,7 @@ class SystemUpgradeService
                 'to_release' => $toRelease,
                 'from_stack' => $fromStack,
                 'to_stack' => $toStack,
+                'selections' => $selections,
             ]);
 
             return [
@@ -105,6 +132,38 @@ class SystemUpgradeService
                 'message' => 'Upgrade mislukt: '.$e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @param  list<string>  $selections
+     * @return list<string>
+     */
+    private function composerPackagesFromSelections(array $selections): array
+    {
+        $packages = [];
+        foreach ($selections as $id) {
+            if (str_starts_with($id, 'pkg:composer:')) {
+                $packages[] = substr($id, strlen('pkg:composer:'));
+            }
+        }
+
+        return $packages;
+    }
+
+    /**
+     * @param  list<string>  $selections
+     * @return list<string>
+     */
+    private function npmPackagesFromSelections(array $selections): array
+    {
+        $packages = [];
+        foreach ($selections as $id) {
+            if (str_starts_with($id, 'pkg:npm:')) {
+                $packages[] = substr($id, strlen('pkg:npm:'));
+            }
+        }
+
+        return $packages;
     }
 
     /**
