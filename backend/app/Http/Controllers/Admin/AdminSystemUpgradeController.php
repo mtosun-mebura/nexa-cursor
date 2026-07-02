@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SystemUpgradeLog;
 use App\Services\SystemStackSnapshotService;
+use App\Services\SystemUpgradePreviewService;
 use App\Services\SystemUpgradeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class AdminSystemUpgradeController extends Controller
 {
     public function __construct(
         protected SystemStackSnapshotService $snapshots,
+        protected SystemUpgradePreviewService $previewService,
         protected SystemUpgradeService $upgrades,
     ) {}
 
@@ -37,6 +39,23 @@ class AdminSystemUpgradeController extends Controller
         ]);
     }
 
+    public function preview(): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        if (! $this->upgrades->webUpgradeEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Web-upgrades zijn uitgeschakeld.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->previewService->preview(),
+        ]);
+    }
+
     public function run(Request $request): JsonResponse|StreamedResponse
     {
         $this->ensureSuperAdmin();
@@ -48,14 +67,21 @@ class AdminSystemUpgradeController extends Controller
             ], 422);
         }
 
+        $validated = $request->validate([
+            'selections' => ['required', 'array', 'min:1'],
+            'selections.*' => ['required', 'string', 'max:191'],
+            'confirm_upgrade' => ['sometimes', 'boolean'],
+        ]);
+
+        $selections = $validated['selections'];
         $wantsStream = $request->expectsJson()
             && $request->header('X-System-Upgrade-Stream') === '1';
 
         if ($wantsStream) {
-            return $this->streamUpgradeRun();
+            return $this->streamUpgradeRun($selections);
         }
 
-        $result = $this->upgrades->runUpgrade($request->user());
+        $result = $this->upgrades->runUpgrade($request->user(), $selections);
 
         return response()->json([
             'success' => $result['success'],
@@ -64,9 +90,12 @@ class AdminSystemUpgradeController extends Controller
         ], $result['success'] ? 200 : 500);
     }
 
-    private function streamUpgradeRun(): StreamedResponse
+    /**
+     * @param  list<string>  $selections
+     */
+    private function streamUpgradeRun(array $selections): StreamedResponse
     {
-        return response()->stream(function (): void {
+        return response()->stream(function () use ($selections): void {
             $this->flushStream();
 
             $emit = function (array $event): void {
@@ -75,7 +104,7 @@ class AdminSystemUpgradeController extends Controller
             };
 
             try {
-                $result = $this->upgrades->runUpgrade(auth()->user(), $emit);
+                $result = $this->upgrades->runUpgrade(auth()->user(), $selections, $emit);
                 $emit([
                     'type' => 'complete',
                     'success' => $result['success'],

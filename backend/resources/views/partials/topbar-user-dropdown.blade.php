@@ -1,3 +1,7 @@
+@php
+    use App\Support\NexaBranding;
+    $defaultUserAvatarUrl = NexaBranding::defaultUserAvatarUrl();
+@endphp
 <!-- User -->
 @auth
 <div class="shrink-0" data-kt-dropdown="true" data-kt-dropdown-offset="10px, 10px" data-kt-dropdown-offset-rtl="-20px, 10px"
@@ -7,7 +11,8 @@
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                 data-user-avatar
                 class="h-full w-full object-cover"
-                src="{{ route('user.photo', auth()->id()) }}" />
+                src="{{ route('user.photo', auth()->id()) }}"
+                onerror="this.onerror=null;this.src='{{ $defaultUserAvatarUrl }}';this.classList.remove('object-cover');this.classList.add('object-contain','bg-black');" />
         @else
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                 data-user-avatar
@@ -15,7 +20,7 @@
                     'h-full w-full object-contain bg-black',
                     'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                 ])
-                src="{{ asset(config('nexa.default_user_avatar')) }}" />
+                src="{{ $defaultUserAvatarUrl }}" />
         @endif
     </div>
     <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
@@ -25,7 +30,8 @@
                 <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                     data-user-avatar
                     class="h-full w-full object-cover"
-                    src="{{ route('user.photo', auth()->id()) }}" />
+                    src="{{ route('user.photo', auth()->id()) }}"
+                    onerror="this.onerror=null;this.src='{{ $defaultUserAvatarUrl }}';this.classList.remove('object-cover');this.classList.add('object-contain','bg-black');" />
             @else
                 <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                     data-user-avatar
@@ -33,7 +39,7 @@
                         'h-full w-full object-contain bg-black',
                         'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                     ])
-                    src="{{ asset(config('nexa.default_user_avatar')) }}" />
+                    src="{{ $defaultUserAvatarUrl }}" />
             @endif
             </div>
             <div class="flex flex-col gap-1.5">

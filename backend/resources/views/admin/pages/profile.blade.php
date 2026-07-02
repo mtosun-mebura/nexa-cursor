@@ -53,7 +53,7 @@
                          ondragleave="handleDragLeave(event)">
 
                         <img id="profile-image"
-                             src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset(config('nexa.default_user_avatar')) }}"
+                             src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : \App\Support\NexaBranding::defaultUserAvatarUrl() }}"
                              alt="Profielfoto"
                              class="absolute inset-0 w-full h-full object-contain cursor-move"
                              draggable="false"
@@ -1082,7 +1082,9 @@ let currentTranslateY = 0;
 let pinchStartDistance = 0;
 let pinchStartScale = 1;
 let isPinching = false;
-let headerPhotoBaseUrl = @json($user->photo_blob ? route('user.photo', $user->id) : asset(config('nexa.default_user_avatar')));
+let headerPhotoBaseUrl = @json($user->photo_blob ? route('user.photo', $user->id) : \App\Support\NexaBranding::defaultUserAvatarUrl());
+const userHasProfilePhoto = @json((bool) $user->photo_blob);
+let hasProfilePhoto = userHasProfilePhoto;
 
 // Initialize photo editor when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -2013,12 +2015,16 @@ function loadPhotoTransform() {
 }
 
 function updateHeaderPhotos(photoUrlOverride) {
+  if (!photoUrlOverride && !hasProfilePhoto) {
+    return;
+  }
+
   if (photoUrlOverride) {
     headerPhotoBaseUrl = @json(route('user.photo', auth()->id()));
   }
 
   const basePhotoUrl = photoUrlOverride || headerPhotoBaseUrl;
-  if (!basePhotoUrl) {
+  if (!basePhotoUrl || /^https?:\/\/[^/]+\/?$/.test(basePhotoUrl)) {
     return;
   }
 
@@ -2386,6 +2392,7 @@ function updatePhotoDisplay(photoUrl) {
 
     if (photoUrl) {
       headerPhotoBaseUrl = @json(route('user.photo', auth()->id()));
+      hasProfilePhoto = true;
     }
 
     // Load saved transform for new image
@@ -2402,7 +2409,7 @@ function updatePhotoDisplay(photoUrl) {
 function showDefaultAvatar() {
   const image = document.getElementById('profile-image');
   if (image) {
-    image.src = '{{ asset(config('nexa.default_user_avatar')) }}';
+    image.src = @json(\App\Support\NexaBranding::defaultUserAvatarUrl());
     currentImage = image;
     resetPhotoTransform();
     setupImageInteractions();
