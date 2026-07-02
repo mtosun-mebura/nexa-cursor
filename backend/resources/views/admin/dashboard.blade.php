@@ -68,6 +68,9 @@
                             </p>
                         </div>
                         <div class="flex flex-col items-start md:items-end gap-3">
+                            @if(!empty($releaseVersion))
+                                <span class="kt-badge kt-badge-primary">Release {{ $releaseVersion }}</span>
+                            @endif
                             <span class="kt-badge kt-badge-light">{{ now()->translatedFormat('d M Y') }}</span>
                             <div class="flex items-center gap-2 text-sm text-secondary-foreground dark:text-white/70">
                                 <i class="ki-filled ki-profile-circle text-lg"></i>
@@ -150,6 +153,31 @@
                 </div>
             </div>
         </div>
+
+        @if(!empty($systemStack))
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header flex-wrap gap-3 items-center justify-between">
+                <h3 class="kt-card-title mb-0">
+                    <i class="ki-filled ki-setting-2 me-2"></i>
+                    Platform &amp; stack
+                </h3>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="kt-badge kt-badge-primary">Release {{ $releaseVersion }}</span>
+                    <a href="{{ route('admin.settings.upgrade.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">Upgrade</a>
+                </div>
+            </div>
+            <div class="kt-card-body p-5 lg:p-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    @foreach($systemStack as $item)
+                        <div class="rounded-lg border border-input px-3 py-2.5 min-w-0">
+                            <div class="text-xs text-secondary-foreground">{{ $item['label'] }}</div>
+                            <div class="text-sm font-semibold text-foreground truncate" title="{{ $item['value'] }}">{{ $item['value'] }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
     <div class="grid gap-5 grid-cols-1">
         <div class="kt-card h-full w-full min-w-0">

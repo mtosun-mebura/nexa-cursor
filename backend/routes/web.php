@@ -680,6 +680,8 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('settings/frontend/preview', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendComingSoonPreview'])->name('settings.frontend.preview');
         Route::get('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
         Route::post('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
+        Route::get('settings/upgrade', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'index'])->name('settings.upgrade.index');
+        Route::post('settings/upgrade/run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'run'])->name('settings.upgrade.run');
         Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
         Route::post('settings/remove-logo-light', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
         Route::post('settings/remove-logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');
