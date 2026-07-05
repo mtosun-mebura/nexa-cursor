@@ -49,9 +49,20 @@ class TenantCompanyDataPushServiceTest extends TestCase
         $taxiTables = $scope['taxi_module_tables'] ?? [];
 
         $this->assertContains('vehicles', $taxiTables);
+        $this->assertContains('ride_requests', $taxiTables);
+        $this->assertContains('ride_dispatch_offers', $taxiTables);
+        $this->assertContains('driver_availability', $taxiTables);
         $this->assertContains('default_rates', $taxiTables);
         $this->assertContains('knowledge_documents', $taxiTables);
         $this->assertContains('knowledge_chunks', $taxiTables);
+        $this->assertContains('transport_customers', $taxiTables);
+        $this->assertContains('transport_contracts', $taxiTables);
+        $this->assertContains('transport_passengers', $taxiTables);
+        $this->assertContains('transport_groups', $taxiTables);
+        $this->assertContains('transport_occurrences', $taxiTables);
+        $this->assertContains('transport_schedule_exceptions', $taxiTables);
+        $this->assertContains('transport_payment_mandates', $taxiTables);
+        $this->assertContains('ride_stops', $taxiTables);
     }
 
     #[Test]
@@ -154,6 +165,136 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function find_existing_email_template_matches_global_template_with_null_company_id(): void
+    {
+        if (! Schema::hasTable('email_templates')) {
+            $this->markTestSkipped('email_templates required');
+        }
+
+        DB::table('email_templates')->insert([
+            'name' => 'Contact informatieaanvraag',
+            'subject' => 'Nieuwe aanvraag',
+            'html_content' => '<p>Hi</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => null,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'findExistingEmailTemplateId');
+        $method->setAccessible(true);
+        $service = app(TenantCompanyDataPushService::class);
+        $conn = (string) config('database.default');
+
+        $found = $method->invoke($service, $conn, [
+            'company_id' => null,
+            'type' => 'informatieaanvraag',
+            'name' => 'Other name',
+        ]);
+
+        $this->assertNotNull($found);
+    }
+
+    #[Test]
+    public function collect_email_templates_includes_global_and_tenant_rows(): void
+    {
+        if (! Schema::hasTable('email_templates') || ! Schema::hasTable('companies')) {
+            $this->markTestSkipped('email_templates required');
+        }
+
+        $company = Company::query()->create(['name' => 'Tpl Collect Co', 'slug' => 'tpl-collect-'.uniqid()]);
+
+        $tenantTemplateId = DB::table('email_templates')->insertGetId([
+            'name' => 'Tenant template',
+            'subject' => 'Onderwerp',
+            'html_content' => '<p>Tenant</p>',
+            'type' => 'contact_form',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $globalTemplateId = DB::table('email_templates')->insertGetId([
+            'name' => 'Global informatieaanvraag',
+            'subject' => 'Global',
+            'html_content' => '<p>Global</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => null,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'collectEmailTemplatesRowsForCompany');
+        $method->setAccessible(true);
+        $service = app(TenantCompanyDataPushService::class);
+        $conn = (string) config('database.default');
+
+        $rows = $method->invoke($service, $conn, (int) $company->id);
+        $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $this->assertContains($tenantTemplateId, $ids);
+        $this->assertContains($globalTemplateId, $ids);
+    }
+
+    #[Test]
+    public function push_email_templates_updates_existing_row_on_unique_type_conflict(): void
+    {
+        if (! Schema::hasTable('email_templates') || ! Schema::hasTable('companies')) {
+            $this->markTestSkipped('email_templates required');
+        }
+
+        $company = Company::query()->create(['name' => 'Tpl Upsert Co', 'slug' => 'tpl-upsert-'.uniqid()]);
+
+        $existingId = DB::table('email_templates')->insertGetId([
+            'name' => 'Oud sjabloon',
+            'subject' => 'Oud',
+            'html_content' => '<p>oud</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'insertRowOnTarget');
+        $method->setAccessible(true);
+        $conn = (string) config('database.default');
+        $idMaps = [];
+        $payload = [
+            'name' => 'Contact - Taxi Royaal',
+            'subject' => 'Nieuw',
+            'html_content' => '<p>nieuw</p>',
+            'type' => 'informatieaanvraag',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'updated_at' => now(),
+        ];
+
+        $outcome = $method->invokeArgs($service, [
+            $conn,
+            $conn,
+            'email_templates',
+            $payload,
+            424242,
+            (int) $company->id,
+            &$idMaps,
+        ]);
+
+        $this->assertSame('updated', $outcome);
+        $this->assertSame($existingId, $idMaps['email_templates'][424242] ?? null);
+
+        $updated = DB::table('email_templates')->where('id', $existingId)->first();
+        $this->assertNotNull($updated);
+        $this->assertSame('Contact - Taxi Royaal', $updated->name);
+        $this->assertSame('Nieuw', $updated->subject);
+        $this->assertSame(1, DB::table('email_templates')->where('company_id', $company->id)->where('type', 'informatieaanvraag')->count());
+    }
+
+    #[Test]
     public function backfill_timestamps_fills_null_created_at_on_target(): void
     {
         if (! Schema::hasTable('companies')) {
@@ -221,12 +362,104 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function sync_scope_includes_ai_chat_audit_logs_when_table_exists(): void
+    {
+        if (! Schema::hasTable('ai_chat_audit_logs') || ! Schema::hasColumn('ai_chat_audit_logs', 'company_id')) {
+            $this->markTestSkipped('ai_chat_audit_logs table required');
+        }
+
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $this->assertContains('ai_chat_audit_logs', $scope['tables_with_company_id'] ?? []);
+        $this->assertContains('ai_chat_audit_logs', $scope['ai_chat_tables'] ?? []);
+    }
+
+    #[Test]
+    public function main_required_tables_includes_ai_chat_audit_logs_migration(): void
+    {
+        $required = config('tenant_sync.main_required_tables', []);
+        $this->assertArrayHasKey('ai_chat_audit_logs', $required);
+        $this->assertStringContainsString('create_ai_chat_audit_logs_table', (string) $required['ai_chat_audit_logs']);
+    }
+
+    #[Test]
+    public function main_required_tables_includes_company_domains_migration(): void
+    {
+        $required = config('tenant_sync.main_required_tables', []);
+        $this->assertArrayHasKey('company_domains', $required);
+    }
+
+    #[Test]
+    public function main_required_tables_includes_ride_payments_migration(): void
+    {
+        $required = config('tenant_sync.main_required_tables', []);
+        $this->assertArrayHasKey('ride_payments', $required);
+        $this->assertStringContainsString('add_taxi_ride_payments', (string) $required['ride_payments']);
+    }
+
+    #[Test]
+    public function update_on_existing_tables_includes_domains_and_settings(): void
+    {
+        $tables = config('tenant_sync.update_on_existing_tables', []);
+        $this->assertContains('company_domains', $tables);
+        $this->assertContains('general_settings', $tables);
+    }
+
+    #[Test]
+    public function remap_configured_foreign_keys_skips_row_when_required_parent_missing(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapConfiguredForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'tenant_sync.taxi_module.manual_foreign_keys',
+            'ride_dispatch_offers',
+            ['ride_request_id' => 99, 'driver_id' => 4, 'company_id' => 1],
+            ['users' => [4 => 4]]
+        );
+
+        $this->assertNull($result);
+    }
+
+    #[Test]
+    public function remap_configured_foreign_keys_nulls_optional_parent_when_missing(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapConfiguredForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'tenant_sync.taxi_module.manual_foreign_keys',
+            'ride_requests',
+            ['vehicle_id' => 99, 'driver_id' => 4, 'company_id' => 1],
+            ['users' => [4 => 4]]
+        );
+
+        $this->assertIsArray($result);
+        $this->assertNull($result['vehicle_id']);
+        $this->assertSame(4, $result['driver_id']);
+    }
+
+    #[Test]
     public function global_general_setting_keys_include_whatsapp_widget(): void
     {
         $keys = config('tenant_sync.global_general_setting_keys', []);
 
         $this->assertContains('WHATSAPP_WIDGET_ENABLED', $keys);
         $this->assertContains('WHATSAPP_WIDGET_PHONE', $keys);
+    }
+
+    #[Test]
+    public function existing_row_keys_for_website_pages_include_module_and_theme(): void
+    {
+        $keys = config('tenant_sync.existing_row_keys.website_pages', []);
+
+        $this->assertContains('company_id', $keys);
+        $this->assertContains('slug', $keys);
+        $this->assertContains('module_name', $keys);
+        $this->assertContains('frontend_theme_id', $keys);
     }
 
     #[Test]

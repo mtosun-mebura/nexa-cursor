@@ -145,12 +145,18 @@
   }
 
   .ai-chat-panel {
+    position: fixed;
+    z-index: 100251;
     width: min(32rem, calc(100vw - 1.5rem));
-    height: min(40rem, calc(100vh - 5.5rem));
+    height: min(40rem, var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem)));
+    max-height: var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem));
+    overflow: hidden;
+    border-radius: 0.5rem;
     transform-origin: top right;
     transition:
       width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
-      height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+      height 0.2s ease,
+      top 0.2s ease,
       box-shadow 0.38s ease;
     background-color: #ffffff;
     color: #111827;
@@ -159,19 +165,91 @@
   }
   .ai-chat-panel--expanded {
     width: min(52rem, calc(100vw - 2rem));
-    height: min(58rem, calc(100vh - 4rem));
+    height: min(58rem, var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem - 10px)));
+    max-height: var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem - 10px));
     box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.18), 0 12px 24px -8px rgb(0 0 0 / 0.12);
+  }
+  @media (max-width: 767px) {
+    .ai-chat-panel {
+      left: 0 !important;
+      right: 0 !important;
+      top: auto !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      max-width: 100dvw !important;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+      max-height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+      border-radius: 0.75rem 0.75rem 0 0 !important;
+      transform-origin: bottom center;
+    }
+    .ai-chat-panel--expanded {
+      width: 100% !important;
+      max-width: 100dvw !important;
+      height: min(92dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+      max-height: min(92dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+    }
+    .ai-chat-panel.ai-chat-panel--keyboard {
+      top: var(--ai-chat-panel-top, 0) !important;
+      bottom: auto !important;
+      height: var(--ai-chat-panel-height) !important;
+      max-height: var(--ai-chat-panel-height) !important;
+      border-radius: 0 !important;
+    }
+    .ai-chat-panel.ai-chat-panel--keyboard .ai-chat-panel__header {
+      padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    }
+    .ai-chat-panel__expand-btn {
+      display: none !important;
+    }
+    .ai-chat-panel__footer {
+      box-sizing: border-box;
+      max-width: 100%;
+      padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    }
+    .ai-chat-panel__footer form.flex {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .ai-chat-panel__footer form.flex .input {
+      width: auto;
+      flex: 1 1 0%;
+      min-width: 0;
+    }
+    .ai-chat-panel__footer form.flex .btn {
+      flex-shrink: 0;
+    }
   }
   /* Frontend header: thema-toggle + AI-chat icoon wit in dark mode */
   html.dark header [data-ai-chat-toggle] svg,
   html.dark header button[onclick="toggleDarkMode()"] svg,
+  html.dark header .frontend-header-mobile-menu-toggle svg,
   html.dark header #theme-toggle-btn svg,
   html.dark header #theme-toggle-btn-mobile svg,
   .dark header [data-ai-chat-toggle] svg,
   .dark header button[onclick="toggleDarkMode()"] svg,
+  .dark header .frontend-header-mobile-menu-toggle svg,
   .dark header #theme-toggle-btn svg,
   .dark header #theme-toggle-btn-mobile svg {
     color: #fff;
+  }
+
+  /* Frontend mobiel menu: dark mode (class-based, gelijk aan #website-mobile-menu) */
+  html.dark .frontend-header-mobile-menu,
+  .dark .frontend-header-mobile-menu {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+  }
+  html.dark .frontend-header-mobile-menu a,
+  .dark .frontend-header-mobile-menu a {
+    color: #f3f4f6 !important;
+  }
+  html.dark .frontend-header-mobile-menu a:hover,
+  .dark .frontend-header-mobile-menu a:hover {
+    background-color: #1f2937 !important;
   }
 
   .dark .ai-chat-panel {
@@ -227,6 +305,38 @@
   .ai-chat-address-field {
     position: relative;
     z-index: 30;
+  }
+  .ai-chat-address-input--with-locate {
+    padding-right: 2.75rem;
+  }
+  .ai-chat-address-locate-btn {
+    position: absolute;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--theme-primary, #2563eb);
+    cursor: pointer;
+  }
+  .ai-chat-address-locate-btn:hover:not(:disabled) {
+    background: rgb(37 99 235 / 0.08);
+  }
+  .ai-chat-address-locate-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .dark .ai-chat-address-locate-btn {
+    color: #93c5fd;
+  }
+  .dark .ai-chat-address-locate-btn:hover:not(:disabled) {
+    background: rgb(147 197 253 / 0.12);
   }
   .dark .ai-chat-panel__footer {
     border-top-color: #4b5563;
@@ -494,6 +604,68 @@
     }
   }
 
+  /* Carousel / sectie-afbeeldingen: volledige breedte, natuurlijke verhouding, geen crop */
+  .website-image-carousel-fit {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none;
+    object-fit: unset;
+  }
+  .website-image-carousel-media {
+    width: 100%;
+    height: auto;
+    aspect-ratio: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+  }
+  .carousel-caption-text-block:not(.hero-caption-text-block) {
+    max-width: min(36rem, 92vw);
+  }
+  .hero-caption-text-block.carousel-caption-text-block {
+    display: block;
+    box-sizing: border-box;
+    width: calc(var(--hero-caption-width-pct, 70) * 1%);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .modern-home-hero--has-image .modern-home-hero__caption-inner {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .modern-home-hero--has-image .hero-caption-width-context {
+    width: 100%;
+    max-width: 100%;
+  }
+  .carousel-caption-text-block p,
+  .modern-home-hero--has-image .hero-caption-subtitle p {
+    line-height: 1.35;
+  }
+  .modern-home-hero--has-image .hero-caption-title {
+    font-size: clamp(1.125rem, calc(var(--hero-title-size-max, 44px) * 0.72), var(--hero-title-size-max, 44px));
+    font-weight: 700;
+  }
+  @media (min-width: 768px) {
+    .modern-home-hero--has-image .hero-caption-title {
+      font-size: var(--hero-title-size-max, 44px);
+    }
+  }
+  .modern-home-hero--has-image .hero-caption-subtitle {
+    font-size: clamp(0.8125rem, calc(var(--hero-subtitle-size-max, 22px) * 0.85), var(--hero-subtitle-size-max, 22px));
+    font-weight: 400;
+  }
+  @media (min-width: 768px) {
+    .modern-home-hero--has-image .hero-caption-subtitle {
+      font-size: var(--hero-subtitle-size-max, 22px);
+    }
+  }
+  .modern-home-hero--has-image .hero-caption-subtitle :where(p, li, span, a) {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
   /* Website builder: sectie-inhoud volle breedte op mobiel, container-padding vanaf md */
   .website-section-inner {
     width: 100%;
@@ -572,6 +744,12 @@
       width: 100% !important;
       flex: 1 1 100% !important;
       max-width: 100% !important;
+    }
+    .cards-ronde-hoeken-section .cards-ronde-hoeken-image-wrap {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      margin-left: calc(50% - 50vw) !important;
+      margin-right: calc(50% - 50vw) !important;
     }
     .text-block-section__inner {
       padding-left: 0 !important;
@@ -1254,4 +1432,31 @@
  */
 .gm-style img {
   max-width: none !important;
+}
+
+/*
+ * Mobiel: iOS Safari zoomt automatisch in bij formuliervelden met font-size < 16px (bijv. text-sm).
+ * Na blur blijft de pagina dan ingezoomd waardoor modals (AI-chat, boekingsmodule) niet meer passen.
+ */
+@media screen and (max-width: 767px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  textarea,
+  select,
+  .input {
+    font-size: 16px !important;
+  }
+
+  [data-nexataxi-booking-module] input,
+  [data-nexataxi-booking-module] textarea,
+  [data-nexataxi-booking-module] select,
+  .ai-chat-panel input,
+  .ai-chat-panel textarea,
+  .ai-chat-panel select {
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
 }

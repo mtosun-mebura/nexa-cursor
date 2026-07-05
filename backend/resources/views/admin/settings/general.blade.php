@@ -31,8 +31,6 @@
             </div>
         @endif
 
-        @include('admin.settings.partials.tenant-scope-notice')
-
         <!-- Huidige logo en favicon bovenaan gecentreerd -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 py-8 mb-8 rounded-xl bg-muted/30 dark:bg-muted/10 border border-border">
             <div class="flex flex-col items-center gap-2">
@@ -347,9 +345,51 @@
                             <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0 max-w-full">
                                 <span class="text-xs font-medium text-secondary-foreground">Plaatje</span>
                                 <div class="flex flex-wrap gap-5 lg:gap-7.5 w-full max-w-full min-w-0 items-start">
-                                    <div id="success-image-preview-wrap" class="flex flex-col items-center max-w-full min-w-0 {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
-                                        <img alt="Success preview" class="h-[200px] max-w-full w-auto object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
-                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive mt-2" id="success-image-remove-btn" title="Plaatje verwijderen" aria-label="Plaatje verwijderen">
+                                    <div id="success-image-preview-wrap" class="flex flex-col items-center gap-2 shrink-0 w-full min-w-0 max-w-full {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
+                                        @php
+                                            $successImagePreviewPercent = max(10, min(100, (int) old('info_request_success_image_size_percent', $infoRequestSuccessImageSizePercent ?? 80)));
+                                            $previewContext = $infoRequestFormPreviewContext ?? ['width_percent' => 100, 'layout' => 'text_block_half', 'label' => 'Standaard (100% sectiebreedte)'];
+                                            $previewWidthPercent = max(30, min(100, (int) ($previewContext['width_percent'] ?? 100)));
+                                            $previewLayout = ($previewContext['layout'] ?? 'text_block_half') === 'standalone' ? 'standalone' : 'text_block_half';
+                                            $previewContextLabel = (string) ($previewContext['label'] ?? 'Voorbeeld op de website');
+                                        @endphp
+                                        <div id="admin-success-website-preview-root"
+                                             class="admin-success-website-preview admin-success-website-preview--{{ $previewLayout === 'standalone' ? 'standalone' : 'text-block-half' }}"
+                                             style="--section-width-pct: {{ $previewWidthPercent }}; --preview-ref-viewport: 90rem;"
+                                             data-layout="{{ $previewLayout }}">
+                                            @if(!empty($infoRequestFormPreviewContexts) && count($infoRequestFormPreviewContexts) > 1)
+                                                <label for="info-request-preview-context-select" class="sr-only">Pagina voor voorbeeld</label>
+                                                <select id="info-request-preview-context-select" class="kt-select admin-success-website-preview-context-select w-full max-w-md mb-2">
+                                                    @foreach($infoRequestFormPreviewContexts as $ctx)
+                                                        <option value="{{ $ctx['id'] }}"
+                                                                data-width-percent="{{ (int) $ctx['width_percent'] }}"
+                                                                data-layout="{{ $ctx['layout'] }}"
+                                                                {{ ($previewContext['id'] ?? '') === ($ctx['id'] ?? '') ? 'selected' : '' }}>{{ $ctx['label'] }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @endif
+                                            <p class="admin-success-website-preview-label" id="admin-success-website-preview-label">Voorbeeld op de website · {{ $previewContextLabel }}</p>
+                                            <div class="admin-success-website-preview-scaler">
+                                                <div class="admin-success-website-preview-stage">
+                                                    <div class="admin-success-website-preview-inner">
+                                                        <div class="admin-success-website-preview-grid">
+                                                            <div class="admin-success-website-preview-grid-spacer" aria-hidden="true"></div>
+                                                            <div class="admin-success-website-preview-form-col">
+                                                                <div class="admin-success-website-preview-success flex flex-col items-center justify-center text-center">
+                                                                    <div class="admin-success-website-preview-image-wrap w-full flex justify-center" aria-hidden="true">
+                                                                        <img alt="Success preview" class="admin-success-website-preview-image info-request-success-image h-auto w-auto object-contain max-w-full rounded-lg" style="width: {{ $successImagePreviewPercent }}%;" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
+                                                                    </div>
+                                                                    <p id="success-preview-title" class="admin-success-website-preview-text admin-success-website-preview-text--title {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'hidden' : '' }}">{{ old('info_request_success_title', $infoRequestSuccessTitle ?? '') }}</p>
+                                                                    <p id="success-preview-subtitle" class="admin-success-website-preview-text admin-success-website-preview-text--subtitle {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'hidden' : '' }}">{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? '') }}</p>
+                                                                    <p id="success-preview-footer" class="admin-success-website-preview-text admin-success-website-preview-text--footer {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'hidden' : '' }}">{{ old('info_request_success_footer', $infoRequestSuccessFooter ?? '') }}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive" id="success-image-remove-btn" title="Plaatje verwijderen" aria-label="Plaatje verwijderen">
                                             <i class="ki-filled ki-trash text-lg"></i>
                                         </button>
                                     </div>
@@ -364,6 +404,15 @@
                                     </div>
                                 </div>
                                 <input type="file" name="info_request_success_image_file" id="success-image-input" accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml,image/webp" class="hidden">
+                                <div class="mt-2 w-full max-w-xs">
+                                    <label for="info_request_success_image_size_percent" class="text-xs font-medium text-secondary-foreground block mb-1">Plaatjegrootte</label>
+                                    <select name="info_request_success_image_size_percent" id="info_request_success_image_size_percent" class="kt-select w-full sm:w-32 max-w-full">
+                                        @foreach([25, 50, 75, 80, 100] as $pct)
+                                            <option value="{{ $pct }}" {{ (old('info_request_success_image_size_percent', $infoRequestSuccessImageSizePercent ?? '80')) == (string) $pct ? 'selected' : '' }}>{{ $pct }}%</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="text-xs text-muted-foreground mt-1">Breedte t.o.v. het formulier; schaal op desktopbreedte (1440px) uit de page builder</p>
+                                </div>
                                 <p id="success-image-error" class="text-sm text-destructive mt-2 hidden" role="alert"></p>
                                 {{-- Modal: plaatje groot bekijken --}}
                                 <div id="success-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Afbeelding groot">
@@ -400,15 +449,15 @@
                                         @endforeach
                                     </select>
                                 </div>
-                            </div>
-                            <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0">
-                                <span class="text-xs font-medium text-secondary-foreground">Grootte</span>
-                                <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-full sm:w-24 max-w-full">
-                                    @foreach([48, 64, 80, 96, 120] as $px)
-                                        <option value="{{ $px }}" {{ (old('info_request_success_icon_size', $infoRequestSuccessSize ?? '80')) == (string)$px ? 'selected' : '' }}>{{ $px }}px</option>
-                                    @endforeach
-                                </select>
-                                <p class="text-xs text-muted-foreground">Grootte icoon of plaatje</p>
+                                <div class="mt-2 w-full max-w-xs">
+                                    <label for="info_request_success_icon_size" class="text-xs font-medium text-secondary-foreground block mb-1">Icoon grootte</label>
+                                    <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-full sm:w-24 max-w-full">
+                                        @foreach([48, 64, 80, 96, 120] as $px)
+                                            <option value="{{ $px }}" {{ (old('info_request_success_icon_size', $infoRequestSuccessSize ?? '80')) == (string)$px ? 'selected' : '' }}>{{ $px }}px</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="text-xs text-muted-foreground mt-1">Alleen van toepassing als er geen plaatje is geüpload</p>
+                                </div>
                             </div>
                         </div>
                         </td>
@@ -910,6 +959,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success && successImagePreview && successImagePreviewWrap) {
                 successImagePreview.src = (data.image_url || '') + '?t=' + Date.now();
                 successImagePreviewWrap.classList.remove('hidden');
+                if (typeof applySuccessImagePreviewSize === 'function') {
+                    applySuccessImagePreviewSize();
+                }
                 clearSuccessImageError();
             } else {
                 showSuccessImageError(data.message || 'Upload mislukt.');
@@ -1013,6 +1065,86 @@ document.addEventListener('DOMContentLoaded', function() {
     // Icon preview update (formulier succesbericht)
     const successIconSelect = document.getElementById('info_request_success_icon');
     const successIconPreview = document.getElementById('success-icon-preview');
+    const successIconSizeSelect = document.getElementById('info_request_success_icon_size');
+    const successImageSizeSelect = document.getElementById('info_request_success_image_size_percent');
+
+    function applySuccessImagePreviewSize() {
+        if (!successImagePreview || !successImageSizeSelect) return;
+        var pct = parseInt(successImageSizeSelect.value, 10);
+        if (isNaN(pct)) pct = 80;
+        pct = Math.max(10, Math.min(100, pct));
+        successImagePreview.style.width = pct + '%';
+    }
+
+    if (successImageSizeSelect) {
+        successImageSizeSelect.addEventListener('change', applySuccessImagePreviewSize);
+        applySuccessImagePreviewSize();
+    }
+
+    var successPreviewTitle = document.getElementById('success-preview-title');
+    var successPreviewSubtitle = document.getElementById('success-preview-subtitle');
+    var successPreviewFooter = document.getElementById('success-preview-footer');
+    var successTitleInput = document.getElementById('info_request_success_title');
+    var successSubtitleInput = document.getElementById('info_request_success_subtitle');
+    var successFooterInput = document.getElementById('info_request_success_footer');
+    var successTextsToggle = document.getElementById('info_request_success_texts_enabled');
+
+    function applySuccessPreviewTexts() {
+        var textsEnabled = !successTextsToggle || !successTextsToggle.checked;
+        [successPreviewTitle, successPreviewSubtitle, successPreviewFooter].forEach(function(el) {
+            if (el) el.classList.toggle('hidden', !textsEnabled);
+        });
+        if (textsEnabled) {
+            if (successPreviewTitle && successTitleInput) successPreviewTitle.textContent = successTitleInput.value;
+            if (successPreviewSubtitle && successSubtitleInput) successPreviewSubtitle.textContent = successSubtitleInput.value;
+            if (successPreviewFooter && successFooterInput) successPreviewFooter.textContent = successFooterInput.value;
+        }
+    }
+
+    [successTitleInput, successSubtitleInput, successFooterInput].forEach(function(input) {
+        if (input) input.addEventListener('input', applySuccessPreviewTexts);
+    });
+    if (successTextsToggle) successTextsToggle.addEventListener('change', applySuccessPreviewTexts);
+    applySuccessPreviewTexts();
+
+    var previewContextRoot = document.getElementById('admin-success-website-preview-root');
+    var previewContextSelect = document.getElementById('info-request-preview-context-select');
+    var previewContextLabel = document.getElementById('admin-success-website-preview-label');
+
+    function applyPreviewContextFromSelect() {
+        if (!previewContextRoot || !previewContextSelect) return;
+        var opt = previewContextSelect.options[previewContextSelect.selectedIndex];
+        if (!opt) return;
+        var widthPct = parseInt(opt.getAttribute('data-width-percent') || '100', 10);
+        if (isNaN(widthPct)) widthPct = 100;
+        widthPct = Math.max(30, Math.min(100, widthPct));
+        var layout = opt.getAttribute('data-layout') || 'text_block_half';
+        previewContextRoot.style.setProperty('--section-width-pct', String(widthPct));
+        previewContextRoot.setAttribute('data-layout', layout);
+        previewContextRoot.classList.toggle('admin-success-website-preview--standalone', layout === 'standalone');
+        previewContextRoot.classList.toggle('admin-success-website-preview--text-block-half', layout !== 'standalone');
+        if (previewContextLabel) {
+            previewContextLabel.textContent = 'Voorbeeld op de website · ' + (opt.textContent || '');
+        }
+    }
+
+    if (previewContextSelect) {
+        previewContextSelect.addEventListener('change', applyPreviewContextFromSelect);
+    }
+
+    function applySuccessIconPreviewSize() {
+        if (!successIconPreview || !successIconSizeSelect) return;
+        var px = parseInt(successIconSizeSelect.value, 10);
+        if (isNaN(px)) px = 80;
+        successIconPreview.style.width = px + 'px';
+        successIconPreview.style.height = px + 'px';
+    }
+
+    if (successIconSizeSelect) {
+        successIconSizeSelect.addEventListener('change', applySuccessIconPreviewSize);
+        applySuccessIconPreviewSize();
+    }
+
     if (successIconSelect && successIconPreview) {
         const iconEl = successIconPreview.querySelector('i');
         if (iconEl) {

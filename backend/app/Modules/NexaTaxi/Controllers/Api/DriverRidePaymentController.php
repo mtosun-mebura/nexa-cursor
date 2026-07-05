@@ -23,10 +23,11 @@ class DriverRidePaymentController extends Controller
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $rideModel = $this->findDriverRide($conn, $request, $ride);
+        $this->assertRideAllowsDriverPayment($rideModel);
 
         $openPayment = RidePayment::on($conn)
             ->where('ride_request_id', $rideModel->id)
-            ->where('channel', RidePayment::CHANNEL_DRIVER)
+            ->whereIn('channel', [RidePayment::CHANNEL_DRIVER, RidePayment::CHANNEL_BOOKING])
             ->where('status', RidePayment::STATUS_OPEN)
             ->orderByDesc('id')
             ->first();
@@ -57,6 +58,7 @@ class DriverRidePaymentController extends Controller
 
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $rideModel = $this->findDriverRide($conn, $request, $ride);
+        $this->assertRideAllowsDriverPayment($rideModel);
 
         if ($rideModel->payment_status === RideRequest::PAYMENT_STATUS_PAID) {
             throw ValidationException::withMessages([
@@ -104,6 +106,7 @@ class DriverRidePaymentController extends Controller
 
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $rideModel = $this->findDriverRide($conn, $request, $ride);
+        $this->assertRideAllowsDriverPayment($rideModel);
 
         $amount = isset($data['amount']) ? (float) $data['amount'] : null;
 
@@ -141,6 +144,15 @@ class DriverRidePaymentController extends Controller
         }
 
         return $ride;
+    }
+
+    protected function assertRideAllowsDriverPayment(RideRequest $ride): void
+    {
+        if ($ride->isContractRide()) {
+            throw ValidationException::withMessages([
+                'ride' => ['Betaling via de chauffeur-app is niet van toepassing op contractritten.'],
+            ]);
+        }
     }
 
     /**

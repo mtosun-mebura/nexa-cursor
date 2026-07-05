@@ -89,9 +89,9 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">Onderwerp *</td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <input type="text" 
-                                       class="kt-input @error('subject') border-destructive @enderror" 
+                                       class="kt-input w-full @error('subject') border-destructive @enderror" 
                                        id="subject" 
                                        name="subject" 
                                        value="{{ old('subject', $emailTemplate->subject) }}" 
@@ -150,7 +150,7 @@
                 </div>
             </div>
 
-            @include('admin.email-templates.partials.form-field-order', ['formFields' => $formFields ?? collect(), 'allFormFieldsPool' => $allFormFieldsPool ?? collect(), 'isInfoRequestType' => $isInfoRequestType ?? false])
+            @include('admin.email-templates.partials.form-field-order', ['emailTemplate' => $emailTemplate, 'formFields' => $formFields ?? collect(), 'allFormFieldsPool' => $allFormFieldsPool ?? collect(), 'isInfoRequestType' => $isInfoRequestType ?? false])
 
             @if(isset($isInfoRequestType) && $isInfoRequestType)
             <!-- Frontend weergave (formulierpreview, volgorde synct met Formuliervelden) -->
@@ -160,7 +160,7 @@
                 </div>
                 <div class="kt-card-content min-w-0">
                     <p class="text-sm text-muted-foreground mb-3">Zo ziet het formulier er op de website uit. De volgorde wijzigt direct wanneer je velden hierboven herschikt.</p>
-                    @include('admin.email-templates.partials.formulier-preview', ['formFields' => $formFields ?? []])
+                    @include('admin.email-templates.partials.formulier-preview', ['formFields' => $formFields ?? [], 'emailTemplate' => $emailTemplate])
                 </div>
             </div>
             @endif
@@ -302,6 +302,37 @@ document.addEventListener('DOMContentLoaded', function() {
         return { label: label, name: name };
     }
 
+    function getOrderRowRequired(id) {
+        if (!orderList) return false;
+        var row = orderList.querySelector('[data-field-id="' + id + '"]');
+        if (!row) return false;
+        var toggle = row.querySelector('.form-field-required-toggle');
+        if (toggle) return toggle.checked;
+        return row.getAttribute('data-default-required') === '1';
+    }
+
+    function buildOrderRowHtml(id, label, name, isRequired) {
+        var varKey = (name || '').toUpperCase().replace(/-/g, '_');
+        var varDisplay = '{{ ' + varKey + ' }}';
+        var checked = isRequired ? ' checked' : '';
+        return '<span class="form-field-drag-handle shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground select-none leading-none" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen" role="button" tabindex="0">⋮⋮</span>' +
+            '<div class="form-field-order-row-meta min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-0">' +
+            '<span class="font-medium text-foreground break-words leading-tight">' + (label || '') + '</span>' +
+            '<code class="form-field-order-slug text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-white px-2 py-0.5 rounded shrink-0 leading-none">' + (name || '') + '</code>' +
+            '<span class="form-field-order-var text-xs text-muted-foreground break-all leading-tight">→ <code>' + varDisplay + '</code></span>' +
+            '</div>' +
+            '<label class="form-field-order-required flex items-center gap-2 shrink-0 text-xs text-muted-foreground whitespace-nowrap cursor-pointer" title="Verplicht veld in dit template">' +
+            '<span>Verplicht</span>' +
+            '<input type="checkbox" class="kt-switch kt-switch-sm shrink-0 form-field-required-toggle" name="form_field_required[' + id + ']" value="1"' + checked + '>' +
+            '</label>' +
+            '<div class="form-field-order-row-actions flex items-center gap-1 shrink-0">' +
+            '<button type="button" class="form-field-order-up kt-btn kt-btn-sm kt-btn-ghost" title="Omhoog"><i class="ki-filled ki-arrow-up"></i></button>' +
+            '<button type="button" class="form-field-order-down kt-btn kt-btn-sm kt-btn-ghost" title="Omlaag"><i class="ki-filled ki-arrow-down"></i></button>' +
+            '<button type="button" class="form-field-order-remove kt-btn kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen"><i class="ki-filled ki-trash"></i></button>' +
+            '</div>' +
+            '<input type="hidden" name="form_field_order[]" value="' + id + '">';
+    }
+
     function syncFormPreviewOrder() {
         var orderedIds = getFormFieldOrder();
         var previewContainer = document.getElementById('frontend-preview-fields');
@@ -315,8 +346,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             function makeRowEl(id) {
                 var el = previewRows[id];
-                if (el) return el;
                 var info = getOrderRowLabelName(id);
+                var requiredSuffix = getOrderRowRequired(id) ? ' *' : '';
+                if (el) {
+                    var labelEl = el.querySelector('label');
+                    if (labelEl) labelEl.textContent = (info.label || '') + requiredSuffix;
+                    return el;
+                }
                 var name = (info.name || '').toLowerCase();
                 var isOmschrijving = name.indexOf('omschrijving') !== -1;
                 var isEmail = name.indexOf('email') !== -1;
@@ -326,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 el = document.createElement('div');
                 el.className = 'form-preview-field-row';
                 el.setAttribute('data-field-id', id);
-                el.innerHTML = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">' + (info.label || '') + ' *</label>' + inputHtml;
+                el.innerHTML = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">' + (info.label || '') + requiredSuffix + '</label>' + inputHtml;
                 previewRows[id] = el;
                 return el;
             }
@@ -351,12 +387,15 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             orderedIds.forEach(function(id) {
                 var el = testRows[id];
+                var info = getOrderRowLabelName(id);
                 if (!el) {
-                    var info = getOrderRowLabelName(id);
                     el = document.createElement('tr');
                     el.setAttribute('data-field-id', id);
-                    el.innerHTML = '<td class="text-secondary-foreground font-normal w-px whitespace-nowrap pr-4">' + (info.label || '') + ' *</td><td><input type="text" class="kt-input max-w-md" name="test_' + (info.name || '') + '" value=""></td>';
+                    el.innerHTML = '<td class="text-secondary-foreground font-normal w-px whitespace-nowrap pr-4">' + (info.label || '') + (getOrderRowRequired(id) ? ' *' : '') + '</td><td><input type="text" class="kt-input max-w-md" name="test_' + (info.name || '') + '" value=""></td>';
                     testRows[id] = el;
+                } else {
+                    var td = el.querySelector('td');
+                    if (td) td.textContent = (info.label || '') + (getOrderRowRequired(id) ? ' *' : '');
                 }
                 testTbody.appendChild(el);
             });
@@ -370,8 +409,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (orderList) {
+        orderList.addEventListener('change', function(e) {
+            if (e.target.classList.contains('form-field-required-toggle')) {
+                syncFormPreviewOrder();
+            }
+        });
+
         orderList.addEventListener('click', function(e) {
-            e.preventDefault();
+            if (e.target.closest('.form-field-order-required')) {
+                setTimeout(syncFormPreviewOrder, 0);
+                return;
+            }
             var row = e.target.closest('[data-field-id]');
             if (!row) return;
             if (e.target.closest('.form-field-order-remove')) {
@@ -384,6 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     opt.value = fieldId;
                     opt.setAttribute('data-label', label);
                     opt.setAttribute('data-name', slug);
+                    opt.setAttribute('data-required', row.getAttribute('data-default-required') || '0');
                     opt.textContent = label + ' (' + slug + ')';
                     addSelect.appendChild(opt);
                 }
@@ -410,6 +459,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 onEnd: function() { syncFormPreviewOrder(); }
             });
         }
+
+        syncFormPreviewOrder();
     }
 
     if (orderList && addSelect) {
@@ -419,23 +470,12 @@ document.addEventListener('DOMContentLoaded', function() {
             var id = opt.value;
             var label = opt.getAttribute('data-label') || opt.textContent;
             var name = opt.getAttribute('data-name') || '';
-            var varKey = name.toUpperCase().replace(/-/g, '_');
+            var isRequired = opt.getAttribute('data-required') === '1';
             var row = document.createElement('div');
-            row.className = 'form-field-order-row flex flex-wrap items-start gap-2 py-2 px-3 rounded-lg border border-border bg-muted/20 min-w-0';
+            row.className = 'form-field-order-row flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg border border-border bg-muted/20 min-w-0';
             row.setAttribute('data-field-id', id);
-            var varDisplay = '{{ ' + varKey + ' }}';
-            row.innerHTML = '<span class="form-field-drag-handle shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground select-none" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen" role="button">⋮⋮</span>' +
-                '<div class="form-field-order-row-meta min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">' +
-                '<span class="font-medium text-foreground break-words">' + (label || '') + '</span>' +
-                '<code class="form-field-order-slug text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-white px-2 py-0.5 rounded shrink-0">' + (name || '') + '</code>' +
-                '<span class="form-field-order-var text-xs text-muted-foreground break-all">→ <code>' + varDisplay + '</code></span>' +
-                '</div>' +
-                '<div class="form-field-order-row-actions flex items-center gap-1 shrink-0 ml-auto">' +
-                '<button type="button" class="form-field-order-up kt-btn kt-btn-sm kt-btn-ghost" title="Omhoog"><i class="ki-filled ki-arrow-up"></i></button>' +
-                '<button type="button" class="form-field-order-down kt-btn kt-btn-sm kt-btn-ghost" title="Omlaag"><i class="ki-filled ki-arrow-down"></i></button>' +
-                '<button type="button" class="form-field-order-remove kt-btn kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen"><i class="ki-filled ki-trash"></i></button>' +
-                '</div>' +
-                '<input type="hidden" name="form_field_order[]" value="' + id + '">';
+            row.setAttribute('data-default-required', isRequired ? '1' : '0');
+            row.innerHTML = buildOrderRowHtml(id, label, name, isRequired);
             orderList.appendChild(row);
             opt.remove();
             this.selectedIndex = 0;

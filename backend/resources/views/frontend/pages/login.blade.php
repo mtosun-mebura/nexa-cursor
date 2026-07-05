@@ -111,7 +111,7 @@
                     @endif
 
                     <div>
-                        <button type="submit" class="btn btn-primary w-full btn-lg justify-center">
+                        <button type="submit" class="btn btn-primary w-full justify-center text-sm py-2.5">
                             {{ ($codeLoginMode ?? false) ? 'Inloggen met code' : 'Inloggen' }}
                         </button>
                     </div>

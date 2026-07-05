@@ -68,6 +68,12 @@
 @section('content')
 
 <div class="kt-container-fixed">
+    @if($moduleConfigTenantCompany ?? null)
+        <div class="mb-5 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground" role="status">
+            Instellingen voor tenant: <strong class="text-foreground">{{ $moduleConfigTenantCompany->name }}</strong>
+        </div>
+    @endif
+
     <div class="pb-7.5">
         <div class="flex items-center gap-3">
             <i class="{{ $module->getIcon() }} text-2xl text-primary"></i>
@@ -217,7 +223,7 @@
                         <div class="flex-1 min-w-0">
                             <h4 class="font-semibold mb-1 text-foreground">Hoe werkt module configuratie?</h4>
                             <p class="text-sm text-muted-foreground">
-                                Vink aan welke onderdelen bij deze module in het Beheer-menu getoond worden. Uitgevinkte onderdelen blijven beschikbaar via hun eigen route, maar staan niet onder deze module in de sidebar.
+                                Instellingen worden per tenant opgeslagen. Vink aan welke onderdelen bij deze module in het Beheer-menu getoond worden voor de geselecteerde tenant. Uitgevinkte onderdelen blijven beschikbaar via hun eigen route, maar staan niet onder deze module in de sidebar.
                             </p>
                         </div>
                     </div>

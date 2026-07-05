@@ -147,10 +147,26 @@
             #website-desktop-nav,
             #website-desktop-right { display: none !important; }
             #website-hamburger-row { display: flex !important; }
+            #website-mobile-menu-toggle-wrap { display: flex !important; }
+            header:has(#website-mobile-menu) { position: sticky; }
+            #website-mobile-menu {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+                max-height: calc(100dvh - 4rem);
+                overflow-y: auto;
+            }
+            @media (min-width: 768px) {
+                #website-mobile-menu { max-height: calc(100dvh - 5rem); }
+            }
         }
         @media (min-width: 1025px) {
             #website-hamburger-row,
-            #website-mobile-menu { display: none !important; }
+            #website-mobile-menu,
+            #website-mobile-menu-toggle-wrap { display: none !important; }
         }
         html.dark footer,
         html.dark footer p,
@@ -351,8 +367,9 @@
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">Spring naar hoofdinhoud</a>
     @php
         $previewThemeSuffix = !empty($theme->name ?? null) ? ': thema: '.$theme->name : '';
+        $hidePreviewChrome = request()->boolean('embed');
     @endphp
-    @if(isset($isPreview) && $isPreview && isset($previewEditUrl))
+    @if(isset($isPreview) && $isPreview && isset($previewEditUrl) && ! $hidePreviewChrome)
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" role="banner" aria-label="Voorbeeldmodus">
         <a href="{{ $previewEditUrl }}" class="preview-bar-back shrink-0">
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
@@ -360,11 +377,11 @@
         </a>
         <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
     </div>
-    @if(!empty($previewPageInactive))
-    <div class="sticky top-11 z-[99] w-full border-b border-amber-300 bg-amber-50 px-3 py-2 text-center text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100 sm:px-4" role="status">
+    @endif
+    @if(isset($isPreview) && $isPreview && !empty($previewPageInactive))
+    <div class="sticky {{ $hidePreviewChrome ? 'top-0' : 'top-11' }} z-[99] w-full border-b border-amber-300 bg-amber-50 px-3 py-2 text-center text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100 sm:px-4" role="status">
         Deze pagina staat op <strong>Inactief</strong>. Op de live website (inclusief &ldquo;Website openen (dev)&rdquo;) is hij niet zichtbaar totdat je <strong>Actief</strong> aanvinkt en opslaat.
     </div>
-    @endif
     @endif
     @if(!empty($isStaging) && !empty($stagingBackUrl))
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" data-staging-theme-id="{{ $theme->id ?? '' }}" data-staging-theme-slug="{{ $themeSlug ?? '' }}" role="banner" aria-label="Stagingmodus">
@@ -383,6 +400,13 @@
         <div class="container-custom">
             <div class="flex justify-between items-center h-16 md:h-20">
                 <div class="flex items-center gap-2 flex-shrink-0">
+                    @unless($hideWebsiteMenu)
+                    <div id="website-mobile-menu-toggle-wrap" class="hidden flex-shrink-0">
+                        <button type="button" id="website-mobile-menu-toggle" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        </button>
+                    </div>
+                    @endunless
                     @php
                         $logoHref = route('home');
                         if (!empty($isStaging) && isset($stagingParams) && isset($menuPages) && $menuPages->isNotEmpty()) {
@@ -473,11 +497,6 @@
                     @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')
                     @include('frontend.components.ai-chatbot-trigger')
                     @endif
-                    @unless($hideWebsiteMenu)
-                    <button type="button" id="website-mobile-menu-toggle" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                    </button>
-                    @endunless
                 </div>
             </div>
         </div>
@@ -764,6 +783,7 @@
                 setStored(next ? 'dark' : 'light');
                 applyTheme(next);
                 updateIcons();
+                document.dispatchEvent(new CustomEvent('nexataxi-website-theme-changed'));
             }
             function initTheme() {
                 var stored = getStored();

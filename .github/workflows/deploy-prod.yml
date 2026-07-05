@@ -1,4 +1,4 @@
-# PROD (AWS Lightsail): deploy alleen handmatig op een bestaande git-tag v*.
+# PROD (Hostinger VPS): deploy alleen handmatig op een bestaande git-tag v*.
 # Test (Proxmox): deploy-saas.yml bij push naar release/test.
 # Na merge release/test -> main: Create PROD tag maakt de tag klaar.
 # Daarna deze workflow handmatig starten met die tag.
@@ -6,18 +6,20 @@
 # Trigger: workflow_dispatch.
 #
 # GitHub → Settings → Secrets and variables → Actions:
-#   Secrets:  AWS_HOST, AWS_USER, AWS_SSH_KEY
-#   Optioneel secret: AWS_SSH_PORT (standaard 22)
-#   Variables: APP_DIR  (= pad naar git-repo op Lightsail, bijv. /home/ubuntu/nexasuite)
+#   Secrets:  HOSTINGER_HOST, HOSTINGER_USER, HOSTINGER_SSH_KEY
+#   Optioneel secret: HOSTINGER_SSH_PORT (standaard 22)
+#   Variables: APP_DIR  (= pad naar git-repo op VPS, bijv. /home/ubuntu/nexasuite)
 #
-# Netwerk: GitHub-hosted runners (ubuntu-latest) moeten TCP-poort 22 op Lightsail bereiken.
-# Bij "dial tcp …:22: i/o timeout": Lightsail Networking → IPv4 firewall → SSH (22) openzetten
+# Legacy (nog ondersteund): AWS_HOST, AWS_USER, AWS_SSH_KEY, AWS_SSH_PORT
+#
+# Netwerk: GitHub-hosted runners (ubuntu-latest) moeten TCP-poort 22 op de VPS bereiken.
+# Bij "dial tcp …:22: i/o timeout": UFW + Hostinger hPanel-firewall → SSH (22) openzetten
 # voor GitHub Actions IP-ranges (https://api.github.com/meta) of tijdelijk 0.0.0.0/0 testen.
 # Zie deploy/GITHUB-ACTIONS-PROD.md
 #
 # Environment "production" (Settings → Environments) voor goedkeuring/branch protection.
 #
-# AWS (eenmalig): Docker Compose v2 — bash deploy/install-docker-compose-v2.sh
+# VPS (eenmalig): Docker Compose v2 — bash deploy/install-docker-compose-v2.sh
 # Daarna werkt `docker compose` (spatie); deploy vereist v2 op prod (REQUIRE_COMPOSE_V2=1).
 
 name: Deploy PROD
@@ -114,6 +116,40 @@ jobs:
           fetch-depth: 1
           path: deploy-main
 
+      - name: Resolve PROD SSH credentials
+        id: ssh
+        run: |
+          set -euo pipefail
+          host="${{ secrets.HOSTINGER_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.AWS_HOST }}"
+          user="${{ secrets.HOSTINGER_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.AWS_USER }}"
+          port="${{ secrets.HOSTINGER_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.AWS_SSH_PORT }}"
+          port="${port:-22}"
+          key_set="nee"
+          if [[ -n "${{ secrets.HOSTINGER_SSH_KEY }}" || -n "${{ secrets.AWS_SSH_KEY }}" ]]; then
+            key_set="ja"
+          fi
+
+          if [[ -z "$host" ]]; then
+            echo "ERROR: Geen HOSTINGER_HOST (of legacy AWS_HOST) secret ingesteld." >&2
+            exit 1
+          fi
+          if [[ -z "$user" ]]; then
+            echo "ERROR: Geen HOSTINGER_USER (of legacy AWS_USER) secret ingesteld." >&2
+            exit 1
+          fi
+          if [[ "$key_set" != "ja" ]]; then
+            echo "ERROR: Geen HOSTINGER_SSH_KEY (of legacy AWS_SSH_KEY) secret ingesteld." >&2
+            exit 1
+          fi
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "SSH target: ${user}@${host}:${port}"
+
       - name: Prepare deploy script for upload
         id: deploy_script
         run: |
@@ -136,40 +172,36 @@ jobs:
 
       - name: Preflight SSH naar PROD (poort bereikbaar?)
         env:
-          AWS_HOST: ${{ secrets.AWS_HOST }}
-          AWS_SSH_PORT: ${{ secrets.AWS_SSH_PORT || '22' }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -euo pipefail
-          if [[ -z "${AWS_HOST:-}" ]]; then
-            echo "ERROR: GitHub secret AWS_HOST ontbreekt." >&2
-            exit 1
-          fi
-          port="${AWS_SSH_PORT:-22}"
-          echo "Test TCP ${AWS_HOST}:${port} (max 20s)…"
-          if timeout 20 bash -c "echo >/dev/tcp/${AWS_HOST}/${port}" 2>/dev/null; then
+          port="${SSH_PORT:-22}"
+          echo "Test TCP ${SSH_HOST}:${port} (max 20s)…"
+          if timeout 20 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
             echo "OK: poort ${port} bereikbaar vanaf GitHub runner."
           else
-            echo "ERROR: Geen TCP-verbinding naar ${AWS_HOST}:${port} (i/o timeout)." >&2
+            echo "ERROR: Geen TCP-verbinding naar ${SSH_HOST}:${port} (i/o timeout)." >&2
             echo "" >&2
             echo "Dit is géén 'bestand niet gevonden' — het deploy-script staat klaar op de runner." >&2
-            echo "De runner kan de Lightsail-server niet bereiken op SSH." >&2
+            echo "De runner kan de VPS niet bereiken op SSH." >&2
             echo "" >&2
             echo "Controleer:" >&2
-            echo "  1. Lightsail instance = Running" >&2
-            echo "  2. AWS_HOST = publiek IP of hostnaam van de instance" >&2
-            echo "  3. Lightsail Networking → IPv4 firewall → SSH (poort ${port}) toegestaan" >&2
+            echo "  1. VPS draait en is bereikbaar" >&2
+            echo "  2. HOSTINGER_HOST = publiek IP of hostnaam van de VPS" >&2
+            echo "  3. UFW + Hostinger hPanel-firewall → SSH (poort ${port}) toegestaan" >&2
             echo "     (GitHub Actions gebruikt dynamische IP's; zie deploy/GITHUB-ACTIONS-PROD.md)" >&2
-            echo "  4. Eventueel AWS_SSH_PORT secret als SSH niet op 22 draait" >&2
+            echo "  4. Eventueel HOSTINGER_SSH_PORT secret als SSH niet op 22 draait" >&2
             exit 1
           fi
 
       - name: Upload deploy script to PROD
         uses: appleboy/scp-action@v1.0.0
         with:
-          host: ${{ secrets.AWS_HOST }}
-          username: ${{ secrets.AWS_USER }}
-          key: ${{ secrets.AWS_SSH_KEY }}
-          port: ${{ secrets.AWS_SSH_PORT || 22 }}
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
           source: ${{ steps.deploy_script.outputs.upload_source }}
           target: /tmp/
@@ -178,10 +210,10 @@ jobs:
       - name: Verify deploy script on PROD
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.AWS_HOST }}
-          username: ${{ secrets.AWS_USER }}
-          key: ${{ secrets.AWS_SSH_KEY }}
-          port: ${{ secrets.AWS_SSH_PORT || 22 }}
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
           script_stop: true
           script: |
@@ -199,22 +231,24 @@ jobs:
         env:
           GIT_REF: ${{ steps.version.outputs.ref }}
           APP_DIR: ${{ vars.APP_DIR }}
-          AWS_USER: ${{ secrets.AWS_USER }}
+          SSH_DEPLOY_USER: ${{ steps.ssh.outputs.user }}
           DEPLOY_SCRIPT: ${{ steps.deploy_script.outputs.remote_path }}
         with:
-          host: ${{ secrets.AWS_HOST }}
-          username: ${{ secrets.AWS_USER }}
-          key: ${{ secrets.AWS_SSH_KEY }}
-          port: ${{ secrets.AWS_SSH_PORT || 22 }}
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
+          # Hele deploy (npm ci, vite, docker build, migrate) duurt op een VPS vaak >10m.
+          command_timeout: 90m
           # script_stop=false: anders stopt drone-ssh bij eerste deploy-fout vóór log/tail hieronder.
           script_stop: false
-          envs: GIT_REF,APP_DIR,AWS_USER,DEPLOY_SCRIPT
+          envs: GIT_REF,APP_DIR,SSH_DEPLOY_USER,DEPLOY_SCRIPT
           script: |
             set -euo pipefail
             exec 2>&1
             TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
-            DEPLOY_USER="${AWS_USER:-ubuntu}"
+            DEPLOY_USER="${SSH_DEPLOY_USER:-ubuntu}"
             GIT_REMOTE="origin"
             export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER DEPLOY_SCRIPT
             export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"

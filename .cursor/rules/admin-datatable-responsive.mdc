@@ -53,6 +53,60 @@ Elke **admin-lijst/index** met een datatabel moet standaard binnen de pagina pas
 
 Alleen pagina-specifiek en **binnen** `#content #jouw-tabel-id` in een kleine `@push('styles')` of in `admin-responsive.css` — nooit globaal op alle tabellen.
 
+## Acties-kolom (verplicht patroon)
+
+Gebruik **geen losse knoppen** (`Bekijken` / `Bewerken` naast elkaar). Altijd een **drie-puntjesmenu** (`kt-menu`) in de laatste kolom.
+
+### Markup
+
+- Geef de tabel een uniek **`id`** (bijv. `id="transport-customers-table"`).
+- Wrap rond de scroll-container: `<div class="{pagina}-table-wrap min-w-0">` → daarbinnen `kt-scrollable-x-auto admin-table-scroll-wrap`.
+- Laatste kolom: class **`{pagina}-table__actions-col`** op `<th>` én `<td>`.
+- Koptekst: `text-secondary-foreground font-normal text-center` + `data-label="Acties"`.
+- Menu-toggle: `kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost` met verticale drie-puntjes-SVG en `aria-label="Acties"`.
+- Dropdown: `kt-menu-dropdown kt-menu-default w-[175px] min-w-[175px]`.
+- Elk menu-item: `kt-menu-link` met **`kt-menu-icon`** (SVG) + **`kt-menu-title`** (duidelijke tekst: Bekijken, Bewerken, Verwijderen, …).
+- Rechten: `@can` / permission-check per menu-item; geen lege dropdown.
+- Klikbare rijen: `data-no-row-link` + `onclick="event.stopPropagation();"` op de acties-`<td>`.
+
+### Kolombreedte (belangrijk)
+
+`admin-fluid-table` gebruikt `table-layout: fixed`. De acties-kolom **niet** smaller maken met `width: 1%` of `max-content` — die kolom valt dan weg.
+
+Gebruik vaste breedte in pagina-CSS:
+
+```css
+#content #{tabel-id} .{pagina}-table__actions-col {
+    width: 4.5rem !important;
+    min-width: 4.5rem !important;
+    max-width: 4.5rem !important;
+    padding-inline: 0.375rem !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    white-space: nowrap;
+    overflow: visible !important;
+}
+#{pagina}-table-wrap .kt-scrollable-x-auto { overflow-x: auto !important; overflow-y: visible !important; }
+```
+
+Dropdown in scrollbare tabel: `position: fixed` + JS voor openen/sluiten (zie referenties). Hergebruik het script uit `transport_customers/index.blade.php` of `vehicles/index.blade.php`; pas alleen de wrap-class en binding-flag aan.
+
+### Referenties
+
+| Pagina | Bestand |
+|--------|---------|
+| Contractklanten | `NexaTaxi/.../transport_customers/index.blade.php` |
+| Voertuigen | `NexaTaxi/.../vehicles/index.blade.php` |
+| Ritten | `NexaTaxi/.../ride_requests/index.blade.php` |
+| Kennisbank | `NexaTaxi/.../knowledge_documents/index.blade.php` |
+| Facturen | `resources/views/admin/invoices/index.blade.php` |
+
+### Niet doen
+
+- Geen `flex gap-2` met meerdere `kt-btn-outline kt-btn-sm` in de acties-cel.
+- Geen `width: 1%` / `min-width: max-content` op acties-kolom bij `admin-fluid-table`.
+- Geen acties-kolom zonder gecentreerde koptekst **Acties**.
+
 ## Na wijziging
 
 ```bash

@@ -18,6 +18,10 @@ class TaxiRidePaymentService
 
     public function requiresPaymentBeforeComplete(RideRequest $ride): bool
     {
+        if ($ride->isContractRide()) {
+            return false;
+        }
+
         if ($ride->payment_status === RideRequest::PAYMENT_STATUS_PAID) {
             return false;
         }
@@ -33,6 +37,11 @@ class TaxiRidePaymentService
             }
 
             return $ride->payment_status !== RideRequest::PAYMENT_STATUS_PAID;
+        }
+
+        // Contractritten worden gefactureerd op abonnementsniveau; geen betaling vóór afronden in de chauffeur-app.
+        if ($ride->payment_method === RideRequest::PAYMENT_METHOD_CONTRACT) {
+            return false;
         }
 
         return false;
@@ -55,6 +64,8 @@ class TaxiRidePaymentService
             'method' => $ride->payment_method,
             'status' => $ride->payment_status,
             'amount_due' => $ride->chargeableAmount(),
+            'leg_amount' => $ride->requiresPerLegDriverPayment() ? $ride->legChargeableAmount() : null,
+            'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'final_price' => $ride->final_price !== null ? (float) $ride->final_price : null,
             'can_complete' => $this->canCompleteRide($ride),
@@ -62,6 +73,8 @@ class TaxiRidePaymentService
             'driver_payment_enabled' => $options['driver'],
             'booking_payment_enabled' => $options['booking'],
             'payment_error' => $this->driverPaymentErrorMessage($ride),
+            'payment_leg' => $ride->requiresPerLegDriverPayment() ? $ride->currentReturnLeg() : null,
+            'payment_leg_label' => $ride->currentPaymentLegLabel(),
         ];
     }
 
@@ -105,6 +118,10 @@ class TaxiRidePaymentService
         $driver = $options['driver'];
 
         if (! $booking && ! $driver) {
+            // Contractbetaling hoeft niet afhankelijk te zijn van Mollie/betaalproviders in de tenant-instellingen.
+            if ($method === RideRequest::PAYMENT_METHOD_CONTRACT) {
+                return RideRequest::PAYMENT_METHOD_CONTRACT;
+            }
             return null;
         }
 
@@ -116,7 +133,11 @@ class TaxiRidePaymentService
             return RideRequest::PAYMENT_METHOD_DRIVER;
         }
 
-        if (! in_array($method, [RideRequest::PAYMENT_METHOD_BOOKING, RideRequest::PAYMENT_METHOD_DRIVER], true)) {
+        if (! in_array($method, [
+            RideRequest::PAYMENT_METHOD_BOOKING,
+            RideRequest::PAYMENT_METHOD_DRIVER,
+            RideRequest::PAYMENT_METHOD_CONTRACT,
+        ], true)) {
             throw ValidationException::withMessages([
                 'payment_method' => ['Kies een betaalmethode.'],
             ]);
@@ -394,10 +415,14 @@ class TaxiRidePaymentService
 
         $fresh = $ride->fresh();
 
-        try {
-            app(TaxiRideInvoiceService::class)->ensureInvoiceForPaidRide($conn, $fresh);
-        } catch (\Throwable $e) {
-            report($e);
+        $skipInvoice = $fresh->requiresPerLegDriverPayment();
+
+        if (! $skipInvoice) {
+            try {
+                app(TaxiRideInvoiceService::class)->ensureInvoiceForPaidRide($conn, $fresh);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return $fresh;

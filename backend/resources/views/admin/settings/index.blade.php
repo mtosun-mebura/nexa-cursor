@@ -30,6 +30,11 @@
             <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
         </div>
+        @if(session('tenant_sync_report'))
+            <div class="mb-5">
+                @include('admin.settings.partials.tenant-sync-report', ['report' => session('tenant_sync_report')])
+            </div>
+        @endif
     @endif
 
     @if(session('success'))
@@ -54,9 +59,8 @@
         </div>
     @endif
 
-    @include('admin.settings.partials.tenant-scope-notice')
-
     <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
+    @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
         <!-- Mail Server Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
@@ -998,19 +1002,28 @@
             </div>
         </div>
 
+        @endif
+
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="tenant-sync">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)'])
             <div class="settings-collapsible-body">
             <div class="kt-card-content px-6 pb-4 space-y-6">
-                <p class="text-sm text-secondary-foreground">
-                    Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>:
-                    de rij in <code class="text-xs">companies</code> plus alle rijen op tabellen met <code class="text-xs">company_id</code> voor dat bedrijf.
-                    Bestaande rijen op doel worden niet overschreven; bron-<code class="text-xs">id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk).
-                    Gebruikers, tenant-rollen (<code class="text-xs">roles</code> + <code class="text-xs">model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code class="text-xs">permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.
-                </p>
+                @include('admin.settings.partials.heading-with-info', [
+                    'tag' => 'p',
+                    'class' => 'text-sm text-secondary-foreground m-0',
+                    'title' => 'Configureer de doel-database en push een bron-tenant naar die omgeving.',
+                    'infoId' => 'tenant-sync-intro-info',
+                    'info' => 'Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>: de rij in <code>companies</code> plus alle rijen op tabellen met <code>company_id</code> voor dat bedrijf. Bestaande rijen op doel worden niet overschreven; bron-<code>id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk). Gebruikers, tenant-rollen (<code>roles</code> + <code>model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code>permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.',
+                ])
 
                 <div class="rounded-md border border-border bg-muted/30 px-3 py-3 text-xs text-secondary-foreground">
-                    <p class="font-medium text-foreground mb-2">Tabellen op <strong>deze</strong> omgeving (driver: <code class="font-mono">{{ $tenantSyncScope['driver'] ?? '?' }}</code>)</p>
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'p',
+                        'class' => 'font-medium text-foreground mb-2',
+                        'title' => 'Tabellen op <strong>deze</strong> omgeving',
+                        'infoId' => 'tenant-sync-scope-info',
+                        'info' => 'Overzicht van tabellen die op <strong>deze</strong> omgeving meegaan bij volledige tenant-sync. Driver: <code>' . e($tenantSyncScope['driver'] ?? '?') . '</code>. Altijd mee: de <code>companies</code>-rij. Tabellen met <code>company_id</code> worden per gekozen tenant gekopieerd. Globale vereisten (modules, themes) gaan eerst. Nexa Taxi-tabellen alleen als de module aan de tenant gekoppeld is. Uitgesloten tabellen staan onderaan.',
+                    ])
                     <p class="mb-1"><span class="text-foreground font-medium">Altijd mee:</span> {{ $tenantSyncScope['company_row'] ?? 'companies' }}</p>
                     <p class="mb-1"><span class="text-foreground font-medium">Met <code class="font-mono">company_id</code> ({{ count($tenantSyncScope['tables_with_company_id'] ?? []) }} tabellen):</span></p>
                     <div class="max-h-40 overflow-y-auto rounded border border-border/80 bg-background px-2 py-1.5 font-mono text-[11px] leading-relaxed text-foreground">
@@ -1036,6 +1049,20 @@
                         <p class="mt-2 mb-1"><span class="text-foreground font-medium">Betaling &amp; facturatie</span> (altijd mee bij sync als tabel bestaat):</p>
                         <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $paymentSyncTables) }}</p>
                     @endif
+                    @if (! empty($tenantSyncScope['company_domains_note'] ?? ''))
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Tenant-domeinen</span></p>
+                        <p class="text-[11px] text-muted-foreground mt-0 mb-0">{{ $tenantSyncScope['company_domains_note'] }}</p>
+                    @endif
+                    @php $aiChatSyncTables = $tenantSyncScope['ai_chat_tables'] ?? []; @endphp
+                    @if ($aiChatSyncTables !== [] || ! empty($tenantSyncScope['ai_chat_settings_note'] ?? ''))
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">AI-chatbot</span> (berichten + tenant-instellingen):</p>
+                        @if ($aiChatSyncTables !== [])
+                            <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $aiChatSyncTables) }}</p>
+                        @endif
+                        @if (! empty($tenantSyncScope['ai_chat_settings_note'] ?? ''))
+                            <p class="text-[11px] text-muted-foreground mt-1 mb-0">{{ $tenantSyncScope['ai_chat_settings_note'] }}</p>
+                        @endif
+                    @endif
                     <p class="mt-2 mb-0"><span class="text-foreground font-medium">Expliciet uitgesloten</span> (config <code class="font-mono">tenant_sync.excluded_tables</code>):</p>
                     <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
                 </div>
@@ -1057,7 +1084,12 @@
                         $tenantSyncSshEnabled = old('tenant_sync_ssh_enabled', ($tenantSyncSettings['tenant_sync_ssh_enabled'] ?? false) ? '1' : '0') === '1';
                     @endphp
                     <div id="tenant-sync-direct-fields" class="space-y-3 {{ $tenantSyncSshEnabled ? 'hidden' : '' }}">
-                        <label for="tenant_sync_target_database_url" class="text-sm text-secondary-foreground block mb-1">Database-URL (doel)</label>
+                        @include('admin.settings.partials.label-with-info', [
+                            'for' => 'tenant_sync_target_database_url',
+                            'label' => 'Database-URL (doel)',
+                            'infoId' => 'tenant-sync-direct-info',
+                            'info' => 'Directe verbinding zonder SSH. Vul de volledige database-URL en het wachtwoord apart in.',
+                        ])
                         <div class="relative">
                             <input type="text" name="tenant_sync_target_database_url" id="tenant_sync_target_database_url"
                                    class="kt-input w-full font-mono text-xs pe-10"
@@ -1085,17 +1117,21 @@
                             'placeholder' => ($tenantSyncSettings['tenant_sync_has_database_password'] ?? false) ? '•••••••• (opgeslagen — laat leeg om te behouden)' : 'Wachtwoord van de database-gebruiker',
                             'hint' => 'Speciale tekens worden automatisch URL-encoded (bijv. <code class="text-xs">Welkom01!</code> → <code class="text-xs">Welkom01%21</code>).',
                         ])
-                        <p class="text-xs text-muted-foreground">Directe verbinding zonder SSH. Vul de volledige database-URL en het wachtwoord apart in.</p>
                     </div>
 
                     <div class="rounded-md border border-border p-4 space-y-3" id="tenant-sync-ssh-panel">
-                        <label class="inline-flex items-center gap-2">
-                            <input type="hidden" name="tenant_sync_ssh_enabled" value="0">
-                            <input type="checkbox" name="tenant_sync_ssh_enabled" value="1" id="tenant_sync_ssh_enabled" class="kt-checkbox"
-                                   @checked($tenantSyncSshEnabled)>
-                            <span class="text-sm font-medium text-foreground">Via SSH-tunnel verbinden</span>
-                        </label>
-                        <p class="text-xs text-muted-foreground mb-0">Voor servers waar Postgres alleen op <code class="text-xs">127.0.0.1</code> luistert. De backend opent SSH en bouwt daarna zelf de database-verbinding (velden hieronder).</p>
+                        <div class="flex items-center justify-between gap-2 min-w-0">
+                            <label class="inline-flex items-center gap-2 mb-0 min-w-0">
+                                <input type="hidden" name="tenant_sync_ssh_enabled" value="0">
+                                <input type="checkbox" name="tenant_sync_ssh_enabled" value="1" id="tenant_sync_ssh_enabled" class="kt-checkbox"
+                                       @checked($tenantSyncSshEnabled)>
+                                <span class="text-sm font-medium text-foreground">Via SSH-tunnel verbinden</span>
+                            </label>
+                            @include('admin.settings.partials.info-hover-icon', [
+                                'id' => 'tenant-sync-ssh-info',
+                                'content' => 'Voor servers waar Postgres alleen op <code>127.0.0.1</code> luistert. De backend opent SSH en bouwt daarna zelf de database-verbinding (velden hieronder).',
+                            ])
+                        </div>
                         <div id="tenant-sync-ssh-fields" class="space-y-3 {{ $tenantSyncSshEnabled ? '' : 'hidden' }}">
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div>
@@ -1129,8 +1165,11 @@
                             </div>
 
                             <div id="tenant-sync-ssh-db-fields" class="rounded-md border border-border/80 bg-muted/30 p-3 space-y-3">
-                                <p class="text-sm font-medium text-foreground mb-0">Postgres op de server (via tunnel)</p>
-                                <p class="text-xs text-muted-foreground mt-0">De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding.</p>
+                                @include('admin.settings.partials.heading-with-info', [
+                                    'title' => 'Postgres op de server (via tunnel)',
+                                    'infoId' => 'tenant-sync-ssh-db-info',
+                                    'info' => 'De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding via de tunnel. Postgres-host op server: bij Docker-deploy meestal <code>127.0.0.1</code> poort <code>5432</code> (niet de containernaam <code>db</code>).',
+                                ])
                                 <div class="grid gap-3 sm:grid-cols-2">
                                     <div>
                                         <label for="tenant_sync_ssh_db_username" class="text-sm text-secondary-foreground block mb-1">Database-gebruiker</label>
@@ -1195,15 +1234,18 @@
                 </form>
 
                 <div class="border-t border-border pt-6">
-                    <h4 class="text-sm font-medium text-foreground mb-2">Volledige tenant-sync uitvoeren</h4>
-                    <p class="text-xs text-muted-foreground mb-4">
-                        Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.
-                    </p>
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'h4',
+                        'class' => 'text-sm font-medium text-foreground mb-4',
+                        'title' => 'Volledige tenant-sync uitvoeren',
+                        'infoId' => 'tenant-sync-run-info',
+                        'info' => 'Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.',
+                    ])
                     <form id="tenant-sync-run-form" method="POST" action="{{ route('admin.settings.tenant-sync.run') }}" class="space-y-4" novalidate>
                         @csrf
                         <div>
                             <label for="source_company_id" class="text-sm text-secondary-foreground block mb-1">Bron-tenant (bedrijf) <span class="text-destructive">*</span></label>
-                            <select name="source_company_id" id="source_company_id" class="kt-select w-full max-w-xl @error('source_company_id') border-destructive @enderror">
+                            <select name="source_company_id" id="source_company_id" class="kt-select tenant-sync-company-select @error('source_company_id') border-destructive @enderror">
                                 <option value="" disabled @selected(old('source_company_id') === null || old('source_company_id') === '')>— Kies een bedrijf —</option>
                                 @foreach ($companiesForSync ?? [] as $c)
                                     <option value="{{ $c->id }}" @selected((string) old('source_company_id') === (string) $c->id)>{{ $c->name }} (id {{ $c->id }})</option>
@@ -1232,40 +1274,37 @@
                                     @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
                                 <i class="ki-filled ki-cloud-add me-2"></i> Start tenant-sync
                             </button>
-                            <span id="tenant-sync-submit-status" class="inline-flex items-center gap-2 text-sm min-h-[2.125rem] max-w-xl" aria-live="polite"></span>
+                            <span id="tenant-sync-submit-status" class="block w-full text-xs min-h-[2.125rem]" aria-live="polite"></span>
                         </div>
                     </form>
                 </div>
 
                 <div class="border-t border-border pt-6 mt-2">
-                    <h4 class="text-sm font-medium text-foreground mb-2">ZIP-export / -import (volledige tenant)</h4>
-                    <p class="text-xs text-muted-foreground mb-4">
-                        Eén bundle per bedrijf: <strong class="text-foreground">bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code class="font-mono text-[11px]">private_files/invoices/…</code>),
-                        <strong class="text-foreground">website_pages</strong> in het manifest, en <strong class="text-foreground">tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys).
-                        Bestandsnaam begint met <code class="font-mono text-[11px]">tenant-export-</code>. Manifest: <code class="font-mono text-[11px]">bundle_type</code> <code class="font-mono text-[11px]">tenant_media</code>, <code class="font-mono text-[11px]">bundle_version</code> 2.
-                        Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.
-                    </p>
-                    <div class="space-y-6 max-w-2xl">
-                        <div>
-                            <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
-                            <select id="tenant-sync-zip-company-id" class="kt-select w-full" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
-                                <option value="">— Kies een bedrijf —</option>
-                                @foreach (($companiesForSync ?? []) as $c)
-                                    <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
-                                @endforeach
-                            </select>
-                            <p id="tenant-sync-zip-company-error" class="mt-1.5 hidden text-sm text-destructive" role="alert"></p>
-                        </div>
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'h4',
+                        'class' => 'text-sm font-medium text-foreground mb-4',
+                        'title' => 'ZIP-export / -import (volledige tenant)',
+                        'infoId' => 'tenant-sync-zip-info',
+                        'info' => 'Eén bundle per bedrijf: <strong>bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code>private_files/invoices/…</code>), <strong>website_pages</strong> in het manifest, en <strong>tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys). Bestandsnaam begint met <code>tenant-export-</code>. Manifest: <code>bundle_type</code> <code>tenant_media</code>, <code>bundle_version</code> 2. Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.',
+                    ])
+                    <div>
+                        <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
+                        <select id="tenant-sync-zip-company-id" class="kt-select tenant-sync-company-select" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
+                            <option value="">— Kies een bedrijf —</option>
+                            @foreach (($companiesForSync ?? []) as $c)
+                                <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
+                            @endforeach
+                        </select>
+                        <p id="tenant-sync-zip-company-error" class="mt-1.5 hidden text-sm text-destructive" role="alert"></p>
+                    </div>
 
+                    <div class="max-w-2xl mt-6 space-y-6">
                         <div class="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-3">
-                            <h5 class="text-sm font-medium text-foreground m-0">Tenant-export (ZIP)</h5>
-                            <p class="text-xs text-muted-foreground m-0">
-                                Download of importeer één ZIP met <code class="font-mono text-[11px]">manifest.json</code>.
-                                Publieke bestanden staan onder <code class="font-mono text-[11px]">files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/public</code> met dezelfde mappenstructuur).
-                                Versleutelde website-carouselbestanden en <strong class="text-foreground">factuur-PDF’s</strong> staan onder <code class="font-mono text-[11px]">private_files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/…</code>, facturen o.a. <code class="font-mono text-[11px]">private_files/private/invoices/{company_id}/</code>).
-                                Import overschrijft <code class="font-mono text-[11px]">website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug.
-                                Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong class="text-foreground">Volledige tenant-sync</strong> — alle tabellen met <code class="font-mono text-[11px]">company_id</code>, inclusief <code class="font-mono text-[11px]">payment_providers</code>, <code class="font-mono text-[11px]">invoice_settings</code>, <code class="font-mono text-[11px]">invoices</code>, <code class="font-mono text-[11px]">payments</code>, <code class="font-mono text-[11px]">payment_reminders</code>, <code class="font-mono text-[11px]">ride_payments</code>.
-                            </p>
+                            @include('admin.settings.partials.heading-with-info', [
+                                'title' => 'Tenant-export (ZIP)',
+                                'infoId' => 'tenant-sync-zip-export-info',
+                                'info' => 'Download of importeer één ZIP met <code>manifest.json</code>. Publieke bestanden staan onder <code>files/…</code> (komt in <code>storage/app/public</code> met dezelfde mappenstructuur). Versleutelde website-carouselbestanden en <strong>factuur-PDF’s</strong> staan onder <code>private_files/…</code> (komt in <code>storage/app/…</code>, facturen o.a. <code>private_files/private/invoices/{company_id}/</code>). Import overschrijft <code>website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug. Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong>Volledige tenant-sync</strong> — alle tabellen met <code>company_id</code>, inclusief <code>payment_providers</code>, <code>invoice_settings</code>, <code>invoices</code>, <code>payments</code>, <code>payment_reminders</code>, <code>ride_payments</code>.',
+                            ])
                             <div class="flex flex-wrap items-center gap-2">
                                 <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
                                     <i class="ki-filled ki-file-down me-2"></i> Download tenant-ZIP
@@ -1275,9 +1314,13 @@
                                 @csrf
                                 <input type="hidden" name="company_id" id="tenant-files-import-company-id" value="">
                                 <div>
-                                    <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">Tenant-ZIP importeren</label>
+                                    @include('admin.settings.partials.label-with-info', [
+                                        'for' => 'tenant-files-bundle-input',
+                                        'label' => 'Tenant-ZIP importeren',
+                                        'infoId' => 'tenant-sync-zip-upload-info',
+                                        'info' => 'Max. ' . (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) . ' MB per upload. Bij <strong>413 Request Entity Too Large</strong>: zet op de server in nginx <code>client_max_body_size 512M;</code> (zie <code>deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.',
+                                    ])
                                     <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
-                                    <p class="text-xs text-muted-foreground mt-1">Max. {{ (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) }} MB per upload. Bij <strong class="text-foreground">413 Request Entity Too Large</strong>: zet op de server in nginx <code class="font-mono text-[11px]">client_max_body_size 512M;</code> (zie <code class="font-mono text-[11px]">deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.</p>
                                 </div>
                                 <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
                                         @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
@@ -1632,8 +1675,287 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function setTenantSyncStatusSuccess(message) {
+    function tenantSyncRowIsNotable(row) {
+        if (!row) return false;
+        var inserted = Number(row.inserted || 0);
+        var updated = Number(row.updated || 0);
+        var skipped = Number(row.skipped || 0);
+        var status = row.status || 'ok';
+        return (inserted + updated + skipped) > 0
+            || status === 'error' || status === 'warning' || status === 'skipped'
+            || !!row.error;
+    }
+
+    function renderTenantSyncReport(container, report) {
+        if (!container || !report) return;
+
+        container.textContent = '';
+        container.className = 'block w-full text-xs min-h-[2.125rem]';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'tenant-sync-report rounded-md border border-border bg-muted/20 p-4 text-xs leading-snug text-left w-full max-w-4xl';
+
+        var summary = document.createElement('p');
+        summary.className = 'font-medium text-foreground mb-3';
+        summary.textContent = report.summary || 'Tenant-sync voltooid.';
+        wrap.appendChild(summary);
+
+        if (report.errors && report.errors.length) {
+            var errTitle = document.createElement('p');
+            errTitle.className = 'text-xs font-semibold uppercase tracking-wide text-destructive mb-2';
+            errTitle.textContent = 'Fouten';
+            wrap.appendChild(errTitle);
+
+            var errList = document.createElement('ul');
+            errList.className = 'space-y-1.5 mb-4';
+            report.errors.forEach(function(error) {
+                var li = document.createElement('li');
+                li.className = 'text-destructive';
+                li.textContent = (error.section || 'Algemeen') + ': ' + (error.message || '');
+                errList.appendChild(li);
+            });
+            wrap.appendChild(errList);
+        }
+
+        (report.sections || []).forEach(function(section) {
+            var rows = (section.rows || []).filter(tenantSyncRowIsNotable);
+            if (!rows.length) return;
+
+            var block = document.createElement('div');
+            block.className = 'mb-4 last:mb-0';
+
+            var title = document.createElement('p');
+            title.className = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2';
+            title.textContent = section.title || 'Overig';
+            block.appendChild(title);
+
+            var list = document.createElement('ul');
+            list.className = 'space-y-1.5';
+
+            rows.forEach(function(row) {
+                list.appendChild(buildTenantSyncReportRowLi(row));
+            });
+
+            block.appendChild(list);
+            wrap.appendChild(block);
+        });
+
+        if (report.notes && report.notes.length) {
+            var notesWrap = document.createElement('div');
+            notesWrap.className = 'mt-4 pt-3 border-t border-border/70 space-y-1';
+
+            var notesTitle = document.createElement('p');
+            notesTitle.className = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground';
+            notesTitle.textContent = 'Opmerkingen';
+            notesWrap.appendChild(notesTitle);
+
+            report.notes.forEach(function(note) {
+                var p = document.createElement('p');
+                p.className = 'text-muted-foreground mb-0';
+                p.textContent = note;
+                notesWrap.appendChild(p);
+            });
+
+            wrap.appendChild(notesWrap);
+        }
+
+        var ok = document.createElement('div');
+        ok.className = 'flex items-start gap-2 text-emerald-600 dark:text-emerald-400 font-medium mb-3';
+        ok.innerHTML = '<i class="ki-filled ki-check-circle text-lg shrink-0 mt-0.5" aria-hidden="true"></i><span>Sync voltooid</span>';
+
+        container.appendChild(ok);
+        container.appendChild(wrap);
+    }
+
+    function buildTenantSyncReportRowLi(row) {
+        var li = document.createElement('li');
+        li.className = 'flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3';
+
+        var label = document.createElement('span');
+        label.className = 'font-mono text-foreground min-w-[12rem]';
+        label.textContent = row.label || '—';
+
+        var counts = document.createElement('span');
+        counts.className = 'text-muted-foreground';
+        counts.textContent = '+' + (row.inserted || 0) + ' toegevoegd, ~' + (row.updated || 0) + ' bijgewerkt, -' + (row.skipped || 0) + ' overgeslagen';
+
+        li.appendChild(label);
+        li.appendChild(counts);
+
+        if (row.error) {
+            var err = document.createElement('span');
+            err.className = 'text-destructive sm:basis-full';
+            err.textContent = row.error;
+            li.appendChild(err);
+        }
+
+        return li;
+    }
+
+    function initTenantSyncProgressUi(container) {
+        if (!container) return null;
+
+        container.textContent = '';
+        container.className = 'block w-full text-xs min-h-[2.125rem]';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left';
+
+        var heading = document.createElement('p');
+        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-2.5 flex items-center gap-2';
+        heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0" aria-hidden="true"></i><span>Sync bezig…</span>';
+
+        var list = document.createElement('ul');
+        list.className = 'tenant-sync-progress-list space-y-1.5';
+        list.setAttribute('aria-live', 'polite');
+
+        wrap.appendChild(heading);
+        wrap.appendChild(list);
+        container.appendChild(wrap);
+
+        return {
+            wrap: wrap,
+            heading: heading,
+            list: list,
+            sections: {},
+        };
+    }
+
+    function appendTenantSyncProgressSection(progressUi, sectionTitle) {
+        if (!progressUi || !sectionTitle || progressUi.sections[sectionTitle]) return;
+
+        progressUi.sections[sectionTitle] = true;
+
+        var li = document.createElement('li');
+        li.className = 'tenant-sync-progress-item text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0';
+        li.textContent = sectionTitle;
+        progressUi.list.appendChild(li);
+    }
+
+    function appendTenantSyncProgressItem(progressUi, li) {
+        if (!progressUi || !li) return;
+        li.classList.add('tenant-sync-progress-item');
+        progressUi.list.appendChild(li);
+        if (progressUi.list.lastElementChild) {
+            progressUi.list.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function handleTenantSyncProgressEvent(progressUi, event) {
+        if (!progressUi || !event || !event.type) return;
+
+        if (event.type === 'step') {
+            var stepLi = document.createElement('li');
+            stepLi.className = 'flex items-start gap-2 text-foreground';
+            stepLi.innerHTML = '<i class="ki-filled ki-check-circle text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (event.label || 'Stap voltooid') + '</span>';
+            appendTenantSyncProgressItem(progressUi, stepLi);
+            return;
+        }
+
+        if (event.type === 'note') {
+            var noteLi = document.createElement('li');
+            noteLi.className = 'text-muted-foreground text-[11px]';
+            noteLi.textContent = event.note || '';
+            appendTenantSyncProgressItem(progressUi, noteLi);
+            return;
+        }
+
+        if (event.type === 'row') {
+            var row = event.row || {};
+            if (!tenantSyncRowIsNotable(row)) return;
+
+            if (event.section) {
+                appendTenantSyncProgressSection(progressUi, event.section);
+            }
+
+            appendTenantSyncProgressItem(progressUi, buildTenantSyncReportRowLi(row));
+            return;
+        }
+
+        if (event.type === 'summary' && event.summary) {
+            progressUi.summaryText = event.summary;
+        }
+    }
+
+    function finishTenantSyncProgressUi(progressUi, success, message) {
+        if (!progressUi) return;
+
+        if (progressUi.heading) {
+            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-2.5 flex items-start gap-2 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            progressUi.heading.innerHTML = success
+                ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || progressUi.summaryText || 'Sync voltooid.') + '</span>'
+                : '<i class="ki-filled ki-information text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || 'Sync mislukt.') + '</span>';
+        }
+    }
+
+    function consumeTenantSyncStream(response, onEvent) {
+        if (!response.body || typeof response.body.getReader !== 'function') {
+            return response.text().then(function(text) {
+                var data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (e) {
+                    throw new Error('Ongeldig antwoord van de server (HTTP ' + response.status + ').');
+                }
+                return { ok: response.ok, status: response.status, data: data, streamed: false };
+            });
+        }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+        var completeEvent = null;
+
+        function processBuffer(finalChunk) {
+            if (finalChunk) {
+                buffer += finalChunk;
+            }
+            var lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            lines.forEach(function(line) {
+                line = line.trim();
+                if (!line) return;
+                var event = JSON.parse(line);
+                if (event.type === 'complete') {
+                    completeEvent = event;
+                    return;
+                }
+                onEvent(event);
+            });
+        }
+
+        function pump() {
+            return reader.read().then(function(result) {
+                if (result.done) {
+                    if (buffer.trim() !== '') {
+                        processBuffer('');
+                    }
+                    return {
+                        ok: response.ok,
+                        status: response.status,
+                        data: completeEvent || {},
+                        streamed: true,
+                    };
+                }
+                processBuffer(decoder.decode(result.value, { stream: true }));
+                return pump();
+            });
+        }
+
+        return pump().catch(function(err) {
+            if (err instanceof SyntaxError) {
+                throw new Error('Ongeldige stream van de server.');
+            }
+            throw err;
+        });
+    }
+
+    function setTenantSyncStatusSuccess(message, report) {
         if (!tenantSyncSubmitStatus) return;
+        if (report) {
+            renderTenantSyncReport(tenantSyncSubmitStatus, report);
+            return;
+        }
         tenantSyncSubmitStatus.textContent = '';
         var wrap = document.createElement('span');
         wrap.className = 'inline-flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium';
@@ -1693,31 +2015,49 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sel) sel.disabled = true;
             if (cb) cb.disabled = true;
 
+            var progressUi = initTenantSyncProgressUi(tenantSyncSubmitStatus);
+
             fetch('{{ route("admin.settings.tenant-sync.run") }}', {
                 method: 'POST',
                 body: fd,
                 credentials: 'same-origin',
                 headers: {
-                    'Accept': 'application/json',
+                    'Accept': 'application/x-ndjson',
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-Tenant-Sync-Stream': '1',
                     'X-CSRF-TOKEN': token,
                 },
             })
                 .then(function(r) {
-                    return r.text().then(function(text) {
-                        var data = null;
-                        try {
-                            data = text ? JSON.parse(text) : null;
-                        } catch (e) {
-                            throw new Error('Ongeldig antwoord van de server (HTTP ' + r.status + ').');
-                        }
-                        return { ok: r.ok, status: r.status, data: data };
+                    var contentType = (r.headers.get('content-type') || '').toLowerCase();
+                    if (contentType.indexOf('ndjson') === -1) {
+                        return r.text().then(function(text) {
+                            var data = null;
+                            try {
+                                data = text ? JSON.parse(text) : null;
+                            } catch (e) {
+                                throw new Error('Ongeldig antwoord van de server (HTTP ' + r.status + ').');
+                            }
+                            return { ok: r.ok, status: r.status, data: data, streamed: false };
+                        });
+                    }
+                    return consumeTenantSyncStream(r, function(event) {
+                        handleTenantSyncProgressEvent(progressUi, event);
                     });
                 })
                 .then(function(res) {
                     var d = res.data || {};
+                    if (res.streamed) {
+                        if (d.success) {
+                            finishTenantSyncProgressUi(progressUi, true, d.message || 'Sync voltooid.');
+                            if (cb) cb.checked = false;
+                            return;
+                        }
+                        finishTenantSyncProgressUi(progressUi, false, d.message || ('Fout (HTTP ' + res.status + ')'));
+                        return;
+                    }
                     if (res.ok && d.success) {
-                        setTenantSyncStatusSuccess(d.message || 'Sync voltooid.');
+                        setTenantSyncStatusSuccess(d.message || 'Sync voltooid.', d.report || (d.result && d.result.report));
                         if (cb) cb.checked = false;
                         return;
                     }
@@ -1726,13 +2066,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         applyTenantSyncValidationErrors(d.errors);
                     }
                     if (!hasFieldErrors) {
-                        setTenantSyncStatusError(d.message || ('Fout (HTTP ' + res.status + ')'));
+                        finishTenantSyncProgressUi(progressUi, false, d.message || ('Fout (HTTP ' + res.status + ')'));
                     } else {
                         setTenantSyncStatusIdle();
                     }
                 })
                 .catch(function(err) {
-                    setTenantSyncStatusError(err && err.message ? err.message : 'Netwerkfout.');
+                    finishTenantSyncProgressUi(progressUi, false, err && err.message ? err.message : 'Netwerkfout.');
                 })
                 .finally(function() {
                     tenantSyncSubmitBtn.disabled = false;

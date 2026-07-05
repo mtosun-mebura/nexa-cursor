@@ -107,7 +107,7 @@ final class AiChatQuoteConversationService
         )['config'] ?? $defaults;
 
         return [
-            'flow' => $this->parser->isBookingRequest($message) ? 'booking' : 'quote',
+            'flow' => $this->parser->resolveFlow($message, $context->isPublicChannel()),
             'suggested_pickup' => $route['pickup_address'],
             'suggested_dropoff' => $route['dropoff_address'],
             'pickup_address' => null,

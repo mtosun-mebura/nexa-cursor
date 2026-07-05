@@ -39,6 +39,24 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $this->assertSame('pickup', $reply->input['step'] ?? null);
     }
 
+    public function test_travel_intent_starts_quote_flow_with_destination(): void
+    {
+        $service = $this->makeService();
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Public,
+            sessionId: 'quote-test-travel',
+        );
+
+        $reply = $service->handle($context, 'Ik wil naar Schiphol');
+
+        $this->assertStringContainsString('Schiphol', $reply->reply);
+        $this->assertStringContainsString('Vanaf welk adres', $reply->reply);
+        $this->assertTrue($service->hasActiveSession($context));
+        $this->assertSame('address', $reply->input['type'] ?? null);
+        $this->assertSame('pickup', $reply->input['step'] ?? null);
+    }
+
     public function test_full_route_question_asks_to_confirm_pickup_before_passengers(): void
     {
         $service = $this->makeService();
@@ -107,6 +125,27 @@ class AiChatQuoteConversationServiceTest extends TestCase
 
         $this->assertStringContainsString('voornaam', mb_strtolower($reply->reply));
         $this->assertSame('text', $reply->input['type'] ?? null);
+        $this->assertSame('first_name', $reply->input['step'] ?? null);
+    }
+
+    public function test_travel_intent_on_public_channel_asks_for_contact_after_remarks(): void
+    {
+        $service = $this->makeService();
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Public,
+            sessionId: 'travel-booking-contact',
+        );
+
+        $service->handle($context, 'Ik wil naar Schiphol');
+        $service->handle($context, 'Stationsplein 1, Enschede');
+        $service->handle($context, 'Luchthaven Schiphol');
+        $service->handle($context, '2');
+        $service->handle($context, '0', null, ['baggage' => [], 'special_baggage' => []]);
+        $service->handle($context, now()->addDay()->format('Y-m-d H:i'));
+        $reply = $service->handle($context, 'geen');
+
+        $this->assertStringContainsString('voornaam', mb_strtolower($reply->reply));
         $this->assertSame('first_name', $reply->input['step'] ?? null);
     }
 

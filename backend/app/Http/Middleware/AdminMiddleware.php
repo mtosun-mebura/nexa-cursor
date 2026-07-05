@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\AdminReturnUrl;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,10 @@ class AdminMiddleware
             $path = $request->path();
             $isUtilityPath = preg_match('#^(admin/)?(chat|notifications)/unread-count#', $path);
             if (! $isUtilityPath) {
-                session(['url.intended' => $request->fullUrl()]);
+                $resolved = AdminReturnUrl::resolveIntended($request->fullUrl());
+                if ($resolved !== null) {
+                    session(['url.intended' => $resolved]);
+                }
             }
 
             // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)

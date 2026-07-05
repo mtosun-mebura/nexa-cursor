@@ -10,11 +10,14 @@ class Invoice extends Model
 {
     public const MODULE_TAXI = 'taxi';
 
+    public const MODULE_TAXI_CONTRACT = 'taxi_contract';
+
     protected $fillable = [
         'invoice_number',
         'company_id',
         'module',
         'module_reference_id',
+        'billing_period',
         'customer_name',
         'customer_email',
         'job_match_id',
@@ -70,6 +73,11 @@ class Invoice extends Model
     public function isOverdue(): bool
     {
         return $this->status === 'sent' && $this->due_date < now() && !$this->paid_date;
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->paid_date !== null || $this->status === 'paid';
     }
 
     public function getPaymentLink(string $method = 'tikkie'): string

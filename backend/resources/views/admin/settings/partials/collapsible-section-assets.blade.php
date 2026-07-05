@@ -38,6 +38,41 @@
         border-top-style: solid;
         border-color: var(--border);
     }
+    #tenant-sync select.tenant-sync-company-select {
+        width: auto !important;
+        max-width: min(100%, 36rem) !important;
+    }
+    .tenant-sync-progress {
+        width: 100%;
+        max-width: 56rem;
+        font-size: 0.75rem;
+        line-height: 1.375;
+    }
+    .tenant-sync-progress .tenant-sync-progress-heading {
+        font-size: 0.8125rem;
+    }
+    .tenant-sync-progress .font-mono {
+        min-width: 9rem;
+    }
+    .tenant-sync-progress-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    .tenant-sync-progress-item {
+        opacity: 0;
+        animation: tenant-sync-fade-in 0.35s ease forwards;
+    }
+    @keyframes tenant-sync-fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 </style>
 @endpush
 @push('scripts')

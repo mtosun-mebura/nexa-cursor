@@ -29,12 +29,20 @@
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
         @if($visibility[$sectionKey] ?? true)
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
         @elseif($sectionKey === 'component:taxi.tarieven' && view()->exists('frontend.website.components.nexataxi-tarieven'))
             @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey, 'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null])
+        @elseif($sectionKey === 'component:taxi.boekingsmodule_v2' && view()->exists('frontend.website.components.nexataxi-boekingsmodule-v2'))
+            @include('frontend.website.components.nexataxi-boekingsmodule-v2', [
+                'homeSections' => $homeSections ?? [],
+                'sectionKey' => $sectionKey,
+                'page' => $page ?? null,
+                'googleMapsApiKey' => $googleMapsApiKey ?? '',
+                'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null,
+            ])
         @elseif($sectionKey === 'component:taxi.boekingsmodule' && view()->exists('frontend.website.components.nexataxi-boekingsmodule'))
             @include('frontend.website.components.nexataxi-boekingsmodule', [
                 'homeSections' => $homeSections ?? [],
@@ -75,17 +83,60 @@
     $fromRgb = $hexToRgb($overlayFrom);
     $toRgb = $hexToRgb($overlayTo);
     $heroOverlayStyle = 'background-image: linear-gradient(to right, rgba('.$fromRgb[0].','.$fromRgb[1].','.$fromRgb[2].','.$overlayAlpha.'), rgba('.$toRgb[0].','.$toRgb[1].','.$toRgb[2].','.$overlayAlpha.'));';
+    $heroTextBgRgba = function (string $hex, mixed $opacityPercent = null): string {
+        $hex = trim($hex);
+        $hasCustomHex = $hex !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $hex);
+        $defaultAlpha = $hasCustomHex ? 0.88 : 0.78;
+        if ($opacityPercent !== null && $opacityPercent !== '') {
+            $alpha = max(0, min(100, (int) $opacityPercent)) / 100;
+        } else {
+            $alpha = $defaultAlpha;
+        }
+        if (! $hasCustomHex) {
+            return 'rgba(0, 0, 0, '.$alpha.')';
+        }
+        if (strlen($hex) === 4) {
+            $hex = '#'.$hex[1].$hex[1].$hex[2].$hex[2].$hex[3].$hex[3];
+        }
+        $r = hexdec(substr($hex, 1, 2));
+        $g = hexdec(substr($hex, 3, 2));
+        $b = hexdec(substr($hex, 5, 2));
+
+        return 'rgba('.$r.', '.$g.', '.$b.', '.$alpha.')';
+    };
+    $heroTextBgColor = trim((string) ($sectionData['text_bg_color'] ?? ''));
+    $heroTextBgOpacity = $sectionData['text_bg_opacity'] ?? null;
+    $heroHasTextBg = ($heroTextBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroTextBgColor))
+        || ($heroTextBgOpacity !== null && $heroTextBgOpacity !== '');
+    $heroTextBgStyle = $heroHasTextBg ? 'background-color: '.$heroTextBgRgba($heroTextBgColor, $heroTextBgOpacity).';' : '';
+    $heroHasImage = $heroBgUrl !== '';
+    $heroTitleSizePx = max(12, min(50, (int) ($sectionData['title_font_size_px'] ?? 44)));
+    $heroTitleSizePx = (int) (round($heroTitleSizePx / 2) * 2);
+    $heroSubtitleSizePx = max(12, min(50, (int) ($sectionData['subtitle_font_size_px'] ?? 22)));
+    $heroSubtitleSizePx = (int) (round($heroSubtitleSizePx / 2) * 2);
+    $heroCaptionWidthPct = max(30, min(100, (int) ($sectionData['text_bg_width_percent'] ?? 70)));
+    $heroCaptionWidthStyle = $heroHasTextBg ? '--hero-caption-width-pct: '.$heroCaptionWidthPct.';' : '';
+    $heroTextPosition = $sectionData['text_position'] ?? 'center';
+    $heroTextPosition = in_array($heroTextPosition, ['top', 'center', 'bottom'], true) ? $heroTextPosition : 'center';
+    $heroCaptionPositionClass = match ($heroTextPosition) {
+        'top' => 'items-start pt-6 pb-4 sm:pt-10 sm:pb-6',
+        'bottom' => 'items-end pb-6 pt-10 sm:pb-10 sm:pt-14 md:pb-12 md:pt-16',
+        default => 'items-center py-6 sm:py-8',
+    };
 @endphp
 <!-- Hero -->
-<section class="modern-home-hero py-16 md:py-24 relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : '' }}" data-scroll-reveal>
+<section class="modern-home-hero relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'py-16 md:py-24 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : 'modern-home-hero--has-image' }}" data-scroll-reveal>
     @if($heroBgUrl !== '')
-    <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style="{{ $heroBgStyle }}" aria-hidden="true"></div>
-    <div class="absolute inset-0 z-[1] bg-cover bg-center bg-no-repeat" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
+    <div class="website-image-carousel-media modern-home-hero__media relative z-0 w-full" aria-hidden="true">
+        <img src="{{ $heroBgUrl }}" alt="" class="website-image-carousel-fit" loading="eager" decoding="async" referrerpolicy="no-referrer">
+    </div>
+    <div class="absolute inset-0 z-[1] pointer-events-none" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
     @endif
     @if(!empty($sectionData['overlay']))
-    <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20" aria-hidden="true"></div>
+    <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20 pointer-events-none" aria-hidden="true"></div>
     @endif
-    <div class="website-section-inner relative z-10">
+    <div class="{{ $heroHasImage ? 'absolute inset-0 z-10 flex justify-center px-5 pointer-events-none ' . $heroCaptionPositionClass : '' }}">
+    <div class="website-section-inner {{ $heroHasImage ? 'w-full relative pointer-events-auto modern-home-hero__caption-inner' : 'relative z-10' }}">
         @php
             $heroRevealDur = '0.7s';
             $heroRevealEase = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
@@ -94,6 +145,10 @@
             };
         @endphp
         <div class="w-full text-center">
+            @if($heroHasTextBg)
+            <div class="hero-caption-width-context w-full mx-auto box-border" style="{{ $heroCaptionWidthStyle }}">
+            <div class="hero-caption-text-block carousel-caption-text-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md mx-auto" style="{{ $heroTextBgStyle }}">
+            @endif
             @if($v('_title'))
             @php
                 $heroTitle = $sectionData['title'] ?? 'Vind je droombaan met AI';
@@ -103,7 +158,7 @@
                 $heroTitleParts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                 $heroTitleRightDelayMs = 500;
             @endphp
-            <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            <h1 class="{{ $heroHasImage ? 'hero-caption-title font-bold text-white mb-2 sm:mb-3 leading-snug' : 'text-4xl md:text-6xl font-bold text-white mb-6 leading-tight' }}"@if($heroHasImage) style="--hero-title-size-max: {{ $heroTitleSizePx }}px;"@endif>
                 @if(count($heroTitleParts) === 2)
                     <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
@@ -125,8 +180,12 @@
                 $heroSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
                 $heroSubtitleColorStyle = ($heroSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroSubtitleColor)) ? 'color: ' . $heroSubtitleColor . ';' : '';
             @endphp
-            <div class="scroll-reveal-item hero-reveal-zoom text-xl mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}">
+            <div class="scroll-reveal-item hero-reveal-zoom hero-caption-subtitle w-full mx-auto max-w-none {{ $heroHasImage ? 'prose prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 leading-snug' : 'text-xl mb-8 leading-relaxed max-w-3xl prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}@if($heroHasImage) --hero-subtitle-size-max: {{ $heroSubtitleSizePx }}px;@endif">
                 {!! $sectionData['subtitle'] ?? 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' !!}
+            </div>
+            @endif
+            @if($heroHasTextBg)
+            </div>
             </div>
             @endif
             @if($v('_cta'))
@@ -157,6 +216,9 @@
             @endif
         </div>
     </div>
+    @if($heroBgUrl !== '')
+    </div>
+    @endif
 </section>
     @endif
 

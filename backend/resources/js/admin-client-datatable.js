@@ -1,5 +1,80 @@
 const FILTER_DELAY_MS = 120;
 const PAGE_MORE_LIMIT = 5;
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+function ensureAdminDatatableSizeSelectOptions(select, pageSize) {
+    if (!select) {
+        return;
+    }
+
+    if (select.options.length === 0) {
+        DEFAULT_PAGE_SIZE_OPTIONS.forEach((size) => {
+            const option = document.createElement('option');
+            option.value = String(size);
+            option.textContent = String(size);
+            select.appendChild(option);
+        });
+    }
+
+    const resolvedSize = DEFAULT_PAGE_SIZE_OPTIONS.includes(pageSize)
+        ? pageSize
+        : (Number(select.value) || DEFAULT_PAGE_SIZE_OPTIONS[0]);
+
+    select.value = String(resolvedSize);
+    refreshAdminDatatableSizeSelect(select);
+}
+
+function syncAdminDatatableKtSelectDisplay(select) {
+    const wrapper = select.closest('.kt-select-wrapper')
+        || select.parentElement?.querySelector?.('.kt-select-wrapper')
+        || select.parentElement;
+    const display = wrapper?.querySelector('[data-kt-select-display]');
+    if (!display) {
+        return;
+    }
+
+    const selected = select.options[select.selectedIndex];
+    if (!selected) {
+        return;
+    }
+
+    display.textContent = selected.textContent.trim();
+    display.setAttribute('data-selected', selected.value);
+    display.removeAttribute('aria-placeholder');
+    display.setAttribute('aria-label', `Toon ${selected.textContent.trim()} per pagina`);
+}
+
+function refreshAdminDatatableSizeSelect(select) {
+    if (!select) {
+        return;
+    }
+
+    syncAdminDatatableKtSelectDisplay(select);
+
+    if (typeof window.KTSelect === 'undefined') {
+        return;
+    }
+
+    try {
+        const instance = window.KTSelect.getInstance(select);
+        if (instance) {
+            if (typeof instance.update === 'function') {
+                instance.update();
+            } else if (typeof instance.setValue === 'function') {
+                instance.setValue(select.value);
+            } else if (typeof instance.destroy === 'function') {
+                instance.destroy();
+                window.KTSelect.init(select);
+            }
+        } else if (typeof window.KTSelect.init === 'function') {
+            window.KTSelect.init(select);
+        }
+    } catch (error) {
+        syncAdminDatatableKtSelectDisplay(select);
+    }
+
+    syncAdminDatatableKtSelectDisplay(select);
+}
 
 export function normalizeAdminDatatableSearchValue(value) {
     return String(value || '')
@@ -35,6 +110,8 @@ export class AdminClientDatatable {
         this.sizeSelect = root.querySelector('[data-admin-datatable-size]');
         this.itemLabel = root.dataset.adminDatatableLabel || 'items';
         this.pageSize = Number(root.dataset.adminDatatablePageSize || this.sizeSelect?.value) || 10;
+        ensureAdminDatatableSizeSelectOptions(this.sizeSelect, this.pageSize);
+        this.pageSize = Number(this.sizeSelect?.value) || this.pageSize;
         this.allRows = [];
         this.filteredRows = [];
         this.page = 1;
@@ -81,6 +158,11 @@ export class AdminClientDatatable {
             return;
         }
 
+        ensureAdminDatatableSizeSelectOptions(this.sizeSelect, this.pageSize);
+        this.pageSize = Number(this.sizeSelect?.value) || this.pageSize;
+        setTimeout(() => refreshAdminDatatableSizeSelect(this.sizeSelect), 0);
+        setTimeout(() => refreshAdminDatatableSizeSelect(this.sizeSelect), 150);
+
         this.allRows = Array.from(this.tbody.querySelectorAll(':scope > tr'))
             .filter((row) => !row.querySelector('td[colspan]'))
             .map((row) => ({
@@ -112,6 +194,7 @@ export class AdminClientDatatable {
         this.sizeSelect?.addEventListener('change', () => {
             this.pageSize = Number(this.sizeSelect.value) || this.pageSize;
             this.page = 1;
+            syncAdminDatatableKtSelectDisplay(this.sizeSelect);
             this.renderPage();
         });
 

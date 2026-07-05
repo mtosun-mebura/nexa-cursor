@@ -31,12 +31,14 @@
                 <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
                 <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
             @else
-                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
+                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ \App\Support\NexaBranding::defaultLogoUrl() }}" alt="NEXA" />
             @endif
         </a>
         <button
+            type="button"
             class="kt-btn kt-btn-outline kt-btn-icon absolute start-full top-2/4 size-[30px] -translate-x-2/4 -translate-y-2/4 rtl:translate-x-2/4"
-            data-kt-toggle="body" data-kt-toggle-class="kt-sidebar-collapse" id="sidebar_toggle">
+            data-kt-toggle="body" data-kt-toggle-class="kt-sidebar-collapse" id="sidebar_toggle"
+            aria-label="Menu in- of uitklappen">
             <i
                 class="ki-filled ki-black-left-line kt-toggle-active:rotate-180 rtl:translate rtl:kt-toggle-active:rotate-0 transition-all duration-300 rtl:rotate-180">
             </i>
@@ -125,6 +127,57 @@
                             Dashboard
                         </span>
                     </a>
+                </div>
+
+                <!-- Handleiding -->
+                @php
+                    $handleidingPages = \App\Support\AdminHandleiding::pages();
+                @endphp
+                <div class="kt-menu-item {{ request()->routeIs('admin.handleiding.*') ? 'here show' : '' }}"
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-book-open text-lg">
+                            </i>
+                        </span>
+                        <span
+                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Handleiding
+                        </span>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden">
+                                <i class="ki-filled ki-plus text-[11px]">
+                                </i>
+                            </span>
+                            <span class="hidden kt-menu-item-show:inline-flex">
+                                <i class="ki-filled ki-minus text-[11px]">
+                                </i>
+                            </span>
+                        </span>
+                    </div>
+                    <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.handleiding.index') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.handleiding.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Overzicht
+                                </span>
+                            </a>
+                        </div>
+                        @foreach($handleidingPages as $handleidingSlug => $handleidingPage)
+                        <div class="kt-menu-item {{ request()->routeIs('admin.handleiding.show') && request()->route('slug') === $handleidingSlug ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.handleiding.show', $handleidingSlug) }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    {{ $handleidingPage['title'] }}
+                                </span>
+                            </a>
+                        </div>
+                        @endforeach
+                    </div>
                 </div>
 
                 <!-- Beheer -->
@@ -571,7 +624,7 @@
 
                 <!-- Configuraties (Super Admin only) -->
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.upgrade.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -620,6 +673,18 @@
                                 </span>
                             </a>
                         </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.settings.upgrade.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.settings.upgrade.index') }}" tabindex="0">
+                                <span
+                                    class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
+                                </span>
+                                <span
+                                    class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Upgrade
+                                </span>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 @endif
@@ -638,7 +703,7 @@
                         || (request()->routeIs('admin.website-pages.*') && $isCentralWelcomeWebsitePage);
                     $isWebsitePagesMenuActive = request()->routeIs('admin.website-pages.*') && ! $isCentralWelcomeWebsitePage;
                 @endphp
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -686,7 +751,7 @@
                         </div>
                         <div class="kt-menu-item {{ $isWebsitePagesMenuActive ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
-                                href="{{ route('admin.website-pages.index') }}" tabindex="0">
+                                href="{{ route('admin.website-pages.index', $selectedTenant ? ['tenant_company' => (int) $selectedTenant] : []) }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Pagina's
@@ -708,6 +773,15 @@
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Componenten
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.playground.metronic-demo1') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.playground.metronic-demo1') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Componenten catalogus
                                 </span>
                             </a>
                         </div>
@@ -867,11 +941,29 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <script>
+function buildTenantSwitchRedirect(tenantId) {
+    const url = new URL(window.location.href);
+    const shouldSync = url.searchParams.has('tenant_company')
+        || /^\/admin\/website-pages(?:\/|$)/.test(url.pathname);
+
+    if (!shouldSync) {
+        return url.pathname + url.search;
+    }
+
+    if (tenantId) {
+        url.searchParams.set('tenant_company', tenantId);
+    } else {
+        url.searchParams.delete('tenant_company');
+    }
+
+    return url.pathname + url.search;
+}
+
 function switchTenant(tenantId) {
     const formData = new FormData();
     formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
     formData.append('tenant_id', tenantId);
-    formData.append('redirect', window.location.pathname + window.location.search);
+    formData.append('redirect', buildTenantSwitchRedirect(tenantId));
     
     fetch('{{ route('admin.tenant.switch') }}', {
         method: 'POST',

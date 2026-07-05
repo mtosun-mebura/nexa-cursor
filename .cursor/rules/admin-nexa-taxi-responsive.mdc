@@ -15,6 +15,7 @@ Volg **`admin-bewerk-formulier-responsive.mdc`** voor alle create/edit-formulier
 | Voertuigen | index, create, edit, show | `vehicles/*.blade.php` |
 | Tarieven | edit (geen aparte show) | `tarieven/edit.blade.php` |
 | Ritten | index, create, edit, show, notificatielog | `ride_requests/*.blade.php` |
+| Contractvervoer | index, create, edit, show, abonnementen, planning, uitzonderingen | `transport_customers/*.blade.php`, `transport_planning/*.blade.php`, `transport_schedule_exceptions/*.blade.php` |
 | Chauffeur dispatch | edit, e-mail rit geaccepteerd | `dispatch-settings/*.blade.php` |
 | AI-chatbot | index, create, edit | `knowledge_documents/*.blade.php` |
 
@@ -22,9 +23,12 @@ Volg **`admin-bewerk-formulier-responsive.mdc`** voor alle create/edit-formulier
 
 - `kt-container-fixed min-w-0` op elke pagina
 - Lijst/index: volg **`admin-datatable-responsive.mdc`** (`admin-fluid-table`, `admin-filter-panel`, filterknop zonder `kt-btn-sm`)
+- Lijst/index acties-kolom: **drie-puntjes `kt-menu`** — zie sectie *Acties-kolom* in `admin-datatable-responsive.mdc` (referentie: `transport_customers/index.blade.php`)
+- Datumvelden: **KT datepicker** — zie `admin-bewerk-formulier-responsive.mdc`; partial `transport_customers/partials/date-picker-input.blade.php`
+- **Alle** datumvelden in NexaTaxi (formulieren én filters: planning-week, uitzonderingsdag, ritfilters) — **geen** `<input type="date">`; backend: `parse_admin_date()` vóór validatie/opslag
 - Create/edit: `wizard-onboarding-form-table w-full` **alleen op `<table>`**, kaart met `kt-card-content` + `px-3 sm:px-5 pb-3`
 - Show/detail: **geen** vaste `dl`-grid of `grid-template-columns: 16rem`; gebruik `kt-table-border-dashed` of `admin-detail-field-list` voor flex-regels
-- Acties: `admin-form-actions` (niet alleen `kt-card-footer` zonder responsive gedrag)
+- Formulier-acties onderaan: `admin-form-actions` (niet alleen `kt-card-footer` zonder responsive gedrag)
 - Switches: `kt-label flex items-center gap-2` — **nooit** `wizard-onboarding-form-table` op `<p>` of `<label>`
 
 ## Dispatch (collapsible)

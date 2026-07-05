@@ -7,6 +7,7 @@ use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class RideRequest extends Model
 {
@@ -17,6 +18,11 @@ class RideRequest extends Model
         'vehicle_id',
         'driver_id',
         'status',
+        'source',
+        'ride_type',
+        'transport_contract_id',
+        'transport_occurrence_id',
+        'transport_passenger_id',
         'pickup_address',
         'dropoff_address',
         'pickup_lat',
@@ -27,6 +33,10 @@ class RideRequest extends Model
         'duration_seconds',
         'passengers',
         'pickup_at',
+        'return_at',
+        'outbound_completed_at',
+        'outbound_driver_id',
+        'return_started_at',
         'quoted_price',
         'payment_method',
         'payment_status',
@@ -44,6 +54,9 @@ class RideRequest extends Model
 
     protected $casts = [
         'pickup_at' => 'datetime',
+        'return_at' => 'datetime',
+        'outbound_completed_at' => 'datetime',
+        'return_started_at' => 'datetime',
         'quote_expires_at' => 'datetime',
         'pickup_lat' => 'decimal:7',
         'pickup_lng' => 'decimal:7',
@@ -70,11 +83,37 @@ class RideRequest extends Model
 
     public const PAYMENT_METHOD_DRIVER = 'driver';
 
+    public const PAYMENT_METHOD_CONTRACT = 'contract';
+
     public const PAYMENT_STATUS_PENDING = 'pending';
 
     public const PAYMENT_STATUS_PAID = 'paid';
 
     public const PAYMENT_STATUS_NOT_REQUIRED = 'not_required';
+
+    public const RIDE_TYPE_STANDARD = 'standard';
+
+    public const RIDE_TYPE_CONTRACT_GROUP = 'contract_group';
+
+    public const RIDE_TYPE_CONTRACT_INDIVIDUAL = 'contract_individual';
+
+    public const SOURCE_BOOKING = 'booking';
+
+    public const SOURCE_CONTRACT = 'contract';
+
+    public const SOURCE_MANUAL = 'manual';
+
+    public const RETURN_LEG_OUTBOUND = 'outbound';
+
+    public const RETURN_LEG_WAITING = 'waiting';
+
+    public const RETURN_LEG_RETURN = 'return';
+
+    public const INVOICE_BILLING_HEEN = 'heen';
+
+    public const INVOICE_BILLING_TERUG = 'terug';
+
+    public const INVOICE_BILLING_TOTAAL = 'totaal';
 
     public static function statusLabels(): array
     {
@@ -107,6 +146,11 @@ class RideRequest extends Model
     public function dispatchOffers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(RideDispatchOffer::class, 'ride_request_id');
+    }
+
+    public function rideStops(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(RideStop::class, 'ride_request_id')->orderBy('sequence');
     }
 
     public function notificationLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -166,6 +210,26 @@ class RideRequest extends Model
         }
 
         return (int) ($this->company_id ?? 0) > 0;
+    }
+
+    public function isContractRide(): bool
+    {
+        if ($this->payment_method === self::PAYMENT_METHOD_CONTRACT) {
+            return true;
+        }
+
+        if ($this->source === self::SOURCE_CONTRACT) {
+            return true;
+        }
+
+        if ((int) ($this->transport_contract_id ?? 0) > 0) {
+            return true;
+        }
+
+        return in_array($this->ride_type, [
+            self::RIDE_TYPE_CONTRACT_GROUP,
+            self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
+        ], true);
     }
 
     /** Rit duur in minuten (afgerond). */
@@ -264,8 +328,302 @@ class RideRequest extends Model
 
     public function chargeableAmount(): ?float
     {
+        if ($this->requiresPerLegDriverPayment()) {
+            if ($this->payment_status === self::PAYMENT_STATUS_PAID) {
+                return null;
+            }
+
+            return $this->legChargeableAmount();
+        }
+
         $amount = $this->final_price ?? $this->quoted_price;
 
         return $amount !== null ? (float) $amount : null;
+    }
+
+    public function requiresPerLegDriverPayment(): bool
+    {
+        return $this->isReturnTrip()
+            && $this->payment_method === self::PAYMENT_METHOD_DRIVER;
+    }
+
+    public function returnPriceMultiplier(): float
+    {
+        $payload = $this->booking_payload;
+        if (is_array($payload)) {
+            $logic = is_array($payload['logic'] ?? null) ? $payload['logic'] : [];
+            if (isset($logic['return_price_multiplier']) && is_numeric($logic['return_price_multiplier'])) {
+                return max(1.0, (float) $logic['return_price_multiplier']);
+            }
+        }
+
+        return 2.0;
+    }
+
+    /**
+     * Verdeelt het retourtotaal over heen- en terugrit (zelfde logica als boekingsmodule).
+     *
+     * @return array{outbound: float, return: float}
+     */
+    public function splitReturnTripLegAmounts(): array
+    {
+        $total = $this->quoted_price !== null ? (float) $this->quoted_price : null;
+        if ($total === null || $total < 0.01) {
+            return ['outbound' => 0.0, 'return' => 0.0];
+        }
+
+        $outbound = round($total / $this->returnPriceMultiplier(), 2);
+        $return = round($total - $outbound, 2);
+
+        return [
+            'outbound' => $outbound,
+            'return' => $return,
+        ];
+    }
+
+    public function legChargeableAmount(): ?float
+    {
+        $total = $this->quoted_price !== null ? (float) $this->quoted_price : null;
+        if ($total === null || $total < 0.01) {
+            return null;
+        }
+
+        if (! $this->isReturnTrip()) {
+            return round($total, 2);
+        }
+
+        $amounts = $this->splitReturnTripLegAmounts();
+        $leg = $this->currentReturnLeg();
+
+        if ($leg === self::RETURN_LEG_OUTBOUND) {
+            return $amounts['outbound'];
+        }
+
+        if ($leg === self::RETURN_LEG_RETURN || $leg === self::RETURN_LEG_WAITING) {
+            return $amounts['return'];
+        }
+
+        return $amounts['outbound'];
+    }
+
+    public function currentPaymentLegLabel(): ?string
+    {
+        if (! $this->requiresPerLegDriverPayment()) {
+            return null;
+        }
+
+        $leg = $this->currentReturnLeg();
+        if ($leg === self::RETURN_LEG_OUTBOUND) {
+            return 'Heenrit';
+        }
+        if ($leg === self::RETURN_LEG_RETURN) {
+            return 'Retourrit';
+        }
+
+        if ($leg === self::RETURN_LEG_WAITING) {
+            return 'Terugrit';
+        }
+
+        return null;
+    }
+
+    public function isReturnTrip(): bool
+    {
+        $payload = $this->booking_payload;
+        if (is_array($payload)) {
+            $step = is_array($payload['step_data'] ?? null) ? $payload['step_data'] : [];
+            if (! empty($step['return_trip']) || ! empty($payload['return_trip'])) {
+                return true;
+            }
+        }
+
+        return $this->return_at !== null;
+    }
+
+    public function hasOutboundCompleted(): bool
+    {
+        return $this->outbound_completed_at !== null;
+    }
+
+    public function hasReturnLegStarted(): bool
+    {
+        return $this->return_started_at !== null;
+    }
+
+    public function currentReturnLeg(): ?string
+    {
+        if (! $this->isReturnTrip()) {
+            return null;
+        }
+
+        if (! $this->hasOutboundCompleted()) {
+            return self::RETURN_LEG_OUTBOUND;
+        }
+
+        if (! $this->hasReturnLegStarted()) {
+            return self::RETURN_LEG_WAITING;
+        }
+
+        return self::RETURN_LEG_RETURN;
+    }
+
+    /**
+     * Assigned ride blocks accepting/starting other rides unless waiting for return leg.
+     */
+    public function blocksDriverFromOtherRides(): bool
+    {
+        if ($this->status !== self::STATUS_ASSIGNED) {
+            return false;
+        }
+
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted() && ! $this->hasReturnLegStarted()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, RidePayment>
+     */
+    public function paidDriverPayments(): \Illuminate\Support\Collection
+    {
+        return $this->payments()
+            ->where('status', RidePayment::STATUS_PAID)
+            ->whereIn('channel', [
+                RidePayment::CHANNEL_DRIVER,
+                RidePayment::CHANNEL_CASH,
+                RidePayment::CHANNEL_BOOKING,
+            ])
+            ->orderBy('paid_at')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function outboundPaidAmount(): ?float
+    {
+        if (! $this->requiresPerLegDriverPayment()) {
+            return null;
+        }
+
+        $first = $this->paidDriverPayments()->first();
+        if (! $first) {
+            return null;
+        }
+
+        return round((float) $first->amount, 2);
+    }
+
+    public function returnPaidAmount(): ?float
+    {
+        if (! $this->requiresPerLegDriverPayment()) {
+            return null;
+        }
+
+        $payments = $this->paidDriverPayments();
+        if ($payments->count() >= 2) {
+            return round((float) $payments->get(1)->amount, 2);
+        }
+
+        if ($this->payment_status === self::PAYMENT_STATUS_PAID && $this->hasReturnLegStarted()) {
+            return $this->splitReturnTripLegAmounts()['return'] ?: null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{outbound: float, return: float, total: float}|null
+     */
+    public function returnTripLegAmountsPayload(): ?array
+    {
+        if (! $this->isReturnTrip() || $this->quoted_price === null) {
+            return null;
+        }
+
+        $amounts = $this->splitReturnTripLegAmounts();
+
+        return [
+            'outbound' => $amounts['outbound'],
+            'return' => $amounts['return'],
+            'total' => round((float) $this->quoted_price, 2),
+        ];
+    }
+
+    public function invoiceLegLabelForBillingPeriod(?string $billingPeriod): ?string
+    {
+        return match ($billingPeriod) {
+            self::INVOICE_BILLING_HEEN => 'Heenrit',
+            self::INVOICE_BILLING_TERUG => 'Terugrit',
+            self::INVOICE_BILLING_TOTAAL => 'Totaalfactuur',
+            default => null,
+        };
+    }
+
+    public function resolveReturnAt(): ?CarbonInterface
+    {
+        if ($this->return_at) {
+            return $this->return_at->copy();
+        }
+
+        $payload = $this->booking_payload;
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $step = is_array($payload['step_data'] ?? null) ? $payload['step_data'] : [];
+        $raw = $step['return_at'] ?? $payload['return_at'] ?? null;
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function effectivePickupAt(): ?CarbonInterface
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return $this->resolveReturnAt() ?? $this->pickup_at?->copy();
+        }
+
+        return $this->pickup_at?->copy();
+    }
+
+    public function driverLegPickupAddress(): string
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return trim((string) $this->dropoff_address);
+        }
+
+        return trim((string) $this->pickup_address);
+    }
+
+    public function driverLegDropoffAddress(): string
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return trim((string) $this->pickup_address);
+        }
+
+        return trim((string) $this->dropoff_address);
+    }
+
+    public function canReleaseReturnLeg(?int $driverId = null): bool
+    {
+        if (! $this->isReturnTrip()
+            || ! $this->hasOutboundCompleted()
+            || $this->hasReturnLegStarted()
+            || $this->status !== self::STATUS_ASSIGNED) {
+            return false;
+        }
+
+        if ($driverId !== null && (int) ($this->driver_id ?? 0) !== $driverId) {
+            return false;
+        }
+
+        return (int) ($this->driver_id ?? 0) > 0;
     }
 }

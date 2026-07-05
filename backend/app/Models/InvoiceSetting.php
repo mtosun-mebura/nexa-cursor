@@ -75,6 +75,14 @@ class InvoiceSetting extends Model
 
     public static function invoicePaymentTermsTextForInvoice(Invoice $invoice): string
     {
+        if ($invoice->isPaid()) {
+            $paidOn = $invoice->paid_date?->format('d-m-Y');
+
+            return $paidOn
+                ? 'Deze factuur is volledig betaald op '.$paidOn.'. Bedankt voor uw betaling.'
+                : 'Deze factuur is volledig betaald. Bedankt voor uw betaling.';
+        }
+
         $companyId = (int) ($invoice->company_id ?? 0);
         $settings = static::getSettingsForCompany($companyId > 0 ? $companyId : null);
         $template = trim((string) ($settings->invoice_payment_terms_text ?? ''));
@@ -174,6 +182,27 @@ class InvoiceSetting extends Model
         }
 
         return 30;
+    }
+
+    public function previewNextInvoiceNumber(bool $isPartial = false, ?string $parentInvoiceNumber = null, ?int $partialNumber = null): string
+    {
+        $year = date('Y');
+        $nextNumber = $this->next_invoice_number;
+        if ($this->current_year != $year) {
+            $nextNumber = 1;
+        }
+
+        if ($isPartial && $parentInvoiceNumber && $partialNumber) {
+            return $parentInvoiceNumber.'-'.$partialNumber;
+        }
+
+        $number = str_pad((string) $nextNumber, 4, '0', STR_PAD_LEFT);
+
+        return str_replace(
+            ['{prefix}', '{year}', '{number}'],
+            [$this->invoice_number_prefix, $year, $number],
+            $this->invoice_number_format
+        );
     }
 
     public function generateInvoiceNumber(bool $isPartial = false, ?string $parentInvoiceNumber = null, ?int $partialNumber = null): string

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminCompanyController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
+use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 // AdminVacancyController moved to Skillmatching module
 // AdminMatchController and AdminInterviewController moved to Skillmatching module
@@ -23,6 +25,7 @@ use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
+use App\Http\Controllers\Frontend\InfoRequestController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
@@ -318,6 +321,7 @@ Route::get('/jobs/{job}', fn () => redirect()->route('home'))->name('jobs.show')
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+Route::get('/admin/manifest.webmanifest', App\Http\Controllers\Admin\AdminWebManifestController::class)->name('admin.manifest');
 
 /*
 | Sessiecheck voor JavaScript in de admin-layout: alleen web + auth (geen AdminMiddleware-rolcheck).
@@ -332,17 +336,13 @@ Route::middleware(['web', 'auth:web'])->prefix('admin')->name('admin.')->group(f
 
 // Admin meld: sessie verlopen (toegankelijk zonder login)
 Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
-    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's)
-    $intended = $request->query('intended');
-    $path = $intended ? (parse_url($intended, PHP_URL_PATH) ?? '') : '';
-    if ($intended && is_string($intended) && $path !== '' && \Illuminate\Support\Str::startsWith($path, '/admin')) {
+    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's, nooit login/meld zelf)
+    $intended = AdminReturnUrl::resolveIntended($request->query('intended'));
+    if ($intended !== null) {
         session(['url.intended' => $intended]);
     }
     $appName = \App\Models\GeneralSetting::get('site_name', config('app.name'));
-    $redirectUrl = route('admin.login');
-    if (! empty($intended) && is_string($intended)) {
-        $redirectUrl .= '?intended='.rawurlencode($intended);
-    }
+    $redirectUrl = AdminReturnUrl::loginUrlWithIntended($intended);
 
     return view('admin.meld.redirect', [
         'title' => 'Sessie verlopen',
@@ -368,6 +368,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
 
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
+
+    Route::get('handleiding', [AdminHandleidingController::class, 'index'])->name('handleiding.index');
+    Route::get('handleiding/{slug}', [AdminHandleidingController::class, 'show'])
+        ->name('handleiding.show')
+        ->where('slug', '[a-z0-9\-]+');
 
     // Companies
     Route::get('companies/wizard', [AdminCompanyWizardController::class, 'start'])->name('companies.wizard.start');
@@ -675,6 +680,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('settings/frontend/preview', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendComingSoonPreview'])->name('settings.frontend.preview');
         Route::get('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
         Route::post('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
+        Route::get('settings/upgrade', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'index'])->name('settings.upgrade.index');
+        Route::get('settings/upgrade/preview', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'preview'])->name('settings.upgrade.preview');
+        Route::post('settings/upgrade/run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'run'])->name('settings.upgrade.run');
         Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
         Route::post('settings/remove-logo-light', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
         Route::post('settings/remove-logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');
@@ -702,6 +710,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
         Route::post('website-pages/generate-seo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
+        Route::get('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
+        Route::put('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
+        Route::patch('website-pages/{website_page}/builder-v2/meta', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
         Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
@@ -818,6 +829,10 @@ Route::get('/logout', [FrontendAuthController::class, 'logout'])->name('logout.g
 Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController::class, 'sendMessage'])
     ->middleware('throttle:30,1')
     ->name('frontend.ai-chat.message');
+
+Route::post('/info-request', [InfoRequestController::class, 'submit'])
+    ->middleware('throttle:10,1')
+    ->name('frontend.send-info-request');
 
 // Test routes voor error pagina's (alleen in development)
 if (app()->environment('local', 'development')) {

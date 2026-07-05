@@ -2,14 +2,14 @@
 # Nexa SaaS deploy (CyberPanel / nginx / Docker / Laravel).
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI test:  deploy-saas.yml → branch release/test (Proxmox, self-hosted runner).
-# CI prod:  deploy-prod.yml → git-tag v* op main (AWS Lightsail, SSH).
+# CI prod:  deploy-prod.yml → git-tag v* op main (Hostinger VPS, SSH).
 #
 # Artisan / Composer: draai in de backend-container, niet met `php artisan` op de host in
 # TENANT_DIR/backend — daar staat geen vendor/ (die zit in de image onder /var/www/html).
 # Voorbeeld: cd TENANT_DIR && docker compose -f docker-compose.deploy.yml exec backend php artisan …
 #
 # DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Vóór git checkout: backend stoppen en
-# storage/bootstrap/cache terugchownen (container www-data), anders faalt checkout met "unable to unlink".
+# storage/bootstrap/cache/public (build + frontend-themes) terugchownen (container www-data), anders faalt checkout met "unable to unlink".
 #
 # Docker: deploy-user moet in groep 'docker' zitten (socket). Daarna runner-service herstarten.
 # compose: bij voorkeur 'docker compose' (v2), anders docker-compose v1. Laravel service: backend.
@@ -98,7 +98,7 @@ _compose() {
   fi
   if [[ "${REQUIRE_COMPOSE_V2:-}" == "1" || "${REQUIRE_COMPOSE_V2:-}" == "true" ]]; then
     echo "ERROR: PROD vereist 'docker compose' v2 (plugin), maar alleen v1 of geen compose gevonden." >&2
-    echo "Op AWS Lightsail (eenmalig): bash $TENANT_DIR/deploy/install-docker-compose-v2.sh" >&2
+    echo "Op PROD VPS (eenmalig): bash $TENANT_DIR/deploy/install-docker-compose-v2.sh" >&2
     exit 1
   fi
   if command -v docker-compose >/dev/null 2>&1; then
@@ -106,12 +106,12 @@ _compose() {
     return
   fi
   echo "ERROR: Geen 'docker compose' (v2) of docker-compose (v1) in PATH." >&2
-  echo "AWS prod: bash deploy/install-docker-compose-v2.sh" >&2
+  echo "PROD VPS: bash deploy/install-docker-compose-v2.sh" >&2
   echo "Proxmox test: sudo apt-get install -y docker-compose  # v1 is voldoende" >&2
   exit 1
 }
 
-# Proxmox-test en AWS-prod gebruiken docker-compose.deploy.yml; oude compose v1 kent geen `include:`.
+# Proxmox-test en PROD VPS gebruiken docker-compose.deploy.yml; oude compose v1 kent geen `include:`.
 _preflight_compose_file() {
   local compose_path="$TENANT_DIR/$COMPOSE_FILE"
   if [[ ! -f "$compose_path" ]]; then
@@ -207,10 +207,40 @@ fi
 cd "$TENANT_DIR"
 
 DEPLOY_LOG="${DEPLOY_LOG:-$BACKEND_DIR/storage/logs/deploy-latest.log}"
+
+_ensure_deploy_log_writable() {
+  local log_dir uid gid
+  log_dir="$(dirname "$DEPLOY_LOG")"
+  uid=$(id -u)
+  gid=$(id -g)
+
+  mkdir -p "$log_dir" 2>/dev/null || true
+
+  if : >>"$DEPLOY_LOG" 2>/dev/null; then
+    return 0
+  fi
+
+  chown -R "${uid}:${gid}" "$log_dir" 2>/dev/null || true
+  chmod -R ug+rwX "$log_dir" 2>/dev/null || true
+  if : >>"$DEPLOY_LOG" 2>/dev/null; then
+    return 0
+  fi
+
+  if command -v sudo >/dev/null 2>&1 && sudo -n chown -R "${uid}:${gid}" "$log_dir" 2>/dev/null; then
+    chmod -R ug+rwX "$log_dir" 2>/dev/null || true
+    : >>"$DEPLOY_LOG" 2>/dev/null && return 0
+  fi
+
+  return 1
+}
+
 # In CI/SSH geen process-substitution tee: output blijft dan zichtbaar in GitHub Actions.
-if [[ "${DEPLOY_NO_TEE:-}" != "1" ]] && mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
+# storage/logs is vaak nog www-data vóór _fix_backend_tree_for_git_reset — schrijfrecht herstellen of overslaan.
+if [[ "${DEPLOY_NO_TEE:-}" != "1" ]] && _ensure_deploy_log_writable; then
   : >"$DEPLOY_LOG"
   exec > >(tee -a "$DEPLOY_LOG") 2>&1
+elif [[ "${DEPLOY_NO_TEE:-}" != "1" ]]; then
+  echo "==> Deploy-log overgeslagen (geen schrijfrecht op ${DEPLOY_LOG}; output blijft op stdout)"
 fi
 
 echo "==> Deploy gestart $(date -Iseconds)"
@@ -281,7 +311,7 @@ _build_frontend_assets() {
     return 0
   fi
 
-  echo "==> Geen host-npm; Vite build via Node Docker image (geschikt voor PROD/Lightsail)"
+  echo "==> Geen host-npm; Vite build via Node Docker image (geschikt voor PROD VPS)"
   local node_image="${DEPLOY_NODE_IMAGE:-node:24-bookworm-slim}"
   docker run --rm \
     -u "$(id -u):$(id -g)" \
@@ -314,9 +344,9 @@ _fix_backend_tree_for_git_reset() {
   uid=$(id -u)
   gid=$(id -g)
   # Eén regel voor exec/run -c (paden = volume-mounts in docker-compose.deploy)
-  fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
+  fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build /var/www/html/public/frontend-themes; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
 
-  echo "==> Laravel writable dirs → ${uid}:${gid} + ug+rwX"
+  echo "==> Laravel writable + git-tracked public dirs → ${uid}:${gid} + ug+rwX"
   if _compose ps -q "$LARAVEL_SERVICE" 2>/dev/null | grep -q .; then
     echo "==> Container draait nog; probeer compose exec -u root"
     if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c "$fix_cmd"; then
@@ -333,7 +363,7 @@ _fix_backend_tree_for_git_reset() {
   fi
 
   echo "==> compose run mislukt; host-paden direct (zonder container)"
-  for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+  for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build" "$BACKEND_DIR/public/frontend-themes"; do
     [[ -e "$d" ]] || continue
     chown -R "${uid}:${gid}" "$d" 2>/dev/null || true
     chmod -R ug+rwX "$d" 2>/dev/null || true
@@ -345,7 +375,7 @@ _fix_backend_tree_for_git_reset() {
 
   echo "==> Fallback: passwordless host-sudo (sudo -n)"
   if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build" "$BACKEND_DIR/public/frontend-themes"; do
       [[ -e "$d" ]] || continue
       sudo -n chown -R "${uid}:${gid}" "$d" || true
       sudo -n chmod -R ug+rwX "$d" || true
@@ -353,7 +383,7 @@ _fix_backend_tree_for_git_reset() {
     return 0
   fi
 
-  echo "ERROR: Kon storage/bootstrap/cache niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
+  echo "ERROR: Kon storage/bootstrap/cache/public niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
   echo "Als compose run faalde met mount .env: $(printf %q "$TENANT_DIR/.env") moet een bestand zijn, geen map (rm -rf + cp .env.example .env)." >&2
   echo "TIP: image bouwen: docker compose -f $COMPOSE_FILE build ${LARAVEL_SERVICE}" >&2
   echo "TIP: bij Permission denied op de socket eerst: usermod -aG docker $(id -un) + runner herstarten." >&2

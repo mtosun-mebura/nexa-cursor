@@ -141,6 +141,7 @@ class AdminProfileController extends Controller
             'location' => 'nullable|string|max:255',
             'bio' => 'nullable|string|max:1000',
             'date_of_birth' => 'nullable|string',
+            'agenda_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
         ], [
             'first_name.required' => 'Voornaam is verplicht',
             'first_name.max' => 'Voornaam mag maximaal 255 karakters bevatten',
@@ -190,6 +191,9 @@ class AdminProfileController extends Controller
             'location' => $request->location,
             'bio' => $request->bio,
             'date_of_birth' => $dateOfBirth,
+            'agenda_color' => $request->filled('agenda_color')
+                ? strtolower((string) $request->agenda_color)
+                : null,
         ]);
 
         return response()->json([

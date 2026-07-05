@@ -44,7 +44,10 @@ class MenuService
                 }
 
                 $moduleMenuItems = $module->registerMenuItems();
-                $enabledKeys = $this->getEnabledMenuKeysForModule($module->getName());
+                $companyId = auth()->user()?->hasRole('super-admin') && session('selected_tenant')
+                    ? (int) session('selected_tenant')
+                    : (auth()->user()?->company_id ? (int) auth()->user()->company_id : null);
+                $enabledKeys = $this->getEnabledMenuKeysForModule($module->getName(), $companyId);
 
                 foreach ($moduleMenuItems as $item) {
                     // Filter op door gebruiker geselecteerde onderdelen (enabled_menu_items in config)
@@ -112,18 +115,23 @@ class MenuService
      * Null = geen filter (alle onderdelen tonen), array = alleen deze keys.
      * Nieuwe menu-keys die de module later toevoegt (bijv. tarieven) worden automatisch meegenomen.
      */
-    public function getEnabledMenuKeysForModule(string $moduleName): ?array
+    public function getEnabledMenuKeysForModule(string $moduleName, ?int $companyId = null): ?array
     {
         if (!Schema::hasTable('modules')) {
             return null;
         }
 
         $model = ModuleModel::where('name', $moduleName)->first();
-        if (!$model || !is_array($model->configuration ?? null)) {
+        if (!$model) {
             return null;
         }
 
-        $enabled = $model->configuration['enabled_menu_items'] ?? null;
+        $config = app(ModuleConfigurationService::class)->getConfiguration($model, $companyId);
+        if (! is_array($config)) {
+            return null;
+        }
+
+        $enabled = $config['enabled_menu_items'] ?? null;
         if (!is_array($enabled)) {
             return null;
         }

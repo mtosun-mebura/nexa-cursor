@@ -92,6 +92,52 @@ class AdminLoginTest extends TestCase
         
         $response->assertRedirect('/admin/login');
     }
+
+    #[Test]
+    public function login_with_login_page_as_intended_redirects_to_dashboard(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'email' => 'admin@test.com',
+            'password' => bcrypt('password'),
+            'email_verified_at' => now(),
+        ]);
+        $user->assignRole('super-admin');
+
+        $response = $this->post('/admin/login', [
+            'email' => 'admin@test.com',
+            'password' => 'password',
+            'intended' => 'http://localhost/admin/login',
+        ]);
+
+        $response->assertRedirect(route('admin.dashboard'));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    #[Test]
+    public function login_after_session_expired_redirects_to_intended_admin_page(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'email' => 'admin@test.com',
+            'password' => bcrypt('password'),
+            'email_verified_at' => now(),
+        ]);
+        $user->assignRole('super-admin');
+
+        $this->get('/admin/login?intended='.urlencode('http://localhost/admin/settings'));
+
+        $response = $this->post('/admin/login', [
+            'email' => 'admin@test.com',
+            'password' => 'password',
+            'intended' => 'http://localhost/admin/settings',
+        ]);
+
+        $response->assertRedirect('/admin/settings');
+        $this->assertAuthenticatedAs($user);
+    }
 }
 
 

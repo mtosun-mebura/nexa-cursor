@@ -1,0 +1,35 @@
+---
+description: Admin-kaarten en content-blokken altijd met padding; nooit inhoud tegen de rand.
+globs: backend/resources/views/admin/**/*.blade.php
+alwaysApply: false
+---
+
+# Admin: padding in kaarten en content-blokken
+
+Bij nieuwe of gewijzigde admin-UI (Blade, Vue in admin): **zet inhoud nooit direct tegen de zijkanten** van een kaart, panel of sectie.
+
+## Standaard
+
+- **`kt-card-body`**: altijd expliciete padding, bijv. `p-5 lg:p-6` (of `px-5 py-5 lg:px-6 lg:py-6`).
+- **Geen `p-0` op card-body** tenzij er een bewuste full-bleed reden is én er nog steeds een **binnenwrapper met padding** om de leesbare inhoud zit.
+- **Tabellen in kaarten**: wrapper `kt-card-body p-5 lg:p-6` → daarbinnen `kt-scrollable-x-auto admin-table-scroll-wrap` → tabel. Niet de tabel direct tegen de kaartrand.
+- **Grids met losse tegels** (zoals dashboard stack): padding op de parent (`kt-card-body p-5 lg:p-6`), niet alleen op de child-items.
+
+## Voorbeeld
+
+```blade
+{{-- ✅ GOED --}}
+<div class="kt-card-body space-y-4 p-5 lg:p-6">
+    <p class="text-sm text-secondary-foreground">…</p>
+</div>
+
+{{-- ❌ FOUT --}}
+<div class="kt-card-body space-y-4">
+    <p>…</p>
+</div>
+```
+
+## Niet doen
+
+- Geen nieuwe `kt-card-body` zonder padding-classes.
+- Geen formulier-/tekstblokken direct in een kaart zonder horizontale marge of body-padding.

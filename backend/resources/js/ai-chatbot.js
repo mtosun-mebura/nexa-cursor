@@ -1,3 +1,177 @@
+const GEOLOCATION_ACCURACY_WARN_METERS = 80;
+
+function formatGeolocationAccuracyHint(accuracyMeters) {
+    if (!Number.isFinite(accuracyMeters) || accuracyMeters <= GEOLOCATION_ACCURACY_WARN_METERS) {
+        return '';
+    }
+
+    return `Locatie is bij benadering (±${Math.round(accuracyMeters)} m). Controleer het adres.`;
+}
+
+function haversineMeters(lat1, lng1, lat2, lng2) {
+    const toRad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * toRad;
+    const dLng = (lng2 - lng1) * toRad;
+    const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLng / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function googleResultHasStreetNumber(result) {
+    return (result.address_components || []).some((c) => (c.types || []).includes('street_number'));
+}
+
+function formatGoogleGeocodeAddress(result) {
+    if (!result) {
+        return '';
+    }
+
+    const byType = {};
+    (result.address_components || []).forEach((c) => {
+        (c.types || []).forEach((t) => {
+            if (!byType[t]) {
+                byType[t] = c.long_name;
+            }
+        });
+    });
+
+    const street = byType.route || byType.pedestrian || '';
+    const number = byType.street_number || '';
+    const streetPart = [street, number].filter(Boolean).join(' ').trim();
+    const postcode = byType.postal_code || '';
+    const city = byType.locality || byType.postal_town || byType.administrative_area_level_2 || '';
+    const second = [postcode, city].filter(Boolean).join(' ').trim();
+    const value = [streetPart, second].filter(Boolean).join(', ').trim();
+
+    return value || String(result.formatted_address || '').trim();
+}
+
+function formatNominatimReverseAddress(row) {
+    if (!row || typeof row !== 'object') {
+        return null;
+    }
+
+    const displayName = String(row.display_name || '').trim();
+    if (!row.address) {
+        return displayName ? { label: displayName, hasHouseNumber: false, lat: parseFloat(row.lat), lng: parseFloat(row.lon) } : null;
+    }
+
+    const a = row.address;
+    const street = a.road || a.pedestrian || a.footway || a.cycleway || a.path || '';
+    const number = a.house_number || '';
+    const city = a.city || a.town || a.village || a.hamlet || a.city_district || a.suburb || a.municipality || '';
+    const postcode = a.postcode || '';
+    const streetPart = [street, number].filter(Boolean).join(' ').trim();
+    const second = [postcode, city].filter(Boolean).join(' ').trim();
+    const label = [streetPart, second].filter(Boolean).join(', ').trim() || displayName;
+
+    if (!label) {
+        return null;
+    }
+
+    const rLat = parseFloat(row.lat);
+    const rLng = parseFloat(row.lon);
+
+    return {
+        label,
+        hasHouseNumber: !!number,
+        lat: Number.isFinite(rLat) ? rLat : null,
+        lng: Number.isFinite(rLng) ? rLng : null,
+    };
+}
+
+function pickBestReverseGeocodeResult(results, lat, lng) {
+    if (!Array.isArray(results) || results.length === 0) {
+        return null;
+    }
+
+    const typePenalty = { ROOFTOP: 0, RANGE_INTERPOLATED: 10, GEOMETRIC_CENTER: 70, APPROXIMATE: 100 };
+    let best = null;
+    let bestScore = Infinity;
+
+    for (const result of results) {
+        if (!result.geometry?.location) {
+            continue;
+        }
+
+        const loc = result.geometry.location;
+        const rLat = typeof loc.lat === 'function' ? loc.lat() : parseFloat(loc.lat);
+        const rLng = typeof loc.lng === 'function' ? loc.lng() : parseFloat(loc.lng);
+        if (!Number.isFinite(rLat) || !Number.isFinite(rLng)) {
+            continue;
+        }
+
+        const dist = haversineMeters(lat, lng, rLat, rLng);
+        const penalty = typePenalty[result.geometry.location_type] || 45;
+        const types = result.types || [];
+        const isAddress = types.includes('street_address') || types.includes('premise') || types.includes('subpremise');
+        let score = dist + penalty;
+        if (!isAddress) {
+            score += 55;
+        }
+        if (!googleResultHasStreetNumber(result)) {
+            score += 75;
+        }
+        if (score < bestScore) {
+            bestScore = score;
+            best = result;
+        }
+    }
+
+    return best || results[0];
+}
+
+function scoreReverseCandidate(candidate, gpsLat, gpsLng) {
+    const dist = (Number.isFinite(candidate.lat) && Number.isFinite(candidate.lng))
+        ? haversineMeters(gpsLat, gpsLng, candidate.lat, candidate.lng)
+        : 0;
+    let score = dist;
+    if (!candidate.hasHouseNumber) {
+        score += 80;
+    }
+    if (dist > 45) {
+        score += 120;
+    }
+    candidate.distFromGps = dist;
+    candidate.score = score;
+    return score;
+}
+
+function pickBestReverseLabel(lat, lng, candidates) {
+    const usable = (candidates || []).filter((c) => c && c.label);
+    if (usable.length === 0) {
+        return null;
+    }
+
+    usable.forEach((c) => scoreReverseCandidate(c, lat, lng));
+    usable.sort((a, b) => a.score - b.score);
+    return usable[0];
+}
+
+function normalizeAddressSearchQuery(query) {
+    let value = String(query || '').trim();
+    if (value === '') {
+        return '';
+    }
+
+    const patterns = [
+        /^(?:ik\s+)?(?:wil|moet|ga|wilt)\s+(?:graag\s+)?(?:naar|to)\s+/iu,
+        /^(?:kan|kun)\s+ik\s+(?:ook\s+)?(?:naar|to)\s+/iu,
+        /^(?:wat\s+kost\s+(?:een\s+)?(?:rit|taxirit)\s+)?(?:naar|to)\s+/iu,
+        /^(?:boek(?:\s+(?:een|een\s+))?(?:rit|taxirit)|rit\s+boeken)\s+(?:naar|to)\s+/iu,
+        /^(?:taxi|taxirit|rit)\s+naar\s+/iu,
+    ];
+
+    for (const pattern of patterns) {
+        if (pattern.test(value)) {
+            value = value.replace(pattern, '').trim();
+            break;
+        }
+    }
+
+    return value;
+}
+
 export function registerAiChatbot(Alpine) {
     document.addEventListener('click', (event) => {
         if (!event.target.closest('[data-ai-chat-toggle]')) {
@@ -19,6 +193,9 @@ export function registerAiChatbot(Alpine) {
         addressSuggestions: [],
         addressSuggestionsOpen: false,
         addressLoading: false,
+        addressGeolocationLoading: false,
+        addressLocationError: '',
+        addressLocationWarning: '',
         addressSelectedFromSuggestions: false,
         addressSelectedPlaceId: '',
         addressSelectedLat: null,
@@ -75,6 +252,77 @@ export function registerAiChatbot(Alpine) {
             this.$nextTick(() => {
                 this.applyStructuredInputPrefill(this.activeQuoteInput());
             });
+            this.bindMobileViewportListeners();
+        },
+
+        isMobileChatViewport() {
+            return window.matchMedia('(max-width: 767px)').matches;
+        },
+
+        bindMobileViewportListeners() {
+            if (this._mobileViewportBound) {
+                return;
+            }
+            this._mobileViewportBound = true;
+            this._onViewportChange = () => this.syncMobileViewport();
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', this._onViewportChange);
+                window.visualViewport.addEventListener('scroll', this._onViewportChange);
+            }
+            window.addEventListener('resize', this._onViewportChange);
+        },
+
+        syncMobileViewport() {
+            const panel = this.$refs.chatPanel;
+            if (!panel || !this.isMobileChatViewport() || !this.isOpen) {
+                this.resetMobileViewport();
+                return;
+            }
+
+            const visualViewport = window.visualViewport;
+            if (!visualViewport) {
+                return;
+            }
+
+            const keyboardLikelyOpen = visualViewport.height < window.innerHeight * 0.85;
+            if (keyboardLikelyOpen) {
+                const top = Math.max(0, visualViewport.offsetTop);
+                panel.classList.add('ai-chat-panel--keyboard');
+                panel.style.setProperty('--ai-chat-panel-top', `${top}px`);
+                panel.style.setProperty('--ai-chat-panel-height', `${visualViewport.height}px`);
+            } else {
+                panel.classList.remove('ai-chat-panel--keyboard');
+                panel.style.removeProperty('--ai-chat-panel-top');
+                panel.style.removeProperty('--ai-chat-panel-height');
+            }
+
+            this.$nextTick(() => this.scrollToBottom());
+        },
+
+        resetMobileViewport() {
+            const panel = this.$refs.chatPanel;
+            if (!panel) {
+                return;
+            }
+            panel.classList.remove('ai-chat-panel--keyboard');
+            panel.style.removeProperty('--ai-chat-panel-top');
+            panel.style.removeProperty('--ai-chat-panel-height');
+        },
+
+        onInputFocus() {
+            if (!this.isMobileChatViewport()) {
+                return;
+            }
+            setTimeout(() => this.syncMobileViewport(), 50);
+            setTimeout(() => this.syncMobileViewport(), 300);
+        },
+
+        onInputBlur() {
+            if (!this.isMobileChatViewport()) {
+                return;
+            }
+            setTimeout(() => this.syncMobileViewport(), 100);
+            setTimeout(() => this.syncMobileViewport(), 350);
         },
 
         activeQuoteInput() {
@@ -135,6 +383,9 @@ export function registerAiChatbot(Alpine) {
             this.addressSuggestions = [];
             this.addressSuggestionsOpen = false;
             this.addressLoading = false;
+            this.addressGeolocationLoading = false;
+            this.addressLocationError = '';
+            this.addressLocationWarning = '';
             this.addressSelectedFromSuggestions = false;
             this.addressSelectedPlaceId = '';
             this.addressSelectedLat = null;
@@ -152,13 +403,19 @@ export function registerAiChatbot(Alpine) {
             this.isOpen = !this.isOpen;
             this.syncHeaderTriggerState();
             if (this.isOpen) {
+                if (this.isMobileChatViewport()) {
+                    this.isExpanded = false;
+                }
                 this.$nextTick(() => {
                     this.scrollToBottom();
                     this.focusActiveInput();
+                    this.syncMobileViewport();
                     if (this.activeQuoteInput()?.type === 'address') {
                         this.ensureGoogleMaps().catch(() => {});
                     }
                 });
+            } else {
+                this.resetMobileViewport();
             }
         },
 
@@ -168,10 +425,14 @@ export function registerAiChatbot(Alpine) {
             }
             this.isOpen = false;
             this.isExpanded = false;
+            this.resetMobileViewport();
             this.syncHeaderTriggerState();
         },
 
         toggleExpand() {
+            if (this.isMobileChatViewport()) {
+                return;
+            }
             this.isExpanded = !this.isExpanded;
             this.$nextTick(() => {
                 this.scrollToBottom();
@@ -411,7 +672,9 @@ export function registerAiChatbot(Alpine) {
         },
 
         onAddressInput() {
-            const query = this.addressQuery.trim();
+            this.addressLocationError = '';
+            this.addressLocationWarning = '';
+            const query = normalizeAddressSearchQuery(this.addressQuery);
             this.addressSelectedFromSuggestions = false;
             this.addressSelectedPlaceId = '';
             this.addressSelectedLat = null;
@@ -550,6 +813,227 @@ export function registerAiChatbot(Alpine) {
             this.$nextTick(() => {
                 this.$refs.addressInput?.focus();
             });
+        },
+
+        canUseCurrentLocationForAddress() {
+            const active = this.activeQuoteInput();
+
+            return active?.type === 'address'
+                && active?.step === 'pickup'
+                && typeof navigator !== 'undefined'
+                && !!navigator.geolocation;
+        },
+
+        geolocationErrorMessage(error) {
+            const code = error?.code;
+            if (code === 1) {
+                return 'Locatietoegang geweigerd. Sta locatie toe in je browser of vul het adres handmatig in.';
+            }
+            if (code === 2) {
+                return 'Je locatie kon niet worden bepaald. Probeer het opnieuw of vul het adres handmatig in.';
+            }
+            if (code === 3) {
+                return 'Locatie ophalen duurde te lang. Probeer het opnieuw of vul het adres handmatig in.';
+            }
+
+            return 'Je huidige locatie kon niet worden gebruikt. Vul het adres handmatig in.';
+        },
+
+        getCurrentPosition() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('unsupported'));
+                    return;
+                }
+
+                const geoOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+                let best = null;
+                let settled = false;
+                let watchId = null;
+                const deadline = setTimeout(() => {
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    if (watchId !== null) {
+                        navigator.geolocation.clearWatch(watchId);
+                    }
+                    if (best) {
+                        resolve(best);
+                    } else {
+                        reject(Object.assign(new Error('timeout'), { code: 3 }));
+                    }
+                }, 15000);
+
+                const consider = (position) => {
+                    if (!best || position.coords.accuracy < best.coords.accuracy) {
+                        best = position;
+                    }
+                    if (position.coords.accuracy <= 35) {
+                        if (settled) {
+                            return;
+                        }
+                        settled = true;
+                        clearTimeout(deadline);
+                        if (watchId !== null) {
+                            navigator.geolocation.clearWatch(watchId);
+                        }
+                        resolve(best);
+                    }
+                };
+
+                watchId = navigator.geolocation.watchPosition(
+                    consider,
+                    (error) => {
+                        if (settled) {
+                            return;
+                        }
+                        settled = true;
+                        clearTimeout(deadline);
+                        if (watchId !== null) {
+                            navigator.geolocation.clearWatch(watchId);
+                        }
+                        if (best) {
+                            resolve(best);
+                        } else {
+                            reject(error);
+                        }
+                    },
+                    geoOptions,
+                );
+            });
+        },
+
+        async reverseGeocodeWithGoogle(lat, lng) {
+            try {
+                await this.ensureGoogleMaps();
+            } catch (error) {
+                return null;
+            }
+
+            if (!window.google?.maps?.Geocoder) {
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ location: { lat, lng }, language: 'nl', region: 'NL' }, (results, status) => {
+                    const best = status === 'OK' ? pickBestReverseGeocodeResult(results, lat, lng) : null;
+                    if (!best?.geometry?.location) {
+                        resolve(null);
+                        return;
+                    }
+
+                    const loc = best.geometry.location;
+                    const rLat = typeof loc.lat === 'function' ? loc.lat() : parseFloat(loc.lat);
+                    const rLng = typeof loc.lng === 'function' ? loc.lng() : parseFloat(loc.lng);
+                    resolve({
+                        label: formatGoogleGeocodeAddress(best),
+                        place_id: '',
+                        hasHouseNumber: googleResultHasStreetNumber(best),
+                        lat: Number.isFinite(rLat) ? rLat : null,
+                        lng: Number.isFinite(rLng) ? rLng : null,
+                    });
+                });
+            });
+        },
+
+        async reverseGeocodeWithNominatim(lat, lng) {
+            const baseUrl = String(this.config.addressSearchUrl || '').trim();
+            if (!baseUrl) {
+                return null;
+            }
+
+            try {
+                const url = `${baseUrl}?${new URLSearchParams({
+                    lat: String(lat),
+                    lon: String(lng),
+                }).toString()}`;
+                const response = await fetch(url, { headers: { Accept: 'application/json' } });
+                if (!response.ok) {
+                    return null;
+                }
+
+                const row = await response.json();
+                const parsed = formatNominatimReverseAddress(row);
+                if (!parsed?.label) {
+                    return null;
+                }
+
+                return {
+                    label: parsed.label,
+                    place_id: '',
+                    hasHouseNumber: parsed.hasHouseNumber,
+                    lat: parsed.lat,
+                    lng: parsed.lng,
+                };
+            } catch (error) {
+                return null;
+            }
+        },
+
+        async reverseGeocodeCoordinates(lat, lng) {
+            const [nominatimResult, googleResult] = await Promise.all([
+                this.reverseGeocodeWithNominatim(lat, lng),
+                String(this.config.googleMapsApiKey || '').trim() ? this.reverseGeocodeWithGoogle(lat, lng) : Promise.resolve(null),
+            ]);
+            const best = pickBestReverseLabel(lat, lng, [nominatimResult, googleResult]);
+            if (!best?.label) {
+                return null;
+            }
+
+            return {
+                label: best.label,
+                place_id: '',
+                distFromGps: best.distFromGps || 0,
+                hasHouseNumber: !!best.hasHouseNumber,
+            };
+        },
+
+        async useCurrentLocationForAddress() {
+            if (!this.canUseCurrentLocationForAddress() || this.addressGeolocationLoading || this.isTyping) {
+                return;
+            }
+
+            this.addressLocationError = '';
+            this.addressLocationWarning = '';
+            this.addressGeolocationLoading = true;
+            this.addressSuggestionsOpen = false;
+
+            try {
+                const position = await this.getCurrentPosition();
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const resolved = await this.reverseGeocodeCoordinates(lat, lng);
+
+                if (!resolved?.label) {
+                    this.addressLocationError = 'Kon je adres niet bepalen. Vul het ophaaladres handmatig in.';
+                    return;
+                }
+
+                this.addressQuery = resolved.label;
+                this.addressSelectedFromSuggestions = true;
+                this.addressSelectedPlaceId = '';
+                this.addressSelectedLat = lat;
+                this.addressSelectedLng = lng;
+                this.addressSuggestions = [];
+                this.addressSuggestionsOpen = false;
+
+                let warning = formatGeolocationAccuracyHint(position.coords.accuracy);
+                if (!warning && resolved.distFromGps > 45) {
+                    warning = 'Het ingevulde adres kan enkele huizen verderop liggen. Controleer het adres.';
+                } else if (!warning && !resolved.hasHouseNumber) {
+                    warning = 'Kon geen huisnummer bepalen. Vul het adres aan indien nodig.';
+                }
+                this.addressLocationWarning = warning;
+            } catch (error) {
+                this.addressLocationError = this.geolocationErrorMessage(error);
+            } finally {
+                this.addressGeolocationLoading = false;
+                this.$nextTick(() => {
+                    this.$refs.addressInput?.focus();
+                });
+            }
         },
 
         async fetchAddressCoordinates(address) {

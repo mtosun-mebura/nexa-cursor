@@ -29,6 +29,20 @@ final class AiChatRouteQuoteParser
             ];
         }
 
+        if (preg_match('/\b(?:ik\s+)?(?:wil|moet|ga|wilt)\s+(?:graag\s+)?(?:naar|to)\s+(.+)$/iu', $message, $matches)) {
+            return [
+                'pickup_address' => null,
+                'dropoff_address' => $this->cleanAddress($matches[1]),
+            ];
+        }
+
+        if (preg_match('/\b(?:kan|kun)\s+ik\s+(?:ook\s+)?(?:naar|to)\s+(.+)$/iu', $message, $matches)) {
+            return [
+                'pickup_address' => null,
+                'dropoff_address' => $this->cleanAddress($matches[1]),
+            ];
+        }
+
         if (preg_match('/\b(?:rit\s+)?naar\s+(.+)$/iu', $message, $matches)) {
             return [
                 'pickup_address' => null,
@@ -53,10 +67,77 @@ final class AiChatRouteQuoteParser
     {
         $text = $this->normalize($message);
 
-        return $this->matchesAny($text, [
+        if ($this->matchesAny($text, [
             'boek een rit', 'boek een taxirit', 'rit boeken', 'boeken een rit',
             'wil een rit boeken', 'kan ik een rit boeken', 'boek mijn rit',
+            'taxi boeken', 'taxirit boeken', 'rit reserveren', 'taxi reserveren',
+            'wil reserveren', 'graag reserveren', 'kan ik reserveren',
+            'wil boeken', 'graag boeken', 'kan ik boeken',
+            'een rit reserveren', 'een taxi boeken', 'een taxirit boeken',
+        ])) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:boeken|reserveren)\b/u', $text) === 1
+            && preg_match('/\b(?:naar|to)\s+.+/iu', $text) === 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function isPriceQuoteRequest(string $message): bool
+    {
+        $text = $this->normalize($message);
+
+        return $this->matchesAny($text, [
+            'wat kost', 'kost een rit', 'kost een taxirit', 'prijs van een rit',
+            'prijs voor een rit', 'offerte voor', 'prijsindicatie', 'prijs berekenen',
         ]);
+    }
+
+    public function isTravelIntentMessage(string $message): bool
+    {
+        $text = $this->normalize($message);
+
+        if ($this->matchesAny($text, [
+            'mijn rit', 'volgende rit', 'eerst volgende', 'eerste volgende',
+            'welke rit', 'welke ritten', 'hoeveel rit', 'hoeveel ritten',
+            'chauffeur', 'chauffeurs', 'klant', 'klanten', 'omzet', 'planning',
+        ])) {
+            return false;
+        }
+
+        if (preg_match('/\b(?:ik\s+)?(?:wil|moet|ga|wilt)\s+(?:graag\s+)?(?:naar|to)\s+.+/iu', $text)) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:kan|kun)\s+ik\s+(?:ook\s+)?(?:naar|to)\s+.+/iu', $text)) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:taxi|taxirit|rit)\s+naar\s+.+/iu', $text)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function resolveFlow(string $message, bool $publicChannel): string
+    {
+        if ($this->isBookingRequest($message)) {
+            return 'booking';
+        }
+
+        if ($this->isPriceQuoteRequest($message)) {
+            return 'quote';
+        }
+
+        if ($publicChannel && $this->isTravelIntentMessage($message)) {
+            return 'booking';
+        }
+
+        return 'quote';
     }
 
     public function parsePassengers(string $message): ?int

@@ -159,7 +159,8 @@ class Company extends Model
     {
         return $this->belongsToMany(Module::class, 'company_module')
             ->withPivot('settings')
-            ->withTimestamps();
+            ->withTimestamps()
+            ->withCasts(['settings' => 'array']);
     }
 
     /**
@@ -175,7 +176,12 @@ class Company extends Model
      */
     public function hasModuleNamed(string $name): bool
     {
-        return $this->modules()->where('name', $name)->exists();
+        $needle = strtolower(trim($name));
+        if ($needle === '') {
+            return false;
+        }
+
+        return $this->modules()->whereRaw('LOWER(name) = ?', [$needle])->exists();
     }
 
     /**

@@ -20,7 +20,7 @@
         table.items { width: 100%; border-collapse: collapse; margin-top: 12px; }
         table.items th { background: #f1f5f9; text-align: left; padding: 8px 10px; font-size: 11px; }
         table.items th.num { text-align: right; }
-        table.items td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+        table.items td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.45; }
         table.items td.num-euro { text-align: right; width: 14px; white-space: nowrap; }
         table.items td.num-amount { text-align: right; width: 72px; white-space: nowrap; }
         table.totals { width: 100%; border-collapse: collapse; margin-top: 18px; }
@@ -42,6 +42,39 @@
             line-height: 1.5;
             text-align: left;
         }
+        .paid-banner {
+            margin: 0 0 18px;
+            padding: 10px 14px;
+            background: #dcfce7;
+            border: 2px solid #16a34a;
+            color: #14532d;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 0.04em;
+        }
+        .paid-banner .paid-date {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            font-weight: normal;
+            color: #166534;
+            letter-spacing: normal;
+        }
+        .paid-summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+        }
+        .paid-summary td {
+            padding: 8px 10px;
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            font-size: 12px;
+            color: #14532d;
+        }
+        .paid-summary .paid-summary-label { font-weight: bold; }
+        .paid-summary .paid-summary-amount { text-align: right; font-weight: bold; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -49,6 +82,7 @@
     $taxRate = (float) ($details['tax_rate'] ?? 21);
     $taxRateLabel = 'BTW ('.(fmod(round($taxRate, 2), 1) === 0.0 ? (int) round($taxRate).'%' : number_format($taxRate, 2, ',', '.').'%').')';
     $fmt = fn (float $n) => number_format($n, 2, ',', '.');
+    $isPaid = $invoice->isPaid();
 @endphp
 <div class="page-body">
 <table class="header" cellpadding="0" cellspacing="0">
@@ -74,7 +108,16 @@
     </tr>
 </table>
 
-<p class="title">Factuur</p>
+<p class="title">{{ $details['invoice_title'] ?? 'Factuur' }}</p>
+
+@if($isPaid)
+<div class="paid-banner">
+    BETALING VOLDAAN
+    @if($invoice->paid_date)
+    <span class="paid-date">Betaald op {{ $invoice->paid_date->format('d-m-Y') }}</span>
+    @endif
+</div>
+@endif
 
 <table class="meta" cellpadding="0" cellspacing="0">
     <tr>
@@ -82,7 +125,9 @@
             <table cellpadding="0" cellspacing="0">
                 <tr><td class="label">Factuurnummer</td><td class="value"><strong>{{ $invoice->invoice_number }}</strong></td></tr>
                 <tr><td class="label">Factuurdatum</td><td class="value">{{ $invoice->invoice_date?->format('d-m-Y') }}</td></tr>
-                @if($invoice->due_date)
+                @if($isPaid && $invoice->paid_date)
+                <tr><td class="label">Betaald op</td><td class="value"><strong>{{ $invoice->paid_date->format('d-m-Y') }}</strong></td></tr>
+                @elseif($invoice->due_date)
                 <tr><td class="label">Vervaldatum</td><td class="value">{{ $invoice->due_date->format('d-m-Y') }}</td></tr>
                 @endif
             </table>
@@ -109,7 +154,7 @@
     <tbody>
         @forelse($lineItems as $item)
         <tr>
-            <td>{{ $item['description'] ?? '—' }}</td>
+            <td>{!! nl2br(e($item['description'] ?? '—')) !!}</td>
             <td class="num-amount">{{ $item['quantity'] ?? 1 }}</td>
             <td class="num-euro">€</td>
             <td class="num-amount">{{ $fmt((float) ($item['unit_price'] ?? 0)) }}</td>
@@ -145,8 +190,21 @@
     </tr>
 </table>
 
+@if($isPaid)
+<table class="paid-summary" cellpadding="0" cellspacing="0">
+    <tr>
+        <td class="paid-summary-label">Openstaand bedrag</td>
+        <td class="paid-summary-amount">€ 0,00 — volledig voldaan</td>
+    </tr>
+</table>
+@endif
+
 @if(!empty($details['footer_text']))
 <p class="footer">{{ $details['footer_text'] }}</p>
+@endif
+
+@if(!empty($invoice->notes))
+<p class="footer">{{ $invoice->notes }}</p>
 @endif
 </div>
 

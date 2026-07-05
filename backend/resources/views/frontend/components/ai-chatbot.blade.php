@@ -1,25 +1,11 @@
 @php
     $aiChatConfig = $aiChatConfig ?? app(\App\Services\AiChatAssistantService::class)->frontendConfig();
     $chatRootClass = $chatRootClass ?? '';
-    $chatPanelPositionClass = $chatPanelPositionClass ?? 'top-16 md:top-20 right-3 sm:right-4';
+    $chatPanelPositionClass = $chatPanelPositionClass ?? 'md:top-20 md:right-4 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto';
 @endphp
 @once
 <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
 @endonce
-<style>
-    .ai-chat-panel {
-        position: fixed !important;
-        z-index: 100251 !important;
-        left: auto !important;
-        width: min(32rem, calc(100vw - 1.5rem)) !important;
-        height: min(40rem, calc(100vh - 6rem)) !important;
-        transform-origin: top right !important;
-    }
-    .ai-chat-panel.ai-chat-panel--expanded {
-        width: min(52rem, calc(100vw - 2rem)) !important;
-        height: min(58rem, calc(100vh - 4.5rem)) !important;
-    }
-</style>
 <!-- AI Chatbot (paneel; trigger staat in de header naast het thema-icoon) -->
 <div x-data="aiChatbot(@js($aiChatConfig))"
      class="ai-chat-root {{ $chatRootClass }}">
@@ -34,8 +20,9 @@
          x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="transform opacity-0 scale-95 -translate-y-2"
          @click.outside="if (!$event.target.closest('[data-ai-chat-toggle]')) closeChat()"
+         x-ref="chatPanel"
          :class="{ 'ai-chat-panel--expanded': isExpanded }"
-         class="ai-chat-panel fixed {{ $chatPanelPositionClass }} rounded-lg flex flex-col">
+         class="ai-chat-panel fixed {{ $chatPanelPositionClass }} flex flex-col">
 
         <!-- Chat Header -->
         <div class="ai-chat-panel__header p-4 rounded-t-lg flex items-center justify-between shrink-0">
@@ -53,7 +40,7 @@
             <div class="flex items-center gap-0.5 shrink-0 ml-2">
                 <button type="button"
                         @click.stop="toggleExpand()"
-                        class="ai-chat-panel__icon-btn"
+                        class="ai-chat-panel__icon-btn ai-chat-panel__expand-btn hidden md:inline-flex"
                         :aria-label="isExpanded ? 'Chat verkleinen' : 'Chat vergroten'"
                         :title="isExpanded ? 'Verkleinen' : 'Vergroten'">
                     <svg x-show="!isExpanded" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -112,9 +99,11 @@
         </div>
 
         <!-- Chat Input -->
-        <div class="ai-chat-panel__footer p-4 shrink-0 rounded-b-lg">
+        <div class="ai-chat-panel__footer p-4 shrink-0 rounded-b-lg"
+             @focusin="onInputFocus()"
+             @focusout="onInputBlur()">
             <!-- Standaard tekstinvoer -->
-            <form x-show="!activeQuoteInput()" @submit.prevent="sendMessage()" class="flex space-x-2">
+            <form x-show="!activeQuoteInput()" @submit.prevent="sendMessage()" class="flex w-full min-w-0 gap-2">
                 <input type="text"
                        x-model="newMessage"
                        x-ref="messageInput"
@@ -141,11 +130,25 @@
                            @focus="onAddressInput()"
                            @keydown.escape="addressSuggestionsOpen = false"
                            class="input w-full text-sm"
+                           :class="canUseCurrentLocationForAddress() ? 'ai-chat-address-input--with-locate' : ''"
                            :placeholder="activeQuoteInput()?.placeholder || 'Zoek adres…'"
-                           :disabled="isTyping"
+                           :disabled="isTyping || addressGeolocationLoading"
                            autocomplete="off">
-                    <div x-show="addressLoading"
-                         class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    <button type="button"
+                            x-show="canUseCurrentLocationForAddress()"
+                            x-cloak
+                            @click="useCurrentLocationForAddress()"
+                            :disabled="isTyping || addressGeolocationLoading || addressLoading"
+                            class="ai-chat-address-locate-btn"
+                            title="Gebruik mijn huidige locatie"
+                            aria-label="Gebruik mijn huidige locatie">
+                        <i class="ki-filled ki-geolocation text-base leading-none"
+                           :class="addressGeolocationLoading ? 'opacity-40' : ''"
+                           aria-hidden="true"></i>
+                    </button>
+                    <div x-show="addressLoading || addressGeolocationLoading"
+                         class="ai-chat-address-loading absolute top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+                         :class="canUseCurrentLocationForAddress() ? 'right-11' : 'right-3'">
                         …
                     </div>
                     <div x-show="addressSuggestionsOpen"
@@ -168,6 +171,12 @@
                    class="text-xs text-muted-foreground">
                     Kies een adres uit de suggesties om te bevestigen.
                 </p>
+                <p x-show="addressLocationWarning"
+                   class="text-xs text-amber-700 dark:text-amber-400"
+                   x-text="addressLocationWarning"></p>
+                <p x-show="addressLocationError"
+                   class="text-xs text-destructive"
+                   x-text="addressLocationError"></p>
             </form>
 
             <!-- Datum/tijd picker -->

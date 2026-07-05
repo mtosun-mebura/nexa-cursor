@@ -23,17 +23,41 @@ class TaxiBookingNotificationService
     ) {}
 
     /**
-     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context
      */
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
         $companyId = (int) ($ride->company_id ?? 0);
         $summary = $this->summaryText->build($ride, $context);
 
-        $settingsCompanyId = $companyId > 0 ? $companyId : null;
+        $settingsCompanyId = $this->resolveSettingsCompanyId(
+            $companyId > 0 ? $companyId : null,
+            isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
+        );
+
         $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary);
         $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+    }
+
+    protected function resolveSettingsCompanyId(?int $companyId, ?int $fallbackCompanyId = null): ?int
+    {
+        if ($companyId !== null && $companyId > 0) {
+            return $companyId;
+        }
+
+        if ($fallbackCompanyId !== null && $fallbackCompanyId > 0) {
+            return $fallbackCompanyId;
+        }
+
+        if (app()->bound('resolved_tenant_id')) {
+            $resolvedTenantId = (int) app('resolved_tenant_id');
+            if ($resolvedTenantId > 0) {
+                return $resolvedTenantId;
+            }
+        }
+
+        return null;
     }
 
     public function whatsappAutoSendEnabled(?int $companyId = null): bool
@@ -281,16 +305,36 @@ class TaxiBookingNotificationService
             return;
         }
 
-        $this->env->applyMailConfigToRuntime();
-        $from = $this->env->resolveMailFromHeaders();
-        $fromAddress = $from['from_address'];
-        $fromName = $from['from_name'];
-        $smtpUsername = $from['smtp_username'];
         $subject = 'Bevestiging van uw taxiboeking #'.$ride->id;
         $pickupAt = $ride->pickup_at
             ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
             : '—';
         $customerName = trim((string) ($ride->customer_name ?: ''));
+
+        if (! $this->env->isMailDeliverableToInbox($settingsCompanyId)) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_EMAIL,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                $customerName !== '' ? $customerName : 'Klant',
+                $email,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': Geen bruikbare SMTP-configuratie voor deze tenant.'
+            );
+            Log::warning('Klant-e-mail boeking niet verstuurd: geen bruikbare SMTP.', [
+                'ride_request_id' => $rideId,
+                'company_id' => $settingsCompanyId,
+            ]);
+
+            return;
+        }
+
+        $this->env->applyMailConfigToRuntime($settingsCompanyId);
+        $from = $this->env->resolveMailFromHeaders($settingsCompanyId);
+        $fromAddress = $from['from_address'];
+        $fromName = $from['from_name'];
+        $smtpUsername = $from['smtp_username'];
 
         try {
             Mail::send('emails.taxi-ride-booking-customer', [

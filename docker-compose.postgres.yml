@@ -3,7 +3,7 @@
 # Credentials: DB_USERNAME, DB_PASSWORD, DB_DATABASE in repo-root .env
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USERNAME:-nexa}

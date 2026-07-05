@@ -40,17 +40,8 @@ return new class extends Migration
 
     private function pgVectorAvailable(): bool
     {
-        try {
-            DB::statement('CREATE EXTENSION IF NOT EXISTS vector');
-
-            return DB::selectOne("SELECT 1 FROM pg_extension WHERE extname = 'vector'") !== null;
-        } catch (\Throwable $e) {
-            Log::warning('nexa_taxi knowledge tables: pgvector extension niet beschikbaar', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
+        return app(\App\Modules\NexaTaxi\Services\TaxiKnowledgeTableService::class)
+            ->pgVectorAvailable((string) Schema::getConnection()->getName());
     }
 
     private function createPostgresKnowledgeTables(bool $useVector): void

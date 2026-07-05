@@ -81,6 +81,11 @@ class UpdateUserRequest extends BaseFormRequest
                 'distinct',
                 Rule::exists('roles', 'name')->where('guard_name', 'web'),
             ],
+            'agenda_color' => [
+                'nullable',
+                'string',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
         ];
     }
 

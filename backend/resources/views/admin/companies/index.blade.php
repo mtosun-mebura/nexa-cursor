@@ -193,8 +193,8 @@
             
             <div class="kt-card-content">
                 @if($companies->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="companies_table" data-admin-datatable-label="bedrijven">
-                        <div class="kt-scrollable-x-auto min-w-0">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="companies_table" data-admin-datatable-label="bedrijven" data-admin-datatable-on-page="initCompaniesTablePage">
+                        <div class="kt-scrollable-x-auto min-w-0 companies-table-wrap">
                             <table class="kt-table kt-table-border admin-fluid-table w-full">
                             <thead>
                                 <tr>
@@ -248,7 +248,7 @@
                             </thead>
                             <tbody>
                                 @foreach($companies as $company)
-                                    <tr class="company-row">
+                                    <tr class="company-row" data-row-href="{{ route('admin.companies.show', $company) }}">
                                         <td>
                                             <span class="text-sm font-medium text-mono" data-company-id="{{ $company->id }}">
                                                 {{ $company->name }}
@@ -301,10 +301,10 @@
                                         <td class="text-foreground font-normal">
                                             <span class="text-sm">{{ $company->created_at?->format('d-m-Y') ?? '—' }}</span>
                                         </td>
-                                        <td class="text-center" onclick="event.stopPropagation();">
+                                        <td class="text-center companies-table__actions-col" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                    <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
                                                         <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
                                                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -452,6 +452,34 @@
         width: 3.5rem;
         white-space: nowrap;
     }
+
+    #content #companies_table .companies-table__actions-col {
+        overflow: visible !important;
+        vertical-align: middle !important;
+    }
+
+    #content #companies_table .companies-table__actions-col .kt-menu {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100%;
+    }
+
+    .companies-table-wrap td:last-child .kt-menu-dropdown {
+        position: fixed !important;
+        z-index: 99999 !important;
+    }
+
+    .companies-table-wrap td:last-child .kt-menu-item.show .kt-menu-dropdown,
+    .companies-table-wrap td:last-child .kt-menu-item[data-kt-menu-item-toggle="dropdown"].show .kt-menu-dropdown {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .companies-table-wrap .kt-scrollable-x-auto {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+    }
 </style>
 @endpush
 
@@ -538,23 +566,105 @@
         }
         
         // Make table rows clickable (except actions column)
-        document.querySelectorAll('tbody tr.company-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
-                // Don't navigate if clicking on actions column or menu
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+        function initCompanyMenus() {
+            if (window.KTMenu && typeof window.KTMenu.init === 'function') {
+                try {
+                    window.KTMenu.init();
+                } catch (e) {
+                    console.warn('KTMenu init error:', e);
+                }
+            }
+
+            document.querySelectorAll('#companies_table .kt-menu-toggle').forEach(function(toggle) {
+                if (toggle._companyMenuBound) {
                     return;
                 }
-                
-                // Get company ID from the name span
-                const nameSpan = this.querySelector('td:first-child span[data-company-id]');
-                if (nameSpan) {
-                    const companyId = nameSpan.getAttribute('data-company-id');
-                    if (companyId) {
-                        window.location.href = '/admin/companies/' + companyId;
+                toggle._companyMenuBound = true;
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    var menuItem = toggle.closest('.kt-menu-item');
+                    if (!menuItem) {
+                        return;
                     }
+                    var dropdown = menuItem.querySelector('.kt-menu-dropdown');
+                    if (!dropdown) {
+                        return;
+                    }
+                    var isShowing = menuItem.classList.contains('show');
+                    document.querySelectorAll('#companies_table .kt-menu-item.show').forEach(function(item) {
+                        if (item !== menuItem) {
+                            item.classList.remove('show');
+                            var otherDropdown = item.querySelector('.kt-menu-dropdown');
+                            if (otherDropdown) {
+                                otherDropdown.style.display = 'none';
+                            }
+                        }
+                    });
+                    if (!isShowing) {
+                        menuItem.classList.add('show');
+                        var rect = toggle.getBoundingClientRect();
+                        dropdown.style.position = 'fixed';
+                        dropdown.style.left = Math.max(8, rect.right - 175) + 'px';
+                        dropdown.style.top = (rect.bottom + 5) + 'px';
+                        dropdown.style.minWidth = '175px';
+                        dropdown.style.width = '175px';
+                        dropdown.style.zIndex = '99999';
+                        dropdown.style.display = 'block';
+                        dropdown.style.visibility = 'visible';
+                        dropdown.style.opacity = '1';
+                    } else {
+                        menuItem.classList.remove('show');
+                        dropdown.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        function initCompanyRowLinks() {
+            document.querySelectorAll('#companies_table tr.company-row[data-row-href]').forEach(function(row) {
+                if (row._companyRowBound) {
+                    return;
+                }
+                row._companyRowBound = true;
+                row.addEventListener('click', function(event) {
+                    if (event.target.closest('[data-no-row-link]')) {
+                        return;
+                    }
+                    var href = row.getAttribute('data-row-href');
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            });
+        }
+
+        window.initCompaniesTablePage = function() {
+            initCompanyMenus();
+            initCompanyRowLinks();
+        };
+
+        window.initCompaniesTablePage();
+
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('#companies_table .kt-menu')) {
+                return;
+            }
+            document.querySelectorAll('#companies_table .kt-menu-item.show').forEach(function(item) {
+                item.classList.remove('show');
+                var dropdown = item.querySelector('.kt-menu-dropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
                 }
             });
         });
+
+        var companiesTable = document.getElementById('companies_table');
+        if (companiesTable) {
+            companiesTable.addEventListener('admin-datatable:rendered', function() {
+                window.initCompaniesTablePage();
+            });
+        }
     });
 </script>
 @endpush

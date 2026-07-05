@@ -59,11 +59,6 @@ class TaxiCustomerLoginCodeService
             return false;
         }
 
-        $this->emailTemplateService->ensureGlobalTemplateExists();
-        if ($mailCompanyId) {
-            $this->emailTemplateService->ensureTenantTemplateExists($mailCompanyId);
-        }
-
         $template = $this->emailTemplateService->resolveActiveTemplate($companyId);
 
         $companyName = $companyId ? (Company::query()->find($companyId)?->name) : null;

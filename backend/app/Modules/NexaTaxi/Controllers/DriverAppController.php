@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
@@ -10,17 +11,23 @@ class DriverAppController extends Controller
 {
     public function index(): View
     {
+        $favicon = $this->driverFaviconMeta();
+
         return view('taxi::driver-app.index', [
             'apiBase' => url('/api/taxi/v1/driver'),
             'pollMs' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 2000),
             'streamEnabled' => (bool) config('taxi-dispatch.stream_enabled', false),
             'appUrl' => route('taxi.chauffeur.index'),
-            'notificationIcon' => asset('assets/media/app/nexa-chauffeur-icon-192.png'),
+            'faviconUrl' => $favicon['url'],
+            'faviconType' => $favicon['type'],
+            'notificationIcon' => $favicon['url'],
         ]);
     }
 
     public function manifest(): JsonResponse
     {
+        $favicon = $this->driverFaviconMeta();
+
         return response()->json([
             'name' => 'Nexa Taxi Chauffeur',
             'short_name' => 'Chauffeur',
@@ -32,28 +39,28 @@ class DriverAppController extends Controller
             'theme_color' => '#16a34a',
             'icons' => [
                 [
-                    'src' => asset('assets/media/app/nexa-chauffeur-icon-32.png'),
-                    'sizes' => '32x32',
-                    'type' => 'image/png',
-                ],
-                [
-                    'src' => asset('assets/media/app/nexa-chauffeur-icon-180.png'),
-                    'sizes' => '180x180',
-                    'type' => 'image/png',
-                ],
-                [
-                    'src' => asset('assets/media/app/nexa-chauffeur-icon-192.png'),
+                    'src' => $favicon['url'],
                     'sizes' => '192x192',
-                    'type' => 'image/png',
+                    'type' => $favicon['type'],
                     'purpose' => 'any',
                 ],
                 [
-                    'src' => asset('assets/media/app/nexa-chauffeur-icon-512.png'),
+                    'src' => $favicon['url'],
                     'sizes' => '512x512',
-                    'type' => 'image/png',
+                    'type' => $favicon['type'],
                     'purpose' => 'any maskable',
                 ],
             ],
         ])->header('Content-Type', 'application/manifest+json');
+    }
+
+    /**
+     * Zelfde favicon als de tenant-website (custom upload of Nexa-standaard).
+     *
+     * @return array{url: string, type: string}
+     */
+    private function driverFaviconMeta(): array
+    {
+        return app(WebsiteBuilderService::class)->publicFaviconMeta();
     }
 }

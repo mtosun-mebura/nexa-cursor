@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Database\Pre2026Baseline;
+use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Support\ModuleMigrationPathResolver;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -400,6 +401,10 @@ class ModuleDatabaseService
             fn (string $table) => ! Schema::connection($connectionName)->hasTable($table)
         ));
         if ($missing === []) {
+            if ($slug === 'taxi') {
+                app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($connectionName);
+            }
+
             return;
         }
 
@@ -431,6 +436,10 @@ class ModuleDatabaseService
         }
 
         $this->runIncrementalModuleMigrations($slug, $connectionName);
+
+        if ($slug === 'taxi') {
+            app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($connectionName);
+        }
 
         $stillMissing = array_values(array_filter(
             $requiredTables,

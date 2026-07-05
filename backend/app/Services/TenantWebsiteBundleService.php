@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 use ZipArchive;
 
 /**
@@ -144,9 +145,8 @@ final class TenantWebsiteBundleService
     public function testSyncConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
     {
         $this->sshTunnel->runIsolated(function () use ($url, $config) {
-            $this->registerSyncConnection($url, $config);
             try {
-                DB::connection(self::SYNC_CONNECTION)->getPdo();
+                $this->assertSyncTargetConnection($url, $config);
             } finally {
                 DB::purge(self::SYNC_CONNECTION);
             }
@@ -191,8 +191,62 @@ final class TenantWebsiteBundleService
             ]
         );
 
+        if ($config->sshEnabled) {
+            // Via SSH-tunnel: geen SSL-handshake (tunnel is al versleuteld); anders sluit Postgres soms direct.
+            $merged['sslmode'] = 'disable';
+            $merged['connect_timeout'] = 15;
+        }
+
         config(['database.connections.'.self::SYNC_CONNECTION => $merged]);
         DB::purge(self::SYNC_CONNECTION);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    public function assertSyncTargetConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
+    {
+        $config ??= $this->tenantSyncSettings->connectionConfig();
+
+        try {
+            $this->registerSyncConnection($url, $config);
+            if ($config->sshEnabled && ! $this->sshTunnel->isActive()) {
+                throw new RuntimeException('SSH-tunnel is niet actief voordat de databaseverbinding opgebouwd werd.');
+            }
+            DB::connection(self::SYNC_CONNECTION)->getPdo();
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new RuntimeException($this->explainSyncTargetConnectionError($e, $config), 0, $e);
+        }
+    }
+
+    public function explainSyncTargetConnectionError(\Throwable $e, ?TenantSyncConnectionConfig $config = null): string
+    {
+        $config ??= $this->tenantSyncSettings->connectionConfig();
+
+        return $this->formatSyncConnectionError($e, $config);
+    }
+
+    private function formatSyncConnectionError(\Throwable $e, TenantSyncConnectionConfig $config): string
+    {
+        $message = trim($e->getMessage());
+        if ($message === '') {
+            $message = 'Onbekende databasefout';
+        }
+
+        if (! $config->sshEnabled) {
+            return $message;
+        }
+
+        return $message.sprintf(
+            ' Controleer of Postgres op de server bereikbaar is via de SSH-tunnel (%s@%s → %s:%d).'
+            .' Bij Docker-deploy (docker-compose.deploy.yml) is dat meestal host 127.0.0.1 poort 5432 op de server, niet de containernaam db.',
+            $config->sshUsername,
+            $config->sshHost,
+            $config->remoteDbHost,
+            $config->remoteDbPort
+        );
     }
 
     /**
@@ -330,50 +384,182 @@ final class TenantWebsiteBundleService
     }
 
     /**
+     * Sync alle frontend-pagina's van een tenant naar het sync-doel (hoofd-DB + module-DB's/schema's).
+     *
+     * @return array{inserted: int, updated: int, skipped: int, message: string}
+     */
+    public function pushWebsitePagesForTenantSync(Company $sourceCompany, int $remoteCompanyId): array
+    {
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        $entries = $this->buildPageExportPayloads($sourceCompany);
+        if ($entries === []) {
+            return [
+                'inserted' => 0,
+                'updated' => 0,
+                'skipped' => 0,
+                'message' => 'Website-pagina\'s: geen pagina\'s gevonden op bron.',
+            ];
+        }
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $sourceConn = isset($entry['connection']) && is_string($entry['connection'])
+                ? $entry['connection']
+                : (string) config('database.default');
+
+            try {
+                $targetConn = $this->resolveSyncTargetConnectionForSource($sourceConn);
+            } catch (Throwable) {
+                $skipped++;
+
+                continue;
+            }
+
+            $outcome = $this->upsertWebsitePageEntry(
+                $targetConn,
+                $remoteCompanyId,
+                $entry,
+                self::SYNC_CONNECTION
+            );
+
+            if ($outcome === 'inserted') {
+                $inserted++;
+            } elseif ($outcome === 'updated') {
+                $updated++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'message' => sprintf(
+                'Website-pagina\'s: %d nieuw, %d bijgewerkt, %d overgeslagen (totaal %d op bron).',
+                $inserted,
+                $updated,
+                $skipped,
+                count($entries)
+            ),
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $pages
      */
     public function importWebsitePagesFromManifestEntries(Company $targetCompany, array $pages): int
     {
         $imported = 0;
         foreach ($pages as $entry) {
-            if (! is_array($entry) || ! isset($entry['attributes']) || ! is_array($entry['attributes'])) {
+            if (! is_array($entry)) {
                 continue;
             }
-            $conn = isset($entry['connection']) && is_string($entry['connection']) ? $entry['connection'] : (string) config('database.default');
-            $themeSlug = isset($entry['theme_slug']) && is_string($entry['theme_slug']) ? $entry['theme_slug'] : null;
+            $conn = isset($entry['connection']) && is_string($entry['connection'])
+                ? $entry['connection']
+                : (string) config('database.default');
 
-            $attrs = $entry['attributes'];
-            unset($attrs['id']);
-            $attrs['company_id'] = (int) $targetCompany->id;
-
-            if ($themeSlug) {
-                $tid = FrontendTheme::query()->where('slug', $themeSlug)->value('id');
-                if ($tid) {
-                    $attrs['frontend_theme_id'] = (int) $tid;
-                }
+            if ($this->upsertWebsitePageEntry($conn, (int) $targetCompany->id, $entry) !== 'skipped') {
+                $imported++;
             }
-
-            $slug = (string) ($attrs['slug'] ?? '');
-            $moduleName = $attrs['module_name'] ?? null;
-
-            $q = WebsitePage::on($conn)->where('company_id', (int) $targetCompany->id)->where('slug', $slug);
-            if ($moduleName === null || $moduleName === '') {
-                $q->whereNull('module_name');
-            } else {
-                $q->where('module_name', $moduleName);
-            }
-
-            $model = $q->first();
-            if ($model === null) {
-                $model = new WebsitePage;
-                $model->setConnection($conn);
-            }
-            $model->fill($attrs);
-            $model->save();
-            $imported++;
         }
 
         return $imported;
+    }
+
+    /**
+     * @param  array{connection?: string, theme_slug?: ?string, attributes?: array<string, mixed>}  $entry
+     * @return 'inserted'|'updated'|'skipped'
+     */
+    private function upsertWebsitePageEntry(
+        string $connection,
+        int $companyId,
+        array $entry,
+        ?string $frontendThemeLookupConnection = null
+    ): string {
+        if (! isset($entry['attributes']) || ! is_array($entry['attributes'])) {
+            return 'skipped';
+        }
+
+        if (! Schema::connection($connection)->hasTable('website_pages')) {
+            return 'skipped';
+        }
+
+        $themeSlug = isset($entry['theme_slug']) && is_string($entry['theme_slug']) ? $entry['theme_slug'] : null;
+        $attrs = $entry['attributes'];
+        unset($attrs['id'], $attrs['theme']);
+        $attrs['company_id'] = $companyId;
+
+        $themeLookupConn = $frontendThemeLookupConnection ?? $connection;
+        if ($themeSlug !== null && $themeSlug !== ''
+            && Schema::connection($themeLookupConn)->hasTable('frontend_themes')) {
+            $tid = DB::connection($themeLookupConn)->table('frontend_themes')->where('slug', $themeSlug)->value('id');
+            if ($tid) {
+                $attrs['frontend_theme_id'] = (int) $tid;
+            } else {
+                unset($attrs['frontend_theme_id']);
+            }
+        }
+
+        $slug = (string) ($attrs['slug'] ?? '');
+        if ($slug === '' || WebsitePage::isCentralMarketingWelcomeSlug($slug)) {
+            return 'skipped';
+        }
+
+        $moduleName = $attrs['module_name'] ?? null;
+        $q = WebsitePage::on($connection)->where('company_id', $companyId)->where('slug', $slug);
+        if ($moduleName === null || $moduleName === '') {
+            $q->whereNull('module_name');
+        } else {
+            $q->where('module_name', $moduleName);
+        }
+
+        $existing = $q->first();
+        $existed = $existing !== null;
+        if ($existing === null) {
+            $existing = new WebsitePage;
+            $existing->setConnection($connection);
+        }
+        $existing->fill($attrs);
+        $existing->save();
+
+        return $existed ? 'updated' : 'inserted';
+    }
+
+    private function resolveSyncTargetConnectionForSource(string $sourceConnectionName): string
+    {
+        $defaultConn = (string) config('database.default');
+        if ($sourceConnectionName === $defaultConn || $sourceConnectionName === '') {
+            return self::SYNC_CONNECTION;
+        }
+
+        if (! Schema::hasTable('modules')) {
+            return self::SYNC_CONNECTION;
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        foreach (DB::table('modules')->where('installed', true)->pluck('name') as $moduleName) {
+            if (! is_string($moduleName) || trim($moduleName) === '') {
+                continue;
+            }
+            try {
+                if ($dbService->getModuleConnectionName($moduleName) === $sourceConnectionName) {
+                    return $this->registerSyncModuleConnection(strtolower(trim($moduleName)));
+                }
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return self::SYNC_CONNECTION;
     }
 
     /**

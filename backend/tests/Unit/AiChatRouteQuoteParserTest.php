@@ -23,6 +23,14 @@ class AiChatRouteQuoteParserTest extends TestCase
         $this->assertSame('Schiphol', $route['dropoff_address']);
     }
 
+    public function test_parses_travel_intent_destination(): void
+    {
+        $route = $this->parser->parseRouteFromQuestion('Ik wil naar Schiphol');
+
+        $this->assertNull($route['pickup_address']);
+        $this->assertSame('Schiphol', $route['dropoff_address']);
+    }
+
     public function test_parses_full_route_question(): void
     {
         $route = $this->parser->parseRouteFromQuestion('Wat kost een rit van Enschede naar Düsseldorf Airport?');
@@ -48,5 +56,13 @@ class AiChatRouteQuoteParserTest extends TestCase
         $this->assertFalse($this->parser->isValidPhone('123'));
         $this->assertTrue($this->parser->isValidEmail('jan@example.com'));
         $this->assertFalse($this->parser->isValidEmail('geen-email'));
+    }
+
+    public function test_resolve_flow_uses_booking_for_travel_intent_on_public_channel(): void
+    {
+        $this->assertSame('booking', $this->parser->resolveFlow('Ik wil naar Schiphol', true));
+        $this->assertSame('quote', $this->parser->resolveFlow('Wat kost een rit naar Schiphol?', true));
+        $this->assertSame('booking', $this->parser->resolveFlow('Boek een rit naar Schiphol', true));
+        $this->assertSame('quote', $this->parser->resolveFlow('Ik wil naar Schiphol', false));
     }
 }

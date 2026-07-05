@@ -15,6 +15,7 @@ use App\Services\AdminDashboardModuleContext;
 use App\Services\AdminPaymentOverviewService;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
+use App\Services\SystemStackSnapshotService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -31,6 +32,7 @@ class AdminDashboardController extends Controller
         protected AdminPaymentOverviewService $paymentOverview,
         protected AdminDashboardModuleContext $dashboardModuleContext,
         protected ModuleDatabaseService $moduleDatabaseService,
+        protected SystemStackSnapshotService $stackSnapshots,
     ) {
         $this->envService = $envService;
     }
@@ -150,6 +152,13 @@ class AdminDashboardController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
+        $systemStack = null;
+        $releaseVersion = null;
+        if (auth()->user()->hasRole('super-admin') && ! session('selected_tenant')) {
+            $systemStack = $this->stackSnapshots->labeledStack();
+            $releaseVersion = $this->stackSnapshots->currentReleaseVersion();
+        }
+
         return view('admin.dashboard', [
             'stats' => $stats,
             'recent_users' => $recent_users,
@@ -174,6 +183,8 @@ class AdminDashboardController extends Controller
             'showTaxi' => $showTaxi,
             'taxiStats' => $taxiDashboard['stats'],
             'recent_rides' => $taxiDashboard['recent_rides'],
+            'systemStack' => $systemStack,
+            'releaseVersion' => $releaseVersion,
         ]);
     }
 
@@ -189,6 +200,10 @@ class AdminDashboardController extends Controller
 
         $afterUrl = $this->sanitizeTenantSwitchRedirect($request->input('redirect'))
             ?? route('admin.dashboard');
+        $afterUrl = $this->syncTenantCompanyInAdminRedirect(
+            $afterUrl,
+            $tenantId !== null && $tenantId !== '' ? (int) $tenantId : null
+        );
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -222,6 +237,37 @@ class AdminDashboardController extends Controller
         }
 
         return $path;
+    }
+
+    private function syncTenantCompanyInAdminRedirect(string $path, ?int $tenantCompanyId): string
+    {
+        $queryString = '';
+        $pathname = $path;
+        if (str_contains($path, '?')) {
+            [$pathname, $queryString] = explode('?', $path, 2);
+        }
+
+        $query = [];
+        if ($queryString !== '') {
+            parse_str($queryString, $query);
+        }
+
+        $shouldSync = array_key_exists('tenant_company', $query)
+            || preg_match('#^/admin/website-pages(?:/|$)#', $pathname) === 1;
+
+        if (! $shouldSync) {
+            return $path;
+        }
+
+        if ($tenantCompanyId !== null) {
+            $query['tenant_company'] = $tenantCompanyId;
+        } else {
+            unset($query['tenant_company']);
+        }
+
+        $newQuery = http_build_query($query);
+
+        return $pathname.($newQuery !== '' ? '?'.$newQuery : '');
     }
 
     /**

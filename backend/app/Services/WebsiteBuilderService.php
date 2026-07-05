@@ -7,6 +7,7 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
+use App\Services\ModuleConfigurationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -209,6 +210,8 @@ class WebsiteBuilderService
         $defaultConn = (string) config('database.default');
         if (! Schema::connection($connection)->hasColumn($table, 'company_id')
             && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
+            $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -235,12 +238,13 @@ class WebsiteBuilderService
         $model = $query->getModel();
         $table = $model->getTable();
         $connection = $query->getConnection()->getName();
-        $defaultConn = (string) config('database.default');
-        if (! Schema::connection($connection)->hasColumn($table, 'company_id')
-            && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
+        if (Schema::connection($connection)->hasColumn($table, 'company_id')) {
+            $query->where($table.'.company_id', $tenantCompanyId);
+
             return;
         }
-        $query->where($table.'.company_id', $tenantCompanyId);
+
+        $query->whereRaw('1 = 0');
     }
 
     /**
@@ -352,20 +356,90 @@ class WebsiteBuilderService
      * Modulenaam (zoals in tabel `modules.name`) voor branding op deze pagina: moet overeenkomen met de module
      * waarvan je in Admin → Modules → configureren de vink "Knop Mijn-omgeving tonen" zet.
      *
+     * - Taxi/skillmatching-secties op de pagina (sterkste signaal na expliciete module op de pagina).
      * - Heeft de pagina een `module_name`? → die module (case-insensitive lookup in {@see getSiteBranding()}).
-     * - Anders (`null`) → {@see getSiteBranding()} gebruikt {@see getBrandingModule()} (o.a. vastgezette module op het actieve thema).
+     * - Anders: gekoppelde tenant-module of {@see getBrandingModule()}.
      *
      * Het actieve thema (Metronic, Atom, …) bepaalt alleen layout/styling via {@see getThemeForPage()}; het wijzigt
      * niet welke `configuration` voor de Mijn-knop geldt — dat is uitsluitend de module hierboven.
      */
     public function getBrandingModuleNameForWebsitePage(WebsitePage $page): ?string
     {
-        if (! filled($page->module_name)) {
-            return null;
+        $inferred = $this->inferPortalModuleNameFromPageContent($page);
+        if ($inferred !== null) {
+            return $inferred;
         }
-        $name = trim((string) $page->module_name);
 
-        return $name !== '' ? $name : null;
+        if (filled($page->module_name)) {
+            $name = trim((string) $page->module_name);
+
+            return $name !== '' ? $name : null;
+        }
+
+        $companyId = $this->tenantCompanyIdForPage($page);
+        if ($companyId !== null) {
+            $fromCompany = $this->getBrandingModuleForResolvedCompany($companyId);
+            if ($fromCompany !== null && filled($fromCompany->name)) {
+                return (string) $fromCompany->name;
+            }
+        }
+
+        $brandingModule = $this->getBrandingModule();
+
+        return $brandingModule !== null && filled($brandingModule->name)
+            ? (string) $brandingModule->name
+            : null;
+    }
+
+    /**
+     * Herken taxi/skillmatching op pagina's via opgeslagen secties (section_order of component-keys).
+     */
+    private function inferPortalModuleNameFromPageContent(WebsitePage $page): ?string
+    {
+        $candidateKeys = [];
+
+        $stored = WebsitePage::normalizeHomeSectionsValue($page->home_sections);
+        if (is_array($stored)) {
+            $candidateKeys = array_merge($candidateKeys, array_keys($stored));
+            if (isset($stored['section_order']) && is_array($stored['section_order'])) {
+                $candidateKeys = array_merge($candidateKeys, $stored['section_order']);
+            }
+        }
+
+        $sections = $page->getHomeSections();
+        if (is_array($sections)) {
+            $candidateKeys = array_merge($candidateKeys, array_keys($sections));
+            if (isset($sections['section_order']) && is_array($sections['section_order'])) {
+                $candidateKeys = array_merge($candidateKeys, $sections['section_order']);
+            }
+        }
+
+        foreach ($candidateKeys as $key) {
+            $key = (string) $key;
+            if ($key === 'component:taxi.boekingsmodule' || $key === 'component:taxiroyaal.boekingsmodule') {
+                return 'taxi';
+            }
+            if (str_starts_with($key, 'component:taxi')) {
+                return 'taxi';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Branding voor een specifieke website-pagina (module + gekoppeld bedrijf).
+     * Gebruik in admin-preview en frontend-render zodat logo/favicon uit tenant-instellingen komen.
+     */
+    public function getSiteBrandingForWebsitePage(WebsitePage $page): array
+    {
+        $companyId = $this->tenantCompanyIdForPage($page);
+
+        return $this->getSiteBranding(
+            $this->getBrandingModuleNameForWebsitePage($page),
+            false,
+            $companyId
+        );
     }
 
     /**
@@ -384,36 +458,37 @@ class WebsiteBuilderService
      * @param  bool  $forStagingPreview  Staging-thema is niet altijd het actieve site-thema: geen fallback naar
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
+     * @param  int|null  $forCompanyId  Expliciet bedrijf voor tenant-logo/instellingen (bijv. admin preview van pagina).
      * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
      */
-    public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false): array
+    public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false, ?int $forCompanyId = null): array
     {
-        $logoSizePx = $this->resolveLogoSizePx();
+        $logoSizePx = $this->resolveLogoSizePx($forCompanyId);
 
-        $logoPath = GeneralSetting::get('logo');
+        $logoPath = GeneralSetting::get('logo', null, $forCompanyId);
         $logoUrl = null;
         if ($logoPath && Storage::disk('public')->exists($logoPath)) {
             $logoUrl = $this->publicFileUrl(ltrim($logoPath, '/'));
         }
         $logoDarkUrl = null;
-        $logoMode = GeneralSetting::get('logo_mode', 'single');
+        $logoMode = GeneralSetting::get('logo_mode', 'single', $forCompanyId);
         if ($logoMode === 'light_dark') {
-            $logoDarkPath = GeneralSetting::get('logo_dark');
+            $logoDarkPath = GeneralSetting::get('logo_dark', null, $forCompanyId);
             if ($logoDarkPath && Storage::disk('public')->exists($logoDarkPath)) {
                 $logoDarkUrl = $this->publicFileUrl(ltrim($logoDarkPath, '/'));
             }
         }
 
-        $faviconPath = GeneralSetting::get('favicon');
+        $faviconPath = GeneralSetting::get('favicon', null, $forCompanyId);
         $faviconUrl = null;
         if ($faviconPath && Storage::disk('public')->exists($faviconPath)) {
             $faviconUrl = $this->publicFileUrl(ltrim($faviconPath, '/'));
         }
 
-        $siteName = GeneralSetting::get('site_name', config('app.name', 'Nexa'));
-        $siteDescription = GeneralSetting::get('site_description', '');
-        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
-        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1') === '1';
+        $siteName = GeneralSetting::get('site_name', config('app.name', 'Nexa'), $forCompanyId);
+        $siteDescription = GeneralSetting::get('site_description', '', $forCompanyId);
+        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa', $forCompanyId);
+        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1', $forCompanyId) === '1';
         $dashboardLinkUrl = route('dashboard');
         $dashboardLinkModule = null;
 
@@ -429,10 +504,13 @@ class WebsiteBuilderService
         }
         // Geen fallback naar getBrandingModule() als er expliciet een module is gevraagd: voorkomt verkeerde module + knop "aan"
         if (! $brandingModule && ! $explicitModuleRequested && ! $forStagingPreview) {
-            $brandingModule = $this->getBrandingModule();
+            $tenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+            $brandingModule = $tenantId !== null
+                ? $this->getBrandingModuleForResolvedCompany($tenantId)
+                : $this->getBrandingModuleForCentralHost();
         }
         if ($brandingModule) {
-            $config = is_array($brandingModule->configuration) ? $brandingModule->configuration : [];
+            $config = app(ModuleConfigurationService::class)->getConfiguration($brandingModule, $forCompanyId);
             if (! empty($config['app_name'])) {
                 $siteName = $config['app_name'];
             }
@@ -459,13 +537,17 @@ class WebsiteBuilderService
             if ($dashboardLinkVisible) {
                 if (! $this->moduleManager->isActive($dashboardLinkModule)) {
                     $dashboardLinkVisible = false;
-                } elseif (! $this->tenantHasModuleNamed($dashboardLinkModule)) {
+                } elseif (! $this->tenantHasModuleNamed($dashboardLinkModule, $forCompanyId)) {
                     $dashboardLinkVisible = false;
                 }
             }
         }
 
-        $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl);
+        $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl, $forCompanyId);
+
+        $logoUrl = $logoUrl ? $this->storageUrlToDisplayUrl($logoUrl) : null;
+        $logoDarkUrl = $logoDarkUrl ? $this->storageUrlToDisplayUrl($logoDarkUrl) : null;
+        $faviconUrl = $faviconUrl ? $this->storageUrlToDisplayUrl($faviconUrl) : null;
 
         return [
             'logo_url' => $logoUrl,
@@ -568,9 +650,15 @@ class WebsiteBuilderService
     /**
      * Of de huidige tenant de opgegeven module heeft (company_modules). Zonder tenant-context: true.
      */
-    public function tenantHasModuleNamed(string $moduleName): bool
+    public function tenantHasModuleNamed(string $moduleName, ?int $forCompanyId = null): bool
     {
-        $company = $this->resolveBrandingCompany();
+        $company = null;
+        if ($forCompanyId !== null && $forCompanyId > 0) {
+            $company = Company::query()->find($forCompanyId);
+        }
+        if ($company === null) {
+            $company = $this->resolveBrandingCompany();
+        }
         if ($company === null) {
             return true;
         }
@@ -632,9 +720,9 @@ class WebsiteBuilderService
     /**
      * Logo-hoogte uit Algemene instellingen (zelfde bereik als admin #logo_size).
      */
-    public function resolveLogoSizePx(): int
+    public function resolveLogoSizePx(?int $forCompanyId = null): int
     {
-        $raw = GeneralSetting::get('logo_size', '26');
+        $raw = GeneralSetting::get('logo_size', '26', $forCompanyId);
         $px = is_numeric($raw) ? (int) $raw : 26;
 
         return max(10, min(100, $px));
@@ -667,13 +755,13 @@ class WebsiteBuilderService
     /**
      * Als er geen logo in general_settings staat: logo uit bedrijfsprofiel (wizard).
      */
-    private function applyCompanyLogoFallback(?string &$logoUrl, ?string &$logoDarkUrl): void
+    private function applyCompanyLogoFallback(?string &$logoUrl, ?string &$logoDarkUrl, ?int $forCompanyId = null): void
     {
         if ($logoUrl !== null && $logoUrl !== '') {
             return;
         }
 
-        $companyId = $this->resolveBrandingCompanyId();
+        $companyId = $forCompanyId ?? $this->resolveBrandingCompanyId();
         if ($companyId === null) {
             return;
         }
@@ -683,10 +771,35 @@ class WebsiteBuilderService
             return;
         }
 
+        // Admin preview (geen tenant-host): data-URI i.p.v. /brand/company/… (die route vereist tenant-context).
+        if ($this->isAdminLikeRequest()) {
+            $logoUrl = $this->companyLogoDataUri($company, false);
+            if ($company->logo_dark_blob) {
+                $logoDarkUrl = $this->companyLogoDataUri($company, true);
+            }
+
+            return;
+        }
+
         $logoUrl = route('frontend.company-brand.logo', $company);
         if ($company->logo_dark_blob) {
             $logoDarkUrl = route('frontend.company-brand.logo.dark', $company);
         }
+    }
+
+    private function companyLogoDataUri(Company $company, bool $dark): ?string
+    {
+        $blob = $dark ? $company->logo_dark_blob : $company->logo_blob;
+        $mime = $dark ? $company->logo_dark_mime_type : $company->logo_mime_type;
+        if (! $blob && $dark && $company->logo_blob) {
+            $blob = $company->logo_blob;
+            $mime = $company->logo_mime_type;
+        }
+        if (! $blob || trim((string) $blob) === '') {
+            return null;
+        }
+
+        return 'data:'.($mime ?: 'image/png').';base64,'.trim((string) $blob);
     }
 
     /**
@@ -737,20 +850,13 @@ class WebsiteBuilderService
             'type' => 'image/png',
         ];
 
+        if ($forCompanyId === null) {
+            $forCompanyId = $this->faviconCompanyIdForRequestContext();
+        }
+
         $path = $forCompanyId !== null
             ? GeneralSetting::get('favicon', null, $forCompanyId)
             : GeneralSetting::get('favicon');
-
-        if ((! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path))
-            && $forCompanyId === null
-            && ! app()->runningInConsole()
-            && request()
-        ) {
-            $st = session('selected_tenant');
-            if ($st !== null && $st !== '' && is_numeric($st)) {
-                $path = GeneralSetting::get('favicon', null, (int) $st);
-            }
-        }
 
         if (! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path)) {
             return $default;
@@ -766,6 +872,44 @@ class WebsiteBuilderService
     }
 
     /**
+     * Tenant/company voor favicon in admin, website en PWA (zelfde bron als frontend-branding).
+     */
+    public function faviconCompanyIdForRequestContext(): ?int
+    {
+        if (app()->bound('resolved_tenant_id')) {
+            $resolvedTenantId = (int) app('resolved_tenant_id');
+            if ($resolvedTenantId > 0) {
+                return $resolvedTenantId;
+            }
+        }
+
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->hasRole('super-admin')) {
+                $st = session('selected_tenant');
+                if ($st !== null && $st !== '' && is_numeric($st)) {
+                    return (int) $st;
+                }
+
+                return null;
+            }
+
+            if ($user->company_id) {
+                return (int) $user->company_id;
+            }
+        }
+
+        if (! app()->runningInConsole() && request()) {
+            $st = session('selected_tenant');
+            if ($st !== null && $st !== '' && is_numeric($st)) {
+                return (int) $st;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Zet een opgeslagen storage-URL (relatief of volledig) om naar een werkende weergave-URL via /file/.
      * Gebruik overal waar img src of background-image uit de database komt (bv. /storage/vehicles/..., http://.../storage/...).
      */
@@ -775,6 +919,9 @@ class WebsiteBuilderService
             return '';
         }
         $u = trim((string) $url);
+        if (str_starts_with($u, 'data:')) {
+            return $u;
+        }
         $path = null;
         if (str_starts_with($u, '/storage/')) {
             $path = preg_replace('#^/storage/#', '', $u);
@@ -785,6 +932,10 @@ class WebsiteBuilderService
             return $this->publicFileUrl($path);
         }
         if (str_starts_with($u, 'http://') || str_starts_with($u, 'https://')) {
+            if (preg_match('~^https?://[^/]+(/file/[^?#]+)~', $u, $m)) {
+                return url($m[1]);
+            }
+
             return $u;
         }
 
@@ -1616,13 +1767,15 @@ class WebsiteBuilderService
     public function loadAllPagesForAdminIndex(?int $restrictToTenantCompanyId = null, bool $strictTenantCompanyPagesOnly = false): Collection
     {
         $restrictLinkedLower = null;
+        $linkedModuleNamesLower = null;
         if ($restrictToTenantCompanyId !== null) {
             $tenantCompany = Company::query()->find($restrictToTenantCompanyId);
             if (! $tenantCompany) {
                 return collect();
             }
+            $linkedModuleNamesLower = $this->linkedInstalledActiveModuleNamesLowerForCompany($tenantCompany);
             if (! $strictTenantCompanyPagesOnly) {
-                $restrictLinkedLower = $this->linkedInstalledActiveModuleNamesLowerForCompany($tenantCompany);
+                $restrictLinkedLower = $linkedModuleNamesLower;
             }
         }
 
@@ -1651,6 +1804,13 @@ class WebsiteBuilderService
             $moduleQuery = WebsitePage::query()
                 ->whereNotNull('module_name')
                 ->with('theme');
+            if ($linkedModuleNamesLower !== null) {
+                if ($linkedModuleNamesLower === []) {
+                    $moduleQuery->whereRaw('1 = 0');
+                } else {
+                    $moduleQuery->whereIn(DB::raw('LOWER(module_name)'), $linkedModuleNamesLower);
+                }
+            }
             $applyTenantScope($moduleQuery);
             $modulePagesOnMain = $moduleQuery
                 ->orderBy('sort_order')
@@ -1666,6 +1826,10 @@ class WebsiteBuilderService
         $modulePages = collect();
         foreach (Module::where('installed', true)->pluck('name') as $moduleName) {
             if ($moduleName === null || $moduleName === '') {
+                continue;
+            }
+            if ($linkedModuleNamesLower !== null
+                && ! in_array(strtolower((string) $moduleName), $linkedModuleNamesLower, true)) {
                 continue;
             }
             $conn = $this->moduleDb->getModuleConnectionName($moduleName);

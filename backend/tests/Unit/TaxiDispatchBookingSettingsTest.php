@@ -2,13 +2,19 @@
 
 namespace Tests\Unit;
 
+use App\Models\Company;
+use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Services\EnvService;
 use App\Services\PaymentProviderService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class TaxiDispatchBookingSettingsTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_booking_whatsapp_number_falls_back_to_env(): void
     {
         $env = $this->createMock(EnvService::class);
@@ -77,5 +83,82 @@ class TaxiDispatchBookingSettingsTest extends TestCase
 
         $ride->pickup_at = $now->copy()->subMinutes(4);
         $this->assertFalse($service->scheduledRideIsOverdue($ride, 1, $now));
+    }
+
+    public function test_scheduled_return_leg_uses_return_at_for_overdue_check(): void
+    {
+        config(['taxi-dispatch.offer_ttl_seconds' => 300]);
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $now = now()->startOfSecond();
+
+        $ride = new \App\Modules\NexaTaxi\Models\RideRequest([
+            'company_id' => 1,
+            'pickup_at' => $now->copy()->subHours(3),
+            'return_at' => $now->copy()->subMinutes(6),
+            'outbound_completed_at' => $now->copy()->subHour(),
+            'booking_payload' => ['step_data' => ['return_trip' => true]],
+        ]);
+
+        $this->assertTrue($service->scheduledRideIsOverdue($ride, 1, $now));
+
+        $ride->return_at = $now->copy()->subMinutes(4);
+        $this->assertFalse($service->scheduledRideIsOverdue($ride, 1, $now));
+    }
+
+    public function test_booking_whatsapp_auto_send_defaults_off_without_explicit_dispatch_setting(): void
+    {
+        $env = $this->createMock(EnvService::class);
+        $env->method('get')->willReturnCallback(function (string $key, $default = '') {
+            return match ($key) {
+                'WHATSAPP_CLICK_TO_CHAT_NUMBER' => '+31600112233',
+                default => $default,
+            };
+        });
+
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+
+        $this->assertFalse($service->bookingWhatsappEnabled(99999));
+    }
+
+    public function test_click_to_chat_disabled_when_admin_master_switch_is_off(): void
+    {
+        $company = Company::query()->create(['name' => 'Wa Co', 'slug' => 'wa-co-'.uniqid()]);
+
+        GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0', $company->id);
+        GeneralSetting::set(
+            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT,
+            '1',
+            $company->id
+        );
+        GeneralSetting::set(
+            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
+            '+31600112233',
+            $company->id
+        );
+
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $notifications = app(TaxiBookingNotificationService::class);
+
+        $this->assertFalse($service->bookingWhatsappClickToChatEnabled((int) $company->id));
+        $this->assertFalse($notifications->whatsappClientClickToChatEnabled((int) $company->id));
+    }
+
+    public function test_click_to_chat_enabled_when_admin_master_switch_is_on_and_dispatch_allows(): void
+    {
+        $company = Company::query()->create(['name' => 'Wa On Co', 'slug' => 'wa-on-'.uniqid()]);
+
+        GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_ENABLED', '1', $company->id);
+        GeneralSetting::set(
+            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
+            '+31600112233',
+            $company->id
+        );
+
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+
+        $this->assertTrue($service->bookingWhatsappClickToChatEnabled((int) $company->id));
     }
 }

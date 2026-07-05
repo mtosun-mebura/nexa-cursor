@@ -35,22 +35,22 @@
                     </select>
                     <input type="text"
                            name="from"
-                           value="{{ request('from') }}"
+                           value="{{ admin_date_picker_display(request('from')) }}"
                            class="kt-input w-full sm:w-40 text-sm"
                            placeholder="Van"
                            data-kt-date-picker="true"
                            data-kt-date-picker-input-mode="true"
                            data-kt-date-picker-position-to-input="left"
-                           data-kt-date-picker-format="yyyy-MM-dd">
+                           data-kt-date-picker-date-format="DD-MM-YYYY">
                     <input type="text"
                            name="to"
-                           value="{{ request('to') }}"
+                           value="{{ admin_date_picker_display(request('to')) }}"
                            class="kt-input w-full sm:w-40 text-sm"
                            placeholder="Tot"
                            data-kt-date-picker="true"
                            data-kt-date-picker-input-mode="true"
                            data-kt-date-picker-position-to-input="left"
-                           data-kt-date-picker-format="yyyy-MM-dd">
+                           data-kt-date-picker-date-format="DD-MM-YYYY">
                     <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full sm:w-auto shrink-0">Filter</button>
                 </form>
                 @if(request('status') !== null && request('status') !== '' || request('vehicle_id') !== null && request('vehicle_id') !== '' || request('from') || request('to'))

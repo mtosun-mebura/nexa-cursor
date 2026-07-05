@@ -3,9 +3,12 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\EmailTemplate;
+use App\Modules\NexaTaxi\Services\Concerns\ResolvesScopedEmailTemplate;
 
 class TaxiCustomerAcceptEmailTemplateService
 {
+    use ResolvesScopedEmailTemplate;
+
     public const TYPE = 'taxi_ride_accepted';
 
     /**
@@ -57,9 +60,7 @@ class TaxiCustomerAcceptEmailTemplateService
             return ['template' => $global, 'usesGlobalFallback' => false];
         }
 
-        $created = EmailTemplate::query()->create($this->defaultPayload(null));
-
-        return ['template' => $created, 'usesGlobalFallback' => false];
+        return ['template' => $this->ensureGlobalTemplateExists(), 'usesGlobalFallback' => false];
     }
 
     /**
@@ -79,7 +80,8 @@ class TaxiCustomerAcceptEmailTemplateService
             $template = $this->findTemplate($companyId);
             if (! $template && $usesGlobalFallback) {
                 $global = $this->findTemplate(null);
-                $template = EmailTemplate::query()->create(array_merge(
+
+                return $this->upsertScopedEmailTemplate(self::TYPE, $companyId, array_merge(
                     $this->defaultPayload($companyId),
                     [
                         'subject' => $subject,
@@ -89,15 +91,13 @@ class TaxiCustomerAcceptEmailTemplateService
                         'description' => 'E-mail naar de klant wanneer een chauffeur de rit accepteert (tenant).',
                     ]
                 ));
-
-                return $template;
             }
         } else {
             $template = $this->findTemplate(null);
         }
 
         if (! $template) {
-            $template = EmailTemplate::query()->create($this->defaultPayload($companyId));
+            $template = $this->upsertScopedEmailTemplate(self::TYPE, $companyId, $this->defaultPayload($companyId));
         }
 
         $template->update([
@@ -112,20 +112,12 @@ class TaxiCustomerAcceptEmailTemplateService
 
     public function ensureGlobalTemplateExists(): EmailTemplate
     {
-        $global = $this->findTemplate(null);
-        if ($global) {
-            return $global;
-        }
-
-        return EmailTemplate::query()->create($this->defaultPayload(null));
+        return $this->upsertScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
     }
 
     public function findTemplate(?int $companyId): ?EmailTemplate
     {
-        return EmailTemplate::query()
-            ->where('type', self::TYPE)
-            ->where('company_id', $companyId)
-            ->first();
+        return $this->findScopedEmailTemplate(self::TYPE, $companyId);
     }
 
     /**

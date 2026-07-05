@@ -7,14 +7,16 @@
         @if(!empty($homeSections) && ($homeSections['visibility']['footer'] ?? true) && (!empty($homeSections['footer']) || !empty($homeSections['copyright'])))
             @php
                 $footerData = $homeSections['footer'] ?? [];
-                $footerLogoUrl = !empty($footerData['logo_url']) ? $footerData['logo_url'] : ($branding['logo_url'] ?? null);
-                $footerLogoDarkUrl = (empty($footerData['logo_url']) && !empty($branding['logo_dark_url'])) ? $branding['logo_dark_url'] : null;
-                if (!empty($footerLogoUrl) && (str_contains($footerLogoUrl, '/storage/') || str_contains($footerLogoUrl, 'storage/'))) {
-                    $storagePath = preg_replace('#^.*?/storage/#', '', $footerLogoUrl);
-                    $storagePath = strtok($storagePath, '?');
-                    if ($storagePath !== '') {
-                        $footerLogoUrl = app(\App\Services\WebsiteBuilderService::class)->publicFileUrl($storagePath);
-                    }
+                $websiteBuilder = app(\App\Services\WebsiteBuilderService::class);
+                $footerLogoUrl = ! empty($footerData['logo_url'])
+                    ? $websiteBuilder->storageUrlToDisplayUrl($footerData['logo_url'])
+                    : ($branding['logo_url'] ?? null);
+                if (! empty($footerLogoUrl)) {
+                    $footerLogoUrl = $websiteBuilder->storageUrlToDisplayUrl($footerLogoUrl);
+                }
+                $footerLogoDarkUrl = null;
+                if (empty($footerData['logo_url']) && ! empty($branding['logo_dark_url'])) {
+                    $footerLogoDarkUrl = $websiteBuilder->storageUrlToDisplayUrl($branding['logo_dark_url']);
                 }
                 $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['site_name'] ?? config('app.name'));
                 $footerUsesCustomLogo = !empty($footerData['logo_url']);

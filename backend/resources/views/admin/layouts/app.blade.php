@@ -445,7 +445,16 @@
                         </div>
                     @endif
 
-                    @yield('content')
+                    @if($adminShowTenantNotice ?? false)
+                        @include('admin.partials.tenant-scope-notice', [
+                            'adminTenantScopeVariant' => $adminTenantScopeVariant ?? 'default',
+                            'adminTenantScopeMessage' => $adminTenantScopeMessage ?? null,
+                        ])
+                    @endif
+
+                    @if(!($adminHideContentWithoutTenant ?? false))
+                        @yield('content')
+                    @endif
                 </div>
                 <!-- End of Container -->
             </main>

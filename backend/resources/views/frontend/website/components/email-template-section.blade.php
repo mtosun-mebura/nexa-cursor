@@ -10,6 +10,13 @@
     $successTextsEnabled = \App\Models\GeneralSetting::get('info_request_success_texts_enabled', '1') === '1';
     $successImagePath = \App\Models\GeneralSetting::get('info_request_success_image');
     $successSize = (int) \App\Models\GeneralSetting::get('info_request_success_icon_size', '80');
+    $successImageSizePercent = (int) \App\Models\GeneralSetting::get('info_request_success_image_size_percent', '80');
+    if ($successImageSizePercent < 10) {
+        $successImageSizePercent = 10;
+    }
+    if ($successImageSizePercent > 100) {
+        $successImageSizePercent = 100;
+    }
     if ($successSize < 32) $successSize = 32;
     if ($successSize > 200) $successSize = 200;
     $hasSuccessImage = $successImagePath && \Storage::disk('public')->exists($successImagePath);
@@ -17,6 +24,7 @@
     $infoRequestAction = \Illuminate\Support\Facades\Route::has('frontend.send-info-request')
         ? route('frontend.send-info-request')
         : '#';
+    $infoRequestFormTimeFields = \App\Http\Controllers\Frontend\InfoRequestController::formTimeFields();
 @endphp
 @if($template)
 <section id="info-request-section-{{ $sectionKey }}" class="info-request-section {{ $embeddedInTextBlock ? 'w-full min-w-0 pt-0 pb-16 md:pb-20' : 'py-16 md:py-20' }}">
@@ -36,14 +44,66 @@
             opacity: 1;
             transform: translate(0);
         }
+        .info-request-section .info-request-input-wrap .info-request-field-status {
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .info-request-section .info-request-input-wrap--textarea .info-request-field-status {
+            top: 0.75rem;
+            transform: none;
+        }
+        .info-request-section .info-request-input.info-request-input--valid:focus {
+            --tw-ring-color: rgb(34 197 94 / 0.45);
+        }
+        .info-request-section .info-request-textarea {
+            resize: vertical;
+            overflow: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgb(156 163 175) transparent;
+        }
+        .dark .info-request-section .info-request-textarea {
+            scrollbar-color: rgb(107 114 128) transparent;
+        }
+        .info-request-section .info-request-textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        .info-request-section .info-request-textarea::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .info-request-section .info-request-textarea::-webkit-scrollbar-thumb {
+            background-color: rgb(156 163 175);
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .dark .info-request-section .info-request-textarea::-webkit-scrollbar-thumb {
+            background-color: rgb(107 114 128);
+        }
+        .info-request-section .info-request-textarea::-webkit-scrollbar-thumb:hover {
+            background-color: rgb(107 114 128);
+        }
+        .dark .info-request-section .info-request-textarea::-webkit-scrollbar-thumb:hover {
+            background-color: rgb(156 163 175);
+        }
+        .info-request-section .info-request-char-count--limit {
+            color: rgb(220 38 38);
+        }
+        .dark .info-request-section .info-request-char-count--limit {
+            color: rgb(248 113 113);
+        }
+        .info-request-section .info-request-success-image {
+            border-radius: 0.5rem;
+        }
     </style>
     <div class="{{ $embeddedInTextBlock ? 'w-full' : 'website-section-inner' }}">
         <div class="{{ $embeddedInTextBlock ? 'w-full' : 'w-full max-w-full sm:max-w-3xl mx-auto' }}">
-            @if($sectionTitle)
-            <h2 class="info-req-animate-left text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">{{ $sectionTitle }}</h2>
-            @endif
-            <p class="info-req-animate-right text-gray-600 dark:text-gray-300 mb-6 text-center">Vul het formulier in en wij nemen contact met u op.</p>
-            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 sm:p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
+            <div id="info-request-intro-{{ $sectionKey }}" class="info-request-intro {{ session('info_request_sent') ? 'hidden' : '' }}">
+                @if($sectionTitle)
+                <h2 class="info-req-animate-left text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">{{ $sectionTitle }}</h2>
+                @endif
+                <p class="info-req-animate-right text-gray-600 dark:text-gray-300 mb-6 text-center">Vul het formulier in en wij nemen contact met u op.</p>
+            </div>
+            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" data-info-request-form class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 sm:p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
                 @csrf
                 <input type="hidden" name="template_id" value="{{ $template->id }}">
                 {{-- Honeypot: verborgen voor bezoekers, bots vullen dit vaak in --}}
@@ -51,7 +111,8 @@
                     <label for="info-request-website-{{ $sectionKey }}">Website (laat leeg)</label>
                     <input type="text" id="info-request-website-{{ $sectionKey }}" name="company_website" value="" tabindex="-1" autocomplete="off">
                 </div>
-                <input type="hidden" name="form_time_token" value="{{ \Illuminate\Support\Facades\Crypt::encryptString((string) now()->timestamp) }}">
+                <input type="hidden" name="form_time" value="{{ $infoRequestFormTimeFields['form_time'] }}">
+                <input type="hidden" name="form_time_token" value="{{ $infoRequestFormTimeFields['form_time_token'] }}">
                 @if($hasFields)
                     @php
                         $firstTwo = $formFields->take(2);
@@ -60,62 +121,26 @@
                     @if($firstTwo->count() === 2)
                         <div class="grid gap-4 sm:grid-cols-2">
                             @foreach($firstTwo as $field)
-                                <div>
-                                    <label for="email-template-{{ $field->name }}-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
-                                    <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}" id="email-template-{{ $field->name }}-{{ $sectionKey }}" name="{{ $field->name }}" value="{{ old($field->name) }}" {{ $field->is_required ? 'required' : '' }} class="{{ $inputClass }} @error($field->name) border-red-500 dark:border-red-500 @enderror">
-                                    <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="{{ $field->name }}" role="alert">@error($field->name){{ $message }}@enderror</span>
-                                </div>
+                                @include('frontend.website.components.partials.info-request-form-field', ['field' => $field, 'sectionKey' => $sectionKey, 'inputClass' => $inputClass, 'emailTemplate' => $template])
                             @endforeach
                         </div>
                     @else
                         @foreach($firstTwo as $field)
-                            <div>
-                                <label for="email-template-{{ $field->name }}-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
-                                <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}" id="email-template-{{ $field->name }}-{{ $sectionKey }}" name="{{ $field->name }}" value="{{ old($field->name) }}" {{ $field->is_required ? 'required' : '' }} class="{{ $inputClass }} @error($field->name) border-red-500 dark:border-red-500 @enderror">
-                                <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="{{ $field->name }}" role="alert">@error($field->name){{ $message }}@enderror</span>
-                            </div>
+                            @include('frontend.website.components.partials.info-request-form-field', ['field' => $field, 'sectionKey' => $sectionKey, 'inputClass' => $inputClass, 'emailTemplate' => $template])
                         @endforeach
                     @endif
                     @foreach($rest as $field)
-                        <div>
-                            <label for="email-template-{{ $field->name }}-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</label>
-                            @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
-                                <textarea id="email-template-{{ $field->name }}-{{ $sectionKey }}" name="{{ $field->name }}" rows="5" {{ $field->is_required ? 'required' : '' }} class="{{ $inputClass }} @error($field->name) border-red-500 dark:border-red-500 @enderror">{{ old($field->name) }}</textarea>
-                            @else
-                                <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}" id="email-template-{{ $field->name }}-{{ $sectionKey }}" name="{{ $field->name }}" value="{{ old($field->name) }}" {{ $field->is_required ? 'required' : '' }} class="{{ $inputClass }} @error($field->name) border-red-500 dark:border-red-500 @enderror">
-                            @endif
-                            <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="{{ $field->name }}" role="alert">@error($field->name){{ $message }}@enderror</span>
-                        </div>
+                        @include('frontend.website.components.partials.info-request-form-field', ['field' => $field, 'sectionKey' => $sectionKey, 'inputClass' => $inputClass, 'emailTemplate' => $template])
                     @endforeach
                 @else
                     {{-- Fallback: vaste velden --}}
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="email-template-voornaam-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Voornaam *</label>
-                            <input type="text" id="email-template-voornaam-{{ $sectionKey }}" name="voornaam" value="{{ old('voornaam') }}" required class="{{ $inputClass }} @error('voornaam') border-red-500 dark:border-red-500 @enderror">
-                            <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="voornaam" role="alert">@error('voornaam'){{ $message }}@enderror</span>
-                        </div>
-                        <div>
-                            <label for="email-template-achternaam-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Achternaam *</label>
-                            <input type="text" id="email-template-achternaam-{{ $sectionKey }}" name="achternaam" value="{{ old('achternaam') }}" required class="{{ $inputClass }} @error('achternaam') border-red-500 dark:border-red-500 @enderror">
-                            <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="achternaam" role="alert">@error('achternaam'){{ $message }}@enderror</span>
-                        </div>
+                        @include('frontend.website.components.partials.info-request-form-field', ['name' => 'voornaam', 'label' => 'Voornaam', 'required' => true, 'validationRule' => 'text', 'sectionKey' => $sectionKey, 'inputClass' => $inputClass])
+                        @include('frontend.website.components.partials.info-request-form-field', ['name' => 'achternaam', 'label' => 'Achternaam', 'required' => true, 'validationRule' => 'text', 'sectionKey' => $sectionKey, 'inputClass' => $inputClass])
                     </div>
-                    <div>
-                        <label for="email-template-email-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-mailadres *</label>
-                        <input type="email" id="email-template-email-{{ $sectionKey }}" name="email" value="{{ old('email') }}" required class="{{ $inputClass }} @error('email') border-red-500 dark:border-red-500 @enderror">
-                        <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="email" role="alert">@error('email'){{ $message }}@enderror</span>
-                    </div>
-                    <div>
-                        <label for="email-template-telefoon-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefoonnummer</label>
-                        <input type="text" id="email-template-telefoon-{{ $sectionKey }}" name="telefoon" value="{{ old('telefoon') }}" class="{{ $inputClass }} @error('telefoon') border-red-500 dark:border-red-500 @enderror">
-                        <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="telefoon" role="alert">@error('telefoon'){{ $message }}@enderror</span>
-                    </div>
-                    <div>
-                        <label for="email-template-omschrijving-{{ $sectionKey }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Omschrijving / vraag *</label>
-                        <textarea id="email-template-omschrijving-{{ $sectionKey }}" name="omschrijving" rows="5" required class="{{ $inputClass }} @error('omschrijving') border-red-500 dark:border-red-500 @enderror">{{ old('omschrijving') }}</textarea>
-                        <span class="form-field-error block text-sm text-red-600 dark:text-red-400 mt-1" data-field="omschrijving" role="alert">@error('omschrijving'){{ $message }}@enderror</span>
-                    </div>
+                    @include('frontend.website.components.partials.info-request-form-field', ['name' => 'email', 'label' => 'E-mailadres', 'required' => true, 'validationRule' => 'email', 'sectionKey' => $sectionKey, 'inputClass' => $inputClass])
+                    @include('frontend.website.components.partials.info-request-form-field', ['name' => 'telefoon', 'label' => 'Telefoonnummer', 'required' => true, 'validationRule' => 'tel', 'sectionKey' => $sectionKey, 'inputClass' => $inputClass])
+                    @include('frontend.website.components.partials.info-request-form-field', ['name' => 'omschrijving', 'label' => 'Omschrijving / vraag', 'required' => true, 'validationRule' => 'textarea', 'isTextarea' => true, 'sectionKey' => $sectionKey, 'inputClass' => $inputClass])
                 @endif
                 <div class="pt-2">
                     <button type="submit" class="info-request-submit-btn w-full sm:w-auto inline-flex justify-center items-center font-medium rounded-lg px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -123,11 +148,11 @@
                     </button>
                 </div>
             </form>
-            <div id="info-request-success-{{ $sectionKey }}" class="mt-6 {{ session('info_request_sent') ? '' : 'hidden' }}" role="status">
+            <div id="info-request-success-{{ $sectionKey }}" class="{{ session('info_request_sent') ? '' : 'mt-6' }} {{ session('info_request_sent') ? '' : 'hidden' }}" role="status">
                 <div class="flex flex-col items-center justify-center text-center">
                     @if($hasSuccessImage)
                         <div class="mb-4" aria-hidden="true">
-                            <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl('/storage/'.$successImagePath) }}" alt="" class="h-[300px] w-auto object-contain max-w-full">
+                            <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl('/storage/'.$successImagePath) }}" alt="" class="info-request-success-image h-auto w-auto object-contain max-w-full rounded-lg" style="width: {{ $successImageSizePercent }}%;">
                         </div>
                     @else
                         <span class="inline-flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 mb-4" style="width: {{ $successSize }}px; height: {{ $successSize }}px;" aria-hidden="true">
@@ -159,33 +184,61 @@
                     var form = document.getElementById('info-request-form-{{ $sectionKey }}');
                     if (!form) return;
                     var successEl = document.getElementById('info-request-success-{{ $sectionKey }}');
+                    var introEl = document.getElementById('info-request-intro-{{ $sectionKey }}');
                     var errorEl = document.getElementById('info-request-error-{{ $sectionKey }}');
                     var submitBtn = form.querySelector('.info-request-submit-btn');
-                    var errorBorderClass = 'border-red-500';
-                    var darkErrorBorderClass = 'dark:border-red-500';
+                    if (window.NexaInfoRequestFormValidation && !form._infoRequestValidation) {
+                        form._infoRequestValidation = window.NexaInfoRequestFormValidation.init(form);
+                    }
+                    var validation = form._infoRequestValidation;
 
                     function clearErrors() {
                         errorEl.classList.add('hidden');
                         errorEl.textContent = '';
-                        form.querySelectorAll('.form-field-error').forEach(function (span) { span.textContent = ''; });
-                        form.querySelectorAll('[name]').forEach(function (input) {
-                            input.classList.remove(errorBorderClass, darkErrorBorderClass);
-                        });
+                        if (validation) {
+                            validation.clearValidation();
+                        }
                     }
 
                     function showFieldErrors(errors) {
                         clearErrors();
+                        if (validation) {
+                            validation.showServerErrors(errors);
+                            return;
+                        }
                         Object.keys(errors).forEach(function (name) {
                             var msg = Array.isArray(errors[name]) ? errors[name][0] : errors[name];
                             var span = form.querySelector('.form-field-error[data-field="' + name + '"]');
                             var input = form.querySelector('[name="' + name + '"]');
                             if (span) span.textContent = msg;
-                            if (input) { input.classList.add(errorBorderClass, darkErrorBorderClass); }
+                            if (input) {
+                                input.classList.add('border-red-500', 'dark:border-red-500');
+                            }
                         });
+                    }
+
+                    function refreshFormTimeFields(data) {
+                        if (!data || data.form_time === undefined || !data.form_time_token) {
+                            return;
+                        }
+                        var timeInput = form.querySelector('[name="form_time"]');
+                        var tokenInput = form.querySelector('[name="form_time_token"]');
+                        if (timeInput) timeInput.value = data.form_time;
+                        if (tokenInput) tokenInput.value = data.form_time_token;
                     }
 
                     form.addEventListener('submit', function (e) {
                         e.preventDefault();
+                        if (validation && !validation.validateAll()) {
+                            var firstInvalid = form.querySelector('.info-request-icon-invalid:not(.hidden)');
+                            if (firstInvalid) {
+                                var invalidField = firstInvalid.closest('.info-request-field');
+                                if (invalidField) {
+                                    invalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                            }
+                            return;
+                        }
                         clearErrors();
                         successEl.classList.add('hidden');
                         submitBtn.disabled = true;
@@ -199,14 +252,16 @@
                                 if (res.ok && data.success) {
                                     var msgEl = successEl.querySelector('.info-request-success-message');
                                     if (msgEl) msgEl.textContent = data.message || 'Uw bericht is succesvol verzonden.';
+                                    if (introEl) introEl.classList.add('hidden');
                                     form.classList.add('hidden');
-                                    successEl.classList.remove('hidden');
+                                    successEl.classList.remove('hidden', 'mt-6');
                                     form.reset();
                                 } else if (res.status === 422 && data.errors) {
                                     showFieldErrors(data.errors);
                                 } else {
                                     errorEl.textContent = data.message || 'Er is een fout opgetreden. Probeer het later opnieuw.';
                                     errorEl.classList.remove('hidden');
+                                    refreshFormTimeFields(data);
                                 }
                             }).catch(function () {
                                 errorEl.textContent = 'Er is een fout opgetreden. Probeer het later opnieuw.';

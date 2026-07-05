@@ -7,9 +7,11 @@ use App\Modules\NexaTaxi\Http\Resources\TaxiDispatchOfferResource;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +43,8 @@ class DriverDispatchController extends Controller
             }
         }
 
-        $pickupCutoff = app(TaxiDispatchSettingsService::class)->pickupQueueCutoffAt($companyId);
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        $pickupCutoff = $dispatchSettings->pickupQueueCutoffAt($companyId);
 
         $offers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
@@ -54,9 +57,31 @@ class DriverDispatchController extends Controller
             })
             ->values();
 
+        $overdueReleasedOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->overdueReleasedForDriver($user->id)
+            ->get()
+            ->filter(function (RideDispatchOffer $offer) use ($dispatchSettings, $companyId) {
+                $ride = $offer->rideRequest;
+                if (! $ride) {
+                    return false;
+                }
+
+                $rideCompanyId = (int) ($ride->company_id ?: $offer->company_id ?: $companyId);
+
+                return $dispatchSettings->scheduledRideIsOverdue($ride, $rideCompanyId > 0 ? $rideCompanyId : null);
+            })
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->responded_at?->timestamp ?? $offer->offered_at?->timestamp ?? 0;
+            })
+            ->values();
+
+        $overdueReleasedOfferIds = $overdueReleasedOffers->pluck('id');
+
         $declinedOffers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
             ->declinedForDriver($user->id, $pickupCutoff)
+            ->whereNotIn('id', $overdueReleasedOfferIds)
             ->get()
             ->sortByDesc(function (RideDispatchOffer $offer) {
                 return $offer->responded_at?->timestamp ?? 0;
@@ -65,13 +90,33 @@ class DriverDispatchController extends Controller
 
         $unclaimedRides = $dispatch->unclaimedRidesForCompany($conn, $companyId);
 
-        $activeRide = RideRequest::on($conn)
+        $assignedRides = RideRequest::on($conn)
             ->where('driver_id', $user->id)
             ->where('status', RideRequest::STATUS_ASSIGNED)
             ->orderBy('pickup_at')
-            ->first();
+            ->get();
 
-        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        $activeRide = $assignedRides->first(
+            fn (RideRequest $ride) => $ride->blocksDriverFromOtherRides()
+        ) ?? $assignedRides->first();
+
+        $parkedAssignedRides = $assignedRides
+            ->filter(fn (RideRequest $ride) => $activeRide && (int) $ride->id !== (int) $activeRide->id)
+            ->values();
+
+        if ($activeRide && $activeRide->payment_status !== RideRequest::PAYMENT_STATUS_PAID) {
+            $openPayment = RidePayment::on($conn)
+                ->where('ride_request_id', $activeRide->id)
+                ->whereIn('channel', [RidePayment::CHANNEL_DRIVER, RidePayment::CHANNEL_BOOKING])
+                ->where('status', RidePayment::STATUS_OPEN)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($openPayment) {
+                app(TaxiRidePaymentService::class)->syncRidePaymentFromMollie($conn, $openPayment);
+                $activeRide = $activeRide->fresh();
+            }
+        }
 
         $acceptedRides = RideRequest::on($conn)
             ->where('driver_id', $user->id)
@@ -98,11 +143,26 @@ class DriverDispatchController extends Controller
                 'active_ride' => $activeRide
                     ? TaxiDispatchOfferResource::rideSummary($activeRide)
                     : null,
+                'parked_assigned_rides' => $parkedAssignedRides
+                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
+                    ->values(),
                 'scheduled_rides' => $scheduledRides
                     ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
                     ->values(),
                 'overdue_scheduled_rides' => $overdueScheduledRides
                     ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true))
+                    ->values(),
+                'overdue_released_offers' => $overdueReleasedOffers
+                    ->map(function (RideDispatchOffer $offer) use ($dispatchSettings, $companyId) {
+                        $ride = $offer->rideRequest;
+                        $rideCompanyId = (int) ($ride?->company_id ?: $offer->company_id ?: $companyId);
+                        $isOverdue = $ride && $dispatchSettings->scheduledRideIsOverdue(
+                            $ride,
+                            $rideCompanyId > 0 ? $rideCompanyId : null
+                        );
+
+                        return TaxiDispatchOfferResource::fromOffer($offer, $ride, $isOverdue);
+                    })
                     ->values(),
             ],
             'meta' => array_merge(
@@ -113,7 +173,7 @@ class DriverDispatchController extends Controller
                     'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
                     'unclaimed_rides' => $unclaimedRides,
                 ],
-                app(TaxiDispatchSettingsService::class)->paymentOptionsForTenant($companyId)
+                $dispatchSettings->paymentOptionsForTenant($companyId)
             ),
         ]);
     }
@@ -125,9 +185,17 @@ class DriverDispatchController extends Controller
         RideClaimService $claim
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $data = $request->validate([
+            'pickup_at' => ['nullable', 'date'],
+        ]);
 
         try {
-            $result = $claim->acceptOffer($conn, $request->user(), $offer);
+            $result = $claim->acceptOffer(
+                $conn,
+                $request->user(),
+                $offer,
+                $data['pickup_at'] ?? null
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet accepteren.',
@@ -191,6 +259,53 @@ class DriverDispatchController extends Controller
         ]);
     }
 
+    public function releaseReturn(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $claim->releaseReturnLeg($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan retourrit niet vrijgeven.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Retourrit vrijgegeven. Andere chauffeurs kunnen de terugweg overnemen.',
+        ]);
+    }
+
+    public function startReturn(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $started = $claim->startReturnLeg($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan retourrit niet starten.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Retourrit gestart.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($started),
+            ],
+        ]);
+    }
+
     public function decline(
         Request $request,
         int $offer,
@@ -215,12 +330,26 @@ class DriverDispatchController extends Controller
         Request $request,
         int $ride,
         ModuleDatabaseService $moduleDb,
-        RideClaimService $claim
+        RideClaimService $claim,
+        TaxiDispatchSettingsService $dispatchSettings,
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $rideModel = RideRequest::on($conn)->find($ride);
+        $allowOverdueContractComplete = $rideModel
+            && $rideModel->isContractRide()
+            && $rideModel->status === RideRequest::STATUS_ACCEPTED
+            && $dispatchSettings->scheduledRideIsOverdue(
+                $rideModel,
+                (int) ($rideModel->company_id ?? 0) > 0 ? (int) $rideModel->company_id : null
+            );
 
         try {
-            $completed = $claim->completeRide($conn, $request->user(), $ride);
+            $completed = $claim->completeRide(
+                $conn,
+                $request->user(),
+                $ride,
+                $allowOverdueContractComplete,
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet afronden.',
@@ -228,10 +357,19 @@ class DriverDispatchController extends Controller
             ], 422);
         }
 
+        $isOutboundOnlyComplete = $completed->isReturnTrip()
+            && $completed->hasOutboundCompleted()
+            && ! $completed->hasReturnLegStarted();
+
+        $message = $isOutboundOnlyComplete
+            ? 'Heenrit afgerond. Start de retour of geef deze vrij voor een andere chauffeur.'
+            : 'Rit afgerond. Je bent weer beschikbaar voor nieuwe ritten.';
+
         return response()->json([
-            'message' => 'Rit afgerond. Je bent weer beschikbaar voor nieuwe ritten.',
+            'message' => $message,
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($completed),
+                'outbound_completed' => $isOutboundOnlyComplete,
             ],
         ]);
     }

@@ -1,6 +1,6 @@
 # TEST (Proxmox Ubuntu): deploy bij push naar release/test (self-hosted runner).
 # Gebruikt docker-compose v1 op de VM is OK — docker-compose.deploy.yml heeft geen `include:`.
-# PROD (AWS Lightsail): alleen via git-tag — deploy-prod.yml + create-prod-tag.yml
+# PROD (Hostinger VPS): alleen via git-tag — deploy-prod.yml + create-prod-tag.yml
 
 name: Deploy TEST (Proxmox)
 
@@ -8,13 +8,27 @@ on:
   push:
     branches:
       - release/test
+  # Betrouwbaarder dan push alleen: start direct na merge van een PR naar release/test.
+  pull_request:
+    types:
+      - closed
+    branches:
+      - release/test
   workflow_dispatch:
+
+concurrency:
+  group: deploy-test-proxmox
+  cancel-in-progress: true
 
 # Geen actions/checkout: de app staat in TENANT_DIR (git reset in deploy-tenant.sh).
 # Checkout onder /home/mtosun/actions-runner/_work faalt vaak als de runner-service
 # niet als mtosun draait ("Access to the path /home is denied").
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: self-hosted
     timeout-minutes: 90
     env:
@@ -84,6 +98,20 @@ jobs:
           else
             echo "WAARSCHUWING: $OBJ niet schrijfbaar voor $TARGET"
             echo "Eenmalig: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
+          fi
+
+          STORAGE_LOGS="$TENANT_DIR/backend/storage/logs"
+          if [[ -d "$STORAGE_LOGS" ]] && ! touch "$STORAGE_LOGS/.preflight-write-test" 2>/dev/null; then
+            echo "WAARSCHUWING: $STORAGE_LOGS niet schrijfbaar voor runner"
+            if sudo -n chown -R "$TARGET:$TARGET" "$TENANT_DIR/backend/storage" 2>/dev/null; then
+              echo "storage: gefixt via sudo chown → $TARGET"
+            else
+              echo "Eenmalig: sudo bash $TENANT_DIR/deploy/fix-git-ownership.sh"
+            fi
+            rm -f "$STORAGE_LOGS/.preflight-write-test" 2>/dev/null || true
+          elif [[ -d "$STORAGE_LOGS" ]]; then
+            rm -f "$STORAGE_LOGS/.preflight-write-test" 2>/dev/null || true
+            echo "storage/logs schrijfbaar: OK"
           fi
 
       - name: Deploy

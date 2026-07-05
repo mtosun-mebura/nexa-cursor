@@ -18,20 +18,20 @@ class FrontendAiChatMessageTest extends TestCase
     public function test_public_tarieven_question_goes_through_n8n_webhook(): void
     {
         Http::fake([
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
                 'answer' => 'De actuele tarieven van Test Taxi BV zijn: instaptarief €3,60.',
                 'source' => 'public_rates',
             ], 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Test Taxi BV',
             'is_active' => true,
         ]);
 
-        GeneralSetting::set('ai_chat_webhook_taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
+        GeneralSetting::set('ai_chat_webhook_taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
         GeneralSetting::set('ai_chat_enabled', '1', $company->id);
         app()->instance('resolved_tenant_id', $company->id);
 
@@ -52,6 +52,42 @@ class FrontendAiChatMessageTest extends TestCase
         });
     }
 
+    public function test_travel_intent_starts_local_quote_flow_without_n8n(): void
+    {
+        Http::fake();
+
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
+
+        $company = Company::query()->create([
+            'name' => 'Test Taxi BV',
+            'is_active' => true,
+        ]);
+
+        GeneralSetting::set('ai_chat_webhook_taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
+        GeneralSetting::set('ai_chat_enabled', '1', $company->id);
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+        ])->postJson('/ai-chat/message', [
+            'message' => 'ik wil naar schiphol',
+            'module' => 'taxi',
+            'sessionId' => 'travel-intent-test',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('input.type', 'address')
+            ->assertJsonPath('input.step', 'pickup');
+
+        $reply = mb_strtolower((string) $response->json('reply'));
+        $this->assertStringContainsString('schiphol', $reply);
+        $this->assertStringContainsString('vanaf welk adres', $reply);
+
+        Http::assertNothingSent();
+    }
+
     public function test_quote_flow_uses_quote_address_coordinates_for_route_calculation(): void
     {
         Http::fake([
@@ -64,14 +100,14 @@ class FrontendAiChatMessageTest extends TestCase
             ], 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Test Taxi BV',
             'is_active' => true,
         ]);
 
-        GeneralSetting::set('ai_chat_webhook_taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
+        GeneralSetting::set('ai_chat_webhook_taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
         GeneralSetting::set('ai_chat_enabled', '1', $company->id);
         app()->instance('resolved_tenant_id', $company->id);
 
