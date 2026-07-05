@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Eenmalig op AWS Lightsail (Ubuntu): Docker Engine + Compose v2 plugin (`docker compose`).
+# Eenmalig op PROD VPS (Ubuntu/Hostinger): Docker Engine + Compose v2 plugin (`docker compose`).
 # Gebruik: bash deploy/install-docker-compose-v2.sh
 # Daarna: docker compose version  (met spatie — geen docker-compose v1 nodig op prod)
 set -euo pipefail
