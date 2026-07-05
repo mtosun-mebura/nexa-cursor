@@ -1,4 +1,4 @@
-# GitHub Actions → PROD (AWS Lightsail)
+# GitHub Actions → PROD (Hostinger VPS)
 
 Workflow: `.github/workflows/deploy-prod.yml`
 
@@ -6,11 +6,15 @@ Workflow: `.github/workflows/deploy-prod.yml`
 
 | Naam | Type | Beschrijving |
 |------|------|--------------|
-| `AWS_HOST` | Secret | Publiek IP of hostname van de Lightsail-instance |
-| `AWS_USER` | Secret | SSH-user (bijv. `ubuntu`) |
-| `AWS_SSH_KEY` | Secret | Private key (OpenSSH-formaat, volledige inhoud) |
-| `AWS_SSH_PORT` | Secret | Optioneel; standaard `22` |
+| `HOSTINGER_HOST` | Secret | Publiek IP of hostname van de VPS |
+| `HOSTINGER_USER` | Secret | SSH-user (bijv. `ubuntu`) |
+| `HOSTINGER_SSH_KEY` | Secret | Private key (OpenSSH-formaat, volledige inhoud) |
+| `HOSTINGER_SSH_PORT` | Secret | Optioneel; standaard `22` |
 | `APP_DIR` | Variable | Git-repo op de server (bijv. `/home/ubuntu/nexasuite`) |
+
+### Legacy (nog ondersteund)
+
+Oudere omgevingen kunnen nog `AWS_HOST`, `AWS_USER`, `AWS_SSH_KEY` en `AWS_SSH_PORT` gebruiken. De workflow valt daarop terug als de `HOSTINGER_*` secrets niet zijn ingesteld.
 
 ## Veelvoorkomende fout: `dial tcp …:22: i/o timeout`
 
@@ -22,24 +26,24 @@ scp file to server.
 dial tcp ***:22: i/o timeout
 ```
 
-Dat betekent **niet** dat het deploy-bestand ontbreekt op de runner. Het script `nexa-deploy-tenant-ci.sh` is wel aangemaakt; de **SSH-verbinding naar Lightsail lukt niet**.
+Dat betekent **niet** dat het deploy-bestand ontbreekt op de runner. Het script `nexa-deploy-tenant-ci.sh` is wel aangemaakt; de **SSH-verbinding naar de VPS lukt niet**.
 
-### Oplossing (Lightsail)
+### Oplossing (Hostinger VPS)
 
-1. **Instance draait** — Lightsail console → instance status *Running*.
-2. **`AWS_HOST`** — moet het **publieke** IP zijn (Networking-tab), niet het private IP.
-3. **IPv4 firewall** — Lightsail → instance → **Networking** → **IPv4 firewall**:
+1. **VPS draait** — Hostinger hPanel → VPS status *Running*.
+2. **`HOSTINGER_HOST`** — moet het **publieke** IP zijn, niet een privé- of LAN-adres.
+3. **Firewall** — zowel op de VPS (UFW) als in Hostinger hPanel:
    - Regel **SSH (22)** toevoegen of aanpassen.
    - GitHub-hosted runners (`ubuntu-latest`) hebben **dynamische IP-adressen**.
    - Voor test: bron `0.0.0.0/0` (alle IP's) op poort 22 — daarna deploy opnieuw proberen.
-   - Voor productie: IP-ranges van GitHub ophalen via `https://api.github.com/meta` (veld `actions`) en die ranges in de firewall zetten, **of** een self-hosted runner in hetzelfde netwerk gebruiken.
+   - Voor productie: IP-ranges van GitHub ophalen via `https://api.github.com/meta` (veld `actions`) en die ranges in de firewall zetten.
 4. **SSH lokaal testen** (vanaf je Mac):
 
    ```bash
-   ssh -i /pad/naar/key -p 22 ubuntu@JOUW_LIGHTSAIL_IP "echo ok"
+   ssh -i /pad/naar/key -p 22 ubuntu@JOUW_VPS_IP "echo ok"
    ```
 
-5. **Afwijkende SSH-poort** — secret `AWS_SSH_PORT` zetten en dezelfde poort in de Lightsail-firewall openzetten.
+5. **Afwijkende SSH-poort** — secret `HOSTINGER_SSH_PORT` zetten en dezelfde poort in UFW + hPanel openzetten.
 
 ## Fout: bestand ontbreekt op server (`/tmp/nexa-deploy-tenant-ci.sh`)
 
@@ -49,7 +53,7 @@ Na geslaagde upload controleert de workflow of `/tmp/nexa-deploy-tenant-ci.sh` o
 
 ## Fout: `Run Command Timeout` na ~10 minuten (bijv. tijdens `vite build`)
 
-`appleboy/ssh-action` heeft standaard **`command_timeout: 10m`**. Een volledige PROD-deploy (git, `npm ci`, Vite, Docker build, migrate) duurt op Lightsail vaak langer.
+`appleboy/ssh-action` heeft standaard **`command_timeout: 10m`**. Een volledige PROD-deploy (git, `npm ci`, Vite, Docker build, migrate) duurt op een VPS vaak langer.
 
 De workflow zet `command_timeout: 90m` op de deploy-stap (zelfde als `timeout-minutes` van de job).
 
@@ -59,7 +63,7 @@ Als het tóch lang duurt op een kleine instance: controleer geheugen (`free -h`)
 
 De Laravel-container (`www-data`) schrijft naar `backend/storage` en `backend/bootstrap/cache`. Bij `git checkout` kan de deploy-user die bestanden niet overschrijven.
 
-**Eenmalig op Lightsail (als root of met sudo):**
+**Eenmalig op de VPS (als root of met sudo):**
 
 ```bash
 sudo bash /home/ubuntu/nexasuite/deploy/fix-git-ownership.sh --user ubuntu --dir /home/ubuntu/nexasuite
@@ -77,7 +81,7 @@ Daarna **Deploy PROD** opnieuw starten. Vanaf deploy-tenant.sh op main stopt het
 
 Nginx op de host weigert de upload **vóór** Laravel (standaard ~1 MB). Geldt voor alle tenant-subdomeinen (`taxiroyaal.nexasuite.nl`, enz.).
 
-**Eenmalig op Lightsail:**
+**Eenmalig op de VPS:**
 
 ```bash
 cd /home/ubuntu/nexasuite   # of jouw APP_DIR
@@ -98,10 +102,11 @@ Zie ook `deploy/UPLOAD-LIMITS.md`. Laravel staat tot ~500 MB toe (`config/upload
 
 ## Handmatig deployen (fallback)
 
-Op de Lightsail-server, in `APP_DIR`:
+Op de VPS, in `APP_DIR`:
 
 ```bash
 export GIT_REF=v1.0.0   # jouw tag
 export TENANT_DIR=/home/ubuntu/nexasuite
+export DEPLOY_USER=ubuntu
 bash deploy/deploy-tenant.sh
 ```

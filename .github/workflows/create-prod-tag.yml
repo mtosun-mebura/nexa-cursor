@@ -1,5 +1,5 @@
 # PROD-only: maakt tag vX.Y.Z op main HEAD.
-# Test: branch release/test (Proxmox). Prod: tag + deploy (AWS Lightsail).
+# Test: branch release/test (Proxmox). Prod: tag + deploy (Hostinger VPS).
 #
 # Automatisch gestart door queue-prod-tag-on-release-merge.yml op ref main.
 # Daarna start Deploy PROD bewust handmatig met die tag.

@@ -2,7 +2,7 @@
 # Nexa SaaS deploy (CyberPanel / nginx / Docker / Laravel).
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI test:  deploy-saas.yml → branch release/test (Proxmox, self-hosted runner).
-# CI prod:  deploy-prod.yml → git-tag v* op main (AWS Lightsail, SSH).
+# CI prod:  deploy-prod.yml → git-tag v* op main (Hostinger VPS, SSH).
 #
 # Artisan / Composer: draai in de backend-container, niet met `php artisan` op de host in
 # TENANT_DIR/backend — daar staat geen vendor/ (die zit in de image onder /var/www/html).
@@ -98,7 +98,7 @@ _compose() {
   fi
   if [[ "${REQUIRE_COMPOSE_V2:-}" == "1" || "${REQUIRE_COMPOSE_V2:-}" == "true" ]]; then
     echo "ERROR: PROD vereist 'docker compose' v2 (plugin), maar alleen v1 of geen compose gevonden." >&2
-    echo "Op AWS Lightsail (eenmalig): bash $TENANT_DIR/deploy/install-docker-compose-v2.sh" >&2
+    echo "Op PROD VPS (eenmalig): bash $TENANT_DIR/deploy/install-docker-compose-v2.sh" >&2
     exit 1
   fi
   if command -v docker-compose >/dev/null 2>&1; then
@@ -106,12 +106,12 @@ _compose() {
     return
   fi
   echo "ERROR: Geen 'docker compose' (v2) of docker-compose (v1) in PATH." >&2
-  echo "AWS prod: bash deploy/install-docker-compose-v2.sh" >&2
+  echo "PROD VPS: bash deploy/install-docker-compose-v2.sh" >&2
   echo "Proxmox test: sudo apt-get install -y docker-compose  # v1 is voldoende" >&2
   exit 1
 }
 
-# Proxmox-test en AWS-prod gebruiken docker-compose.deploy.yml; oude compose v1 kent geen `include:`.
+# Proxmox-test en PROD VPS gebruiken docker-compose.deploy.yml; oude compose v1 kent geen `include:`.
 _preflight_compose_file() {
   local compose_path="$TENANT_DIR/$COMPOSE_FILE"
   if [[ ! -f "$compose_path" ]]; then
@@ -311,7 +311,7 @@ _build_frontend_assets() {
     return 0
   fi
 
-  echo "==> Geen host-npm; Vite build via Node Docker image (geschikt voor PROD/Lightsail)"
+  echo "==> Geen host-npm; Vite build via Node Docker image (geschikt voor PROD VPS)"
   local node_image="${DEPLOY_NODE_IMAGE:-node:24-bookworm-slim}"
   docker run --rm \
     -u "$(id -u):$(id -g)" \
