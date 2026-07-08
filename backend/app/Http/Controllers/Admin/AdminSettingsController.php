@@ -198,7 +198,9 @@ class AdminSettingsController extends Controller
 
         $tenantSyncScope = $this->tenantCompanyDataPush->describeSyncScope();
 
-        $tenantSyncSettings = $this->tenantSyncSettings->formSettings();
+        $tenantSyncTargets = $this->tenantSyncSettings->targets();
+        $tenantSyncActiveTarget = $this->tenantSyncSettings->activeTarget();
+        $tenantSyncSettings = $this->tenantSyncSettings->formSettings($tenantSyncActiveTarget);
 
         $tenantSyncTargetDatabaseUrlPrefill = $this->tenantWebsiteBundle->suggestedTargetDatabaseUrl();
 
@@ -215,6 +217,8 @@ class AdminSettingsController extends Controller
             'googleReviewsSectionTitle',
             'googleReviewsSectionBackground',
             'tenantSyncSettings',
+            'tenantSyncTargets',
+            'tenantSyncActiveTarget',
             'tenantSyncTargetDatabaseUrlPrefill',
             'companiesForSync',
             'tenantSyncScope',
@@ -237,10 +241,10 @@ class AdminSettingsController extends Controller
 
         try {
             $this->tenantSyncSettings->validateRequest($request);
-            $this->tenantSyncSettings->saveFromRequest($request);
+            $target = $this->tenantSyncSettings->saveFromRequest($request);
 
             return redirect()->to($redirectBase.'?saved=1#tenant-sync')
-                ->with('success', 'Omgeving-sync (doel-database) opgeslagen.');
+                ->with('success', 'Omgeving "'.$target->name.'" opgeslagen.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e->redirectTo($redirectTo);
         } catch (\Throwable $e) {
@@ -248,6 +252,56 @@ class AdminSettingsController extends Controller
                 ->with('error', 'Opslaan mislukt: '.$e->getMessage())
                 ->withInput();
         }
+    }
+
+    /**
+     * Voeg een nieuwe (lege) doel-omgeving toe en maak die actief.
+     */
+    public function createTenantSyncTarget(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'name' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $target = $this->tenantSyncSettings->createTarget($validated['name'] ?? null);
+
+        return redirect()->to(route('admin.settings.index').'#tenant-sync')
+            ->with('success', 'Nieuwe omgeving "'.$target->name.'" toegevoegd.');
+    }
+
+    /**
+     * Kies naar welke omgeving er gesynchroniseerd wordt.
+     */
+    public function activateTenantSyncTarget(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'tenant_sync_target_id' => ['required', 'integer'],
+        ]);
+
+        $this->tenantSyncSettings->activate((int) $validated['tenant_sync_target_id']);
+
+        return redirect()->to(route('admin.settings.index').'#tenant-sync');
+    }
+
+    /**
+     * Verwijder een doel-omgeving.
+     */
+    public function deleteTenantSyncTarget(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'tenant_sync_target_id' => ['required', 'integer'],
+        ]);
+
+        $this->tenantSyncSettings->deleteTarget((int) $validated['tenant_sync_target_id']);
+
+        return redirect()->to(route('admin.settings.index').'#tenant-sync')
+            ->with('success', 'Omgeving verwijderd.');
     }
 
     private function mergeTenantSyncDefaults(Request $request): void

@@ -11,6 +11,7 @@ class GeneralSetting extends Model
 {
     /** Platform-breed: niet per tenant (sync-doel, vlag). */
     public const GLOBAL_PLATFORM_KEYS = [
+        'nexa_release_version',
         'tenant_sync_target_database_url',
         'tenant_sync_target_database_password_enc',
         'tenant_sync_push_enabled',

@@ -17,7 +17,7 @@
                 </div>
                 <div>
                     <p class="mb-0 text-base font-semibold text-white">Platform-breed</p>
-                    <p class="mt-1.5 mb-0 text-white">Alleen <strong class="font-semibold text-white">Omgeving-sync</strong> onder <span class="whitespace-nowrap">Configuraties</span> geldt voor het hele platform (niet per tenant).</p>
+                    <p class="mt-1.5 mb-0 text-white"><strong class="font-semibold text-white">Upgrade</strong> en <strong class="font-semibold text-white">Omgeving-sync</strong> onder <span class="whitespace-nowrap">Configuraties</span> gelden voor het hele platform (niet per tenant).</p>
                 </div>
             </div>
         @elseif($variant === 'website-pages')

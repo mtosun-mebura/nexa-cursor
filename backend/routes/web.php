@@ -668,6 +668,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
         Route::post('settings/tenant-sync', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateTenantSync'])->name('settings.tenant-sync.update');
+        Route::post('settings/tenant-sync/target/create', [App\Http\Controllers\Admin\AdminSettingsController::class, 'createTenantSyncTarget'])->name('settings.tenant-sync.target.create');
+        Route::post('settings/tenant-sync/target/activate', [App\Http\Controllers\Admin\AdminSettingsController::class, 'activateTenantSyncTarget'])->name('settings.tenant-sync.target.activate');
+        Route::post('settings/tenant-sync/target/delete', [App\Http\Controllers\Admin\AdminSettingsController::class, 'deleteTenantSyncTarget'])->name('settings.tenant-sync.target.delete');
         Route::post('settings/tenant-sync/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testTenantSync'])->name('settings.tenant-sync.test');
         Route::post('settings/tenant-sync/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runTenantSync'])->name('settings.tenant-sync.run');
         Route::get('settings/tenant-storage-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantStorageBundle'])->name('settings.tenant-storage-bundle.export');
