@@ -577,11 +577,11 @@ wait_for_dns_txt_hint() {
   local challenge_host="_acme-challenge.${APEX_DOMAIN}"
   echo ""
   log "Wildcard SSL voor *.${APEX_DOMAIN}"
-  echo "    1. Certbot toont TXT-waarde(n) voor: ${challenge_host}"
-  echo "    2. Voeg die toe bij je DNS-provider (kan 1–15 min duren)"
-  echo "    3. Check: dig TXT ${challenge_host} +short"
-  echo "    4. Druk pas op Enter in certbot als de TXT zichtbaar is"
-  echo "    (soms twee TXT-records op dezelfde host — beide toevoegen vóór tweede Enter)"
+  echo "    Het script wacht automatisch tot elke TXT zichtbaar is (dig)."
+  echo "    Voeg records toe zodra certbot ze toont — niet op Enter drukken."
+  echo "    Host: ${challenge_host}"
+  echo "    Check: dig TXT ${challenge_host} +short"
+  echo "    Twee challenges = twee TXT-waarden op dezelfde host (beide laten staan)."
   echo ""
 }
 
@@ -594,20 +594,26 @@ obtain_ssl_wildcard_cert() {
     return 0
   fi
 
+  local auth_hook="$SCRIPT_DIR/certbot-dns-txt-auth-hook.sh"
+  [[ -x "$auth_hook" ]] || chmod +x "$auth_hook"
+
   wait_for_dns_txt_hint
 
+  local certbot_args=(
+    certonly --manual --preferred-challenges dns
+    --manual-auth-hook "$auth_hook"
+    --non-interactive
+    -d "*.${APEX_DOMAIN}" -d "${APEX_DOMAIN}"
+    --agree-tos -m "$CERTBOT_EMAIL"
+    --expand
+  )
+
   if [[ "$(id -u)" -eq 0 ]]; then
-    certbot certonly --manual --preferred-challenges dns \
-      -d "*.${APEX_DOMAIN}" -d "${APEX_DOMAIN}" \
-      --agree-tos -m "$CERTBOT_EMAIL" \
-      --expand \
-      || die "Wildcard certbot mislukt — TXT bij _acme-challenge.${APEX_DOMAIN}"
+    certbot "${certbot_args[@]}" \
+      || die "Wildcard certbot mislukt — voeg TXT toe bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
   else
-    sudo certbot certonly --manual --preferred-challenges dns \
-      -d "*.${APEX_DOMAIN}" -d "${APEX_DOMAIN}" \
-      --agree-tos -m "$CERTBOT_EMAIL" \
-      --expand \
-      || die "Wildcard certbot mislukt — TXT bij _acme-challenge.${APEX_DOMAIN}"
+    sudo certbot "${certbot_args[@]}" \
+      || die "Wildcard certbot mislukt — voeg TXT toe bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
   fi
 }
 
