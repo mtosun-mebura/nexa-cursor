@@ -1067,8 +1067,70 @@
                     <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
                 </div>
 
+                @php
+                    $tenantSyncTargets = $tenantSyncTargets ?? collect();
+                    $tenantSyncActiveTargetId = (int) ($tenantSyncActiveTarget->id ?? 0);
+                    $tenantSyncHasTargets = $tenantSyncTargets->isNotEmpty();
+                @endphp
+                <div class="rounded-md border border-border bg-muted/20 px-4 py-4 space-y-3" id="tenant-sync-target-picker">
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'h4',
+                        'class' => 'text-sm font-medium text-foreground mb-0',
+                        'title' => 'Doel-omgevingen',
+                        'infoId' => 'tenant-sync-target-picker-info',
+                        'info' => 'Beheer meerdere doel-omgevingen (bijv. <strong>Productie</strong>, <strong>Acceptatie</strong>). Kies hieronder de <strong>actieve omgeving</strong>: dat is de omgeving waar de test-verbinding en de volledige tenant-sync naartoe schrijven. De velden eronder tonen en bewerken de gekozen omgeving.',
+                    ])
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div class="grow min-w-[240px]">
+                            <label for="tenant-sync-target-select" class="text-sm text-secondary-foreground block mb-1">Actieve omgeving (sync-doel)</label>
+                            <form method="POST" action="{{ route('admin.settings.tenant-sync.target.activate') }}" id="tenant-sync-activate-form" class="m-0">
+                                @csrf
+                                <select name="tenant_sync_target_id" id="tenant-sync-target-select" class="kt-select w-full" @disabled(! $tenantSyncHasTargets)>
+                                    @forelse ($tenantSyncTargets as $t)
+                                        <option value="{{ $t->id }}" @selected($t->id === $tenantSyncActiveTargetId)>
+                                            {{ $t->name }}{{ $t->ssh_enabled ? ' · SSH' : '' }}{{ $t->push_enabled ? ' · push aan' : '' }}
+                                        </option>
+                                    @empty
+                                        <option value="">— Nog geen omgeving toegevoegd —</option>
+                                    @endforelse
+                                </select>
+                            </form>
+                        </div>
+                        <form method="POST" action="{{ route('admin.settings.tenant-sync.target.create') }}" class="m-0">
+                            @csrf
+                            <button type="submit" class="kt-btn kt-btn-outline">
+                                <i class="ki-filled ki-plus me-2"></i> Nieuwe omgeving
+                            </button>
+                        </form>
+                        @if ($tenantSyncHasTargets)
+                            <form method="POST" action="{{ route('admin.settings.tenant-sync.target.delete') }}" class="m-0"
+                                  id="tenant-sync-delete-form"
+                                  onsubmit="return confirm('Weet je zeker dat je deze omgeving wilt verwijderen?');">
+                                @csrf
+                                <input type="hidden" name="tenant_sync_target_id" value="{{ $tenantSyncActiveTargetId }}">
+                                <button type="submit" class="kt-btn kt-btn-outline text-destructive">
+                                    <i class="ki-filled ki-trash me-2"></i> Verwijder
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+                    @unless ($tenantSyncHasTargets)
+                        <p class="text-xs text-secondary-foreground m-0">Vul hieronder de gegevens in en klik op <strong>Opslaan</strong> om je eerste doel-omgeving aan te maken.</p>
+                    @endunless
+                </div>
+
                 <form method="POST" action="{{ route('admin.settings.tenant-sync.update') }}" id="tenant-sync-settings-form" class="space-y-4" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" name="tenant_sync_target_id" value="{{ old('tenant_sync_target_id', $tenantSyncSettings['tenant_sync_target_id'] ?? 0) }}">
+                    <div>
+                        <label for="tenant_sync_name" class="text-sm text-secondary-foreground block mb-1">Naam van de omgeving <span class="text-destructive">*</span></label>
+                        <input type="text" name="tenant_sync_name" id="tenant_sync_name" class="kt-input w-full text-sm"
+                               value="{{ old('tenant_sync_name', $tenantSyncSettings['tenant_sync_name'] ?? '') }}"
+                               placeholder="bijv. Productie" maxlength="120" autocomplete="off">
+                        @error('tenant_sync_name')
+                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
                     @if ($errors->any())
                         <div class="rounded-md border border-destructive/60 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                             <p class="font-medium mb-1">Opslaan mislukt — controleer de velden:</p>
@@ -1236,11 +1298,19 @@
                 <div class="border-t border-border pt-6">
                     @include('admin.settings.partials.heading-with-info', [
                         'tag' => 'h4',
-                        'class' => 'text-sm font-medium text-foreground mb-4',
+                        'class' => 'text-sm font-medium text-foreground mb-2',
                         'title' => 'Volledige tenant-sync uitvoeren',
                         'infoId' => 'tenant-sync-run-info',
                         'info' => 'Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.',
                     ])
+                    <p class="text-sm text-secondary-foreground mb-4">
+                        Synchroniseert naar:
+                        @if (! empty($tenantSyncActiveTarget))
+                            <span class="kt-badge kt-badge-sm kt-badge-primary align-middle">{{ $tenantSyncActiveTarget->name }}</span>
+                        @else
+                            <span class="text-destructive">geen omgeving gekozen — voeg er eerst één toe.</span>
+                        @endif
+                    </p>
                     <form id="tenant-sync-run-form" method="POST" action="{{ route('admin.settings.tenant-sync.run') }}" class="space-y-4" novalidate>
                         @csrf
                         <div>
@@ -1448,6 +1518,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tenantSyncSshEnabled) {
         tenantSyncSshEnabled.addEventListener('change', syncTenantSyncConnectionMode);
         syncTenantSyncConnectionMode();
+    }
+    var tenantSyncTargetSelect = document.getElementById('tenant-sync-target-select');
+    var tenantSyncActivateForm = document.getElementById('tenant-sync-activate-form');
+    if (tenantSyncTargetSelect && tenantSyncActivateForm) {
+        tenantSyncTargetSelect.addEventListener('change', function() {
+            tenantSyncActivateForm.submit();
+        });
     }
     function updateTenantSyncPasswordClearVisibility(wrap) {
         if (!wrap) {

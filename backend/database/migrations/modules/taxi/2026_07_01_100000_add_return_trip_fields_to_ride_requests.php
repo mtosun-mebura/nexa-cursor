@@ -4,6 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * @see database/migrations/modules/taxi/2026_07_01_100000_add_return_trip_fields_to_ride_requests.php
+ */
 return new class extends Migration
 {
     public function up(): void

@@ -5,9 +5,15 @@
     <div class="flex items-center flex-wrap justify-between gap-3 mb-6 mt-5">
         <div>
             <h1 class="text-2xl lg:text-3xl font-bold text-mono">Upgrade</h1>
-            <p class="text-sm text-secondary-foreground mt-1">Platformversie en software-stack bijwerken met live voortgang en tests.</p>
+            <p class="text-sm text-secondary-foreground mt-1">
+                Platformbrede Nexa-versie en software-stack bijwerken met live voortgang en tests.
+                Geldt voor de volledige installatie, niet per tenant.
+            </p>
         </div>
-        <span class="kt-badge kt-badge-primary text-base px-3 py-1.5">Huidige release: {{ $releaseVersion }}</span>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="kt-badge kt-badge-secondary kt-badge-sm">Platform-breed</span>
+            <span class="kt-badge kt-badge-primary text-base px-3 py-1.5">Huidige release: {{ $releaseVersion }}</span>
+        </div>
     </div>
 
     <div class="flex flex-col gap-5 mb-5">
@@ -44,7 +50,7 @@
             <div class="kt-card-body space-y-4 p-5 lg:p-6">
                 <p class="text-sm text-secondary-foreground">
                     Bekijk eerst welke componenten bijgewerkt kunnen worden, selecteer wat je wilt upgraden en start daarna de upgrade.
-                    Bij succes wordt de Nexa-release automatisch verhoogd.
+                    Bij succes wordt de platform-release automatisch verhoogd voor alle tenants.
                 </p>
                 @unless($webUpgradeEnabled)
                     <div class="kt-alert kt-alert-warning">
@@ -101,6 +107,57 @@
                                 <tbody id="upgrade-selection-body"></tbody>
                             </table>
                         </div>
+
+                        <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
+                            <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
+                                <i class="ki-filled ki-docker text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                                <span class="flex-1 min-w-0">PHP &amp; PostgreSQL bijwerken (via Docker)</span>
+                                <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                            </summary>
+                            <div class="mt-3 space-y-4 text-secondary-foreground">
+                                <p class="mb-0">
+                                    PHP, PostgreSQL, Node.js en NPM zijn <strong>container-runtimes</strong>. Ze zitten niet in Composer of NPM
+                                    en kunnen daarom niet vanuit deze web-upgrade worden bijgewerkt: de webserver draait zelf in de PHP-container
+                                    en kan zichzelf niet herbouwen. Werk ze bij op de host met onderstaande stappen.
+                                </p>
+
+                                <div>
+                                    <p class="mb-1 font-semibold text-mono">1. PHP upgraden (bijv. 8.3 → 8.5)</p>
+                                    <p class="mb-1">Wijzig de basis-image in <code>backend/Dockerfile</code>:</p>
+                                    <pre class="upgrade-docker-code">- FROM php:8.3-cli
++ FROM php:8.5-cli</pre>
+                                    <p class="mb-1">Herbouw daarna de container en test:</p>
+                                    <pre class="upgrade-docker-code">docker compose build backend
+docker compose up -d backend
+docker compose exec backend php -v
+docker compose exec backend php artisan test</pre>
+                                    <p class="mb-0">
+                                        Controleer eerst of alle Composer-dependencies de nieuwe PHP-versie ondersteunen
+                                        (<code>composer why-not php 8.5</code>).
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p class="mb-1 font-semibold text-mono">2. PostgreSQL upgraden (bijv. pg16 → pg17)</p>
+                                    <p class="mb-1">
+                                        Een major-upgrade vereist een <strong>data-migratie</strong> — het volume is versiegebonden, dus een
+                                        nieuwe image start niet zomaar op oude data. Maak eerst een backup:
+                                    </p>
+                                    <pre class="upgrade-docker-code">docker compose exec db pg_dumpall -U nexa > backup-$(date +%F).sql</pre>
+                                    <p class="mb-1">Pas de image aan in <code>docker-compose.postgres.yml</code>:</p>
+                                    <pre class="upgrade-docker-code">- image: pgvector/pgvector:pg16
++ image: pgvector/pgvector:pg17</pre>
+                                    <p class="mb-1">Verwijder het oude datavolume en herstel de backup in de nieuwe versie:</p>
+                                    <pre class="upgrade-docker-code">docker compose down
+docker volume rm nexa_postgres_data
+docker compose up -d db
+cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
+                                    <p class="mb-0 text-destructive">
+                                        Let op: doe dit in een onderhoudsvenster en verifieer altijd eerst dat de backup geldig is.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
 
                         <label class="upgrade-confirm-label flex items-start gap-2.5 text-sm">
                             <input type="checkbox" id="upgrade-confirm" class="kt-checkbox shrink-0">
@@ -206,6 +263,16 @@
         font-size: 0.8125rem;
     }
 
+    #upgrade-selection-table thead th,
+    #upgrade-selection-table tbody td {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #upgrade-selection-table tbody td[colspan] {
+        text-align: center;
+    }
+
     #upgrade-selection-table .upgrade-selection-col {
         width: 9.75rem;
         min-width: 9.75rem;
@@ -309,6 +376,35 @@
     .upgrade-confirm-label .kt-checkbox {
         margin-top: 0.1rem;
     }
+
+    .upgrade-docker-note summary {
+        list-style: none;
+    }
+    .upgrade-docker-note summary::-webkit-details-marker {
+        display: none;
+    }
+    .upgrade-docker-note-summary:hover .upgrade-docker-chevron {
+        color: var(--primary);
+    }
+    .upgrade-docker-note .upgrade-docker-chevron {
+        transition: transform 0.2s ease, color 0.15s ease;
+    }
+    .upgrade-docker-note[open] .upgrade-docker-chevron {
+        transform: rotate(180deg);
+    }
+    .upgrade-docker-code {
+        margin: 0.35rem 0 0.5rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.375rem;
+        background: color-mix(in srgb, var(--muted) 40%, transparent);
+        border: 1px solid var(--border);
+        font-family: ui-monospace, monospace;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--foreground);
+    }
 </style>
 @endpush
 
@@ -400,6 +496,9 @@
     function statusBadgeClass(status) {
         if (status === 'Actueel' || status === 'Geen openstaande' || status === 'Geïnstalleerd') {
             return 'kt-badge-success';
+        }
+        if (status === 'Via Docker') {
+            return 'kt-badge-info';
         }
         if (status === 'Niet nodig') {
             return 'kt-badge-secondary';

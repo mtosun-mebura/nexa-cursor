@@ -681,7 +681,7 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Upgrade
+                                    Upgrade (platform)
                                 </span>
                             </a>
                         </div>

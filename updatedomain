@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Wrapper — zie deploy/updatedomain.sh
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$ROOT/deploy/updatedomain.sh" "$@"
