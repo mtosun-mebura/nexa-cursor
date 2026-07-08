@@ -2,8 +2,8 @@
 # Eenmalig op de server (als root) als GitHub Actions meldt:
 #   Permission to read ... /home/mtosun/actions-runner/_work ... Access to /home is denied
 #
-# Oorzaak: de runner-service draait als een andere user dan de eigenaar van _work,
-# of /home en/of /home/mtosun is niet doorzoekbaar (geen x voor anderen).
+# Oorzaak: /home te restrictief (bijv. 700/711) — GitHub runner moet directory-inhoud
+# kunnen *lezen* op elk pad naar _work (niet alleen doorlopen). Standaard Ubuntu: 755 op /home.
 #
 # Gebruik:
 #   sudo bash deploy/fix-runner-home-access.sh
@@ -52,17 +52,16 @@ if [[ -n "$SERVICE_USER" && "$SERVICE_USER" != "$RUNNER_USER" ]]; then
   echo "    Optie 2: service als $RUNNER_USER laten draaien (User=$RUNNER_USER in unit)"
 fi
 
-echo "==> Traverse-rechten op /home"
+echo "==> /home leesbaar + doorloopbaar (755, Ubuntu-standaard)"
 if [[ -d /home ]]; then
-  chmod 711 /home
+  chmod 755 /home
 fi
 
-echo "==> Traverse-rechten op homedir $RUNNER_HOME"
-chmod 711 "$RUNNER_HOME"
+echo "==> Homedir $RUNNER_HOME (755)"
+chmod 755 "$RUNNER_HOME"
 if [[ -d "$RUNNER_DIR" ]]; then
   chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"
   chmod -R u+rwX,g+rX,o+rX "$RUNNER_DIR"
-  chmod 711 "$RUNNER_DIR"
 fi
 
 if [[ -n "$MOVE_WORK_TO" ]]; then
@@ -117,7 +116,7 @@ echo "Klaar."
 echo ""
 if [[ -n "$SERVICE_USER" ]]; then
   echo "Test als runner-service user ($SERVICE_USER):"
-  echo "  sudo -u $SERVICE_USER test -x /home && sudo -u $SERVICE_USER test -r $RUNNER_DIR/_work && echo OK || echo MISLUKT"
+  echo "  sudo -u $SERVICE_USER test -r /home && sudo -u $SERVICE_USER test -r $RUNNER_DIR/_work && echo OK || echo MISLUKT"
 fi
 echo "Test als $RUNNER_USER:"
 echo "  sudo -u $RUNNER_USER test -r $RUNNER_DIR/_work && echo OK || echo MISLUKT"
