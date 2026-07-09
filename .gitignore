@@ -55,12 +55,15 @@ backend/public/assets/media/**
 !backend/public/assets/media/
 !backend/public/assets/media/images/
 !backend/public/assets/media/app/
+!backend/public/assets/media/company-buildings/
 
 # 3) Within images and app, ignore all by default, then re-allow exact files
 # images: ignore all
 backend/public/assets/media/images/**
 # app: ignore all
 backend/public/assets/media/app/**
+# company-buildings: ignore all, then allow defaults
+backend/public/assets/media/company-buildings/**
 
 # images/2600x1200 (allow only these files)
 !backend/public/assets/media/images/2600x1200/
@@ -102,6 +105,12 @@ backend/public/assets/media/app/**
 !backend/public/assets/media/app/nexa-chauffeur-icon-512.png
 !backend/public/assets/media/app/nexa-chauffeur-nosleep.mp4
 !backend/public/assets/media/app/nexa-chauffeur-nosleep.wav
+
+# company-buildings (gebouw-illustratie wizard, altijd op alle omgevingen)
+!backend/public/assets/media/company-buildings/
+!backend/public/assets/media/company-buildings/1.png
+!backend/public/assets/media/company-buildings/2.png
+!backend/public/assets/media/company-buildings/3.png
 
 # Do not track backend/.gitignore file itself locally
 backend/.gitignore
