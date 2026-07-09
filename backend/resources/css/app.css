@@ -644,8 +644,13 @@
     line-height: 1.35;
   }
   .modern-home-hero--has-image .hero-caption-title {
-    font-size: clamp(1.125rem, calc(var(--hero-title-size-max, 44px) * 0.72), var(--hero-title-size-max, 44px));
+    font-size: clamp(
+      1.125rem,
+      calc(0.35rem + 2.8vw + var(--hero-title-size-max, 44px) * 0.22),
+      var(--hero-title-size-max, 44px)
+    );
     font-weight: 700;
+    text-wrap: balance;
   }
   @media (min-width: 768px) {
     .modern-home-hero--has-image .hero-caption-title {
@@ -653,8 +658,13 @@
     }
   }
   .modern-home-hero--has-image .hero-caption-subtitle {
-    font-size: clamp(0.8125rem, calc(var(--hero-subtitle-size-max, 22px) * 0.85), var(--hero-subtitle-size-max, 22px));
+    font-size: clamp(
+      0.8125rem,
+      calc(0.2rem + 1.6vw + var(--hero-subtitle-size-max, 22px) * 0.35),
+      var(--hero-subtitle-size-max, 22px)
+    );
     font-weight: 400;
+    text-wrap: pretty;
   }
   @media (min-width: 768px) {
     .modern-home-hero--has-image .hero-caption-subtitle {
@@ -664,6 +674,45 @@
   .modern-home-hero--has-image .hero-caption-subtitle :where(p, li, span, a) {
     font-size: inherit;
     line-height: inherit;
+  }
+  @media (max-width: 767px) {
+    .modern-home-hero--has-image .modern-home-hero__caption-overlay {
+      padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    }
+    .hero-caption-text-block.carousel-caption-text-block {
+      width: 100%;
+      max-width: 100%;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+    .modern-home-hero--has-image .hero-caption-title {
+      font-size: clamp(
+        1.125rem,
+        calc(0.25rem + 4.8vw),
+        calc(var(--hero-title-size-max, 44px) * 0.78)
+      );
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .modern-home-hero--has-image .hero-caption-title .hero-title-part {
+      display: inline;
+    }
+    .modern-home-hero--has-image .hero-caption-subtitle {
+      font-size: clamp(
+        0.8125rem,
+        calc(0.15rem + 3.1vw),
+        calc(var(--hero-subtitle-size-max, 22px) * 0.9)
+      );
+      line-height: 1.45;
+      overflow-wrap: break-word;
+      hyphens: auto;
+    }
+    .carousel-caption-text-block:not(.hero-caption-text-block) {
+      max-width: min(36rem, 100%);
+    }
   }
 
   /* Website builder: sectie-inhoud volle breedte op mobiel, container-padding vanaf md */
