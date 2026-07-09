@@ -39,7 +39,10 @@
 
     @if(session('success'))
         <div id="settings-success-toast"
-             class="fixed top-5 right-5 z-[120] max-w-md w-[calc(100%-2.5rem)] sm:w-auto rounded-lg border border-emerald-300/60 bg-emerald-50 text-emerald-900 shadow-lg px-4 py-3 opacity-0 translate-y-2 pointer-events-none transition-all duration-300">
+             class="admin-fixed-toast rounded-lg border border-emerald-300/60 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100 dark:border-emerald-700/50 px-4 py-3 opacity-0 translate-y-2 pointer-events-none transition-all duration-300"
+             role="status"
+             aria-live="polite"
+             aria-atomic="true">
             <div class="flex items-start gap-2">
                 <i class="ki-filled ki-check-circle text-emerald-600 mt-0.5"></i>
                 <div class="text-sm font-medium">{{ session('success') }}</div>
@@ -1423,8 +1426,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const successToast = document.getElementById('settings-success-toast');
     if (successToast) {
+        if (successToast.parentElement !== document.body) {
+            document.body.appendChild(successToast);
+        }
         requestAnimationFrame(function() {
             successToast.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
+            successToast.style.pointerEvents = 'auto';
         });
 
         setTimeout(function() {
