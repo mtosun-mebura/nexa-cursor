@@ -290,6 +290,19 @@ check_dns() {
   log "DNS ${host} → ${resolved}"
 }
 
+warn_dns_mismatch() {
+  if [[ "$IS_SUBDOMAIN" -eq 1 ]] || ! command -v dig >/dev/null 2>&1; then
+    return 0
+  fi
+  local apex_ip app_ip
+  apex_ip="$(dig +short "$DOMAIN" A 2>/dev/null | head -1 || true)"
+  app_ip="$(dig +short "app.${DOMAIN}" A 2>/dev/null | head -1 || true)"
+  if [[ -n "$apex_ip" && -n "$app_ip" && "$apex_ip" != "$app_ip" ]]; then
+    warn "DNS mismatch: ${DOMAIN} → ${apex_ip} maar app.${DOMAIN} → ${app_ip}"
+    warn "Zet beide (en *.${DOMAIN}) op het IP van deze server, anders werkt HTTPS/nginx niet goed."
+  fi
+}
+
 update_env_file() {
   if [[ "$IS_SUBDOMAIN" -eq 1 ]]; then
     log ".env overgeslagen (subdomein-modus; alleen nginx voor ${DOMAIN})"
@@ -455,6 +468,21 @@ cert_exists_for() {
   [[ -f "/etc/letsencrypt/live/${name}/fullchain.pem" && -f "/etc/letsencrypt/live/${name}/privkey.pem" ]]
 }
 
+cert_covers_wildcard() {
+  local name="$1"
+  cert_exists_for "$name" || return 1
+  openssl x509 -in "/etc/letsencrypt/live/${name}/fullchain.pem" -noout -text 2>/dev/null \
+    | grep -q "DNS:\*\.${name}"
+}
+
+remove_stale_letsencrypt_cert() {
+  local name="$1"
+  log "Verwijder oud/onvolledig certificaat: ${name}"
+  run_sudo certbot delete --cert-name "${name}" --non-interactive 2>/dev/null || true
+  run_sudo rm -rf "/etc/letsencrypt/live/${name}" "/etc/letsencrypt/archive/${name}" 2>/dev/null || true
+  run_sudo rm -f "/etc/letsencrypt/renewal/${name}.conf" 2>/dev/null || true
+}
+
 ensure_certbot_webroot() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "[dry-run] mkdir -p /var/www/certbot/.well-known/acme-challenge"
@@ -589,6 +617,16 @@ obtain_ssl_wildcard_cert() {
   log "Wildcard SSL (*.${APEX_DOMAIN}) — DNS TXT-challenge"
   warn "DNS: A ${APEX_DOMAIN} en A *.${APEX_DOMAIN} → dit server-IP"
 
+  if cert_covers_wildcard "${APEX_DOMAIN}"; then
+    log "Wildcard-certificaat bestaat al: /etc/letsencrypt/live/${APEX_DOMAIN}/"
+    return 0
+  fi
+
+  if [[ -e "/etc/letsencrypt/live/${APEX_DOMAIN}" || -f "/etc/letsencrypt/renewal/${APEX_DOMAIN}.conf" ]]; then
+    warn "Certbot-map bestaat al zonder geldig wildcard-certificaat (live directory exists)"
+    remove_stale_letsencrypt_cert "${APEX_DOMAIN}"
+  fi
+
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "[dry-run] certbot certonly --manual --preferred-challenges dns -d *.${APEX_DOMAIN} -d ${APEX_DOMAIN}"
     return 0
@@ -599,22 +637,50 @@ obtain_ssl_wildcard_cert() {
 
   wait_for_dns_txt_hint
 
+  local acme_log="/var/tmp/nexa-acme-dns-challenge.txt"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    run_sudo touch "$acme_log"
+    run_sudo chmod a+rw "$acme_log"
+    : >"$acme_log" 2>/dev/null || run_sudo bash -c ": >'$acme_log'"
+  fi
+  export NEXA_ACME_LOG="$acme_log"
+  warn "Certbot wacht op DNS TXT (tot 15 min). Waarden in dit scherm én:"
+  echo "    tail -f ${acme_log}"
+  echo "    Cloudflare → DNS → TXT, Name: _acme-challenge, Content: (waarde uit log)"
+  echo ""
+
   local certbot_args=(
     certonly --manual --preferred-challenges dns
     --manual-auth-hook "$auth_hook"
-    --non-interactive
+    --non-interactive --verbose
+    --cert-name "${APEX_DOMAIN}"
     -d "*.${APEX_DOMAIN}" -d "${APEX_DOMAIN}"
     --agree-tos -m "$CERTBOT_EMAIL"
     --expand
   )
 
+  local certbot_err
+  certbot_err="$(mktemp)"
   if [[ "$(id -u)" -eq 0 ]]; then
-    certbot "${certbot_args[@]}" \
-      || die "Wildcard certbot mislukt — voeg TXT toe bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
+    NEXA_ACME_LOG="$acme_log" certbot "${certbot_args[@]}" 2>"$certbot_err" \
+      || _wildcard_certbot_failed "$certbot_err"
   else
-    sudo certbot "${certbot_args[@]}" \
-      || die "Wildcard certbot mislukt — voeg TXT toe bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
+    sudo env NEXA_ACME_LOG="$acme_log" certbot "${certbot_args[@]}" 2>"$certbot_err" \
+      || _wildcard_certbot_failed "$certbot_err"
   fi
+  rm -f "$certbot_err"
+}
+
+_wildcard_certbot_failed() {
+  local err_file="$1"
+  if grep -q 'live directory exists' "$err_file" 2>/dev/null; then
+    die "Certbot: live directory exists — draai: sudo certbot delete --cert-name ${APEX_DOMAIN} && ./updatedomain ${DOMAIN}"
+  fi
+  if grep -q 'No TXT record found' "$err_file" 2>/dev/null; then
+    die "Wildcard certbot mislukt — TXT bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
+  fi
+  cat "$err_file" >&2 || true
+  die "Wildcard certbot mislukt — zie /var/log/letsencrypt/letsencrypt.log. Of: ./updatedomain ${DOMAIN} --no-wildcard"
 }
 
 obtain_ssl_cert() {
@@ -796,6 +862,7 @@ main() {
   check_dns "$DOMAIN"
   if [[ "$IS_SUBDOMAIN" -eq 0 ]]; then
     check_dns "app.${DOMAIN}"
+    warn_dns_mismatch
     if [[ "$WILDCARD_SSL" -eq 1 ]]; then
       warn "Wildcard: DNS A *.${DOMAIN} → server-IP (naast apex)"
     fi
