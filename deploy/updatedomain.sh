@@ -612,9 +612,15 @@ obtain_ssl_wildcard_cert() {
 
   wait_for_dns_txt_hint
 
-  : > /tmp/nexa-acme-dns-challenge.txt
+  local acme_log="/var/tmp/nexa-acme-dns-challenge.txt"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    run_sudo touch "$acme_log"
+    run_sudo chmod a+rw "$acme_log"
+    : >"$acme_log" 2>/dev/null || run_sudo bash -c ": >'$acme_log'"
+  fi
+  export NEXA_ACME_LOG="$acme_log"
   warn "Certbot wacht op DNS TXT (tot 15 min). Waarden in dit scherm én:"
-  echo "    tail -f /tmp/nexa-acme-dns-challenge.txt"
+  echo "    tail -f ${acme_log}"
   echo "    Cloudflare → DNS → TXT, Name: _acme-challenge, Content: (waarde uit log)"
   echo ""
 
@@ -628,10 +634,10 @@ obtain_ssl_wildcard_cert() {
   )
 
   if [[ "$(id -u)" -eq 0 ]]; then
-    certbot "${certbot_args[@]}" \
+    NEXA_ACME_LOG="$acme_log" certbot "${certbot_args[@]}" \
       || die "Wildcard certbot mislukt — voeg TXT toe bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
   else
-    sudo certbot "${certbot_args[@]}" \
+    sudo env NEXA_ACME_LOG="$acme_log" certbot "${certbot_args[@]}" \
       || die "Wildcard certbot mislukt — voeg TXT toe bij _acme-challenge.${APEX_DOMAIN} (dig +short). Of: ./updatedomain ${DOMAIN} --no-wildcard"
   fi
 }

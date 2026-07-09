@@ -3,12 +3,16 @@
 # Env: CERTBOT_DOMAIN, CERTBOT_VALIDATION
 set -euo pipefail
 
-CHALLENGE_LOG="/tmp/nexa-acme-dns-challenge.txt"
+CHALLENGE_LOG="${NEXA_ACME_LOG:-/var/tmp/nexa-acme-dns-challenge.txt}"
 
 log_both() {
-  # Certbot vangt stdout vaak op — altijd naar stderr + vast logbestand.
-  printf '%s\n' "$*" | tee -a "$CHALLENGE_LOG" >&2
+  # Hook draait als root (sudo certbot); log moet voor iedereen schrijfbaar zijn.
+  printf '%s\n' "$*" >&2
+  printf '%s\n' "$*" >>"$CHALLENGE_LOG" 2>/dev/null || true
 }
+
+touch "$CHALLENGE_LOG" 2>/dev/null || true
+chmod a+rw "$CHALLENGE_LOG" 2>/dev/null || true
 
 domain="${CERTBOT_DOMAIN#\*\.}"
 challenge_host="_acme-challenge.${domain}"
@@ -69,7 +73,9 @@ while [[ $(date +%s) -lt deadline ]]; do
 
   if [[ $((attempt % 3)) -eq 1 ]]; then
     log_both "    Wachten op DNS… (${attempt}×${interval}s, max ${max_wait}s) — voeg TXT toe in Cloudflare als je dat nog niet deed"
-    _dns_query "$challenge_host" | head -5 | sed 's/^/    dig: /' | tee -a "$CHALLENGE_LOG" >&2 || log_both "    dig: (nog geen TXT)"
+    while IFS= read -r line; do
+      log_both "    dig: ${line}"
+    done < <(_dns_query "$challenge_host" | head -5)
   fi
   sleep "$interval"
 done
