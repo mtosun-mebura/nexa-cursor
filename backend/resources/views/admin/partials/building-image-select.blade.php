@@ -1,10 +1,7 @@
 @php
+    use App\Support\CompanyBuildingImages;
     $selectId = $selectId ?? ('building-image-select-' . uniqid());
-    $opts = [
-        1 => ['label' => 'Oranje gevel', 'src' => asset('assets/media/company-buildings/1.png')],
-        2 => ['label' => 'Twee torens', 'src' => asset('assets/media/company-buildings/2.png')],
-        3 => ['label' => 'Wit minimalisme', 'src' => asset('assets/media/company-buildings/3.png')],
-    ];
+    $opts = CompanyBuildingImages::options();
     $optsForJs = [];
     foreach ($opts as $k => $o) {
         $optsForJs[] = ['value' => (int) $k, 'label' => $o['label'], 'src' => $o['src']];

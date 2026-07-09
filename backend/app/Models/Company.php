@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CompanyBuildingImages;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -207,10 +208,6 @@ class Company extends Model
     {
         $n = (int) ($this->building_image ?? 0);
 
-        if (! in_array($n, [1, 2, 3], true)) {
-            return null;
-        }
-
-        return asset('assets/media/company-buildings/'.$n.'.png');
+        return CompanyBuildingImages::url($n);
     }
 }
