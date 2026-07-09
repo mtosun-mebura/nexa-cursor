@@ -290,6 +290,19 @@ check_dns() {
   log "DNS ${host} → ${resolved}"
 }
 
+warn_dns_mismatch() {
+  if [[ "$IS_SUBDOMAIN" -eq 1 ]] || ! command -v dig >/dev/null 2>&1; then
+    return 0
+  fi
+  local apex_ip app_ip
+  apex_ip="$(dig +short "$DOMAIN" A 2>/dev/null | head -1 || true)"
+  app_ip="$(dig +short "app.${DOMAIN}" A 2>/dev/null | head -1 || true)"
+  if [[ -n "$apex_ip" && -n "$app_ip" && "$apex_ip" != "$app_ip" ]]; then
+    warn "DNS mismatch: ${DOMAIN} → ${apex_ip} maar app.${DOMAIN} → ${app_ip}"
+    warn "Zet beide (en *.${DOMAIN}) op het IP van deze server, anders werkt HTTPS/nginx niet goed."
+  fi
+}
+
 update_env_file() {
   if [[ "$IS_SUBDOMAIN" -eq 1 ]]; then
     log ".env overgeslagen (subdomein-modus; alleen nginx voor ${DOMAIN})"
@@ -599,10 +612,16 @@ obtain_ssl_wildcard_cert() {
 
   wait_for_dns_txt_hint
 
+  : > /tmp/nexa-acme-dns-challenge.txt
+  warn "Certbot wacht op DNS TXT (tot 15 min). Waarden in dit scherm én:"
+  echo "    tail -f /tmp/nexa-acme-dns-challenge.txt"
+  echo "    Cloudflare → DNS → TXT, Name: _acme-challenge, Content: (waarde uit log)"
+  echo ""
+
   local certbot_args=(
     certonly --manual --preferred-challenges dns
     --manual-auth-hook "$auth_hook"
-    --non-interactive
+    --non-interactive --verbose
     -d "*.${APEX_DOMAIN}" -d "${APEX_DOMAIN}"
     --agree-tos -m "$CERTBOT_EMAIL"
     --expand
@@ -796,6 +815,7 @@ main() {
   check_dns "$DOMAIN"
   if [[ "$IS_SUBDOMAIN" -eq 0 ]]; then
     check_dns "app.${DOMAIN}"
+    warn_dns_mismatch
     if [[ "$WILDCARD_SSL" -eq 1 ]]; then
       warn "Wildcard: DNS A *.${DOMAIN} → server-IP (naast apex)"
     fi
