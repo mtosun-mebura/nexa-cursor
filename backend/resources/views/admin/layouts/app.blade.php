@@ -402,6 +402,26 @@
         .dark #content .kt-alert.kt-alert-success .ki-filled {
             color: rgb(167, 243, 208) !important;
         }
+
+        /* Vaste meldingen rechtsboven: boven sticky header (z-index 9999) */
+        .admin-fixed-toast {
+            position: fixed;
+            right: 1.25rem;
+            top: calc(var(--kt-header-height, 4.375rem) + 0.75rem);
+            z-index: 10050;
+            max-width: 28rem;
+            width: calc(100% - 2.5rem);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+            pointer-events: auto;
+        }
+        @media (min-width: 640px) {
+            .admin-fixed-toast {
+                width: auto;
+            }
+        }
+        .dark .admin-fixed-toast {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+        }
     </style>
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
