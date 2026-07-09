@@ -24,6 +24,7 @@ return [
         'admin.roles.*',
         'admin.profile',
         'admin.profile.*',
+        'admin.settings.upgrade.*',
         'admin.playground.*',
         'admin.meld.*',
         'admin.skillmatching.branches.*',

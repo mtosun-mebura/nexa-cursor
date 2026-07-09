@@ -36,7 +36,10 @@ services:
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: https://nexasuite.nl
+      # Zet APP_URL in Coolify/.env op het echte publieke adres (http of https).
+      # Verkeerde APP_URL → Secure-sessiecookies op HTTP → inloggen lijkt te werken maar sessie blijft niet.
+      APP_URL: ${APP_URL:-https://nexasuite.nl}
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-}
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: "5432"

@@ -72,4 +72,22 @@ class AdminTenantScopeTest extends TestCase
         $this->assertFalse($scope->shouldHideContent());
         $this->assertSame('settings', $scope->noticeVariant());
     }
+
+    public function test_upgrade_is_platform_wide_without_tenant(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/settings/upgrade', 'admin.settings.upgrade.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_nexa_release_version_is_platform_key(): void
+    {
+        $this->assertTrue(\App\Models\GeneralSetting::isGlobalPlatformKey('nexa_release_version'));
+    }
 }

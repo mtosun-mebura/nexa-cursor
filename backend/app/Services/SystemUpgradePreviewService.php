@@ -135,22 +135,40 @@ class SystemUpgradePreviewService
 
         return [
             $this->item(
+                id: 'runtime:php',
+                group: 'runtime',
+                label: 'PHP',
+                current: $this->displayVersion($stack['php'] ?? '—'),
+                target: 'Rebuild Docker-image',
+                selectable: false,
+                status: 'Via Docker',
+            ),
+            $this->item(
+                id: 'runtime:postgresql',
+                group: 'runtime',
+                label: 'PostgreSQL',
+                current: $this->displayVersion($this->extractPostgresVersion((string) ($stack['postgresql'] ?? '—'))),
+                target: 'Rebuild + data-migratie',
+                selectable: false,
+                status: 'Via Docker',
+            ),
+            $this->item(
                 id: 'runtime:node',
                 group: 'runtime',
                 label: 'Node.js',
                 current: $this->displayVersion($stack['node'] ?? '—'),
-                target: 'Docker / host',
+                target: 'Rebuild Docker-image',
                 selectable: false,
-                status: 'Geïnstalleerd',
+                status: 'Via Docker',
             ),
             $this->item(
                 id: 'runtime:npm',
                 group: 'runtime',
                 label: 'NPM',
                 current: $this->displayVersion($stack['npm'] ?? '—'),
-                target: 'Docker / host',
+                target: 'Rebuild Docker-image',
                 selectable: false,
-                status: 'Geïnstalleerd',
+                status: 'Via Docker',
             ),
         ];
     }
@@ -427,6 +445,20 @@ class SystemUpgradePreviewService
         $version = trim($version);
 
         return $version !== '' ? $version : '—';
+    }
+
+    private function extractPostgresVersion(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '' || $raw === '—') {
+            return $raw;
+        }
+
+        if (preg_match('/(\d+(?:\.\d+)*)/', $raw, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return $raw;
     }
 
     private function commandExists(string $binary): bool

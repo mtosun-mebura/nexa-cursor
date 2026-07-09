@@ -2,8 +2,8 @@
 # Eenmalig op de server (als root) als GitHub Actions meldt:
 #   Permission to read ... /home/mtosun/actions-runner/_work ... Access to /home is denied
 #
-# Oorzaak: de runner-service draait als een andere user dan de eigenaar van _work,
-# of /home/mtosun is niet doorzoekbaar (geen x voor anderen).
+# Oorzaak: /home te restrictief (bijv. 700/711) — GitHub runner moet directory-inhoud
+# kunnen *lezen* op elk pad naar _work (niet alleen doorlopen). Standaard Ubuntu: 755 op /home.
 #
 # Gebruik:
 #   sudo bash deploy/fix-runner-home-access.sh
@@ -33,11 +33,35 @@ if [[ "$(id -un)" != "root" ]]; then
   exit 1
 fi
 
-echo "==> Traverse-rechten op homedir (anderen mogen mappen doorlopen)"
-chmod 711 "$RUNNER_HOME"
+detect_runner_service_user() {
+  local unit user
+  unit="$(systemctl list-units 'actions.runner.*' --all --no-legend --no-pager 2>/dev/null | awk 'NR==1 {print $1}')"
+  if [[ -z "$unit" ]]; then
+    return 0
+  fi
+  user="$(systemctl show "$unit" -p User --value 2>/dev/null || true)"
+  if [[ -n "$user" && "$user" != "0" ]]; then
+    echo "$user"
+  fi
+}
+
+SERVICE_USER="$(detect_runner_service_user || true)"
+if [[ -n "$SERVICE_USER" && "$SERVICE_USER" != "$RUNNER_USER" ]]; then
+  echo "==> Runner systemd User=$SERVICE_USER (eigenaar _work is $RUNNER_USER)"
+  echo "    Optie 1: rechten fixen (onderstaand)"
+  echo "    Optie 2: service als $RUNNER_USER laten draaien (User=$RUNNER_USER in unit)"
+fi
+
+echo "==> /home leesbaar + doorloopbaar (755, Ubuntu-standaard)"
+if [[ -d /home ]]; then
+  chmod 755 /home
+fi
+
+echo "==> Homedir $RUNNER_HOME (755)"
+chmod 755 "$RUNNER_HOME"
 if [[ -d "$RUNNER_DIR" ]]; then
   chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"
-  chmod -R u+rwX,g+rX "$RUNNER_DIR"
+  chmod -R u+rwX,g+rX,o+rX "$RUNNER_DIR"
 fi
 
 if [[ -n "$MOVE_WORK_TO" ]]; then
@@ -64,16 +88,37 @@ fi
 
 echo "==> Runner systemd-units (User= moet $RUNNER_USER zijn)"
 systemctl list-units 'actions.runner.*' --all --no-pager 2>/dev/null || true
-for unit in $(systemctl list-units 'actions.runner.*' --all --no-legend --no-pager 2>/dev/null | awk '{print $1}'); do
+RUNNER_UNITS=()
+while IFS= read -r unit; do
+  [[ -n "$unit" ]] || continue
+  RUNNER_UNITS+=("$unit")
   echo "--- $unit ---"
-  systemctl show "$unit" -p User,Group,FragmentPath --no-pager
-done
+  systemctl show "$unit" -p User,Group,FragmentPath,ActiveState,SubState --no-pager
+done < <(systemctl list-units 'actions.runner.*' --all --no-legend --no-pager 2>/dev/null | awk '{print $1}')
+
+if [[ ${#RUNNER_UNITS[@]} -gt 0 ]]; then
+  echo ""
+  echo "==> Runner-service herstarten"
+  for unit in "${RUNNER_UNITS[@]}"; do
+    systemctl restart "$unit" || systemctl start "$unit" || true
+    sleep 1
+    state="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || echo unknown)"
+    echo "    $unit → $state"
+    if [[ "$state" != "active" ]]; then
+      echo "    Log (laatste regels):" >&2
+      journalctl -u "$unit" -n 15 --no-pager >&2 || true
+    fi
+  done
+fi
 
 echo ""
-echo "Klaar. Herstart de runner:"
-echo "  sudo systemctl restart 'actions.runner.*'"
+echo "Klaar."
 echo ""
+if [[ -n "$SERVICE_USER" ]]; then
+  echo "Test als runner-service user ($SERVICE_USER):"
+  echo "  sudo -u $SERVICE_USER test -r /home && sudo -u $SERVICE_USER test -r $RUNNER_DIR/_work && echo OK || echo MISLUKT"
+fi
 echo "Test als $RUNNER_USER:"
 echo "  sudo -u $RUNNER_USER test -r $RUNNER_DIR/_work && echo OK || echo MISLUKT"
 echo ""
-echo "Tip: voor deploy-saas.yml is geen _work/checkout meer nodig; deploy gebruikt TENANT_DIR git."
+echo "Tip: deploy-saas.yml gebruikt geen checkout; deploy draait via TENANT_DIR git."
