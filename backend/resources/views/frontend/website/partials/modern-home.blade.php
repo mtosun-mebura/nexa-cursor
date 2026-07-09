@@ -135,7 +135,7 @@
     @if(!empty($sectionData['overlay']))
     <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20 pointer-events-none" aria-hidden="true"></div>
     @endif
-    <div class="{{ $heroHasImage ? 'absolute inset-0 z-10 flex justify-center px-5 pointer-events-none ' . $heroCaptionPositionClass : '' }}">
+    <div class="{{ $heroHasImage ? 'modern-home-hero__caption-overlay absolute inset-0 z-10 flex justify-center px-3 sm:px-5 pointer-events-none ' . $heroCaptionPositionClass : '' }}">
     <div class="website-section-inner {{ $heroHasImage ? 'w-full relative pointer-events-auto modern-home-hero__caption-inner' : 'relative z-10' }}">
         @php
             $heroRevealDur = '0.7s';
@@ -160,7 +160,7 @@
             @endphp
             <h1 class="{{ $heroHasImage ? 'hero-caption-title font-bold text-white mb-2 sm:mb-3 leading-snug' : 'text-4xl md:text-6xl font-bold text-white mb-6 leading-tight' }}"@if($heroHasImage) style="--hero-title-size-max: {{ $heroTitleSizePx }}px;"@endif>
                 @if(count($heroTitleParts) === 2)
-                    <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
+                    <span class="scroll-reveal-item hero-reveal-title-left hero-title-part inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="hero-title-spacer inline-block" aria-hidden="true">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right hero-title-part inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
                     @php
                         $heroTitleSplit = preg_split('/\s+/', trim($heroTitle), 2, PREG_SPLIT_NO_EMPTY);
@@ -168,9 +168,9 @@
                         $heroTitleRest = $heroTitleSplit[1] ?? '';
                     @endphp
                     @if($heroTitleRest !== '')
-                        <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ $heroTitleLeft }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}">{{ $heroTitleRest }}</span>
+                        <span class="scroll-reveal-item hero-reveal-title-left hero-title-part inline-block" style="{{ $heroRevealStyle(0) }}">{{ $heroTitleLeft }}</span><span class="hero-title-spacer inline-block" aria-hidden="true">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right hero-title-part inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}">{{ $heroTitleRest }}</span>
                     @else
-                        <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ $heroTitle }}</span>
+                        <span class="scroll-reveal-item hero-reveal-title-left hero-title-part inline-block" style="{{ $heroRevealStyle(0) }}">{{ $heroTitle }}</span>
                     @endif
                 @endif
             </h1>
