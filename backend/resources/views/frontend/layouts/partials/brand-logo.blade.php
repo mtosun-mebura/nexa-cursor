@@ -9,7 +9,8 @@
     $logoSizePx = isset($logoSizePx)
         ? max(10, min(100, (int) $logoSizePx))
         : (int) ($branding['logo_size_px'] ?? $websiteBuilder->resolveLogoSizePx());
-    $logoImgStyle = '--logo-h-max: '.$logoSizePx.'px; height: clamp(1.5rem, 4.5vw + 0.625rem, var(--logo-h-max)); width: auto; max-width: min(72vw, 20rem, calc(var(--logo-h-max) * 8));';
+    // Keep logo always fitting in header on mobile; leave space for header buttons.
+    $logoImgStyle = '--logo-h-max: '.$logoSizePx.'px; height: clamp(1.375rem, 4vw + 0.5rem, var(--logo-h-max)); width: auto; max-width: min(58vw, 18rem, calc(var(--logo-h-max) * 7));';
     $logoImgClass = trim('fe-brand-logo-img w-auto object-contain '.($logoImgClassExtra ?? ''));
     $logoUrl = ! empty($branding['logo_url']) ? $websiteBuilder->storageUrlToDisplayUrl($branding['logo_url']) : '';
     $logoDarkUrl = ! empty($branding['logo_dark_url']) ? $websiteBuilder->storageUrlToDisplayUrl($branding['logo_dark_url']) : '';

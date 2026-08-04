@@ -863,6 +863,50 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+#content table col.admin-table__actions-col {
+    width: 4rem;
+}
+
+#content table .admin-table__actions-col {
+    width: 4rem !important;
+    min-width: 4rem !important;
+    max-width: 4rem !important;
+    padding-inline: 0.375rem !important;
+    text-align: center !important;
+    overflow: visible !important;
+    vertical-align: middle !important;
+    white-space: nowrap;
+}
+
+#content table .admin-table__actions-col .kt-menu {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100%;
+}
+
+.admin-table-scroll-wrap td.admin-table__actions-col .kt-menu-dropdown,
+.admin-desktop-table-wrap td.admin-table__actions-col .kt-menu-dropdown,
+.admin-table-scroll-wrap td:last-child .kt-menu-dropdown,
+.admin-desktop-table-wrap td:last-child .kt-menu-dropdown {
+    position: fixed !important;
+    z-index: 99999 !important;
+}
+
+.admin-table-scroll-wrap td.admin-table__actions-col .kt-menu-item.show .kt-menu-dropdown,
+.admin-desktop-table-wrap td.admin-table__actions-col .kt-menu-item.show .kt-menu-dropdown,
+.admin-table-scroll-wrap td:last-child .kt-menu-item.show .kt-menu-dropdown,
+.admin-desktop-table-wrap td:last-child .kt-menu-item.show .kt-menu-dropdown {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.admin-table-scroll-wrap .kt-scrollable-x-auto,
+.admin-desktop-table-wrap .kt-scrollable-x-auto {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+}
+
 #content table tbody tr.admin-table-row--clickable {
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -1126,6 +1170,20 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         overflow: visible;
     }
 
+    #content form .kt-card > .kt-card-table.kt-scrollable-x-auto {
+        padding-inline: 0.75rem;
+        overflow: visible;
+        box-sizing: border-box;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    #content form .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout):not(.admin-fluid-table) {
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0 !important;
+    }
+
     #content .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) {
         display: block;
         width: 100%;
@@ -1206,10 +1264,22 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         padding-bottom: 0.3rem !important;
     }
 
-    #content .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input,
-    #content .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input.w-64,
-    #content .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-input,
-    #content .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .relative,
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input,
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) [data-kt-select-display],
+    #content form .kt-card-table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+    #content form .kt-card-table textarea,
+    #content form .kt-card-table select {
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0 !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.35 !important;
+    }
+
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input,
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input.w-64,
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-input,
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .relative,
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select,
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-select,
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input,
@@ -1217,6 +1287,16 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         width: 100% !important;
         max-width: 100%;
         min-width: 0 !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.35 !important;
+    }
+
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select button,
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select [data-kt-select-display],
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select-display,
+    #content form .kt-card-table .kt-select-wrapper .kt-select-display {
+        font-size: 0.8125rem !important;
+        line-height: 1.35 !important;
     }
 
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .flex.items-center.gap-2,

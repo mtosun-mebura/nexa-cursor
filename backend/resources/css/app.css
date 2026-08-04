@@ -621,7 +621,12 @@
     overflow: hidden;
   }
   .carousel-caption-text-block:not(.hero-caption-text-block) {
-    max-width: min(36rem, 92vw);
+    display: block;
+    box-sizing: border-box;
+    width: min(100%, calc(var(--carousel-caption-width-pct, 70) * 1%));
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
   }
   .hero-caption-text-block.carousel-caption-text-block {
     display: block;
@@ -681,7 +686,7 @@
       padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
     }
     .hero-caption-text-block.carousel-caption-text-block {
-      width: 100%;
+      width: min(100%, calc(var(--hero-caption-width-pct, 70) * 1%));
       max-width: 100%;
       padding-left: 0.75rem;
       padding-right: 0.75rem;
@@ -711,7 +716,8 @@
       hyphens: auto;
     }
     .carousel-caption-text-block:not(.hero-caption-text-block) {
-      max-width: min(36rem, 100%);
+      width: min(100%, calc(var(--carousel-caption-width-pct, 70) * 1%));
+      max-width: 100%;
     }
   }
 
@@ -1507,5 +1513,17 @@
   .ai-chat-panel select {
     font-size: 16px !important;
     touch-action: manipulation;
+  }
+
+  /* Admin-formulieren: compactere velden op mobiel (iOS-zoom acceptabel in admin) */
+  #content form .kt-card-table .kt-input,
+  #content form .kt-card-table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  #content form .kt-card-table textarea,
+  #content form .kt-card-table select,
+  #content form .kt-card-table .kt-select,
+  #content form .kt-card-table .kt-select-display,
+  #content form .kt-card-table [data-kt-select-display] {
+    font-size: 0.8125rem !important;
+    line-height: 1.35 !important;
   }
 }

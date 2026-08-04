@@ -101,7 +101,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-middle payment-provider-label-cell">
-                                API Key *
+                                API-sleutel *
                             </td>
                             <td class="min-w-48 w-full align-middle">
                                 <input type="password" 
@@ -109,7 +109,7 @@
                                        name="api_key" 
                                        value="{{ old('api_key', $decryptedConfig['api_key'] ?? '') }}"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">De API key wordt versleuteld opgeslagen voor veiligheid.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Wordt veilig versleuteld opgeslagen.</div>
                                 @error('api_key')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -117,14 +117,14 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle payment-provider-label-cell">
-                                API Secret
+                                API-secret
                             </td>
                             <td class="align-middle">
                                 <input type="password" 
                                        class="kt-input @error('api_secret') border-destructive @enderror" 
                                        name="api_secret" 
                                        value="{{ old('api_secret', $decryptedConfig['api_secret'] ?? '') }}">
-                                <div class="text-xs text-muted-foreground mt-1">Optioneel, afhankelijk van de provider.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Alleen nodig bij providers die een secret vereisen (bijv. PayPal).</div>
                                 @error('api_secret')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -132,7 +132,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle payment-provider-label-cell">
-                                Webhook URL
+                                Webhook-URL
                             </td>
                             <td class="align-middle">
                                 <input type="url" 
@@ -141,7 +141,7 @@
                                        value="{{ old('webhook_url', $paymentProvider->getConfigValue('webhook_url')) }}"
                                        placeholder="{{ $defaultTaxiWebhookUrl ?? 'https://example.com/webhook' }}">
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    URL voor webhook notificaties. Voor Nexa Taxi: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
+                                    Publieke URL waar Mollie statusupdates naartoe stuurt. Voor Nexa Taxi: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
                                 </div>
                                 @error('webhook_url')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -155,7 +155,8 @@
                             <td class="align-middle">
                                 <textarea class="kt-input @error('description') border-destructive @enderror" 
                                           name="description" 
-                                          rows="4">{{ old('description', $paymentProvider->getConfigValue('description')) }}</textarea>
+                                          rows="4"
+                                          placeholder="Korte toelichting, bijv. waar deze Mollie-koppeling voor gebruikt wordt.">{{ old('description', $paymentProvider->getConfigValue('description')) }}</textarea>
                                 @error('description')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror

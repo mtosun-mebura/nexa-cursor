@@ -24,9 +24,6 @@
     $moduleAlign = $sectionStyle['align'] ?? 'center';
     $moduleAlignClass = $moduleAlign === 'left' ? 'justify-start' : ($moduleAlign === 'right' ? 'justify-end' : 'justify-center');
     $moduleOuterStyleParts = ['width: 100%'];
-    if (! empty($sectionStyle['container_max_width'])) {
-        $moduleOuterStyleParts[] = '--booking-module-max-width: '.$sectionStyle['container_max_width'];
-    }
     if (! empty($sectionStyle['container_min_height'])) {
         $moduleOuterStyleParts[] = 'min-height: '.$sectionStyle['container_min_height'];
     }
@@ -98,9 +95,22 @@
     }
     $bookingSplitMapBesideCard = $bookingSplitMapV2 && $bookingLiveMapPosition === 'beside_card';
     $bookingSplitMapInsideContent = $bookingSplitMapV2 && $bookingLiveMapPosition === 'inside_content';
+    $bookingSectionStyleParts = [
+        '--booking-tab-font-size: '.$tabFontPxVal.'px',
+        '--booking-route-map-img-scale: '.$routeMapImgScale,
+        '--booking-title-size-max: '.$titleFontPxVal.'px',
+        '--booking-step-heading-size-max: '.$stepHeadingFontPxVal.'px',
+    ];
+    if (! $bookingPortalMode && ! empty($sectionStyle['container_max_width'])) {
+        $bookingSectionStyleParts[] = '--booking-module-max-width: '.$sectionStyle['container_max_width'];
+    }
+    if ($bookingSplitMapInsideContent) {
+        $bookingSectionStyleParts[] = '--booking-v2-inside-map-offset: calc(var(--booking-step-heading-size-max) * 1.25 + 1rem)';
+    }
+    $bookingSectionStyle = implode('; ', $bookingSectionStyleParts).';';
 @endphp
 
-<section id="boek-rit" class="booking-module-scroll-reveal w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="--booking-tab-font-size: {{ $tabFontPxVal }}px; --booking-route-map-img-scale: {{ $routeMapImgScale }}; --booking-title-size-max: {{ $titleFontPxVal }}px; --booking-step-heading-size-max: {{ $stepHeadingFontPxVal }}px;@if($bookingSplitMapInsideContent) --booking-v2-inside-map-offset: calc(var(--booking-step-heading-size-max) * 1.25 + 1rem);@endif">
+<section id="boek-rit" class="booking-module-scroll-reveal w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
     <div class="booking-module-layout w-full max-w-full {{ $bookingPortalMode ? 'booking-module-layout--portal' : 'website-section-inner website-section-inner--flush' }}">
     @if($bookingSplitMapBesideCard)
     <div class="booking-module-v2-split">
@@ -121,11 +131,30 @@
             <div class="border-b border-default">
                 <div class="booking-steps-select-mobile" data-booking-step-select-mobile>
                     <label for="booking-steps-select" class="sr-only">Selecteer stap</label>
-                    <select id="booking-steps-select" data-booking-step-select class="bg-neutral-secondary-soft border-0 border-b border-default text-heading text-sm rounded-t-base focus:ring-brand block w-full p-2.5">
+                    <div class="relative" data-booking-step-select-wrap>
+                        <button type="button" class="booking-step-select-btn bg-neutral-secondary-soft border-0 border-b border-default text-heading text-sm rounded-t-base focus:ring-brand block w-full p-2.5 flex items-center justify-between gap-3" data-booking-step-select-btn aria-haspopup="listbox" aria-expanded="false">
+                            <span class="booking-step-select-btn__label" data-booking-step-select-btn-label></span>
+                            <svg class="w-4 h-4 flex-shrink-0 opacity-80" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
+                        <div class="booking-step-select-menu hidden absolute left-0 right-0 z-40 mt-1.5 rounded-xl border border-default bg-neutral-primary shadow-lg overflow-hidden" data-booking-step-select-menu role="listbox" tabindex="-1" aria-label="Selecteer stap">
+                            @foreach($stepOrder as $stepKey)
+                                <button type="button"
+                                    class="booking-step-select-menu-item w-full text-left px-4 py-2 text-sm text-heading hover:bg-neutral-secondary-soft disabled:opacity-40 disabled:cursor-not-allowed"
+                                    data-booking-step-key="{{ $stepKey }}"
+                                    @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>
+                                    {{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <select id="booking-steps-select" data-booking-step-select class="sr-only">
                         @foreach($stepOrder as $stepKey)
                             <option value="{{ $stepKey }}" @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>{{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}</option>
                         @endforeach
-                    </select>
+                        </select>
+                    </div>
                 </div>
                 <ul class="booking-steps-nav flex flex-wrap -mb-px text-sm font-medium text-center text-body" data-booking-steps-nav role="tablist">
                     @foreach($stepOrder as $idx => $stepKey)
@@ -701,8 +730,16 @@
         align-items: stretch;
     }
 }
+@media (min-width: 768px) {
+    [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-split {
+        width: 100%;
+        max-width: var(--booking-module-max-width, 100%);
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
 [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-form-col .booking-module-outer {
-    max-width: none !important;
+    max-width: 100%;
 }
 [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-map-col {
     position: relative;
@@ -730,6 +767,20 @@
     width: 100%;
     height: 280px;
     min-height: 280px;
+}
+[data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-col {
+    padding-left: 0;
+    padding-right: 0;
+}
+@media (max-width: 767px) {
+    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-col {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-inner {
+        left: 0.5rem;
+        right: 0.5rem;
+    }
 }
 [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-canvas {
     border-radius: 0.75rem;
@@ -1086,6 +1137,24 @@ html.dark [data-nexataxi-booking-module] .booking-confirm-surface {
 [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab,
 [data-nexataxi-booking-module] #booking-steps-select {
     font-size: var(--booking-tab-font-size, 14px) !important;
+}
+[data-nexataxi-booking-module] #booking-steps-select option,
+[data-nexataxi-booking-module] #booking-steps-select optgroup {
+    font-size: inherit !important;
+}
+[data-nexataxi-booking-module] [data-booking-step-select-btn],
+[data-nexataxi-booking-module] [data-booking-step-select-menu] .booking-step-select-menu-item {
+    font-size: var(--booking-tab-font-size, 14px) !important;
+}
+[data-nexataxi-booking-module] [data-booking-step-select-menu] {
+    background-color: rgb(15 23 42) !important;
+}
+.dark [data-nexataxi-booking-module] [data-booking-step-select-menu],
+html.dark [data-nexataxi-booking-module] [data-booking-step-select-menu] {
+    background-color: rgb(15 23 42) !important;
+}
+[data-nexataxi-booking-module] [data-booking-step-select-menu] .booking-step-select-menu-item[aria-selected="true"] {
+    background: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 24%, transparent) !important;
 }
 [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab.active {
     font-size: calc(var(--booking-tab-font-size, 14px) * 1.12) !important;
@@ -2683,6 +2752,24 @@ body.booking-modal-open {
             opt.disabled = !isStepReachable(key);
         });
         stepSelect.value = currentStepKey;
+
+        // Custom mobile step menu (Safari/macOS doesn't reliably style native <option> font-size)
+        var btn = root.querySelector('[data-booking-step-select-btn]');
+        var btnLabel = root.querySelector('[data-booking-step-select-btn-label]');
+        var menu = root.querySelector('[data-booking-step-select-menu]');
+        if (btn && btnLabel && menu) {
+            var currentOpt = stepSelect.querySelector('option[value="' + currentStepKey + '"]');
+            btnLabel.textContent = (currentOpt && currentOpt.textContent) ? currentOpt.textContent.trim() : currentStepKey;
+            Array.prototype.forEach.call(menu.querySelectorAll('[data-booking-step-key]'), function(item) {
+                var key = item.getAttribute('data-booking-step-key') || '';
+                var opt = stepSelect.querySelector('option[value="' + key + '"]');
+                var disabled = !!(opt && opt.disabled);
+                var hidden = !!(opt && opt.hidden);
+                item.disabled = disabled;
+                item.hidden = hidden;
+                item.setAttribute('aria-selected', key === currentStepKey ? 'true' : 'false');
+            });
+        }
     }
 
     function getBookingScrollOffset() {
@@ -6509,405 +6596,4 @@ body.booking-modal-open {
         if (!getBookingModuleRoot()) return;
         if (root.getAttribute('data-booking-ui-bound') === '1') return;
         root.setAttribute('data-booking-ui-bound', '1');
-
-    root.addEventListener('input', function(e) {
-        if (e.target.matches('[data-field]')) {
-            clearFieldErrorFor(e.target.getAttribute('data-field'));
-            syncStateFromFields();
-        }
-        if (e.target.matches('[data-stopover-input]')) {
-            syncStateFromFields();
-        }
-    });
-
-    root.addEventListener('change', function(e) {
-        if (e.target.matches('[data-booking-step-select]')) {
-            var selectedStepKey = e.target.value || '';
-            if (selectedStepKey === 'baggage' && !state.has_baggage) {
-                selectedStepKey = 'offers';
-            }
-            if (!isStepReachable(selectedStepKey)) {
-                e.target.value = getCurrentStepKey();
-                return;
-            }
-            if (stepOrder.indexOf(selectedStepKey) >= 0) {
-                clearError();
-                setStepByKey(selectedStepKey);
-                var currentStepKey = getCurrentStepKey();
-                if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
-                    requestQuotes();
-                }
-                updateSummary();
-            }
-            return;
-        }
-        if (e.target.matches('[data-field]')) {
-            clearFieldErrorFor(e.target.getAttribute('data-field'));
-            syncStateFromFields();
-            if (e.target.getAttribute('data-field') === 'pickup_address' || e.target.getAttribute('data-field') === 'dropoff_address' || e.target.getAttribute('data-field') === 'return_trip') {
-                recalculateRouteOrQuote();
-            }
-        }
-        if (e.target.matches('[data-stopover-input]')) {
-            syncStateFromFields();
-            recalculateRouteOrQuote();
-        }
-        if (e.target.matches('[data-toggle-special-baggage]')) {
-            var wrap = root.querySelector('[data-special-baggage-wrap]');
-            if (wrap) wrap.classList.toggle('hidden', !e.target.checked);
-        }
-        if (e.target.matches('input[name="booking_has_baggage_ui"]')) {
-            syncBaggageChoiceFromUi();
-        }
-    });
-
-    root.addEventListener('mousedown', function(e) {
-        var stopoverBtn = e.target.closest('.booking-stopover-toggle');
-        if (stopoverBtn) {
-            e.preventDefault();
-            var didAddStopover = addStopover('');
-            if (!didAddStopover) return;
-            var list = root.querySelector('[data-stopovers-list]');
-            if (list && list.lastElementChild) {
-                var lastInput = list.lastElementChild.querySelector('[data-stopover-input]');
-                if (lastInput) lastInput.focus();
-            }
-        }
-    });
-
-    root.addEventListener('click', function(e) {
-        var pickupLocateClick = e.target.closest('[data-pickup-locate-btn]');
-        if (pickupLocateClick) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (typeof root._usePickupCurrentLocation === 'function') {
-                root._usePickupCurrentLocation();
-            }
-            return;
-        }
-        if (e.target.matches('[data-booking-success-backdrop]')) {
-            closeSuccessModal();
-            return;
-        }
-        var successCloseBtn = e.target.closest('[data-booking-success-close]');
-        if (successCloseBtn) {
-            e.preventDefault();
-            closeSuccessModal();
-            return;
-        }
-        var portalLoginBtn = e.target.closest('[data-booking-success-portal-login]');
-        if (portalLoginBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!navigateToPortalLogin(portalLoginBtn)) {
-                var fallbackUrl = buildDefaultPortalLoginUrl();
-                if (fallbackUrl) {
-                    closeSuccessModal();
-                    window.location.href = fallbackUrl;
-                }
-            }
-            return;
-        }
-        var confirmLoginBtn = e.target.closest('[data-booking-login-btn]');
-        if (confirmLoginBtn && confirmLoginBtn.classList.contains('booking-login-btn--visible')) {
-            e.preventDefault();
-            var confirmLoginUrl = resolvePortalLoginUrl(confirmLoginBtn);
-            if (confirmLoginUrl) {
-                closeConfirmModal();
-                window.location.assign(confirmLoginUrl);
-            }
-            return;
-        }
-        var dtInput = e.target.closest('.booking-datetime-input');
-        if (dtInput) {
-            if (typeof dtInput.showPicker === 'function') {
-                try {
-                    dtInput.showPicker();
-                } catch (err) {
-                    // Ignore security/user-gesture errors; native behavior still applies.
-                }
-            }
-        }
-        var stopoverBtn = e.target.closest('.booking-stopover-toggle');
-        if (stopoverBtn) {
-            e.preventDefault();
-            return;
-        }
-        var stopoverRemove = e.target.closest('.booking-stopover-remove');
-        if (stopoverRemove) {
-            e.preventDefault();
-            var row = stopoverRemove.closest('.booking-stopover-row');
-            if (row) row.remove();
-            syncStateFromFields();
-            state.summary_route_polyline = '';
-            liveRouteCalcLastSignature = '';
-            liveRouteMapRenderSignature = '';
-            snapshotRouteAddressInputs();
-            if (bookingSplitMapV2) {
-                ensureLiveMapRouteReady();
-            }
-            requestQuotes();
-            return;
-        }
-        var swapBtn = e.target.closest('.booking-route-swap-btn');
-        if (swapBtn) {
-            e.preventDefault();
-            var pickupInput = root.querySelector('[data-field="pickup_address"]');
-            var dropoffInput = root.querySelector('[data-field="dropoff_address"]');
-            if (pickupInput && dropoffInput) {
-                var oldPickup = pickupInput.value || '';
-                pickupInput.value = dropoffInput.value || '';
-                dropoffInput.value = oldPickup;
-                var lat = state.pickup_lat;
-                var lng = state.pickup_lng;
-                state.pickup_lat = state.dropoff_lat;
-                state.pickup_lng = state.dropoff_lng;
-                state.dropoff_lat = lat;
-                state.dropoff_lng = lng;
-                if (state.stopovers && state.stopovers.length) {
-                    state.stopovers.reverse();
-                    var stopoverInputs = root.querySelectorAll('[data-stopover-input]');
-                    stopoverInputs.forEach(function(input, index) {
-                        input.value = state.stopovers[index] || '';
-                    });
-                }
-                syncStateFromFields();
-                state.summary_route_polyline = '';
-                liveRouteCalcLastSignature = '';
-                liveRouteMapRenderSignature = '';
-                snapshotRouteAddressInputs();
-                if (bookingSplitMapV2) {
-                    ensureLiveMapRouteReady();
-                } else if (window.__nexataxiBookingRouteCalc) {
-                    window.__nexataxiBookingRouteCalc();
-                } else {
-                    requestQuotes();
-                }
-            }
-            return;
-        }
-        var tabBtn = e.target.closest('.booking-step-tab');
-        if (tabBtn) {
-            e.preventDefault();
-            var tabStepIndex = parseInt(tabBtn.getAttribute('data-step-index'), 10);
-            var targetStepKey = tabBtn.getAttribute('data-step-key') || '';
-            if (isStepReachable(targetStepKey)) {
-                if (targetStepKey === 'baggage' && !state.has_baggage) {
-                    targetStepKey = 'offers';
-                }
-                if (targetStepKey && stepOrder.indexOf(targetStepKey) >= 0) {
-                    clearError();
-                    setStepByKey(targetStepKey);
-                    var currentStepKey = getCurrentStepKey();
-                    if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
-                        requestQuotes();
-                    }
-                    updateSummary();
-                }
-            }
-            e.stopPropagation();
-            return;
-        }
-        var qtyBtn = e.target.closest('.booking-qty-btn');
-        if (qtyBtn) {
-            e.preventDefault();
-            var target = qtyBtn.getAttribute('data-target') || '';
-            var delta = parseInt(qtyBtn.getAttribute('data-delta') || '0', 10);
-            var max = qtyBtn.hasAttribute('data-max') ? parseInt(qtyBtn.getAttribute('data-max') || '0', 10) : null;
-            updateQty(target, delta, max);
-            requestQuotes();
-            return;
-        }
-        var passengerBtn = e.target.closest('.booking-passenger-btn');
-        if (passengerBtn) {
-            e.preventDefault();
-            var deltaPass = parseInt(passengerBtn.getAttribute('data-delta') || '0', 10);
-            var nextPassengers = state.passengers + deltaPass;
-            if (nextPassengers < state.minPassengers) nextPassengers = state.minPassengers;
-            if (nextPassengers > state.maxPassengers) nextPassengers = state.maxPassengers;
-            state.passengers = nextPassengers;
-            syncStateFromFields();
-            requestQuotes();
-            return;
-        }
-        var offerCard = e.target.closest('[data-offer-id]');
-        if (offerCard) {
-            e.preventDefault();
-            state.selected_offer_id = offerCard.getAttribute('data-offer-id') || null;
-            renderOffers();
-            updateSummary();
-            return;
-        }
-        var newBookingBtn = e.target.closest('[data-booking-new]');
-        if (newBookingBtn) {
-            e.preventDefault();
-            resetBookingForNew();
-            return;
-        }
-        var portalCancelBtn = e.target.closest('[data-booking-portal-cancel]');
-        if (portalCancelBtn) {
-            e.preventDefault();
-            if (bookingSubmitted) return;
-            if (typeof window.closeTaxiPortalBooking === 'function') {
-                window.closeTaxiPortalBooking();
-                return;
-            }
-            if (bookingReturnUrl) {
-                window.location.href = bookingReturnUrl;
-            }
-            return;
-        }
-        var prevBtn = e.target.closest('[data-booking-prev]');
-        if (prevBtn) {
-            e.preventDefault();
-            if (bookingSubmitted) return;
-            clearError();
-            var prevStepKey = getPrevStepKey(getCurrentStepKey());
-            if (prevStepKey) {
-                setStepByKey(prevStepKey);
-            }
-            return;
-        }
-        var nextBtn = e.target.closest('[data-booking-next]');
-        if (nextBtn) {
-            e.preventDefault();
-            if (bookingSubmitted) return;
-            syncStateFromFields();
-            if (!validateCurrentStep()) return;
-            var currentStepKey = getCurrentStepKey();
-            var nextStepKey = getNextStepKey(currentStepKey);
-            if (nextStepKey) {
-                var nextIndex = getStepIndexForKey(nextStepKey);
-                if (nextIndex > 0) {
-                    state.maxStep = Math.max(state.maxStep, nextIndex);
-                }
-                setStepByKey(nextStepKey);
-                if (nextStepKey === 'offers' || nextStepKey === 'confirm') {
-                    requestQuotes();
-                }
-                updateSummary();
-                return;
-            }
-            if (!validateAllBeforeSubmit()) return;
-            showConfirmModal();
-        }
-    });
-
-    root.querySelectorAll('[data-booking-confirm-close], [data-booking-confirm-backdrop]').forEach(function(el) {
-        el.addEventListener('click', function() { closeConfirmModal(); });
-    });
-    var confirmSubmitBtn = root.querySelector('[data-booking-confirm-submit]');
-    if (confirmSubmitBtn) {
-        confirmSubmitBtn.addEventListener('click', function() {
-            closeConfirmModal();
-            submitBooking(whatsappClickToChatEnabled);
-        });
-    }
-
-    root.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            var confirmModal = root.querySelector('[data-booking-confirm-modal]');
-            if (confirmModal && !confirmModal.classList.contains('hidden')) {
-                closeConfirmModal();
-                return;
-            }
-            closeSuccessModal();
-            return;
-        }
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        var offerCard = e.target.closest('[data-offer-id]');
-        if (!offerCard) return;
-        e.preventDefault();
-        state.selected_offer_id = offerCard.getAttribute('data-offer-id') || null;
-        renderOffers();
-        updateSummary();
-    });
-
-    }
-
-    window.addEventListener('resize', function() {
-        scheduleRouteIconAlignment();
-        if (bookingSplitMapV2 && getCurrentStepKey() === 'confirm') {
-            scheduleConfirmWireframeMapHeightSync();
-        }
-    });
-
-    document.addEventListener('taxi-portal-booking-visible', function() {
-        scheduleRouteIconAlignment();
-    });
-
-    window.__nexataxiBookingRouteCalc = calculateRouteFallback;
-    window.__nexataxiSyncRouteIcons = syncRouteIconAlignment;
-    window.__nexataxiScheduleRouteIcons = scheduleRouteIconAlignment;
-
-    function initBookingModule() {
-        if (!getBookingModuleRoot()) return;
-        publishBookingRootApi();
-        try {
-            sessionStorage.removeItem('nexataxi_booking_confirm_dev_v1');
-        } catch (e) {}
-        restorePendingBookingFromSession();
-        applyCustomerPrefill();
-        applyChatBookingPrefillFromUrl();
-        restoreSubmittedBookingState();
-        updateNewBookingButtonVisibility();
-        setStep(1, { skipScroll: true });
-        updateBaggageStepAvailability();
-        applyStateToFields();
-        syncStateFromFields();
-        refreshPickupDatetimeMin();
-        var pickupAtInput = root.querySelector('[data-field="pickup_at"]');
-        if (pickupAtInput) {
-            pickupAtInput.addEventListener('focus', function() {
-                refreshPickupDatetimeMin();
-            });
-        }
-        setupAddressTypeaheadFallback();
-        bindBookingModuleDomEvents();
-        initGoogleMaps();
-        if (bookingSplitMapV2 && mapsApiKey && window.google && google.maps) {
-            initLiveRouteMap();
-        }
-        if (bookingSplitMapV2) {
-            bindConfirmWireframeHeightSync();
-        }
-        if (bookingSplitMapV2 && (String(state.pickup_address || '').trim() || String(state.dropoff_address || '').trim())) {
-            ensureLiveMapRouteReady();
-        }
-        recalculateRouteOrQuote();
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initBookingModule);
-    } else {
-        initBookingModule();
-    }
-})();
-</script>
-<script>
-(function() {
-    function initBookingModuleScrollReveal() {
-        var section = document.querySelector('[data-booking-module-scroll-reveal]');
-        if (!section) return;
-        var opts = { rootMargin: '0px 0px -60px 0px', threshold: 0.06 };
-        if (typeof window.nexaObserveWhenVisible === 'function') {
-            window.nexaObserveWhenVisible(section, function(el) {
-                el.classList.add('is-in-view');
-            }, opts);
-            return;
-        }
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) entry.target.classList.add('is-in-view');
-            });
-        }, opts);
-        observer.observe(section);
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initBookingModuleScrollReveal);
-    } else {
-        initBookingModuleScrollReveal();
-    }
-})();
-</script>
-@endpush
 

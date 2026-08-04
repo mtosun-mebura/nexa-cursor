@@ -94,3 +94,9 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 
+Route::post('/platform/webhooks/mollie', App\Http\Controllers\Api\PlatformMollieWebhookController::class)
+    ->name('api.platform.webhooks.mollie');
+
+Route::post('/tenant-customer-invoices/webhooks/mollie', App\Http\Controllers\Api\TenantCustomerMollieWebhookController::class)
+    ->name('api.tenant-customer-invoices.webhooks.mollie');
+

@@ -147,7 +147,7 @@
         <div class="w-full text-center">
             @if($heroHasTextBg)
             <div class="hero-caption-width-context w-full mx-auto box-border" style="{{ $heroCaptionWidthStyle }}">
-            <div class="hero-caption-text-block carousel-caption-text-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md mx-auto" style="{{ $heroTextBgStyle }}">
+            <div class="hero-caption-text-block carousel-caption-text-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md mx-auto" style="{{ $heroCaptionWidthStyle }}{{ $heroTextBgStyle }}">
             @endif
             @if($v('_title'))
             @php

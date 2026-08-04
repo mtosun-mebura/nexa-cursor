@@ -86,13 +86,28 @@ export function normalizeAdminDatatableSearchValue(value) {
 }
 
 function initAdminDatatableMenus() {
-    if (window.KTMenu && typeof window.KTMenu.init === 'function') {
-        try {
-            window.KTMenu.init();
-        } catch (error) {
-            console.warn('KTMenu init error:', error);
-        }
+    if (!window.KTMenu) {
+        return;
     }
+
+    document.querySelectorAll('[data-admin-datatable="true"]').forEach((datatableRoot) => {
+        datatableRoot.querySelectorAll('[data-kt-menu]:not([data-kt-menu="false"])').forEach((menuEl) => {
+            if (menuEl.id === 'sidebar_menu' || menuEl.closest('#sidebar_menu')) {
+                return;
+            }
+
+            try {
+                const existing = window.KTMenu.getInstance(menuEl);
+                if (existing && typeof existing.destroy === 'function') {
+                    existing.destroy();
+                }
+
+                new window.KTMenu(menuEl);
+            } catch (error) {
+                console.warn('KTMenu datatable init error:', error);
+            }
+        });
+    });
 }
 
 export class AdminClientDatatable {

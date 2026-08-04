@@ -90,9 +90,9 @@
                 </div>
                 <div class="flex gap-1.25 items-center">
                     @if($paymentProvider->getConfigValue('test_mode', false))
-                        <span class="kt-badge kt-badge-sm kt-badge-warning">Test Modus</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-warning">Testmodus</span>
                     @else
-                        <span class="kt-badge kt-badge-sm kt-badge-primary">Live Modus</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-primary">Livemodus</span>
                     @endif
                 </div>
                 <div class="flex gap-1.25 items-center">
@@ -188,33 +188,39 @@
                     <tbody>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
-                            API Key
+                            API-sleutel
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
-                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••••••••••••••••••••••</code>
-                            <small class="text-muted-foreground d-block mt-1">Versleuteld opgeslagen</small>
+                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••</code>
+                            <div class="text-xs text-muted-foreground mt-1">Veilig versleuteld opgeslagen. Wijzigen via Bewerken.</div>
                         </td>
                     </tr>
                     @if($paymentProvider->getConfigValue('webhook_url'))
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal pt-2">
-                            Webhook URL
+                        <td class="min-w-56 text-secondary-foreground font-normal pt-2 align-top">
+                            Webhook-URL
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal pt-2">
-                            <a href="{{ $paymentProvider->getConfigValue('webhook_url') }}" target="_blank" class="text-primary hover:underline break-all">
+                            <a href="{{ $paymentProvider->getConfigValue('webhook_url') }}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline break-all">
                                 {{ $paymentProvider->getConfigValue('webhook_url') }}
                             </a>
+                            <div class="text-xs text-muted-foreground mt-1">
+                                Mollie stuurt betaalstatusupdates naar dit adres.
+                                @if($paymentProvider->provider_type === 'mollie')
+                                    Voor Nexa Taxi: <code class="text-xs break-all">{{ url('/api/taxi/webhooks/mollie') }}</code>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     @endif
                     @if($paymentProvider->getConfigValue('api_secret'))
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal pt-2">
-                            API Secret
+                            API-secret
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal pt-2">
-                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••••••••••••••••••••••</code>
-                            <small class="text-muted-foreground d-block mt-1">Versleuteld opgeslagen</small>
+                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••</code>
+                            <div class="text-xs text-muted-foreground mt-1">Veilig versleuteld opgeslagen. Wijzigen via Bewerken.</div>
                         </td>
                     </tr>
                     @endif
@@ -227,7 +233,7 @@
         <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Basis Informatie
+                    Basisinformatie
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
@@ -242,7 +248,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Provider Type
+                            Providertype
                         </td>
                         <td class="text-foreground font-normal">
                             <span class="kt-badge kt-badge-sm kt-badge-info">
@@ -286,11 +292,11 @@
             </div>
         </div>
 
-        <!-- Systeem Informatie -->
+        <!-- Systeeminformatie -->
         <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Systeem Informatie
+                    Systeeminformatie
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">

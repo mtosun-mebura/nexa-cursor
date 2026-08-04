@@ -6,6 +6,7 @@ const CAROUSEL_ITEM_KEYS = [
   'text_color',
   'text_bg_color',
   'text_bg_opacity',
+  'text_bg_width_percent',
   'text_position',
   'text_size_px',
   'text_animation',

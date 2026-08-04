@@ -13,6 +13,9 @@
         ? max(0, min(100, (int) $slideTextBgOpacityRaw))
         : ($slideTextBgColor !== '' ? 88 : 78);
     $opacityId = 'carousel-bg-opacity-'.$sectionKey.'-'.$idx;
+    $slideTextBgWidthPct = (int) old('home_sections.'.$sectionKey.'.items.'.$idx.'.text_bg_width_percent', $item['text_bg_width_percent'] ?? 70);
+    $slideTextBgWidthPct = max(30, min(100, $slideTextBgWidthPct));
+    $widthPercentOptions = [100, 90, 80, 70, 60, 50, 40, 30];
 @endphp
 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
     <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Achtergrond</span>
@@ -58,4 +61,12 @@
           title="Voorbeeld achtergrondvlak"
           role="img"
           aria-label="Voorbeeld achtergrond"></span>
+</div>
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full mt-1">
+    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Breedte</span>
+    <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem]" title="Breedte tekstblok op slide (%)">
+        @foreach($widthPercentOptions as $pct)
+            <option value="{{ $pct }}" @selected($slideTextBgWidthPct === $pct)>{{ $pct }}%</option>
+        @endforeach
+    </select>
 </div>

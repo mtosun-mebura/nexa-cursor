@@ -44,6 +44,7 @@ class ModernHomeCarouselTest extends TestCase
                         'text_color' => '#fbbf24',
                         'text_bg_color' => '#1e3a5f',
                         'text_bg_opacity' => 50,
+                        'text_bg_width_percent' => 60,
                         'text_size_px' => 32,
                         'text_position' => 'center',
                         'text_animation' => 'zoom',
@@ -75,6 +76,7 @@ class ModernHomeCarouselTest extends TestCase
         $this->assertStringContainsString('aspect-ratio:', $html);
         $this->assertStringContainsString('data-carousel-animation="zoom"', $html);
         $this->assertStringContainsString('carousel-caption-text-block', $html);
+        $this->assertStringContainsString('--carousel-caption-width-pct: 60', $html);
         $this->assertStringContainsString('background-color: rgba(30, 58, 95, 0.5)', $html);
         $this->assertStringContainsString('--caption-anim-duration: 1500ms', $html);
         $this->assertStringContainsString('transition-delay: 0ms', $html);
