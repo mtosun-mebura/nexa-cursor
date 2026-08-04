@@ -99,7 +99,12 @@
     }
     @endif
     #{{ $carouselId }} .carousel-caption-text-block {
-        max-width: min(36rem, 92vw);
+        display: block;
+        box-sizing: border-box;
+        width: min(100%, calc(var(--carousel-caption-width-pct, 70) * 1%));
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
     }
     #{{ $carouselId }} .carousel-caption-text-block p {
         line-height: 1.35;
@@ -163,6 +168,8 @@
                 $textBgColor = trim((string) ($item['text_bg_color'] ?? ''));
                 $textBgOpacity = $item['text_bg_opacity'] ?? null;
                 $captionBgColor = $carouselCaptionBgRgba($textBgColor, $textBgOpacity);
+                $captionWidthPct = max(30, min(100, (int) ($item['text_bg_width_percent'] ?? 70)));
+                $captionWidthStyle = '--carousel-caption-width-pct: '.$captionWidthPct.';';
                 $textSizePx = isset($item['text_size_px']) ? (int) $item['text_size_px'] : 24;
                 $textSizePx = max(12, min(50, $textSizePx));
                 $textSizePx = (int) (round($textSizePx / 2) * 2);
@@ -182,7 +189,7 @@
                 <img src="{{ $imgSrc }}" alt="{{ $alt }}" loading="{{ $index === 0 ? 'eager' : 'lazy' }}" decoding="async" referrerpolicy="no-referrer"@if(!$hasMaxHeight) style="display: block; width: 100%; height: auto;"@endif>
                 @if(count($captionWords) > 0)
                 <div class="carousel-slide-caption pointer-events-none absolute z-20 px-6 md:px-12 {{ $positionClass }} carousel-anim-{{ $textAnimation }}" data-carousel-caption data-carousel-animation="{{ $textAnimation }}" style="--caption-anim-duration: {{ $animDurationMs }}ms; --caption-anim-stagger: {{ $animStaggerMs }}ms;">
-                    <div class="carousel-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md" style="background-color: {{ $captionBgColor }};">
+                    <div class="carousel-caption-text-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md" style="{{ $captionWidthStyle }} background-color: {{ $captionBgColor }};">
                         <p class="font-medium leading-relaxed mx-auto text-center" style="color: {{ $captionColor }}; --caption-size-max: {{ $textSizePx }}px; font-size: clamp(0.8125rem, 2.5vw + 0.4rem, var(--caption-size-max));">
                             @foreach($captionWords as $wordIndex => $word)
                                 <span class="carousel-caption-word inline-block" style="transition-delay: {{ (int) $wordIndex * $animStaggerMs }}ms">{{ $word }}</span>@if(!$loop->last)<span class="inline-block" aria-hidden="true">&nbsp;</span>@endif

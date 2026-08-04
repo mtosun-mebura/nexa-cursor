@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ProcessPlatformBillingJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
@@ -50,4 +51,9 @@ Schedule::job(new GenerateContractOccurrencesJob)
 Schedule::job(new GenerateContractInvoicesJob)
     ->dailyAt('05:00')
     ->name('taxi-generate-contract-invoices')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessPlatformBillingJob)
+    ->hourly()
+    ->name('platform-billing-monthly')
     ->withoutOverlapping();

@@ -12,6 +12,8 @@ class Invoice extends Model
 
     public const MODULE_TAXI_CONTRACT = 'taxi_contract';
 
+    public const MODULE_CUSTOMER = 'customer';
+
     protected $fillable = [
         'invoice_number',
         'company_id',
@@ -36,6 +38,8 @@ class Invoice extends Model
         'company_details',
         'notes',
         'pdf_path',
+        'mollie_payment_id',
+        'mollie_checkout_url',
     ];
 
     protected $casts = [

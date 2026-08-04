@@ -17,6 +17,12 @@ class SystemStackSnapshotTest extends TestCase
         $this->assertArrayHasKey('nexa_release', $stack);
         $this->assertArrayHasKey('php', $stack);
         $this->assertArrayHasKey('laravel', $stack);
+        $this->assertArrayHasKey('hostname', $stack);
+        $this->assertArrayHasKey('server_ip', $stack);
+        $this->assertArrayHasKey('public_ip', $stack);
+        $this->assertArrayHasKey('app_url_dns', $stack);
+        $this->assertArrayHasKey('os', $stack);
+        $this->assertArrayHasKey('app_env', $stack);
         $this->assertSame(PHP_VERSION, $stack['php']);
     }
 
@@ -33,11 +39,21 @@ class SystemStackSnapshotTest extends TestCase
     public function labeled_stack_returns_human_labels(): void
     {
         $service = app(SystemStackSnapshotService::class);
-        $rows = $service->labeledStack(['php' => '8.3.0', 'laravel' => '12.0.0']);
+        $rows = $service->labeledStack([
+            'php' => '8.3.0',
+            'laravel' => '12.0.0',
+            'public_ip' => '152.239.119.238',
+            'server_ip' => '172.18.0.2',
+        ]);
 
         $php = collect($rows)->firstWhere('key', 'php');
         $this->assertNotNull($php);
         $this->assertSame('PHP', $php['label']);
         $this->assertSame('8.3.0', $php['value']);
+
+        $publicIp = collect($rows)->firstWhere('key', 'public_ip');
+        $this->assertNotNull($publicIp);
+        $this->assertSame('Publiek IP', $publicIp['label']);
+        $this->assertSame('152.239.119.238', $publicIp['value']);
     }
 }

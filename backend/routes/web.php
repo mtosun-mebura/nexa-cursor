@@ -11,6 +11,12 @@ use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
 use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
+use App\Http\Controllers\Admin\AdminPlatformBillingSettingsController;
+use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
+use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
+use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
+use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
+use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
 // AdminVacancyController moved to Skillmatching module
 // AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminModuleController;
@@ -369,6 +375,12 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
 
+    Route::resource('tenant-customer-invoices', AdminTenantCustomerInvoiceController::class)->only(['index', 'create', 'store', 'show']);
+    Route::post('tenant-customer-invoices/{invoice}/send-payment-link', [AdminTenantCustomerInvoiceController::class, 'sendWithPaymentLink'])
+        ->name('tenant-customer-invoices.send-payment-link');
+    Route::get('tenant-customer-invoices/{invoice}/pdf', [AdminTenantCustomerInvoiceController::class, 'downloadPdf'])
+        ->name('tenant-customer-invoices.pdf');
+
     Route::get('handleiding', [AdminHandleidingController::class, 'index'])->name('handleiding.index');
     Route::get('handleiding/{slug}', [AdminHandleidingController::class, 'show'])
         ->name('handleiding.show')
@@ -646,6 +658,30 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('invoices/{invoice}/send-reminder', [AdminInvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');
         Route::get('invoices/{invoice}/pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
         Route::get('invoices/{invoice}/payment-links', [AdminInvoiceController::class, 'paymentLinks'])->name('invoices.payment-links');
+
+        // SaaS platform facturatie (Nexa → tenants)
+        Route::prefix('platform-billing')->name('platform-billing.')->group(function () {
+            Route::get('settings', [AdminPlatformBillingSettingsController::class, 'edit'])->name('settings.edit');
+            Route::put('settings', [AdminPlatformBillingSettingsController::class, 'update'])->name('settings.update');
+            Route::post('settings/import-invoice-settings', [AdminPlatformBillingSettingsController::class, 'importFromInvoiceSettings'])->name('settings.import-invoice-settings');
+            Route::resource('packages', AdminPlatformBillingPackageController::class);
+            Route::post('packages/{package}/toggle-status', [AdminPlatformBillingPackageController::class, 'toggleStatus'])->name('packages.toggle-status');
+            Route::resource('line-items', AdminPlatformBillingLineItemController::class)->except(['show']);
+            Route::post('line-items/{line_item}/toggle-status', [AdminPlatformBillingLineItemController::class, 'toggleStatus'])->name('line-items.toggle-status');
+            Route::get('tenants', [AdminCompanyBillingProfileController::class, 'index'])->name('tenants.index');
+            Route::get('tenants/{company}/edit', [AdminCompanyBillingProfileController::class, 'edit'])->name('tenants.edit');
+            Route::put('tenants/{company}', [AdminCompanyBillingProfileController::class, 'update'])->name('tenants.update');
+            Route::post('tenants/{company}/invoice-preview', [AdminCompanyBillingProfileController::class, 'invoicePreview'])->name('tenants.invoice-preview');
+            Route::post('tenants/{company}/mollie-request-preview', [AdminCompanyBillingProfileController::class, 'mollieRequestPreview'])->name('tenants.mollie-request-preview');
+            Route::post('tenants/{company}/invoice-preview-pdf', [AdminCompanyBillingProfileController::class, 'invoicePreviewPdf'])->name('tenants.invoice-preview-pdf');
+            Route::post('tenants/{company}/mandate', [AdminCompanyBillingProfileController::class, 'requestMandate'])->name('tenants.mandate');
+            Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', 'Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.'))->name('mandates.return');
+            Route::get('invoices', [AdminPlatformInvoiceController::class, 'index'])->name('invoices.index');
+            Route::post('invoices/run-now', [AdminPlatformInvoiceController::class, 'runNow'])->name('invoices.run-now');
+            Route::get('invoices/{invoice}/pdf', [AdminPlatformInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
+            Route::put('invoices/{invoice}', [AdminPlatformInvoiceController::class, 'update'])->name('invoices.update');
+            Route::get('invoices/{invoice}', [AdminPlatformInvoiceController::class, 'show'])->name('invoices.show');
+        });
 
         // Job Configurations (Super Admin only)
         Route::delete('job-configurations/bulk/delete', [App\Http\Controllers\Admin\AdminJobConfigurationController::class, 'bulkDelete'])->name('job-configurations.bulk-delete');

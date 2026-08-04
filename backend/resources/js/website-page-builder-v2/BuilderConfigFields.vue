@@ -1281,6 +1281,9 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .builder-config-step-order__grid {
@@ -1448,6 +1451,9 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   flex-direction: column;
   gap: 0.65rem;
   background: color-mix(in srgb, var(--muted) 12%, transparent);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .builder-config-item__header {
@@ -1522,6 +1528,8 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.875rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .builder-field > span {
@@ -1643,14 +1651,19 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 
 .builder-media-image-row {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .builder-media-image-row__preview {
   flex: 0 1 auto;
-  align-self: center;
+  align-self: flex-start;
+  max-width: 100%;
 }
 
 .builder-media-image-row__placeholder {
@@ -1659,8 +1672,9 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  width: min(100%, 16rem);
-  min-width: 5.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 4.5rem;
   max-height: 10rem;
   border: 1px dashed var(--border);
@@ -1668,7 +1682,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   background: color-mix(in srgb, var(--muted) 22%, transparent);
   color: var(--muted-foreground);
   font-size: 0.6875rem;
-  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .builder-media-image-row__placeholder i {
@@ -1678,9 +1692,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 
 .builder-media-upload-area {
   flex: none;
-  align-self: flex-start;
-  width: 16rem;
-  max-width: 16rem;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 4.5rem;
   display: flex;
   flex-direction: column;

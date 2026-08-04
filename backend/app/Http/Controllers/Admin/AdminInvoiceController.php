@@ -35,7 +35,11 @@ class AdminInvoiceController extends Controller
             $with[] = 'jobMatch';
         }
 
-        $query = Invoice::with($with);
+        $query = Invoice::with($with)
+            ->where(function ($builder) {
+                $builder->whereNull('module')
+                    ->orWhere('module', '!=', Invoice::MODULE_CUSTOMER);
+            });
         $this->applyTenantFilter($query);
         $invoices = $query
             ->orderByDesc('invoice_number')
@@ -52,7 +56,11 @@ class AdminInvoiceController extends Controller
 
         $settings = InvoiceSetting::getSettingsForCompany($scopedTenantId ?: null);
 
-        $statsQuery = Invoice::query();
+        $statsQuery = Invoice::query()
+            ->where(function ($builder) {
+                $builder->whereNull('module')
+                    ->orWhere('module', '!=', Invoice::MODULE_CUSTOMER);
+            });
         $this->applyTenantFilter($statsQuery);
         $invoiceStats = [
             'draft' => (clone $statsQuery)->where('status', 'draft')->count(),

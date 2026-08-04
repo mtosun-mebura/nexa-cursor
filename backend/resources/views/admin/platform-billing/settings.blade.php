@@ -1,0 +1,480 @@
+@extends('admin.layouts.app')
+
+@section('title', 'SaaS facturatie-instellingen')
+
+@section('content')
+<div class="kt-container-fixed">
+    <div class="flex flex-col gap-5 pb-7.5">
+        <div class="flex flex-wrap items-center justify-between gap-5">
+            <h1 class="text-xl font-medium leading-none text-mono">
+                SaaS facturatie-instellingen
+            </h1>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+            <a href="{{ route('admin.platform-billing.invoices.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+    </div>
+
+    @if(session('success'))
+        <div class="kt-alert kt-alert-success mb-5" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="kt-alert kt-alert-destructive mb-5" role="alert">
+            <i class="ki-filled ki-information-2 me-2"></i>
+            {{ session('error') }}
+        </div>
+    @endif
+
+    <form method="POST" action="{{ route('admin.platform-billing.settings.update') }}" data-validate="true">
+        @csrf
+        @method('PUT')
+
+        <div class="grid gap-5 lg:gap-7.5">
+            <x-error-card :errors="$errors" />
+
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Automatische facturatie</h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Facturatiedag (1–28) <span class="text-destructive">*</span></td>
+                            <td class="min-w-48 w-full">
+                                <input type="number" name="billing_day" min="1" max="28" class="kt-input @error('billing_day') border-destructive @enderror" style="width: 13ch;" value="{{ old('billing_day', $settings->billing_day) }}" required>
+                                @error('billing_day')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Tijd (HH:MM) <span class="text-destructive">*</span></td>
+                            <td>
+                                <input type="time" name="billing_time" class="kt-input @error('billing_time') border-destructive @enderror" value="{{ old('billing_time', substr($settings->billing_time, 0, 5)) }}" required>
+                                @error('billing_time')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Afzender e-mail</td>
+                            <td>
+                                <input type="email" name="sender_email" class="kt-input w-full @error('sender_email') border-destructive @enderror" value="{{ old('sender_email', $settings->sender_email) }}">
+                                <div class="text-xs text-muted-foreground mt-1">Voor verzending van SaaS-facturen</div>
+                                @error('sender_email')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Factuurnummer</h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Prefix <span class="text-destructive">*</span></td>
+                            <td class="min-w-48 w-full">
+                                <input type="text" name="invoice_number_prefix" class="kt-input w-full @error('invoice_number_prefix') border-destructive @enderror" value="{{ old('invoice_number_prefix', $settings->invoice_number_prefix) }}" required>
+                                <div class="text-xs text-muted-foreground mt-1">Bijv. SAAS</div>
+                                @error('invoice_number_prefix')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Formaat <span class="text-destructive">*</span></td>
+                            <td>
+                                <input type="text" name="invoice_number_format" class="kt-input w-full @error('invoice_number_format') border-destructive @enderror" value="{{ old('invoice_number_format', $settings->invoice_number_format) }}" required>
+                                <div class="text-xs text-muted-foreground mt-1">{prefix}, {year}, {number}</div>
+                                @error('invoice_number_format')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Volgende nummer <span class="text-destructive">*</span></td>
+                            <td>
+                                <input type="number" name="next_invoice_number" min="1" class="kt-input @error('next_invoice_number') border-destructive @enderror" style="width: 13ch;" value="{{ old('next_invoice_number', $settings->next_invoice_number) }}" required>
+                                @error('next_invoice_number')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Huidig jaar <span class="text-destructive">*</span></td>
+                            <td>
+                                <input type="number" name="current_year" min="2020" max="2100" class="kt-input @error('current_year') border-destructive @enderror" style="width: 13ch;" value="{{ old('current_year', $settings->suggestedCurrentYear()) }}" required>
+                                @error('current_year')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Factuurtitel op PDF</td>
+                            <td>
+                                <input type="text" name="invoice_title" class="kt-input w-full @error('invoice_title') border-destructive @enderror" value="{{ old('invoice_title', $settings->invoice_title) }}">
+                                @error('invoice_title')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Betaaltermijn & BTW</h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Standaard betaaltermijn (dagen) <span class="text-destructive">*</span></td>
+                            <td class="min-w-48 w-full">
+                                <input type="number" name="payment_terms_days" min="1" max="365" class="kt-input @error('payment_terms_days') border-destructive @enderror" style="width: 13ch;" value="{{ old('payment_terms_days', $settings->payment_terms_days) }}" required>
+                                <div class="text-xs text-muted-foreground mt-1">Standaard voor nieuwe SaaS-facturen; per factuur aanpasbaar.</div>
+                                @error('payment_terms_days')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">BTW % <span class="text-destructive">*</span></td>
+                            <td>
+                                <input type="number" step="0.01" name="tax_rate_percent" class="kt-input @error('tax_rate_percent') border-destructive @enderror" style="width: 13ch;" value="{{ old('tax_rate_percent', $settings->tax_rate_percent) }}" required>
+                                @error('tax_rate_percent')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Betaaltermijntekst (PDF)</td>
+                            <td>
+                                <textarea name="invoice_payment_terms_text" rows="4" class="kt-input w-full @error('invoice_payment_terms_text') border-destructive @enderror" placeholder="{{ \App\Models\PlatformBillingSetting::DEFAULT_PAYMENT_TERMS_TEXT }}">{{ old('invoice_payment_terms_text', $settings->invoice_payment_terms_text) }}</textarea>
+                                <div class="text-xs text-muted-foreground mt-1">Gebruik {dagen} en {dagen_label}. Leeg = standaardtekst.</div>
+                                @error('invoice_payment_terms_text')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Bedrijfsgegevens (Nexa / platform op factuur)</h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Bedrijfsnaam</td>
+                            <td class="min-w-48 w-full">
+                                <input type="text" name="company_name" class="kt-input w-full" value="{{ old('company_name', $settings->company_name ?: $settings->sender_name) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Postcode</td>
+                            <td>
+                                <input type="text"
+                                       id="platform_billing_postal_code"
+                                       name="company_postal_code"
+                                       class="kt-input max-w-xs @error('company_postal_code') border-destructive @enderror"
+                                       value="{{ old('company_postal_code', $settings->company_postal_code) }}"
+                                       pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
+                                       placeholder="1234AB"
+                                       maxlength="7"
+                                       style="text-transform: uppercase;">
+                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.</div>
+                                @error('company_postal_code')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Huisnummer</td>
+                            <td>
+                                <input type="text"
+                                       id="platform_billing_house_number"
+                                       name="company_house_number"
+                                       class="kt-input max-w-xs @error('company_house_number') border-destructive @enderror"
+                                       value="{{ old('company_house_number', $settings->company_house_number) }}">
+                                <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld worden straat en plaats automatisch ingevuld.</div>
+                                @error('company_house_number')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Straat</td>
+                            <td>
+                                @php
+                                    $hasPlatformAddress = trim(old('company_address', $settings->company_address ?? '').old('company_city', $settings->company_city ?? '')) !== '';
+                                @endphp
+                                <input type="text"
+                                       id="platform_billing_street"
+                                       name="company_address"
+                                       class="kt-input w-full @error('company_address') border-destructive @enderror"
+                                       value="{{ old('company_address', $settings->company_address) }}"
+                                       @if($hasPlatformAddress) readonly @endif>
+                                <div id="platform_billing_street_lookup_loading" class="hidden items-center gap-2 text-xs text-muted-foreground mt-1.5" role="status" aria-live="polite" aria-busy="false">
+                                    <span class="platform-billing-postcode-spinner shrink-0" aria-hidden="true"></span>
+                                    <span>Adres zoeken…</span>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat zijn de velden bewerkbaar.</div>
+                                @error('company_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Plaats</td>
+                            <td>
+                                <input type="text"
+                                       id="platform_billing_city"
+                                       name="company_city"
+                                       class="kt-input w-full max-w-xs @error('company_city') border-destructive @enderror"
+                                       value="{{ old('company_city', $settings->company_city) }}"
+                                       @if($hasPlatformAddress) readonly @endif>
+                                @error('company_city')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Land</td>
+                            <td>
+                                <input type="text"
+                                       id="platform_billing_country"
+                                       name="company_country"
+                                       class="kt-input w-full max-w-xs @error('company_country') border-destructive @enderror"
+                                       value="{{ old('company_country', $settings->company_country) }}"
+                                       @if($hasPlatformAddress) readonly @endif>
+                                @error('company_country')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">BTW/KvK-nummer</td>
+                            <td>
+                                <input type="text" name="company_vat_number" class="kt-input w-full max-w-md" value="{{ old('company_vat_number', $settings->company_vat_number) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">E-mail</td>
+                            <td>
+                                <input type="email" name="company_email" class="kt-input w-full" value="{{ old('company_email', $settings->company_email) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Telefoon</td>
+                            <td>
+                                <input type="text" name="company_phone" class="kt-input w-full max-w-md" value="{{ old('company_phone', $settings->company_phone) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Bankrekening (IBAN)</td>
+                            <td>
+                                <input type="text" name="bank_account" class="kt-input w-full max-w-md" value="{{ old('bank_account', $settings->bank_account) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Afzender naam (e-mail)</td>
+                            <td>
+                                <input type="text" name="sender_name" class="kt-input w-full" value="{{ old('sender_name', $settings->sender_name) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Footer op factuur</td>
+                            <td>
+                                <textarea name="invoice_footer" rows="3" class="kt-input w-full">{{ old('invoice_footer', $settings->invoice_footer) }}</textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Mollie (SaaS-incasso)</h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Status</td>
+                            <td class="min-w-48 w-full">
+                                @if($mollieConfigured ?? false)
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">Geconfigureerd</span>
+                                @else
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Niet geconfigureerd</span>
+                                @endif
+                                @if($mollieFromEnvFallback ?? false)
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Tijdelijk via <code>.env</code> (<code>PLATFORM_MOLLIE_API_KEY</code>). Sla hier een sleutel op om dat te vervangen.
+                                    </div>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">API-sleutel</td>
+                            <td>
+                                @if(!empty($mollieApiKeyMasked))
+                                    <div class="text-xs text-muted-foreground mb-1">
+                                        Huidige sleutel: <code>{{ $mollieApiKeyMasked }}</code> (veilig versleuteld opgeslagen)
+                                    </div>
+                                @endif
+                                <input type="password"
+                                       name="mollie_api_key"
+                                       class="kt-input w-full max-w-md @error('mollie_api_key') border-destructive @enderror"
+                                       value=""
+                                       autocomplete="new-password"
+                                       placeholder="{{ !empty($mollieApiKeyMasked) ? 'Leeg laten om huidige sleutel te behouden' : 'test_… of live_…' }}">
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Platform-Mollie-account voor SEPA-incasso en betaallinks naar tenants. Niet de tenant-betalingsprovider.
+                                </div>
+                                @error('mollie_api_key')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                                @if(!empty($mollieApiKeyMasked))
+                                    <label class="kt-label flex items-center gap-2 mt-2">
+                                        <input type="checkbox" name="clear_mollie_api_key" value="1" class="kt-checkbox">
+                                        <span class="text-sm">API-sleutel verwijderen</span>
+                                    </label>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">Webhook-URL</td>
+                            <td>
+                                <input type="url"
+                                       name="mollie_webhook_url"
+                                       class="kt-input w-full @error('mollie_webhook_url') border-destructive @enderror"
+                                       value="{{ old('mollie_webhook_url', $settings->mollie_webhook_url) }}"
+                                       placeholder="{{ $defaultPlatformWebhookUrl ?? url('/api/platform/webhooks/mollie') }}">
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Publieke URL voor Mollie-statusupdates. Standaard:
+                                    <code class="break-all">{{ $defaultPlatformWebhookUrl ?? url('/api/platform/webhooks/mollie') }}</code>
+                                    (leeg laten = standaard in productie).
+                                </div>
+                                @error('mollie_webhook_url')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5">
+                <a href="{{ route('admin.platform-billing.invoices.index') }}" class="kt-btn kt-btn-outline">
+                    <i class="ki-filled ki-cross me-2"></i>
+                    Annuleren
+                </a>
+                <button type="submit" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-check me-2"></i>
+                    Opslaan
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+@endsection
+
+@push('styles')
+<style>
+    @keyframes platform-billing-postcode-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .platform-billing-postcode-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid var(--border, #e5e7eb);
+        border-top-color: var(--primary, #3b82f6);
+        border-radius: 9999px;
+        animation: platform-billing-postcode-spin 0.65s linear infinite;
+    }
+
+    .dark .platform-billing-postcode-spinner {
+        border-color: rgba(255, 255, 255, 0.2);
+        border-top-color: var(--primary, #60a5fa);
+    }
+
+    #platform_billing_street_lookup_loading:not(.hidden) {
+        display: flex;
+    }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        (function() {
+            const postalCodeInput = document.getElementById('platform_billing_postal_code');
+            const houseNumberInput = document.getElementById('platform_billing_house_number');
+            const streetInput = document.getElementById('platform_billing_street');
+            const cityInput = document.getElementById('platform_billing_city');
+            const countryInput = document.getElementById('platform_billing_country');
+            if (!postalCodeInput || !houseNumberInput || !streetInput || !cityInput) {
+                return;
+            }
+
+            const streetLoadingEl = document.getElementById('platform_billing_street_lookup_loading');
+            let lookupTimeout;
+
+            function setStreetLookupLoading(on) {
+                if (!streetLoadingEl) {
+                    return;
+                }
+                streetLoadingEl.classList.toggle('hidden', !on);
+                streetLoadingEl.setAttribute('aria-busy', on ? 'true' : 'false');
+            }
+
+            function lookupPlatformBillingAddress() {
+                const postcode = postalCodeInput.value.trim().toUpperCase().replace(/\s+/g, '');
+                const huisnummer = houseNumberInput.value.trim();
+
+                clearTimeout(lookupTimeout);
+                setStreetLookupLoading(false);
+
+                if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode) || !huisnummer) {
+                    return;
+                }
+
+                lookupTimeout = setTimeout(function() {
+                    setStreetLookupLoading(true);
+                    fetch('{{ route('admin.postcode.lookup') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            streetInput.value = data.street || '';
+                            cityInput.value = data.city || '';
+                            if (countryInput) {
+                                countryInput.value = data.country || 'Nederland';
+                            }
+                            if (data.house_number) {
+                                houseNumberInput.value = data.house_number;
+                            }
+                            if (data.postal_code) {
+                                postalCodeInput.value = data.postal_code;
+                            }
+                            streetInput.setAttribute('readonly', 'readonly');
+                            cityInput.setAttribute('readonly', 'readonly');
+                            if (countryInput) {
+                                countryInput.setAttribute('readonly', 'readonly');
+                            }
+                        } else {
+                            streetInput.removeAttribute('readonly');
+                            cityInput.removeAttribute('readonly');
+                            if (countryInput) {
+                                countryInput.removeAttribute('readonly');
+                            }
+                        }
+                    })
+                    .catch(function() {
+                        streetInput.removeAttribute('readonly');
+                        cityInput.removeAttribute('readonly');
+                        if (countryInput) {
+                            countryInput.removeAttribute('readonly');
+                        }
+                    })
+                    .finally(function() {
+                        setStreetLookupLoading(false);
+                    });
+                }, 300);
+            }
+
+            postalCodeInput.addEventListener('blur', lookupPlatformBillingAddress);
+            houseNumberInput.addEventListener('blur', lookupPlatformBillingAddress);
+        })();
+    });
+</script>
+@endpush
