@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
 use App\Models\User;
+use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
+use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
-use App\Modules\NexaTaxi\Services\RideDispatchService;
-use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
@@ -332,15 +332,8 @@ class NexaTaxiBookingController extends Controller
         $request->session()->forget('nexataxi.pending_booking');
 
         if ($rideCompanyId && $rideCompanyId > 0 && ! $payAtBooking) {
-            try {
-                app(RideDispatchService::class)->startDispatch($conn, $ride, $rideCompanyId);
-            } catch (\Throwable $e) {
-                Log::warning('Boeking opgeslagen, chauffeur-dispatch mislukt.', [
-                    'ride_request_id' => $ride->id,
-                    'company_id' => $companyId,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            // Na de HTTP-response: gebruiker ziet sneller “gelukt”, dispatch loopt op de achtergrond.
+            StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
         }
 
         $checkoutUrl = null;
@@ -365,37 +358,35 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
+        $loginCodeEmailSent = false;
         if ($pendingLoginCodeSend !== null) {
-            try {
-                $loginCodeEmailSent = app(TaxiCustomerLoginCodeService::class)->issueAndSend(
-                    $pendingLoginCodeSend['user'],
-                    $pendingLoginCodeSend['company_id'],
-                    $pendingLoginCodeSend['login_url']
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt.', [
-                    'ride_request_id' => $ride->id,
-                    'user_id' => $pendingLoginCodeSend['user']->id,
-                    'error' => $e->getMessage(),
-                ]);
-                $loginCodeEmailSent = false;
-            }
+            // Optimistic UI-tekst; verzending gebeurt na de response.
+            $loginCodeEmailSent = true;
+            $pendingLogin = $pendingLoginCodeSend;
+            dispatch(function () use ($pendingLogin) {
+                try {
+                    app(TaxiCustomerLoginCodeService::class)->issueAndSend(
+                        $pendingLogin['user'],
+                        $pendingLogin['company_id'],
+                        $pendingLogin['login_url']
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt (afterResponse).', [
+                        'user_id' => $pendingLogin['user']->id ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            })->afterResponse();
         }
 
-        if (! $payAtBooking && trim((string) ($ride->customer_email ?? '')) !== '') {
-            try {
-                app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $ride, [
-                    'stopovers' => $stopovers,
-                    'return_at' => $data['return_at'] ?? null,
-                    'section_config' => $sectionConfig,
-                    'settings_company_id' => $notificationCompanyId,
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('Boeking opgeslagen, notificaties mislukt.', [
-                    'ride_request_id' => $ride->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        // WhatsApp + e-mails na de response (anders wacht de popup op Meta/SMTP).
+        if (! $payAtBooking) {
+            NotifyNewTaxiBookingJob::dispatch((int) $ride->id, [
+                'stopovers' => $stopovers,
+                'return_at' => $data['return_at'] ?? null,
+                'section_config' => $sectionConfig,
+                'settings_company_id' => $notificationCompanyId,
+            ])->afterResponse();
         }
 
         $successMessage = $payAtBooking

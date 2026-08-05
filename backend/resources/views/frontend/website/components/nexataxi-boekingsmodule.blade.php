@@ -110,7 +110,7 @@
     $bookingSectionStyle = implode('; ', $bookingSectionStyleParts).';';
 @endphp
 
-<section id="boek-rit" class="booking-module-scroll-reveal w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
+<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-scroll-reveal data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
     <div class="booking-module-layout w-full max-w-full {{ $bookingPortalMode ? 'booking-module-layout--portal' : 'website-section-inner website-section-inner--flush' }}">
     @if($bookingSplitMapBesideCard)
     <div class="booking-module-v2-split">
@@ -663,7 +663,11 @@
             </div>
             <h4 class="text-2xl font-bold mb-2" data-confirm-modal-title>Boeking versturen</h4>
             <p class="text-base text-slate-600 dark:text-slate-200" data-confirm-modal-text>Weet u zeker dat u de boeking wilt versturen?</p>
-            <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap">
+            <div class="hidden mt-5 flex flex-col items-center justify-center gap-3" data-booking-confirm-loading aria-live="polite" aria-busy="false">
+                <span class="booking-confirm-spinner" aria-hidden="true"></span>
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-200" data-booking-confirm-loading-text>Boeking wordt verwerkt…</p>
+            </div>
+            <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap" data-booking-confirm-actions>
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-400 text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-confirm-submit>Bevestigen</button>
                 <a class="booking-login-btn inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-login-btn href="#">Inloggen</a>
@@ -914,15 +918,26 @@
     font-size: clamp(1rem, 2.5vw + 0.5rem, var(--booking-step-heading-size-max, 1.875rem));
 }
 
-/* Scroll-reveal: infade bij in beeld */
-.booking-module-scroll-reveal .booking-module-reveal-item {
+/* Scroll-reveal: alleen animeren als JS expliciet wil; default altijd zichtbaar */
+.booking-module-scroll-reveal.booking-module-will-reveal:not(.is-in-view) .booking-module-reveal-item {
     opacity: 0;
     transform: translateY(28px);
+}
+.booking-module-scroll-reveal .booking-module-reveal-item {
+    opacity: 1;
+    transform: translateY(0);
     transition: opacity 0.55s ease-out, transform 0.55s ease-out;
 }
 .booking-module-scroll-reveal.is-in-view .booking-module-reveal-item {
     opacity: 1;
     transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+    .booking-module-scroll-reveal .booking-module-reveal-item {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
 }
 
 [data-nexataxi-booking-module] .booking-module-card {
@@ -1264,6 +1279,24 @@ html.dark [data-booking-confirm-modal] .confirm-modal-bg,
 html.dark [data-booking-confirm-modal] .confirm-modal-content,
 .dark [data-booking-confirm-modal] .confirm-modal-content {
     border-color: rgba(148, 163, 184, 0.5);
+}
+
+.booking-confirm-spinner {
+    display: inline-block;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 3px solid rgba(37, 99, 235, 0.2);
+    border-top-color: rgb(37, 99, 235);
+    border-radius: 50%;
+    animation: booking-confirm-spin 0.7s linear infinite;
+}
+@keyframes booking-confirm-spin {
+    to { transform: rotate(360deg); }
+}
+html.dark .booking-confirm-spinner,
+.dark .booking-confirm-spinner {
+    border-color: rgba(96, 165, 250, 0.25);
+    border-top-color: rgb(96, 165, 250);
 }
 
 html.booking-modal-open,
@@ -1803,6 +1836,7 @@ body.booking-modal-open {
     var bookingPrimaryHex = @json($sectionStyle['primary_color'] ?? $bookingDefaultAccent);
     var whatsappClickToChatEnabled = @json($whatsappClientClickToChat);
     var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
+    var whatsappServerAutoSend = @json($whatsappServerAutoSend);
     var bookingSubmitInFlight = false;
     var bookingSubmitted = false;
     var bookingSubmittedStorageKey = 'nexataxi_submitted_bookings_v1';
@@ -2409,17 +2443,8 @@ body.booking-modal-open {
     }
 
     function openWhatsappWithSummary(rideRequestId) {
-        if (!whatsappClickToChatEnabled) return false;
-        var phone = normalizeWhatsappPhone(whatsappClickToChatNumber);
-        if (!phone) return false;
-        var url = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(buildWhatsappSummaryMessage(rideRequestId));
-        // Geen 'noopener' in window.open: daarmee geeft de browser null terug terwijl het tabblad wél opent.
-        // De oude fallback (window.location.href) stuurde dan ook dit scherm naar WhatsApp → 2x WhatsApp, boeking weg.
-        var popup = window.open(url, '_blank');
-        if (popup) {
-            try { popup.opener = null; } catch (e) {}
-            return true;
-        }
+        // Nooit browser-redirect naar WhatsApp (wa.me / api.whatsapp.com).
+        // Boekingsberichten gaan alleen via WhatsApp Business Cloud API op de server.
         return false;
     }
 
@@ -5313,9 +5338,41 @@ body.booking-modal-open {
         loginBtn.classList.toggle('booking-login-btn--visible', !!visible);
     }
 
+    function setConfirmModalSubmitting(isSubmitting) {
+        var modal = root.querySelector('[data-booking-confirm-modal]');
+        if (!modal) return;
+        var loading = modal.querySelector('[data-booking-confirm-loading]');
+        var actions = modal.querySelector('[data-booking-confirm-actions]');
+        var title = modal.querySelector('[data-confirm-modal-title]');
+        var text = modal.querySelector('[data-confirm-modal-text]');
+        var closeBtns = modal.querySelectorAll('[data-booking-confirm-close]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        var cancelBtn = modal.querySelector('[data-booking-confirm-actions] [data-booking-confirm-close]');
+        if (loading) {
+            loading.classList.toggle('hidden', !isSubmitting);
+            loading.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
+        }
+        if (actions) actions.classList.toggle('hidden', !!isSubmitting);
+        if (text) text.classList.toggle('hidden', !!isSubmitting);
+        if (title) title.textContent = isSubmitting ? 'Boeking versturen' : 'Boeking versturen';
+        closeBtns.forEach(function(btn) {
+            btn.disabled = !!isSubmitting;
+            btn.classList.toggle('opacity-40', !!isSubmitting);
+            btn.classList.toggle('pointer-events-none', !!isSubmitting);
+        });
+        if (confirmBtn) {
+            confirmBtn.disabled = !!isSubmitting;
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = !!isSubmitting;
+        }
+        modal.setAttribute('data-submitting', isSubmitting ? '1' : '0');
+    }
+
     function openConfirmModalShell() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        setConfirmModalSubmitting(false);
         modal.classList.remove('hidden');
         document.documentElement.classList.add('booking-modal-open');
         document.body.classList.add('booking-modal-open');
@@ -5327,18 +5384,24 @@ body.booking-modal-open {
         var text = root.querySelector('[data-confirm-modal-text]');
         var confirmBtn = root.querySelector('[data-booking-confirm-submit]');
         if (title) title.textContent = 'Boeking versturen';
-        if (text) text.textContent = 'Weet u zeker dat u de boeking wilt versturen?';
+        if (text) {
+            text.textContent = 'Weet u zeker dat u de boeking wilt versturen?';
+            text.classList.remove('hidden');
+        }
         if (confirmBtn) confirmBtn.classList.remove('hidden');
         setBookingLoginBtnVisible(false);
+        setConfirmModalSubmitting(false);
         openConfirmModalShell();
     }
 
     function closeConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        if (modal.getAttribute('data-submitting') === '1') return;
         var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
         if (confirmBtn) confirmBtn.classList.remove('hidden');
         setBookingLoginBtnVisible(false);
+        setConfirmModalSubmitting(false);
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
@@ -5361,6 +5424,7 @@ body.booking-modal-open {
         if (bookingSubmitInFlight || bookingSubmitted) return;
         bookingSubmitInFlight = true;
         clearError();
+        setConfirmModalSubmitting(true);
         syncStateFromFields();
         var paymentMethod = getSelectedPaymentMethod();
         var returnUrl = bookingReturnUrl || window.location.href || '';
@@ -5423,6 +5487,9 @@ body.booking-modal-open {
                 openWhatsappWithSummary(data && data.ride_request_id ? data.ride_request_id : null);
             }
             markBookingAsSubmitted(data && data.ride_request_id ? data.ride_request_id : null);
+            var confirmModal = root.querySelector('[data-booking-confirm-modal]');
+            if (confirmModal) confirmModal.setAttribute('data-submitting', '0');
+            closeConfirmModal();
             showSuccess(successMessage, { portalLoginUrl: data && data.portal_login_url ? data.portal_login_url : null });
             if (bookingPortalMode) {
                 document.dispatchEvent(new CustomEvent('taxi-portal-refresh-rides'));
@@ -5430,6 +5497,7 @@ body.booking-modal-open {
         })
         .catch(function(error) {
             if (error && error.message === '__handled__') return;
+            setConfirmModalSubmitting(false);
             showError(error.message || 'Boeking versturen mislukt');
         })
         .finally(function() {
@@ -6596,4 +6664,453 @@ body.booking-modal-open {
         if (!getBookingModuleRoot()) return;
         if (root.getAttribute('data-booking-ui-bound') === '1') return;
         root.setAttribute('data-booking-ui-bound', '1');
+
+    function closeMobileStepMenu() {
+        var btn = root.querySelector('[data-booking-step-select-btn]');
+        var menu = root.querySelector('[data-booking-step-select-menu]');
+        if (!btn || !menu) return;
+        menu.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMobileStepMenu() {
+        var btn = root.querySelector('[data-booking-step-select-btn]');
+        var menu = root.querySelector('[data-booking-step-select-menu]');
+        if (!btn || !menu) return;
+        var isOpen = btn.getAttribute('aria-expanded') === 'true';
+        if (isOpen) {
+            closeMobileStepMenu();
+        } else {
+            menu.classList.remove('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+        }
+    }
+
+    root.addEventListener('input', function(e) {
+        if (e.target.matches('[data-field]')) {
+            clearFieldErrorFor(e.target.getAttribute('data-field'));
+            syncStateFromFields();
+        }
+        if (e.target.matches('[data-stopover-input]')) {
+            syncStateFromFields();
+        }
+    });
+
+    root.addEventListener('change', function(e) {
+        if (e.target.matches('[data-booking-step-select]')) {
+            var selectedStepKey = e.target.value || '';
+            if (selectedStepKey === 'baggage' && !state.has_baggage) {
+                selectedStepKey = 'offers';
+            }
+            if (!isStepReachable(selectedStepKey)) {
+                e.target.value = getCurrentStepKey();
+                return;
+            }
+            if (stepOrder.indexOf(selectedStepKey) >= 0) {
+                clearError();
+                setStepByKey(selectedStepKey);
+                var currentStepKey = getCurrentStepKey();
+                if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
+                    requestQuotes();
+                }
+                updateSummary();
+                updateBookingStepSelectOptions();
+            }
+            return;
+        }
+        if (e.target.matches('[data-field]')) {
+            clearFieldErrorFor(e.target.getAttribute('data-field'));
+            syncStateFromFields();
+            if (e.target.getAttribute('data-field') === 'pickup_address' || e.target.getAttribute('data-field') === 'dropoff_address' || e.target.getAttribute('data-field') === 'return_trip') {
+                recalculateRouteOrQuote();
+            }
+        }
+        if (e.target.matches('[data-stopover-input]')) {
+            syncStateFromFields();
+            recalculateRouteOrQuote();
+        }
+        if (e.target.matches('[data-toggle-special-baggage]')) {
+            var wrap = root.querySelector('[data-special-baggage-wrap]');
+            if (wrap) wrap.classList.toggle('hidden', !e.target.checked);
+        }
+        if (e.target.matches('input[name="booking_has_baggage_ui"]')) {
+            syncBaggageChoiceFromUi();
+        }
+    });
+
+    root.addEventListener('mousedown', function(e) {
+        var stopoverBtn = e.target.closest('.booking-stopover-toggle');
+        if (stopoverBtn) {
+            e.preventDefault();
+            var didAddStopover = addStopover('');
+            if (!didAddStopover) return;
+            var list = root.querySelector('[data-stopovers-list]');
+            if (list && list.lastElementChild) {
+                var lastInput = list.lastElementChild.querySelector('[data-stopover-input]');
+                if (lastInput) lastInput.focus();
+            }
+        }
+    });
+
+    root.addEventListener('click', function(e) {
+        var stepSelectBtn = e.target.closest('[data-booking-step-select-btn]');
+        if (stepSelectBtn) {
+            e.preventDefault();
+            toggleMobileStepMenu();
+            return;
+        }
+        var stepSelectItem = e.target.closest('[data-booking-step-select-menu] [data-booking-step-key]');
+        if (stepSelectItem) {
+            if (stepSelectItem.disabled) return;
+            var menuStepKey = stepSelectItem.getAttribute('data-booking-step-key') || '';
+            var menuStepSelect = root.querySelector('[data-booking-step-select]');
+            if (menuStepSelect) {
+                menuStepSelect.value = menuStepKey;
+                menuStepSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            closeMobileStepMenu();
+            return;
+        }
+        if (!e.target.closest('[data-booking-step-select-wrap]')) {
+            closeMobileStepMenu();
+        }
+
+        var pickupLocateClick = e.target.closest('[data-pickup-locate-btn]');
+        if (pickupLocateClick) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof root._usePickupCurrentLocation === 'function') {
+                root._usePickupCurrentLocation();
+            }
+            return;
+        }
+        if (e.target.matches('[data-booking-success-backdrop]')) {
+            closeSuccessModal();
+            return;
+        }
+        var successCloseBtn = e.target.closest('[data-booking-success-close]');
+        if (successCloseBtn) {
+            e.preventDefault();
+            closeSuccessModal();
+            return;
+        }
+        var portalLoginBtn = e.target.closest('[data-booking-success-portal-login]');
+        if (portalLoginBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!navigateToPortalLogin(portalLoginBtn)) {
+                var fallbackUrl = buildDefaultPortalLoginUrl();
+                if (fallbackUrl) {
+                    closeSuccessModal();
+                    window.location.href = fallbackUrl;
+                }
+            }
+            return;
+        }
+        var confirmLoginBtn = e.target.closest('[data-booking-login-btn]');
+        if (confirmLoginBtn && confirmLoginBtn.classList.contains('booking-login-btn--visible')) {
+            e.preventDefault();
+            var confirmLoginUrl = resolvePortalLoginUrl(confirmLoginBtn);
+            if (confirmLoginUrl) {
+                closeConfirmModal();
+                window.location.assign(confirmLoginUrl);
+            }
+            return;
+        }
+        var dtInput = e.target.closest('.booking-datetime-input');
+        if (dtInput) {
+            if (typeof dtInput.showPicker === 'function') {
+                try {
+                    dtInput.showPicker();
+                } catch (err) {
+                    // Ignore security/user-gesture errors; native behavior still applies.
+                }
+            }
+        }
+        var stopoverBtn = e.target.closest('.booking-stopover-toggle');
+        if (stopoverBtn) {
+            e.preventDefault();
+            return;
+        }
+        var stopoverRemove = e.target.closest('.booking-stopover-remove');
+        if (stopoverRemove) {
+            e.preventDefault();
+            var row = stopoverRemove.closest('.booking-stopover-row');
+            if (row) row.remove();
+            syncStateFromFields();
+            state.summary_route_polyline = '';
+            liveRouteCalcLastSignature = '';
+            liveRouteMapRenderSignature = '';
+            snapshotRouteAddressInputs();
+            if (bookingSplitMapV2) {
+                ensureLiveMapRouteReady();
+            }
+            requestQuotes();
+            return;
+        }
+        var swapBtn = e.target.closest('.booking-route-swap-btn');
+        if (swapBtn) {
+            e.preventDefault();
+            var pickupInput = root.querySelector('[data-field="pickup_address"]');
+            var dropoffInput = root.querySelector('[data-field="dropoff_address"]');
+            if (pickupInput && dropoffInput) {
+                var oldPickup = pickupInput.value || '';
+                pickupInput.value = dropoffInput.value || '';
+                dropoffInput.value = oldPickup;
+                var lat = state.pickup_lat;
+                var lng = state.pickup_lng;
+                state.pickup_lat = state.dropoff_lat;
+                state.pickup_lng = state.dropoff_lng;
+                state.dropoff_lat = lat;
+                state.dropoff_lng = lng;
+                if (state.stopovers && state.stopovers.length) {
+                    state.stopovers.reverse();
+                    var stopoverInputs = root.querySelectorAll('[data-stopover-input]');
+                    stopoverInputs.forEach(function(input, index) {
+                        input.value = state.stopovers[index] || '';
+                    });
+                }
+                syncStateFromFields();
+                state.summary_route_polyline = '';
+                liveRouteCalcLastSignature = '';
+                liveRouteMapRenderSignature = '';
+                snapshotRouteAddressInputs();
+                if (bookingSplitMapV2) {
+                    ensureLiveMapRouteReady();
+                } else if (window.__nexataxiBookingRouteCalc) {
+                    window.__nexataxiBookingRouteCalc();
+                } else {
+                    requestQuotes();
+                }
+            }
+            return;
+        }
+        var tabBtn = e.target.closest('.booking-step-tab');
+        if (tabBtn) {
+            e.preventDefault();
+            var tabStepIndex = parseInt(tabBtn.getAttribute('data-step-index'), 10);
+            var targetStepKey = tabBtn.getAttribute('data-step-key') || '';
+            if (isStepReachable(targetStepKey)) {
+                if (targetStepKey === 'baggage' && !state.has_baggage) {
+                    targetStepKey = 'offers';
+                }
+                if (targetStepKey && stepOrder.indexOf(targetStepKey) >= 0) {
+                    clearError();
+                    setStepByKey(targetStepKey);
+                    var currentStepKey = getCurrentStepKey();
+                    if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
+                        requestQuotes();
+                    }
+                    updateSummary();
+                }
+            }
+            e.stopPropagation();
+            return;
+        }
+        var qtyBtn = e.target.closest('.booking-qty-btn');
+        if (qtyBtn) {
+            e.preventDefault();
+            var target = qtyBtn.getAttribute('data-target') || '';
+            var delta = parseInt(qtyBtn.getAttribute('data-delta') || '0', 10);
+            var max = qtyBtn.hasAttribute('data-max') ? parseInt(qtyBtn.getAttribute('data-max') || '0', 10) : null;
+            updateQty(target, delta, max);
+            requestQuotes();
+            return;
+        }
+        var passengerBtn = e.target.closest('.booking-passenger-btn');
+        if (passengerBtn) {
+            e.preventDefault();
+            var deltaPass = parseInt(passengerBtn.getAttribute('data-delta') || '0', 10);
+            var nextPassengers = state.passengers + deltaPass;
+            if (nextPassengers < state.minPassengers) nextPassengers = state.minPassengers;
+            if (nextPassengers > state.maxPassengers) nextPassengers = state.maxPassengers;
+            state.passengers = nextPassengers;
+            syncStateFromFields();
+            requestQuotes();
+            return;
+        }
+        var offerCard = e.target.closest('[data-offer-id]');
+        if (offerCard) {
+            e.preventDefault();
+            state.selected_offer_id = offerCard.getAttribute('data-offer-id') || null;
+            renderOffers();
+            updateSummary();
+            return;
+        }
+        var newBookingBtn = e.target.closest('[data-booking-new]');
+        if (newBookingBtn) {
+            e.preventDefault();
+            resetBookingForNew();
+            return;
+        }
+        var portalCancelBtn = e.target.closest('[data-booking-portal-cancel]');
+        if (portalCancelBtn) {
+            e.preventDefault();
+            if (bookingSubmitted) return;
+            if (typeof window.closeTaxiPortalBooking === 'function') {
+                window.closeTaxiPortalBooking();
+                return;
+            }
+            if (bookingReturnUrl) {
+                window.location.href = bookingReturnUrl;
+            }
+            return;
+        }
+        var prevBtn = e.target.closest('[data-booking-prev]');
+        if (prevBtn) {
+            e.preventDefault();
+            if (bookingSubmitted) return;
+            clearError();
+            var prevStepKey = getPrevStepKey(getCurrentStepKey());
+            if (prevStepKey) {
+                setStepByKey(prevStepKey);
+            }
+            return;
+        }
+        var nextBtn = e.target.closest('[data-booking-next]');
+        if (nextBtn) {
+            e.preventDefault();
+            if (bookingSubmitted) return;
+            syncStateFromFields();
+            if (!validateCurrentStep()) return;
+            var currentStepKey = getCurrentStepKey();
+            var nextStepKey = getNextStepKey(currentStepKey);
+            if (nextStepKey) {
+                var nextIndex = getStepIndexForKey(nextStepKey);
+                if (nextIndex > 0) {
+                    state.maxStep = Math.max(state.maxStep, nextIndex);
+                }
+                setStepByKey(nextStepKey);
+                if (nextStepKey === 'offers' || nextStepKey === 'confirm') {
+                    requestQuotes();
+                }
+                updateSummary();
+                return;
+            }
+            if (!validateAllBeforeSubmit()) return;
+            showConfirmModal();
+        }
+    });
+
+    root.querySelectorAll('[data-booking-confirm-close], [data-booking-confirm-backdrop]').forEach(function(el) {
+        el.addEventListener('click', function() { closeConfirmModal(); });
+    });
+    var confirmSubmitBtn = root.querySelector('[data-booking-confirm-submit]');
+    if (confirmSubmitBtn) {
+        confirmSubmitBtn.addEventListener('click', function() {
+            submitBooking(whatsappClickToChatEnabled && !whatsappServerAutoSend);
+        });
+    }
+
+    root.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMobileStepMenu();
+            var confirmModal = root.querySelector('[data-booking-confirm-modal]');
+            if (confirmModal && !confirmModal.classList.contains('hidden')) {
+                closeConfirmModal();
+                return;
+            }
+            closeSuccessModal();
+            return;
+        }
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var offerCard = e.target.closest('[data-offer-id]');
+        if (!offerCard) return;
+        e.preventDefault();
+        state.selected_offer_id = offerCard.getAttribute('data-offer-id') || null;
+        renderOffers();
+        updateSummary();
+    });
+
+    }
+
+    window.addEventListener('resize', function() {
+        scheduleRouteIconAlignment();
+        if (bookingSplitMapV2 && getCurrentStepKey() === 'confirm') {
+            scheduleConfirmWireframeMapHeightSync();
+        }
+    });
+
+    document.addEventListener('taxi-portal-booking-visible', function() {
+        scheduleRouteIconAlignment();
+    });
+
+    window.__nexataxiBookingRouteCalc = calculateRouteFallback;
+    window.__nexataxiSyncRouteIcons = syncRouteIconAlignment;
+    window.__nexataxiScheduleRouteIcons = scheduleRouteIconAlignment;
+
+    function initBookingModule() {
+        if (!getBookingModuleRoot()) return;
+        publishBookingRootApi();
+        try {
+            sessionStorage.removeItem('nexataxi_booking_confirm_dev_v1');
+        } catch (e) {}
+        restorePendingBookingFromSession();
+        applyCustomerPrefill();
+        applyChatBookingPrefillFromUrl();
+        restoreSubmittedBookingState();
+        updateNewBookingButtonVisibility();
+        setStep(1, { skipScroll: true });
+        updateBaggageStepAvailability();
+        applyStateToFields();
+        syncStateFromFields();
+        refreshPickupDatetimeMin();
+        var pickupAtInput = root.querySelector('[data-field="pickup_at"]');
+        if (pickupAtInput) {
+            pickupAtInput.addEventListener('focus', function() {
+                refreshPickupDatetimeMin();
+            });
+        }
+        setupAddressTypeaheadFallback();
+        bindBookingModuleDomEvents();
+        initGoogleMaps();
+        if (bookingSplitMapV2 && mapsApiKey && window.google && google.maps) {
+            initLiveRouteMap();
+        }
+        if (bookingSplitMapV2) {
+            bindConfirmWireframeHeightSync();
+        }
+        if (bookingSplitMapV2 && (String(state.pickup_address || '').trim() || String(state.dropoff_address || '').trim())) {
+            ensureLiveMapRouteReady();
+        }
+        recalculateRouteOrQuote();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBookingModule);
+    } else {
+        initBookingModule();
+    }
+})();
+</script>
+<script>
+(function() {
+    function revealBookingModule(el) {
+        if (el) el.classList.add('is-in-view');
+    }
+    function initBookingModuleScrollReveal() {
+        var section = document.querySelector('[data-booking-module-scroll-reveal], #boek-rit.booking-module-scroll-reveal');
+        if (!section) return;
+        // Altijd zichtbaar maken: animatie is nice-to-have, nooit content verbergen.
+        revealBookingModule(section);
+        var opts = { rootMargin: '0px 0px 25% 0px', threshold: 0.02 };
+        if (typeof window.nexaObserveWhenVisible === 'function') {
+            window.nexaObserveWhenVisible(section, revealBookingModule, opts);
+            return;
+        }
+        if (!('IntersectionObserver' in window)) return;
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) revealBookingModule(entry.target);
+            });
+        }, opts);
+        observer.observe(section);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBookingModuleScrollReveal);
+    } else {
+        initBookingModuleScrollReveal();
+    }
+})();
+</script>
+@endpush
 

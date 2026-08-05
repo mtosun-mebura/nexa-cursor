@@ -179,6 +179,11 @@ class TaxiDispatchSettingsService
 
     public function bookingWhatsappEnabled(?int $companyId = null): bool
     {
+        // Token + phone number ID gezet → altijd API-verzending (geen wa.me-popup).
+        if ($this->whatsappApiConfigured($companyId)) {
+            return true;
+        }
+
         $stored = GeneralSetting::get(self::KEY_BOOKING_WHATSAPP_ENABLED, null, $companyId);
         if ($stored !== null && $stored !== '') {
             return $stored === '1';
@@ -209,6 +214,11 @@ class TaxiDispatchSettingsService
 
     public function bookingWhatsappClickToChatEnabled(?int $companyId = null): bool
     {
+        // Cloud API-token aanwezig → nooit click-to-chat / wa.me popup.
+        if ($this->whatsappApiConfigured($companyId) || $this->whatsappApiTokenPresent($companyId)) {
+            return false;
+        }
+
         if (! $this->clickToChatMasterEnabled($companyId)) {
             return false;
         }
@@ -219,6 +229,11 @@ class TaxiDispatchSettingsService
         }
 
         return true;
+    }
+
+    public function whatsappApiTokenPresent(?int $companyId = null): bool
+    {
+        return app(\App\Services\WhatsAppBusinessService::class)->hasApiToken($companyId);
     }
 
     public function setBookingWhatsappClickToChatEnabled(bool $enabled, ?int $companyId = null): void
@@ -369,9 +384,20 @@ class TaxiDispatchSettingsService
         if (! $this->customerAcceptNotificationEnabled($companyId)) {
             return false;
         }
+
+        // Token gezet → klant altijd via Cloud API informeren (o.a. rit geaccepteerd).
+        if ($this->whatsappApiConfigured($companyId)) {
+            return true;
+        }
+
         $stored = GeneralSetting::get(self::KEY_CUSTOMER_ACCEPT_WHATSAPP_ENABLED, null, $companyId);
 
         return $stored === '1';
+    }
+
+    public function whatsappApiConfigured(?int $companyId = null): bool
+    {
+        return app(\App\Services\WhatsAppBusinessService::class)->isConfigured($companyId);
     }
 
     public function setCustomerAcceptWhatsappEnabled(bool $enabled, ?int $companyId = null): void

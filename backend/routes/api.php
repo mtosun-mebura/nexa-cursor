@@ -100,3 +100,8 @@ Route::post('/platform/webhooks/mollie', App\Http\Controllers\Api\PlatformMollie
 Route::post('/tenant-customer-invoices/webhooks/mollie', App\Http\Controllers\Api\TenantCustomerMollieWebhookController::class)
     ->name('api.tenant-customer-invoices.webhooks.mollie');
 
+Route::get('/whatsapp/webhook', [App\Http\Controllers\Api\WhatsAppWebhookController::class, 'verify'])
+    ->name('api.whatsapp.webhook.verify');
+Route::post('/whatsapp/webhook', [App\Http\Controllers\Api\WhatsAppWebhookController::class, 'handle'])
+    ->name('api.whatsapp.webhook');
+

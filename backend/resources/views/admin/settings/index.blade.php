@@ -781,126 +781,27 @@
             </div>
         </div>
 
-        <!-- WhatsApp Business Instellingen -->
+        <!-- WhatsApp: tenant widget / click-to-chat (Business API staat onder Algemene configuraties) -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="whatsapp">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business Configuratie'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp (tenant)'])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <div class="px-5 pb-3 text-xs text-muted-foreground" style="padding-top: 10px;">
-                    Server-brede WhatsApp Business API (token en Phone Number ID). Per bedrijf: ontvangernummer, aan/uit en chauffeur-e-mails instellen onder <strong>Taxi → Chauffeur dispatch</strong>.
+                    Widget en optionele click-to-chat voor deze tenant.
+                    De <strong>WhatsApp Business API</strong> (token / Phone Number ID) configureer je platform-breed onder
+                    <a href="{{ route('admin.settings.general.index') }}#whatsapp" class="underline">Algemene configuraties</a>.
+                    @if(!empty($whatsappPlatformConfigured))
+                        <span class="text-emerald-700 dark:text-emerald-300">Platform-API is actief — boekingsberichten gaan automatisch via Cloud API; click-to-chat is uitgeschakeld.</span>
+                    @endif
                 </div>
                 <form method="POST" action="{{ route('admin.settings.whatsapp.update') }}" data-validate="true">
                     @csrf
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Business API Token</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('WHATSAPP_API_TOKEN') border-destructive @enderror" 
-                                           id="WHATSAPP_API_TOKEN" 
-                                           name="WHATSAPP_API_TOKEN" 
-                                           value="{{ old('WHATSAPP_API_TOKEN', $whatsappSettings['WHATSAPP_API_TOKEN'] ?? '') }}" 
-                                           placeholder="EAAxxxxxxxxxxxx">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">
-                                    WhatsApp Business API access token (begint meestal met <code class="text-xs">EAA</code>).
-                                    <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started#get-access-token" target="_blank" rel="noopener" class="underline">Token aanmaken in Meta for Developers</a>
-                                </div>
-                                @error('WHATSAPP_API_TOKEN')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Business Phone Number ID</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('WHATSAPP_PHONE_NUMBER_ID') border-destructive @enderror" 
-                                           id="WHATSAPP_PHONE_NUMBER_ID" 
-                                           name="WHATSAPP_PHONE_NUMBER_ID" 
-                                           value="{{ old('WHATSAPP_PHONE_NUMBER_ID', $whatsappSettings['WHATSAPP_PHONE_NUMBER_ID'] ?? '') }}" 
-                                           placeholder="123456789012345">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">WhatsApp Business Phone Number ID</div>
-                                @error('WHATSAPP_PHONE_NUMBER_ID')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Business Account ID</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('WHATSAPP_BUSINESS_ACCOUNT_ID') border-destructive @enderror" 
-                                           id="WHATSAPP_BUSINESS_ACCOUNT_ID" 
-                                           name="WHATSAPP_BUSINESS_ACCOUNT_ID" 
-                                           value="{{ old('WHATSAPP_BUSINESS_ACCOUNT_ID', $whatsappSettings['WHATSAPP_BUSINESS_ACCOUNT_ID'] ?? '') }}" 
-                                           placeholder="123456789012345">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">WhatsApp Business Account ID</div>
-                                @error('WHATSAPP_BUSINESS_ACCOUNT_ID')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp API Version</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('WHATSAPP_API_VERSION') border-destructive @enderror" 
-                                           id="WHATSAPP_API_VERSION" 
-                                           name="WHATSAPP_API_VERSION" 
-                                           value="{{ old('WHATSAPP_API_VERSION', $whatsappSettings['WHATSAPP_API_VERSION'] ?? 'v18.0') }}" 
-                                           placeholder="v18.0">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">WhatsApp Business API versie (bijv. v18.0)</div>
-                                @error('WHATSAPP_API_VERSION')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Webhook Verify Token</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('WHATSAPP_WEBHOOK_VERIFY_TOKEN') border-destructive @enderror" 
-                                           id="WHATSAPP_WEBHOOK_VERIFY_TOKEN" 
-                                           name="WHATSAPP_WEBHOOK_VERIFY_TOKEN" 
-                                           value="{{ old('WHATSAPP_WEBHOOK_VERIFY_TOKEN', $whatsappSettings['WHATSAPP_WEBHOOK_VERIFY_TOKEN'] ?? '') }}" 
-                                           placeholder="your-verify-token">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Token voor webhook verificatie</div>
-                                @error('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Standaard Bericht Template</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <textarea rows="4" 
-                                              class="kt-input pt-1 @error('WHATSAPP_DEFAULT_MESSAGE') border-destructive @enderror" 
-                                              id="WHATSAPP_DEFAULT_MESSAGE" 
-                                              name="WHATSAPP_DEFAULT_MESSAGE" 
-                                              placeholder="Hallo, bedankt voor uw interesse...">{{ old('WHATSAPP_DEFAULT_MESSAGE', $whatsappSettings['WHATSAPP_DEFAULT_MESSAGE'] ?? '') }}</textarea>
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Standaard bericht template dat wordt gebruikt bij automatische WhatsApp berichten</div>
-                                @error('WHATSAPP_DEFAULT_MESSAGE')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2" class="pt-4">
+                            <td colspan="2" class="pt-2">
                                 <div class="rounded-lg border border-border bg-background px-4 py-3">
                                     <div class="text-sm font-semibold text-secondary-foreground">WhatsApp Direct (zonder Business API)</div>
-                                    <div class="text-xs text-muted-foreground mt-1">Gebruik alleen een telefoonnummer om bij het versturen van de boeking direct WhatsApp te openen met een voorgestelde samenvatting.</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Alleen relevant als de platform Business API niet is geconfigureerd.</div>
                                 </div>
                             </td>
                         </tr>
@@ -914,7 +815,8 @@
                                            id="WHATSAPP_CLICK_TO_CHAT_ENABLED"
                                            name="WHATSAPP_CLICK_TO_CHAT_ENABLED"
                                            value="1"
-                                           {{ old('WHATSAPP_CLICK_TO_CHAT_ENABLED', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                           {{ old('WHATSAPP_CLICK_TO_CHAT_ENABLED', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}
+                                           @if(!empty($whatsappPlatformConfigured)) disabled @endif>
                                     <span class="text-sm text-secondary-foreground">Fallback: boekingsknop opent WhatsApp (alleen zonder Business API)</span>
                                 </label>
                             </td>
@@ -931,7 +833,7 @@
                                            placeholder="0612345678 of +31612345678"
                                            autocomplete="tel">
                                 </div>
-                                    <div class="text-xs text-muted-foreground mt-1">Ontvangernummer voor boekingsmeldingen. Met Business API-token wordt het bericht automatisch verstuurd; anders opent de boekingsknop <code class="text-xs">wa.me</code> als fallback.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Ontvangernummer voor boekingsmeldingen / wa.me-fallback.</div>
                                 @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -941,7 +843,7 @@
                             <td colspan="2" class="pt-4">
                                 <div class="rounded-lg border border-border bg-background px-4 py-3">
                                     <div class="text-sm font-semibold text-secondary-foreground">Frontend WhatsApp Widget</div>
-                                    <div class="text-xs text-muted-foreground mt-1">Toont rechtsonder op de frontend een WhatsApp-icoon. Klanten kunnen dan kiezen tussen bellen of een WhatsApp-bericht starten.</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Toont rechtsonder op de frontend een WhatsApp-icoon.</div>
                                 </div>
                             </td>
                         </tr>
@@ -972,7 +874,6 @@
                                            placeholder="0612345678 of +31612345678"
                                            autocomplete="tel">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Zelfde controle als “WhatsApp Nummer (zonder Business API)”; wordt opgeslagen als +31… voor <code class="text-xs">tel:</code> en <code class="text-xs">wa.me</code>.</div>
                                 @error('WHATSAPP_WIDGET_PHONE')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -988,7 +889,6 @@
                                               name="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
                                               placeholder="Hallo, ik heb een vraag over jullie diensten.">{{ old('WHATSAPP_WIDGET_DEFAULT_MESSAGE', $whatsappSettings['WHATSAPP_WIDGET_DEFAULT_MESSAGE'] ?? 'Hallo, ik heb een vraag over jullie diensten.') }}</textarea>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Deze tekst wordt voorgesteld wanneer iemand via de frontend-widget op “Bericht sturen” klikt.</div>
                                 @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -997,7 +897,7 @@
                     </table>
                     <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
                         <button type="submit" class="kt-btn kt-btn-primary">
-                            <i class="ki-filled ki-check me-2"></i> WhatsApp Instellingen Opslaan
+                            <i class="ki-filled ki-check me-2"></i> WhatsApp tenant opslaan
                         </button>
                     </div>
                 </form>

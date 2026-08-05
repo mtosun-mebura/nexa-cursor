@@ -319,7 +319,7 @@ class TaxiCustomerRideAcceptedNotificationService
             return;
         }
 
-        if (! $this->whatsapp->isConfigured()) {
+        if (! $this->whatsapp->isConfigured($companyId > 0 ? $companyId : null)) {
             $this->logCustomer(
                 $conn,
                 $rideId,
@@ -328,14 +328,15 @@ class TaxiCustomerRideAcceptedNotificationService
                 $variables['CUSTOMER_NAME'],
                 $phone,
                 (int) $ride->driver_id,
-                'WhatsApp Business API niet geconfigureerd.'
+                'WhatsApp Business API niet geconfigureerd (platform).'
             );
 
             return;
         }
 
-        $templateName = $this->dispatchSettings->customerAcceptWhatsappTemplateName($companyId > 0 ? $companyId : null);
-        $lang = $this->dispatchSettings->customerAcceptWhatsappTemplateLanguage($companyId > 0 ? $companyId : null);
+        $settingsCompanyId = $companyId > 0 ? $companyId : null;
+        $templateName = $this->dispatchSettings->customerAcceptWhatsappTemplateName($settingsCompanyId);
+        $lang = $this->dispatchSettings->customerAcceptWhatsappTemplateLanguage($settingsCompanyId);
 
         if ($templateName !== '') {
             $result = $this->whatsapp->sendTemplate(
@@ -347,11 +348,12 @@ class TaxiCustomerRideAcceptedNotificationService
                     $variables['DRIVER_NAME'],
                     $variables['PICKUP_AT'],
                     $variables['PICKUP_ADDRESS'],
-                ]
+                ],
+                $settingsCompanyId
             );
         } else {
             $body = $this->renderPlainMessage($companyId, $variables);
-            $result = $this->whatsapp->sendText($phone, $body);
+            $result = $this->whatsapp->sendText($phone, $body, $settingsCompanyId);
         }
 
         if ($result['ok'] ?? false) {

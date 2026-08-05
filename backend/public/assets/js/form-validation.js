@@ -464,6 +464,14 @@
                 return 'text';
             }
             if (type === 'email' || name.includes('email')) return 'email';
+            // WhatsApp Cloud API "Phone Number ID" is een Meta-ID, geen NL-telefoonnummer
+            if (
+                name.includes('phone_number_id')
+                || name.includes('phone-number-id')
+                || input.getAttribute('data-validate-as') === 'text'
+            ) {
+                return 'text';
+            }
             if (type === 'tel' || name.includes('phone') || name.includes('telefoon')) return 'phone';
             if (name.includes('postal_code') || name.includes('postcode')) return 'postal_code';
             if (name.includes('kvk_number') || name.includes('kvk')) return 'kvk_number';
