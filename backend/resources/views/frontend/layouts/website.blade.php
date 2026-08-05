@@ -399,10 +399,10 @@
     <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div class="container-custom">
             <div class="flex justify-between items-center h-16 md:h-20">
-                <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0 -ml-1 sm:ml-0">
                     @unless($hideWebsiteMenu)
                     <div id="website-mobile-menu-toggle-wrap" class="hidden flex-shrink-0">
-                        <button type="button" id="website-mobile-menu-toggle" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
+                        <button type="button" id="website-mobile-menu-toggle" class="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                         </button>
                     </div>
@@ -476,20 +476,20 @@
                     @endif
                 </div>
                 {{-- Smalle viewport: desktop-kolom met Mijn Nexa is verborgen; knop hier tonen zodat hij niet alleen in het dichte hamburgerpaneel zit --}}
-                <div id="website-hamburger-row" class="hidden items-center gap-2 ml-auto flex-shrink-0">
+                <div id="website-hamburger-row" class="hidden items-center gap-1 sm:gap-2 ml-auto flex-shrink-0">
                     @if($branding['dashboard_link_visible'] ?? false)
                     @php
                         $portalUrlMobile = $branding['dashboard_link_url'] ?? route('dashboard');
                         $portalLabelMobile = $branding['dashboard_link_label'] ?? 'Mijn Nexa';
                     @endphp
                     @guest
-                    <a href="{{ route('login', ['intended' => $portalUrlMobile]) }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">{{ $portalLabelMobile }}</a>
+                    <a href="{{ route('login', ['intended' => $portalUrlMobile]) }}" class="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm sm:text-base font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $portalLabelMobile }}</a>
                     @else
-                    <a href="{{ $portalUrlMobile }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">{{ $portalLabelMobile }}</a>
+                    <a href="{{ $portalUrlMobile }}" class="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm sm:text-base font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $portalLabelMobile }}</a>
                     @endguest
                     @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
-                    <button type="button" id="theme-toggle-btn-mobile" class="p-2 rounded-lg text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-white" aria-label="Wissel thema">
+                    <button type="button" id="theme-toggle-btn-mobile" class="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-white" aria-label="Wissel thema">
                         <svg id="theme-icon-sun-mobile" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <svg id="theme-icon-moon-mobile" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>

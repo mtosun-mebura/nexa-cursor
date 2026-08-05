@@ -156,10 +156,51 @@ class PaymentProviderService
         return $url;
     }
 
+    public function mollieWebhookUrlForTenantInvoices(?int $companyId = null): ?string
+    {
+        $override = trim((string) config('billing.tenant_invoice_mollie_webhook_url', ''));
+        if ($override !== '') {
+            return $override;
+        }
+
+        $provider = $this->getMollieForCompany($companyId);
+        $providerWebhook = $provider
+            ? trim((string) $provider->getConfigValue('webhook_url'))
+            : '';
+
+        if ($providerWebhook !== '') {
+            if (! $this->isMollieReachableWebhookUrl($providerWebhook)) {
+                Log::info('Tenant klantfactuur webhook overgeslagen: provider-URL niet bereikbaar vanaf internet.', [
+                    'company_id' => $companyId,
+                    'url' => $providerWebhook,
+                ]);
+
+                return null;
+            }
+
+            return $providerWebhook;
+        }
+
+        $url = URL::to('/api/tenant-customer-invoices/webhooks/mollie');
+        if (! $this->isMollieReachableWebhookUrl($url)) {
+            Log::info('Tenant klantfactuur webhook overgeslagen: URL niet bereikbaar vanaf internet.', [
+                'url' => $url,
+                'hint' => 'Configureer de webhook-URL op de actieve Mollie-betalingsprovider van de tenant, of zet TENANT_INVOICE_MOLLIE_WEBHOOK_URL (ngrok) voor lokale ontwikkeling.',
+            ]);
+
+            return null;
+        }
+
+        return $url;
+    }
+
+    /**
+     * Webhook voor weergave/resolutie: eerst actieve provider, anders standaardpad.
+     */
     protected function resolveMollieWebhookUrlRaw(?int $companyId): ?string
     {
-        $provider = $this->getMollieForCompany($companyId, false)
-            ?? $this->getMollieForCompany($companyId, true);
+        $provider = $this->getMollieForCompany($companyId)
+            ?? $this->getMollieForCompany($companyId, false);
 
         if (! $provider) {
             return URL::to('/api/taxi/webhooks/mollie');

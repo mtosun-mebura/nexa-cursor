@@ -36,6 +36,7 @@ class TaxiBookingNotificationService
         );
 
         $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary);
+        $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $summary);
         $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
     }
@@ -62,20 +63,22 @@ class TaxiBookingNotificationService
 
     public function whatsappAutoSendEnabled(?int $companyId = null): bool
     {
-        if (! $this->whatsapp->isConfigured()) {
-            return false;
-        }
+        // Zodra de tenant WhatsApp Business API-token + phone number ID heeft: server-side verzenden.
+        return $this->whatsapp->isConfigured($companyId);
+    }
 
-        if (! $this->dispatchSettings->bookingWhatsappEnabled($companyId)) {
-            return false;
-        }
-
-        return $this->dispatchSettings->bookingWhatsappNumber($companyId) !== '';
+    /**
+     * Token aanwezig (ook zonder Phone Number ID) → nooit browser-redirect naar WhatsApp.
+     */
+    public function whatsappApiTokenPresent(?int $companyId = null): bool
+    {
+        return $this->whatsapp->hasApiToken($companyId);
     }
 
     public function whatsappClientClickToChatEnabled(?int $companyId = null): bool
     {
-        if ($this->whatsappAutoSendEnabled($companyId)) {
+        // Business API in gebruik (of token al ingevuld): geen wa.me / api.whatsapp.com popup.
+        if ($this->whatsappApiTokenPresent($companyId) || $this->whatsappAutoSendEnabled($companyId)) {
             return false;
         }
 
@@ -100,11 +103,11 @@ class TaxiBookingNotificationService
             return;
         }
 
-        if (! $this->whatsapp->isConfigured()) {
+        if (! $this->whatsapp->isConfigured($companyId)) {
             $this->notificationLogs->recordWhatsappSkipped(
                 $conn,
                 $rideId,
-                'WhatsApp Business API is niet geconfigureerd op de server.'
+                'WhatsApp Business API is niet geconfigureerd voor deze tenant.'
             );
 
             return;
@@ -115,7 +118,7 @@ class TaxiBookingNotificationService
             $this->notificationLogs->recordWhatsappSkipped(
                 $conn,
                 $rideId,
-                'Geen WhatsApp-ontvangernummer ingesteld.'
+                'Geen WhatsApp-ontvangernummer (dispatch) ingesteld.'
             );
             Log::warning('WhatsApp boeking: geen ontvangernummer geconfigureerd.', [
                 'company_id' => $companyId,
@@ -125,7 +128,7 @@ class TaxiBookingNotificationService
             return;
         }
 
-        $result = $this->whatsapp->sendText($recipient, $summary);
+        $result = $this->whatsapp->sendText($recipient, $summary, $companyId);
         if ($result['ok'] ?? false) {
             $this->notificationLogs->recordWhatsappSent($conn, $rideId, $recipient, $result['meta'] ?? null);
         } else {
@@ -133,6 +136,74 @@ class TaxiBookingNotificationService
             $this->notificationLogs->recordWhatsappFailed($conn, $rideId, $recipient, $error);
             Log::warning('WhatsApp boeking: bericht niet verzonden.', [
                 'ride_request_id' => $rideId,
+                'company_id' => $companyId,
+                'error' => $error,
+            ]);
+        }
+    }
+
+    private function sendCustomerBookingWhatsapp(
+        string $conn,
+        RideRequest $ride,
+        ?int $companyId,
+        string $summary
+    ): void {
+        $rideId = (int) $ride->id;
+
+        if (! $this->whatsapp->isConfigured($companyId)) {
+            return;
+        }
+
+        $phone = trim((string) ($ride->customer_phone ?? ''));
+        if ($phone === '') {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                (string) ($ride->customer_name ?: 'Klant'),
+                null,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': Geen klanttelefoon op de rit.'
+            );
+
+            return;
+        }
+
+        $customerName = trim((string) ($ride->customer_name ?: 'klant'));
+        $body = "Beste {$customerName},\n\n"
+            ."Bedankt voor uw taxiboeking #{$rideId}.\n\n"
+            .$summary."\n\n"
+            .'We houden u op de hoogte via WhatsApp.';
+
+        $result = $this->whatsapp->sendText($phone, $body, $companyId);
+        if ($result['ok'] ?? false) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::STATUS_SENT,
+                $customerName !== '' ? $customerName : 'Klant',
+                $phone,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING,
+                $result['meta'] ?? null
+            );
+        } else {
+            $error = (string) ($result['error'] ?? 'Onbekende fout');
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::STATUS_FAILED,
+                $customerName !== '' ? $customerName : 'Klant',
+                $phone,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': '.$error
+            );
+            Log::warning('WhatsApp klantbevestiging boeking niet verzonden.', [
+                'ride_request_id' => $rideId,
+                'company_id' => $companyId,
                 'error' => $error,
             ]);
         }

@@ -3104,7 +3104,21 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var root = scope && scope.nodeType === 1 ? scope : document;
         root.querySelectorAll('.carousel-slide-text-bg-opacity-range').forEach(syncCarouselSlideBgOpacityDisplay);
     }
-    function carouselSlideBgOpacityControlsHtml(sectionKey, idx, hex, storedOpacity) {
+    function carouselSlideBgWidthOptionsHtml(sectionKey, idx, selectedPct) {
+        var pct = parseInt(selectedPct, 10);
+        if (isNaN(pct) || pct < 30 || pct > 100) pct = 70;
+        var options = [100, 90, 80, 70, 60, 50, 40, 30];
+        var html = options.map(function(value) {
+            return '<option value="' + value + '"' + (pct === value ? ' selected' : '') + '>' + value + '%</option>';
+        }).join('');
+        return '<div class="carousel-slide-bg-width-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full mt-1">' +
+            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Breedte</span>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem] carousel-slide-text-bg-width-select" title="Breedte tekstblok op slide (%)">' +
+            html +
+            '</select>' +
+            '</div>';
+    }
+    function carouselSlideBgOpacityControlsHtml(sectionKey, idx, hex, storedOpacity, widthPercent) {
         var opacityId = 'carousel-bg-opacity-' + sectionKey + '-' + idx;
         var sliderVal = carouselSlideBgOpacitySliderValue(hex, storedOpacity);
         return '<div class="carousel-slide-bg-opacity-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">' +
@@ -3114,7 +3128,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             '</div>' +
             '<span id="' + opacityId + '-value" class="carousel-slide-text-bg-opacity-value inline-flex items-center justify-center min-w-[2.75rem] rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shrink-0" aria-live="polite">' + sliderVal + '%</span>' +
             '<span id="' + opacityId + '-preview" class="carousel-slide-text-bg-opacity-preview h-10 w-10 rounded border border-input shrink-0 shadow-sm" title="Voorbeeld achtergrondvlak" role="img" aria-label="Voorbeeld achtergrond"></span>' +
-            '</div>';
+            '</div>' +
+            carouselSlideBgWidthOptionsHtml(sectionKey, idx, widthPercent);
     }
     function syncHeroOverlayOpacityDisplay(range) {
         if (!range || !range.id) return;
@@ -3668,7 +3683,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         { value: 300, label: '0,3 s' },
         { value: 500, label: '0,5 s' }
     ];
-    function buildCarouselSlideBgColorHtml(sectionKey, idx, textBgColor, textBgOpacity) {
+    function buildCarouselSlideBgColorHtml(sectionKey, idx, textBgColor, textBgOpacity, textBgWidthPercent) {
         var safeBg = (textBgColor || '').replace(/"/g, '&quot;');
         var bgId = 'carousel-bg-color-' + sectionKey + '-' + idx;
         var bgPickerVal = (safeBg && /^#/.test(safeBg)) ? safeBg : '#000000';
@@ -3677,7 +3692,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             '<input type="color" id="' + bgId + '_color" class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + bgPickerVal + '" title="Achtergrondkleur tekstblok" data-target-input="' + bgId + '">' +
             carouselSlideHexInputHtml(sectionKey, idx, 'text_bg_color', safeBg, bgId, '#000000', 'carousel-slide-text-bg-color-hex-input') +
             '</div>' +
-            carouselSlideBgOpacityControlsHtml(sectionKey, idx, safeBg, textBgOpacity);
+            carouselSlideBgOpacityControlsHtml(sectionKey, idx, safeBg, textBgOpacity, textBgWidthPercent);
     }
     function buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, opts) {
         opts = opts || {};
@@ -3767,6 +3782,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (textBgOpacityPreviewEl) textBgOpacityPreviewEl.id = textBgOpacityId + '-preview';
                 syncCarouselSlideBgOpacityDisplay(textBgOpacityRange);
             }
+            var textBgWidthSelect = row.querySelector('.carousel-slide-text-bg-width-select');
+            if (textBgWidthSelect) {
+                textBgWidthSelect.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_bg_width_percent]';
+            }
             var sizeSel = row.querySelector('.carousel-slide-text-size-select');
             var posSel = row.querySelector('.carousel-slide-text-position-select');
             var animSel = row.querySelector('.carousel-slide-text-animation-select');
@@ -3817,7 +3836,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             '<input type="color" id="' + textColorId + '_color" class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + textColorPickerVal + '" title="Tekstkleur op carousel" data-target-input="' + textColorId + '">' +
             carouselSlideHexInputHtml(sectionKey, idx, 'text_color', safeTextColor, textColorId, '#ffffff', 'carousel-slide-text-color-hex-input') +
             '</div>' +
-            buildCarouselSlideBgColorHtml(sectionKey, idx, '') +
+            buildCarouselSlideBgColorHtml(sectionKey, idx, '', null, 70) +
             '<p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>' +
             buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, {}) +
             '</div>' +

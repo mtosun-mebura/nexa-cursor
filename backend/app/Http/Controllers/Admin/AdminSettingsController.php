@@ -167,20 +167,17 @@ class AdminSettingsController extends Controller
             'GOOGLE_MAPS_TYPE' => $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap'),
         ];
 
-        // Get current WhatsApp settings
+        // Get current WhatsApp tenant settings (widget / click-to-chat)
         $whatsappSettings = [
-            'WHATSAPP_API_TOKEN' => $this->envService->get('WHATSAPP_API_TOKEN', ''),
-            'WHATSAPP_PHONE_NUMBER_ID' => $this->envService->get('WHATSAPP_PHONE_NUMBER_ID', ''),
-            'WHATSAPP_BUSINESS_ACCOUNT_ID' => $this->envService->get('WHATSAPP_BUSINESS_ACCOUNT_ID', ''),
-            'WHATSAPP_API_VERSION' => $this->envService->get('WHATSAPP_API_VERSION', 'v18.0'),
-            'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $this->envService->get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
-            'WHATSAPP_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_DEFAULT_MESSAGE', ''),
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0'),
             'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''),
             'WHATSAPP_WIDGET_ENABLED' => $this->envService->get('WHATSAPP_WIDGET_ENABLED', '0'),
             'WHATSAPP_WIDGET_PHONE' => $this->envService->get('WHATSAPP_WIDGET_PHONE', ''),
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'),
         ];
+
+        $whatsappPlatformConfigured = app(\App\Services\WhatsAppBusinessService::class)->isConfigured();
+        $whatsappConnectionStatus = null;
 
         $googleReviewsPlaceId = GeneralSetting::get('google_reviews_place_id', '');
         $googleReviewsBusinessName = GeneralSetting::get('google_reviews_business_name', '');
@@ -209,6 +206,8 @@ class AdminSettingsController extends Controller
             'seoSettings',
             'mapsSettings',
             'whatsappSettings',
+            'whatsappPlatformConfigured',
+            'whatsappConnectionStatus',
             'googleReviewsPlaceId',
             'googleReviewsBusinessName',
             'googleReviewsCacheHours',
@@ -938,7 +937,71 @@ class AdminSettingsController extends Controller
     }
 
     /**
-     * Update WhatsApp Business settings
+     * Update platform WhatsApp Business API (Algemene configuraties).
+     * Alleen toegankelijk voor super-admin; niet tenant-gebonden.
+     */
+    public function updateWhatsappPlatform(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validator = Validator::make($request->all(), [
+            'WHATSAPP_API_TOKEN' => 'nullable|string|max:2000',
+            'WHATSAPP_PHONE_NUMBER_ID' => 'nullable|string|max:255',
+            'WHATSAPP_BUSINESS_ACCOUNT_ID' => 'nullable|string|max:255',
+            'WHATSAPP_API_VERSION' => 'nullable|string|max:50',
+            'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => 'nullable|string|max:255',
+            'WHATSAPP_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->to(route('admin.settings.general.index').'#whatsapp')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        try {
+            $existingToken = trim((string) GeneralSetting::get('WHATSAPP_API_TOKEN', ''));
+            $existingPhoneNumberId = trim((string) GeneralSetting::get('WHATSAPP_PHONE_NUMBER_ID', ''));
+            $existingWabaId = trim((string) GeneralSetting::get('WHATSAPP_BUSINESS_ACCOUNT_ID', ''));
+
+            $token = trim((string) $request->input('WHATSAPP_API_TOKEN', ''));
+            $phoneNumberId = trim((string) $request->input('WHATSAPP_PHONE_NUMBER_ID', ''));
+            $wabaId = trim((string) $request->input('WHATSAPP_BUSINESS_ACCOUNT_ID', ''));
+
+            if ($token === '' && $existingToken !== '') {
+                $token = $existingToken;
+            }
+            if ($phoneNumberId === '' && $existingPhoneNumberId !== '') {
+                $phoneNumberId = $existingPhoneNumberId;
+            }
+            if ($wabaId === '' && $existingWabaId !== '') {
+                $wabaId = $existingWabaId;
+            }
+
+            $platformSettings = [
+                'WHATSAPP_API_TOKEN' => $token,
+                'WHATSAPP_PHONE_NUMBER_ID' => $phoneNumberId,
+                'WHATSAPP_BUSINESS_ACCOUNT_ID' => $wabaId,
+                'WHATSAPP_API_VERSION' => $request->input('WHATSAPP_API_VERSION', 'v18.0'),
+                'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $request->input('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
+                'WHATSAPP_DEFAULT_MESSAGE' => $request->input('WHATSAPP_DEFAULT_MESSAGE', ''),
+            ];
+
+            foreach ($platformSettings as $key => $value) {
+                GeneralSetting::set($key, (string) $value);
+            }
+
+            return redirect()->to(route('admin.settings.general.index').'#whatsapp')
+                ->with('success', 'WhatsApp Business API (platform) succesvol bijgewerkt!');
+        } catch (\Exception $e) {
+            return redirect()->to(route('admin.settings.general.index').'#whatsapp')
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Update tenant WhatsApp widget / click-to-chat settings.
      * Alleen toegankelijk voor super-admin
      */
     public function updateWhatsapp(Request $request)
@@ -951,12 +1014,6 @@ class AdminSettingsController extends Controller
         $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
-            'WHATSAPP_API_TOKEN' => 'nullable|string|max:500',
-            'WHATSAPP_PHONE_NUMBER_ID' => 'nullable|string|max:255',
-            'WHATSAPP_BUSINESS_ACCOUNT_ID' => 'nullable|string|max:255',
-            'WHATSAPP_API_VERSION' => 'nullable|string|max:50',
-            'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => 'nullable|string|max:255',
-            'WHATSAPP_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_CLICK_TO_CHAT_NUMBER' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
@@ -989,14 +1046,10 @@ class AdminSettingsController extends Controller
         }
 
         try {
+            $platformApiActive = app(\App\Services\WhatsAppBusinessService::class)->hasApiToken();
+
             $whatsappSettings = [
-                'WHATSAPP_API_TOKEN' => $request->input('WHATSAPP_API_TOKEN', ''),
-                'WHATSAPP_PHONE_NUMBER_ID' => $request->input('WHATSAPP_PHONE_NUMBER_ID', ''),
-                'WHATSAPP_BUSINESS_ACCOUNT_ID' => $request->input('WHATSAPP_BUSINESS_ACCOUNT_ID', ''),
-                'WHATSAPP_API_VERSION' => $request->input('WHATSAPP_API_VERSION', 'v18.0'),
-                'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $request->input('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
-                'WHATSAPP_DEFAULT_MESSAGE' => $request->input('WHATSAPP_DEFAULT_MESSAGE', ''),
-                'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0',
+                'WHATSAPP_CLICK_TO_CHAT_ENABLED' => ($platformApiActive ? '0' : ($request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0')),
                 'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $normalizedClickToChat,
                 'WHATSAPP_WIDGET_ENABLED' => $request->boolean('WHATSAPP_WIDGET_ENABLED') ? '1' : '0',
                 'WHATSAPP_WIDGET_PHONE' => $normalizedWidgetPhone,
@@ -1014,7 +1067,7 @@ class AdminSettingsController extends Controller
             );
 
             return redirect()->to(route('admin.settings.index').'#whatsapp')
-                ->with('success', 'WhatsApp Business instellingen succesvol bijgewerkt!');
+                ->with('success', 'WhatsApp tenant-instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
             return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
@@ -1197,7 +1250,26 @@ class AdminSettingsController extends Controller
         $infoRequestFormPreviewContext = app(InfoRequestFormPreviewContextService::class)
             ->defaultContext($infoRequestFormPreviewContexts);
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive'));
+        $whatsappPlatformSettings = [
+            'WHATSAPP_API_TOKEN' => $this->envService->get('WHATSAPP_API_TOKEN', ''),
+            'WHATSAPP_PHONE_NUMBER_ID' => $this->envService->get('WHATSAPP_PHONE_NUMBER_ID', ''),
+            'WHATSAPP_BUSINESS_ACCOUNT_ID' => $this->envService->get('WHATSAPP_BUSINESS_ACCOUNT_ID', ''),
+            'WHATSAPP_API_VERSION' => $this->envService->get('WHATSAPP_API_VERSION', 'v18.0'),
+            'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $this->envService->get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
+            'WHATSAPP_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_DEFAULT_MESSAGE', ''),
+        ];
+
+        $whatsappConnectionStatus = null;
+        if (trim((string) ($whatsappPlatformSettings['WHATSAPP_API_TOKEN'] ?? '')) !== ''
+            && trim((string) ($whatsappPlatformSettings['WHATSAPP_PHONE_NUMBER_ID'] ?? '')) !== '') {
+            try {
+                $whatsappConnectionStatus = app(\App\Services\WhatsAppBusinessService::class)->verifyCredentials();
+            } catch (\Throwable $e) {
+                $whatsappConnectionStatus = ['ok' => false, 'error' => $e->getMessage()];
+            }
+        }
+
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus'));
     }
 
     /**

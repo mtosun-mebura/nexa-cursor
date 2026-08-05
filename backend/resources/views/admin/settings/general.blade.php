@@ -2,6 +2,10 @@
 
 @include('admin.settings.partials.collapsible-section-assets')
 
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @section('content')
 <div class="kt-container-fixed">
     <div class="kt-container-fixed mt-5">
@@ -53,9 +57,9 @@
             </div>
         </div>
 
+        <div id="general-settings-collapsible-root">
         <form action="{{ route('admin.settings.general.update') }}" method="POST" enctype="multipart/form-data" id="general-settings-form">
             @csrf
-        <div id="general-settings-collapsible-root">
         @php
             $hasLogo = $logo && Storage::disk('public')->exists($logo);
             $hasLogoDark = !empty($logoDark) && Storage::disk('public')->exists($logoDark);
@@ -477,8 +481,11 @@
             </div>
         </div>
 
-        </div>
         </form>
+
+        @include('admin.settings.partials.whatsapp-platform')
+
+        </div>
     </div>
 </div>
 @endsection

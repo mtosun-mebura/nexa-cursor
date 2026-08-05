@@ -226,7 +226,7 @@ const emailTemplateOptions = computed(() =>
 
 .builder-config-panel--expanded :deep(.builder-media-upload-area) {
   min-height: 4.5rem;
-  max-width: 16rem;
+  max-width: 100%;
 }
 
 @media (max-width: 768px) {

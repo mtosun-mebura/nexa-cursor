@@ -109,7 +109,7 @@ class TaxiDispatchBookingSettingsTest extends TestCase
     public function test_booking_whatsapp_auto_send_defaults_off_without_explicit_dispatch_setting(): void
     {
         $env = $this->createMock(EnvService::class);
-        $env->method('get')->willReturnCallback(function (string $key, $default = '') {
+        $env->method('get')->willReturnCallback(function (string $key, $default = '', ?int $companyId = null) {
             return match ($key) {
                 'WHATSAPP_CLICK_TO_CHAT_NUMBER' => '+31600112233',
                 default => $default,
@@ -119,6 +119,40 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
 
         $this->assertFalse($service->bookingWhatsappEnabled(99999));
+    }
+
+    public function test_whatsapp_api_token_forces_api_send_and_disables_click_to_chat(): void
+    {
+        $company = Company::query()->create(['name' => 'Api Wa Co', 'slug' => 'api-wa-'.uniqid()]);
+
+        GeneralSetting::set('WHATSAPP_API_TOKEN', 'EAA-test-token');
+        GeneralSetting::set('WHATSAPP_PHONE_NUMBER_ID', '123456789');
+        GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_ENABLED', '1', $company->id);
+        GeneralSetting::set(
+            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
+            '+31600112233',
+            $company->id
+        );
+        GeneralSetting::set(
+            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_ENABLED,
+            '0',
+            $company->id
+        );
+        GeneralSetting::set(
+            TaxiDispatchSettingsService::KEY_CUSTOMER_ACCEPT_WHATSAPP_ENABLED,
+            '0',
+            $company->id
+        );
+
+        $service = app(TaxiDispatchSettingsService::class);
+        $notifications = app(TaxiBookingNotificationService::class);
+
+        $this->assertTrue($service->whatsappApiConfigured((int) $company->id));
+        $this->assertTrue($service->bookingWhatsappEnabled((int) $company->id));
+        $this->assertTrue($service->customerAcceptWhatsappEnabled((int) $company->id));
+        $this->assertFalse($service->bookingWhatsappClickToChatEnabled((int) $company->id));
+        $this->assertTrue($notifications->whatsappAutoSendEnabled((int) $company->id));
+        $this->assertFalse($notifications->whatsappClientClickToChatEnabled((int) $company->id));
     }
 
     public function test_click_to_chat_disabled_when_admin_master_switch_is_off(): void

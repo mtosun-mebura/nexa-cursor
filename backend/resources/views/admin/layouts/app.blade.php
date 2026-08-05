@@ -32,6 +32,16 @@
         }
     })();
     </script>
+    <script>
+    (function () {
+        try {
+            var y = parseInt(sessionStorage.getItem('admin-sidebar-scroll') || '', 10);
+            if (!isNaN(y) && y > 0) {
+                document.documentElement.setAttribute('data-sidebar-scroll-pending', '1');
+            }
+        } catch (err) {}
+    })();
+    </script>
     <!-- End of Theme Mode -->
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -422,6 +432,10 @@
         .dark .admin-fixed-toast {
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
         }
+
+        html[data-sidebar-scroll-pending="1"] #sidebar_scrollable {
+            visibility: hidden;
+        }
     </style>
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
@@ -488,6 +502,204 @@
     <!-- End of Page -->
 
     @include('layouts.partials.scripts')
+
+    <!-- Sidebar accordions: keep submenu toggles working (also after datatable menu re-inits). -->
+    <script>
+    (function initAdminSidebarAccordions() {
+        function bindSidebarAccordions() {
+            const sidebarMenu = document.getElementById('sidebar_menu');
+            if (!sidebarMenu || sidebarMenu.dataset.sidebarAccordionBound === '1') {
+                return;
+            }
+            sidebarMenu.dataset.sidebarAccordionBound = '1';
+
+            const accordionItems = sidebarMenu.querySelectorAll('.kt-menu-item[data-kt-menu-item-toggle="accordion"]');
+
+            function syncAccordionContent(accordionItem, isOpen) {
+                const content = accordionItem.querySelector(':scope > .kt-menu-accordion');
+                if (content) {
+                    content.classList.toggle('show', isOpen);
+                }
+            }
+
+            function toggleAccordion(accordionItem) {
+                const isOpen = accordionItem.classList.contains('show');
+                const expandAll = sidebarMenu.getAttribute('data-kt-menu-accordion-expand-all') === 'true';
+
+                if (!expandAll) {
+                    accordionItems.forEach(function (item) {
+                        if (item !== accordionItem && item.classList.contains('show')) {
+                            item.classList.remove('show');
+                            syncAccordionContent(item, false);
+                        }
+                    });
+                }
+
+                accordionItem.classList.toggle('show', !isOpen);
+                syncAccordionContent(accordionItem, !isOpen);
+            }
+
+            accordionItems.forEach(function (accordionItem) {
+                if (accordionItem.classList.contains('show') || accordionItem.classList.contains('here')) {
+                    syncAccordionContent(accordionItem, accordionItem.classList.contains('show'));
+                }
+
+                const observer = new MutationObserver(function (mutations) {
+                    mutations.forEach(function (mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            syncAccordionContent(accordionItem, accordionItem.classList.contains('show'));
+                        }
+                    });
+                });
+
+                observer.observe(accordionItem, {
+                    attributes: true,
+                    attributeFilter: ['class'],
+                });
+            });
+
+            sidebarMenu.addEventListener('click', function (event) {
+                if (event.target.closest('.kt-menu-accordion')) {
+                    return;
+                }
+
+                const accordionItem = event.target.closest('.kt-menu-item[data-kt-menu-item-trigger][data-kt-menu-item-toggle="accordion"]');
+                if (!accordionItem) {
+                    return;
+                }
+
+                const headerLink = accordionItem.querySelector(':scope > .kt-menu-link');
+                if (!headerLink || !headerLink.contains(event.target)) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopImmediatePropagation();
+
+                const menu = window.KTMenu?.getInstance?.(sidebarMenu);
+                if (menu && typeof menu.click === 'function') {
+                    menu.click(headerLink, event);
+                    return;
+                }
+
+                toggleAccordion(accordionItem);
+            }, true);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindSidebarAccordions);
+        } else {
+            bindSidebarAccordions();
+        }
+    })();
+    </script>
+
+    <!-- Sidebar scrollpositie bewaren bij menu-navigatie (zonder flikkering) -->
+    <script>
+    (function initAdminSidebarScroll() {
+        var SIDEBAR_SCROLL_KEY = 'admin-sidebar-scroll';
+        var isApplyingScroll = false;
+
+        function getSidebarScrollable() {
+            return document.getElementById('sidebar_scrollable');
+        }
+
+        function clampScrollTop(el, y) {
+            var max = Math.max(0, el.scrollHeight - el.clientHeight);
+            return Math.min(Math.max(0, y), max);
+        }
+
+        function saveSidebarScroll() {
+            if (isApplyingScroll) {
+                return;
+            }
+            try {
+                var el = getSidebarScrollable();
+                if (!el) {
+                    return;
+                }
+                sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(el.scrollTop || 0));
+            } catch (err) {}
+        }
+
+        function getSavedSidebarScroll() {
+            try {
+                var saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+                if (saved === null) {
+                    return null;
+                }
+                var y = parseInt(saved, 10);
+                return isNaN(y) || y < 0 ? null : y;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function restoreSidebarScrollOnce() {
+            var el = getSidebarScrollable();
+            var y = getSavedSidebarScroll();
+
+            document.documentElement.removeAttribute('data-sidebar-scroll-pending');
+
+            if (!el || y === null || y <= 0) {
+                return;
+            }
+
+            isApplyingScroll = true;
+            el.scrollTop = clampScrollTop(el, y);
+            isApplyingScroll = false;
+        }
+
+        function finishSidebarScrollRestore() {
+            restoreSidebarScrollOnce();
+        }
+
+        function bindSidebarScrollPersistence() {
+            var sidebarMenu = document.getElementById('sidebar_menu');
+            var scrollable = getSidebarScrollable();
+            if (!scrollable || scrollable.dataset.sidebarScrollBound === '1') {
+                return;
+            }
+            scrollable.dataset.sidebarScrollBound = '1';
+
+            var scrollTimer;
+            scrollable.addEventListener('scroll', function () {
+                clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(saveSidebarScroll, 150);
+            }, { passive: true });
+
+            if (sidebarMenu) {
+                sidebarMenu.addEventListener('click', function (event) {
+                    var link = event.target.closest('a.kt-menu-link[href]');
+                    if (!link) {
+                        return;
+                    }
+                    var href = (link.getAttribute('href') || '').trim();
+                    if (!href || href === '#' || href.startsWith('javascript:')) {
+                        return;
+                    }
+                    saveSidebarScroll();
+                }, true);
+            }
+        }
+
+        function init() {
+            bindSidebarScrollPersistence();
+
+            if (document.readyState === 'complete') {
+                finishSidebarScrollRestore();
+            } else {
+                window.addEventListener('load', finishSidebarScrollRestore, { once: true });
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
 
     <!-- Logo light/dark sync: toon juiste logo bij thema-wissel -->
     <script>

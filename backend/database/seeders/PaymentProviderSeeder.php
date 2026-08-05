@@ -12,51 +12,51 @@ class PaymentProviderSeeder extends Seeder
     {
         $defaults = [
             [
-                'name' => 'Mollie Test',
+                'name' => 'Mollie',
                 'provider_type' => 'mollie',
                 'is_active' => true,
                 'config' => [
                     'api_key' => Crypt::encryptString('test_1234567890abcdef'),
                     'api_secret' => null,
-                    'webhook_url' => 'https://example.com/webhooks/mollie',
+                    'webhook_url' => url('/api/taxi/webhooks/mollie'),
                     'test_mode' => true,
-                    'description' => 'Mollie betalingsprovider voor test doeleinden',
+                    'description' => 'Mollie voor iDEAL en online betalingen (Nexa Taxi en klantfacturen).',
                 ],
             ],
             [
-                'name' => 'Stripe Test',
+                'name' => 'Stripe',
                 'provider_type' => 'stripe',
                 'is_active' => false,
                 'config' => [
                     'api_key' => Crypt::encryptString('sk_test_1234567890abcdef'),
                     'api_secret' => null,
-                    'webhook_url' => 'https://example.com/webhooks/stripe',
+                    'webhook_url' => url('/api/webhooks/stripe'),
                     'test_mode' => true,
-                    'description' => 'Stripe betalingsprovider voor test doeleinden',
+                    'description' => 'Stripe voor kaartbetalingen.',
                 ],
             ],
             [
-                'name' => 'PayPal Test',
+                'name' => 'PayPal',
                 'provider_type' => 'paypal',
                 'is_active' => false,
                 'config' => [
                     'api_key' => Crypt::encryptString('test_client_id_123456'),
                     'api_secret' => Crypt::encryptString('test_client_secret_123456'),
-                    'webhook_url' => 'https://example.com/webhooks/paypal',
+                    'webhook_url' => url('/api/webhooks/paypal'),
                     'test_mode' => true,
-                    'description' => 'PayPal betalingsprovider voor test doeleinden',
+                    'description' => 'PayPal voor online betalingen.',
                 ],
             ],
             [
-                'name' => 'Adyen Test',
+                'name' => 'Adyen',
                 'provider_type' => 'adyen',
                 'is_active' => false,
                 'config' => [
                     'api_key' => Crypt::encryptString('test_adyen_api_key_123456'),
                     'api_secret' => null,
-                    'webhook_url' => 'https://example.com/webhooks/adyen',
+                    'webhook_url' => url('/api/webhooks/adyen'),
                     'test_mode' => true,
-                    'description' => 'Adyen betalingsprovider voor test doeleinden',
+                    'description' => 'Adyen voor online betalingen.',
                 ],
             ],
         ];

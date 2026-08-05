@@ -2358,7 +2358,7 @@ class AdminWebsitePageController extends Controller
 
     /**
      * @param  array<string, mixed>  $row
-     * @return array{uuid: string, alt: string, text_color: string, text_bg_color: string, text_bg_opacity: ?int, text_size_px: int, text_position: string, text_animation: string, text_animation_duration_ms: int, text_animation_stagger_ms: int}
+     * @return array{uuid: string, alt: string, text_color: string, text_bg_color: string, text_bg_opacity: ?int, text_bg_width_percent: int, text_size_px: int, text_position: string, text_animation: string, text_animation_duration_ms: int, text_animation_stagger_ms: int}
      */
     private function normalizeCarouselSlideItem(array $row): array
     {
@@ -2376,6 +2376,11 @@ class AdminWebsitePageController extends Controller
         if (isset($row['text_bg_opacity']) && $row['text_bg_opacity'] !== '' && $row['text_bg_opacity'] !== null) {
             $textBgOpacity = max(0, min(100, (int) $row['text_bg_opacity']));
         }
+
+        $textBgWidthPct = isset($row['text_bg_width_percent']) && $row['text_bg_width_percent'] !== ''
+            ? (int) $row['text_bg_width_percent']
+            : 70;
+        $textBgWidthPct = max(30, min(100, $textBgWidthPct));
 
         $textSizePx = isset($row['text_size_px']) ? (int) $row['text_size_px'] : 24;
         $textSizePx = max(12, min(50, $textSizePx));
@@ -2403,6 +2408,7 @@ class AdminWebsitePageController extends Controller
             'text_color' => $textColor,
             'text_bg_color' => $textBgColor,
             'text_bg_opacity' => $textBgOpacity,
+            'text_bg_width_percent' => $textBgWidthPct,
             'text_size_px' => $textSizePx,
             'text_position' => $textPosition,
             'text_animation' => $textAnimation,

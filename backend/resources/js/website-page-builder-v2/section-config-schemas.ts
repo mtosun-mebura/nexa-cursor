@@ -214,6 +214,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
         { type: 'color', key: 'text_color', label: 'Tekstkleur', hint: 'Leeg = wit' },
         { type: 'color', key: 'text_bg_color', label: 'Achtergrondkleur tekstblok' },
         { type: 'range', key: 'text_bg_opacity', label: 'Transparantie achtergrond', min: 0, max: 100, step: 1, unit: '%', previewColorKey: 'text_bg_color', hint: '0 = doorzichtig, 100 = ondoorzichtig' },
+        { type: 'select', key: 'text_bg_width_percent', label: 'Breedte tekstblok', options: sectionWidthPercentOptions, defaultValue: '70', hint: 'Percentage van de slidebreedte' },
         { type: 'select', key: 'text_position', label: 'Tekstpositie', options: [
           { value: 'top', label: 'Boven' },
           { value: 'center', label: 'Midden' },

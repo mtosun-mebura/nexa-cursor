@@ -1,0 +1,32 @@
+# Admin-tabellen: Acties-kolom standaard
+
+Voor admin-overzichtstabellen met acties per rij:
+
+## Acties-kolom
+
+- Gebruik class `admin-table__actions-col` op `<col>`, `<th>` en `<td>`.
+- Kolombreedte wordt globaal geregeld in `resources/css/admin-responsive.css` (4rem).
+- Header: `text-center`, `data-label="Acties"`.
+- Cel: `data-no-row-link` zodat klik op het menu de rij-link niet triggert.
+
+## Drie-puntjesmenu
+
+- Gebruik `kt-menu` met `ki-dots-vertical` toggle-knop (`kt-btn-icon kt-btn-ghost`).
+- Dropdown met `kt-menu-link` items (icon + titel).
+- Geen aparte pagina-specifieke menu-scripts: `admin-responsive.js` bindt menus globaal via `bindAdminTableActionMenus()`.
+
+## Klikbare rijen
+
+- `<tr data-row-href="...">` voor navigatie naar detail/bewerken.
+- `admin-responsive.js` → `bindClickableTableRows()` regelt klik/keyboard.
+
+## Filter + paginering
+
+- Filterformulier in `kt-card-header` met class `admin-filter-panel` (live submit via admin-responsive).
+- Zoekveld + relevante `<select>` filters als GET-params.
+- Controller: `paginate(20)->withQueryString()` + filter op query params.
+- Footer: `@include('admin.partials.pagination-footer', ['paginator' => $items])`.
+
+## Tabel wrapper
+
+- `kt-scrollable-x-auto admin-table-scroll-wrap admin-desktop-table-wrap` rond de tabel.

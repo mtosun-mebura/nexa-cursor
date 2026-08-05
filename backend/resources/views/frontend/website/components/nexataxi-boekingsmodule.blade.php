@@ -24,9 +24,6 @@
     $moduleAlign = $sectionStyle['align'] ?? 'center';
     $moduleAlignClass = $moduleAlign === 'left' ? 'justify-start' : ($moduleAlign === 'right' ? 'justify-end' : 'justify-center');
     $moduleOuterStyleParts = ['width: 100%'];
-    if (! empty($sectionStyle['container_max_width'])) {
-        $moduleOuterStyleParts[] = '--booking-module-max-width: '.$sectionStyle['container_max_width'];
-    }
     if (! empty($sectionStyle['container_min_height'])) {
         $moduleOuterStyleParts[] = 'min-height: '.$sectionStyle['container_min_height'];
     }
@@ -98,9 +95,22 @@
     }
     $bookingSplitMapBesideCard = $bookingSplitMapV2 && $bookingLiveMapPosition === 'beside_card';
     $bookingSplitMapInsideContent = $bookingSplitMapV2 && $bookingLiveMapPosition === 'inside_content';
+    $bookingSectionStyleParts = [
+        '--booking-tab-font-size: '.$tabFontPxVal.'px',
+        '--booking-route-map-img-scale: '.$routeMapImgScale,
+        '--booking-title-size-max: '.$titleFontPxVal.'px',
+        '--booking-step-heading-size-max: '.$stepHeadingFontPxVal.'px',
+    ];
+    if (! $bookingPortalMode && ! empty($sectionStyle['container_max_width'])) {
+        $bookingSectionStyleParts[] = '--booking-module-max-width: '.$sectionStyle['container_max_width'];
+    }
+    if ($bookingSplitMapInsideContent) {
+        $bookingSectionStyleParts[] = '--booking-v2-inside-map-offset: calc(var(--booking-step-heading-size-max) * 1.25 + 1rem)';
+    }
+    $bookingSectionStyle = implode('; ', $bookingSectionStyleParts).';';
 @endphp
 
-<section id="boek-rit" class="booking-module-scroll-reveal w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="--booking-tab-font-size: {{ $tabFontPxVal }}px; --booking-route-map-img-scale: {{ $routeMapImgScale }}; --booking-title-size-max: {{ $titleFontPxVal }}px; --booking-step-heading-size-max: {{ $stepHeadingFontPxVal }}px;@if($bookingSplitMapInsideContent) --booking-v2-inside-map-offset: calc(var(--booking-step-heading-size-max) * 1.25 + 1rem);@endif">
+<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-scroll-reveal data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
     <div class="booking-module-layout w-full max-w-full {{ $bookingPortalMode ? 'booking-module-layout--portal' : 'website-section-inner website-section-inner--flush' }}">
     @if($bookingSplitMapBesideCard)
     <div class="booking-module-v2-split">
@@ -121,11 +131,30 @@
             <div class="border-b border-default">
                 <div class="booking-steps-select-mobile" data-booking-step-select-mobile>
                     <label for="booking-steps-select" class="sr-only">Selecteer stap</label>
-                    <select id="booking-steps-select" data-booking-step-select class="bg-neutral-secondary-soft border-0 border-b border-default text-heading text-sm rounded-t-base focus:ring-brand block w-full p-2.5">
+                    <div class="relative" data-booking-step-select-wrap>
+                        <button type="button" class="booking-step-select-btn bg-neutral-secondary-soft border-0 border-b border-default text-heading text-sm rounded-t-base focus:ring-brand block w-full p-2.5 flex items-center justify-between gap-3" data-booking-step-select-btn aria-haspopup="listbox" aria-expanded="false">
+                            <span class="booking-step-select-btn__label" data-booking-step-select-btn-label></span>
+                            <svg class="w-4 h-4 flex-shrink-0 opacity-80" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
+                        <div class="booking-step-select-menu hidden absolute left-0 right-0 z-40 mt-1.5 rounded-xl border border-default bg-neutral-primary shadow-lg overflow-hidden" data-booking-step-select-menu role="listbox" tabindex="-1" aria-label="Selecteer stap">
+                            @foreach($stepOrder as $stepKey)
+                                <button type="button"
+                                    class="booking-step-select-menu-item w-full text-left px-4 py-2 text-sm text-heading hover:bg-neutral-secondary-soft disabled:opacity-40 disabled:cursor-not-allowed"
+                                    data-booking-step-key="{{ $stepKey }}"
+                                    @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>
+                                    {{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <select id="booking-steps-select" data-booking-step-select class="sr-only">
                         @foreach($stepOrder as $stepKey)
                             <option value="{{ $stepKey }}" @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>{{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}</option>
                         @endforeach
-                    </select>
+                        </select>
+                    </div>
                 </div>
                 <ul class="booking-steps-nav flex flex-wrap -mb-px text-sm font-medium text-center text-body" data-booking-steps-nav role="tablist">
                     @foreach($stepOrder as $idx => $stepKey)
@@ -634,7 +663,11 @@
             </div>
             <h4 class="text-2xl font-bold mb-2" data-confirm-modal-title>Boeking versturen</h4>
             <p class="text-base text-slate-600 dark:text-slate-200" data-confirm-modal-text>Weet u zeker dat u de boeking wilt versturen?</p>
-            <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap">
+            <div class="hidden mt-5 flex flex-col items-center justify-center gap-3" data-booking-confirm-loading aria-live="polite" aria-busy="false">
+                <span class="booking-confirm-spinner" aria-hidden="true"></span>
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-200" data-booking-confirm-loading-text>Boeking wordt verwerkt…</p>
+            </div>
+            <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap" data-booking-confirm-actions>
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-400 text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-confirm-submit>Bevestigen</button>
                 <a class="booking-login-btn inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-login-btn href="#">Inloggen</a>
@@ -701,8 +734,16 @@
         align-items: stretch;
     }
 }
+@media (min-width: 768px) {
+    [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-split {
+        width: 100%;
+        max-width: var(--booking-module-max-width, 100%);
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
 [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-form-col .booking-module-outer {
-    max-width: none !important;
+    max-width: 100%;
 }
 [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-map-col {
     position: relative;
@@ -730,6 +771,20 @@
     width: 100%;
     height: 280px;
     min-height: 280px;
+}
+[data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-col {
+    padding-left: 0;
+    padding-right: 0;
+}
+@media (max-width: 767px) {
+    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-col {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-inner {
+        left: 0.5rem;
+        right: 0.5rem;
+    }
 }
 [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-map-canvas {
     border-radius: 0.75rem;
@@ -863,15 +918,26 @@
     font-size: clamp(1rem, 2.5vw + 0.5rem, var(--booking-step-heading-size-max, 1.875rem));
 }
 
-/* Scroll-reveal: infade bij in beeld */
-.booking-module-scroll-reveal .booking-module-reveal-item {
+/* Scroll-reveal: alleen animeren als JS expliciet wil; default altijd zichtbaar */
+.booking-module-scroll-reveal.booking-module-will-reveal:not(.is-in-view) .booking-module-reveal-item {
     opacity: 0;
     transform: translateY(28px);
+}
+.booking-module-scroll-reveal .booking-module-reveal-item {
+    opacity: 1;
+    transform: translateY(0);
     transition: opacity 0.55s ease-out, transform 0.55s ease-out;
 }
 .booking-module-scroll-reveal.is-in-view .booking-module-reveal-item {
     opacity: 1;
     transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+    .booking-module-scroll-reveal .booking-module-reveal-item {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
 }
 
 [data-nexataxi-booking-module] .booking-module-card {
@@ -1087,6 +1153,24 @@ html.dark [data-nexataxi-booking-module] .booking-confirm-surface {
 [data-nexataxi-booking-module] #booking-steps-select {
     font-size: var(--booking-tab-font-size, 14px) !important;
 }
+[data-nexataxi-booking-module] #booking-steps-select option,
+[data-nexataxi-booking-module] #booking-steps-select optgroup {
+    font-size: inherit !important;
+}
+[data-nexataxi-booking-module] [data-booking-step-select-btn],
+[data-nexataxi-booking-module] [data-booking-step-select-menu] .booking-step-select-menu-item {
+    font-size: var(--booking-tab-font-size, 14px) !important;
+}
+[data-nexataxi-booking-module] [data-booking-step-select-menu] {
+    background-color: rgb(15 23 42) !important;
+}
+.dark [data-nexataxi-booking-module] [data-booking-step-select-menu],
+html.dark [data-nexataxi-booking-module] [data-booking-step-select-menu] {
+    background-color: rgb(15 23 42) !important;
+}
+[data-nexataxi-booking-module] [data-booking-step-select-menu] .booking-step-select-menu-item[aria-selected="true"] {
+    background: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 24%, transparent) !important;
+}
 [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab.active {
     font-size: calc(var(--booking-tab-font-size, 14px) * 1.12) !important;
 }
@@ -1195,6 +1279,24 @@ html.dark [data-booking-confirm-modal] .confirm-modal-bg,
 html.dark [data-booking-confirm-modal] .confirm-modal-content,
 .dark [data-booking-confirm-modal] .confirm-modal-content {
     border-color: rgba(148, 163, 184, 0.5);
+}
+
+.booking-confirm-spinner {
+    display: inline-block;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 3px solid rgba(37, 99, 235, 0.2);
+    border-top-color: rgb(37, 99, 235);
+    border-radius: 50%;
+    animation: booking-confirm-spin 0.7s linear infinite;
+}
+@keyframes booking-confirm-spin {
+    to { transform: rotate(360deg); }
+}
+html.dark .booking-confirm-spinner,
+.dark .booking-confirm-spinner {
+    border-color: rgba(96, 165, 250, 0.25);
+    border-top-color: rgb(96, 165, 250);
 }
 
 html.booking-modal-open,
@@ -1734,6 +1836,7 @@ body.booking-modal-open {
     var bookingPrimaryHex = @json($sectionStyle['primary_color'] ?? $bookingDefaultAccent);
     var whatsappClickToChatEnabled = @json($whatsappClientClickToChat);
     var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
+    var whatsappServerAutoSend = @json($whatsappServerAutoSend);
     var bookingSubmitInFlight = false;
     var bookingSubmitted = false;
     var bookingSubmittedStorageKey = 'nexataxi_submitted_bookings_v1';
@@ -2340,17 +2443,8 @@ body.booking-modal-open {
     }
 
     function openWhatsappWithSummary(rideRequestId) {
-        if (!whatsappClickToChatEnabled) return false;
-        var phone = normalizeWhatsappPhone(whatsappClickToChatNumber);
-        if (!phone) return false;
-        var url = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(buildWhatsappSummaryMessage(rideRequestId));
-        // Geen 'noopener' in window.open: daarmee geeft de browser null terug terwijl het tabblad wél opent.
-        // De oude fallback (window.location.href) stuurde dan ook dit scherm naar WhatsApp → 2x WhatsApp, boeking weg.
-        var popup = window.open(url, '_blank');
-        if (popup) {
-            try { popup.opener = null; } catch (e) {}
-            return true;
-        }
+        // Nooit browser-redirect naar WhatsApp (wa.me / api.whatsapp.com).
+        // Boekingsberichten gaan alleen via WhatsApp Business Cloud API op de server.
         return false;
     }
 
@@ -2683,6 +2777,24 @@ body.booking-modal-open {
             opt.disabled = !isStepReachable(key);
         });
         stepSelect.value = currentStepKey;
+
+        // Custom mobile step menu (Safari/macOS doesn't reliably style native <option> font-size)
+        var btn = root.querySelector('[data-booking-step-select-btn]');
+        var btnLabel = root.querySelector('[data-booking-step-select-btn-label]');
+        var menu = root.querySelector('[data-booking-step-select-menu]');
+        if (btn && btnLabel && menu) {
+            var currentOpt = stepSelect.querySelector('option[value="' + currentStepKey + '"]');
+            btnLabel.textContent = (currentOpt && currentOpt.textContent) ? currentOpt.textContent.trim() : currentStepKey;
+            Array.prototype.forEach.call(menu.querySelectorAll('[data-booking-step-key]'), function(item) {
+                var key = item.getAttribute('data-booking-step-key') || '';
+                var opt = stepSelect.querySelector('option[value="' + key + '"]');
+                var disabled = !!(opt && opt.disabled);
+                var hidden = !!(opt && opt.hidden);
+                item.disabled = disabled;
+                item.hidden = hidden;
+                item.setAttribute('aria-selected', key === currentStepKey ? 'true' : 'false');
+            });
+        }
     }
 
     function getBookingScrollOffset() {
@@ -5226,9 +5338,41 @@ body.booking-modal-open {
         loginBtn.classList.toggle('booking-login-btn--visible', !!visible);
     }
 
+    function setConfirmModalSubmitting(isSubmitting) {
+        var modal = root.querySelector('[data-booking-confirm-modal]');
+        if (!modal) return;
+        var loading = modal.querySelector('[data-booking-confirm-loading]');
+        var actions = modal.querySelector('[data-booking-confirm-actions]');
+        var title = modal.querySelector('[data-confirm-modal-title]');
+        var text = modal.querySelector('[data-confirm-modal-text]');
+        var closeBtns = modal.querySelectorAll('[data-booking-confirm-close]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        var cancelBtn = modal.querySelector('[data-booking-confirm-actions] [data-booking-confirm-close]');
+        if (loading) {
+            loading.classList.toggle('hidden', !isSubmitting);
+            loading.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
+        }
+        if (actions) actions.classList.toggle('hidden', !!isSubmitting);
+        if (text) text.classList.toggle('hidden', !!isSubmitting);
+        if (title) title.textContent = isSubmitting ? 'Boeking versturen' : 'Boeking versturen';
+        closeBtns.forEach(function(btn) {
+            btn.disabled = !!isSubmitting;
+            btn.classList.toggle('opacity-40', !!isSubmitting);
+            btn.classList.toggle('pointer-events-none', !!isSubmitting);
+        });
+        if (confirmBtn) {
+            confirmBtn.disabled = !!isSubmitting;
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = !!isSubmitting;
+        }
+        modal.setAttribute('data-submitting', isSubmitting ? '1' : '0');
+    }
+
     function openConfirmModalShell() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        setConfirmModalSubmitting(false);
         modal.classList.remove('hidden');
         document.documentElement.classList.add('booking-modal-open');
         document.body.classList.add('booking-modal-open');
@@ -5240,18 +5384,24 @@ body.booking-modal-open {
         var text = root.querySelector('[data-confirm-modal-text]');
         var confirmBtn = root.querySelector('[data-booking-confirm-submit]');
         if (title) title.textContent = 'Boeking versturen';
-        if (text) text.textContent = 'Weet u zeker dat u de boeking wilt versturen?';
+        if (text) {
+            text.textContent = 'Weet u zeker dat u de boeking wilt versturen?';
+            text.classList.remove('hidden');
+        }
         if (confirmBtn) confirmBtn.classList.remove('hidden');
         setBookingLoginBtnVisible(false);
+        setConfirmModalSubmitting(false);
         openConfirmModalShell();
     }
 
     function closeConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        if (modal.getAttribute('data-submitting') === '1') return;
         var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
         if (confirmBtn) confirmBtn.classList.remove('hidden');
         setBookingLoginBtnVisible(false);
+        setConfirmModalSubmitting(false);
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
@@ -5274,6 +5424,7 @@ body.booking-modal-open {
         if (bookingSubmitInFlight || bookingSubmitted) return;
         bookingSubmitInFlight = true;
         clearError();
+        setConfirmModalSubmitting(true);
         syncStateFromFields();
         var paymentMethod = getSelectedPaymentMethod();
         var returnUrl = bookingReturnUrl || window.location.href || '';
@@ -5336,6 +5487,9 @@ body.booking-modal-open {
                 openWhatsappWithSummary(data && data.ride_request_id ? data.ride_request_id : null);
             }
             markBookingAsSubmitted(data && data.ride_request_id ? data.ride_request_id : null);
+            var confirmModal = root.querySelector('[data-booking-confirm-modal]');
+            if (confirmModal) confirmModal.setAttribute('data-submitting', '0');
+            closeConfirmModal();
             showSuccess(successMessage, { portalLoginUrl: data && data.portal_login_url ? data.portal_login_url : null });
             if (bookingPortalMode) {
                 document.dispatchEvent(new CustomEvent('taxi-portal-refresh-rides'));
@@ -5343,6 +5497,7 @@ body.booking-modal-open {
         })
         .catch(function(error) {
             if (error && error.message === '__handled__') return;
+            setConfirmModalSubmitting(false);
             showError(error.message || 'Boeking versturen mislukt');
         })
         .finally(function() {
@@ -6510,6 +6665,27 @@ body.booking-modal-open {
         if (root.getAttribute('data-booking-ui-bound') === '1') return;
         root.setAttribute('data-booking-ui-bound', '1');
 
+    function closeMobileStepMenu() {
+        var btn = root.querySelector('[data-booking-step-select-btn]');
+        var menu = root.querySelector('[data-booking-step-select-menu]');
+        if (!btn || !menu) return;
+        menu.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMobileStepMenu() {
+        var btn = root.querySelector('[data-booking-step-select-btn]');
+        var menu = root.querySelector('[data-booking-step-select-menu]');
+        if (!btn || !menu) return;
+        var isOpen = btn.getAttribute('aria-expanded') === 'true';
+        if (isOpen) {
+            closeMobileStepMenu();
+        } else {
+            menu.classList.remove('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+        }
+    }
+
     root.addEventListener('input', function(e) {
         if (e.target.matches('[data-field]')) {
             clearFieldErrorFor(e.target.getAttribute('data-field'));
@@ -6538,6 +6714,7 @@ body.booking-modal-open {
                     requestQuotes();
                 }
                 updateSummary();
+                updateBookingStepSelectOptions();
             }
             return;
         }
@@ -6576,6 +6753,28 @@ body.booking-modal-open {
     });
 
     root.addEventListener('click', function(e) {
+        var stepSelectBtn = e.target.closest('[data-booking-step-select-btn]');
+        if (stepSelectBtn) {
+            e.preventDefault();
+            toggleMobileStepMenu();
+            return;
+        }
+        var stepSelectItem = e.target.closest('[data-booking-step-select-menu] [data-booking-step-key]');
+        if (stepSelectItem) {
+            if (stepSelectItem.disabled) return;
+            var menuStepKey = stepSelectItem.getAttribute('data-booking-step-key') || '';
+            var menuStepSelect = root.querySelector('[data-booking-step-select]');
+            if (menuStepSelect) {
+                menuStepSelect.value = menuStepKey;
+                menuStepSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            closeMobileStepMenu();
+            return;
+        }
+        if (!e.target.closest('[data-booking-step-select-wrap]')) {
+            closeMobileStepMenu();
+        }
+
         var pickupLocateClick = e.target.closest('[data-pickup-locate-btn]');
         if (pickupLocateClick) {
             e.preventDefault();
@@ -6799,13 +6998,13 @@ body.booking-modal-open {
     var confirmSubmitBtn = root.querySelector('[data-booking-confirm-submit]');
     if (confirmSubmitBtn) {
         confirmSubmitBtn.addEventListener('click', function() {
-            closeConfirmModal();
-            submitBooking(whatsappClickToChatEnabled);
+            submitBooking(whatsappClickToChatEnabled && !whatsappServerAutoSend);
         });
     }
 
     root.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            closeMobileStepMenu();
             var confirmModal = root.querySelector('[data-booking-confirm-modal]');
             if (confirmModal && !confirmModal.classList.contains('hidden')) {
                 closeConfirmModal();
@@ -6885,19 +7084,23 @@ body.booking-modal-open {
 </script>
 <script>
 (function() {
+    function revealBookingModule(el) {
+        if (el) el.classList.add('is-in-view');
+    }
     function initBookingModuleScrollReveal() {
-        var section = document.querySelector('[data-booking-module-scroll-reveal]');
+        var section = document.querySelector('[data-booking-module-scroll-reveal], #boek-rit.booking-module-scroll-reveal');
         if (!section) return;
-        var opts = { rootMargin: '0px 0px -60px 0px', threshold: 0.06 };
+        // Altijd zichtbaar maken: animatie is nice-to-have, nooit content verbergen.
+        revealBookingModule(section);
+        var opts = { rootMargin: '0px 0px 25% 0px', threshold: 0.02 };
         if (typeof window.nexaObserveWhenVisible === 'function') {
-            window.nexaObserveWhenVisible(section, function(el) {
-                el.classList.add('is-in-view');
-            }, opts);
+            window.nexaObserveWhenVisible(section, revealBookingModule, opts);
             return;
         }
+        if (!('IntersectionObserver' in window)) return;
         var observer = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
-                if (entry.isIntersecting) entry.target.classList.add('is-in-view');
+                if (entry.isIntersecting) revealBookingModule(entry.target);
             });
         }, opts);
         observer.observe(section);

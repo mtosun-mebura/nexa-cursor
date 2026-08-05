@@ -824,6 +824,7 @@ onUnmounted(() => {
 :deep(.builder-panel--right) {
   border-right: 0;
   border-left: 1px solid var(--border);
+  min-width: 0;
 }
 
 :deep(.builder-panel--left) {
@@ -882,6 +883,7 @@ onUnmounted(() => {
   overflow: auto;
   padding: 1rem;
   flex: 1;
+  min-width: 0;
 }
 
 :deep(.builder-palette-group + .builder-palette-group) {
