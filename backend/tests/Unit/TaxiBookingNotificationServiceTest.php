@@ -62,6 +62,7 @@ class TaxiBookingNotificationServiceTest extends TestCase
         app()->instance('resolved_tenant_id', $companyId);
 
         $this->mock(EnvService::class, function ($mock) use ($companyId): void {
+            $mock->shouldReceive('get')->andReturn('');
             $mock->shouldReceive('isMailDeliverableToInbox')->once()->with($companyId)->andReturn(true);
             $mock->shouldReceive('applyMailConfigToRuntime')->once()->with($companyId);
             $mock->shouldReceive('resolveMailFromHeaders')->once()->with($companyId)->andReturn([

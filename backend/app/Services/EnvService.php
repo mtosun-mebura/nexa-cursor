@@ -205,11 +205,13 @@ class EnvService
     /**
      * Get a specific environment variable.
      * For keys in GENERAL_SETTING_KEYS, returns GeneralSetting value first (like Google Reviews), then .env.
+     * Optional $companyId scopes tenant settings. Platform WhatsApp Business keys
+     * (WHATSAPP_API_TOKEN, WHATSAPP_PHONE_NUMBER_ID, …) are always global.
      */
-    public function get($key, $default = null)
+    public function get($key, $default = null, ?int $companyId = null)
     {
         if (in_array($key, self::GENERAL_SETTING_KEYS, true)) {
-            $value = GeneralSetting::get($key, null);
+            $value = GeneralSetting::get($key, null, $companyId);
             if ($value !== null) {
                 return $value;
             }

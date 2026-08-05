@@ -9,7 +9,7 @@ use RuntimeException;
 
 class GeneralSetting extends Model
 {
-    /** Platform-breed: niet per tenant (sync-doel, vlag). */
+    /** Platform-breed: niet per tenant (sync-doel, vlag, WhatsApp Business API). */
     public const GLOBAL_PLATFORM_KEYS = [
         'nexa_release_version',
         'tenant_sync_target_database_url',
@@ -24,6 +24,12 @@ class GeneralSetting extends Model
         'tenant_sync_ssh_remote_db_port',
         'tenant_sync_ssh_db_username',
         'tenant_sync_ssh_db_database',
+        'WHATSAPP_API_TOKEN',
+        'WHATSAPP_PHONE_NUMBER_ID',
+        'WHATSAPP_BUSINESS_ACCOUNT_ID',
+        'WHATSAPP_API_VERSION',
+        'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
+        'WHATSAPP_DEFAULT_MESSAGE',
     ];
 
     protected $fillable = [

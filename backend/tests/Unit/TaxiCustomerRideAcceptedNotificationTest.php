@@ -17,6 +17,19 @@ class TaxiCustomerRideAcceptedNotificationTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
+    public function dispatch_settings_whatsapp_on_when_api_token_configured(): void
+    {
+        $company = Company::query()->create(['name' => 'Taxi BV WA']);
+        GeneralSetting::set('WHATSAPP_API_TOKEN', 'EAA-x');
+        GeneralSetting::set('WHATSAPP_PHONE_NUMBER_ID', '999');
+
+        $settings = app(TaxiDispatchSettingsService::class);
+
+        $this->assertTrue($settings->customerAcceptNotificationEnabled($company->id));
+        $this->assertTrue($settings->customerAcceptWhatsappEnabled($company->id));
+    }
+
+    #[Test]
     public function dispatch_settings_default_customer_accept_email_on(): void
     {
         $company = Company::query()->create(['name' => 'Taxi BV']);
