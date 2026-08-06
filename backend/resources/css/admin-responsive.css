@@ -262,6 +262,78 @@ body.dark #header [data-ai-chat-toggle] svg,
     overflow-wrap: break-word;
 }
 
+/* WhatsApp platform-kaart (buiten #general-settings-form) */
+#whatsapp .kt-card-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+#whatsapp .kt-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    table-layout: fixed;
+}
+
+#whatsapp .kt-table col.admin-form-label-col {
+    width: 14rem;
+}
+
+#whatsapp .kt-table td.min-w-56 {
+    width: 14rem;
+    max-width: 14rem;
+}
+
+#whatsapp .kt-table td {
+    min-width: 0 !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+}
+
+#whatsapp .kt-table td:nth-child(2) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+#whatsapp .kt-table td :is(p, span, .flex, input, textarea, code) {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#whatsapp .kt-table td p {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+@media (max-width: 767px) {
+    #whatsapp .kt-table,
+    #whatsapp .kt-table tbody,
+    #whatsapp .kt-table tr,
+    #whatsapp .kt-table td {
+        display: block;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    #whatsapp .kt-table colgroup {
+        display: none;
+    }
+
+    #whatsapp .kt-table td.min-w-56 {
+        padding-bottom: 0.25rem;
+        font-weight: 500;
+    }
+
+    #whatsapp .kt-table td:nth-child(2) {
+        padding-top: 0.25rem;
+        padding-bottom: 1rem;
+    }
+}
+
 #general-settings-form .admin-form-success-section .admin-form-success-intro td {
     min-width: 0;
     overflow-wrap: break-word;

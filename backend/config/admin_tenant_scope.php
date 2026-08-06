@@ -27,6 +27,7 @@ return [
         'admin.settings.upgrade.*',
         'admin.settings.general.*',
         'admin.settings.whatsapp.platform.update',
+        'admin.settings.whatsapp.platform.test',
         'admin.settings.upload-logo',
         'admin.settings.remove-logo-light',
         'admin.settings.remove-logo-dark',

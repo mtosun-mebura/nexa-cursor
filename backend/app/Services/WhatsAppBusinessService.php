@@ -159,6 +159,84 @@ class WhatsAppBusinessService
     }
 
     /**
+     * Proactieve boekingsmelding: Meta vereist buiten het 24u-venster een goedgekeurde template.
+     * Met template-naam → template; anders free-form tekst (werkt o.a. in test/allowlist).
+     *
+     * @param  'dispatch'|'customer'  $purpose
+     * @param  list<string>|null  $templateParams  Body-variabelen {{1}}…{{n}}; null = legacy 2-param
+     * @return array{ok: bool, error?: string, meta?: array<string, mixed>}
+     */
+    public function sendBookingNotification(
+        string $recipientE164,
+        string $body,
+        ?int $companyId = null,
+        string $purpose = 'dispatch',
+        ?array $templateParams = null
+    ): array {
+        $templateKey = $purpose === 'customer'
+            ? 'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE'
+            : 'WHATSAPP_BOOKING_TEMPLATE';
+        $langKey = $purpose === 'customer'
+            ? 'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG'
+            : 'WHATSAPP_BOOKING_TEMPLATE_LANG';
+
+        $template = $this->credential($templateKey, $companyId);
+        if ($template === '' && $purpose === 'customer') {
+            $template = $this->credential('WHATSAPP_BOOKING_TEMPLATE', $companyId);
+            $langKey = 'WHATSAPP_BOOKING_TEMPLATE_LANG';
+        }
+
+        if ($template !== '') {
+            $lang = $this->credential($langKey, $companyId, 'nl') ?: 'nl';
+
+            if (is_array($templateParams) && $templateParams !== []) {
+                $params = array_values(array_filter(
+                    array_map(
+                        fn ($p) => mb_substr(trim((string) $p), 0, 1024),
+                        $templateParams
+                    ),
+                    fn ($p) => $p !== ''
+                ));
+            } else {
+                // Legacy fallback: {{1}} tenant, {{2}} volledige body/samenvatting
+                $tenant = $this->tenantDisplayName($companyId);
+                $summary = trim($body);
+                if ($tenant !== '' && str_starts_with($summary, '*'.$tenant.'*')) {
+                    $summary = trim(substr($summary, strlen('*'.$tenant.'*')));
+                }
+                $params = array_values(array_filter([
+                    $tenant !== '' ? $tenant : 'Nexa',
+                    mb_substr($summary !== '' ? $summary : $body, 0, 1024),
+                ], fn ($p) => is_string($p) && trim($p) !== ''));
+            }
+
+            return $this->sendTemplate($recipientE164, $template, $lang, $params, $companyId);
+        }
+
+        $result = $this->sendText($recipientE164, $body, $companyId);
+        if (! ($result['ok'] ?? false) && $this->isOutsideCustomerCareWindowError((string) ($result['error'] ?? ''))) {
+            $result['error'] = trim(
+                (string) ($result['error'] ?? '')
+                .' Stel een goedgekeurde Meta-template in onder Algemene configuraties → WhatsApp Business API '
+                .'(verplicht op productie buiten het 24-uurs klantvenster).'
+            );
+        }
+
+        return $result;
+    }
+
+    public function isOutsideCustomerCareWindowError(string $error): bool
+    {
+        $haystack = strtolower($error);
+
+        return str_contains($haystack, '131047')
+            || str_contains($haystack, 're-engagement')
+            || str_contains($haystack, '24 hour')
+            || str_contains($haystack, '24-hour')
+            || str_contains($haystack, 'customer care window');
+    }
+
+    /**
      * WhatsApp API verwacht landcode + nummer zonder + (bijv. 31612345678).
      */
     public function normalizeRecipientForApi(string $phone): ?string

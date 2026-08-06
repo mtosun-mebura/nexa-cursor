@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
+use App\Services\WhatsAppBookingMessageComposer;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -339,6 +340,7 @@ class TaxiCustomerRideAcceptedNotificationService
         $lang = $this->dispatchSettings->customerAcceptWhatsappTemplateLanguage($settingsCompanyId);
 
         if ($templateName !== '') {
+            // Legacy tenant-specifieke accept-template (andere parameter-volgorde).
             $result = $this->whatsapp->sendTemplate(
                 $phone,
                 $templateName,
@@ -351,6 +353,30 @@ class TaxiCustomerRideAcceptedNotificationService
                 ],
                 $settingsCompanyId
             );
+        } elseif (app(WhatsAppBookingMessageComposer::class)->statusTemplateName() !== '') {
+            // Universeel platform-statussjabloon (accepteer / start / afrond / annuleer).
+            $ok = app(TaxiCustomerRideStatusNotificationService::class)->notify(
+                $conn,
+                $ride,
+                WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+                [
+                    'driver_name' => $variables['DRIVER_NAME'] ?? null,
+                    'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+                ]
+            );
+            $this->logCustomer(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                $ok ? RideRequestNotificationLog::STATUS_SENT : RideRequestNotificationLog::STATUS_FAILED,
+                $variables['CUSTOMER_NAME'],
+                $phone,
+                (int) $ride->driver_id,
+                $ok ? null : 'Universeel statusbericht niet verzonden.',
+                ['mode' => 'status_template']
+            );
+
+            return;
         } else {
             $body = $this->renderPlainMessage($companyId, $variables);
             $result = $this->whatsapp->sendText($phone, $body, $settingsCompanyId);

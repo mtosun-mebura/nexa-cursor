@@ -17,6 +17,15 @@ class WhatsAppBusinessServiceTest extends TestCase
         $this->assertSame('31612345678', $service->normalizeRecipientForApi('0612345678'));
     }
 
+    public function test_is_outside_customer_care_window_error(): void
+    {
+        $env = $this->createMock(EnvService::class);
+        $service = new WhatsAppBusinessService($env);
+
+        $this->assertTrue($service->isOutsideCustomerCareWindowError('(#131047) Re-engagement message'));
+        $this->assertFalse($service->isOutsideCustomerCareWindowError('Invalid OAuth access token'));
+    }
+
     public function test_is_configured_requires_token_and_phone_id(): void
     {
         $env = $this->createMock(EnvService::class);

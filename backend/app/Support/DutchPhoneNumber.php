@@ -33,6 +33,11 @@ final class DutchPhoneNumber
             return '+'.$digits;
         }
 
+        // Overige E.164-achtige nummers (landcode + abonnee, 10–15 cijfers).
+        if (preg_match('/^[1-9]\d{9,14}$/', $digits)) {
+            return '+'.$digits;
+        }
+
         return null;
     }
 }
