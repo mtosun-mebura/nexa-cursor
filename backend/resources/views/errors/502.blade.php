@@ -146,7 +146,7 @@
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
     <div class="error-container">
         <div class="logo-container">
-            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="mx-auto">
+            @include('partials.nexa-brand-logo', ['class' => 'mx-auto h-10 w-auto object-contain'])
         </div>
         
         <div class="error-icon">

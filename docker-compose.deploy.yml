@@ -43,11 +43,12 @@ services:
       # HTTP → HTTPS (Coolify middleware redirect-to-https)
       - traefik.http.routers.nexa-saas-http.entryPoints=http
       - traefik.http.routers.nexa-saas-http.middlewares=redirect-to-https
-      - traefik.http.routers.nexa-saas-http.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^.+\.nexasuite\.nl$`)
+      # Reserved service hosts (Coolify panel, n8n, …) uitgesloten — zie deploy/COOLIFY-WILDCARD-TENANTS.md
+      - traefik.http.routers.nexa-saas-http.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^(?!panel\.|n8n\.|automations\.)[a-z0-9-]+\.nexasuite\.nl$`)
       - traefik.http.routers.nexa-saas-http.service=nexa-saas
-      # HTTPS: apex + www + alle tenant-subdomeinen (één app)
+      # HTTPS: apex + www + tenant-subdomeinen (panel/n8n/automations uitgesloten)
       - traefik.http.routers.nexa-saas-https.entryPoints=https
-      - traefik.http.routers.nexa-saas-https.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^.+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-https.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^(?!panel\.|n8n\.|automations\.)[a-z0-9-]+\.nexasuite\.nl$`)
       - traefik.http.routers.nexa-saas-https.tls=true
       - traefik.http.routers.nexa-saas-https.tls.certresolver=letsencrypt
       - traefik.http.routers.nexa-saas-https.middlewares=gzip

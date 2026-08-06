@@ -45,9 +45,8 @@
             <!-- Content -->
             <main class="grow pt-5" id="content" role="content">
                 <div class="flex flex-col items-center justify-center h-[95%]">
-                    <div class="mb-10">
-                        <img alt="404 Error" class="dark:hidden max-h-[160px]" src="{{ asset('assets/media/illustrations/19.svg') }}"/>
-                        <img alt="404 Error" class="light:hidden max-h-[160px]" src="{{ asset('assets/media/illustrations/19-dark.svg') }}"/>
+                    <div class="mb-8">
+                        @include('partials.nexa-brand-logo', ['class' => 'h-12 w-auto mx-auto object-contain'])
                     </div>
                     <span class="kt-badge kt-badge-primary kt-badge-outline mb-3">
                         404 Fout
