@@ -24,6 +24,8 @@ class DutchPhoneNumberTest extends TestCase
             'international spaced' => ['+31 6 12 34 56 78', '+31612345678'],
             'digits 31' => ['31612345678', '+31612345678'],
             '0031 prefix' => ['0031612345678', '+31612345678'],
+            // E.164 buiten NL (WhatsApp dispatch/klant kan internationaal zijn)
+            'uk international' => ['+441234567890', '+441234567890'],
         ];
     }
 
@@ -31,6 +33,6 @@ class DutchPhoneNumberTest extends TestCase
     {
         $this->assertNull(DutchPhoneNumber::normalizeOptionalNlToInternational('abc'));
         $this->assertNull(DutchPhoneNumber::normalizeOptionalNlToInternational('06123'));
-        $this->assertNull(DutchPhoneNumber::normalizeOptionalNlToInternational('+441234567890'));
+        $this->assertNull(DutchPhoneNumber::normalizeOptionalNlToInternational('+12'));
     }
 }
