@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
+use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -119,7 +120,7 @@ class RideClaimService
 
     public function startRide(string $conn, User $driver, int $rideId): RideRequest
     {
-        return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId) {
+        $ride = DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId) {
             if ($this->driverHasBlockingAssignedRide($conn, (int) $driver->id, $rideId)) {
                 throw ValidationException::withMessages([
                     'ride' => ['Je hebt al een lopende rit. Rond die eerst af.'],
@@ -152,6 +153,10 @@ class RideClaimService
 
             return $ride->fresh();
         });
+
+        $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_STARTED, $driver);
+
+        return $ride;
     }
 
     private function assertContractRideCanStartToday(string $conn, RideRequest $ride): void
@@ -231,6 +236,14 @@ class RideClaimService
             $this->dispatch->startDispatch($conn, $released, $companyId, [(int) $driver->id]);
         }
 
+        $this->notifyCustomerStatus(
+            $conn,
+            $released,
+            WhatsAppBookingMessageComposer::EVENT_REDISPATCHED,
+            null,
+            ['extra_lines' => ['We zoeken een nieuwe chauffeur voor uw rit.']]
+        );
+
         return $released->fresh() ?? $released;
     }
 
@@ -286,6 +299,14 @@ class RideClaimService
         if ($companyId > 0) {
             $this->dispatch->startDispatch($conn, $released, $companyId, [(int) $driver->id]);
         }
+
+        $this->notifyCustomerStatus(
+            $conn,
+            $released,
+            WhatsAppBookingMessageComposer::EVENT_REDISPATCHED,
+            null,
+            ['extra_lines' => ['We zoeken een nieuwe chauffeur voor de retourrit.']]
+        );
 
         return $released->fresh() ?? $released;
     }
@@ -358,7 +379,9 @@ class RideClaimService
     ): RideRequest {
         app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($conn);
 
-        return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId, $allowOverdueContractComplete) {
+        $completedFully = false;
+
+        $ride = DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId, $allowOverdueContractComplete, &$completedFully) {
             $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
             if (! $ride || (int) $ride->driver_id !== (int) $driver->id) {
                 throw ValidationException::withMessages([
@@ -417,8 +440,46 @@ class RideClaimService
 
             $this->contractStops->completeDestinationStops($conn, $ride);
 
+            $completedFully = true;
+
             return $ride->fresh();
         });
+
+        if ($completedFully) {
+            $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_COMPLETED, $driver);
+        }
+
+        return $ride;
+    }
+
+    private function notifyCustomerStatus(
+        string $conn,
+        ?RideRequest $ride,
+        string $event,
+        ?User $driver = null,
+        array $extraContext = []
+    ): void {
+        if (! $ride) {
+            return;
+        }
+
+        $context = $extraContext;
+        if ($driver) {
+            $driverName = trim(($driver->first_name ?? '').' '.($driver->last_name ?? ''));
+            if ($driverName !== '') {
+                $context['driver_name'] = $driverName;
+            }
+            $driverPhone = trim((string) ($driver->phone ?? ''));
+            if ($driverPhone !== '') {
+                $context['driver_phone'] = $driverPhone;
+            }
+        }
+
+        try {
+            app(TaxiCustomerRideStatusNotificationService::class)->notify($conn, $ride, $event, $context);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function driverHasBlockingAssignedRide(string $conn, int $driverId, ?int $exceptRideId = null): bool

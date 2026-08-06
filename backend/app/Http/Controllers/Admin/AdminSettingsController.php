@@ -19,6 +19,8 @@ use App\Services\TenantSyncSettingsService;
 use App\Services\TenantWebsiteBundleService;
 use App\Services\InfoRequestFormPreviewContextService;
 use App\Services\WebsiteBuilderService;
+use App\Services\WhatsAppBookingMessageComposer;
+use App\Services\WhatsAppBusinessService;
 use App\Support\DutchPhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -951,6 +953,16 @@ class AdminSettingsController extends Controller
             'WHATSAPP_API_VERSION' => 'nullable|string|max:50',
             'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => 'nullable|string|max:255',
             'WHATSAPP_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
+            'WHATSAPP_BOOKING_TEMPLATE' => 'nullable|string|max:120',
+            'WHATSAPP_BOOKING_TEMPLATE_LANG' => 'nullable|string|max:12',
+            'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => 'nullable|string|max:120',
+            'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => 'nullable|string|max:12',
+            'WHATSAPP_BOOKING_DETAIL_FIELDS' => 'nullable|array',
+            'WHATSAPP_BOOKING_DETAIL_FIELDS.*' => 'string|max:64',
+            'WHATSAPP_RIDE_STATUS_TEMPLATE' => 'nullable|string|max:120',
+            'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => 'nullable|string|max:12',
+            'WHATSAPP_RIDE_STATUS_EVENTS' => 'nullable|array',
+            'WHATSAPP_RIDE_STATUS_EVENTS.*' => 'string|max:64',
         ]);
 
         if ($validator->fails()) {
@@ -985,6 +997,18 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_API_VERSION' => $request->input('WHATSAPP_API_VERSION', 'v18.0'),
                 'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $request->input('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
                 'WHATSAPP_DEFAULT_MESSAGE' => $request->input('WHATSAPP_DEFAULT_MESSAGE', ''),
+                'WHATSAPP_BOOKING_TEMPLATE' => trim((string) $request->input('WHATSAPP_BOOKING_TEMPLATE', '')),
+                'WHATSAPP_BOOKING_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_BOOKING_TEMPLATE_LANG', 'nl')) ?: 'nl',
+                'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => trim((string) $request->input('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE', '')),
+                'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', 'nl')) ?: 'nl',
+                'WHATSAPP_BOOKING_DETAIL_FIELDS' => $this->normalizeWhatsappBookingDetailFields(
+                    $request->input('WHATSAPP_BOOKING_DETAIL_FIELDS', [])
+                ),
+                'WHATSAPP_RIDE_STATUS_TEMPLATE' => trim((string) $request->input('WHATSAPP_RIDE_STATUS_TEMPLATE', '')),
+                'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_RIDE_STATUS_TEMPLATE_LANG', 'nl')) ?: 'nl',
+                'WHATSAPP_RIDE_STATUS_EVENTS' => $this->normalizeWhatsappRideStatusEvents(
+                    $request->input('WHATSAPP_RIDE_STATUS_EVENTS', [])
+                ),
             ];
 
             foreach ($platformSettings as $key => $value) {
@@ -998,6 +1022,83 @@ class AdminSettingsController extends Controller
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
+    }
+
+    /**
+     * @param  mixed  $input
+     */
+    protected function normalizeWhatsappBookingDetailFields($input): string
+    {
+        $available = array_keys(WhatsAppBookingMessageComposer::availableDetailFields());
+        $raw = is_array($input) ? $input : [];
+        $fields = [];
+        foreach ($raw as $key) {
+            $key = is_string($key) ? trim($key) : '';
+            if ($key !== '' && in_array($key, $available, true)) {
+                $fields[] = $key;
+            }
+        }
+        if ($fields === []) {
+            $fields = WhatsAppBookingMessageComposer::defaultDetailFields();
+        }
+
+        return json_encode(array_values(array_unique($fields)), JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @param  mixed  $input
+     */
+    protected function normalizeWhatsappRideStatusEvents($input): string
+    {
+        $available = array_keys(WhatsAppBookingMessageComposer::statusEventLabels());
+        $raw = is_array($input) ? $input : [];
+        $events = [];
+        foreach ($raw as $key) {
+            $key = is_string($key) ? trim($key) : '';
+            if ($key !== '' && in_array($key, $available, true)) {
+                $events[] = $key;
+            }
+        }
+        if ($events === []) {
+            $events = WhatsAppBookingMessageComposer::defaultStatusEvents();
+        }
+
+        return json_encode(array_values(array_unique($events)), JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Test platform WhatsApp Business API-verbinding (token + Phone Number ID bij Meta).
+     */
+    public function testWhatsappPlatform()
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $result = app(\App\Services\WhatsAppBusinessService::class)->verifyCredentials();
+        } catch (\Throwable $e) {
+            $result = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        $redirect = redirect()->to(route('admin.settings.general.index').'#whatsapp')
+            ->with('whatsapp_connection_test', $result);
+
+        if (! empty($result['ok'])) {
+            $meta = $result['meta'] ?? [];
+            $detail = trim(
+                (string) ($meta['verified_name'] ?? '')
+                .(! empty($meta['display_phone_number']) ? ' ('.$meta['display_phone_number'].')' : '')
+            );
+
+            return $redirect->with(
+                'success',
+                'WhatsApp-verbinding OK'.($detail !== '' ? ' — '.$detail : '').'.'
+            );
+        }
+
+        return $redirect->with(
+            'error',
+            'WhatsApp-verbinding mislukt: '.((string) ($result['error'] ?? 'Onbekende fout'))
+        );
     }
 
     /**
@@ -1256,10 +1357,35 @@ class AdminSettingsController extends Controller
             'WHATSAPP_API_VERSION' => $this->envService->get('WHATSAPP_API_VERSION', 'v18.0'),
             'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $this->envService->get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
             'WHATSAPP_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_DEFAULT_MESSAGE', ''),
+            'WHATSAPP_BOOKING_TEMPLATE' => $this->envService->get('WHATSAPP_BOOKING_TEMPLATE', ''),
+            'WHATSAPP_BOOKING_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_BOOKING_TEMPLATE_LANG', 'nl'),
+            'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => $this->envService->get('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE', ''),
+            'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', 'nl'),
+            'WHATSAPP_BOOKING_DETAIL_FIELDS' => app(WhatsAppBookingMessageComposer::class)->selectedDetailFields(),
+            'WHATSAPP_RIDE_STATUS_TEMPLATE' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE', ''),
+            'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE_LANG', 'nl'),
+            'WHATSAPP_RIDE_STATUS_EVENTS' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
         ];
 
+        $whatsappBookingMetaBodies = [
+            'customer' => WhatsAppBookingMessageComposer::META_BODY_CUSTOMER,
+            'dispatch' => WhatsAppBookingMessageComposer::META_BODY_DISPATCH,
+            'status' => WhatsAppBookingMessageComposer::META_BODY_STATUS,
+        ];
+        $whatsappBookingDetailFieldOptions = WhatsAppBookingMessageComposer::availableDetailFields();
+        $whatsappRideStatusEventOptions = WhatsAppBookingMessageComposer::statusEventLabels();
+        $whatsappBookingSamplePreview = app(WhatsAppBookingMessageComposer::class)
+            ->sampleCustomerPreview($whatsappPlatformSettings['WHATSAPP_BOOKING_DETAIL_FIELDS']);
+        $whatsappStatusSamplePreview = app(WhatsAppBookingMessageComposer::class)
+            ->sampleStatusPreview(
+                WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+                $whatsappPlatformSettings['WHATSAPP_BOOKING_DETAIL_FIELDS']
+            );
+
         $whatsappConnectionStatus = null;
-        if (trim((string) ($whatsappPlatformSettings['WHATSAPP_API_TOKEN'] ?? '')) !== ''
+        if (session()->has('whatsapp_connection_test') && is_array(session('whatsapp_connection_test'))) {
+            $whatsappConnectionStatus = session('whatsapp_connection_test');
+        } elseif (trim((string) ($whatsappPlatformSettings['WHATSAPP_API_TOKEN'] ?? '')) !== ''
             && trim((string) ($whatsappPlatformSettings['WHATSAPP_PHONE_NUMBER_ID'] ?? '')) !== '') {
             try {
                 $whatsappConnectionStatus = app(\App\Services\WhatsAppBusinessService::class)->verifyCredentials();
@@ -1268,7 +1394,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview'));
     }
 
     /**

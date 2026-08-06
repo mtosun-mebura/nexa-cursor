@@ -372,6 +372,16 @@ class ContractOccurrenceGeneratorService
             $ride = RideRequest::on($conn)->find($occurrence->ride_request_id);
             if ($ride && $ride->status !== RideRequest::STATUS_COMPLETED) {
                 $ride->update(['status' => RideRequest::STATUS_CANCELLED]);
+                try {
+                    app(\App\Modules\NexaTaxi\Services\TaxiCustomerRideStatusNotificationService::class)->notify(
+                        $conn,
+                        $ride->fresh() ?? $ride,
+                        \App\Services\WhatsAppBookingMessageComposer::EVENT_CANCELLED,
+                        ['extra_lines' => ['Uw boeking is geannuleerd.']]
+                    );
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             }
         }
 

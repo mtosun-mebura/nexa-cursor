@@ -6,6 +6,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\EnvService;
 use App\Services\WhatsAppBusinessService;
+use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -19,7 +20,8 @@ class TaxiBookingNotificationService
         protected TaxiBookingSummaryText $summaryText,
         protected TaxiDriverEligibilityService $drivers,
         protected TaxiDispatchSettingsService $dispatchSettings,
-        protected TaxiRideNotificationLogService $notificationLogs
+        protected TaxiRideNotificationLogService $notificationLogs,
+        protected WhatsAppBookingMessageComposer $bookingMessageComposer
     ) {}
 
     /**
@@ -35,8 +37,8 @@ class TaxiBookingNotificationService
             isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
         );
 
-        $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary);
-        $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $summary);
+        $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary, $context);
+        $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
         $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
     }
@@ -89,8 +91,16 @@ class TaxiBookingNotificationService
         return $this->dispatchSettings->bookingWhatsappNumber($companyId) !== '';
     }
 
-    private function sendDispatchWhatsapp(string $conn, RideRequest $ride, ?int $companyId, string $summary): void
-    {
+    /**
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
+     */
+    private function sendDispatchWhatsapp(
+        string $conn,
+        RideRequest $ride,
+        ?int $companyId,
+        string $summary,
+        array $context = []
+    ): void {
         $rideId = (int) $ride->id;
 
         if (! $this->dispatchSettings->bookingWhatsappEnabled($companyId)) {
@@ -128,7 +138,14 @@ class TaxiBookingNotificationService
             return;
         }
 
-        $result = $this->whatsapp->sendText($recipient, $summary, $companyId);
+        $composed = $this->bookingMessageComposer->compose($ride, $context, $companyId, 'dispatch');
+        $result = $this->whatsapp->sendBookingNotification(
+            $recipient,
+            $composed['fallback_body'] !== '' ? $composed['fallback_body'] : $summary,
+            $companyId,
+            'dispatch',
+            $composed['template_params']
+        );
         if ($result['ok'] ?? false) {
             $this->notificationLogs->recordWhatsappSent($conn, $rideId, $recipient, $result['meta'] ?? null);
         } else {
@@ -142,11 +159,14 @@ class TaxiBookingNotificationService
         }
     }
 
+    /**
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
+     */
     private function sendCustomerBookingWhatsapp(
         string $conn,
         RideRequest $ride,
         ?int $companyId,
-        string $summary
+        array $context = []
     ): void {
         $rideId = (int) $ride->id;
 
@@ -171,12 +191,21 @@ class TaxiBookingNotificationService
         }
 
         $customerName = trim((string) ($ride->customer_name ?: 'klant'));
-        $body = "Beste {$customerName},\n\n"
-            ."Bedankt voor uw taxiboeking #{$rideId}.\n\n"
-            .$summary."\n\n"
-            .'We houden u op de hoogte via WhatsApp.';
+        $composed = $this->bookingMessageComposer->compose($ride, $context, $companyId, 'customer');
+        $body = $composed['fallback_body'] !== ''
+            ? $composed['fallback_body']
+            : ("Beste {$customerName},\n\n"
+                ."Bedankt voor uw taxiboeking #{$rideId}.\n\n"
+                .$this->summaryText->build($ride, $context)."\n\n"
+                .'We houden u op de hoogte via WhatsApp.');
 
-        $result = $this->whatsapp->sendText($phone, $body, $companyId);
+        $result = $this->whatsapp->sendBookingNotification(
+            $phone,
+            $body,
+            $companyId,
+            'customer',
+            $composed['template_params']
+        );
         if ($result['ok'] ?? false) {
             $this->notificationLogs->record(
                 $conn,
