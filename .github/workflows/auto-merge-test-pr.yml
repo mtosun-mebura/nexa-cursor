@@ -38,16 +38,27 @@ jobs:
         with:
           script: |
             async function triggerTestDeploy() {
-              try {
-                await github.rest.actions.createWorkflowDispatch({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  workflow_id: 'deploy-saas.yml',
-                  ref: 'release/test',
-                });
-                core.info('Deploy TEST (Proxmox) gestart via workflow_dispatch op release/test.');
-              } catch (error) {
-                core.warning(`Deploy TEST kon niet worden gestart: ${error.message}`);
+              const maxAttempts = 5;
+              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: 'deploy-saas.yml',
+                    ref: 'release/test',
+                  });
+                  core.info(`Deploy TEST (Proxmox) gestart via workflow_dispatch op release/test (poging ${attempt}).`);
+                  return;
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const retryable = status === 500 || status === 502 || status === 503 || status === 504
+                    || /Failed to run workflow dispatch|server error/i.test(error.message || '');
+                  core.warning(`Deploy TEST dispatch poging ${attempt}/${maxAttempts} mislukt: ${error.message}`);
+                  if (!retryable || attempt === maxAttempts) {
+                    return;
+                  }
+                  await new Promise((r) => setTimeout(r, 10000 * attempt));
+                }
               }
             }
 
