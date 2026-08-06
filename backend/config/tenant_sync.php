@@ -70,6 +70,7 @@ return [
     'update_on_existing_tables' => [
         'companies',
         'company_domains',
+        'company_module',
         'general_settings',
         'email_templates',
         'invoice_settings',
@@ -77,15 +78,28 @@ return [
         'website_pages',
         'company_locations',
         'roles',
+        'modules',
     ],
 
     /*
     | Kolommen die naar een parent-tabel verwijzen zonder DB-FK (worden via idMaps hermapped).
+    | company_module.module_id heeft wél een DB-FK, maar expliciet hier zodat remap altijd
+    | gebeurt — ook als discovery op het doel faalt of modules-IDs verschillen.
     */
     'manual_foreign_keys' => [
         'ai_chat_audit_logs' => [
             'user_id' => 'users',
         ],
+        'company_module' => [
+            'module_id' => 'modules',
+        ],
+    ],
+
+    /*
+    | NOT NULL FK-kolommen: rij overslaan als parent-id niet hermapt kan worden.
+    */
+    'required_foreign_key_columns' => [
+        'company_module' => ['module_id'],
     ],
 
     /*

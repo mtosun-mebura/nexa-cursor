@@ -178,6 +178,9 @@ final class TenantCompanyDataPushService
                 }
             }
 
+            // Modules kunnen op doel al bestaan met andere IDs; vul idMaps altijd via name.
+            $this->ensureModulesIdMapByName($sourceConn, $targetConn, $idMaps);
+
             foreach ($this->ensureInstalledModuleSchemasOnSyncTarget($sourceConn) as $schemaMessage) {
                 $this->recordModuleSchemaMessage($schemaMessage);
             }
@@ -290,6 +293,31 @@ final class TenantCompanyDataPushService
                     }
                 }
                 $report->addRow('Hoofddatabase', $table, $tableInserted, $tableUpdated, $tableSkipped);
+            }
+
+            // Garantie: company_module via modules.name (ook als idMaps/FK-remap eerder faalde).
+            $moduleLinkStats = $this->syncCompanyModuleLinksByName(
+                $sourceConn,
+                $targetConn,
+                $sourceCompanyId,
+                $remoteCompanyId,
+                $idMaps
+            );
+            $inserted += (int) ($moduleLinkStats['inserted'] ?? 0);
+            $inserted += (int) ($moduleLinkStats['updated'] ?? 0);
+            $updated += (int) ($moduleLinkStats['updated'] ?? 0);
+            $skipped += (int) ($moduleLinkStats['skipped'] ?? 0);
+            $report->addRow(
+                'Overig',
+                'company_module (via modules.name)',
+                (int) ($moduleLinkStats['inserted'] ?? 0),
+                (int) ($moduleLinkStats['updated'] ?? 0),
+                (int) ($moduleLinkStats['skipped'] ?? 0)
+            );
+            foreach ($moduleLinkStats['notes'] ?? [] as $note) {
+                if (is_string($note) && $note !== '') {
+                    $report->addNote($note);
+                }
             }
 
             $domainStats = $this->syncImpliedTenantDomains(
@@ -1512,6 +1540,223 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * Zoals remapRowForeignKeys, maar optionele FK's worden op null gezet i.p.v. de hele rij te skippen.
+     * Nodig voor prerequisites (modules → frontend_themes): anders mist idMaps en faalt company_module.
+     *
+     * @param  list<array{child:string, child_column:string, parent:string}>  $fkEdges
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array<string, mixed>|null
+     */
+    private function remapPrerequisiteRowForeignKeys(string $table, array $row, array $fkEdges, array $idMaps): ?array
+    {
+        foreach ($fkEdges as $edge) {
+            if ($edge['child'] !== $table) {
+                continue;
+            }
+            $col = $edge['child_column'];
+            if (! array_key_exists($col, $row) || $row[$col] === null) {
+                continue;
+            }
+            $parent = $edge['parent'];
+            $oldFk = (int) $row[$col];
+            if ($oldFk === 0) {
+                continue;
+            }
+            if (! isset($idMaps[$parent][$oldFk])) {
+                if ($this->isRequiredForeignKeyColumn($table, $col)) {
+                    return null;
+                }
+                $row[$col] = null;
+
+                continue;
+            }
+            $row[$col] = $idMaps[$parent][$oldFk];
+        }
+
+        return $row;
+    }
+
+    /**
+     * Vul idMaps[modules] voor alle bron-modules die op doel al bestaan (match op name).
+     *
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function ensureModulesIdMapByName(string $sourceConn, string $targetConn, array &$idMaps): void
+    {
+        if (! Schema::connection($sourceConn)->hasTable('modules')
+            || ! Schema::connection($targetConn)->hasTable('modules')
+            || ! Schema::connection($sourceConn)->hasColumn('modules', 'name')
+            || ! Schema::connection($targetConn)->hasColumn('modules', 'name')) {
+            return;
+        }
+
+        $sourceModules = DB::connection($sourceConn)->table('modules')->get(['id', 'name']);
+        foreach ($sourceModules as $module) {
+            $sourceId = (int) $module->id;
+            if ($sourceId <= 0 || isset($idMaps['modules'][$sourceId])) {
+                continue;
+            }
+            $name = (string) ($module->name ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $targetId = DB::connection($targetConn)->table('modules')->where('name', $name)->value('id');
+            if ($targetId !== null && (int) $targetId > 0) {
+                $idMaps['modules'][$sourceId] = (int) $targetId;
+            }
+        }
+    }
+
+    /**
+     * Leer source→target id-mapping via natuurlijke sleutel (existing_row_keys), ook als insert werd overgeslagen.
+     *
+     * @param  array<string, mixed>  $sourceRow
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function learnIdMapFromNaturalKey(
+        string $targetConn,
+        string $table,
+        ?int $oldId,
+        array $sourceRow,
+        array &$idMaps
+    ): void {
+        if ($oldId === null || $oldId <= 0 || isset($idMaps[$table][$oldId])) {
+            return;
+        }
+        if (! Schema::connection($targetConn)->hasTable($table)
+            || ! Schema::connection($targetConn)->hasColumn($table, 'id')) {
+            return;
+        }
+
+        $existingId = $this->findExistingRowIdOnTarget($targetConn, $table, $sourceRow);
+        if ($existingId !== null && $existingId > 0) {
+            $idMaps[$table][$oldId] = $existingId;
+        }
+    }
+
+    /**
+     * Zet company_module-koppelingen op doel, opgelost via modules.name (onafhankelijk van id-verschillen).
+     *
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, updated: int, skipped: int, notes: list<string>}
+     */
+    private function syncCompanyModuleLinksByName(
+        string $sourceConn,
+        string $targetConn,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+        $notes = [];
+
+        if (! Schema::connection($sourceConn)->hasTable('company_module')
+            || ! Schema::connection($sourceConn)->hasTable('modules')
+            || ! Schema::connection($targetConn)->hasTable('company_module')
+            || ! Schema::connection($targetConn)->hasTable('modules')) {
+            return compact('inserted', 'updated', 'skipped', 'notes');
+        }
+
+        $links = DB::connection($sourceConn)->table('company_module')
+            ->join('modules', 'modules.id', '=', 'company_module.module_id')
+            ->where('company_module.company_id', $sourceCompanyId)
+            ->select([
+                'company_module.id',
+                'company_module.module_id',
+                'company_module.settings',
+                'company_module.created_at',
+                'company_module.updated_at',
+                'modules.name as module_name',
+            ])
+            ->orderBy('company_module.id')
+            ->get();
+
+        foreach ($links as $link) {
+            $moduleName = trim((string) ($link->module_name ?? ''));
+            $sourceModuleId = (int) $link->module_id;
+            if ($moduleName === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $targetModuleId = isset($idMaps['modules'][$sourceModuleId])
+                ? (int) $idMaps['modules'][$sourceModuleId]
+                : null;
+            if ($targetModuleId === null || $targetModuleId <= 0) {
+                $found = DB::connection($targetConn)->table('modules')->where('name', $moduleName)->value('id');
+                $targetModuleId = $found !== null ? (int) $found : null;
+            }
+            if ($targetModuleId === null || $targetModuleId <= 0) {
+                $skipped++;
+                $notes[] = sprintf(
+                    'Module-koppeling overgeslagen: module "%s" ontbreekt op doel (company_id %d).',
+                    $moduleName,
+                    $remoteCompanyId
+                );
+
+                continue;
+            }
+
+            if ($sourceModuleId > 0) {
+                $idMaps['modules'][$sourceModuleId] = $targetModuleId;
+            }
+
+            $payload = [
+                'company_id' => $remoteCompanyId,
+                'module_id' => $targetModuleId,
+                'settings' => $link->settings,
+                'created_at' => $link->created_at,
+                'updated_at' => $link->updated_at ?? now(),
+            ];
+            $payload = $this->stripUnsupportedColumns('company_module', $payload, $targetConn);
+
+            $existingId = $this->findExistingRowIdOnTarget($targetConn, 'company_module', $payload);
+            if ($existingId !== null && $existingId > 0) {
+                $updatePayload = $payload;
+                unset($updatePayload['id'], $updatePayload['created_at'], $updatePayload['company_id'], $updatePayload['module_id']);
+                if ($updatePayload !== []) {
+                    $this->updateExistingRowOnTarget($targetConn, 'company_module', $existingId, $updatePayload);
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+
+                continue;
+            }
+
+            try {
+                DB::connection($targetConn)->table('company_module')->insert($payload);
+                $inserted++;
+            } catch (UniqueConstraintViolationException) {
+                $existingId = $this->findExistingRowIdOnTarget($targetConn, 'company_module', $payload);
+                if ($existingId !== null && $existingId > 0) {
+                    $updatePayload = $payload;
+                    unset($updatePayload['id'], $updatePayload['created_at'], $updatePayload['company_id'], $updatePayload['module_id']);
+                    if ($updatePayload !== []) {
+                        $this->updateExistingRowOnTarget($targetConn, 'company_module', $existingId, $updatePayload);
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                } else {
+                    $skipped++;
+                }
+            } catch (Throwable $e) {
+                if ($this->isDuplicateKeyException($e)) {
+                    $skipped++;
+                } else {
+                    throw $e;
+                }
+            }
+        }
+
+        return compact('inserted', 'updated', 'skipped', 'notes');
+    }
+
+    /**
      * @param  array<string, array<int, int>>  $idMaps
      * @return array<string, mixed>|null
      */
@@ -2070,8 +2315,11 @@ final class TenantCompanyDataPushService
             foreach ($rows as $rowObj) {
                 $row = (array) $rowObj;
                 $oldId = isset($row['id']) ? (int) $row['id'] : null;
-                $payload = $this->remapRowForeignKeys($table, $row, $intraFkEdges, $idMaps);
+                // Optionele FK's (bijv. modules.frontend_theme_id) → null i.p.v. hele rij skippen,
+                // anders ontbreekt idMaps['modules'] en faalt company_module daarna stil.
+                $payload = $this->remapPrerequisiteRowForeignKeys($table, $row, $intraFkEdges, $idMaps);
                 if ($payload === null) {
+                    $this->learnIdMapFromNaturalKey($targetConn, $table, $oldId, $row, $idMaps);
                     $tableSkipped++;
                     $skipped++;
 
@@ -2096,6 +2344,7 @@ final class TenantCompanyDataPushService
                     $tableSkipped++;
                     $skipped++;
                 }
+                $this->learnIdMapFromNaturalKey($targetConn, $table, $oldId, $row, $idMaps);
             }
 
             $tableStats[$table] = [

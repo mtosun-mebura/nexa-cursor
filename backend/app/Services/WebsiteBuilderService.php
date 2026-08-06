@@ -1804,7 +1804,9 @@ class WebsiteBuilderService
             $moduleQuery = WebsitePage::query()
                 ->whereNotNull('module_name')
                 ->with('theme');
-            if ($linkedModuleNamesLower !== null) {
+            // Admin-index (strict tenant): toon alle pagina's van dit company_id, ook als
+            // company_module na sync nog ontbreekt. Publieke zichtbaarheid blijft module-gekoppeld.
+            if (! $strictTenantCompanyPagesOnly && $linkedModuleNamesLower !== null) {
                 if ($linkedModuleNamesLower === []) {
                     $moduleQuery->whereRaw('1 = 0');
                 } else {
@@ -1828,7 +1830,8 @@ class WebsiteBuilderService
             if ($moduleName === null || $moduleName === '') {
                 continue;
             }
-            if ($linkedModuleNamesLower !== null
+            if (! $strictTenantCompanyPagesOnly
+                && $linkedModuleNamesLower !== null
                 && ! in_array(strtolower((string) $moduleName), $linkedModuleNamesLower, true)) {
                 continue;
             }

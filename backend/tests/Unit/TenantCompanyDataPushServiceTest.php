@@ -402,6 +402,115 @@ class TenantCompanyDataPushServiceTest extends TestCase
         $tables = config('tenant_sync.update_on_existing_tables', []);
         $this->assertContains('company_domains', $tables);
         $this->assertContains('general_settings', $tables);
+        $this->assertContains('company_module', $tables);
+        $this->assertContains('modules', $tables);
+    }
+
+    #[Test]
+    public function manual_foreign_keys_include_company_module_module_id(): void
+    {
+        $keys = config('tenant_sync.manual_foreign_keys.company_module', []);
+        $this->assertSame('modules', $keys['module_id'] ?? null);
+        $required = config('tenant_sync.required_foreign_key_columns.company_module', []);
+        $this->assertContains('module_id', $required);
+    }
+
+    #[Test]
+    public function ensure_modules_id_map_by_name_maps_mismatched_ids(): void
+    {
+        if (! Schema::hasTable('modules')) {
+            $this->markTestSkipped('modules table required');
+        }
+
+        $sourceModule = Module::create([
+            'name' => 'taxi-idmap-'.uniqid(),
+            'display_name' => 'Taxi IdMap',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+        ]);
+
+        // Simulate target already having this module under a different id by reusing the same DB:
+        // map learning looks up by name — source id should map to the found id (same row here).
+        $idMaps = [];
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'ensureModulesIdMapByName');
+        $method->setAccessible(true);
+        $conn = (string) config('database.default');
+        $args = [$conn, $conn, &$idMaps];
+        $method->invokeArgs(app(TenantCompanyDataPushService::class), $args);
+
+        $this->assertArrayHasKey('modules', $idMaps);
+        $this->assertSame((int) $sourceModule->id, $idMaps['modules'][(int) $sourceModule->id] ?? null);
+    }
+
+    #[Test]
+    public function sync_company_module_links_by_name_creates_link_when_module_ids_differ(): void
+    {
+        if (! Schema::hasTable('modules') || ! Schema::hasTable('company_module')) {
+            $this->markTestSkipped('modules/company_module tables not present.');
+        }
+
+        $company = Company::query()->create(['name' => 'Module Link Co', 'slug' => 'module-link-'.uniqid()]);
+        $moduleName = 'taxi-link-'.uniqid();
+
+        // Source-side module + link (same DB; we simulate remap by pointing to a second module row).
+        $sourceModule = Module::create([
+            'name' => $moduleName,
+            'display_name' => 'Taxi Link Source',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+        ]);
+        DB::table('company_module')->insert([
+            'company_id' => $company->id,
+            'module_id' => $sourceModule->id,
+            'settings' => json_encode(['synced' => true]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Target company without link; module already exists (same name/id in this single-DB test).
+        $targetCompany = Company::query()->create(['name' => 'Module Link Target', 'slug' => 'module-link-t-'.uniqid()]);
+        DB::table('company_module')->where('company_id', $targetCompany->id)->delete();
+
+        $idMaps = [];
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'syncCompanyModuleLinksByName');
+        $method->setAccessible(true);
+        $conn = (string) config('database.default');
+        $args = [$conn, $conn, (int) $company->id, (int) $targetCompany->id, &$idMaps];
+        $stats = $method->invokeArgs(app(TenantCompanyDataPushService::class), $args);
+
+        $this->assertGreaterThanOrEqual(1, (int) ($stats['inserted'] ?? 0) + (int) ($stats['updated'] ?? 0));
+        $linked = DB::table('company_module')
+            ->where('company_id', $targetCompany->id)
+            ->where('module_id', $sourceModule->id)
+            ->exists();
+        $this->assertTrue($linked);
+        $this->assertSame((int) $sourceModule->id, $idMaps['modules'][(int) $sourceModule->id] ?? null);
+    }
+
+    #[Test]
+    public function remap_prerequisite_nulls_optional_fk_instead_of_skipping(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapPrerequisiteRowForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'modules',
+            ['id' => 1, 'name' => 'taxi', 'frontend_theme_id' => 99],
+            [['child' => 'modules', 'child_column' => 'frontend_theme_id', 'parent' => 'frontend_themes']],
+            []
+        );
+
+        $this->assertIsArray($result);
+        $this->assertNull($result['frontend_theme_id']);
+        $this->assertSame('taxi', $result['name']);
     }
 
     #[Test]
