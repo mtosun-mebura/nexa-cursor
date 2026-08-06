@@ -703,6 +703,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         Route::post('settings/whatsapp/platform', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsappPlatform'])->name('settings.whatsapp.platform.update');
+        Route::post('settings/whatsapp/platform/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testWhatsappPlatform'])->name('settings.whatsapp.platform.test');
         Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
         Route::post('settings/tenant-sync', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateTenantSync'])->name('settings.tenant-sync.update');
         Route::post('settings/tenant-sync/target/create', [App\Http\Controllers\Admin\AdminSettingsController::class, 'createTenantSyncTarget'])->name('settings.tenant-sync.target.create');

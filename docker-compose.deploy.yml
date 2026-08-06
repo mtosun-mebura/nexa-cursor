@@ -28,15 +28,31 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    # Coolify/Traefik: container luistert op 8000. In Coolify Domains moet staan:
-    #   https://nexasuite.nl:8000,https://www.nexasuite.nl:8000,https://*.nexasuite.nl:8000,...
-    # (:8000 = interne poort; publiek blijft https://… zonder poort)
+    # Coolify Domains: ALLEEN apex (+ www), NOOIT *.nexasuite.nl of losse tenants.
+    #   https://nexasuite.nl:8000,https://www.nexasuite.nl:8000
+    # (:8000 = containerpoort; publiek blijft https://… zonder poort)
+    # Tenant-subdomeinen: Traefik HostRegexp hieronder — zie deploy/COOLIFY-WILDCARD-TENANTS.md
     expose:
       - "8000"
     ports:
       - "127.0.0.1:8085:8000"
     labels:
-      # Fallback als Coolify geen loadbalancer.server.port uit het domain zet
+      - traefik.enable=true
+      # Service → PHP op 8000 in de container
+      - traefik.http.services.nexa-saas.loadbalancer.server.port=8000
+      # HTTP → HTTPS (Coolify middleware redirect-to-https)
+      - traefik.http.routers.nexa-saas-http.entryPoints=http
+      - traefik.http.routers.nexa-saas-http.middlewares=redirect-to-https
+      - traefik.http.routers.nexa-saas-http.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^.+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-http.service=nexa-saas
+      # HTTPS: apex + www + alle tenant-subdomeinen (één app)
+      - traefik.http.routers.nexa-saas-https.entryPoints=https
+      - traefik.http.routers.nexa-saas-https.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^.+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-https.tls=true
+      - traefik.http.routers.nexa-saas-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.nexa-saas-https.middlewares=gzip
+      - traefik.http.routers.nexa-saas-https.service=nexa-saas
+      # Fallback-naam (compat met oudere Coolify-configs)
       - traefik.http.services.backend.loadbalancer.server.port=8000
     depends_on:
       db:

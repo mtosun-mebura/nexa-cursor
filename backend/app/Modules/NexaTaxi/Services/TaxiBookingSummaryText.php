@@ -12,6 +12,32 @@ class TaxiBookingSummaryText
      */
     public function build(RideRequest $ride, array $context = []): string
     {
+        return $this->buildSelected($ride, [
+            'customer_name',
+            'customer_phone',
+            'customer_email',
+            'pickup_address',
+            'dropoff_address',
+            'pickup_at',
+            'passengers',
+            'baggage',
+            'stopovers',
+            'return_trip',
+            'offer',
+            'price',
+            'reference',
+            'remarks',
+        ], $context, true);
+    }
+
+    /**
+     * Bouw een samenvatting met alleen de gekozen velden (volgorde = checkbox-volgorde).
+     *
+     * @param  list<string>  $fields
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
+     */
+    public function buildSelected(RideRequest $ride, array $fields, array $context = [], bool $includeTitle = false): string
+    {
         $step = is_array($ride->booking_payload['step_data'] ?? null)
             ? $ride->booking_payload['step_data']
             : [];
@@ -26,43 +52,45 @@ class TaxiBookingSummaryText
             $stopovers = $ride->resolveStopoverAddresses();
         }
 
-        $lines = [
-            'Nieuwe taxiboeking',
-            'Naam: '.($ride->customer_name ?: '—'),
-            'Telefoon: '.($ride->customer_phone ?: '—'),
-            'E-mail: '.($ride->customer_email ?: '—'),
-            'Ophalen: '.($ride->pickup_address ?: '—'),
-            'Afzetten: '.($ride->dropoff_address ?: '—'),
-            'Datum/tijd: '.$this->formatDateTimeNl($ride->pickup_at),
-            'Passagiers: '.(string) ($ride->passengers ?? 1),
-            'Bagage: '.$this->baggageSummary($step, $sectionConfig),
-        ];
-
-        if ($stopovers !== []) {
-            $lines[] = 'Tussenstops: '.implode(' -> ', $stopovers);
+        $lines = [];
+        if ($includeTitle) {
+            $lines[] = 'Nieuwe taxiboeking';
         }
 
-        if (! empty($step['return_trip'])) {
-            $returnAt = $context['return_at'] ?? null;
-            $lines[] = 'Retour: '.($returnAt
-                ? 'Ja ('.$this->formatDateTimeString((string) $returnAt).')'
-                : 'Ja');
-        }
+        foreach ($fields as $field) {
+            $line = match ($field) {
+                'reference' => $ride->id ? 'Referentie: rit #'.$ride->id : null,
+                'customer_name' => 'Naam: '.($ride->customer_name ?: '—'),
+                'customer_phone' => 'Telefoon: '.($ride->customer_phone ?: '—'),
+                'customer_email' => 'E-mail: '.($ride->customer_email ?: '—'),
+                'pickup_address' => 'Ophalen: '.($ride->pickup_address ?: '—'),
+                'dropoff_address' => 'Afzetten: '.($ride->dropoff_address ?: '—'),
+                'pickup_at' => 'Datum/tijd: '.$this->formatDateTimeNl($ride->pickup_at),
+                'passengers' => 'Passagiers: '.(string) ($ride->passengers ?? 1),
+                'baggage' => 'Bagage: '.$this->baggageSummary($step, $sectionConfig),
+                'stopovers' => $stopovers !== []
+                    ? 'Tussenstops: '.implode(' -> ', $stopovers)
+                    : null,
+                'return_trip' => ! empty($step['return_trip'])
+                    ? 'Retour: '.(($context['return_at'] ?? null)
+                        ? 'Ja ('.$this->formatDateTimeString((string) $context['return_at']).')'
+                        : 'Ja')
+                    : null,
+                'offer' => (! empty($selected['title']) || array_key_exists('price', $selected))
+                    ? 'Aanbieding: '.((string) ($selected['title'] ?? '—'))
+                    : null,
+                'price' => (isset($selected['price']) && is_numeric($selected['price']))
+                    ? 'Prijsindicatie: € '.number_format((float) $selected['price'], 2, ',', '.')
+                    : null,
+                'remarks' => (($remarks = trim((string) ($ride->customer_note ?? ($step['remarks'] ?? '')))) !== '')
+                    ? 'Opmerking: '.$remarks
+                    : null,
+                default => null,
+            };
 
-        if (! empty($selected['title']) || array_key_exists('price', $selected)) {
-            $lines[] = 'Aanbieding: '.((string) ($selected['title'] ?? '—'));
-            if (isset($selected['price']) && is_numeric($selected['price'])) {
-                $lines[] = 'Prijsindicatie: € '.number_format((float) $selected['price'], 2, ',', '.');
+            if (is_string($line) && $line !== '') {
+                $lines[] = $line;
             }
-        }
-
-        if ($ride->id) {
-            $lines[] = 'Referentie: rit #'.$ride->id;
-        }
-
-        $remarks = trim((string) ($ride->customer_note ?? ($step['remarks'] ?? '')));
-        if ($remarks !== '') {
-            $lines[] = 'Opmerking: '.$remarks;
         }
 
         return implode("\n", $lines);

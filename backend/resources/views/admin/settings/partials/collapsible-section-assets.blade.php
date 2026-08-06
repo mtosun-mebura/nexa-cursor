@@ -10,16 +10,16 @@
     .settings-collapsible-card--collapsed .settings-collapsible-body {
         display: none !important;
     }
-    :is(.settings-collapsible-card, .settings-collapsible-section).settings-collapsible-card--collapsed .settings-collapsible-icon-up {
+    :is(.settings-collapsible-card, .settings-collapsible-section).settings-collapsible-card--collapsed > .settings-collapsible-header .settings-collapsible-icon-up {
         display: none !important;
     }
-    :is(.settings-collapsible-card, .settings-collapsible-section).settings-collapsible-card--collapsed .settings-collapsible-icon-down {
+    :is(.settings-collapsible-card, .settings-collapsible-section).settings-collapsible-card--collapsed > .settings-collapsible-header .settings-collapsible-icon-down {
         display: inline-block !important;
     }
-    :is(.settings-collapsible-card, .settings-collapsible-section):not(.settings-collapsible-card--collapsed) .settings-collapsible-icon-down {
+    :is(.settings-collapsible-card, .settings-collapsible-section):not(.settings-collapsible-card--collapsed) > .settings-collapsible-header .settings-collapsible-icon-down {
         display: none !important;
     }
-    :is(.settings-collapsible-card, .settings-collapsible-section):not(.settings-collapsible-card--collapsed) .settings-collapsible-icon-up {
+    :is(.settings-collapsible-card, .settings-collapsible-section):not(.settings-collapsible-card--collapsed) > .settings-collapsible-header .settings-collapsible-icon-up {
         display: inline-block !important;
     }
     .settings-collapsible-toggle:hover .kt-card-title {
@@ -208,6 +208,7 @@
                 return;
             }
             e.preventDefault();
+            e.stopPropagation();
             setSettingsSectionCollapsed(card, !card.classList.contains('settings-collapsible-card--collapsed'));
         });
     }
