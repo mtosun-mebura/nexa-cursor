@@ -28,8 +28,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
+    # Coolify/Traefik: container luistert op 8000. In Coolify Domains moet staan:
+    #   https://nexasuite.nl:8000,https://www.nexasuite.nl:8000,https://*.nexasuite.nl:8000,...
+    # (:8000 = interne poort; publiek blijft https://… zonder poort)
+    expose:
+      - "8000"
     ports:
       - "127.0.0.1:8085:8000"
+    labels:
+      # Fallback als Coolify geen loadbalancer.server.port uit het domain zet
+      - traefik.http.services.backend.loadbalancer.server.port=8000
     depends_on:
       db:
         condition: service_healthy

@@ -9,7 +9,7 @@ use RuntimeException;
 
 class GeneralSetting extends Model
 {
-    /** Platform-breed: niet per tenant (sync-doel, vlag, WhatsApp Business API). */
+    /** Platform-breed: niet per tenant (sync-doel, vlag, WhatsApp Business API, algemene configuraties). */
     public const GLOBAL_PLATFORM_KEYS = [
         'nexa_release_version',
         'tenant_sync_target_database_url',
@@ -30,6 +30,25 @@ class GeneralSetting extends Model
         'WHATSAPP_API_VERSION',
         'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
         'WHATSAPP_DEFAULT_MESSAGE',
+        // Algemene configuraties (admin.settings.general) — platform-breed
+        'logo',
+        'logo_dark',
+        'logo_mode',
+        'logo_size',
+        'favicon',
+        'site_name',
+        'site_description',
+        'ai_chat_enabled',
+        'ai_chat_nexa_taxi_webhook_url',
+        'admin_footer_brand',
+        'info_request_success_title',
+        'info_request_success_subtitle',
+        'info_request_success_footer',
+        'info_request_success_texts_enabled',
+        'info_request_success_icon',
+        'info_request_success_icon_size',
+        'info_request_success_image_size_percent',
+        'info_request_success_image',
     ];
 
     protected $fillable = [
@@ -57,7 +76,12 @@ class GeneralSetting extends Model
 
     public static function isGlobalPlatformKey(string $key): bool
     {
-        return in_array($key, self::GLOBAL_PLATFORM_KEYS, true);
+        if (in_array($key, self::GLOBAL_PLATFORM_KEYS, true)) {
+            return true;
+        }
+
+        // AI-chat module webhooks op Algemene configuraties
+        return str_starts_with($key, 'ai_chat_') && str_ends_with($key, '_webhook_url');
     }
 
     public function company(): BelongsTo
