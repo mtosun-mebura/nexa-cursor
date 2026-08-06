@@ -1175,15 +1175,16 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        $settingsCompanyId = $this->settingsCompanyId();
-        $tenantScopedSettingsActive = $settingsCompanyId !== null;
+        // Platform-breed: geen tenant-context vereist.
+        $settingsCompanyId = null;
+        $tenantScopedSettingsActive = true;
 
         $logo = GeneralSetting::get('logo');
-        $favicon = GeneralSetting::get('favicon', null, $settingsCompanyId);
+        $favicon = GeneralSetting::get('favicon');
         $logoSize = GeneralSetting::get('logo_size', '26');
         $siteName = GeneralSetting::get('site_name', config('app.name'));
         $siteDescription = GeneralSetting::get('site_description', '');
-        $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0', $settingsCompanyId);
+        $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0');
         $aiChatAssistant = app(AiChatAssistantService::class);
         $aiChatModules = Module::query()
             ->where('installed', true)
@@ -1193,9 +1194,9 @@ class AdminSettingsController extends Controller
         $aiChatModuleWebhookDefaults = [];
         foreach ($aiChatModules as $module) {
             $moduleName = (string) $module->name;
-            $stored = trim((string) GeneralSetting::get($aiChatAssistant->webhookSettingKey($moduleName), '', $settingsCompanyId));
+            $stored = trim((string) GeneralSetting::get($aiChatAssistant->webhookSettingKey($moduleName), ''));
             if ($stored === '' && strtolower($moduleName) === 'taxi') {
-                $stored = trim((string) GeneralSetting::get('ai_chat_nexa_taxi_webhook_url', '', $settingsCompanyId));
+                $stored = trim((string) GeneralSetting::get('ai_chat_nexa_taxi_webhook_url', ''));
             }
             $aiChatModuleWebhooks[$moduleName] = $stored;
             $aiChatModuleWebhookDefaults[$moduleName] = $aiChatAssistant->defaultWebhookUrlForModule($moduleName);
@@ -1230,10 +1231,8 @@ class AdminSettingsController extends Controller
             \Log::warning('Dark logo file not found in storage', ['path' => $logoDark]);
             $logoDark = null;
         }
-        // Als er een dark logo is geüpload, toon toggle als aangevinkt (en sync DB indien nodig)
-        $settingsCompanyId = $this->settingsCompanyId();
-        if ($logoDark !== null && $logoMode !== 'light_dark' && $settingsCompanyId !== null) {
-            GeneralSetting::set('logo_mode', 'light_dark', $settingsCompanyId);
+        if ($logoDark !== null && $logoMode !== 'light_dark') {
+            GeneralSetting::set('logo_mode', 'light_dark');
             $logoMode = 'light_dark';
         }
 
@@ -1242,11 +1241,11 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
 
-        $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta($settingsCompanyId);
+        $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta(null);
         $faviconDisplayUrl = $faviconMeta['url'];
 
         $infoRequestFormPreviewContexts = app(InfoRequestFormPreviewContextService::class)
-            ->contextsForCompany($settingsCompanyId);
+            ->contextsForCompany(null);
         $infoRequestFormPreviewContext = app(InfoRequestFormPreviewContextService::class)
             ->defaultContext($infoRequestFormPreviewContexts);
 
@@ -1280,11 +1279,7 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
-            return $redirect;
-        }
-        $companyId = $this->settingsCompanyId();
-
+        // Platform-breed: geen tenant vereist; GeneralSetting-keys zijn GLOBAL_PLATFORM_KEYS.
         $validator = Validator::make($request->all(), [
             'site_name' => 'nullable|string|max:255',
             'site_description' => 'nullable|string|max:1000',
@@ -1323,12 +1318,12 @@ class AdminSettingsController extends Controller
         try {
             // Applicatienaam en omschrijving
             if ($request->has('site_name')) {
-                GeneralSetting::set('site_name', $request->input('site_name', ''), $companyId);
+                GeneralSetting::set('site_name', $request->input('site_name', ''));
             }
             if ($request->has('site_description')) {
-                GeneralSetting::set('site_description', $request->input('site_description', ''), $companyId);
+                GeneralSetting::set('site_description', $request->input('site_description', ''));
             }
-            GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0', $companyId);
+            GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0');
             if ($request->has('ai_chat_webhooks') && is_array($request->input('ai_chat_webhooks'))) {
                 $aiChatAssistant = app(AiChatAssistantService::class);
                 foreach ($request->input('ai_chat_webhooks') as $moduleName => $webhookUrl) {
@@ -1338,36 +1333,35 @@ class AdminSettingsController extends Controller
                     }
                     GeneralSetting::set(
                         $aiChatAssistant->webhookSettingKey($moduleSlug),
-                        trim((string) $webhookUrl),
-                        $companyId
+                        trim((string) $webhookUrl)
                     );
                 }
             }
             if ($request->has('admin_footer_brand')) {
-                GeneralSetting::set('admin_footer_brand', $request->input('admin_footer_brand', ''), $companyId);
+                GeneralSetting::set('admin_footer_brand', $request->input('admin_footer_brand', ''));
             }
             if ($request->has('info_request_success_title')) {
-                GeneralSetting::set('info_request_success_title', $request->input('info_request_success_title', ''), $companyId);
+                GeneralSetting::set('info_request_success_title', $request->input('info_request_success_title', ''));
             }
             if ($request->has('info_request_success_subtitle')) {
-                GeneralSetting::set('info_request_success_subtitle', $request->input('info_request_success_subtitle', ''), $companyId);
+                GeneralSetting::set('info_request_success_subtitle', $request->input('info_request_success_subtitle', ''));
             }
             if ($request->has('info_request_success_footer')) {
-                GeneralSetting::set('info_request_success_footer', $request->input('info_request_success_footer', ''), $companyId);
+                GeneralSetting::set('info_request_success_footer', $request->input('info_request_success_footer', ''));
             }
             if ($request->has('info_request_success_texts_enabled')) {
-                GeneralSetting::set('info_request_success_texts_enabled', $request->input('info_request_success_texts_enabled') === '0' ? '0' : '1', $companyId);
+                GeneralSetting::set('info_request_success_texts_enabled', $request->input('info_request_success_texts_enabled') === '0' ? '0' : '1');
             } else {
-                GeneralSetting::set('info_request_success_texts_enabled', '1', $companyId);
+                GeneralSetting::set('info_request_success_texts_enabled', '1');
             }
             if ($request->has('info_request_success_icon')) {
-                GeneralSetting::set('info_request_success_icon', $request->input('info_request_success_icon', ''), $companyId);
+                GeneralSetting::set('info_request_success_icon', $request->input('info_request_success_icon', ''));
             }
             if ($request->has('info_request_success_icon_size')) {
-                GeneralSetting::set('info_request_success_icon_size', (string) $request->input('info_request_success_icon_size', '80'), $companyId);
+                GeneralSetting::set('info_request_success_icon_size', (string) $request->input('info_request_success_icon_size', '80'));
             }
             if ($request->has('info_request_success_image_size_percent')) {
-                GeneralSetting::set('info_request_success_image_size_percent', (string) $request->input('info_request_success_image_size_percent', '80'), $companyId);
+                GeneralSetting::set('info_request_success_image_size_percent', (string) $request->input('info_request_success_image_size_percent', '80'));
             }
 
             // Ensure settings directory exists
@@ -1381,7 +1375,7 @@ class AdminSettingsController extends Controller
                 $logoFile = $request->file('logo');
 
                 // Delete old logo if exists
-                $oldLogo = GeneralSetting::get('logo', null, $companyId);
+                $oldLogo = GeneralSetting::get('logo');
                 if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
                     Storage::disk('public')->delete($oldLogo);
                 }
@@ -1401,7 +1395,7 @@ class AdminSettingsController extends Controller
                 }
 
                 // Save path to database
-                GeneralSetting::set('logo', $logoPath, $companyId);
+                GeneralSetting::set('logo', $logoPath);
 
                 \Log::info('Logo uploaded successfully', [
                     'path' => $logoPath,
@@ -1415,7 +1409,7 @@ class AdminSettingsController extends Controller
                 $faviconFile = $request->file('favicon');
 
                 // Delete old favicon if exists
-                $oldFavicon = GeneralSetting::get('favicon', null, $companyId);
+                $oldFavicon = GeneralSetting::get('favicon');
                 if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
                     Storage::disk('public')->delete($oldFavicon);
                 }
@@ -1435,7 +1429,7 @@ class AdminSettingsController extends Controller
                 }
 
                 // Save path to database
-                GeneralSetting::set('favicon', $faviconPath, $companyId);
+                GeneralSetting::set('favicon', $faviconPath);
 
                 \Log::info('Favicon uploaded successfully', [
                     'path' => $faviconPath,
@@ -1446,11 +1440,11 @@ class AdminSettingsController extends Controller
 
             // Update logo size
             if ($request->has('logo_size')) {
-                GeneralSetting::set('logo_size', $request->input('logo_size'), $companyId);
+                GeneralSetting::set('logo_size', $request->input('logo_size'));
             }
 
             if ($request->has('logo_mode') && in_array($request->input('logo_mode'), ['single', 'light_dark'], true)) {
-                GeneralSetting::set('logo_mode', $request->input('logo_mode'), $companyId);
+                GeneralSetting::set('logo_mode', $request->input('logo_mode'));
             }
 
             return redirect()->route('admin.settings.general.index')
@@ -1474,11 +1468,6 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
-
         $request->validate([
             'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'logo_type' => 'nullable|string|in:light,dark',
@@ -1501,10 +1490,10 @@ class AdminSettingsController extends Controller
             $logoFile = $request->file('logo');
 
             if ($isDark) {
-                $oldLogo = GeneralSetting::get('logo_dark', null, $companyId);
+                $oldLogo = GeneralSetting::get('logo_dark');
                 $settingKey = 'logo_dark';
             } else {
-                $oldLogo = GeneralSetting::get('logo', null, $companyId);
+                $oldLogo = GeneralSetting::get('logo');
                 $settingKey = 'logo';
             }
             if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
@@ -1525,9 +1514,9 @@ class AdminSettingsController extends Controller
                 ], 500);
             }
 
-            GeneralSetting::set($settingKey, $logoPath, $companyId);
+            GeneralSetting::set($settingKey, $logoPath);
             if ($isDark) {
-                GeneralSetting::set('logo_mode', 'light_dark', $companyId);
+                GeneralSetting::set('logo_mode', 'light_dark');
             }
 
             \Log::info('Logo uploaded successfully', ['path' => $logoPath, 'type' => $isDark ? 'dark' : 'light']);
@@ -1559,16 +1548,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
-
-        $path = GeneralSetting::get('logo', null, $companyId);
+        $path = GeneralSetting::get('logo');
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
-        GeneralSetting::set('logo', '', $companyId);
+        GeneralSetting::set('logo', '');
 
         return response()->json([
             'success' => true,
@@ -1583,17 +1567,12 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
-
-        $path = GeneralSetting::get('logo_dark', null, $companyId);
+        $path = GeneralSetting::get('logo_dark');
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
-        GeneralSetting::set('logo_dark', '', $companyId);
-        GeneralSetting::set('logo_mode', 'single', $companyId);
+        GeneralSetting::set('logo_dark', '');
+        GeneralSetting::set('logo_mode', 'single');
 
         return response()->json([
             'success' => true,
@@ -1607,11 +1586,6 @@ class AdminSettingsController extends Controller
     public function uploadFavicon(Request $request)
     {
         $this->ensureSuperAdmin();
-
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
 
         $request->validate([
             'favicon' => 'required|file|mimes:ico,png,jpg|max:2048',
@@ -1632,7 +1606,7 @@ class AdminSettingsController extends Controller
             $faviconFile = $request->file('favicon');
 
             // Delete old favicon if exists
-            $oldFavicon = GeneralSetting::get('favicon', null, $companyId);
+            $oldFavicon = GeneralSetting::get('favicon');
             if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
                 Storage::disk('public')->delete($oldFavicon);
             }
@@ -1654,11 +1628,11 @@ class AdminSettingsController extends Controller
             }
 
             // Save path to database
-            GeneralSetting::set('favicon', $faviconPath, $companyId);
+            GeneralSetting::set('favicon', $faviconPath);
 
             \Log::info('Favicon uploaded successfully', ['path' => $faviconPath]);
 
-            $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta($companyId);
+            $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta(null);
 
             return response()->json([
                 'success' => true,
@@ -1681,11 +1655,6 @@ class AdminSettingsController extends Controller
     public function uploadSuccessImage(Request $request)
     {
         $this->ensureSuperAdmin();
-
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
 
         try {
             $request->validate([
@@ -1711,7 +1680,7 @@ class AdminSettingsController extends Controller
                 File::makeDirectory($settingsDir, 0755, true);
             }
 
-            $oldPath = GeneralSetting::get('info_request_success_image', null, $companyId);
+            $oldPath = GeneralSetting::get('info_request_success_image');
             if ($oldPath && Storage::disk('public')->exists($oldPath)) {
                 Storage::disk('public')->delete($oldPath);
             }
@@ -1721,7 +1690,7 @@ class AdminSettingsController extends Controller
                 return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
             }
 
-            GeneralSetting::set('info_request_success_image', $path, $companyId);
+            GeneralSetting::set('info_request_success_image', $path);
 
             return response()->json([
                 'success' => true,
@@ -1742,16 +1711,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
-
-        $oldPath = GeneralSetting::get('info_request_success_image', null, $companyId);
+        $oldPath = GeneralSetting::get('info_request_success_image');
         if ($oldPath && Storage::disk('public')->exists($oldPath)) {
             Storage::disk('public')->delete($oldPath);
         }
-        GeneralSetting::set('info_request_success_image', '', $companyId);
+        GeneralSetting::set('info_request_success_image', '');
 
         return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
     }
@@ -1933,11 +1897,6 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($j = $this->jsonTenantRequired()) {
-            return $j;
-        }
-        $companyId = $this->settingsCompanyId();
-
         $request->validate([
             'logo_size' => 'required|integer|min:10|max:100',
         ], [
@@ -1949,7 +1908,7 @@ class AdminSettingsController extends Controller
 
         try {
             $logoSize = $request->input('logo_size');
-            GeneralSetting::set('logo_size', $logoSize, $companyId);
+            GeneralSetting::set('logo_size', $logoSize);
 
             \Log::info('Logo size updated', ['size' => $logoSize]);
 
