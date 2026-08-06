@@ -34,12 +34,22 @@ https://nexasuite.nl:8000,https://www.nexasuite.nl:8000
 
 Subdomeinen komen via labels in `docker-compose.deploy.yml` (`HostRegexp`).
 
+**Reserved hosts** (niet naar Nexa SaaS; Coolify/andere services houden hun eigen Traefik-route):
+
+| Subdomein | Doel |
+|-----------|------|
+| `panel.nexasuite.nl` | Coolify dashboard |
+| `n8n.nexasuite.nl` | n8n (legacy) |
+| `automations.nexasuite.nl` | n8n / automations |
+
+Andere gereserveerde namen toevoegen: uitbreiden van de negative lookahead in de HostRegexp (`panel\.|n8n\.|automations\.|…`).
+
 ### Labels (al in de compose)
 
 Op service `backend` staan o.a.:
 
-- `HostRegexp(\`^.+\.nexasuite\.nl$\`)` voor alle tenant-subdomeinen
-- `loadbalancer.server.port=8000`
+- `HostRegexp(\`^(?!panel\.|n8n\.|automations\.)[a-z0-9-]+\.nexasuite\.nl$\`)` voor tenant-subdomeinen
+- `loadbalancer.server.port=8000` (publiek blijft https zonder poort; Coolify Domains gebruikt `:8000` als containerpoort)
 
 Na deploy/restart van de stack moeten nieuwe tenants meteen bereikbaar zijn (DNS + cert zijn al wildcard).
 

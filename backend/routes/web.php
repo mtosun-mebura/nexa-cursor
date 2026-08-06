@@ -347,7 +347,6 @@ Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $re
     if ($intended !== null) {
         session(['url.intended' => $intended]);
     }
-    $appName = \App\Models\GeneralSetting::get('site_name', config('app.name'));
     $redirectUrl = AdminReturnUrl::loginUrlWithIntended($intended);
 
     return view('admin.meld.redirect', [
@@ -355,7 +354,6 @@ Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $re
         'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
         'redirectUrl' => $redirectUrl,
         'redirectLabel' => 'Naar inlogpagina',
-        'appName' => $appName ?: config('app.name'),
     ]);
 })->name('admin.meld.sessie-verlopen');
 
