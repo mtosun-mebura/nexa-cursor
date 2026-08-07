@@ -32,9 +32,20 @@ https://nexasuite.nl:8000,https://www.nexasuite.nl:8000
 - **Geen** `taxiroyaal.nexasuite.nl`
 - **Geen** `*.nexasuite.nl`
 
-Subdomeinen komen via labels in `docker-compose.deploy.yml` (`HostRegexp`).
+Subdomeinen komen via labels in `docker-compose.deploy.yml`.
 
-**Reserved hosts** (niet naar Nexa SaaS; Coolify/andere services houden hun eigen Traefik-route):
+**Belangrijk (Traefik/Go-RE2):** geen negative lookahead `(?!…)` in `HostRegexp` — dat faalt stil en geeft **no available server / 503** op tenants.
+
+Aanpak:
+
+| Router | Rule | Priority |
+|--------|------|----------|
+| Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` | `100` |
+| Tenants | `Host(\`*.nexasuite.nl\`)` | `1` |
+
+Lage tenant-priority zodat Coolify-apps met exacte `Host(panel.nexasuite.nl)` / `n8n` / `automations` winnen.
+
+**Reserved hosts** (eigen Coolify/andere service, niet handmatig in SaaS-Domains):
 
 | Subdomein | Doel |
 |-----------|------|
@@ -42,14 +53,10 @@ Subdomeinen komen via labels in `docker-compose.deploy.yml` (`HostRegexp`).
 | `n8n.nexasuite.nl` | n8n (legacy) |
 | `automations.nexasuite.nl` | n8n / automations |
 
-Andere gereserveerde namen toevoegen: uitbreiden van de negative lookahead in de HostRegexp (`panel\.|n8n\.|automations\.|…`).
-
 ### Labels (al in de compose)
 
-Op service `backend` staan o.a.:
-
-- `HostRegexp(\`^(?!panel\.|n8n\.|automations\.)[a-z0-9-]+\.nexasuite\.nl$\`)` voor tenant-subdomeinen
-- `loadbalancer.server.port=8000` (publiek blijft https zonder poort; Coolify Domains gebruikt `:8000` als containerpoort)
+- Apex/www: priority `100`, poort `8000`
+- Tenants: `Host(\`*.nexasuite.nl\`)` priority `1`, poort `8000`
 
 Na deploy/restart van de stack moeten nieuwe tenants meteen bereikbaar zijn (DNS + cert zijn al wildcard).
 
