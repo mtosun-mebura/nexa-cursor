@@ -40,19 +40,33 @@ services:
       - traefik.enable=true
       # Service → PHP op 8000 in de container
       - traefik.http.services.nexa-saas.loadbalancer.server.port=8000
-      # HTTP → HTTPS (Coolify middleware redirect-to-https)
+      # --- Apex + www (hoge priority) ---
       - traefik.http.routers.nexa-saas-http.entryPoints=http
       - traefik.http.routers.nexa-saas-http.middlewares=redirect-to-https
-      # Reserved service hosts (Coolify panel, n8n, …) uitgesloten — zie deploy/COOLIFY-WILDCARD-TENANTS.md
-      - traefik.http.routers.nexa-saas-http.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^(?!panel\.|n8n\.|automations\.)[a-z0-9-]+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-http.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`)
+      - traefik.http.routers.nexa-saas-http.priority=100
       - traefik.http.routers.nexa-saas-http.service=nexa-saas
-      # HTTPS: apex + www + tenant-subdomeinen (panel/n8n/automations uitgesloten)
       - traefik.http.routers.nexa-saas-https.entryPoints=https
-      - traefik.http.routers.nexa-saas-https.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`) || HostRegexp(`^(?!panel\.|n8n\.|automations\.)[a-z0-9-]+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-https.rule=Host(`nexasuite.nl`) || Host(`www.nexasuite.nl`)
+      - traefik.http.routers.nexa-saas-https.priority=100
       - traefik.http.routers.nexa-saas-https.tls=true
       - traefik.http.routers.nexa-saas-https.tls.certresolver=letsencrypt
       - traefik.http.routers.nexa-saas-https.middlewares=gzip
       - traefik.http.routers.nexa-saas-https.service=nexa-saas
+      # --- Tenant-subdomeinen (lage priority: Coolify Host(panel/n8n/…) wint) ---
+      # Geen (?!…) lookahead: Traefik/Go-RE2 ondersteunt dat niet → kapotte HostRegexp → 503.
+      - traefik.http.routers.nexa-saas-tenants-http.entryPoints=http
+      - traefik.http.routers.nexa-saas-tenants-http.middlewares=redirect-to-https
+      - traefik.http.routers.nexa-saas-tenants-http.rule=Host(`*.nexasuite.nl`)
+      - traefik.http.routers.nexa-saas-tenants-http.priority=1
+      - traefik.http.routers.nexa-saas-tenants-http.service=nexa-saas
+      - traefik.http.routers.nexa-saas-tenants-https.entryPoints=https
+      - traefik.http.routers.nexa-saas-tenants-https.rule=Host(`*.nexasuite.nl`)
+      - traefik.http.routers.nexa-saas-tenants-https.priority=1
+      - traefik.http.routers.nexa-saas-tenants-https.tls=true
+      - traefik.http.routers.nexa-saas-tenants-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.nexa-saas-tenants-https.middlewares=gzip
+      - traefik.http.routers.nexa-saas-tenants-https.service=nexa-saas
       # Fallback-naam (compat met oudere Coolify-configs)
       - traefik.http.services.backend.loadbalancer.server.port=8000
     depends_on:
