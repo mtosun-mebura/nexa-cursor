@@ -40,8 +40,17 @@ Aanpak:
 
 | Router | Rule | Priority |
 |--------|------|----------|
-| Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` | `100` |
-| Tenants | `Host(\`*.nexasuite.nl\`)` | `1` |
+| Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` → service `backend` | `100` |
+| Tenants | `HostRegexp(\`^[a-z0-9-]+\.nexasuite\.nl$\`)` → service `backend` | `1` |
+
+`Host(\`*.nexasuite.nl\`)` vermijden: bij Coolify/Traefik vaak ongeldig → tenant-router bestaat niet → **No Available Server**.
+
+Zet ook `traefik.docker.network` op het netwerk dat `coolify-proxy` met de backend deelt (default `coolify`, override via `TRAEFIK_DOCKER_NETWORK`).
+
+```bash
+docker inspect coolify-proxy --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+docker inspect <backend> --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+```
 
 Lage tenant-priority zodat Coolify-apps met exacte `Host(panel.nexasuite.nl)` / `n8n` / `automations` winnen.
 
@@ -67,7 +76,7 @@ Zet in Coolify **Container Labels** op *readonly* / plak dezelfde labels uit `do
 ## Checklist bij 503 op een subdomein
 
 1. Domains bevat **geen** `*.nexasuite.nl`.
-2. `docker inspect` op de backend-container: labels met `HostRegexp` en `loadbalancer.server.port=8000`.
+2. `docker inspect` op de backend-container: labels met `Host(\`*.nexasuite.nl\`)` (tenants, priority 1) en `loadbalancer.server.port=8000`.
 3. DNS `*.nexasuite.nl` wijst naar de server.
 4. Wildcard-cert (`*.nexasuite.nl`) staat op de proxy.
 5. Applicatie herstart na domain/label-wijziging.
