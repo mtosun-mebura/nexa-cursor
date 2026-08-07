@@ -73,10 +73,11 @@ if [[ -n "$MOVE_WORK_TO" ]]; then
       python3 - "$RUNNER_DIR/.runner" "$MOVE_WORK_TO" <<'PY'
 import json, sys
 path, work = sys.argv[1], sys.argv[2]
-with open(path) as f:
+# .runner kan een UTF-8 BOM hebben (Windows/GitHub runner config).
+with open(path, encoding="utf-8-sig") as f:
     data = json.load(f)
 data["workFolder"] = work
-with open(path, "w") as f:
+with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
 PY

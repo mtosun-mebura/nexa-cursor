@@ -163,23 +163,32 @@ jobs:
                 ref: headSha,
               });
 
-              const testRuns = data.check_runs.filter((c) => c.name === 'test');
+              // Alleen de nieuwste "test"-check telt; cancelled/skipped (outage/concurrency) negeren.
+              const testRuns = data.check_runs
+                .filter((c) => c.name === 'test')
+                .sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+
               if (testRuns.length === 0) {
                 core.info('Check "test" nog niet gestart, wacht...');
                 await new Promise((resolve) => setTimeout(resolve, waitMs));
                 continue;
               }
 
-              const pending = testRuns.filter((c) => c.status !== 'completed');
-              if (pending.length > 0) {
-                core.info(`Check "test" nog bezig (${pending.map((c) => c.status).join(', ')})`);
+              const latest = testRuns[0];
+              if (latest.status !== 'completed') {
+                core.info(`Check "test" nog bezig (${latest.status})`);
                 await new Promise((resolve) => setTimeout(resolve, waitMs));
                 continue;
               }
 
-              const failed = testRuns.filter((c) => c.conclusion !== 'success');
-              if (failed.length > 0) {
-                core.setFailed(`Check "test" niet geslaagd: ${failed.map((c) => c.conclusion).join(', ')}`);
+              if (latest.conclusion === 'cancelled' || latest.conclusion === 'skipped') {
+                core.info(`Nieuwste check "test" is ${latest.conclusion}; wacht op een nieuwe run...`);
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                continue;
+              }
+
+              if (latest.conclusion !== 'success') {
+                core.setFailed(`Check "test" niet geslaagd: ${latest.conclusion}`);
                 return;
               }
 
