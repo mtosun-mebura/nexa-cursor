@@ -45,7 +45,15 @@ Subdomeinen komen via labels in `docker-compose.deploy.yml`.
 | Router | Rule | Priority | Service |
 |--------|------|----------|---------|
 | Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` | `100` | `backend` |
-| Tenants | `HostRegexp(\`^[a-z0-9-]+\.nexasuite\.nl$\`)` | `1` | `backend` |
+| Tenants | `HostRegexp(…)` **én** `!Host(panel\|n8n\|automations\|www)` | `1` | `backend` |
+
+**Reserved** (niet Nexa SaaS — eigen Coolify-app):
+
+| Subdomein | Doel | Coolify Domain (voorbeeld) |
+|-----------|------|----------------------------|
+| `panel.nexasuite.nl` | Coolify | (Coolify zelf) |
+| `n8n.nexasuite.nl` | n8n legacy | `https://n8n.nexasuite.nl:5678` |
+| `automations.nexasuite.nl` | n8n | `https://automations.nexasuite.nl:5678` |
 
 **Niet doen:**
 
@@ -60,8 +68,6 @@ docker inspect coolify-proxy --format '{{range $k,$v := .NetworkSettings.Network
 docker inspect <backend> --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
 # Gemeenschappelijk netwerk = UUID-netwerk, niet (alleen) coolify
 ```
-
-Lage tenant-priority zodat Coolify-apps met exacte `Host(panel.nexasuite.nl)` / `n8n` / `automations` winnen.
 
 ### Als Coolify labels overschrijft
 
