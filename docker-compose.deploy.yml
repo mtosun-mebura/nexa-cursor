@@ -57,15 +57,16 @@ services:
       - traefik.http.routers.nexa-saas-https.middlewares=gzip
       - traefik.http.routers.nexa-saas-https.service=backend
       # --- Tenant-subdomeinen ---
-      # Host(`*.…`) faalt vaak bij Coolify/Traefik → gebruik HostRegexp (RE2, géén lookahead).
-      # Priority laag zodat Coolify Host(panel/n8n/…) wint.
+      # HostRegexp vangt álles; reserved hosts uitsluiten met !Host (géén RE2-lookahead).
+      # Zie deploy/COOLIFY-WILDCARD-TENANTS.md — Coolify-apps voor panel/n8n/automations moeten
+      # hun eigen Host(`…`) hebben, anders 404 i.p.v. Nexa.
       - traefik.http.routers.nexa-saas-tenants-http.entryPoints=http
       - traefik.http.routers.nexa-saas-tenants-http.middlewares=redirect-to-https
-      - traefik.http.routers.nexa-saas-tenants-http.rule=HostRegexp(`^[a-z0-9-]+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-tenants-http.rule=HostRegexp(`^[a-z0-9-]+\.nexasuite\.nl$`) && !Host(`panel.nexasuite.nl`) && !Host(`n8n.nexasuite.nl`) && !Host(`automations.nexasuite.nl`) && !Host(`www.nexasuite.nl`)
       - traefik.http.routers.nexa-saas-tenants-http.priority=1
       - traefik.http.routers.nexa-saas-tenants-http.service=backend
       - traefik.http.routers.nexa-saas-tenants-https.entryPoints=https
-      - traefik.http.routers.nexa-saas-tenants-https.rule=HostRegexp(`^[a-z0-9-]+\.nexasuite\.nl$`)
+      - traefik.http.routers.nexa-saas-tenants-https.rule=HostRegexp(`^[a-z0-9-]+\.nexasuite\.nl$`) && !Host(`panel.nexasuite.nl`) && !Host(`n8n.nexasuite.nl`) && !Host(`automations.nexasuite.nl`) && !Host(`www.nexasuite.nl`)
       - traefik.http.routers.nexa-saas-tenants-https.priority=1
       - traefik.http.routers.nexa-saas-tenants-https.tls=true
       - traefik.http.routers.nexa-saas-tenants-https.tls.certresolver=letsencrypt
