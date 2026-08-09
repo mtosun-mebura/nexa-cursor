@@ -4,8 +4,13 @@ Doel: `https://taxiroyaal.nexasuite.nl`, `https://anderetenant.nexasuite.nl`, �
 
 ## Waarom `https://*.nexasuite.nl` in Coolify kapot gaat
 
-Coolify maakt dan een Traefik-regel `Host(\`*.nexasuite.nl\`)`. Traefik v3 weigert wildcards in `Host()` → router registreert niet → **503**.  
-Daarom: **nooit** `*.nexasuite.nl` in het Domains-veld.
+Coolify maakt dan TLS/HostSNI voor `*.nexasuite.nl`. Traefik weigert dat:
+
+`HostSNI(\`*.nexasuite.nl\`) is not a valid hostname` → **No Available Server**.
+
+Daarom: **nooit** `*.nexasuite.nl` (en geen losse tenants) in het Domains-veld.
+
+Let op spaties: `taxiroyaal.nexasuite.nl ` (trailing space) faalt ook in HostSNI.
 
 ## Eenmalig: DNS + wildcard-certificaat
 
@@ -17,7 +22,7 @@ Daarom: **nooit** `*.nexasuite.nl` in het Domains-veld.
 - traefik.http.routers.traefik.tls.domains[0].sans=*.nexasuite.nl
 ```
 
-Proxy herstarten na opslaan.
+Proxy herstarten na opslaan. Wildcard-cert hoort op de **proxy**, niet als Domain op de app.
 
 ## Coolify applicatie (Docker Compose)
 
@@ -31,43 +36,41 @@ https://nexasuite.nl:8000,https://www.nexasuite.nl:8000
 
 - **Geen** `taxiroyaal.nexasuite.nl`
 - **Geen** `*.nexasuite.nl`
+- **Geen** spaties achter hostnames
 
 Subdomeinen komen via labels in `docker-compose.deploy.yml`.
 
-**Belangrijk (Traefik/Go-RE2):** geen negative lookahead `(?!…)` in `HostRegexp` — dat faalt stil en geeft **no available server / 503** op tenants.
+### Traefik-regels (labels)
 
-Aanpak:
+| Router | Rule | Priority | Service |
+|--------|------|----------|---------|
+| Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` | `100` | `backend` |
+| Tenants | `HostRegexp(\`^[a-z0-9-]+\.nexasuite\.nl$\`)` | `1` | `backend` |
 
-| Router | Rule | Priority |
-|--------|------|----------|
-| Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` | `100` |
-| Tenants | `Host(\`*.nexasuite.nl\`)` | `1` |
+**Niet doen:**
+
+- Negative lookahead `(?!…)` in HostRegexp (Go/RE2 → parse error)
+- `Host(\`*.nexasuite.nl\`)` als app-router (Coolify/Traefik HostSNI faalt)
+- `traefik.docker.network=coolify` terwijl backend alleen op het **UUID-app-netwerk** zit
+
+Backend en proxy delen het app-netwerk (bijv. `w4byop8qxc3xdrhdma9mqb9p`). Traefik pikt dat automatisch als de container maar op één netwerk hangt.
+
+```bash
+docker inspect coolify-proxy --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+docker inspect <backend> --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
+# Gemeenschappelijk netwerk = UUID-netwerk, niet (alleen) coolify
+```
 
 Lage tenant-priority zodat Coolify-apps met exacte `Host(panel.nexasuite.nl)` / `n8n` / `automations` winnen.
 
-**Reserved hosts** (eigen Coolify/andere service, niet handmatig in SaaS-Domains):
-
-| Subdomein | Doel |
-|-----------|------|
-| `panel.nexasuite.nl` | Coolify dashboard |
-| `n8n.nexasuite.nl` | n8n (legacy) |
-| `automations.nexasuite.nl` | n8n / automations |
-
-### Labels (al in de compose)
-
-- Apex/www: priority `100`, poort `8000`
-- Tenants: `Host(\`*.nexasuite.nl\`)` priority `1`, poort `8000`
-
-Na deploy/restart van de stack moeten nieuwe tenants meteen bereikbaar zijn (DNS + cert zijn al wildcard).
-
 ### Als Coolify labels overschrijft
 
-Zet in Coolify **Container Labels** op *readonly* / plak dezelfde labels uit `docker-compose.deploy.yml`, of laat Domains leeg en gebruik alleen de SaaS-labels (Coolify-docs: “SaaS — route every subdomain to one application”).
+Zet in Coolify **Container Labels** op *readonly* / plak dezelfde labels uit `docker-compose.deploy.yml`.
 
-## Checklist bij 503 op een subdomein
+## Checklist bij 503 / No Available Server
 
-1. Domains bevat **geen** `*.nexasuite.nl`.
-2. `docker inspect` op de backend-container: labels met `HostRegexp` en `loadbalancer.server.port=8000`.
-3. DNS `*.nexasuite.nl` wijst naar de server.
-4. Wildcard-cert (`*.nexasuite.nl`) staat op de proxy.
-5. Applicatie herstart na domain/label-wijziging.
+1. Domains = **alleen** `https://nexasuite.nl:8000,https://www.nexasuite.nl:8000`.
+2. Proxy-logs: geen `HostSNI(\`*.nexasuite.nl\`)` en geen `(?!` HostRegexp-errors.
+3. `docker inspect` backend: `nexa-saas-tenants-https.rule=HostRegexp(\`^[a-z0-9-]+\.nexasuite\.nl$\`)` en `service=backend`.
+4. DNS `*.nexasuite.nl` → server; wildcard-cert op **proxy**.
+5. App herstart / redeploy na label-wijziging; PROD deployt vanaf **main** (niet alleen `release/test`).
