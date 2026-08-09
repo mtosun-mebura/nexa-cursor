@@ -38,11 +38,10 @@ services:
       - "127.0.0.1:8085:8000"
     labels:
       - traefik.enable=true
-      # Traefik moet het netwerk kiezen dat coolify-proxy deelt met deze container.
-      # Check: docker inspect <backend> / coolify-proxy → gemeenschappelijke network-naam.
-      # Override in Coolify/.env: TRAEFIK_DOCKER_NETWORK=...
-      - traefik.docker.network=${TRAEFIK_DOCKER_NETWORK:-coolify}
-      # Eén service-naam die Coolify/Traefik wél vult (poort 8000)
+      # Poort voor custom routers (Coolify voegt daarnaast eigen http-0/https-0 services toe).
+      # Geen traefik.docker.network=coolify: backend zit op het app-netwerk (UUID), níet op coolify.
+      # Alleen zetten als de container op meerdere netwerken hangt:
+      #   TRAEFIK_DOCKER_NETWORK=<uuid-netwerk>  (zelfde als coolify-proxy ∩ backend)
       - traefik.http.services.backend.loadbalancer.server.port=8000
       # --- Apex + www (hoge priority) ---
       - traefik.http.routers.nexa-saas-http.entryPoints=http
