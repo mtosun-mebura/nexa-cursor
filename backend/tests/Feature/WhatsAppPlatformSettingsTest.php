@@ -28,6 +28,8 @@ class WhatsAppPlatformSettingsTest extends TestCase
         $response->assertSee('max-w-xl', false);
         $response->assertSee('wizard-onboarding-form-table', false);
         $response->assertSee('Boekingstemplate (dispatch)', false);
+        $response->assertSee('Berichten naar bedrijf', false);
+        $response->assertSee('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', false);
         $response->assertSee('Boekingsvelden in', false);
         $response->assertSee('Boekingssjablonen', false);
         $response->assertSee('Statussjablonen (universeel)', false);

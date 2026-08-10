@@ -139,6 +139,60 @@ class TaxiCustomerRideAcceptedNotificationService
     }
 
     /**
+     * SMS-tekst volgens META_BODY_CUSTOMER_SMS.
+     *
+     * @param  array{driver_name?: string|null, remark?: string|null}  $context
+     * @param  array<string, string>  $variables
+     */
+    protected function composeCustomerSmsText(
+        RideRequest $ride,
+        string $decisionLabel,
+        ?int $companyId,
+        array $context,
+        array $variables
+    ): string {
+        $composed = app(WhatsAppBookingMessageComposer::class)->composeCustomerSms(
+            $ride,
+            $decisionLabel,
+            $context,
+            $companyId
+        );
+
+        $body = trim((string) ($composed['body'] ?? ''));
+
+        return $body !== ''
+            ? $body
+            : $this->renderPlainMessage($companyId ?? 0, $variables);
+    }
+
+    /**
+     * Zelfde tekst als Meta-statussjabloon (rit_status_update), voor WA-fallback zonder template.
+     *
+     * @param  array{driver_name?: string|null, driver_phone?: string|null, extra_lines?: list<string>}  $context
+     * @param  array<string, string>  $variables
+     */
+    protected function composeStatusPlainText(
+        RideRequest $ride,
+        string $event,
+        ?int $companyId,
+        array $context,
+        array $variables
+    ): string {
+        $composed = app(WhatsAppBookingMessageComposer::class)->composeStatus(
+            $ride,
+            $event,
+            $context,
+            $companyId
+        );
+
+        $body = trim((string) ($composed['fallback_body'] ?? ''));
+
+        return $body !== ''
+            ? $body
+            : $this->renderPlainMessage($companyId ?? 0, $variables);
+    }
+
+    /**
      * @param  array<string, mixed>|null  $meta
      */
     protected function logCustomer(
@@ -336,25 +390,8 @@ class TaxiCustomerRideAcceptedNotificationService
         }
 
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
-        $templateName = $this->dispatchSettings->customerAcceptWhatsappTemplateName($settingsCompanyId);
-        $lang = $this->dispatchSettings->customerAcceptWhatsappTemplateLanguage($settingsCompanyId);
 
-        if ($templateName !== '') {
-            // Legacy tenant-specifieke accept-template (andere parameter-volgorde).
-            $result = $this->whatsapp->sendTemplate(
-                $phone,
-                $templateName,
-                $lang,
-                [
-                    $variables['CUSTOMER_NAME'],
-                    $variables['DRIVER_NAME'],
-                    $variables['PICKUP_AT'],
-                    $variables['PICKUP_ADDRESS'],
-                ],
-                $settingsCompanyId
-            );
-        } elseif (app(WhatsAppBookingMessageComposer::class)->statusTemplateName() !== '') {
-            // Universeel platform-statussjabloon (accepteer / start / afrond / annuleer).
+        if (app(WhatsAppBookingMessageComposer::class)->statusTemplateName() !== '') {
             $ok = app(TaxiCustomerRideStatusNotificationService::class)->notify(
                 $conn,
                 $ride,
@@ -372,15 +409,25 @@ class TaxiCustomerRideAcceptedNotificationService
                 $variables['CUSTOMER_NAME'],
                 $phone,
                 (int) $ride->driver_id,
-                $ok ? null : 'Universeel statusbericht niet verzonden.',
-                ['mode' => 'status_template']
+                $ok ? null : 'Statussjabloon niet verzonden (controleer WHATSAPP_RIDE_STATUS_TEMPLATE / events).',
+                ['mode' => 'status_template', 'decision' => 'accepted']
             );
 
             return;
-        } else {
-            $body = $this->renderPlainMessage($companyId, $variables);
-            $result = $this->whatsapp->sendText($phone, $body, $settingsCompanyId);
         }
+
+        $statusContext = [
+            'driver_name' => $variables['DRIVER_NAME'] ?? null,
+            'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+        ];
+        $body = $this->composeStatusPlainText(
+            $ride,
+            WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+            $settingsCompanyId,
+            $statusContext,
+            $variables
+        );
+        $result = $this->whatsapp->sendText($phone, $body, $settingsCompanyId);
 
         if ($result['ok'] ?? false) {
             $this->logCustomer(
@@ -392,7 +439,7 @@ class TaxiCustomerRideAcceptedNotificationService
                 $phone,
                 (int) $ride->driver_id,
                 null,
-                ['mode' => $templateName !== '' ? 'template:'.$templateName : 'text']
+                ['mode' => 'text', 'decision' => 'accepted']
             );
         } else {
             $error = (string) ($result['error'] ?? 'Onbekende fout');
@@ -407,6 +454,59 @@ class TaxiCustomerRideAcceptedNotificationService
                 $error
             );
         }
+    }
+
+    /**
+     * WhatsApp naar klant wanneer een chauffeur een aanbod afwijst (universeel statussjabloon).
+     */
+    public function notifyAfterOfferDeclined(string $conn, RideRequest $ride, User $driver, ?string $remark = null): void
+    {
+        if ($ride->exists) {
+            $ride = $ride->fresh() ?? $ride;
+        }
+
+        $companyId = (int) ($ride->company_id ?? 0);
+        $settingsCompanyId = $companyId > 0 ? $companyId : null;
+
+        if (! $this->dispatchSettings->customerAcceptNotificationEnabled($settingsCompanyId)
+            || ! $this->dispatchSettings->customerAcceptWhatsappEnabled($settingsCompanyId)) {
+            return;
+        }
+
+        if (app(WhatsAppBookingMessageComposer::class)->statusTemplateName() === '') {
+            return;
+        }
+
+        $variables = $this->buildVariables($ride, $driver, $companyId);
+        $extraLines = [];
+        $remark = trim((string) $remark);
+        if ($remark !== '') {
+            $extraLines[] = 'Opmerking: '.$remark;
+        }
+
+        $ok = app(TaxiCustomerRideStatusNotificationService::class)->notify(
+            $conn,
+            $ride,
+            WhatsAppBookingMessageComposer::EVENT_DECLINED,
+            [
+                'driver_name' => $variables['DRIVER_NAME'] ?? null,
+                'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+                'extra_lines' => $extraLines,
+            ],
+            force: true
+        );
+
+        $this->logCustomer(
+            $conn,
+            (int) $ride->id,
+            RideRequestNotificationLog::CHANNEL_WHATSAPP,
+            $ok ? RideRequestNotificationLog::STATUS_SENT : RideRequestNotificationLog::STATUS_FAILED,
+            $variables['CUSTOMER_NAME'],
+            trim((string) ($ride->customer_phone ?? '')) ?: null,
+            (int) $driver->id,
+            $ok ? 'decline' : 'decline: statussjabloon niet verzonden.',
+            ['mode' => 'status_template', 'decision' => 'declined']
+        );
     }
 
     /**
@@ -448,7 +548,16 @@ class TaxiCustomerRideAcceptedNotificationService
             return;
         }
 
-        $body = $this->renderPlainMessage($companyId, $variables);
+        $body = $this->composeCustomerSmsText(
+            $ride,
+            WhatsAppBookingMessageComposer::DECISION_ACCEPTED,
+            $companyId > 0 ? $companyId : null,
+            [
+                'driver_name' => $variables['DRIVER_NAME'] ?? null,
+                'remark' => null,
+            ],
+            $variables
+        );
         $result = $this->sms->send($provider, $phone, $body);
 
         if ($result['ok'] ?? false) {

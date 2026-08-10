@@ -833,8 +833,38 @@
                                            placeholder="0612345678 of +31612345678"
                                            autocomplete="tel">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Ontvangernummer voor boekingsmeldingen / wa.me-fallback.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Nummer voor wa.me-fallback (zonder Business API).</div>
                                 @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" class="pt-4">
+                                <div class="rounded-lg border border-border bg-background px-4 py-3">
+                                    <div class="text-sm font-semibold text-secondary-foreground">Boekingsmelding naar bedrijf</div>
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Ontvangernummer voor WhatsApp bij nieuwe boekingen (template “dispatch”).
+                                        Aan/uit staat onder Algemene configuraties → WhatsApp Business API →
+                                        <a href="{{ route('admin.settings.general.index') }}#whatsapp-booking-templates" class="underline">Boekingssjablonen</a>.
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp-nummer bedrijf</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="tel"
+                                           class="kt-input @error('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER') border-destructive @enderror"
+                                           id="WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER"
+                                           name="WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER"
+                                           value="{{ old('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', $whatsappSettings['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER'] ?? '') }}"
+                                           placeholder="0612345678 of +31612345678"
+                                           autocomplete="tel">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Leeg = geen bericht naar het bedrijf, ook als de platform-optie aan staat.</div>
+                                @error('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>

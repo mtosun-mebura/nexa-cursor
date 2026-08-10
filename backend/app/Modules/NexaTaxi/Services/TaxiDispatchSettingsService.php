@@ -199,17 +199,29 @@ class TaxiDispatchSettingsService
 
     public function bookingWhatsappNumber(?int $companyId = null): string
     {
-        $stored = trim((string) GeneralSetting::get(self::KEY_BOOKING_WHATSAPP_NUMBER, null, $companyId));
-        if ($stored !== '') {
-            return $stored;
-        }
-
-        return $this->envFallbackWhatsappNumber();
+        // Click-to-chat / wa.me: WHATSAPP_CLICK_TO_CHAT_NUMBER (of widget-nummer).
+        return $this->envFallbackWhatsappNumber($companyId);
     }
 
     public function setBookingWhatsappNumber(string $number, ?int $companyId = null): void
     {
-        GeneralSetting::set(self::KEY_BOOKING_WHATSAPP_NUMBER, trim($number), $companyId);
+        // Legacy no-op: nummer hoort bij WHATSAPP_CLICK_TO_CHAT_NUMBER.
+    }
+
+    /**
+     * Platform-schakelaar: WhatsApp naar het bedrijf bij elke boeking.
+     */
+    public function companyBookingWhatsappNotifyEnabled(?int $companyId = null): bool
+    {
+        return GeneralSetting::get('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', '0') === '1';
+    }
+
+    /**
+     * Tenant-nummer voor bedrijfsboekingsmeldingen (leeg = niet versturen).
+     */
+    public function companyBookingWhatsappNotifyNumber(?int $companyId = null): string
+    {
+        return trim((string) $this->env->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', '', $companyId));
     }
 
     public function bookingWhatsappClickToChatEnabled(?int $companyId = null): bool
@@ -219,16 +231,7 @@ class TaxiDispatchSettingsService
             return false;
         }
 
-        if (! $this->clickToChatMasterEnabled($companyId)) {
-            return false;
-        }
-
-        $stored = GeneralSetting::get(self::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT, null, $companyId);
-        if ($stored !== null && $stored !== '') {
-            return $stored === '1';
-        }
-
-        return true;
+        return $this->clickToChatMasterEnabled($companyId);
     }
 
     public function whatsappApiTokenPresent(?int $companyId = null): bool
@@ -238,7 +241,7 @@ class TaxiDispatchSettingsService
 
     public function setBookingWhatsappClickToChatEnabled(bool $enabled, ?int $companyId = null): void
     {
-        GeneralSetting::set(self::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT, $enabled ? '1' : '0', $companyId);
+        // Legacy no-op: schakelaar staat onder WHATSAPP_CLICK_TO_CHAT_ENABLED.
     }
 
     public function bookingDriverEmailEnabled(?int $companyId = null): bool
@@ -290,14 +293,14 @@ class TaxiDispatchSettingsService
         return GeneralSetting::get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0', $companyId) === '1';
     }
 
-    public function envFallbackWhatsappNumber(): string
+    public function envFallbackWhatsappNumber(?int $companyId = null): string
     {
-        $number = trim((string) $this->env->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''));
+        $number = trim((string) $this->env->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', '', $companyId));
         if ($number !== '') {
             return $number;
         }
 
-        return trim((string) $this->env->get('WHATSAPP_WIDGET_PHONE', ''));
+        return trim((string) $this->env->get('WHATSAPP_WIDGET_PHONE', '', $companyId));
     }
 
     public function paymentBookingEnabled(?int $companyId = null): bool

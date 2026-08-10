@@ -106,61 +106,10 @@
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp bij boeking</td>
-                    <td class="min-w-48 w-full pt-4">
-                        <label class="inline-flex items-center gap-2">
-                            <input type="hidden" name="booking_whatsapp_enabled" value="0">
-                            <input type="checkbox"
-                                   class="kt-checkbox"
-                                   name="booking_whatsapp_enabled"
-                                   value="1"
-                                   {{ old('booking_whatsapp_enabled', $bookingWhatsappEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Automatisch WhatsApp-bericht versturen na elke boeking</span>
-                        </label>
-                        <p class="text-xs text-muted-foreground mt-1">
-                            @if($whatsappApiConfigured)
-                                WhatsApp Business API is geconfigureerd op de server; berichten worden direct verstuurd.
-                            @else
-                                <span class="text-destructive">WhatsApp Business API ontbreekt in de serverinstellingen.</span>
-                                Automatisch versturen werkt pas na configuratie van token en Phone Number ID (admin → Instellingen → WhatsApp).
-                            @endif
-                        </p>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp-ontvangernummer</td>
-                    <td class="min-w-48 w-full">
-                        <input type="tel"
-                               name="booking_whatsapp_number"
-                               class="kt-input w-full max-w-md @error('booking_whatsapp_number') border-destructive @enderror"
-                               value="{{ old('booking_whatsapp_number', $bookingWhatsappNumber) }}"
-                               placeholder="0612345678 of +31612345678"
-                               autocomplete="tel">
-                        <p class="text-xs text-muted-foreground mt-1">
-                            Nummer dat de boekingssamenvatting ontvangt (bijv. centrale of planner).
-                            @if($envFallbackWhatsappNumber !== '' && ! $hasStoredWhatsappNumber)
-                                Leeg laten gebruikt de serverstandaard: {{ $envFallbackWhatsappNumber }}.
-                            @endif
-                        </p>
-                        @error('booking_whatsapp_number')
-                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                        @enderror
-                    </td>
-                </tr>
-                <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp-fallback (klant)</td>
-                    <td class="min-w-48 w-full">
-                        <label class="inline-flex items-center gap-2">
-                            <input type="hidden" name="booking_whatsapp_click_to_chat" value="0">
-                            <input type="checkbox"
-                                   class="kt-checkbox"
-                                   name="booking_whatsapp_click_to_chat"
-                                   value="1"
-                                   {{ old('booking_whatsapp_click_to_chat', $bookingWhatsappClickToChat ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Boekingsknop opent WhatsApp bij klant (alleen zonder automatisch versturen)</span>
-                        </label>
-                        <p class="text-xs text-muted-foreground mt-1">
-                            Fallback als automatisch versturen uit staat of de Business API niet beschikbaar is.
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4" colspan="2">
+                        <p class="text-xs text-muted-foreground mb-2">
+                            Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API.
+                            Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).
                         </p>
                     </td>
                 </tr>
@@ -294,17 +243,14 @@
                         </label>
                         @if(! $whatsappApiConfigured)
                             <p class="text-xs text-destructive mt-1">WhatsApp Business API is niet geconfigureerd op de server.</p>
+                        @else
+                            <p class="text-xs text-muted-foreground mt-1">
+                                Gebruikt het statussjabloon (<code class="text-xs">rit_status_update</code>) onder
+                                <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">Algemene configuraties → WhatsApp</a>.
+                            </p>
                         @endif
-                        <p class="text-xs text-muted-foreground mt-2 mb-1">Meta-template (aanbevolen voor proactieve berichten; leeg = vrij tekstbericht, werkt alleen binnen 24u-venster):</p>
-                        <input type="text" name="customer_accept_whatsapp_template" class="kt-input w-full max-w-md"
-                               value="{{ old('customer_accept_whatsapp_template', $customerAcceptWhatsappTemplate) }}"
-                               placeholder="bijv. ride_accepted_nl">
-                        <input type="text" name="customer_accept_whatsapp_template_lang" class="kt-input w-32 mt-2"
-                               value="{{ old('customer_accept_whatsapp_template_lang', $customerAcceptWhatsappTemplateLang) }}"
-                               placeholder="nl">
                     </td>
-                </tr>
-                <tr class="customer-accept-channel-row">
+                </tr>                <tr class="customer-accept-channel-row">
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">SMS naar klant</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2 mb-2">
@@ -330,22 +276,19 @@
                     </td>
                 </tr>
                 <tr class="customer-accept-channel-row">
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Tekst WhatsApp / SMS</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Tekst SMS</td>
                     <td class="min-w-48 w-full pt-4">
-                        <textarea name="customer_accept_plain_message" id="customer-accept-plain-message" rows="10"
-                                  class="kt-input w-full font-mono text-xs resize-y"
-                                  style="min-height: 15rem !important; height: auto !important; box-sizing: border-box; field-sizing: content;"
-                                  placeholder="Plat tekstbericht met @{{CUSTOMER_NAME}}, @{{DRIVER_NAME}}, …">{{ old('customer_accept_plain_message', $customerAcceptPlainMessage) }}</textarea>
-                        <p class="text-xs text-muted-foreground mt-1">
-                            Placeholders:
-                            <code class="text-xs">@{{CUSTOMER_NAME}}</code>,
-                            <code class="text-xs">@{{DRIVER_NAME}}</code>,
-                            <code class="text-xs">@{{PICKUP_AT}}</code>,
-                            <code class="text-xs">@{{PICKUP_ADDRESS}}</code>,
-                            <code class="text-xs">@{{DROPOFF_ADDRESS}}</code>,
-                            <code class="text-xs">@{{COMPANY_NAME}}</code>,
-                            <code class="text-xs">@{{COMPANY_PHONE}}</code>.
+                        <p class="text-xs text-muted-foreground mb-2 max-w-xl">
+                            Vaste SMS-tekst bij acceptatie/afwijzing.
+                            Variabelen: <code class="text-xs">@{{1}}</code> klant,
+                            <code class="text-xs">@{{2}}</code> bedrijf,
+                            <code class="text-xs">@{{3}}</code> status (Geaccepteerd/Geweigerd),
+                            <code class="text-xs">@{{4}}</code> opmerking,
+                            <code class="text-xs">@{{5}}</code> chauffeur,
+                            <code class="text-xs">@{{6}}</code> ophaalmoment,
+                            <code class="text-xs">@{{7}}</code> ophaaladres.
                         </p>
+                        <pre class="kt-input w-full max-w-xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ \App\Services\WhatsAppBookingMessageComposer::META_BODY_CUSTOMER_SMS }}</pre>
                     </td>
                 </tr>
             </table>

@@ -56,7 +56,7 @@ class WhatsAppBusinessServiceTest extends TestCase
         $this->assertSame('Hallo', $service->prefixMessageWithTenant('Hallo', null));
     }
 
-    public function test_template_parameters_strip_newlines_and_tabs(): void
+    public function test_template_parameters_flatten_newlines_and_tabs(): void
     {
         $env = $this->createMock(EnvService::class);
         $service = new WhatsAppBusinessService($env);
@@ -65,10 +65,10 @@ class WhatsAppBusinessServiceTest extends TestCase
         $method->setAccessible(true);
 
         $this->assertSame(
-            'Ophalen: Dam 1 · Afzetten: Centraal · Prijs: €25',
+            'Ophalen: Dam 1 Afzetten: Centraal Prijs: €25',
             $method->invoke($service, "Ophalen: Dam 1\nAfzetten: Centraal\nPrijs: €25")
         );
-        $this->assertSame('a · b', $method->invoke($service, "a\tb"));
+        $this->assertSame('a b', $method->invoke($service, "a\tb"));
         $this->assertSame('veel   spaties', $method->invoke($service, 'veel     spaties'));
     }
 }

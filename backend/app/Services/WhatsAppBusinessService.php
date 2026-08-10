@@ -336,13 +336,13 @@ class WhatsAppBusinessService
 
     /**
      * Meta Cloud API (#132018): template body parameters mogen geen newlines/tabs
-     * of >4 opeenvolgende spaties bevatten.
+     * of >4 opeenvolgende spaties bevatten. Regeleinden horen in het Meta-sjabloon
+     * (vaste labels); param-waarden blijven één regel.
      */
     protected function sanitizeTemplateParameter(string $value): string
     {
-        $text = str_replace(["\r\n", "\r", "\n", "\t"], ' · ', $value);
+        $text = str_replace(["\r\n", "\r", "\n", "\t"], ' ', $value);
         $text = preg_replace('/ {4,}/', '   ', $text) ?? $text;
-        $text = preg_replace('/( · ){2,}/', ' · ', $text) ?? $text;
 
         return mb_substr(trim($text), 0, 1024);
     }
