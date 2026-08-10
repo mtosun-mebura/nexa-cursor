@@ -109,10 +109,11 @@ jobs:
 
           echo "Tag ${ref} bevestigd op main (${tag_sha})."
 
-      - name: Checkout main (laatste deploy-tenant.sh)
+      - name: Checkout deploy-script (workflow-ref, niet alleen main)
         uses: actions/checkout@v5
         with:
-          ref: main
+          # Gebruik de ref waarop Deploy PROD draait, zodat hotfixes in deploy-tenant.sh
+          # direct meegaan. App-code op de server blijft GIT_REF (tag).
           fetch-depth: 1
           path: deploy-main
 
@@ -122,26 +123,29 @@ jobs:
           set -euo pipefail
           host="${{ secrets.HOSTINGER_HOST }}"
           [[ -z "$host" ]] && host="${{ secrets.AWS_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.DEPLOY_HOST }}"
           user="${{ secrets.HOSTINGER_USER }}"
           [[ -z "$user" ]] && user="${{ secrets.AWS_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.DEPLOY_USER }}"
           port="${{ secrets.HOSTINGER_SSH_PORT }}"
           [[ -z "$port" ]] && port="${{ secrets.AWS_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.DEPLOY_PORT }}"
           port="${port:-22}"
           key_set="nee"
-          if [[ -n "${{ secrets.HOSTINGER_SSH_KEY }}" || -n "${{ secrets.AWS_SSH_KEY }}" ]]; then
+          if [[ -n "${{ secrets.HOSTINGER_SSH_KEY }}" || -n "${{ secrets.AWS_SSH_KEY }}" || -n "${{ secrets.DEPLOY_KEY }}" ]]; then
             key_set="ja"
           fi
 
           if [[ -z "$host" ]]; then
-            echo "ERROR: Geen HOSTINGER_HOST (of legacy AWS_HOST) secret ingesteld." >&2
+            echo "ERROR: Geen HOSTINGER_HOST (of legacy AWS_HOST/DEPLOY_HOST) secret ingesteld." >&2
             exit 1
           fi
           if [[ -z "$user" ]]; then
-            echo "ERROR: Geen HOSTINGER_USER (of legacy AWS_USER) secret ingesteld." >&2
+            echo "ERROR: Geen HOSTINGER_USER (of legacy AWS_USER/DEPLOY_USER) secret ingesteld." >&2
             exit 1
           fi
           if [[ "$key_set" != "ja" ]]; then
-            echo "ERROR: Geen HOSTINGER_SSH_KEY (of legacy AWS_SSH_KEY) secret ingesteld." >&2
+            echo "ERROR: Geen HOSTINGER_SSH_KEY (of legacy AWS_SSH_KEY/DEPLOY_KEY) secret ingesteld." >&2
             exit 1
           fi
 
@@ -201,7 +205,7 @@ jobs:
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
           port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
           source: ${{ steps.deploy_script.outputs.upload_source }}
@@ -213,7 +217,7 @@ jobs:
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
           port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
           script_stop: true
@@ -237,20 +241,22 @@ jobs:
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
           port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
           # Hele deploy (npm ci, vite, docker build, migrate) duurt op een VPS vaak >10m.
           command_timeout: 90m
           # script_stop=false: anders stopt drone-ssh bij eerste deploy-fout vóór log/tail hieronder.
           script_stop: false
-          envs: GIT_REF,APP_DIR,SSH_DEPLOY_USER,DEPLOY_SCRIPT
+          envs: GIT_REF,APP_DIR,SSH_DEPLOY_USER,DEPLOY_SCRIPT,COMPOSE_PROJECT_NAME
           script: |
             set -euo pipefail
             exec 2>&1
             TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
             DEPLOY_USER="${SSH_DEPLOY_USER:-ubuntu}"
             GIT_REMOTE="origin"
+            # Forceer geldige compose-projectnaam (Coolify/.env had NEXA → compose v2 weigert dat).
+            export COMPOSE_PROJECT_NAME=nexa
             export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER DEPLOY_SCRIPT
             export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
             export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
