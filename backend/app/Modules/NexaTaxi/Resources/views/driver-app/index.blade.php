@@ -221,6 +221,11 @@
             border-color: rgba(37, 99, 235, 0.6);
             box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
         }
+        textarea.driver-field-input {
+            min-height: 5rem;
+            resize: vertical;
+            line-height: 1.4;
+        }
         #invoice-send-status {
             margin-top: 0.75rem;
             font-size: 0.9375rem;
@@ -1499,6 +1504,20 @@
     </div>
 </div>
 
+<div id="decline-reason-dialog" class="driver-dialog" hidden aria-hidden="true">
+    <div class="driver-dialog__backdrop" data-decline-reason-dismiss tabindex="-1"></div>
+    <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="decline-reason-title">
+        <h2 id="decline-reason-title" class="driver-dialog__title">Rit afwijzen?</h2>
+        <p class="driver-dialog__text">Optioneel: voeg een opmerking toe (zichtbaar voor de klant via WhatsApp indien ingesteld).</p>
+        <label for="decline-reason-input" class="offer-meta">Opmerking (niet verplicht)</label>
+        <textarea id="decline-reason-input" class="driver-field-input" rows="3" maxlength="500" placeholder="Bijv. te ver weg, geen capaciteit…"></textarea>
+        <div class="driver-dialog__actions">
+            <button type="button" class="btn btn-ghost" id="decline-reason-cancel">Annuleren</button>
+            <button type="button" class="btn btn-danger" id="decline-reason-confirm">Afwijzen</button>
+        </div>
+    </div>
+</div>
+
 <div id="nosleep-media-wrap" aria-hidden="true">
     <video id="nosleep-video" loop muted playsinline webkit-playsinline preload="auto" disablePictureInPicture
         src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.mp4') }}"></video>
@@ -1517,7 +1536,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=79" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=80" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

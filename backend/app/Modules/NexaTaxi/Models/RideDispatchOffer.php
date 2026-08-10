@@ -20,6 +20,7 @@ class RideDispatchOffer extends Model
         'offered_at',
         'expires_at',
         'responded_at',
+        'decline_reason',
     ];
 
     protected $casts = [

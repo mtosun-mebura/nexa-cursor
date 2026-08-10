@@ -5075,7 +5075,18 @@
         const activeBtn = ev.target.closest('#btn-decline') || $('#btn-decline');
         setOfferActionButtonsDisabled(true, activeBtn);
         try {
-            await api('/dispatch/offers/' + offerId + '/decline', { method: 'POST' });
+            const reason = await promptDeclineReason();
+            if (reason === null) {
+                return;
+            }
+            const body = {};
+            if (reason !== '') {
+                body.decline_reason = reason;
+            }
+            await api('/dispatch/offers/' + offerId + '/decline', {
+                method: 'POST',
+                body: body,
+            });
             vibrate(50);
             offerQueueIndex = 0;
             await refreshInbox();
@@ -5088,6 +5099,86 @@
         } finally {
             setOfferActionButtonsDisabled(false);
         }
+    }
+
+    let declineReasonResolve = null;
+
+    function closeDeclineReasonDialog(result) {
+        const dialog = $('#decline-reason-dialog');
+        const input = $('#decline-reason-input');
+        if (dialog) {
+            dialog.classList.add('driver-dialog--instant');
+            dialog.classList.remove('is-open');
+            dialog.hidden = true;
+            dialog.setAttribute('aria-hidden', 'true');
+            requestAnimationFrame(function () {
+                dialog.classList.remove('driver-dialog--instant');
+            });
+        }
+        document.body.classList.remove('driver-dialog-open');
+        if (declineReasonResolve) {
+            const resolve = declineReasonResolve;
+            declineReasonResolve = null;
+            resolve(result);
+        }
+        if (input) {
+            input.value = '';
+        }
+    }
+
+    function promptDeclineReason() {
+        const dialog = $('#decline-reason-dialog');
+        const input = $('#decline-reason-input');
+        if (!dialog) {
+            return Promise.resolve('');
+        }
+        return new Promise(function (resolve) {
+            declineReasonResolve = resolve;
+            if (input) {
+                input.value = '';
+            }
+            dialog.hidden = false;
+            dialog.setAttribute('aria-hidden', 'false');
+            dialog.classList.add('is-open');
+            document.body.classList.add('driver-dialog-open');
+            if (input) {
+                input.focus();
+            }
+        });
+    }
+
+    function initDeclineReasonDialog() {
+        const dialog = $('#decline-reason-dialog');
+        if (!dialog) {
+            return;
+        }
+        const confirmBtn = $('#decline-reason-confirm');
+        const cancelBtn = $('#decline-reason-cancel');
+        const backdrop = dialog.querySelector('[data-decline-reason-dismiss]');
+        const input = $('#decline-reason-input');
+
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                const reason = input ? String(input.value || '').trim() : '';
+                closeDeclineReasonDialog(reason);
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function () {
+                closeDeclineReasonDialog(null);
+            });
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', function () {
+                closeDeclineReasonDialog(null);
+            });
+        }
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Escape' || !dialog.classList.contains('is-open')) {
+                return;
+            }
+            closeDeclineReasonDialog(null);
+        });
     }
 
     async function startScheduledRide(ev) {
@@ -5688,6 +5779,7 @@
     });
 
     initCashConfirmDialog();
+    initDeclineReasonDialog();
     initPickupAdjustDialog();
 
     bootstrap();

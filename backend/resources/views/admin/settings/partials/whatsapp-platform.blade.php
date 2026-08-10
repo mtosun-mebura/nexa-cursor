@@ -236,7 +236,8 @@
                                                    aria-label="Taalcode dispatch-template">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Goedgekeurde Meta-template (utility) voor nieuwe boekingen naar het dispatch-nummer.
+                                            Goedgekeurde Meta-template (utility) om het bedrijf te informeren bij nieuwe boekingen.
+                                            Het ontvangernummer stel je per tenant in onder Instellingen → WhatsApp (tenant).
                                         </p>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
                                             Variabelen: <code>@{{1}}</code> bedrijf, <code>@{{2}}</code> klantnaam, <code>@{{3}}</code> boekingsgegevens, <code>@{{4}}</code> afzender.
@@ -244,6 +245,24 @@
                                         @error('WHATSAPP_BOOKING_TEMPLATE')
                                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                         @enderror
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Berichten naar bedrijf</td>
+                                    <td class="min-w-0 w-full align-top">
+                                        <div class="flex flex-wrap items-center gap-3 max-w-xl">
+                                            <input type="hidden" name="WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED" value="0">
+                                            <input type="checkbox"
+                                                   class="kt-switch kt-switch-sm shrink-0"
+                                                   id="WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED"
+                                                   name="WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED"
+                                                   value="1"
+                                                   {{ old('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', $whatsappPlatformSettings['WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                            <span class="text-sm text-secondary-foreground">Stuur bij elke boeking een WhatsApp naar het bedrijf</span>
+                                        </div>
+                                        <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
+                                            Alleen als het tenant-WhatsApp-nummer voor bedrijfsboekingen is ingevuld.
+                                        </p>
                                     </td>
                                 </tr>
                                 <tr>
@@ -270,7 +289,10 @@
                                             Template voor klantbevestiging. Leeg = zelfde als dispatch-template.
                                         </p>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Variabelen: <code>@{{1}}</code> klantnaam, <code>@{{2}}</code> bedrijfsnaam, <code>@{{3}}</code> boekingsgegevens, <code>@{{4}}</code> afzender.
+                                            Variabelen: <code>@{{1}}</code> klantnaam, <code>@{{2}}</code> bedrijf,
+                                            <code>@{{3}}</code>–<code>@{{10}}</code> boekingsvelden (vaste labels in Meta-tekst),
+                                            <code>@{{11}}</code> afzender. Meta staat geen regeleinden in één variabele toe —
+                                            gebruik de aanbevolen Meta-sjabloontekst hieronder (nieuwe/bijgewerkte template vereist).
                                         </p>
                                     </td>
                                 </tr>
@@ -356,7 +378,7 @@
                                                    aria-label="Taalcode status-template">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
-                                            Eén Meta-template voor acceptatie, start, afronding, annulering en herdispatch.
+                                            Eén Meta-template voor acceptatie, afwijzing (met optionele opmerking in de details), start, afronding, annulering en herdispatch.
                                             Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> details.
                                         </p>
                                     </td>

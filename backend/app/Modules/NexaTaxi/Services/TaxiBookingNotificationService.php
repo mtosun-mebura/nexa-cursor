@@ -37,8 +37,8 @@ class TaxiBookingNotificationService
             isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
         );
 
-        $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary, $context);
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
+        $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, $settingsCompanyId, $context);
         $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
     }
@@ -94,22 +94,16 @@ class TaxiBookingNotificationService
     /**
      * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
      */
-    private function sendDispatchWhatsapp(
+    private function sendCompanyBookingWhatsapp(
         string $conn,
         RideRequest $ride,
-        ?int $companyId,
         string $summary,
+        ?int $companyId,
         array $context = []
     ): void {
         $rideId = (int) $ride->id;
 
-        if (! $this->dispatchSettings->bookingWhatsappEnabled($companyId)) {
-            $this->notificationLogs->recordWhatsappSkipped(
-                $conn,
-                $rideId,
-                'WhatsApp bij boeking staat uit in chauffeur-dispatch.'
-            );
-
+        if (! $this->dispatchSettings->companyBookingWhatsappNotifyEnabled($companyId)) {
             return;
         }
 
@@ -117,23 +111,19 @@ class TaxiBookingNotificationService
             $this->notificationLogs->recordWhatsappSkipped(
                 $conn,
                 $rideId,
-                'WhatsApp Business API is niet geconfigureerd voor deze tenant.'
+                'WhatsApp Business API is niet geconfigureerd voor bedrijfsboekingsmeldingen.'
             );
 
             return;
         }
 
-        $recipient = $this->dispatchSettings->bookingWhatsappNumber($companyId);
+        $recipient = $this->dispatchSettings->companyBookingWhatsappNotifyNumber($companyId);
         if ($recipient === '') {
             $this->notificationLogs->recordWhatsappSkipped(
                 $conn,
                 $rideId,
-                'Geen WhatsApp-ontvangernummer (dispatch) ingesteld.'
+                'Geen WhatsApp-nummer bedrijf ingesteld (Instellingen → WhatsApp tenant).'
             );
-            Log::warning('WhatsApp boeking: geen ontvangernummer geconfigureerd.', [
-                'company_id' => $companyId,
-                'ride_request_id' => $rideId,
-            ]);
 
             return;
         }
@@ -151,7 +141,7 @@ class TaxiBookingNotificationService
         } else {
             $error = (string) ($result['error'] ?? 'Onbekende fout');
             $this->notificationLogs->recordWhatsappFailed($conn, $rideId, $recipient, $error);
-            Log::warning('WhatsApp boeking: bericht niet verzonden.', [
+            Log::warning('WhatsApp boeking naar bedrijf niet verzonden.', [
                 'ride_request_id' => $rideId,
                 'company_id' => $companyId,
                 'error' => $error,

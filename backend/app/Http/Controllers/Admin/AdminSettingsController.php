@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Models\Company;
 use App\Models\GeneralSetting;
-use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Models\Module;
 use App\Services\AiChatAssistantService;
 use App\Services\EnvService;
@@ -169,10 +168,11 @@ class AdminSettingsController extends Controller
             'GOOGLE_MAPS_TYPE' => $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap'),
         ];
 
-        // Get current WhatsApp tenant settings (widget / click-to-chat)
+        // Get current WhatsApp tenant settings (widget / click-to-chat / company booking number)
         $whatsappSettings = [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0'),
             'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''),
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $this->envService->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', '', $settingsCompanyId),
             'WHATSAPP_WIDGET_ENABLED' => $this->envService->get('WHATSAPP_WIDGET_ENABLED', '0'),
             'WHATSAPP_WIDGET_PHONE' => $this->envService->get('WHATSAPP_WIDGET_PHONE', ''),
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'),
@@ -957,6 +957,7 @@ class AdminSettingsController extends Controller
             'WHATSAPP_BOOKING_TEMPLATE_LANG' => 'nullable|string|max:12',
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => 'nullable|string|max:120',
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => 'nullable|string|max:12',
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_BOOKING_DETAIL_FIELDS' => 'nullable|array',
             'WHATSAPP_BOOKING_DETAIL_FIELDS.*' => 'string|max:64',
             'WHATSAPP_RIDE_STATUS_TEMPLATE' => 'nullable|string|max:120',
@@ -1001,6 +1002,7 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_BOOKING_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_BOOKING_TEMPLATE_LANG', 'nl')) ?: 'nl',
                 'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => trim((string) $request->input('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE', '')),
                 'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', 'nl')) ?: 'nl',
+                'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED' => $request->boolean('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED') ? '1' : '0',
                 'WHATSAPP_BOOKING_DETAIL_FIELDS' => $this->normalizeWhatsappBookingDetailFields(
                     $request->input('WHATSAPP_BOOKING_DETAIL_FIELDS', [])
                 ),
@@ -1117,6 +1119,7 @@ class AdminSettingsController extends Controller
         $validator = Validator::make($request->all(), [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_CLICK_TO_CHAT_NUMBER' => 'nullable|string|max:50',
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_WIDGET_PHONE' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
@@ -1132,12 +1135,20 @@ class AdminSettingsController extends Controller
         $normalizedClickToChat = DutchPhoneNumber::normalizeOptionalNlToInternational(
             trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''))
         );
+        $normalizedCompanyNotify = DutchPhoneNumber::normalizeOptionalNlToInternational(
+            trim((string) $request->input('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', ''))
+        );
         $normalizedWidgetPhone = DutchPhoneNumber::normalizeOptionalNlToInternational(
             trim((string) $request->input('WHATSAPP_WIDGET_PHONE', ''))
         );
         if ($normalizedClickToChat === null) {
             return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->withErrors(['WHATSAPP_CLICK_TO_CHAT_NUMBER' => $phoneError])
+                ->withInput();
+        }
+        if ($normalizedCompanyNotify === null) {
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
+                ->withErrors(['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $phoneError])
                 ->withInput();
         }
         if ($normalizedWidgetPhone === null) {
@@ -1152,6 +1163,7 @@ class AdminSettingsController extends Controller
             $whatsappSettings = [
                 'WHATSAPP_CLICK_TO_CHAT_ENABLED' => ($platformApiActive ? '0' : ($request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0')),
                 'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $normalizedClickToChat,
+                'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $normalizedCompanyNotify,
                 'WHATSAPP_WIDGET_ENABLED' => $request->boolean('WHATSAPP_WIDGET_ENABLED') ? '1' : '0',
                 'WHATSAPP_WIDGET_PHONE' => $normalizedWidgetPhone,
                 'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => trim((string) $request->input('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.')),
@@ -1160,12 +1172,6 @@ class AdminSettingsController extends Controller
             foreach ($whatsappSettings as $key => $value) {
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
-
-            GeneralSetting::set(
-                TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT,
-                $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'],
-                $companyId
-            );
 
             return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->with('success', 'WhatsApp tenant-instellingen succesvol bijgewerkt!');
@@ -1361,6 +1367,7 @@ class AdminSettingsController extends Controller
             'WHATSAPP_BOOKING_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_BOOKING_TEMPLATE_LANG', 'nl'),
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => $this->envService->get('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE', ''),
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', 'nl'),
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED' => $this->envService->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', '0'),
             'WHATSAPP_BOOKING_DETAIL_FIELDS' => app(WhatsAppBookingMessageComposer::class)->selectedDetailFields(),
             'WHATSAPP_RIDE_STATUS_TEMPLATE' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE', ''),
             'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE_LANG', 'nl'),

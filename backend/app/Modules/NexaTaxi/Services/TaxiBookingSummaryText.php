@@ -77,7 +77,7 @@ class TaxiBookingSummaryText
                         : 'Ja')
                     : null,
                 'offer' => (! empty($selected['title']) || array_key_exists('price', $selected))
-                    ? 'Aanbieding: '.((string) ($selected['title'] ?? '—'))
+                    ? 'Aanbieding/voertuig: '.((string) ($selected['title'] ?? '—'))
                     : null,
                 'price' => (isset($selected['price']) && is_numeric($selected['price']))
                     ? 'Prijsindicatie: € '.number_format((float) $selected['price'], 2, ',', '.')
@@ -128,7 +128,7 @@ class TaxiBookingSummaryText
         return $rows !== [] ? implode(', ', $rows) : 'Geen';
     }
 
-    private function formatDateTimeNl(mixed $value): string
+    public function formatDateTimeNl(mixed $value): string
     {
         if ($value instanceof CarbonInterface) {
             return $value->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i');

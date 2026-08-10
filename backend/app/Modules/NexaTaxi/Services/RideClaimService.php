@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Carbon;
@@ -347,8 +348,10 @@ class RideClaimService
         });
     }
 
-    public function declineOffer(string $conn, User $driver, int $offerId): RideDispatchOffer
+    public function declineOffer(string $conn, User $driver, int $offerId, ?string $declineReason = null): RideDispatchOffer
     {
+        TaxiDispatchSchema::ensureOfferDeclineReasonColumn($conn);
+
         $offer = RideDispatchOffer::on($conn)
             ->whereKey($offerId)
             ->where('driver_id', $driver->id)
@@ -363,12 +366,25 @@ class RideClaimService
             ]);
         }
 
+        $reason = trim((string) $declineReason);
+        if (mb_strlen($reason) > 500) {
+            $reason = mb_substr($reason, 0, 500);
+        }
+
         $offer->update([
             'status' => RideDispatchOffer::STATUS_DECLINED,
             'responded_at' => now(),
+            'decline_reason' => $reason !== '' ? $reason : null,
         ]);
 
-        return $offer;
+        $freshOffer = $offer->fresh() ?? $offer;
+        $ride = RideRequest::on($conn)->find($freshOffer->ride_request_id);
+        if ($ride) {
+            app(TaxiCustomerRideAcceptedNotificationService::class)
+                ->notifyAfterOfferDeclined($conn, $ride, $driver, $reason !== '' ? $reason : null);
+        }
+
+        return $freshOffer;
     }
 
     public function completeRide(

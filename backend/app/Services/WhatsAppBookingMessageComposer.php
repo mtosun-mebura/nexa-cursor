@@ -8,17 +8,24 @@ use App\Models\GeneralSetting;
 
 class WhatsAppBookingMessageComposer
 {
-    /** Aanbevolen Meta body (klant) — vaste zinnen; variabelen worden vanuit Nexa gevuld. */
+    /** Aanbevolen Meta body (klant) — vaste labels + 1 regel per variabele (Meta verbiedt \\n in params). */
     public const META_BODY_CUSTOMER = <<<'TXT'
 Beste {{1}},
 
 Uw boeking is succesvol vastgelegd bij {{2}}.
 
 De boekingsgegevens zijn als volgt:
-{{3}}
+Referentie: {{3}}
+Telefoon: {{4}}
+Ophalen: {{5}}
+Afzetten: {{6}}
+Datum/tijd: {{7}}
+Passagiers: {{8}}
+Aanbieding/voertuig: {{9}}
+Prijsindicatie: {{10}}
 
 Met vriendelijke groet,
-{{4}}
+{{11}}
 
 Wij houden u graag op de hoogte via WhatsApp.
 TXT;
@@ -54,6 +61,29 @@ Heeft u vragen over deze rit? Reageer gerust op dit WhatsApp-bericht. Wij helpen
 Met vriendelijke groet en tot ziens.
 TXT;
 
+    /**
+     * SMS-tekst bij chauffeur-acceptatie / -afwijzing (geen Meta; plain SMS).
+     * {{3}} = Geaccepteerd | Geweigerd, {{4}} = opmerking (of —).
+     */
+    public const META_BODY_CUSTOMER_SMS = <<<'TXT'
+Beste {{1}},
+
+Hierbij de reactie op uw taxirit bij {{2}}.
+
+Status: {{3}}.
+Opmerking: {{4}}.
+
+Chauffeur: {{5}}
+Ophaalmoment: {{6}}
+Ophaaladres: {{7}}
+
+Met vriendelijke groet.
+TXT;
+
+    public const DECISION_ACCEPTED = 'Geaccepteerd';
+
+    public const DECISION_DECLINED = 'Geweigerd';
+
     public const DETAIL_FIELDS_KEY = 'WHATSAPP_BOOKING_DETAIL_FIELDS';
 
     public const STATUS_TEMPLATE_KEY = 'WHATSAPP_RIDE_STATUS_TEMPLATE';
@@ -63,6 +93,8 @@ TXT;
     public const STATUS_EVENTS_KEY = 'WHATSAPP_RIDE_STATUS_EVENTS';
 
     public const EVENT_ACCEPTED = 'accepted';
+
+    public const EVENT_DECLINED = 'declined';
 
     public const EVENT_STARTED = 'started';
 
@@ -79,6 +111,7 @@ TXT;
     {
         return [
             self::EVENT_ACCEPTED => 'Chauffeur toegewezen',
+            self::EVENT_DECLINED => 'Geweigerd',
             self::EVENT_STARTED => 'Rit gestart — chauffeur onderweg',
             self::EVENT_COMPLETED => 'Rit afgerond',
             self::EVENT_CANCELLED => 'Rit geannuleerd',
@@ -93,6 +126,7 @@ TXT;
     {
         return [
             self::EVENT_ACCEPTED,
+            self::EVENT_DECLINED,
             self::EVENT_STARTED,
             self::EVENT_COMPLETED,
             self::EVENT_CANCELLED,
@@ -117,7 +151,7 @@ TXT;
             'baggage' => 'Bagage',
             'stopovers' => 'Tussenstops',
             'return_trip' => 'Retour',
-            'offer' => 'Aanbieding',
+            'offer' => 'Aanbieding/voertuig',
             'price' => 'Prijsindicatie',
             'remarks' => 'Opmerking',
         ];
@@ -188,12 +222,7 @@ TXT;
             $preview = $this->renderPreview(self::META_BODY_DISPATCH, $params);
             $fallback = $preview;
         } else {
-            $params = [
-                $customerName,
-                $companyName,
-                mb_substr($details, 0, 1024),
-                $companyName,
-            ];
+            $params = $this->customerTemplateParams($ride, $context, $companyName, $customerName);
             $preview = $this->renderPreview(self::META_BODY_CUSTOMER, $params);
             $fallback = $preview;
         }
@@ -203,6 +232,43 @@ TXT;
             'fallback_body' => $fallback,
             'details' => $details,
             'preview' => $preview,
+        ];
+    }
+
+    /**
+     * Klant-template: labels staan vast in Meta (met regeleinden); params zijn enkelvoudige waarden.
+     *
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
+     * @return list<string>
+     */
+    private function customerTemplateParams(
+        RideRequest $ride,
+        array $context,
+        string $companyName,
+        string $customerName
+    ): array {
+        $selected = is_array($ride->selected_offer_payload) ? $ride->selected_offer_payload : [];
+        $phone = trim((string) ($ride->customer_phone ?? ''));
+        $pickup = trim((string) ($ride->pickup_address ?? ''));
+        $dropoff = trim((string) ($ride->dropoff_address ?? ''));
+        $pickupAt = $this->summaryText->formatDateTimeNl($ride->pickup_at);
+        $offer = trim((string) ($selected['title'] ?? ''));
+        $price = (isset($selected['price']) && is_numeric($selected['price']))
+            ? '€ '.number_format((float) $selected['price'], 2, ',', '.')
+            : '';
+
+        return [
+            $customerName !== '' ? $customerName : 'klant',
+            $companyName,
+            $ride->id ? 'rit #'.$ride->id : '—',
+            $phone !== '' ? $phone : '—',
+            $pickup !== '' ? $pickup : '—',
+            $dropoff !== '' ? $dropoff : '—',
+            $pickupAt !== '' ? $pickupAt : '—',
+            (string) ($ride->passengers ?? 1),
+            $offer !== '' ? $offer : '—',
+            $price !== '' ? $price : '—',
+            $companyName,
         ];
     }
 
@@ -292,6 +358,64 @@ TXT;
             'preview' => $preview,
             'status_label' => $statusLabel,
             'event' => $event,
+        ];
+    }
+
+    /**
+     * SMS-body bij accept/afwijs (zelfde structuur als META_BODY_CUSTOMER_SMS).
+     *
+     * @param  array{driver_name?: string|null, remark?: string|null}  $context
+     * @return array{template_params: list<string>, body: string, status_label: string}
+     */
+    public function composeCustomerSms(
+        RideRequest $ride,
+        string $decisionLabel,
+        array $context,
+        ?int $companyId
+    ): array {
+        $companyName = $this->whatsapp->tenantDisplayName($companyId);
+        if ($companyName === '') {
+            $companyName = 'Nexa';
+        }
+
+        $customerName = trim((string) ($ride->customer_name ?: 'klant'));
+        if ($customerName === '') {
+            $customerName = 'klant';
+        }
+
+        $status = trim($decisionLabel) !== '' ? trim($decisionLabel) : self::DECISION_ACCEPTED;
+        $remark = trim((string) ($context['remark'] ?? ''));
+        if ($remark === '') {
+            $remark = '—';
+        }
+
+        $driverName = trim((string) ($context['driver_name'] ?? ''));
+        if ($driverName === '') {
+            $driverName = '—';
+        }
+
+        $pickupAt = $ride->pickup_at
+            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+            : '—';
+        $pickupAddress = trim((string) ($ride->pickup_address ?: '—'));
+        if ($pickupAddress === '') {
+            $pickupAddress = '—';
+        }
+
+        $params = [
+            $customerName,
+            $companyName,
+            $status,
+            mb_substr($remark, 0, 1024),
+            $driverName,
+            $pickupAt,
+            mb_substr($pickupAddress, 0, 1024),
+        ];
+
+        return [
+            'template_params' => $params,
+            'body' => $this->renderPreview(self::META_BODY_CUSTOMER_SMS, $params),
+            'status_label' => $status,
         ];
     }
 
@@ -421,34 +545,29 @@ TXT;
      */
     public function sampleCustomerPreview(?array $detailFields = null): array
     {
-        $fields = $detailFields ?? $this->selectedDetailFields();
-        $labels = self::availableDetailFields();
-        $sampleValues = [
-            'reference' => 'rit #1042',
-            'customer_name' => 'Jan de Vries',
-            'customer_phone' => '+31 6 12345678',
-            'customer_email' => 'jan@example.nl',
-            'pickup_address' => 'Stationsplein 1, Amsterdam',
-            'dropoff_address' => 'Schiphol Airport',
-            'pickup_at' => '16-08-2026 14:30',
-            'passengers' => '2',
-            'baggage' => 'Koffer x 1',
-            'stopovers' => 'Geen',
-            'return_trip' => 'Nee',
-            'offer' => 'Comfort',
-            'price' => '€ 45,00',
-            'remarks' => 'Bordje bij aankomst',
+        $params = [
+            'Jan de Vries',
+            'Taxi Voorbeeld',
+            'rit #1042',
+            '+31 6 12345678',
+            'Stationsplein 1, Amsterdam',
+            'Schiphol Airport',
+            '16-08-2026 14:30',
+            '2',
+            'Comfort',
+            '€ 45,00',
+            'Taxi Voorbeeld',
         ];
-
-        $lines = [];
-        foreach ($fields as $key) {
-            if (! isset($labels[$key])) {
-                continue;
-            }
-            $lines[] = $labels[$key].': '.($sampleValues[$key] ?? '—');
-        }
-        $details = implode("\n", $lines);
-        $params = ['Jan de Vries', 'Taxi Voorbeeld', mb_substr($details, 0, 1024), 'Taxi Voorbeeld'];
+        $details = implode("\n", [
+            'Referentie: '.$params[2],
+            'Telefoon: '.$params[3],
+            'Ophalen: '.$params[4],
+            'Afzetten: '.$params[5],
+            'Datum/tijd: '.$params[6],
+            'Passagiers: '.$params[7],
+            'Aanbieding/voertuig: '.$params[8],
+            'Prijsindicatie: '.$params[9],
+        ]);
 
         return [
             'preview' => $this->renderPreview(self::META_BODY_CUSTOMER, $params),

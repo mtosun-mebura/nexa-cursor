@@ -314,8 +314,17 @@ class DriverDispatchController extends Controller
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
 
+        $validated = $request->validate([
+            'decline_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
         try {
-            $claim->declineOffer($conn, $request->user(), $offer);
+            $claim->declineOffer(
+                $conn,
+                $request->user(),
+                $offer,
+                isset($validated['decline_reason']) ? (string) $validated['decline_reason'] : null
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first(),

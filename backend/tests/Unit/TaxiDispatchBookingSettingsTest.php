@@ -128,11 +128,7 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         GeneralSetting::set('WHATSAPP_API_TOKEN', 'EAA-test-token');
         GeneralSetting::set('WHATSAPP_PHONE_NUMBER_ID', '123456789');
         GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_ENABLED', '1', $company->id);
-        GeneralSetting::set(
-            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
-            '+31600112233',
-            $company->id
-        );
+        GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_NUMBER', '+31600112233', $company->id);
         GeneralSetting::set(
             TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_ENABLED,
             '0',
@@ -160,39 +156,41 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         $company = Company::query()->create(['name' => 'Wa Co', 'slug' => 'wa-co-'.uniqid()]);
 
         GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0', $company->id);
-        GeneralSetting::set(
-            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT,
-            '1',
-            $company->id
-        );
-        GeneralSetting::set(
-            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
-            '+31600112233',
-            $company->id
-        );
+        GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_NUMBER', '+31600112233', $company->id);
 
-        $env = $this->createMock(EnvService::class);
-        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $service = app(TaxiDispatchSettingsService::class);
         $notifications = app(TaxiBookingNotificationService::class);
 
         $this->assertFalse($service->bookingWhatsappClickToChatEnabled((int) $company->id));
         $this->assertFalse($notifications->whatsappClientClickToChatEnabled((int) $company->id));
     }
 
-    public function test_click_to_chat_enabled_when_admin_master_switch_is_on_and_dispatch_allows(): void
+    public function test_click_to_chat_enabled_when_admin_master_switch_is_on(): void
     {
         $company = Company::query()->create(['name' => 'Wa On Co', 'slug' => 'wa-on-'.uniqid()]);
 
         GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_ENABLED', '1', $company->id);
-        GeneralSetting::set(
-            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
-            '+31600112233',
-            $company->id
-        );
+        GeneralSetting::set('WHATSAPP_CLICK_TO_CHAT_NUMBER', '+31600112233', $company->id);
 
-        $env = $this->createMock(EnvService::class);
-        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $service = app(TaxiDispatchSettingsService::class);
 
         $this->assertTrue($service->bookingWhatsappClickToChatEnabled((int) $company->id));
+        $this->assertSame('+31600112233', $service->bookingWhatsappNumber((int) $company->id));
+    }
+
+    public function test_company_booking_notify_uses_platform_switch_and_tenant_number(): void
+    {
+        $company = Company::query()->create(['name' => 'Notify Co', 'slug' => 'notify-'.uniqid()]);
+
+        GeneralSetting::set('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', '0');
+        GeneralSetting::set('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', '+31699887766', $company->id);
+
+        $service = app(TaxiDispatchSettingsService::class);
+
+        $this->assertFalse($service->companyBookingWhatsappNotifyEnabled((int) $company->id));
+        $this->assertSame('+31699887766', $service->companyBookingWhatsappNotifyNumber((int) $company->id));
+
+        GeneralSetting::set('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', '1');
+        $this->assertTrue($service->companyBookingWhatsappNotifyEnabled((int) $company->id));
     }
 }

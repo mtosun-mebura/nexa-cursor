@@ -29,13 +29,13 @@ class TaxiCustomerRideStatusNotificationService
      *     section_config?: array<string, mixed>
      * }  $context
      */
-    public function notify(string $conn, RideRequest $ride, string $event, array $context = []): bool
+    public function notify(string $conn, RideRequest $ride, string $event, array $context = [], bool $force = false): bool
     {
         if ($ride->exists) {
             $ride = $ride->fresh() ?? $ride;
         }
 
-        if (! $this->composer->statusEventEnabled($event)) {
+        if (! $force && ! $this->composer->statusEventEnabled($event)) {
             return false;
         }
 
@@ -44,8 +44,11 @@ class TaxiCustomerRideStatusNotificationService
         $rideId = (int) $ride->id;
         $logDetail = self::LOG_CONTEXT_PREFIX.':'.$event;
 
-        // Herdispatch mag meerdere keren; overige events zijn éénmalig per rit.
-        $idempotent = $event !== WhatsAppBookingMessageComposer::EVENT_REDISPATCHED;
+        // Herdispatch en afwijzing mogen meerdere keren; overige events zijn éénmalig per rit.
+        $idempotent = ! in_array($event, [
+            WhatsAppBookingMessageComposer::EVENT_REDISPATCHED,
+            WhatsAppBookingMessageComposer::EVENT_DECLINED,
+        ], true);
         if ($idempotent && $this->alreadySent($conn, $rideId, $logDetail)) {
             return true;
         }
