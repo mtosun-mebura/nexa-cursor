@@ -171,6 +171,17 @@ class TaxiBookingNotificationService
         $rideId = (int) $ride->id;
 
         if (! $this->whatsapp->isConfigured($companyId)) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                (string) ($ride->customer_name ?: 'Klant'),
+                trim((string) ($ride->customer_phone ?? '')) ?: null,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': WhatsApp Business API is niet geconfigureerd (platform token + Phone Number ID).'
+            );
+
             return;
         }
 
