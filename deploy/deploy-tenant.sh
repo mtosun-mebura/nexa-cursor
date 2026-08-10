@@ -91,9 +91,28 @@ _compose_bin_label() {
   fi
 }
 
+# Compose v2 weigert uppercase project names (bijv. COMPOSE_PROJECT_NAME=NEXA uit Coolify/.env).
+_normalize_compose_project_name() {
+  local raw="${COMPOSE_PROJECT_NAME:-}"
+  local normalized
+  if [[ -z "$raw" ]]; then
+    export COMPOSE_PROJECT_NAME=nexa
+    return
+  fi
+  normalized="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+  if [[ -z "$normalized" || ! "$normalized" =~ ^[a-z0-9] ]]; then
+    normalized=nexa
+  fi
+  if [[ "$normalized" != "$raw" ]]; then
+    echo "==> COMPOSE_PROJECT_NAME genormaliseerd: '$raw' → '$normalized'"
+  fi
+  export COMPOSE_PROJECT_NAME="$normalized"
+}
+
 _compose() {
+  _normalize_compose_project_name
   if docker compose version >/dev/null 2>&1; then
-    docker compose -f "$COMPOSE_FILE" "$@"
+    docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
     return
   fi
   if [[ "${REQUIRE_COMPOSE_V2:-}" == "1" || "${REQUIRE_COMPOSE_V2:-}" == "true" ]]; then
@@ -102,7 +121,7 @@ _compose() {
     exit 1
   fi
   if command -v docker-compose >/dev/null 2>&1; then
-    docker-compose -f "$COMPOSE_FILE" "$@"
+    docker-compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
     return
   fi
   echo "ERROR: Geen 'docker compose' (v2) of docker-compose (v1) in PATH." >&2
