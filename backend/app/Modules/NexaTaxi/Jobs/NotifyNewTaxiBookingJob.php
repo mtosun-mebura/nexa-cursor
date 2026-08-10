@@ -5,16 +5,18 @@ namespace App\Modules\NexaTaxi\Jobs;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Services\ModuleDatabaseService;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class NotifyNewTaxiBookingJob implements ShouldQueue
+/**
+ * Boekingsnotificaties (WhatsApp/e-mail) na de HTTP-response.
+ * Geen ShouldQueue: moet via ->afterResponse() in hetzelfde PHP-proces lopen.
+ * Op Coolify/PROD is er vaak geen queue:work — ShouldQueue liet berichten stil liggen.
+ */
+class NotifyNewTaxiBookingJob
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, SerializesModels;
 
     /**
      * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context

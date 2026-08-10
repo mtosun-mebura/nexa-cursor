@@ -5,16 +5,18 @@ namespace App\Modules\NexaTaxi\Jobs;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Services\ModuleDatabaseService;
-use Illuminate\Bus\Queueable;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
-class StartRideDispatchJob implements ShouldQueue
+/**
+ * Start rit-dispatch na de HTTP-response.
+ * Geen ShouldQueue: moet via ->afterResponse() in hetzelfde PHP-proces lopen
+ * wanneer er geen queue-worker draait (Coolify/PROD).
+ */
+class StartRideDispatchJob
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, SerializesModels;
 
     public function __construct(
         public int $rideRequestId,
