@@ -190,12 +190,14 @@ class WhatsAppBusinessService
             $lang = $this->credential($langKey, $companyId, 'nl') ?: 'nl';
 
             if (is_array($templateParams) && $templateParams !== []) {
-                $params = array_values(array_filter(
-                    array_map(
-                        fn ($p) => mb_substr(trim((string) $p), 0, 1024),
-                        $templateParams
-                    ),
-                    fn ($p) => $p !== ''
+                // Meta vereist alle {{n}} placeholders — lege waarden niet weglaten.
+                $params = array_values(array_map(
+                    function ($p) {
+                        $text = $this->sanitizeTemplateParameter((string) $p);
+
+                        return $text !== '' ? $text : '—';
+                    },
+                    $templateParams
                 ));
             } else {
                 // Legacy fallback: {{1}} tenant, {{2}} volledige body/samenvatting
@@ -204,10 +206,11 @@ class WhatsAppBusinessService
                 if ($tenant !== '' && str_starts_with($summary, '*'.$tenant.'*')) {
                     $summary = trim(substr($summary, strlen('*'.$tenant.'*')));
                 }
-                $params = array_values(array_filter([
+                $summary = $this->sanitizeTemplateParameter($summary !== '' ? $summary : $body);
+                $params = [
                     $tenant !== '' ? $tenant : 'Nexa',
-                    mb_substr($summary !== '' ? $summary : $body, 0, 1024),
-                ], fn ($p) => is_string($p) && trim($p) !== ''));
+                    $summary !== '' ? $summary : '—',
+                ];
             }
 
             return $this->sendTemplate($recipientE164, $template, $lang, $params, $companyId);
@@ -286,10 +289,18 @@ class WhatsAppBusinessService
             'language' => ['code' => $languageCode ?: 'nl'],
         ];
 
-        $params = array_values(array_filter(array_map(
-            fn ($p) => ['type' => 'text', 'text' => mb_substr(trim((string) $p), 0, 1024)],
+        $params = array_values(array_map(
+            function ($p) {
+                // Meta weigert newlines/tabs in template body params (#132018).
+                $text = $this->sanitizeTemplateParameter((string) $p);
+
+                return [
+                    'type' => 'text',
+                    'text' => $text !== '' ? $text : '—',
+                ];
+            },
             $bodyParameters
-        ), fn ($p) => $p['text'] !== ''));
+        ));
 
         if ($params !== []) {
             $template['components'] = [[
@@ -321,6 +332,19 @@ class WhatsAppBusinessService
         ]);
 
         return ['ok' => false, 'error' => $error];
+    }
+
+    /**
+     * Meta Cloud API (#132018): template body parameters mogen geen newlines/tabs
+     * of >4 opeenvolgende spaties bevatten.
+     */
+    protected function sanitizeTemplateParameter(string $value): string
+    {
+        $text = str_replace(["\r\n", "\r", "\n", "\t"], ' · ', $value);
+        $text = preg_replace('/ {4,}/', '   ', $text) ?? $text;
+        $text = preg_replace('/( · ){2,}/', ' · ', $text) ?? $text;
+
+        return mb_substr(trim($text), 0, 1024);
     }
 
     protected function extractApiError(Response $response): string
