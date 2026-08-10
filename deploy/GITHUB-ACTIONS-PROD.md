@@ -16,12 +16,23 @@ Workflow: `.github/workflows/deploy-prod.yml`
 
 Oudere omgevingen kunnen nog `AWS_HOST`, `AWS_USER`, `AWS_SSH_KEY` en `AWS_SSH_PORT` gebruiken. De workflow valt daarop terug als de `HOSTINGER_*` secrets niet zijn ingesteld.
 
+## Runner
+
+Deploy PROD draait op de **self-hosted** runner (`UbuntuVM`), niet op `ubuntu-latest`.
+GitHub-hosted runners krijgen vaak `i/o timeout` naar Hostinger SSH omdat hun IP's niet in de VPS-firewall staan.
+
 ## Veelvoorkomende fout: `dial tcp …:22: i/o timeout`
 
 De log toont vaak eerst:
 
 ```text
-tar all files into /tmp/….tar.gz
+Test TCP ***:22 (max 20s)…
+ERROR: Geen TCP-verbinding …
+```
+
+of:
+
+```text
 scp file to server.
 dial tcp ***:22: i/o timeout
 ```
@@ -31,19 +42,16 @@ Dat betekent **niet** dat het deploy-bestand ontbreekt op de runner. Het script 
 ### Oplossing (Hostinger VPS)
 
 1. **VPS draait** — Hostinger hPanel → VPS status *Running*.
-2. **`HOSTINGER_HOST`** — moet het **publieke** IP zijn, niet een privé- of LAN-adres.
-3. **Firewall** — zowel op de VPS (UFW) als in Hostinger hPanel:
-   - Regel **SSH (22)** toevoegen of aanpassen.
-   - GitHub-hosted runners (`ubuntu-latest`) hebben **dynamische IP-adressen**.
-   - Voor test: bron `0.0.0.0/0` (alle IP's) op poort 22 — daarna deploy opnieuw proberen.
-   - Voor productie: IP-ranges van GitHub ophalen via `https://api.github.com/meta` (veld `actions`) en die ranges in de firewall zetten.
+2. **`HOSTINGER_HOST`** — publiek IP of hostnaam (`nexasuite.nl`), geen privé-/LAN-adres.
+3. **Firewall** — UFW + Hostinger hPanel: SSH (poort 22 of `HOSTINGER_SSH_PORT`) open voor het **egress-IP van de self-hosted runner** (of tijdelijk `0.0.0.0/0` om te testen).
 4. **SSH lokaal testen** (vanaf je Mac):
 
    ```bash
-   ssh -i /pad/naar/key -p 22 ubuntu@JOUW_VPS_IP "echo ok"
+   ssh -i /pad/naar/key -p 22 ubuntu@nexasuite.nl "echo ok"
    ```
 
 5. **Afwijkende SSH-poort** — secret `HOSTINGER_SSH_PORT` zetten en dezelfde poort in UFW + hPanel openzetten.
+6. **Coolify-fallback** — als SSH blijft falen: Coolify → app op branch `main` → Redeploy (PROD live via Coolify).
 
 ## Fout: bestand ontbreekt op server (`/tmp/nexa-deploy-tenant-ci.sh`)
 

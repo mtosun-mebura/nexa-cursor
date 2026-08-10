@@ -12,9 +12,8 @@
 #
 # Legacy (nog ondersteund): AWS_HOST, AWS_USER, AWS_SSH_KEY, AWS_SSH_PORT
 #
-# Netwerk: GitHub-hosted runners (ubuntu-latest) moeten TCP-poort 22 op de VPS bereiken.
-# Bij "dial tcp …:22: i/o timeout": UFW + Hostinger hPanel-firewall → SSH (22) openzetten
-# voor GitHub Actions IP-ranges (https://api.github.com/meta) of tijdelijk 0.0.0.0/0 testen.
+# Netwerk: draait op self-hosted runner (UbuntuVM / Proxmox), niet op ubuntu-latest.
+# GitHub-hosted runners krijgen vaak i/o timeout naar Hostinger SSH (IP niet in firewall).
 # Zie deploy/GITHUB-ACTIONS-PROD.md
 #
 # Environment "production" (Settings → Environments) voor goedkeuring/branch protection.
@@ -45,7 +44,8 @@ concurrency:
 
 jobs:
   deploy-prod:
-    runs-on: ubuntu-latest
+    # Self-hosted: zelfde runner als TEST. GitHub-hosted → Hostinger SSH time-out (firewall).
+    runs-on: self-hosted
     timeout-minutes: 90
     environment: production
 
@@ -177,21 +177,22 @@ jobs:
         run: |
           set -euo pipefail
           port="${SSH_PORT:-22}"
-          echo "Test TCP ${SSH_HOST}:${port} (max 20s)…"
-          if timeout 20 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
-            echo "OK: poort ${port} bereikbaar vanaf GitHub runner."
+          echo "Runner: $(hostname) user=$(id -un)"
+          echo "Test TCP ${SSH_HOST}:${port} (max 25s)…"
+          if timeout 25 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
+            echo "OK: poort ${port} bereikbaar vanaf self-hosted runner."
           else
             echo "ERROR: Geen TCP-verbinding naar ${SSH_HOST}:${port} (i/o timeout)." >&2
             echo "" >&2
             echo "Dit is géén 'bestand niet gevonden' — het deploy-script staat klaar op de runner." >&2
-            echo "De runner kan de VPS niet bereiken op SSH." >&2
+            echo "De self-hosted runner kan de VPS niet bereiken op SSH." >&2
             echo "" >&2
             echo "Controleer:" >&2
             echo "  1. VPS draait en is bereikbaar" >&2
-            echo "  2. HOSTINGER_HOST = publiek IP of hostnaam van de VPS" >&2
-            echo "  3. UFW + Hostinger hPanel-firewall → SSH (poort ${port}) toegestaan" >&2
-            echo "     (GitHub Actions gebruikt dynamische IP's; zie deploy/GITHUB-ACTIONS-PROD.md)" >&2
-            echo "  4. Eventueel HOSTINGER_SSH_PORT secret als SSH niet op 22 draait" >&2
+            echo "  2. HOSTINGER_HOST = publiek IP of hostnaam (bijv. nexasuite.nl)" >&2
+            echo "  3. UFW + Hostinger hPanel-firewall → SSH (poort ${port}) open voor dit runner-IP" >&2
+            echo "  4. HOSTINGER_SSH_PORT secret als SSH niet op 22 draait" >&2
+            echo "  5. Of redeploy via Coolify (panel) vanaf branch main / tag" >&2
             exit 1
           fi
 
