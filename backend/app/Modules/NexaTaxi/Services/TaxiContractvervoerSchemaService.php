@@ -218,7 +218,66 @@ final class TaxiContractvervoerSchemaService
             });
         }
 
+        $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
+    }
+
+    public function ensureContractPortalTables(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+
+        if (! $schema->hasTable('transport_customer_portal_users')) {
+            $schema->create('transport_customer_portal_users', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('company_id')->index();
+                $table->unsignedBigInteger('transport_customer_id')->index();
+                $table->unsignedBigInteger('user_id')->index();
+                $table->string('portal_role', 32);
+                $table->boolean('active')->default(true);
+                $table->timestamps();
+                $table->unique(['transport_customer_id', 'user_id'], 'tcp_users_customer_user_unique');
+            });
+        }
+
+        if (! $schema->hasTable('transport_passenger_guardians')) {
+            $schema->create('transport_passenger_guardians', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('company_id')->index();
+                $table->unsignedBigInteger('transport_passenger_id')->index();
+                $table->unsignedBigInteger('user_id')->index();
+                $table->timestamps();
+                $table->unique(['transport_passenger_id', 'user_id'], 'tp_guardians_passenger_user_unique');
+            });
+        }
+
+        if (! $schema->hasTable('transport_passenger_absences')) {
+            $schema->create('transport_passenger_absences', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('company_id')->index();
+                $table->unsignedBigInteger('transport_passenger_id')->index();
+                $table->date('absence_date')->index();
+                $table->string('reason', 500)->nullable();
+                $table->unsignedBigInteger('created_by_user_id')->nullable()->index();
+                $table->timestamp('cancelled_at')->nullable();
+                $table->timestamps();
+                $table->unique(['transport_passenger_id', 'absence_date'], 'tp_absences_passenger_date_unique');
+            });
+        }
+
+        if (! $schema->hasTable('transport_announcements')) {
+            $schema->create('transport_announcements', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('company_id')->index();
+                $table->unsignedBigInteger('transport_customer_id')->index();
+                $table->string('title', 200);
+                $table->text('body')->nullable();
+                $table->string('severity', 16)->default('info');
+                $table->timestamp('starts_at')->nullable()->index();
+                $table->timestamp('ends_at')->nullable()->index();
+                $table->boolean('is_active')->default(true)->index();
+                $table->timestamps();
+            });
+        }
     }
 
     public function ensureRideRequestContractColumns(?string $connection = null): void

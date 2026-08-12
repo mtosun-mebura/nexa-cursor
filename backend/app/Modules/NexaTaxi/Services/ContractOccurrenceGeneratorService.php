@@ -203,6 +203,17 @@ class ContractOccurrenceGeneratorService
      */
     public function schedulePayloadForRide(string $conn, RideRequest $ride): array
     {
+        $hasSkippedPickup = RideStop::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
+            ->where('status', RideStop::STATUS_SKIPPED)
+            ->exists();
+
+        // Na afmelding: gebruik de herberekende rit-stops i.p.v. de vaste weektemplate.
+        if ($hasSkippedPickup) {
+            return $this->schedulePayloadFromRideStops($conn, $ride);
+        }
+
         $context = $this->resolveOccurrenceTemplateContext($conn, $ride);
 
         if (! $context) {
@@ -238,17 +249,22 @@ class ContractOccurrenceGeneratorService
 
     public function plannedAtForRideStop(string $conn, RideStop $stop): ?Carbon
     {
+        // RideStop.planned_at is de dag-instantie (incl. herberekende tijden na afmelding).
+        if ($stop->planned_at) {
+            return $stop->planned_at;
+        }
+
         $ride = RideRequest::on($conn)->find($stop->ride_request_id);
         $context = $this->resolveOccurrenceTemplateContext($conn, $ride);
 
         if (! $context) {
-            return $stop->planned_at;
+            return null;
         }
 
         $templateStop = $context['template']->stops->firstWhere('sequence', $stop->sequence);
 
         if (! $templateStop) {
-            return $stop->planned_at;
+            return null;
         }
 
         return ContractTransportTimezone::parseLocalDateTime(
@@ -277,7 +293,10 @@ class ContractOccurrenceGeneratorService
         }
 
         $destination = $stops->firstWhere('stop_type', TransportRouteStop::STOP_TYPE_DESTINATION);
-        $firstPickup = $stops->firstWhere('stop_type', TransportRouteStop::STOP_TYPE_PICKUP);
+        $firstPickup = $stops
+            ->where('stop_type', TransportRouteStop::STOP_TYPE_PICKUP)
+            ->first(fn (RideStop $stop) => $stop->status !== RideStop::STATUS_SKIPPED)
+            ?? $stops->firstWhere('stop_type', TransportRouteStop::STOP_TYPE_PICKUP);
 
         return [
             'departure_at' => ContractTransportTimezone::toDriverIso8601($ride->pickup_at),
@@ -711,6 +730,9 @@ class ContractOccurrenceGeneratorService
                 'status' => 'planned',
             ]);
         }
+
+        app(TransportPassengerAbsenceService::class)
+            ->applyAbsencesToNewGroupRide($conn, $ride->fresh(), $date->toDateString());
 
         return $occurrence;
     }

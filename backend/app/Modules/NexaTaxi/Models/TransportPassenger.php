@@ -32,6 +32,11 @@ class TransportPassenger extends Model
         return trim($this->first_name.' '.$this->last_name);
     }
 
+    public function contract()
+    {
+        return $this->belongsTo(TransportContract::class, 'transport_contract_id');
+    }
+
     public function groupMemberships()
     {
         return $this->hasMany(TransportGroupMember::class, 'transport_passenger_id');

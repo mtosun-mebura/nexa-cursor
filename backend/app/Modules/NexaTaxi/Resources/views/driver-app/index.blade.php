@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl" class="h-full">
+<html lang="nl" class="h-full" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -8,11 +8,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     <link rel="manifest" href="{{ route('taxi.chauffeur.manifest') }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
     <title>Chauffeur – Nexa Taxi</title>
+    @include('taxi::partials.pwa-theme', ['section' => 'styles'])
     <style>
         :root {
             --bg: #0f172a;
@@ -95,6 +97,7 @@
         .dispatch-top {
             flex: 0 0 auto;
             padding: calc(0.75rem + var(--safe-top)) 1rem 0;
+            padding-right: calc(1rem + 3rem);
         }
         .dispatch-banners {
             display: flex;
@@ -208,12 +211,11 @@
             font-size: 1rem;
             padding: 0.75rem 1rem;
             border-radius: 0.75rem;
-            border: 1px solid rgba(255,255,255,0.15);
-            background: var(--card);
+            border: 1px solid var(--nexa-pwa-input-border, rgba(255,255,255,0.15));
+            background: var(--nexa-pwa-input-bg, var(--card));
             color: var(--text);
             margin: 0.35rem 0 1rem;
             min-height: 3rem;
-            color-scheme: dark;
         }
         #invoice-panel .invoice-field-input:focus,
         .driver-field-input:focus {
@@ -462,15 +464,15 @@
             border-radius: 1rem;
             padding: 1rem;
             margin-bottom: 1rem;
-            border: 1px solid rgba(255,255,255,0.06);
+            border: 1px solid var(--nexa-pwa-border, rgba(255,255,255,0.06));
         }
         label { display: block; font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.35rem; }
         input[type="email"], input[type="password"], #login-form input[type="text"] {
             width: 100%;
             padding: 0.85rem 1rem;
             border-radius: 0.75rem;
-            border: 1px solid rgba(255,255,255,0.12);
-            background: #0b1220;
+            border: 1px solid var(--nexa-pwa-input-border, rgba(255,255,255,0.12));
+            background: var(--nexa-pwa-input-bg, #0b1220);
             color: var(--text);
             font-size: 1rem;
             margin-bottom: 0.75rem;
@@ -493,7 +495,7 @@
         .btn-accept { background: #ea580c; color: #fff; }
         .btn-accept:hover { background: #c2410c; }
         .btn-danger { background: var(--red); color: #fff; }
-        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid rgba(255,255,255,0.15); }
+        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--nexa-pwa-border, rgba(255,255,255,0.15)); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn.is-loading {
             pointer-events: none;
@@ -1258,9 +1260,24 @@
             color: #bbf7d0;
         }
         .switch:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        html[data-theme="light"] .banner-ios-awake {
+            background: rgba(234, 179, 8, 0.14);
+            border-color: rgba(202, 138, 4, 0.35);
+            color: #854d0e;
+        }
+        html[data-theme="light"] .error {
+            color: #b91c1c;
+        }
+        html[data-theme="light"] .scheduled-ride-card,
+        html[data-theme="light"] .offer-card,
+        html[data-theme="light"] .ride-card {
+            border-color: var(--nexa-pwa-border);
+        }
     </style>
 </head>
 <body>
+@include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
     <div id="install-app-hint" class="banner-install-app" hidden role="note">
         <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
@@ -1299,6 +1316,10 @@
                     <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-hint" aria-label="Melding sluiten">×</button>
                     <span id="notifications-hint-text">Voor een geluid en melding op je telefoon bij nieuwe ritten: sta meldingen toe voor deze app.</span>
                     <button type="button" class="btn-inline" id="btn-enable-notifications">Meldingen inschakelen</button>
+                </div>
+                <div id="absence-alert-banner" class="banner-ios-awake" hidden role="alert">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-absence-alert" aria-label="Melding sluiten">×</button>
+                    <span id="absence-alert-text"></span>
                 </div>
                 <p id="notifications-feedback" hidden role="status" aria-live="polite">
                     <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
@@ -1536,7 +1557,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=80" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=82" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

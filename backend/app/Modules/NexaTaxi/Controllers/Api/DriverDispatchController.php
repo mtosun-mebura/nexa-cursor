@@ -16,6 +16,7 @@ use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class DriverDispatchController extends Controller
@@ -132,6 +133,8 @@ class DriverDispatchController extends Controller
             ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
             ->values();
 
+        $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
+
         return response()->json([
             'data' => [
                 'offers' => $offers->map(
@@ -164,6 +167,7 @@ class DriverDispatchController extends Controller
                         return TaxiDispatchOfferResource::fromOffer($offer, $ride, $isOverdue);
                     })
                     ->values(),
+                'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
             ],
             'meta' => array_merge(
                 [

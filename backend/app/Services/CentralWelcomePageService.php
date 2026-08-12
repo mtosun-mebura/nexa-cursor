@@ -71,17 +71,17 @@ class CentralWelcomePageService
 
         $sections['hero']['title'] = 'Welkom bij NEXA';
         $sections['hero']['title_highlight'] = 'NEXA';
-        $sections['hero']['subtitle'] = 'Het modulaire SaaS-platform dat meegroeit met uw bedrijf. Kies de modules die u nodig heeft en ga direct aan de slag.';
-        $sections['hero']['cta_primary_text'] = 'Bekijk modules';
+        $sections['hero']['subtitle'] = 'Het SaaS-platform voor taxi- en vervoersbedrijven: online boekingen, chauffeur-app, contractvervoer én uw eigen website — modulair en multi-tenant.';
+        $sections['hero']['cta_primary_text'] = 'Bekijk Nexa Taxi';
         $sections['hero']['cta_primary_url'] = '#modules-overview';
         $sections['hero']['cta_secondary_text'] = 'Naar admin';
         $sections['hero']['cta_secondary_url'] = '/admin/login';
 
         $sections['why_nexa']['title'] = 'Waarom NEXA?';
-        $sections['why_nexa']['subtitle'] = 'Modulair, multi-tenant, white-label en veilig. NEXA groeit mee met uw bedrijf.';
+        $sections['why_nexa']['subtitle'] = 'Start met taxi, schaal met contractvervoer en website. Modulair, white-label en veilig — één platform dat meegroeit.';
 
         $sections['cta']['title'] = 'Klaar om te starten?';
-        $sections['cta']['subtitle'] = 'Log in op het admin-paneel om modules te installeren, bedrijven aan te maken en uw platform in te richten.';
+        $sections['cta']['subtitle'] = 'Log in op het admin-paneel om Nexa Taxi te activeren, bedrijven aan te maken en uw tenant in te richten.';
         $sections['cta']['cta_primary_text'] = 'Naar Admin';
         $sections['cta']['cta_primary_url'] = '/admin/login';
         $sections['cta']['cta_secondary_text'] = 'Bekijk modules';
@@ -95,9 +95,17 @@ class CentralWelcomePageService
         ];
         $sections['component:website.nexa_modules_overview'] = [
             'eyebrow' => 'Onze modules',
-            'title' => 'Alles wat uw bedrijf nodig heeft',
-            'subtitle' => 'Elke module werkt standalone of in combinatie. Installeer alleen wat u nodig heeft.',
+            'title' => 'Taxi eerst — de rest groeit mee',
+            'subtitle' => 'Elke module werkt standalone of in combinatie. Begin met vervoer; voeg recruitment of garage toe wanneer u klaar bent.',
             'items' => [
+                [
+                    'name' => 'NEXA Taxi',
+                    'description' => 'Online boekingen, chauffeur-app, planning, facturatie én contractvervoer (school/zorg) in één suite voor taxi- en vervoersbedrijven.',
+                    'features' => ['Website-boekingsmodule en ritbeheer', 'Chauffeur-app met accept/decline', 'Contractportaal voor ouders en vaste routes'],
+                    'badge' => 'Beschikbaar',
+                    'badge_variant' => 'available',
+                    'icon' => 'truck',
+                ],
                 [
                     'name' => 'NEXA Skillmatching',
                     'description' => 'AI-gestuurde vacature-matching, kandidaatbeheer en sollicitatieflow. Van publicatie tot plaatsing in een gestroomlijnd proces.',
@@ -105,14 +113,6 @@ class CentralWelcomePageService
                     'badge' => 'Beschikbaar',
                     'badge_variant' => 'available',
                     'icon' => 'user-group',
-                ],
-                [
-                    'name' => 'NEXA Taxi',
-                    'description' => 'Compleet ritbeheer voor taxi- en vervoersbedrijven. Van boeking tot facturatie, met voertuig- en tarievenbeheer.',
-                    'features' => ['Voertuigbeheer met foto\'s en kenmerken', 'Ritaanvragen en boekingen', 'Flexibele tarieven per voertuigtype'],
-                    'badge' => 'Beschikbaar',
-                    'badge_variant' => 'available',
-                    'icon' => 'truck',
                 ],
                 [
                     'name' => 'NEXA Garage',

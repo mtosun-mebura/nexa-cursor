@@ -28,6 +28,7 @@ class WebsitePageController extends Controller
         'about', 'contact', 'home', 'login', 'register', 'logout',
         'jobs', 'dashboard', 'profile', 'matches', 'agenda', 'help', 'privacy', 'terms',
         'vacature-matching', 'favorites', 'verify-email', 'admin', 'storage', 'file',
+        'marketing',
         'demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7', 'demo8', 'demo9', 'demo10',
         \App\Models\WebsitePage::CENTRAL_WELCOME_SLUG,
     ];

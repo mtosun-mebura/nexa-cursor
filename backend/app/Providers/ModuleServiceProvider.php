@@ -79,6 +79,14 @@ class ModuleServiceProvider extends ServiceProvider
                 ->name('taxi.chauffeur.')
                 ->group($routesPath . '/driver-web.php');
         }
+
+        // Contractportaal PWA (ouders / schoolcontact)
+        if (file_exists($routesPath . '/contract-web.php')) {
+            Route::middleware(['web'])
+                ->prefix('taxi/contract')
+                ->name('taxi.contract.')
+                ->group($routesPath . '/contract-web.php');
+        }
     }
 
     protected function registerModuleViews($module): void

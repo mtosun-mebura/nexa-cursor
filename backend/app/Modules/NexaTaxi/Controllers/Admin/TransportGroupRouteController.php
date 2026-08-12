@@ -219,9 +219,15 @@ class TransportGroupRouteController extends Controller
 
         $template->update(['route_locked' => ! $template->route_locked]);
 
+        if ($template->route_locked) {
+            $this->occurrenceGenerator->generateForRouteTemplate($context['conn'], (int) $template->id);
+        }
+
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', $template->route_locked ? 'Route vastgezet.' : 'Route ontgrendeld.');
+            ->with('success', $template->route_locked
+                ? 'Route vastgezet. Planning voor de komende 14 dagen is bijgewerkt.'
+                : 'Route ontgrendeld.');
     }
 
     public function updateAssignment(Request $request, int $customerId, int $contractId, int $groupId)
