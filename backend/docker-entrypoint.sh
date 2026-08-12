@@ -74,6 +74,9 @@ if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force || true
 fi
 
+echo "Start Laravel scheduler (schedule:work) op de achtergrond..."
+php artisan schedule:work >> storage/logs/scheduler.log 2>&1 &
+
 echo "Start Laravel op 0.0.0.0:8000 (workers: ${PHP_CLI_SERVER_WORKERS})"
 # --no-reload is verplicht voor PHP_CLI_SERVER_WORKERS: zonder vlag forceert Laravel 1 worker (hot-reload).
 # Met meerdere workers kan n8n terugbellen naar /integrations/n8n/ai-chat/live-query terwijl de

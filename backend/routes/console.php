@@ -43,7 +43,7 @@ Artisan::command('taxi:resync-contract-schedule-times', function () {
     $this->info("Contractrittijden gesynchroniseerd voor {$updated} ritten.");
 })->purpose('Corrigeer geplande tijden van bestaande contract-groepsritten (Europe/Amsterdam)');
 
-Schedule::job(new GenerateContractOccurrencesJob)
+Schedule::command('taxi:generate-contract-occurrences --days=14')
     ->dailyAt('04:00')
     ->name('taxi-generate-contract-occurrences')
     ->withoutOverlapping();

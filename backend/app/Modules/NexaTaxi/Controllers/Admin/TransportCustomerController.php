@@ -4,14 +4,19 @@ namespace App\Modules\NexaTaxi\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
+use App\Modules\NexaTaxi\Models\TransportAnnouncement;
 use App\Modules\NexaTaxi\Models\TransportContract;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
+use App\Modules\NexaTaxi\Models\TransportCustomerPortalUser;
 use App\Modules\NexaTaxi\Models\TransportPaymentMandate;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
+use App\Modules\NexaTaxi\Models\TransportPassengerGuardian;
 use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Services\ContractInvoiceService;
+use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
+use App\Models\User;
 use App\Rules\ValidIban;
 use Illuminate\Http\Request;
 
@@ -78,13 +83,65 @@ class TransportCustomerController extends Controller
         $this->authorizeOrPermission('rides.view');
 
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureContractPortalTables($conn);
+
         $customer = TransportCustomer::on($conn)->findOrFail($id);
         $contracts = TransportContract::on($conn)
             ->where('transport_customer_id', $customer->id)
             ->orderBy('start_date', 'desc')
             ->get();
 
-        return view('taxi::admin.transport_customers.show', compact('customer', 'contracts'));
+        $portalUsers = TransportCustomerPortalUser::on($conn)
+            ->where('transport_customer_id', $customer->id)
+            ->orderByDesc('id')
+            ->get();
+
+        $portalUserModels = User::query()
+            ->whereIn('id', $portalUsers->pluck('user_id'))
+            ->get()
+            ->keyBy('id');
+
+        $passengers = TransportPassenger::on($conn)
+            ->where('company_id', $customer->company_id)
+            ->where('active', true)
+            ->whereHas('contract', fn ($q) => $q->where('transport_customer_id', $customer->id))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        $guardianMap = TransportPassengerGuardian::on($conn)
+            ->whereIn('user_id', $portalUsers->pluck('user_id'))
+            ->whereIn('transport_passenger_id', $passengers->pluck('id'))
+            ->get()
+            ->groupBy(fn ($row) => (int) $row->user_id)
+            ->map(fn ($rows) => $rows->pluck('transport_passenger_id')->map(fn ($pid) => (int) $pid)->values()->all());
+
+        $linkedUserIds = $portalUsers->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+        $tenantUsers = User::query()
+            ->where('company_id', (int) $customer->company_id)
+            ->when($linkedUserIds !== [], fn ($q) => $q->whereNotIn('id', $linkedUserIds))
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->orderBy('email')
+            ->get(['id', 'first_name', 'last_name', 'email']);
+
+        $announcements = TransportAnnouncement::on($conn)
+            ->where('transport_customer_id', $customer->id)
+            ->orderByDesc('is_active')
+            ->orderByDesc('starts_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return view('taxi::admin.transport_customers.show', compact(
+            'customer',
+            'contracts',
+            'portalUsers',
+            'portalUserModels',
+            'passengers',
+            'guardianMap',
+            'tenantUsers',
+            'announcements'
+        ));
     }
 
     public function edit(int $id)

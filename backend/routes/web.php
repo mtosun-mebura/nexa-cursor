@@ -805,6 +805,19 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
 
 Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
 
+// Interne marketing / sales preview (centraal host: localhost, nexasuite.nl)
+// Let op: geen public/marketing/ map — die botst met php artisan serve / static files.
+Route::get('/marketing', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'index'])
+    ->name('marketing.index');
+Route::get('/marketing/{page}', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'show'])
+    ->where('page', 'strategie|taxi|contractvervoer|skillmatching|website|website-copy')
+    ->name('marketing.show');
+
+// Preview van de 404-pagina (geen echte 404-status, zodat je de UI kunt beoordelen)
+Route::get('/test-404', function () {
+    return response()->view('errors.404', [], 200);
+})->name('test-404');
+
 // Website media: encrypted afbeeldingen (decrypt on serve, publiek voor frontend)
 Route::get('website-media/{uuid}', [App\Http\Controllers\WebsiteMediaController::class, 'serve'])->name('website-media.serve')->where('uuid', '[\w\-]+');
 

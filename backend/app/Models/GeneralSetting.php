@@ -134,7 +134,10 @@ class GeneralSetting extends Model
                     $st = session('selected_tenant');
                     if ($st !== null && $st !== '' && is_numeric($st)) {
                         $id = (int) $st;
-                        self::$resolvedScopeCompanyId = Company::query()->whereKey($id)->exists() ? $id : null;
+                        // Geen Class::alias: bij ontbrekende/autoload-fout van Company anders 500 op elke admin-POST.
+                        $companyExists = class_exists(Company::class)
+                            && Company::query()->whereKey($id)->exists();
+                        self::$resolvedScopeCompanyId = $companyExists ? $id : null;
 
                         return self::$resolvedScopeCompanyId;
                     }

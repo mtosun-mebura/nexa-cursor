@@ -83,6 +83,19 @@
             .replace(/"/g, '&quot;');
     }
 
+    function showAbsenceAlert(alert) {
+        const banner = $('#absence-alert-banner');
+        const textEl = $('#absence-alert-text');
+        if (!banner || !textEl) {
+            return;
+        }
+        if (!alert || !alert.message) {
+            return;
+        }
+        textEl.textContent = alert.message;
+        banner.hidden = false;
+    }
+
     function setButtonLoading(btn, loading, loadingLabel) {
         if (!btn) {
             return;
@@ -4350,6 +4363,23 @@
             }
             const active = res.data && res.data.active_ride;
             const scheduled = (res.data && res.data.scheduled_rides) || [];
+            const absenceAlert = res.data && res.data.absence_alert;
+            showAbsenceAlert(absenceAlert);
+            if (
+                absenceAlert &&
+                currentActiveRide &&
+                currentActiveRide.ride_type === 'contract_group' &&
+                isDriverInProgressRide(currentActiveRide)
+            ) {
+                try {
+                    await fetchRideStops(currentActiveRide.id);
+                    renderActiveRide(currentActiveRide);
+                    syncCompleteRideButton(currentActiveRide);
+                    syncStopGeofenceWatch(currentActiveRide);
+                } catch (e) {
+                    /* best-effort */
+                }
+            }
             const visibleScheduled = prepareScheduledRidesForInbox(scheduled);
             mainInboxRideCount = offers.length + visibleScheduled.length;
             updateDeclinedNavButton();
@@ -5737,6 +5767,18 @@
             ev.preventDefault();
             ev.stopPropagation();
             dismissNotificationsHint();
+        });
+    }
+
+    const btnDismissAbsenceAlert = $('#btn-dismiss-absence-alert');
+    if (btnDismissAbsenceAlert) {
+        btnDismissAbsenceAlert.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const banner = $('#absence-alert-banner');
+            if (banner) {
+                banner.hidden = true;
+            }
         });
     }
 

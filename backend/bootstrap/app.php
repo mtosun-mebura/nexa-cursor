@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.host' => \App\Http\Middleware\ResolveTenantFromHost::class,
             'tenant.domain.user' => \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,
             'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
+            'taxi.contract' => \App\Http\Middleware\EnsureTaxiContractPortal::class,
             'skillmatching.portal' => \App\Http\Middleware\EnsureSkillmatchingModule::class,
             'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
             'taxi.portal.password' => \App\Http\Middleware\EnsureTaxiKlantPasswordIsSet::class,
