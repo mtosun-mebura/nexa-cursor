@@ -93,13 +93,32 @@ class ContractPortalAuthController extends Controller
 
         return [
             'id' => $user->id,
+            'first_name' => trim((string) ($user->first_name ?? '')) ?: null,
+            'last_name' => trim((string) ($user->last_name ?? '')) ?: null,
             'name' => trim($user->first_name.' '.$user->last_name) ?: $user->email,
             'email' => $user->email,
+            'phone' => trim((string) ($user->phone ?? '')) ?: null,
             'company_id' => (int) ($context['company_id'] ?? 0),
+            'company_name' => $this->resolveCompanyName((int) ($context['company_id'] ?? 0), $user),
             'transport_customer_id' => (int) ($context['transport_customer_id'] ?? 0),
             'portal_role' => $role,
             'portal_role_label' => $roleLabel,
             'is_contractant' => $role === TransportCustomerPortalUser::ROLE_CONTRACTANT,
         ];
+    }
+
+    private function resolveCompanyName(int $companyId, User $user): ?string
+    {
+        if ($companyId <= 0) {
+            return null;
+        }
+        if ((int) ($user->company_id ?? 0) === $companyId && $user->company) {
+            $name = trim((string) ($user->company->name ?? ''));
+
+            return $name !== '' ? $name : null;
+        }
+        $raw = \App\Models\Company::query()->whereKey($companyId)->value('name');
+
+        return is_string($raw) && trim($raw) !== '' ? trim($raw) : null;
     }
 }

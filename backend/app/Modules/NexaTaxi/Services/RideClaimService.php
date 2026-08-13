@@ -34,17 +34,15 @@ class RideClaimService
             if (! in_array($offer->status, [
                 RideDispatchOffer::STATUS_PENDING,
                 RideDispatchOffer::STATUS_DECLINED,
+                RideDispatchOffer::STATUS_EXPIRED,
             ], true)) {
                 throw ValidationException::withMessages([
                     'offer' => ['Dit aanbod is verlopen of niet meer geldig.'],
                 ]);
             }
 
-            if ($this->driverHasBlockingAssignedRide($conn, (int) $driver->id)) {
-                throw ValidationException::withMessages([
-                    'offer' => ['Rond eerst je lopende rit af voordat je een nieuwe rit accepteert.'],
-                ]);
-            }
+            // Accepteren mag tijdens een lopende rit (komt als geplande/geaccepteerde rit).
+            // Starten van een tweede toegewezen rit blijft geblokkeerd in startRide().
 
             $ride = RideRequest::on($conn)->whereKey($offer->ride_request_id)->lockForUpdate()->first();
             if (! $ride) {
@@ -69,6 +67,16 @@ class RideClaimService
             }
 
             $now = now();
+            $requiresNewPickup = in_array($offer->status, [
+                RideDispatchOffer::STATUS_DECLINED,
+                RideDispatchOffer::STATUS_EXPIRED,
+            ], true) && app(TaxiDispatchSettingsService::class)->offerPickupIsPast($ride);
+
+            if ($requiresNewPickup && ($pickupAt === null || trim($pickupAt) === '')) {
+                throw ValidationException::withMessages([
+                    'pickup_at' => ['Kies een nieuw ophaalmoment in de toekomst.'],
+                ]);
+            }
 
             RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $ride->id)
@@ -90,14 +98,17 @@ class RideClaimService
                 'company_id' => $ride->company_id ?: $offer->company_id,
             ];
 
+            // Nieuw ophaalmoment gaat via rit_ophaal_voorstel (klant moet bevestigen),
+            // niet direct als pickup_at.
+            $proposePickupAt = null;
             if ($pickupAt !== null && trim($pickupAt) !== '') {
-                $newPickupAt = Carbon::parse($pickupAt);
-                if ($newPickupAt->lte(now())) {
+                $instant = Carbon::parse($pickupAt);
+                if ($instant->lte($now)) {
                     throw ValidationException::withMessages([
                         'pickup_at' => ['Kies een ophaalmoment in de toekomst.'],
                     ]);
                 }
-                $rideUpdates['pickup_at'] = $newPickupAt;
+                $proposePickupAt = trim($pickupAt);
             }
 
             $ride->update($rideUpdates);
@@ -108,13 +119,33 @@ class RideClaimService
             return [
                 'ride' => $freshRide,
                 'offer' => $freshOffer,
+                'propose_pickup_at' => $proposePickupAt,
+                'force_customer_notify' => $requiresNewPickup && $proposePickupAt === null,
             ];
         });
 
-        if (! empty($result['ride'])) {
+        $pickupProposed = false;
+        if (! empty($result['propose_pickup_at']) && ! empty($result['ride'])) {
+            TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+            $result['ride'] = app(TaxiPickupProposalService::class)->proposeNewPickup(
+                $conn,
+                $driver,
+                (int) $result['ride']->id,
+                (string) $result['propose_pickup_at']
+            );
+            $pickupProposed = true;
+        } elseif (! empty($result['ride'])) {
             app(TaxiCustomerRideAcceptedNotificationService::class)
-                ->notifyAfterRideAssigned($conn, $result['ride'], $driver);
+                ->notifyAfterRideAssigned(
+                    $conn,
+                    $result['ride'],
+                    $driver,
+                    ['force' => ! empty($result['force_customer_notify'])]
+                );
         }
+
+        $result['pickup_proposed'] = $pickupProposed;
+        $result['pickup_changed'] = $pickupProposed;
 
         return $result;
     }
@@ -139,6 +170,21 @@ class RideClaimService
                 throw ValidationException::withMessages([
                     'ride' => ['Deze rit kan niet worden gestart.'],
                 ]);
+            }
+
+            if (! $ride->isContractRide()) {
+                TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+                $ride->refresh();
+                $dispatchSettings = app(TaxiDispatchSettingsService::class);
+                $isOverdue = $dispatchSettings->scheduledRideIsOverdue(
+                    $ride,
+                    (int) ($ride->company_id ?? 0) > 0 ? (int) $ride->company_id : null
+                );
+                if ($isOverdue && $ride->pickup_proposal_status !== RideRequest::PICKUP_PROPOSAL_ACCEPTED) {
+                    throw ValidationException::withMessages([
+                        'ride' => ['Het ophaalmoment is verlopen. Stel eerst een nieuw tijdstip voor aan de klant en wacht op acceptatie.'],
+                    ]);
+                }
             }
 
             if ($ride->isContractRide()) {

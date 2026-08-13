@@ -32,7 +32,7 @@ class TaxiCustomerRideAcceptedNotificationService
         protected CompanyEmailLogoService $companyLogos
     ) {}
 
-    public function notifyAfterRideAssigned(string $conn, RideRequest $ride, User $driver): void
+    public function notifyAfterRideAssigned(string $conn, RideRequest $ride, User $driver, array $options = []): void
     {
         if ($ride->exists) {
             $ride = $ride->fresh() ?? $ride;
@@ -41,6 +41,7 @@ class TaxiCustomerRideAcceptedNotificationService
             return;
         }
 
+        $force = ! empty($options['force']);
         $companyId = (int) ($ride->company_id ?? 0);
         if (! $this->dispatchSettings->customerAcceptNotificationEnabled($companyId > 0 ? $companyId : null)) {
             return;
@@ -51,17 +52,17 @@ class TaxiCustomerRideAcceptedNotificationService
         $rideId = (int) $ride->id;
 
         if ($this->dispatchSettings->customerAcceptEmailEnabled($companyId > 0 ? $companyId : null)
-            && ! $this->channelAlreadySent($conn, $rideId, RideRequestNotificationLog::CHANNEL_EMAIL)) {
+            && ($force || ! $this->channelAlreadySent($conn, $rideId, RideRequestNotificationLog::CHANNEL_EMAIL))) {
             $this->sendCustomerEmail($conn, $ride, $companyId, $variables);
         }
 
         if ($this->dispatchSettings->customerAcceptWhatsappEnabled($companyId > 0 ? $companyId : null)
-            && ! $this->channelAlreadySent($conn, $rideId, RideRequestNotificationLog::CHANNEL_WHATSAPP)) {
-            $this->sendCustomerWhatsapp($conn, $ride, $companyId, $variables);
+            && ($force || ! $this->channelAlreadySent($conn, $rideId, RideRequestNotificationLog::CHANNEL_WHATSAPP))) {
+            $this->sendCustomerWhatsapp($conn, $ride, $companyId, $variables, $force);
         }
 
         if ($this->dispatchSettings->customerAcceptSmsEnabled($companyId > 0 ? $companyId : null)
-            && ! $this->channelAlreadySent($conn, $rideId, RideRequestNotificationLog::CHANNEL_SMS)) {
+            && ($force || ! $this->channelAlreadySent($conn, $rideId, RideRequestNotificationLog::CHANNEL_SMS))) {
             $this->sendCustomerSms($conn, $ride, $companyId, $variables);
         }
     }
@@ -96,8 +97,9 @@ class TaxiCustomerRideAcceptedNotificationService
         }
 
         $pickupAt = $ride->pickup_at
-            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+            ? \App\Modules\NexaTaxi\Support\ContractTransportTimezone::asAmsterdamWall($ride->pickup_at)?->format('d-m-Y H:i')
             : '—';
+        $pickupAt = $pickupAt ?: '—';
 
         $companyName = (string) ($settings->company_name ?? $company?->name ?? '');
         $companyPhone = (string) ($settings->company_phone ?? $company?->phone ?? '');
@@ -355,7 +357,13 @@ class TaxiCustomerRideAcceptedNotificationService
     /**
      * @param  array<string, string>  $variables
      */
-    protected function sendCustomerWhatsapp(string $conn, RideRequest $ride, int $companyId, array $variables): void
+    protected function sendCustomerWhatsapp(
+        string $conn,
+        RideRequest $ride,
+        int $companyId,
+        array $variables,
+        bool $force = false
+    ): void
     {
         $rideId = (int) $ride->id;
         $phone = trim((string) ($ride->customer_phone ?? ''));
@@ -392,6 +400,17 @@ class TaxiCustomerRideAcceptedNotificationService
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
 
         if (app(WhatsAppBookingMessageComposer::class)->statusTemplateName() !== '') {
+            // Na eerdere afwijzing / nieuw ophaalmoment: forceer status-update zodat klant
+            // weer een rit_status_update (accepted) met actuele tijd krijgt.
+            $hadDeclineNotice = RideRequestNotificationLog::on($conn)
+                ->where('ride_request_id', $rideId)
+                ->where('channel', RideRequestNotificationLog::CHANNEL_WHATSAPP)
+                ->where(function ($q) {
+                    $q->where('detail', 'like', '%decline%')
+                        ->orWhere('detail', 'like', '%:declined%');
+                })
+                ->exists();
+
             $ok = app(TaxiCustomerRideStatusNotificationService::class)->notify(
                 $conn,
                 $ride,
@@ -399,7 +418,8 @@ class TaxiCustomerRideAcceptedNotificationService
                 [
                     'driver_name' => $variables['DRIVER_NAME'] ?? null,
                     'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
-                ]
+                ],
+                force: $force || $hadDeclineNotice
             );
             $this->logCustomer(
                 $conn,

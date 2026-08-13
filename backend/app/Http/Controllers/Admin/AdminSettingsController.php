@@ -964,6 +964,8 @@ class AdminSettingsController extends Controller
             'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => 'nullable|string|max:12',
             'WHATSAPP_RIDE_STATUS_EVENTS' => 'nullable|array',
             'WHATSAPP_RIDE_STATUS_EVENTS.*' => 'string|max:64',
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE' => 'nullable|string|max:120',
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG' => 'nullable|string|max:12',
         ]);
 
         if ($validator->fails()) {
@@ -1011,6 +1013,8 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_RIDE_STATUS_EVENTS' => $this->normalizeWhatsappRideStatusEvents(
                     $request->input('WHATSAPP_RIDE_STATUS_EVENTS', [])
                 ),
+                'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE' => trim((string) $request->input('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE', '')),
+                'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG', 'nl')) ?: 'nl',
             ];
 
             foreach ($platformSettings as $key => $value) {
@@ -1372,12 +1376,15 @@ class AdminSettingsController extends Controller
             'WHATSAPP_RIDE_STATUS_TEMPLATE' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE', ''),
             'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE_LANG', 'nl'),
             'WHATSAPP_RIDE_STATUS_EVENTS' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE' => $this->envService->get('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE', ''),
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG', 'nl'),
         ];
 
         $whatsappBookingMetaBodies = [
             'customer' => WhatsAppBookingMessageComposer::META_BODY_CUSTOMER,
             'dispatch' => WhatsAppBookingMessageComposer::META_BODY_DISPATCH,
             'status' => WhatsAppBookingMessageComposer::META_BODY_STATUS,
+            'pickup_proposal' => WhatsAppBookingMessageComposer::META_BODY_PICKUP_PROPOSAL,
         ];
         $whatsappBookingDetailFieldOptions = WhatsAppBookingMessageComposer::availableDetailFields();
         $whatsappRideStatusEventOptions = WhatsAppBookingMessageComposer::statusEventLabels();
@@ -1388,6 +1395,8 @@ class AdminSettingsController extends Controller
                 WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
                 $whatsappPlatformSettings['WHATSAPP_BOOKING_DETAIL_FIELDS']
             );
+        $whatsappPickupProposalSamplePreview = app(WhatsAppBookingMessageComposer::class)
+            ->samplePickupProposalPreview();
 
         $whatsappConnectionStatus = null;
         if (session()->has('whatsapp_connection_test') && is_array(session('whatsapp_connection_test'))) {
@@ -1401,7 +1410,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
     }
 
     /**

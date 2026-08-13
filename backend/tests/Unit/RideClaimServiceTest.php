@@ -362,7 +362,11 @@ class RideClaimServiceTest extends TestCase
         );
 
         $this->assertSame(RideRequest::STATUS_ACCEPTED, $result['ride']->status);
-        $this->assertTrue($result['ride']->pickup_at->equalTo($newPickup));
+        $this->assertTrue(! empty($result['pickup_proposed']));
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $result['ride']->pickup_proposal_status);
+        $this->assertNotNull($result['ride']->pickup_proposal_at);
+        // Oude pickup_at blijft tot de klant via WhatsApp (rit_ophaal_voorstel) accepteert.
+        $this->assertTrue($result['ride']->pickup_at->lt($newPickup));
     }
 
     public function test_accept_declined_overdue_ride_keeps_pickup_at_without_change(): void

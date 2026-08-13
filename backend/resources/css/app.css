@@ -1390,16 +1390,16 @@
   [data-nexataxi-booking-module] {
     --spacing: 0.25rem;
     --input: rgb(226 232 240);
-    --primary: #f97316;
+    --primary: #22c55e;
     --background: #ffffff;
-    --ring: #f97316;
+    --ring: #22c55e;
     --color-white: #ffffff;
   }
   .dark [data-nexataxi-booking-module] {
     --input: rgb(51 65 85 / 0.9);
-    --primary: #ea580c;
+    --primary: #22c55e;
     --background: #0f172a;
-    --ring: #fb923c;
+    --ring: #4ade80;
   }
 
   [data-nexataxi-booking-module] .kt-switch {

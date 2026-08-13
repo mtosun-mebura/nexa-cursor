@@ -95,10 +95,14 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertSame('Sara Jansen', $composed['template_params'][0]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][1]);
         $this->assertSame('Rit gestart — chauffeur onderweg', $composed['template_params'][2]);
-        $this->assertStringContainsString('Chauffeur: Piet', $composed['template_params'][3]);
-        $this->assertStringContainsString('Ophalen: Dam 1, Amsterdam', $composed['template_params'][3]);
-        $this->assertStringContainsString('statusupdate over uw taxirit bij Taxi Royaal', $composed['preview']);
-        $this->assertStringContainsString('Huidige status: Rit gestart — chauffeur onderweg', $composed['preview']);
+        $this->assertSame('—', $composed['template_params'][3]);
+        $this->assertSame('Piet', $composed['template_params'][4]);
+        $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][6]);
+        $this->assertCount(7, $composed['template_params']);
+        $this->assertStringContainsString('reactie op uw taxirit bij Taxi Royaal', $composed['preview']);
+        $this->assertStringContainsString('Status: Rit gestart — chauffeur onderweg.', $composed['preview']);
+        $this->assertStringContainsString('Chauffeur: Piet', $composed['preview']);
+        $this->assertStringContainsString('Ophaaladres: Dam 1, Amsterdam', $composed['preview']);
     }
 
     #[Test]

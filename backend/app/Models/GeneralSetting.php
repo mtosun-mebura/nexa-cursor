@@ -38,6 +38,8 @@ class GeneralSetting extends Model
         'WHATSAPP_RIDE_STATUS_TEMPLATE',
         'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG',
         'WHATSAPP_RIDE_STATUS_EVENTS',
+        'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE',
+        'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG',
         'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED',
         // Algemene configuraties (admin.settings.general) — platform-breed
         'logo',

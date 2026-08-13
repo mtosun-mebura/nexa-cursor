@@ -6,12 +6,13 @@
 <style>
 .js-pw-toggle-wrap { position: relative; display: block; width: 100%; }
 .js-pw-toggle-btn {
-    position: absolute; top: 0; bottom: 0; right: .5rem; margin: auto 0;
+    position: absolute; top: 50%; right: .5rem; bottom: auto;
+    transform: translateY(-50%);
     height: 1.75rem; width: 1.75rem;
     display: inline-flex; align-items: center; justify-content: center;
     padding: 0; border: 0; background: transparent; color: currentColor;
     opacity: .55; cursor: pointer; border-radius: .375rem; line-height: 0; z-index: 3;
-    -webkit-appearance: none; appearance: none;
+    -webkit-appearance: none; appearance: none; margin: 0;
 }
 .js-pw-toggle-btn:hover, .js-pw-toggle-btn:focus { opacity: .95; outline: none; }
 .js-pw-toggle-btn svg { width: 1.15rem; height: 1.15rem; display: block; pointer-events: none; }
@@ -66,6 +67,16 @@
             wrap.appendChild(input);
         } else if (window.getComputedStyle && getComputedStyle(wrap).position === 'static') {
             wrap.style.position = 'relative';
+        }
+
+        // Margin onder het wrap i.p.v. de input, zodat het oogje verticaal
+        // in het midden van het veld blijft (niet van veld+margin).
+        if (window.getComputedStyle) {
+            var mb = getComputedStyle(input).marginBottom;
+            if (mb && mb !== '0px') {
+                wrap.style.marginBottom = mb;
+                input.style.marginBottom = '0';
+            }
         }
 
         // Op formulieren met form-validation.js staat er (soms) een validatie-icoon uiterst rechts

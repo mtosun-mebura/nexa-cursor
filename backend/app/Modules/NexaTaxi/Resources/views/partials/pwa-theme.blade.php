@@ -24,6 +24,7 @@
     html[data-theme="dark"] {
         --nexa-pwa-bg: #0f172a;
         --nexa-pwa-card: #1e293b;
+        --nexa-pwa-chrome: #1c1c1e;
         --nexa-pwa-text: #f8fafc;
         --nexa-pwa-muted: #94a3b8;
         --nexa-pwa-border: #334155;
@@ -35,6 +36,7 @@
     html[data-theme="light"] {
         --nexa-pwa-bg: #f1f5f9;
         --nexa-pwa-card: #ffffff;
+        --nexa-pwa-chrome: #ffffff;
         --nexa-pwa-text: #0f172a;
         --nexa-pwa-muted: #64748b;
         --nexa-pwa-border: #cbd5e1;
@@ -49,6 +51,7 @@
     html[data-theme="light"] {
         --bg: var(--nexa-pwa-bg);
         --card: var(--nexa-pwa-card);
+        --chrome: var(--nexa-pwa-chrome);
         --text: var(--nexa-pwa-text);
         --muted: var(--nexa-pwa-muted);
     }
@@ -62,13 +65,15 @@
         gap: 0.35rem;
         flex-shrink: 0;
     }
-    /* Chauffeur-app: theme blijft rechtsboven gefixed */
+    /* Theme rechtsboven; top via --nexa-pwa-theme-top (gecentreerd op titelrij) */
     body > .nexa-pwa-chrome-actions {
         position: fixed;
-        top: calc(1rem + env(safe-area-inset-top, 0px));
+        top: var(--nexa-pwa-theme-top, calc(1rem + env(safe-area-inset-top, 0px)));
         right: calc(1rem + env(safe-area-inset-right, 0px));
         z-index: 200;
         padding: 0;
+        height: 2.25rem;
+        align-items: center;
     }
     .nexa-pwa-theme-toggle {
         width: 2.25rem;

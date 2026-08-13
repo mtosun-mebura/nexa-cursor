@@ -36,7 +36,7 @@ class DriverAppController extends Controller
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#0f172a',
-            'theme_color' => '#16a34a',
+            'theme_color' => '#f97316',
             'icons' => [
                 [
                     'src' => $favicon['url'],

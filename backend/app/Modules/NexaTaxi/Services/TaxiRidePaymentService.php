@@ -275,6 +275,12 @@ class TaxiRidePaymentService
         return DB::connection($conn)->transaction(function () use ($conn, $ride, $amount, $channel, $redirectUrl, $apiKey, $companyId) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
 
+            RidePayment::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('channel', $channel)
+                ->where('status', RidePayment::STATUS_OPEN)
+                ->update(['status' => RidePayment::STATUS_CANCELED]);
+
             $ridePayment = RidePayment::on($conn)->create([
                 'ride_request_id' => $ride->id,
                 'company_id' => $companyId > 0 ? $companyId : null,

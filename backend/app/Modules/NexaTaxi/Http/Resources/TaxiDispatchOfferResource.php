@@ -27,6 +27,7 @@ class TaxiDispatchOfferResource
         $waitingSinceAt = null;
         $secondsWaiting = 0;
         $isWaiting = false;
+        $isPickupOverdue = false;
         if ($ride && ! $ride->driver_id) {
             $conn = $offer->getConnectionName();
             $waitingSinceAt = $ride->created_at;
@@ -34,7 +35,9 @@ class TaxiDispatchOfferResource
                 $secondsWaiting = max(0, (int) $waitingSinceAt->diffInSeconds(now(), false));
             }
             $companyId = (int) ($ride->company_id ?: $offer->company_id);
-            $offerTtlSeconds = app(TaxiDispatchSettingsService::class)->offerTtlSeconds($companyId);
+            $dispatchSettings = app(TaxiDispatchSettingsService::class);
+            $offerTtlSeconds = $dispatchSettings->offerTtlSeconds($companyId);
+            $isPickupOverdue = $dispatchSettings->offerPickupIsPast($ride);
 
             $hadNoResponse = RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $ride->id)
@@ -48,10 +51,11 @@ class TaxiDispatchOfferResource
             // (ook na vernieuwd aanbod — anders verdwijnt "verlopen" door updateOrCreate).
             $isWaiting = $hadNoResponse
                 || $secondsWaiting >= $offerTtlSeconds
-                || $secondsRemaining <= 0;
+                || $secondsRemaining <= 0
+                || $isPickupOverdue;
         }
 
-        $urgency = $isWaiting
+        $urgency = ($isWaiting || $isPickupOverdue)
             ? 'waiting'
             : ($secondsRemaining > 0 && $secondsRemaining <= 60 ? 'urgent' : 'normal');
 
@@ -60,12 +64,17 @@ class TaxiDispatchOfferResource
             'status' => $offer->status,
             'expires_at' => $offer->expires_at?->toIso8601String(),
             'offered_at' => $offer->offered_at?->toIso8601String(),
+            'archived_at' => $offer->archived_at?->toIso8601String(),
             'seconds_remaining' => $secondsRemaining,
             'seconds_waiting' => $secondsWaiting,
             'waiting_since_at' => $waitingSinceAt?->toIso8601String(),
             'is_waiting' => $isWaiting,
+            'is_pickup_overdue' => $isPickupOverdue,
             'urgency' => $urgency,
-            'ride' => $ride ? self::rideSummary($ride, $isScheduledOverdue) : null,
+            'ride' => $ride ? array_merge(
+                self::rideSummary($ride, $isScheduledOverdue),
+                ['is_pickup_overdue' => $isPickupOverdue || $isScheduledOverdue]
+            ) : null,
             'actions' => [
                 'accept' => url("/api/taxi/v1/driver/dispatch/offers/{$offer->id}/accept"),
                 'decline' => url("/api/taxi/v1/driver/dispatch/offers/{$offer->id}/decline"),
@@ -123,7 +132,15 @@ class TaxiDispatchOfferResource
             'original_dropoff_address' => $ride->dropoff_address,
             'transport_contract_id' => $ride->transport_contract_id ? (int) $ride->transport_contract_id : null,
             'is_scheduled_overdue' => $isScheduledOverdue,
+            'is_pickup_overdue' => $isScheduledOverdue || app(TaxiDispatchSettingsService::class)->offerPickupIsPast($ride),
             'requires_pickup_adjustment' => $isScheduledOverdue,
+            'pickup_proposal' => [
+                'status' => $ride->pickup_proposal_status,
+                'proposed_at' => ContractTransportTimezone::toDriverIso8601($ride->pickup_proposal_at),
+                'customer_remark' => $ride->pickup_proposal_customer_remark,
+                'sent_at' => $ride->pickup_proposal_sent_at?->toIso8601String(),
+                'responded_at' => $ride->pickup_proposal_responded_at?->toIso8601String(),
+            ],
             'scheduled_date' => $scheduledDate,
             'created_at' => $ride->created_at?->toIso8601String(),
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
@@ -136,6 +153,8 @@ class TaxiDispatchOfferResource
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'distance_km' => $ride->distance_meters ? round($ride->distance_meters / 1000, 1) : null,
+            'duration_seconds' => $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
+            'duration_minutes' => $ride->duration_minutes,
             'stops' => $stopsMeta,
             'schedule' => $schedule,
             'payment' => $payments->paymentSummaryForRide($ride),

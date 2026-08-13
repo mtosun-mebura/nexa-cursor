@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
+use App\Services\ModuleDatabaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -41,12 +43,43 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Incoming message / status events (POST). Acknowledge quickly.
+     * Incoming message / status events (POST). Acknowledge quickly; process pickup proposal replies.
      */
-    public function handle(Request $request): Response
-    {
-        // Voor nu alleen accepteren zodat Meta de subscription behoudt.
-        // Delivery-status / inkomende berichten kunnen later verwerkt worden.
+    public function handle(
+        Request $request,
+        ModuleDatabaseService $moduleDb,
+        TaxiPickupProposalService $pickupProposals
+    ): Response {
+        try {
+            $entries = $request->input('entry');
+            if (is_array($entries)) {
+                $conn = $moduleDb->getModuleConnectionName('taxi');
+                foreach ($entries as $entry) {
+                    $changes = $entry['changes'] ?? [];
+                    if (! is_array($changes)) {
+                        continue;
+                    }
+                    foreach ($changes as $change) {
+                        $value = $change['value'] ?? [];
+                        $messages = $value['messages'] ?? [];
+                        if (! is_array($messages)) {
+                            continue;
+                        }
+                        foreach ($messages as $message) {
+                            if (! is_array($message)) {
+                                continue;
+                            }
+                            $pickupProposals->handleInboundCustomerMessage($conn, $message);
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp webhook verwerking mislukt.', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         if (config('app.debug')) {
             Log::debug('WhatsApp webhook ontvangen.', [
                 'object' => $request->input('object'),

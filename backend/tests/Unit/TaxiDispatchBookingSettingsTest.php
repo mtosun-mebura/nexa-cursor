@@ -46,25 +46,37 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         $this->assertTrue($service->customerEmailRequiredForBooking(99999));
     }
 
-    public function test_past_pickup_grace_hours_defaults_from_config(): void
+    public function test_past_pickup_grace_minutes_defaults_from_config(): void
     {
-        config(['taxi-dispatch.past_pickup_grace_hours' => 3]);
+        config(['taxi-dispatch.past_pickup_grace_minutes' => 90]);
         $env = $this->createMock(EnvService::class);
         $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
 
-        $this->assertSame(3, $service->pastPickupGraceHours(99999));
+        $this->assertSame(90, $service->pastPickupGraceMinutes(99999));
     }
 
-    public function test_pickup_queue_cutoff_subtracts_grace_hours(): void
+    public function test_pickup_queue_cutoff_subtracts_grace_minutes(): void
     {
-        config(['taxi-dispatch.past_pickup_grace_hours' => 2]);
+        config(['taxi-dispatch.past_pickup_grace_minutes' => 60]);
         $env = $this->createMock(EnvService::class);
         $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
-        $now = now()->startOfSecond();
+        $now = now('Europe/Amsterdam')->startOfSecond();
 
         $cutoff = $service->pickupQueueCutoffAt(99999, $now);
 
-        $this->assertTrue($cutoff->equalTo($now->copy()->subHours(2)));
+        $expectedWall = $now->copy()->subMinutes(60)->format('Y-m-d H:i:s');
+        $this->assertSame($expectedWall, $cutoff->format('Y-m-d H:i:s'));
+    }
+
+    public function test_legacy_grace_hours_setting_converts_to_minutes(): void
+    {
+        $company = Company::query()->create(['name' => 'Grace Co', 'slug' => 'grace-'.uniqid()]);
+        GeneralSetting::set(TaxiDispatchSettingsService::KEY_PAST_PICKUP_GRACE_HOURS, '2', $company->id);
+
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+
+        $this->assertSame(120, $service->pastPickupGraceMinutes((int) $company->id));
     }
 
     public function test_scheduled_ride_is_overdue_after_pickup_plus_acceptance_ttl(): void
@@ -72,16 +84,24 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         config(['taxi-dispatch.offer_ttl_seconds' => 300]);
         $env = $this->createMock(EnvService::class);
         $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
-        $now = now()->startOfSecond();
+        $now = \Illuminate\Support\Carbon::parse('2026-08-13 12:00:00', 'Europe/Amsterdam');
 
         $ride = new \App\Modules\NexaTaxi\Models\RideRequest([
             'company_id' => 1,
-            'pickup_at' => $now->copy()->subMinutes(6),
+            'pickup_at' => \Illuminate\Support\Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                '2026-08-13 11:54:00',
+                'UTC'
+            ),
         ]);
 
         $this->assertTrue($service->scheduledRideIsOverdue($ride, 1, $now));
 
-        $ride->pickup_at = $now->copy()->subMinutes(4);
+        $ride->pickup_at = \Illuminate\Support\Carbon::createFromFormat(
+            'Y-m-d H:i:s',
+            '2026-08-13 11:56:00',
+            'UTC'
+        );
         $this->assertFalse($service->scheduledRideIsOverdue($ride, 1, $now));
     }
 
@@ -90,20 +110,28 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         config(['taxi-dispatch.offer_ttl_seconds' => 300]);
         $env = $this->createMock(EnvService::class);
         $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
-        $now = now()->startOfSecond();
+        $now = \Illuminate\Support\Carbon::parse('2026-08-13 12:00:00', 'Europe/Amsterdam');
 
         $ride = new \App\Modules\NexaTaxi\Models\RideRequest([
             'company_id' => 1,
-            'pickup_at' => $now->copy()->subHours(3),
-            'return_at' => $now->copy()->subMinutes(6),
-            'outbound_completed_at' => $now->copy()->subHour(),
+            'pickup_at' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i:s', '2026-08-13 08:00:00', 'UTC'),
+            'return_at' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i:s', '2026-08-13 11:54:00', 'UTC'),
+            'outbound_completed_at' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i:s', '2026-08-13 10:00:00', 'UTC'),
             'booking_payload' => ['step_data' => ['return_trip' => true]],
         ]);
 
         $this->assertTrue($service->scheduledRideIsOverdue($ride, 1, $now));
 
-        $ride->return_at = $now->copy()->subMinutes(4);
+        $ride->return_at = \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i:s', '2026-08-13 11:56:00', 'UTC');
         $this->assertFalse($service->scheduledRideIsOverdue($ride, 1, $now));
+    }
+
+    public function test_driver_iso_keeps_amsterdam_wall_clock_when_app_timezone_is_utc(): void
+    {
+        $stored = \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i:s', '2026-08-13 08:25:00', 'UTC');
+        $iso = \App\Modules\NexaTaxi\Support\ContractTransportTimezone::toDriverIso8601($stored);
+
+        $this->assertSame('2026-08-13T08:25:00+02:00', $iso);
     }
 
     public function test_booking_whatsapp_auto_send_defaults_off_without_explicit_dispatch_setting(): void
