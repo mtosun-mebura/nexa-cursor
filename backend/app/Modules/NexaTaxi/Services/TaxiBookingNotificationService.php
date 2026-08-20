@@ -5,8 +5,8 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\EnvService;
-use App\Services\WhatsAppBusinessService;
 use App\Services\WhatsAppBookingMessageComposer;
+use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -30,6 +30,11 @@ class TaxiBookingNotificationService
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
         $companyId = (int) ($ride->company_id ?? 0);
+        if (app(\App\Services\NexaDemoAccountService::class)->isDemoCompanyId($companyId)) {
+            Log::info('Demo company: booking notifications skipped', ['ride_id' => $ride->id]);
+
+            return;
+        }
         $summary = $this->summaryText->build($ride, $context);
 
         $settingsCompanyId = $this->resolveSettingsCompanyId(
@@ -493,5 +498,4 @@ class TaxiBookingNotificationService
             ]);
         }
     }
-
 }

@@ -5,6 +5,7 @@ namespace App\Services\AiChat;
 use App\DTO\AiChat\AiChatRequestContext;
 use App\Enums\AiChat\AiChatIntent;
 use App\Models\User;
+use App\Services\NexaDemoAccountService;
 use Illuminate\Support\Facades\DB;
 
 final class AiChatAccessService
@@ -15,6 +16,10 @@ final class AiChatAccessService
     public function userMayQueryLiveData(?User $user): bool
     {
         if ($user === null) {
+            return false;
+        }
+
+        if (app(NexaDemoAccountService::class)->isDemoUser($user)) {
             return false;
         }
 

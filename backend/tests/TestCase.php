@@ -14,5 +14,6 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         GeneralSetting::clearRequestCache();
+        config()->set('ai_chat.laravel_api_url', 'http://laravel.test');
     }
 }

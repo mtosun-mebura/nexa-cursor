@@ -122,6 +122,7 @@ class TaxiRidePaymentService
             if ($method === RideRequest::PAYMENT_METHOD_CONTRACT) {
                 return RideRequest::PAYMENT_METHOD_CONTRACT;
             }
+
             return null;
         }
 
@@ -264,8 +265,8 @@ class TaxiRidePaymentService
         $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
         if (! $apiKey) {
             $hint = $this->paymentProviders->allowMollieTestProviders()
-                ? ' Stel onder Betalingsproviders een Mollie-provider in voor dit bedrijf (test_-sleutel en testmodus zijn toegestaan in deze omgeving).'
-                : ' Stel een actieve Mollie-provider in onder Betalingsproviders.';
+                ? ' Stel onder Configuraties → Mollie (tenant) een API-sleutel in voor dit bedrijf (test_-sleutel en testmodus zijn toegestaan in deze omgeving).'
+                : ' Stel onder Configuraties → Mollie (tenant) een actieve Mollie-omgeving in voor dit bedrijf.';
 
             throw ValidationException::withMessages([
                 'payment' => ['Mollie is niet geconfigureerd voor dit bedrijf.'.$hint],

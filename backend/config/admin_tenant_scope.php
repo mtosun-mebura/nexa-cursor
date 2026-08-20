@@ -43,6 +43,9 @@ return [
         'admin.meld.*',
         'admin.skillmatching.branches.*',
         'admin.skillmatching.test',
+        'admin.welcome-page.*',
+        'admin.nexa-pricing.*',
+        'admin.website-pages.*',
     ],
 
     /*
@@ -60,7 +63,6 @@ return [
     |--------------------------------------------------------------------------
     */
     'route_notice_variants' => [
-        'admin.website-pages.*' => 'website-pages',
         'admin.settings.*' => 'settings',
         'admin.modules.config' => 'module-config',
     ],

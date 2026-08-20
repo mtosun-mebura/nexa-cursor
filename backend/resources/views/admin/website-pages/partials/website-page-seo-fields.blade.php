@@ -11,10 +11,10 @@
                   rows="3"
                   maxlength="500"
                   class="kt-input w-full min-h-[4.5rem] @error('meta_description') border-destructive @enderror"
-                  placeholder="Korte omschrijving voor Google en AI-zoekmachines (ideaal 150–160 tekens)">{{ old('meta_description', $metaDescriptionValue ?? '') }}</textarea>
+                  placeholder="Google-snippet: wie u bent, wat u biedt, welke actie de bezoeker kan nemen.">{{ old('meta_description', $metaDescriptionValue ?? '') }}</textarea>
         <div class="flex flex-wrap items-center justify-between gap-2 mt-1.5">
             <p class="text-xs text-muted-foreground mb-0 flex-1 min-w-[12rem]">
-                Gebruik de knop <strong>SEO &amp; AI genereren</strong> voor titel, meta en hero-teksten die goed scoren in Google en AI-overzichten.
+                Google kapt af rond 160 tekens. <strong>SEO genereren</strong> schrijft een zoekwoordrijke snippet — geen knopteksten of afgekapte koppen.
             </p>
             <span id="meta-description-length" class="text-xs text-muted-foreground tabular-nums shrink-0">0 / 160</span>
         </div>

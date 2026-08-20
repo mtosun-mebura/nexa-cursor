@@ -27,7 +27,9 @@
                                 @foreach($firstTwo as $field)
                                     <div class="form-preview-field-row" data-field-id="{{ $field->id }}">
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $previewFieldRequired($field) ? ' *' : '' }}</label>
-                                        @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
+                                        @if($field->isNexaPackageField())
+                                            <select disabled class="{{ $inputClass }} opacity-75"><option>Geen pakket geselecteerd</option></select>
+                                        @elseif(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                             <textarea rows="5" disabled readonly class="{{ $inputClass }} opacity-75"></textarea>
                                         @else
                                             <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}" disabled readonly class="{{ $inputClass }} opacity-75" value="">
@@ -39,7 +41,9 @@
                             @foreach($firstTwo as $field)
                                 <div class="form-preview-field-row" data-field-id="{{ $field->id }}">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $previewFieldRequired($field) ? ' *' : '' }}</label>
-                                    @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
+                                    @if($field->isNexaPackageField())
+                                        <select disabled class="{{ $inputClass }} opacity-75"><option>Geen pakket geselecteerd</option></select>
+                                    @elseif(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                         <textarea rows="5" disabled readonly class="{{ $inputClass }} opacity-75"></textarea>
                                     @else
                                         <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}" disabled readonly class="{{ $inputClass }} opacity-75" value="">
@@ -50,7 +54,9 @@
                         @foreach($rest as $field)
                             <div class="form-preview-field-row" data-field-id="{{ $field->id }}">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $field->label }}{{ $previewFieldRequired($field) ? ' *' : '' }}</label>
-                                @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
+                                @if($field->isNexaPackageField())
+                                    <select disabled class="{{ $inputClass }} opacity-75"><option>Geen pakket geselecteerd</option></select>
+                                @elseif(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
                                     <textarea rows="5" disabled readonly class="{{ $inputClass }} opacity-75"></textarea>
                                 @else
                                     <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}" disabled readonly class="{{ $inputClass }} opacity-75" value="">

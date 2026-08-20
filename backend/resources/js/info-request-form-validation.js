@@ -121,7 +121,7 @@ function setInfoRequestFieldState(fieldEl, result, show) {
     const validIcon = fieldEl.querySelector('.info-request-icon-valid');
     const invalidIcon = fieldEl.querySelector('.info-request-icon-invalid');
 
-    if (!input || !statusWrap || !validIcon || !invalidIcon) {
+    if (!input) {
         return;
     }
 
@@ -135,9 +135,9 @@ function setInfoRequestFieldState(fieldEl, result, show) {
     );
 
     if (!show || result.valid === null) {
-        statusWrap.classList.add('hidden');
-        validIcon.classList.add('hidden');
-        invalidIcon.classList.add('hidden');
+        statusWrap?.classList.add('hidden');
+        validIcon?.classList.add('hidden');
+        invalidIcon?.classList.add('hidden');
         if (!fieldEl.dataset.serverError && errorSpan) {
             errorSpan.textContent = '';
         }
@@ -145,12 +145,12 @@ function setInfoRequestFieldState(fieldEl, result, show) {
         return;
     }
 
-    statusWrap.classList.remove('hidden');
+    statusWrap?.classList.remove('hidden');
 
     if (result.valid === true) {
         input.classList.add('border-green-500', 'dark:border-green-500', 'focus:border-green-500', 'dark:focus:border-green-500');
-        validIcon.classList.remove('hidden');
-        invalidIcon.classList.add('hidden');
+        validIcon?.classList.remove('hidden');
+        invalidIcon?.classList.add('hidden');
         if (errorSpan) {
             errorSpan.textContent = '';
         }
@@ -160,8 +160,8 @@ function setInfoRequestFieldState(fieldEl, result, show) {
     }
 
     input.classList.add('border-red-500', 'dark:border-red-500');
-    validIcon.classList.add('hidden');
-    invalidIcon.classList.remove('hidden');
+    validIcon?.classList.add('hidden');
+    invalidIcon?.classList.remove('hidden');
     if (errorSpan) {
         errorSpan.textContent = result.message;
     }
@@ -198,6 +198,11 @@ export function initInfoRequestFormValidation(form) {
         input.addEventListener('input', () => {
             touched = true;
             updateInfoRequestCharCount(fieldEl, input);
+            run(true);
+        });
+
+        input.addEventListener('change', () => {
+            touched = true;
             run(true);
         });
 

@@ -27,6 +27,10 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertSame('Antwoord', $service->extractReplyText(['reply' => 'Antwoord']));
         $this->assertSame('Nested', $service->extractReplyText([['json' => ['output' => 'Nested']]]));
         $this->assertSame('Plain', $service->extractReplyText(null, 'Plain'));
+        $this->assertTrue($service->isUnusableWebhookReply(
+            "404 - \"The endpoint flatware-finch-revenge.ngrok-free.dev is offline.\r\n\r\nERR_NGROK_3200\r\n\""
+        ));
+        $this->assertFalse($service->isUnusableWebhookReply('De actuele tarieven van Nexa Taxi zijn: instaptarief €3,60.'));
     }
 
     public function test_frontend_config_uses_taxi_copy_for_taxi_module(): void
@@ -39,6 +43,22 @@ class AiChatAssistantServiceTest extends TestCase
 
         $this->assertSame('taxi', $config['module']);
         $this->assertSame('Taxi-assistent', $config['title']);
+    }
+
+    public function test_frontend_config_uses_product_copy_on_central_website(): void
+    {
+        config()->set('tenancy.central_domains', ['localhost']);
+        $this->app->instance('request', \Illuminate\Http\Request::create('http://localhost:8085/', 'GET'));
+
+        $websiteBuilder = Mockery::mock(WebsiteBuilderService::class);
+        $websiteBuilder->shouldReceive('resolvePublicFrontendModuleName')->andReturn(null);
+
+        $service = new AiChatAssistantService($websiteBuilder);
+        $config = $service->frontendConfig();
+
+        $this->assertSame('nexa', $config['module']);
+        $this->assertSame('NEXA-assistent', $config['title']);
+        $this->assertStringContainsString('NEXA Suite', $config['greeting']);
     }
 
     public function test_webhook_setting_key_is_normalized_per_module(): void
@@ -199,6 +219,105 @@ class AiChatAssistantServiceTest extends TestCase
 
         $this->assertStringContainsString('Ja, wij bieden Luchthavenvervoer aan.', $reply);
         $this->assertStringContainsString('Schiphol', $reply);
+    }
+
+    public function test_send_uses_website_fallback_when_n8n_returns_offline_ngrok_error(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response([
+                'answer' => "404 - \"The endpoint flatware-finch-revenge.ngrok-free.dev is offline.\r\n\r\nERR_NGROK_3200\r\n\"",
+                'source' => 'blocked',
+            ], 200),
+        ]);
+
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
+
+        $company = Company::query()->create([
+            'name' => 'Test Taxi Company',
+            'is_active' => true,
+        ]);
+
+        WebsitePage::query()->create([
+            'slug' => 'diensten-ngrok',
+            'title' => 'Diensten',
+            'content' => '',
+            'page_type' => 'custom',
+            'module_name' => 'taxi',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'show_in_menu' => true,
+            'sort_order' => 99,
+            'home_sections' => [
+                'cards_ronde_hoeken' => [
+                    'items' => [
+                        [
+                            'text' => '<p><strong>Luchthavenvervoer</strong></p><p>Stipt luchthavenvervoer zonder stress naar Schiphol en andere luchthavens.</p>',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+        $reply = $service->send('Hebben jullie luchthavenvervoer?', [], 'taxi');
+
+        $this->assertStringContainsString('Ja, wij bieden Luchthavenvervoer aan.', $reply);
+        $this->assertStringNotContainsString('ERR_NGROK', $reply);
+    }
+
+    public function test_send_skips_n8n_when_ngrok_callback_tunnel_is_offline(): void
+    {
+        config()->set('ai_chat.laravel_api_url', 'https://flatware-finch-revenge.ngrok-free.dev');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
+
+        \Illuminate\Support\Facades\Http::fake([
+            'https://flatware-finch-revenge.ngrok-free.dev/*' => \Illuminate\Support\Facades\Http::response(
+                "The endpoint flatware-finch-revenge.ngrok-free.dev is offline.\r\n\r\nERR_NGROK_3200\r\n",
+                404
+            ),
+            'https://automations.nexasuite.nl/*' => \Illuminate\Support\Facades\Http::response([
+                'answer' => 'Dit n8n-antwoord mag niet gebruikt worden.',
+            ], 200),
+        ]);
+
+        $company = Company::query()->create([
+            'name' => 'Test Taxi Company',
+            'is_active' => true,
+        ]);
+
+        WebsitePage::query()->create([
+            'slug' => 'diensten-tunnel',
+            'title' => 'Diensten',
+            'content' => '',
+            'page_type' => 'custom',
+            'module_name' => 'taxi',
+            'company_id' => $company->id,
+            'is_active' => true,
+            'show_in_menu' => true,
+            'sort_order' => 99,
+            'home_sections' => [
+                'cards_ronde_hoeken' => [
+                    'items' => [
+                        [
+                            'text' => '<p><strong>Luchthavenvervoer</strong></p><p>Stipt luchthavenvervoer zonder stress naar Schiphol en andere luchthavens.</p>',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+        $reply = $service->send('Hebben jullie luchthavenvervoer?', [], 'taxi');
+
+        $this->assertStringContainsString('Ja, wij bieden Luchthavenvervoer aan.', $reply);
+
+        \Illuminate\Support\Facades\Http::assertNotSent(function ($request) {
+            return str_contains((string) $request->url(), 'automations.nexasuite.nl');
+        });
     }
 
     public function test_send_posts_configured_webhook_with_rbac_payload_for_diensten(): void

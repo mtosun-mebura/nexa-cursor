@@ -19,6 +19,7 @@ final class AiChatAssistantOrchestrator
         private readonly AiChatAccessService $accessService,
         private readonly AiChatMessageSettingsService $messageSettings,
         private readonly AiChatQuoteConversationService $quoteConversation,
+        private readonly AiChatProductFaqService $productFaq,
     ) {}
 
     public function handle(
@@ -27,6 +28,18 @@ final class AiChatAssistantOrchestrator
         ?array $quoteAddress = null,
         ?array $quoteBaggage = null,
     ): AiChatMessageResult {
+        if ($context->isCentralWebsite()) {
+            $reply = $this->productFaq->answer($message);
+            $this->auditLogger->log(
+                $context,
+                $this->intentService->classify($message, $context),
+                $message,
+                AiChatDataSource::Rag,
+            );
+
+            return new AiChatMessageResult($reply);
+        }
+
         if ($this->quoteConversation->hasActiveSession($context)) {
             $result = $this->quoteConversation->handle($context, $message, $quoteAddress, $quoteBaggage);
             $this->auditLogger->log(

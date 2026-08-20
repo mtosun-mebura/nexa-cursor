@@ -21,6 +21,35 @@ class WebsitePage extends Model
         return $slug !== null && $slug !== '' && strtolower($slug) === strtolower(self::CENTRAL_WELCOME_SLUG);
     }
 
+    public function isPublicHomeNavItem(): bool
+    {
+        return $this->page_type === 'home' || self::isCentralMarketingWelcomeSlug($this->slug);
+    }
+
+    public function publicNavLabel(): string
+    {
+        $custom = trim((string) ($this->menu_title ?? ''));
+        if ($custom !== '') {
+            return $custom;
+        }
+
+        return self::defaultMenuTitleFromPage(
+            (string) ($this->title ?? ''),
+            (string) ($this->page_type ?? 'custom'),
+            (string) ($this->slug ?? '')
+        );
+    }
+
+    public static function defaultMenuTitleFromPage(string $title, string $pageType, string $slug): string
+    {
+        if ($pageType === 'home' || self::isCentralMarketingWelcomeSlug($slug)) {
+            return 'Home';
+        }
+        $title = trim($title);
+
+        return $title !== '' ? $title : 'Pagina';
+    }
+
     /**
      * Demo-pagina voor staging wanneer er geen actieve pagina's zijn.
      * Niet opgeslagen; getHomeSections() gebruikt de defaults van het thema.
@@ -29,6 +58,7 @@ class WebsitePage extends Model
     {
         $page = new self([
             'title' => 'Home',
+            'menu_title' => 'Home',
             'slug' => 'home',
             'page_type' => 'home',
             'frontend_theme_id' => $theme->id,
@@ -44,6 +74,7 @@ class WebsitePage extends Model
     protected $fillable = [
         'slug',
         'title',
+        'menu_title',
         'content',
         'meta_description',
         'home_sections',
@@ -248,8 +279,12 @@ class WebsitePage extends Model
             ],
             'why_nexa' => [
                 'title' => 'Waarom kiezen voor Nexa?',
+                'title_color' => '',
                 'subtitle_color' => '',
                 'subtitle' => 'Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.',
+                'background' => '',
+                'background_image' => '',
+                'background_image_dark' => '',
             ],
             'features' => [
                 'section_title' => 'Kenmerken',
@@ -370,6 +405,8 @@ class WebsitePage extends Model
                 'hero_title' => true,
                 'hero_subtitle' => true,
                 'hero_cta' => true,
+                'hero_cta_primary' => true,
+                'hero_cta_secondary' => true,
                 'stats' => true,
                 'stats_0' => true,
                 'stats_1' => true,
@@ -387,6 +424,8 @@ class WebsitePage extends Model
                 'cta_title' => true,
                 'cta_subtitle' => true,
                 'cta_buttons' => true,
+                'cta_cta_primary' => true,
+                'cta_cta_secondary' => true,
                 'footer' => true,
                 'footer_tagline' => true,
                 'footer_logo' => true,
@@ -395,6 +434,68 @@ class WebsitePage extends Model
                 'footer_social' => true,
                 'footer_map' => true,
             ],
+        ];
+    }
+
+    /**
+     * Full-width achtergrond voor de why_nexa-sectie (kleur en/of light/dark plaatje).
+     *
+     * @param  array<string, mixed>  $sectionData
+     * @return array{
+     *     has_custom: bool,
+     *     has_light_surface: bool,
+     *     has_dark_surface: bool,
+     *     color_style: string,
+     *     light_image_url: string,
+     *     dark_image_url: string,
+     *     title_color_style: string,
+     *     wrapper_class: string,
+     *     surface_class: string
+     * }
+     */
+    public static function whyNexaBackgroundPresentation(array $sectionData): array
+    {
+        $bgColor = isset($sectionData['background']) && is_string($sectionData['background'])
+            ? trim($sectionData['background']) : '';
+        if ($bgColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $bgColor)) {
+            $bgColor = '';
+        }
+        $toDisplayUrl = static function (mixed $raw): string {
+            $value = is_string($raw) ? trim($raw) : '';
+            if ($value === '') {
+                return '';
+            }
+
+            return app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($value);
+        };
+        $lightImageUrl = $toDisplayUrl($sectionData['background_image'] ?? '');
+        $darkImageUrl = $toDisplayUrl($sectionData['background_image_dark'] ?? '');
+        $hasLightSurface = $bgColor !== '' || $lightImageUrl !== '';
+        $hasDarkSurface = $bgColor !== '' || $darkImageUrl !== '' || $lightImageUrl !== '';
+        $wrapperClass = trim(implode(' ', array_filter([
+            ($lightImageUrl !== '' || $darkImageUrl !== '') ? 'relative overflow-hidden why-nexa--custom-bg' : '',
+            $hasDarkSurface ? 'why-nexa--custom-surface' : '',
+            $bgColor !== '' ? 'why-nexa--custom-color' : '',
+        ])));
+        $titleColor = isset($sectionData['title_color']) && is_string($sectionData['title_color'])
+            ? trim($sectionData['title_color']) : '';
+        if ($titleColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $titleColor)) {
+            $titleColor = '';
+        }
+
+        return [
+            'has_custom' => $hasLightSurface || $hasDarkSurface,
+            'has_light_surface' => $hasLightSurface,
+            'has_dark_surface' => $hasDarkSurface,
+            'color_style' => $bgColor !== '' ? 'background-color: '.$bgColor.' !important;' : '',
+            'light_image_url' => $lightImageUrl,
+            'dark_image_url' => $darkImageUrl,
+            'title_color_style' => $titleColor !== '' ? 'color: '.$titleColor.';' : '',
+            'wrapper_class' => $wrapperClass,
+            'surface_class' => trim(implode(' ', array_filter([
+                $hasLightSurface ? '' : 'bg-white',
+                $hasDarkSurface ? '' : 'dark:bg-gray-900',
+            ]))),
         ];
     }
 
@@ -535,6 +636,8 @@ class WebsitePage extends Model
             'hero_title' => true,
             'hero_subtitle' => true,
             'hero_cta' => true,
+            'hero_cta_primary' => true,
+            'hero_cta_secondary' => true,
             'footer' => true,
             'footer_tagline' => true,
             'footer_logo' => true,
@@ -914,6 +1017,9 @@ class WebsitePage extends Model
             'section_order' => $sectionOrder,
             'visibility' => $visibility,
             'admin_collapsed' => array_values($adminCollapsed),
+            'removed_section_keys' => is_array($stored['removed_section_keys'] ?? null)
+                ? implode(',', array_values(array_filter($stored['removed_section_keys'], fn ($k) => is_string($k) && $k !== '')))
+                : (string) ($stored['removed_section_keys'] ?? ''),
         ]);
     }
 

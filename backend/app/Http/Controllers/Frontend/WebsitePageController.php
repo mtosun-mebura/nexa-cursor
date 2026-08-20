@@ -7,10 +7,10 @@ use App\Models\Vacancy;
 use App\Models\WebsitePage;
 use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
+use App\Services\GoogleSeoSettingsService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
 use App\Services\WebsiteStructuredDataService;
-use App\Services\GoogleSeoSettingsService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -142,7 +142,7 @@ class WebsitePageController extends Controller
         }
 
         $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
-        $isRenderingHome = $page->page_type === 'home' || $page->slug === 'home';
+        $isRenderingHome = $this->websiteBuilder->isSiteHomePage($page);
         $useThemeHomeLayout = $themeHasHomeSections && (
             ! empty($page->home_sections) || $isRenderingHome
         );
@@ -153,22 +153,7 @@ class WebsitePageController extends Controller
         $homeSections = $useCurrentPageSections
             ? $page->getHomeSections()
             : ($homePage ? $homePage->getHomeSections() : []);
-
-        if (! $isRenderingHome && $homePage && ! empty($homeSections['footer']['inherit_from_home'])) {
-            $homeFooterSections = $homePage->getHomeSections();
-            $homeSections['footer'] = $homeFooterSections['footer'] ?? [];
-            $homeSections['copyright'] = $homeFooterSections['copyright'] ?? ($homeSections['copyright'] ?? '');
-            $footerVisibilityKeys = ['footer', 'footer_logo', 'footer_tagline', 'footer_quick_links', 'footer_support_links', 'footer_social', 'footer_map'];
-            foreach ($footerVisibilityKeys as $k) {
-                if (array_key_exists($k, $homeFooterSections['visibility'] ?? [])) {
-                    $homeSections['visibility'][$k] = $homeFooterSections['visibility'][$k];
-                }
-            }
-            $sectionOrder = $homeSections['section_order'] ?? [];
-            if (is_array($sectionOrder) && ! in_array('footer', $sectionOrder, true)) {
-                $homeSections['section_order'] = array_merge(array_values($sectionOrder), ['footer']);
-            }
-        }
+        $homeSections = $this->websiteBuilder->applyInheritedHomeFooter($homeSections, $page);
         $templateConnection = null;
         $moduleName = $page->module_name;
         if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {

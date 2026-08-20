@@ -37,7 +37,7 @@ function generateSectionKey(baseType: string, existingKeys: string[]): string {
 export function useBuilderState(bootstrap: BuilderBootstrap) {
   const homeSections = ref<Record<string, unknown>>(normalizeHomeSectionsForBuilder(clone(bootstrap.homeSections)))
   const selectedKey = ref<string | null>(null)
-  const removedSectionKeys = ref<string[]>([])
+  const removedSectionKeys = ref<string[]>(normalizeOrder(homeSections.value.removed_section_keys))
   const saving = ref(false)
   const saveMessage = ref<string | null>(null)
   const saveError = ref<string | null>(null)
@@ -121,23 +121,33 @@ export function useBuilderState(bootstrap: BuilderBootstrap) {
     const keys = [...canvasKeys.value]
     const index = insertIndex === undefined ? keys.length : Math.max(0, Math.min(insertIndex, keys.length))
     keys.splice(index, 0, key)
+    removedSectionKeys.value = removedSectionKeys.value.filter((k) => k !== key)
+    const next: Record<string, unknown> = { ...homeSections.value }
+    next.removed_section_keys = removedSectionKeys.value.join(',')
+    homeSections.value = next
     syncSectionOrder(keys)
     selectedKey.value = key
     saveError.value = null
   }
 
-  function syncRemovedKeys() {
-    homeSections.value.removed_section_keys = removedSectionKeys.value.join(',')
-  }
-
   function removeBlock(key: string) {
     if (!removedSectionKeys.value.includes(key)) {
-      removedSectionKeys.value.push(key)
-      syncRemovedKeys()
+      removedSectionKeys.value = [...removedSectionKeys.value, key]
     }
     const keys = canvasKeys.value.filter((k) => k !== key)
-    syncSectionOrder(keys)
-    delete homeSections.value[key]
+    const footerKeys = normalizeOrder(homeSections.value.section_order).filter((k) => FIXED_KEYS.has(k))
+    const next: Record<string, unknown> = { ...homeSections.value }
+    delete next[key]
+    next.section_order = [...keys, ...footerKeys.filter((k) => !keys.includes(k))]
+    next.removed_section_keys = removedSectionKeys.value.join(',')
+    const vis = next.visibility
+    if (vis && typeof vis === 'object' && !Array.isArray(vis)) {
+      const nextVis = { ...(vis as Record<string, unknown>) }
+      delete nextVis[key]
+      next.visibility = nextVis
+    }
+    homeSections.value = next
+    dirty.value = true
     if (selectedKey.value === key) {
       selectedKey.value = keys[0] ?? null
     }
@@ -195,7 +205,7 @@ export function useBuilderState(bootstrap: BuilderBootstrap) {
         ? { ...(current as Record<string, unknown>) }
         : {}
     vis[key] = visible
-    homeSections.value.visibility = vis
+    homeSections.value = { ...homeSections.value, visibility: vis }
     dirty.value = true
   }
 

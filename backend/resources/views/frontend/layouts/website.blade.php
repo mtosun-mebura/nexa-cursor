@@ -96,7 +96,7 @@
         }
         /* Modern home: donkere secties in dark mode (fallback zodat blokken altijd donker zijn) */
         html.dark .modern-home-stats,
-        html.dark .modern-home-waarom,
+        html.dark .modern-home-waarom:not(.why-nexa--custom-color):not(.why-nexa--custom-surface),
         html.dark .modern-home-cta {
             background-color: #111827 !important; /* gray-900 */
         }
@@ -393,20 +393,15 @@
     </div>
     @endif
 
-    @php
-        $hideWebsiteMenu = isset($page) && \App\Models\WebsitePage::isCentralMarketingWelcomeSlug($page->slug ?? null);
-    @endphp
     <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div class="container-custom">
             <div class="flex justify-between items-center h-16 md:h-20">
                 <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0 -ml-1 sm:ml-0">
-                    @unless($hideWebsiteMenu)
                     <div id="website-mobile-menu-toggle-wrap" class="hidden flex-shrink-0">
                         <button type="button" id="website-mobile-menu-toggle" class="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                         </button>
                     </div>
-                    @endunless
                     @php
                         $logoHref = route('home');
                         if (!empty($isStaging) && isset($stagingParams) && isset($menuPages) && $menuPages->isNotEmpty()) {
@@ -422,19 +417,21 @@
                     ])
                 </div>
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
-                @unless($hideWebsiteMenu)
                 <nav id="website-desktop-nav" class="flex flex-nowrap items-center gap-4 flex-1 justify-center px-4 min-w-0 overflow-hidden" role="navigation" aria-label="Hoofdnavigatie">
                     @forelse(($menuPages ?? collect()) as $menuPage)
                         @php
+                            $isHomeNav = $menuPage->isPublicHomeNavItem();
                             if (!empty($isStaging) && isset($stagingParams)) {
-                                $pageParam = in_array($menuPage->page_type, ['home','about','contact'], true) ? $menuPage->page_type : $menuPage->slug;
+                                $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
+                                    ? ($isHomeNav ? 'home' : $menuPage->page_type)
+                                    : $menuPage->slug;
                                 $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
                             } else {
-                                $url = $menuPage->page_type === 'home' ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
+                                $url = $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
                             }
                             $isActive = isset($page) && $page->id === $menuPage->id;
                         @endphp
-                        <a href="{{ $url }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ $isActive ? 'opacity-100 font-semibold' : '' }}" style="{{ $isActive ? 'color: var(--theme-primary);' : '' }}">{{ $menuPage->page_type === 'home' ? 'Home' : $menuPage->title }}</a>
+                        <a href="{{ $url }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ $isActive ? 'opacity-100 font-semibold' : '' }}" style="{{ $isActive ? 'color: var(--theme-primary);' : '' }}">{{ $menuPage->publicNavLabel() }}</a>
                     @empty
                         {{-- Fallback als er geen menu-pagina's uit de database komen --}}
                         <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('home') && !request()->routeIs('home.*') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('home') && !request()->routeIs('home.*') ? 'color: var(--theme-primary);' : '' }}">Home</a>
@@ -450,7 +447,6 @@
                     @endif
                     @endauth
                 </nav>
-                @endunless
                 {{-- Rechterkant desktop: streep (border-l), thema-toggle + Mijn Nexa/Inloggen; verborgen onder 1025px --}}
                 <div id="website-desktop-right" class="flex items-center gap-2 lg:gap-4 ml-auto flex-shrink-0 pl-4">
                     @if($themeSettings['dark_mode_available'] ?? true)
@@ -500,19 +496,21 @@
                 </div>
             </div>
         </div>
-        @unless($hideWebsiteMenu)
         <div id="website-mobile-menu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div class="container-custom py-4 space-y-1">
                 @forelse(($menuPages ?? collect()) as $menuPage)
                     @php
+                        $isHomeNav = $menuPage->isPublicHomeNavItem();
                         if (!empty($isStaging) && isset($stagingParams)) {
-                            $pageParam = in_array($menuPage->page_type, ['home','about','contact'], true) ? $menuPage->page_type : $menuPage->slug;
+                            $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
+                                ? ($isHomeNav ? 'home' : $menuPage->page_type)
+                                : $menuPage->slug;
                             $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
                         } else {
-                            $url = $menuPage->page_type === 'home' ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
+                            $url = $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
                         }
                     @endphp
-                    <a href="{{ $url }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $menuPage->page_type === 'home' ? 'Home' : $menuPage->title }}</a>
+                    <a href="{{ $url }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $menuPage->publicNavLabel() }}</a>
                 @empty
                     <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Home</a>
                     <a href="{{ route('about') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Over ons</a>
@@ -528,7 +526,6 @@
                 {{-- Mijn Nexa / Inloggen: zie #website-hamburger-row (smalle viewport) en #website-desktop-right (breed) --}}
             </div>
         </div>
-        @endunless
     </header>
 
     <main id="main-content" class="flex-1 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">

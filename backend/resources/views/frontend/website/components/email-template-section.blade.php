@@ -1,7 +1,7 @@
 @php
     $sectionTitle = $sectionData['title'] ?? 'Informatie aanvragen';
     $template = $emailTemplate ?? null;
-    $inputClass = 'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-500 dark:focus:border-blue-500';
+    $inputClass = 'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 focus:outline-none focus:ring-0';
     $formFields = $formFields ?? collect();
     $hasFields = $formFields->isNotEmpty();
     $successTitle = \App\Models\GeneralSetting::get('info_request_success_title', 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.');
@@ -27,7 +27,7 @@
     $infoRequestFormTimeFields = \App\Http\Controllers\Frontend\InfoRequestController::formTimeFields();
 @endphp
 @if($template)
-<section id="info-request-section-{{ $sectionKey }}" class="info-request-section {{ $embeddedInTextBlock ? 'w-full min-w-0 pt-0 pb-16 md:pb-20' : 'py-16 md:py-20' }}">
+<section id="info-request-section-{{ $sectionKey }}" class="info-request-section {{ $embeddedInTextBlock ? 'w-full min-w-0 pt-0 pb-12 md:pb-16' : 'pt-8 md:pt-10 pb-12 md:pb-16' }}">
     <style>
         .info-request-section .info-req-animate-left,
         .info-request-section .info-req-animate-right,
@@ -52,8 +52,21 @@
             top: 0.75rem;
             transform: none;
         }
-        .info-request-section .info-request-input.info-request-input--valid:focus {
-            --tw-ring-color: rgb(34 197 94 / 0.45);
+        .info-request-section .info-request-input:focus,
+        .info-request-section .info-request-input:focus-visible {
+            outline: none;
+            box-shadow: none;
+            --tw-ring-inset: ;
+            --tw-ring-offset-width: 0px;
+            --tw-ring-offset-color: transparent;
+            --tw-ring-color: transparent;
+            --tw-ring-offset-shadow: 0 0 #0000;
+            --tw-ring-shadow: 0 0 #0000;
+            border-color: rgb(209 213 219);
+        }
+        .dark .info-request-section .info-request-input:focus,
+        .dark .info-request-section .info-request-input:focus-visible {
+            border-color: rgb(75 85 99);
         }
         .info-request-section .info-request-textarea {
             resize: vertical;
@@ -94,6 +107,12 @@
         .info-request-section .info-request-success-image {
             border-radius: 0.5rem;
         }
+        .info-request-section .info-request-submit-spinner {
+            animation: info-request-spin 0.7s linear infinite;
+        }
+        @keyframes info-request-spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
     <div class="{{ $embeddedInTextBlock ? 'w-full' : 'website-section-inner' }}">
         <div class="{{ $embeddedInTextBlock ? 'w-full' : 'w-full max-w-full sm:max-w-3xl mx-auto' }}">
@@ -103,14 +122,10 @@
                 @endif
                 <p class="info-req-animate-right text-gray-600 dark:text-gray-300 mb-6 text-center">Vul het formulier in en wij nemen contact met u op.</p>
             </div>
-            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" data-info-request-form class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 sm:p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
+            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" data-info-request-form class="info-req-animate-bottom relative overflow-hidden space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 sm:p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
                 @csrf
                 <input type="hidden" name="template_id" value="{{ $template->id }}">
-                {{-- Honeypot: verborgen voor bezoekers, bots vullen dit vaak in --}}
-                <div class="absolute -left-[9999px] w-px h-px overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
-                    <label for="info-request-website-{{ $sectionKey }}">Website (laat leeg)</label>
-                    <input type="text" id="info-request-website-{{ $sectionKey }}" name="company_website" value="" tabindex="-1" autocomplete="off">
-                </div>
+                @include('frontend.website.components.partials.public-form-honeypot', ['honeypotId' => 'info-request-website-'.$sectionKey])
                 <input type="hidden" name="form_time" value="{{ $infoRequestFormTimeFields['form_time'] }}">
                 <input type="hidden" name="form_time_token" value="{{ $infoRequestFormTimeFields['form_time_token'] }}">
                 @if($hasFields)
@@ -143,8 +158,12 @@
                     @include('frontend.website.components.partials.info-request-form-field', ['name' => 'omschrijving', 'label' => 'Omschrijving / vraag', 'required' => true, 'validationRule' => 'textarea', 'isTextarea' => true, 'sectionKey' => $sectionKey, 'inputClass' => $inputClass])
                 @endif
                 <div class="pt-2">
-                    <button type="submit" class="info-request-submit-btn w-full sm:w-auto inline-flex justify-center items-center font-medium rounded-lg px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        Versturen
+                    <button type="submit" class="info-request-submit-btn w-full sm:w-auto inline-flex justify-center items-center gap-2 font-medium rounded-lg px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" aria-busy="false">
+                        <svg class="info-request-submit-spinner hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span class="info-request-submit-label">Versturen</span>
                     </button>
                 </div>
             </form>
@@ -187,10 +206,24 @@
                     var introEl = document.getElementById('info-request-intro-{{ $sectionKey }}');
                     var errorEl = document.getElementById('info-request-error-{{ $sectionKey }}');
                     var submitBtn = form.querySelector('.info-request-submit-btn');
+                    var submitLabel = submitBtn ? submitBtn.querySelector('.info-request-submit-label') : null;
+                    var submitSpinner = submitBtn ? submitBtn.querySelector('.info-request-submit-spinner') : null;
                     if (window.NexaInfoRequestFormValidation && !form._infoRequestValidation) {
                         form._infoRequestValidation = window.NexaInfoRequestFormValidation.init(form);
                     }
                     var validation = form._infoRequestValidation;
+
+                    function setSubmitting(isSubmitting) {
+                        if (!submitBtn) return;
+                        submitBtn.disabled = isSubmitting;
+                        submitBtn.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
+                        if (submitSpinner) {
+                            submitSpinner.classList.toggle('hidden', !isSubmitting);
+                        }
+                        if (submitLabel) {
+                            submitLabel.textContent = isSubmitting ? 'Bezig met verzenden…' : 'Versturen';
+                        }
+                    }
 
                     function clearErrors() {
                         errorEl.classList.add('hidden');
@@ -241,7 +274,7 @@
                         }
                         clearErrors();
                         successEl.classList.add('hidden');
-                        submitBtn.disabled = true;
+                        setSubmitting(true);
                         var body = new FormData(form);
                         fetch(form.action, {
                             method: 'POST',
@@ -256,6 +289,9 @@
                                     form.classList.add('hidden');
                                     successEl.classList.remove('hidden', 'mt-6');
                                     form.reset();
+                                } else if (res.status === 429) {
+                                    errorEl.textContent = 'Te veel verzoeken. Wacht even en probeer opnieuw.';
+                                    errorEl.classList.remove('hidden');
                                 } else if (res.status === 422 && data.errors) {
                                     showFieldErrors(data.errors);
                                 } else {
@@ -271,8 +307,37 @@
                             errorEl.textContent = 'Er is een fout opgetreden. Probeer het later opnieuw.';
                             errorEl.classList.remove('hidden');
                         }).finally(function () {
-                            submitBtn.disabled = false;
+                            if (!form.classList.contains('hidden')) {
+                                setSubmitting(false);
+                            }
                         });
+                    });
+                })();
+            </script>
+            <script>
+                (function () {
+                    var form = document.getElementById('info-request-form-{{ $sectionKey }}');
+                    if (!form) return;
+                    var select = form.querySelector('[data-package-interest-select]');
+                    var textarea = form.querySelector('textarea[name="omschrijving"]');
+                    if (!select || !textarea) return;
+
+                    function messageFor(name) {
+                        name = (name || '').trim();
+                        if (!name) return '';
+                        return 'Ik ben geïnteresseerd in het pakket ' + name + '. Neem gerust contact met me op over de mogelijkheden en hoe we kunnen starten.';
+                    }
+
+                    var lastAuto = messageFor(select.value);
+
+                    select.addEventListener('change', function () {
+                        var next = messageFor(select.value);
+                        var current = (textarea.value || '').trim();
+                        if (current === '' || current === lastAuto.trim()) {
+                            textarea.value = next;
+                            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        lastAuto = next;
                     });
                 })();
             </script>

@@ -64,9 +64,9 @@
     $itemDescFontPx = isset($data['item_description_font_size_px']) && $data['item_description_font_size_px'] !== '' ? (int) $data['item_description_font_size_px'] : 14;
     $itemDescFontPx = in_array($itemDescFontPx, $allowedSectionFsPx, true) ? $itemDescFontPx : 14;
 @endphp
-<section class="website-block website-block-featured-services py-12 md:py-16 scroll-reveal-section" data-scroll-reveal>
+<section class="website-block website-block-featured-services pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section" data-scroll-reveal>
     <div class="website-section-inner">
-        <div class="w-full max-w-4xl mx-auto text-center mb-8 md:mb-14 px-0 scroll-reveal-item" style="transition: opacity {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94), transform {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 0ms; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
+        <div class="w-full max-w-4xl mx-auto text-center mb-6 md:mb-8 px-0 scroll-reveal-item" style="transition: opacity {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94), transform {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 0ms; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
             @if($title !== '')
                 <h2 class="featured-services-title font-bold text-gray-900 dark:text-white mb-3 leading-tight" style="font-family: var(--theme-font-heading, inherit);">{!! e($title) !!}</h2>
             @endif

@@ -19,8 +19,8 @@ class MarketingPreviewController extends Controller
         'strategie',
         'taxi',
         'contractvervoer',
-        'skillmatching',
         'website',
+        'prijzen',
         'website-copy',
     ];
 
@@ -40,15 +40,15 @@ class MarketingPreviewController extends Controller
 
         $page = strtolower($page);
         if ($page === 'index' || ! in_array($page, self::PAGES, true)) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         $titles = [
             'strategie' => 'Verkoopstrategie',
             'taxi' => 'Nexa Taxi',
             'contractvervoer' => 'Contractvervoer',
-            'skillmatching' => 'Skillmatching',
             'website' => 'Website builder',
+            'prijzen' => 'Prijzen',
             'website-copy' => 'Website-copy nexasuite.nl',
         ];
 
@@ -61,17 +61,13 @@ class MarketingPreviewController extends Controller
     private function assertCentralHost(Request $request): void
     {
         $host = strtolower((string) $request->getHost());
-        $isTenant = app()->bound('resolved_tenant') && app('resolved_tenant') !== null;
 
-        if ($isTenant) {
-            abort(404);
-        }
-
+        // Alleen de echte Host-header telt. Een gesimuleerde tenant via ?_tenant_host=
+        // (sessie op localhost) mag /marketing niet verbergen.
         if (CentralDomains::isCentral($host)) {
             return;
         }
 
-        // Extra lokale hostnamen (docker / hosts-bestand).
         if (! app()->isProduction() && in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
             return;
         }

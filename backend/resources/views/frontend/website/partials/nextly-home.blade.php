@@ -95,27 +95,29 @@
                     @endphp
                     <p class="mt-4 text-lg xl:text-xl {{ $heroSubtitleColorStyle === '' ? 'text-gray-600 dark:text-gray-300' : '' }}" @if($heroSubtitleColorStyle !== '') style="{{ $heroSubtitleColorStyle }}" @endif>{!! $sectionData['subtitle'] !!}</p>
                     @endif
-                    @if($v('_cta') && (!empty($sectionData['cta_primary_text']) || !empty($sectionData['cta_secondary_text'])))
+                    @if($v('_cta') && (($v('_cta_primary') && !empty($sectionData['cta_primary_text'])) || ($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))))
                     <div class="mt-6 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                        @if(!empty($sectionData['cta_primary_text']))
+                        @if($v('_cta_primary') && !empty($sectionData['cta_primary_text']))
                         @php
                             $heroPrimaryBg = $normHex($sectionData['cta_primary_bg'] ?? null, $primaryColor);
                             $heroPrimaryColor = $normHex($sectionData['cta_primary_text_color'] ?? null, '#ffffff');
                             $heroPrimaryBorder = $sectionData['cta_primary_border'] ?? '';
                             $heroPrimaryBorder = $heroPrimaryBorder !== '' ? $normHex($heroPrimaryBorder, $primaryColor) : 'transparent';
+                            $heroPrimaryHoverCss = \App\Services\WebsiteBuilderService::ctaButtonHoverCss($sectionData, 'cta_primary');
                         @endphp
-                        <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-medium rounded-lg border-2 transition-all duration-200 hover:brightness-90 hover:shadow-xl hover:-translate-y-1 dark:hover:brightness-125 dark:hover:shadow-2xl" style="background-color: {{ $heroPrimaryBg }}; color: {{ $heroPrimaryColor }}; border-color: {{ $heroPrimaryBorder }};">
+                        <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-medium rounded-lg border-2 transition-all duration-200 hover:brightness-90 hover:shadow-xl hover:-translate-y-1 dark:hover:brightness-125 dark:hover:shadow-2xl{{ $heroPrimaryHoverCss !== '' ? ' nexa-cta-btn--custom-hover' : '' }}" style="background-color: {{ $heroPrimaryBg }}; color: {{ $heroPrimaryColor }}; border-color: {{ $heroPrimaryBorder }};{{ $heroPrimaryHoverCss }}">
                             {{ $sectionData['cta_primary_text'] }}
                         </a>
                         @endif
-                        @if(!empty($sectionData['cta_secondary_text']))
+                        @if($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))
                         @php
                             $heroSecondaryBgRaw = $sectionData['cta_secondary_bg'] ?? '';
                             $heroSecondaryBg = $heroSecondaryBgRaw !== '' ? $normHex($heroSecondaryBgRaw, $primaryColor) : 'transparent';
                             $heroSecondaryBorder = $normHex($sectionData['cta_secondary_border'] ?? null, $primaryColor);
                             $heroSecondaryColor = $normHex($sectionData['cta_secondary_text_color'] ?? null, $primaryColor);
+                            $heroSecondaryHoverCss = \App\Services\WebsiteBuilderService::ctaButtonHoverCss($sectionData, 'cta_secondary');
                         @endphp
-                        <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-medium rounded-lg border-2 transition-all duration-200 hover:bg-gray-200 hover:shadow-xl dark:hover:bg-gray-600 dark:hover:shadow-2xl hover:-translate-y-1" style="background-color: {{ $heroSecondaryBg }}; border-color: {{ $heroSecondaryBorder }}; color: {{ $heroSecondaryColor }};">
+                        <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-medium rounded-lg border-2 transition-all duration-200 hover:bg-gray-200 hover:shadow-xl dark:hover:bg-gray-600 dark:hover:shadow-2xl hover:-translate-y-1{{ $heroSecondaryHoverCss !== '' ? ' nexa-cta-btn--custom-hover' : '' }}" style="background-color: {{ $heroSecondaryBg }}; border-color: {{ $heroSecondaryBorder }}; color: {{ $heroSecondaryColor }};{{ $heroSecondaryHoverCss }}">
                             {{ $sectionData['cta_secondary_text'] }}
                         </a>
                         @endif
@@ -131,11 +133,13 @@
     @endif
 
     @if($base === 'why_nexa' && $v(''))
-    <section class="py-16 md:py-20 bg-white dark:bg-gray-900" id="about">
-        <div class="container mx-auto px-4">
+    @php $whyBg = \App\Models\WebsitePage::whyNexaBackgroundPresentation($sectionData); @endphp
+    <section class="pt-8 md:pt-10 pb-12 md:pb-16 {{ $whyBg['surface_class'] }} {{ $whyBg['wrapper_class'] }}" id="about" @if($whyBg['color_style'] !== '') style="{{ $whyBg['color_style'] }}" @endif>
+        @include('frontend.website.partials.why-nexa-background-layers')
+        <div class="container mx-auto px-4 relative z-10">
             <div class="max-w-3xl mx-auto text-center">
                 @if($v('_title'))
-                <h2 class="text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl lg:text-5xl" style="color: {{ $primaryColor }};">
+                <h2 class="text-3xl font-bold sm:text-4xl lg:text-5xl {{ $whyBg['title_color_style'] === '' ? 'text-gray-900 dark:text-white' : '' }}" style="{{ $whyBg['title_color_style'] !== '' ? $whyBg['title_color_style'] : 'color: '.$primaryColor.';' }}">
                     {{ $sectionData['title'] ?? 'Over ons' }}
                 </h2>
                 @endif
@@ -158,7 +162,7 @@
         $featuresCount = count($featuresItems);
         $featuresCols = $featuresCount > 3 ? 2 : max(1, $featuresCount);
     @endphp
-    <section class="py-16 md:py-20 bg-gray-50 dark:bg-gray-800/50" id="services">
+    <section class="pt-8 md:pt-10 pb-12 md:pb-16 bg-gray-50 dark:bg-gray-800/50" id="services">
         <div class="container mx-auto px-4">
             @if($v('_section_title') && !empty($sectionData['section_title']))
             <h2 class="text-center text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl lg:text-5xl mb-12" style="color: {{ $primaryColor }};">
@@ -242,27 +246,29 @@
             @if($v('_subtitle') && !empty($sectionData['subtitle']))
             <div class="mt-4 text-center text-lg text-white/90" style="color: rgba(255,255,255,0.9);">{!! $sectionData['subtitle'] !!}</div>
             @endif
-            @if($v('_cta') && (!empty($sectionData['cta_primary_text']) || !empty($sectionData['cta_secondary_text'])))
+            @if($v('_cta') && (($v('_cta_primary') && !empty($sectionData['cta_primary_text'])) || ($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))))
             <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-                @if(!empty($sectionData['cta_primary_text']))
+                @if($v('_cta_primary') && !empty($sectionData['cta_primary_text']))
                 @php
                     $ctaPrimaryBg = $normHex($sectionData['cta_primary_bg'] ?? null, $primaryColor);
                     $ctaPrimaryColor = $normHex($sectionData['cta_primary_text_color'] ?? null, '#ffffff');
                     $ctaPrimaryBorderRaw = $sectionData['cta_primary_border'] ?? '';
                     $ctaPrimaryBorder = $ctaPrimaryBorderRaw !== '' ? $normHex($ctaPrimaryBorderRaw, $primaryColor) : 'transparent';
+                    $ctaPrimaryHoverCss = \App\Services\WebsiteBuilderService::ctaButtonHoverCss($sectionData, 'cta_primary');
                 @endphp
-                <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-bold rounded-lg border-2 transition-all duration-200 hover:shadow-xl hover:-translate-y-1 hover:brightness-90 dark:hover:brightness-125" style="background-color: {{ $ctaPrimaryBg }}; color: {{ $ctaPrimaryColor }}; border-color: {{ $ctaPrimaryBorder }};">
+                <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-bold rounded-lg border-2 transition-all duration-200 hover:shadow-xl hover:-translate-y-1 hover:brightness-90 dark:hover:brightness-125{{ $ctaPrimaryHoverCss !== '' ? ' nexa-cta-btn--custom-hover' : '' }}" style="background-color: {{ $ctaPrimaryBg }}; color: {{ $ctaPrimaryColor }}; border-color: {{ $ctaPrimaryBorder }};{{ $ctaPrimaryHoverCss }}">
                     {{ $sectionData['cta_primary_text'] }}
                 </a>
                 @endif
-                @if(!empty($sectionData['cta_secondary_text']))
+                @if($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))
                 @php
                     $ctaSecondaryBgRaw = $sectionData['cta_secondary_bg'] ?? '';
                     $ctaSecondaryBg = $ctaSecondaryBgRaw !== '' ? $normHex($ctaSecondaryBgRaw, '') : 'transparent';
                     $ctaSecondaryBorder = $normHex($sectionData['cta_secondary_border'] ?? null, '#ffffff');
                     $ctaSecondaryColor = $normHex($sectionData['cta_secondary_text_color'] ?? null, '#ffffff');
+                    $ctaSecondaryHoverCss = \App\Services\WebsiteBuilderService::ctaButtonHoverCss($sectionData, 'cta_secondary');
                 @endphp
-                <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-bold border-2 rounded-lg transition-all duration-200 hover:bg-white/40 hover:shadow-xl hover:-translate-y-1" style="background-color: {{ $ctaSecondaryBg }}; border-color: {{ $ctaSecondaryBorder }}; color: {{ $ctaSecondaryColor }};">
+                <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex justify-center items-center px-8 py-4 text-base font-bold border-2 rounded-lg transition-all duration-200 hover:bg-white/40 hover:shadow-xl hover:-translate-y-1{{ $ctaSecondaryHoverCss !== '' ? ' nexa-cta-btn--custom-hover' : '' }}" style="background-color: {{ $ctaSecondaryBg }}; border-color: {{ $ctaSecondaryBorder }}; color: {{ $ctaSecondaryColor }};{{ $ctaSecondaryHoverCss }}">
                     {{ $sectionData['cta_secondary_text'] }}
                 </a>
                 @endif

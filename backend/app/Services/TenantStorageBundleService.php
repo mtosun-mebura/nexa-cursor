@@ -26,6 +26,8 @@ final class TenantStorageBundleService
 
     public const BUNDLE_TYPE = 'tenant_media';
 
+    public const BUNDLE_TYPE_CENTRAL = 'nexa_saas_website';
+
     public function __construct(
         protected TenantWebsiteBundleService $websiteBundle
     ) {}
@@ -114,6 +116,75 @@ final class TenantStorageBundleService
         return $out;
     }
 
+    /**
+     * Centrale NEXA-website-instellingen (company_id null), o.a. prijzenblok.
+     *
+     * @return list<array{key: string, value: string}>
+     */
+    private function buildCentralGeneralSettingsExportPayload(): array
+    {
+        if (! Schema::hasTable('general_settings')) {
+            return [];
+        }
+
+        $keys = ['nexa_pricing'];
+        $q = GeneralSetting::query()->whereIn('key', $keys);
+        $table = (new GeneralSetting)->getTable();
+        if (Schema::hasColumn($table, 'company_id')) {
+            $q->whereNull('company_id');
+        }
+
+        $out = [];
+        foreach ($q->get(['key', 'value']) as $row) {
+            $key = (string) $row->getAttribute('key');
+            if ($key === '') {
+                continue;
+            }
+            $out[] = [
+                'key' => $key,
+                'value' => (string) $row->getAttribute('value'),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>|mixed>  $entries
+     */
+    private function importCentralGeneralSettingsPayload(array $entries): int
+    {
+        if (! Schema::hasTable('general_settings')) {
+            return 0;
+        }
+
+        $allowed = ['nexa_pricing' => true];
+        $n = 0;
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $key = isset($entry['key']) && is_string($entry['key']) ? trim($entry['key']) : '';
+            if ($key === '' || ! isset($allowed[$key])) {
+                continue;
+            }
+            $value = $entry['value'] ?? '';
+            if (is_bool($value) || is_int($value) || is_float($value)) {
+                $value = (string) $value;
+            } elseif (! is_string($value)) {
+                continue;
+            }
+
+            GeneralSetting::query()->updateOrCreate(
+                ['key' => $key, 'company_id' => null],
+                ['value' => $value]
+            );
+            $n++;
+        }
+
+        return $n;
+    }
+
     public function exportZip(Company $company): StreamedResponse
     {
         $allPaths = $this->collectAllTenantStoragePaths($company);
@@ -195,6 +266,123 @@ final class TenantStorageBundleService
         }, $filename, [
             'Content-Type' => 'application/zip',
         ]);
+    }
+
+    public function exportCentralWebsiteZip(): StreamedResponse
+    {
+        $allPaths = $this->websiteBundle->collectWebsiteMediaPathsForCentral();
+        $pagePayloads = $this->websiteBundle->buildCentralPageExportPayloads();
+        $mediaPayloads = $this->websiteBundle->buildCentralWebsiteMediaExportPayloads();
+        $settingsPayload = $this->buildCentralGeneralSettingsExportPayload();
+
+        $manifest = [
+            'bundle_type' => self::BUNDLE_TYPE_CENTRAL,
+            'bundle_version' => self::BUNDLE_VERSION,
+            'exported_at' => now()->toIso8601String(),
+            'source_company_id' => null,
+            'source_company_name' => 'NEXA SaaS',
+            'pages' => $pagePayloads,
+            'general_settings' => $settingsPayload,
+            'storage_paths' => $allPaths,
+            'website_media' => $mediaPayloads,
+            'note' => 'NEXA SaaS-hoofdwebsite: website_pages met company_id null, gerefereerde bestanden, carousel-media en nexa_pricing.',
+        ];
+
+        $filename = 'nexa-saas-website-'.now()->format('Y-m-d-His').'.zip';
+
+        return response()->streamDownload(function () use ($manifest, $allPaths, $mediaPayloads) {
+            $zipPath = tempnam(sys_get_temp_dir(), 'nexa_cw_');
+            if ($zipPath === false) {
+                throw new RuntimeException('Kon geen tijdelijk bestand aanmaken.');
+            }
+
+            $zip = new ZipArchive;
+            if ($zip->open($zipPath, ZipArchive::OVERWRITE) !== true) {
+                @unlink($zipPath);
+                throw new RuntimeException('Kon ZIP-archief niet openen.');
+            }
+
+            $zip->addFromString('manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            foreach ($allPaths as $rel) {
+                $rel = $this->websiteBundle->normalizeStorageRelativePath((string) $rel);
+                if ($rel === '') {
+                    continue;
+                }
+                $abs = storage_path('app/public/'.$rel);
+                if (is_file($abs) && is_readable($abs)) {
+                    $this->zipAddFileOrFromString($zip, $abs, 'files/'.$rel);
+                }
+            }
+
+            $this->websiteBundle->addWebsiteMediaFilesToZip($zip, $mediaPayloads);
+
+            $zip->close();
+
+            $h = fopen($zipPath, 'rb');
+            if ($h !== false) {
+                while (! feof($h)) {
+                    echo fread($h, 1024 * 1024);
+                    flush();
+                }
+                fclose($h);
+            }
+            @unlink($zipPath);
+        }, $filename, [
+            'Content-Type' => 'application/zip',
+        ]);
+    }
+
+    /**
+     * @return array{copied_files: int, imported_pages: int, imported_settings: int, imported_photos: int}
+     */
+    public function importCentralWebsiteZip(UploadedFile $file): array
+    {
+        $tmp = $file->getRealPath();
+        if (! is_string($tmp) || ! is_readable($tmp)) {
+            throw new RuntimeException('Upload onleesbaar.');
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($tmp) !== true) {
+            throw new RuntimeException('Geen geldig ZIP-bestand.');
+        }
+
+        $manifestJson = $zip->getFromName('manifest.json');
+        $zip->close();
+        if (! is_string($manifestJson) || $manifestJson === '') {
+            throw new RuntimeException('ZIP mist manifest.json.');
+        }
+
+        $manifest = json_decode($manifestJson, true);
+        if (! is_array($manifest)) {
+            throw new RuntimeException('Ongeldig manifest.');
+        }
+        if (($manifest['bundle_type'] ?? '') !== self::BUNDLE_TYPE_CENTRAL) {
+            throw new RuntimeException('Dit is geen NEXA SaaS-websitebundle (verwacht bundle_type "'.self::BUNDLE_TYPE_CENTRAL.'"). Kies NEXA SaaS in de lijst, of gebruik een tenant-ZIP voor een bedrijf.');
+        }
+
+        $copied = $this->copyFilesFromZipToPublicDisk($tmp);
+
+        $pages = $manifest['pages'] ?? [];
+        $importedPages = is_array($pages) && $pages !== []
+            ? $this->websiteBundle->importCentralWebsitePagesFromManifestEntries($pages)
+            : 0;
+
+        $settings = $manifest['general_settings'] ?? [];
+        $importedSettings = is_array($settings) && $settings !== []
+            ? $this->importCentralGeneralSettingsPayload($settings)
+            : 0;
+
+        $mediaEntries = is_array($manifest['website_media'] ?? null) ? $manifest['website_media'] : [];
+        $copied += $this->websiteBundle->restoreWebsiteMediaFromZip($tmp, $mediaEntries);
+
+        return [
+            'copied_files' => $copied,
+            'imported_pages' => $importedPages,
+            'imported_settings' => $importedSettings,
+            'imported_photos' => 0,
+        ];
     }
 
     /**

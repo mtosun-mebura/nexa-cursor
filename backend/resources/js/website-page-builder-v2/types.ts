@@ -23,6 +23,7 @@ export type EmailTemplateOption = {
 
 export type PageMetaForm = {
   title: string
+  menuTitle: string
   slug: string
   pageType: string
   moduleName: string | null
@@ -66,6 +67,7 @@ export type BuilderBootstrap = {
   page: {
     id: number
     title: string
+    menuTitle?: string
     slug: string
     pageType: string
     moduleName: string | null
@@ -95,7 +97,9 @@ export type BuilderBootstrap = {
     uploadWebsiteMedia: string
     websiteMediaServeBase: string
     postcodeLookup: string
+    nexaPricingEdit: string
   }
+  nexaPricing: Record<string, unknown>
   googleMapsApiKey: string
   googleMapsMapId: string
   siteBrandingLogoUrl: string

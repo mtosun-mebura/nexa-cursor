@@ -102,6 +102,9 @@ class AdminFrontendComponentController extends Controller
 
         $homeSections = [
             'component:website.nexa_modules_overview' => [],
+            'component:website.screenshot_gallery' => [],
+            'component:website.comparison_table' => [],
+            'component:website.pricing_packages' => [],
             'component:taxi.tarieven' => [],
             'component:taxi.boekingsmodule' => [],
             'component:website.email_template_section' => [
@@ -110,7 +113,7 @@ class AdminFrontendComponentController extends Controller
             'visibility' => [],
         ];
 
-        $sectionKey = 'component:' . $component->id;
+        $sectionKey = 'component:'.$component->id;
 
         return view('admin.frontend-components.demo', [
             'component' => $component,
@@ -140,7 +143,7 @@ class AdminFrontendComponentController extends Controller
                 }
 
                 return (object) [
-                    'id' => 'section.' . $type,
+                    'id' => 'section.'.$type,
                     'name' => $label,
                     'module_name' => 'Algemeen',
                     'description' => 'Ingebouwde pagina-sectie uit de website builder.',

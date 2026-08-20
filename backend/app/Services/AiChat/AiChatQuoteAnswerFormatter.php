@@ -41,7 +41,7 @@ final class AiChatQuoteAnswerFormatter
             $lines[] = 'Opmerkingen: '.$remarks;
         }
 
-        if ($isBooking && trim((string) ($session['first_name'] ?? '')) !== '') {
+        if (trim((string) ($session['first_name'] ?? '')) !== '') {
             $lines[] = 'Contact: '.trim((string) ($session['first_name'] ?? '')).' '.trim((string) ($session['last_name'] ?? ''));
             $lines[] = 'Telefoon: '.trim((string) ($session['phone'] ?? ''));
             $email = trim((string) ($session['email'] ?? ''));
@@ -178,23 +178,25 @@ final class AiChatQuoteAnswerFormatter
                 'placeholder' => 'Bijv. rolstoel, kinderzitje (optioneel)',
                 'required' => false,
             ],
-            'first_name' => [
+            'first_name' => array_filter([
                 'type' => 'text',
                 'step' => 'first_name',
                 'placeholder' => 'Voornaam',
                 'inputType' => 'text',
                 'autocomplete' => 'given-name',
                 'required' => true,
-            ],
-            'last_name' => [
+                'prefill' => trim((string) ($session['suggested_first_name'] ?? '')) ?: null,
+            ]),
+            'last_name' => array_filter([
                 'type' => 'text',
                 'step' => 'last_name',
                 'placeholder' => 'Achternaam',
                 'inputType' => 'text',
                 'autocomplete' => 'family-name',
                 'required' => true,
-            ],
-            'phone' => [
+                'prefill' => trim((string) ($session['suggested_last_name'] ?? '')) ?: null,
+            ]),
+            'phone' => array_filter([
                 'type' => 'text',
                 'step' => 'phone',
                 'placeholder' => 'Bijv. 0612345678',
@@ -202,8 +204,9 @@ final class AiChatQuoteAnswerFormatter
                 'inputMode' => 'tel',
                 'autocomplete' => 'tel',
                 'required' => true,
-            ],
-            'email' => [
+                'prefill' => trim((string) ($session['suggested_phone'] ?? '')) ?: null,
+            ]),
+            'email' => array_filter([
                 'type' => 'text',
                 'step' => 'email',
                 'placeholder' => 'E-mailadres',
@@ -211,7 +214,8 @@ final class AiChatQuoteAnswerFormatter
                 'inputMode' => 'email',
                 'autocomplete' => 'email',
                 'required' => true,
-            ],
+                'prefill' => trim((string) ($session['suggested_email'] ?? '')) ?: null,
+            ]),
             default => null,
         };
     }
@@ -241,7 +245,6 @@ final class AiChatQuoteAnswerFormatter
     }
 
     /**
-     * @param  mixed  $items
      * @return array<int, array{key: string, title: string, subtitle?: string, max: int}>
      */
     private function normalizeBaggageItems(mixed $items): array

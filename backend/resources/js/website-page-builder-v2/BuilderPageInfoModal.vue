@@ -1,25 +1,33 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import type { BuilderBootstrap, PageMetaForm } from './types'
+import { extractPageContentText } from './extract-page-content'
 
 const props = defineProps<{
   open: boolean
   bootstrap: BuilderBootstrap
   modelValue: PageMetaForm
+  homeSections?: Record<string, unknown>
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'update:modelValue': [value: PageMetaForm]
   saved: [payload: { pageMeta: PageMetaForm; themeName: string; themeSlug: string; page: BuilderBootstrap['page'] }]
+  'apply-seo-hero': [hero: Record<string, string>]
 }>()
 
 const form = ref<PageMetaForm>(cloneMeta(props.modelValue))
 const saving = ref(false)
 const error = ref<string | null>(null)
+const savedMessage = ref<string | null>(null)
 const seoLoading = ref(false)
 const seoApplySections = ref(true)
+const seoTips = ref<string[]>([])
 const slugManuallyEdited = ref(false)
+const menuTitleManuallyEdited = ref(false)
+let savedMessageTimer: ReturnType<typeof setTimeout> | null = null
+let shortcutBound = false
 
 const options = computed(() => props.bootstrap.pageMetaOptions)
 const themes = computed(() => options.value.themes)
@@ -34,11 +42,68 @@ const moduleChoice = computed({
 })
 
 function cloneMeta(value: PageMetaForm): PageMetaForm {
-  return JSON.parse(JSON.stringify(value)) as PageMetaForm
+  const cloned = JSON.parse(JSON.stringify(value)) as PageMetaForm
+  if (typeof cloned.menuTitle !== 'string') {
+    cloned.menuTitle = ''
+  }
+  return cloned
 }
 
 function close() {
   emit('update:open', false)
+}
+
+function clearSavedMessageTimer() {
+  if (savedMessageTimer) {
+    clearTimeout(savedMessageTimer)
+    savedMessageTimer = null
+  }
+}
+
+function showSaved() {
+  savedMessage.value = 'Opgeslagen'
+  clearSavedMessageTimer()
+  savedMessageTimer = setTimeout(() => {
+    savedMessage.value = null
+    savedMessageTimer = null
+  }, 4000)
+}
+
+function bindShortcut() {
+  if (shortcutBound) {
+    return
+  }
+  window.addEventListener('keydown', onModalKeydown, true)
+  shortcutBound = true
+}
+
+function unbindShortcut() {
+  if (!shortcutBound) {
+    return
+  }
+  window.removeEventListener('keydown', onModalKeydown, true)
+  shortcutBound = false
+}
+
+function onModalKeydown(event: KeyboardEvent) {
+  if (!props.open) {
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    close()
+    return
+  }
+  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') {
+    return
+  }
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  if (saving.value || seoLoading.value) {
+    return
+  }
+  void save(false)
 }
 
 function slugify(value: string): string {
@@ -54,6 +119,13 @@ function onTitleInput() {
   if (!options.value.slugReadonly && !slugManuallyEdited.value) {
     form.value.slug = slugify(form.value.title)
   }
+  if (!menuTitleManuallyEdited.value) {
+    form.value.menuTitle = form.value.title
+  }
+}
+
+function onMenuTitleInput() {
+  menuTitleManuallyEdited.value = true
 }
 
 function onSlugInput() {
@@ -74,6 +146,7 @@ function csrfToken(): string {
 async function generateSeo() {
   seoLoading.value = true
   error.value = null
+  seoTips.value = []
   try {
     const res = await fetch(props.bootstrap.routes.generateSeo, {
       method: 'POST',
@@ -90,24 +163,34 @@ async function generateSeo() {
         slug: form.value.slug,
         company_id: form.value.companyId,
         include_sections: seoApplySections.value,
+        page_content: extractPageContentText(props.homeSections ?? {}),
+        home_sections: props.homeSections ?? {},
       }),
     })
     const json = (await res.json()) as {
       ok?: boolean
       message?: string
-      data?: { title?: string; meta_description?: string }
+      data?: {
+        title?: string
+        meta_description?: string
+        sections?: { hero?: Record<string, string> }
+        tips?: string[]
+      }
     }
     if (!res.ok || !json.ok) {
       throw new Error(json.message ?? 'SEO genereren mislukt.')
     }
     if (json.data?.title) {
       form.value.title = json.data.title
-      if (!slugManuallyEdited.value && !options.value.slugReadonly) {
-        form.value.slug = slugify(json.data.title)
-      }
     }
     if (json.data?.meta_description) {
       form.value.metaDescription = json.data.meta_description
+    }
+    if (seoApplySections.value && json.data?.sections?.hero) {
+      emit('apply-seo-hero', json.data.sections.hero)
+    }
+    if (Array.isArray(json.data?.tips)) {
+      seoTips.value = json.data.tips.filter((tip) => tip.trim() !== '')
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'SEO genereren mislukt.'
@@ -116,9 +199,10 @@ async function generateSeo() {
   }
 }
 
-async function save() {
+async function save(closeAfter = true) {
   saving.value = true
   error.value = null
+  savedMessage.value = null
   try {
     const res = await fetch(props.bootstrap.routes.updateMeta, {
       method: 'PATCH',
@@ -130,6 +214,7 @@ async function save() {
       },
       body: JSON.stringify({
         title: form.value.title,
+        menu_title: form.value.menuTitle,
         slug: form.value.slug,
         page_type: form.value.pageType,
         module_name: form.value.moduleName ?? '',
@@ -161,7 +246,12 @@ async function save() {
       themeSlug: json.themeSlug ?? props.bootstrap.themeSlug,
       page: json.page ?? props.bootstrap.page,
     })
-    close()
+    form.value = cloneMeta(json.pageMeta)
+    if (closeAfter) {
+      close()
+      return
+    }
+    showSaved()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Opslaan mislukt.'
   } finally {
@@ -175,10 +265,22 @@ watch(
     if (open) {
       form.value = cloneMeta(props.modelValue)
       slugManuallyEdited.value = false
+      menuTitleManuallyEdited.value = (form.value.menuTitle ?? '').trim() !== ''
       error.value = null
+      savedMessage.value = null
+      clearSavedMessageTimer()
+      seoTips.value = []
+      bindShortcut()
+      return
     }
+    unbindShortcut()
   }
 )
+
+onUnmounted(() => {
+  unbindShortcut()
+  clearSavedMessageTimer()
+})
 </script>
 
 <template>
@@ -215,7 +317,7 @@ watch(
               @click="generateSeo"
             >
               <i class="ki-filled ki-magic me-1" aria-hidden="true" />
-              SEO &amp; AI genereren
+              {{ seoLoading ? 'Bezig…' : 'SEO & AI genereren' }}
             </button>
             <button
               type="button"
@@ -269,12 +371,15 @@ watch(
                     <p class="text-xs text-muted-foreground mb-0">Deze pagina is aan dit bedrijf gekoppeld.</p>
                   </template>
                   <template v-else-if="options.tenant.showCompanyDropdown">
-                    <select v-model="form.companyId" class="kt-input" required>
-                      <option :value="null" disabled>— Selecteer een bedrijf —</option>
+                    <select v-model="form.companyId" class="kt-input">
+                      <option :value="null">Nexa SaaS (geen tenant)</option>
                       <option v-for="company in options.tenant.companies" :key="company.id" :value="company.id">
                         {{ company.name }}
                       </option>
                     </select>
+                    <p class="text-xs text-muted-foreground mt-1 mb-0">
+                      Laat dit op Nexa SaaS staan voor de hoofdwebsite. Kies alleen een bedrijf als deze pagina bij een tenant hoort.
+                    </p>
                   </template>
                   <template v-else-if="options.tenant.effectiveCompanyName">
                     <p class="text-sm text-foreground mb-1 font-medium">{{ options.tenant.effectiveCompanyName }}</p>
@@ -314,9 +419,30 @@ watch(
               </tr>
 
               <tr>
-                <td class="text-secondary-foreground font-normal">Titel *</td>
+                <td class="text-secondary-foreground font-normal">Paginatitel (SEO) *</td>
                 <td>
                   <input v-model="form.title" type="text" class="kt-input" required autocomplete="off" @input="onTitleInput" />
+                  <p class="text-xs text-muted-foreground mt-1 mb-0">
+                    Wordt gebruikt als Google-titel. SEO-generatie vult dit veld; de menunaam blijft ongewijzigd.
+                  </p>
+                </td>
+              </tr>
+
+              <tr>
+                <td class="text-secondary-foreground font-normal">Naam in menu</td>
+                <td>
+                  <input
+                    v-model="form.menuTitle"
+                    type="text"
+                    class="kt-input"
+                    maxlength="80"
+                    autocomplete="off"
+                    placeholder="Korte naam in de navigatie"
+                    @input="onMenuTitleInput"
+                  />
+                  <p class="text-xs text-muted-foreground mt-1 mb-0">
+                    Deze tekst staat in het website-menu. SEO-generatie past dit niet aan.
+                  </p>
                 </td>
               </tr>
 
@@ -352,21 +478,28 @@ watch(
                     rows="3"
                     maxlength="500"
                     class="kt-input w-full min-h-[4.5rem]"
-                    placeholder="Korte omschrijving voor Google en AI-zoekmachines (ideaal 150–160 tekens)"
+                  placeholder="Google-snippet: wie u bent, wat u biedt, welke actie de bezoeker kan nemen."
                   />
                   <div class="flex flex-wrap items-center justify-between gap-2 mt-1.5">
                     <p class="text-xs text-muted-foreground mb-0 flex-1 min-w-[12rem]">
-                      Gebruik <strong>SEO &amp; AI genereren</strong> voor titel en meta-teksten.
+                    Google toont circa 160 tekens. De generator schrijft een zoekwoordrijke snippet (geen knopteksten).
                     </p>
                     <span
                       class="text-xs text-muted-foreground tabular-nums shrink-0"
                       :class="{
                         'text-destructive': metaDescriptionLength > 160,
-                        'text-success': metaDescriptionLength >= 120 && metaDescriptionLength <= 160,
+                        'text-success': metaDescriptionLength >= 150 && metaDescriptionLength <= 160,
                       }"
                     >
                       {{ metaDescriptionLength }} / 160
                     </span>
+                  </div>
+                  <div
+                    v-if="seoTips.length"
+                    class="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1.5"
+                    aria-live="polite"
+                  >
+                    <p v-for="(tip, index) in seoTips" :key="index" class="mb-0">• {{ tip }}</p>
                   </div>
                   <label class="kt-label flex items-center gap-2 mt-3 mb-0">
                     <input v-model="seoApplySections" type="checkbox" class="kt-checkbox" />
@@ -386,12 +519,13 @@ watch(
         </div>
 
         <footer class="builder-config-modal__footer">
-          <div class="builder-config-modal__footer-status">
+          <div class="builder-config-modal__footer-status" role="status" aria-live="polite">
             <span v-if="error" class="builder-status builder-status--error">{{ error }}</span>
+            <span v-else-if="savedMessage" class="builder-status builder-status--saved">{{ savedMessage }}</span>
           </div>
           <div class="builder-config-modal__footer-actions">
             <button type="button" class="kt-btn kt-btn-outline" :disabled="saving" @click="close">Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-primary" :disabled="saving" @click="save">
+            <button type="button" class="kt-btn kt-btn-primary" :disabled="saving" @click="save()">
               {{ saving ? 'Opslaan…' : 'Opslaan' }}
             </button>
           </div>
@@ -551,5 +685,11 @@ watch(
 .builder-status--error {
   color: #dc2626;
   font-size: 0.8125rem;
+}
+
+.builder-status--saved {
+  color: #16a34a;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 </style>

@@ -7,7 +7,8 @@
     .settings-collapsible-chevron .settings-collapsible-icon-down {
         display: inline-block;
     }
-    .settings-collapsible-card--collapsed .settings-collapsible-body {
+    .settings-collapsible-card--collapsed > .settings-collapsible-body,
+    .settings-collapsible-section.settings-collapsible-card--collapsed > .settings-collapsible-body {
         display: none !important;
     }
     :is(.settings-collapsible-card, .settings-collapsible-section).settings-collapsible-card--collapsed > .settings-collapsible-header .settings-collapsible-icon-up {
@@ -62,6 +63,19 @@
     .tenant-sync-progress-item {
         opacity: 0;
         animation: tenant-sync-fade-in 0.35s ease forwards;
+    }
+    #tenant-sync-tables > .settings-collapsible-header {
+        padding: 0.5rem 0.75rem;
+        background: transparent;
+        border-bottom: none;
+    }
+    #tenant-sync-tables > .settings-collapsible-header .kt-card-title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+    #tenant-sync-tables:not(.settings-collapsible-card--collapsed) > .settings-collapsible-body {
+        border-top: 1px solid var(--border);
+        padding-top: 0.75rem;
     }
     @keyframes tenant-sync-fade-in {
         from {

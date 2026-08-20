@@ -5,14 +5,16 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Services\EnvService;
 use App\Services\ProfanityFilter;
+use App\Services\PublicFormProtection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Config;
 
 class ContactController extends Controller
 {
     protected $envService;
+
     protected $profanityFilter;
 
     public function __construct(EnvService $envService, ProfanityFilter $profanityFilter)
@@ -36,9 +38,10 @@ class ContactController extends Controller
     {
         // Honeypot captcha check (geheime captcha)
         // Als dit veld is ingevuld, is het een bot
-        if ($request->filled('website')) {
-            // Bot detected, silently fail
+        if (app(PublicFormProtection::class)->honeypotFilled($request) || $request->filled('website')) {
+            // Bot detected, silently succeed so the sender learns nothing
             \Log::info('Contact form: Bot detected via honeypot');
+
             return redirect()->route('contact')->with('success', 'Bedankt voor uw bericht!');
         }
 
@@ -54,6 +57,7 @@ class ContactController extends Controller
                     'time_diff' => $timeDiff,
                     'ip' => $request->ip(),
                 ]);
+
                 return redirect()->route('contact')->with('error', 'Het formulier is te snel verzonden. Wacht even en probeer het opnieuw.');
             }
         }
@@ -114,7 +118,7 @@ class ContactController extends Controller
             $email = $request->input('email');
             $phone = $request->input('phone');
             $message = $request->input('message');
-            
+
             // Check op SQL injection patterns (slimmere detectie)
             // Let op: Laravel gebruikt al prepared statements, maar extra checks helpen
             $sqlPatterns = [
@@ -132,9 +136,9 @@ class ContactController extends Controller
                 // Gevaarlijke combinaties van quotes en SQL keywords
                 '/[\'";].*(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b)/i',
             ];
-            
-            $allInput = $first_name . ' ' . $last_name . ' ' . $email . ' ' . ($phone ?? '') . ' ' . $message;
-            
+
+            $allInput = $first_name.' '.$last_name.' '.$email.' '.($phone ?? '').' '.$message;
+
             foreach ($sqlPatterns as $pattern) {
                 if (preg_match($pattern, $allInput)) {
                     \Log::warning('Contact form: SQL injection attempt detected', [
@@ -142,12 +146,13 @@ class ContactController extends Controller
                         'user_agent' => $request->userAgent(),
                         'pattern' => $pattern,
                     ]);
+
                     return redirect()->route('contact')
                         ->with('error', 'Ongeldige invoer gedetecteerd. Probeer het opnieuw.')
                         ->withInput();
                 }
             }
-            
+
             // Check op XSS patterns
             $xssPatterns = [
                 '/(<script|<\/script>)/i',
@@ -157,19 +162,20 @@ class ContactController extends Controller
                 '/(<object|<\/object>)/i',
                 '/(<embed|<\/embed>)/i',
             ];
-            
+
             foreach ($xssPatterns as $pattern) {
                 if (preg_match($pattern, $allInput)) {
                     \Log::warning('Contact form: XSS attempt detected', [
                         'ip' => $request->ip(),
                         'user_agent' => $request->userAgent(),
                     ]);
+
                     return redirect()->route('contact')
                         ->with('error', 'Ongeldige invoer gedetecteerd. Probeer het opnieuw.')
                         ->withInput();
                 }
             }
-            
+
             // Check op profanity in alle tekstvelden
             if ($this->profanityFilter->containsProfanity($first_name) ||
                 $this->profanityFilter->containsProfanity($last_name) ||
@@ -178,6 +184,7 @@ class ContactController extends Controller
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                 ]);
+
                 return redirect()->route('contact')
                     ->with('error', 'Uw bericht bevat ongepaste taal. Pas uw bericht aan en probeer het opnieuw.')
                     ->withInput();
@@ -203,9 +210,9 @@ class ContactController extends Controller
         try {
             // Laad mail instellingen uit backend instellingen
             $this->applyMailSettings();
-            
+
             \Log::info('Contact form: Attempting to send email', ['to' => 'support@mebura.nl', 'data' => array_keys($data)]);
-            
+
             // Prepare email data - veilig voor gebruik in email template
             // Note: We use 'user_message' instead of 'message' to avoid conflict with Laravel's $message variable
             // Data is al gesanitized, maar we gebruiken htmlspecialchars opnieuw voor extra veiligheid
@@ -216,32 +223,32 @@ class ContactController extends Controller
                 'phone' => $data['phone'] ? htmlspecialchars($data['phone'], ENT_QUOTES, 'UTF-8') : '',
                 'user_message' => nl2br(htmlspecialchars($data['message'], ENT_QUOTES, 'UTF-8')), // Voor email template met line breaks
             ];
-            
+
             // Haal from adres en naam uit backend instellingen
             // FROM adres wordt alleen gebruikt voor email headers, niet voor SMTP authenticatie
             $fromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
             $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
-            
+
             // Haal SMTP username op voor envelope sender
             // De envelope sender (SMTP MAIL FROM commando) moet overeenkomen met de SMTP authenticatie gebruiker
             // om te voorkomen dat de mailserver de verzending weigert
             $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
-            
+
             // Send email
             // SMTP authenticatie gebruikt automatisch MAIL_USERNAME en MAIL_PASSWORD
             // FROM adres wordt alleen in de email headers gezet
             // Envelope sender wordt ingesteld op SMTP username voor de SMTP MAIL FROM commando
             Mail::send('emails.contact', $emailData, function ($mailMessage) use ($emailData, $fromAddress, $fromName, $smtpUsername) {
-                $subject = 'Nieuw contactformulier bericht van ' . $emailData['first_name'] . ' ' . $emailData['last_name'];
+                $subject = 'Nieuw contactformulier bericht van '.$emailData['first_name'].' '.$emailData['last_name'];
                 $mailMessage->to('support@mebura.nl', 'NEXA Support')
                     ->subject($subject)
-                    ->replyTo($emailData['email'], $emailData['first_name'] . ' ' . $emailData['last_name'])
+                    ->replyTo($emailData['email'], $emailData['first_name'].' '.$emailData['last_name'])
                     ->from($fromAddress, $fromName);
-                
+
                 // Voeg een Sender header toe als SMTP username beschikbaar is
                 // De Sender header geeft aan welk adres daadwerkelijk de email verzendt
                 // Dit kan helpen bij mailservers die autorisatie controleren
-                if (!empty($smtpUsername)) {
+                if (! empty($smtpUsername)) {
                     try {
                         $symfonyMessage = $mailMessage->getSymfonyMessage();
                         $symfonyMessage->getHeaders()->remove('Sender');
@@ -250,12 +257,12 @@ class ContactController extends Controller
                         // Als het toevoegen van de Sender header faalt, log het maar ga door
                         \Log::warning('Could not set Sender header', [
                             'error' => $e->getMessage(),
-                            'smtp_username' => $smtpUsername
+                            'smtp_username' => $smtpUsername,
                         ]);
                     }
                 }
             });
-            
+
             \Log::info('Contact form: Email sent successfully');
 
             return redirect()->route('contact')->with('success', 'Bedankt voor uw bericht! We nemen zo spoedig mogelijk contact met u op.');
@@ -265,51 +272,52 @@ class ContactController extends Controller
                 'session_token' => session()->token(),
                 'request_token' => $request->input('_token'),
             ]);
-            
+
             return redirect()->route('contact')
                 ->with('error', 'Uw sessie is verlopen. Ververs de pagina en probeer het opnieuw.')
                 ->withInput();
         } catch (\Exception $e) {
-            \Log::error('Contact form error: ' . $e->getMessage());
-            \Log::error('Contact form error trace: ' . $e->getTraceAsString());
-            \Log::error('Contact form error file: ' . $e->getFile() . ':' . $e->getLine());
+            \Log::error('Contact form error: '.$e->getMessage());
+            \Log::error('Contact form error trace: '.$e->getTraceAsString());
+            \Log::error('Contact form error file: '.$e->getFile().':'.$e->getLine());
             \Log::error('Contact form error details', [
                 'mailer' => $this->envService->get('MAIL_MAILER', 'unknown'),
                 'from_address' => $this->envService->get('MAIL_FROM_ADDRESS', 'unknown'),
                 'smtp_host' => $this->envService->get('MAIL_HOST', 'unknown'),
                 'smtp_username' => $this->envService->get('MAIL_USERNAME', 'unknown'),
             ]);
-            
+
             // If mail is configured to log, still show success to user
             $mailer = $this->envService->get('MAIL_MAILER', config('mail.default', 'log'));
             if ($mailer === 'log') {
                 \Log::info('Contact form: Mail configured to log, showing success message');
+
                 return redirect()->route('contact')->with('success', 'Bedankt voor uw bericht! We nemen zo spoedig mogelijk contact met u op.');
             }
-            
+
             // Check if it's an SMTP authorization error
             $errorMessage = $e->getMessage();
-            if (strpos($errorMessage, 'not authorized to send') !== false || 
+            if (strpos($errorMessage, 'not authorized to send') !== false ||
                 strpos($errorMessage, '550') !== false ||
                 strpos($errorMessage, 'not authorized') !== false) {
-                
+
                 // Haal de huidige instellingen op voor betere foutmelding
                 $smtpUsername = $this->envService->get('MAIL_USERNAME', 'niet ingesteld');
                 $fromAddress = $this->envService->get('MAIL_FROM_ADDRESS', 'niet ingesteld');
-                
+
                 \Log::error('Contact form: SMTP authorization error', [
                     'smtp_username' => $smtpUsername,
                     'from_address' => $fromAddress,
                     'error' => $errorMessage,
                 ]);
-                
+
                 return redirect()->route('contact')
-                    ->with('error', 'Mail server weigert verzending: De SMTP gebruiker (' . $smtpUsername . ') is niet geautoriseerd om namens het FROM adres (' . $fromAddress . ') te verzenden. Pas de mail instellingen aan in de admin interface of vraag de beheerder om de SMTP gebruiker te autoriseren voor het FROM adres.')
+                    ->with('error', 'Mail server weigert verzending: De SMTP gebruiker ('.$smtpUsername.') is niet geautoriseerd om namens het FROM adres ('.$fromAddress.') te verzenden. Pas de mail instellingen aan in de admin interface of vraag de beheerder om de SMTP gebruiker te autoriseren voor het FROM adres.')
                     ->withInput();
             }
-            
+
             return redirect()->route('contact')
-                ->with('error', 'Er is een fout opgetreden bij het versturen van uw bericht: ' . $e->getMessage() . '. Probeer het later opnieuw of neem contact op met de beheerder.')
+                ->with('error', 'Er is een fout opgetreden bij het versturen van uw bericht: '.$e->getMessage().'. Probeer het later opnieuw of neem contact op met de beheerder.')
                 ->withInput();
         }
     }
@@ -333,7 +341,7 @@ class ContactController extends Controller
 
         // Pas mail configuratie dynamisch aan
         Config::set('mail.default', $mailer);
-        
+
         // FROM adres is alleen voor email headers, niet voor SMTP authenticatie
         Config::set('mail.from.address', $fromAddress);
         Config::set('mail.from.name', $fromName);
@@ -347,22 +355,21 @@ class ContactController extends Controller
             Config::set('mail.mailers.smtp.username', $username);
             Config::set('mail.mailers.smtp.password', $password);
             Config::set('mail.mailers.smtp.encryption', $encryption === 'null' ? null : $encryption);
-            
+
             // Zorg ervoor dat auth wordt gebruikt (als username en password zijn ingesteld)
-            if (!empty($username) && !empty($password)) {
+            if (! empty($username) && ! empty($password)) {
                 Config::set('mail.mailers.smtp.auth_mode', null); // Laat Laravel automatisch auth mode bepalen
             }
         }
-        
+
         // Clear mail manager cache zodat nieuwe configuratie wordt gebruikt
         app()->forgetInstance('mail.manager');
-        
+
         // Registreer een custom envelope sender callback die de SMTP username gebruikt
         // Dit zorgt ervoor dat de envelope sender (SMTP MAIL FROM) gelijk is aan de SMTP username
-        if ($mailer === 'smtp' && !empty($username)) {
+        if ($mailer === 'smtp' && ! empty($username)) {
             // We kunnen dit niet direct via config doen, maar moeten het per email instellen
             // Dit wordt gedaan in de Mail::send callback
         }
     }
 }
-

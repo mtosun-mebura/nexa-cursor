@@ -32,7 +32,7 @@ class AdminTenantScopeTest extends TestCase
         $this->app->instance('request', $request);
     }
 
-    public function test_super_admin_without_tenant_requires_scope_on_tenant_pages(): void
+    public function test_super_admin_without_tenant_can_manage_central_website_pages(): void
     {
         $user = $this->superAdminWithoutTenant();
         $this->actingAs($user);
@@ -42,9 +42,9 @@ class AdminTenantScopeTest extends TestCase
 
         $this->assertTrue($scope->isSuperAdminWithoutTenant());
         $this->assertFalse($scope->isTenantScopedActive());
-        $this->assertTrue($scope->shouldShowTenantNotice());
-        $this->assertTrue($scope->shouldHideContent());
-        $this->assertSame('website-pages', $scope->noticeVariant());
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
     }
 
     public function test_exempt_dashboard_does_not_require_tenant(): void

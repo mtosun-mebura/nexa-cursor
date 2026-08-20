@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\InformatieaanvraagEmailHtmlNormalizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -35,8 +34,10 @@ class EmailTemplate extends Model
         if (is_array($order) && count($order) > 0) {
             $ids = array_map('intval', $order);
             $fields = InfoRequestFormField::whereIn('id', $ids)->get()->keyBy('id');
+
             return collect($ids)->map(fn ($id) => $fields->get($id))->filter()->values();
         }
+
         return InfoRequestFormField::ordered()->get();
     }
 
@@ -99,26 +100,17 @@ class EmailTemplate extends Model
         }
         $formFields = $this->getOrderedFormFields();
         $labelStyle = 'padding: 6px 10px 6px 14px; background-color: #ffffff; color: #374151; text-align: right; vertical-align: top; width: 175px; white-space: nowrap;';
-        $valueStyle = 'padding: 6px 10px 6px 10px; background-color: #ffffff; color: #111827; text-align: left; vertical-align: top;';
+        $valueStyle = 'padding: 6px 10px 6px 10px; background-color: #ffffff; color: #111827; text-align: left; vertical-align: top; width: 99%;';
         $textareaValueStyle = $valueStyle.' white-space: pre-wrap; word-break: break-word;';
-        $divider = InformatieaanvraagEmailHtmlNormalizer::fieldDividerRowHtml();
         $fieldRows = [];
         foreach ($formFields as $field) {
             $varKey = static::fieldNameToVariableKey($field->name);
             $cellStyle = $field->isTextareaField() ? $textareaValueStyle : $valueStyle;
-            $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" style="' . $labelStyle . '"><strong>' . e($field->label) . ':</strong></td><td class="info-request-field-value' . ($field->isTextareaField() ? ' info-request-field-value--multiline' : '') . '" style="' . $cellStyle . '">{{ ' . $varKey . ' }}</td></tr>';
+            $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" width="175" style="'.$labelStyle.'"><strong>'.e($field->label).':</strong></td><td class="info-request-field-value'.($field->isTextareaField() ? ' info-request-field-value--multiline' : '').'" width="99%" style="'.$cellStyle.'">{{ '.$varKey.' }}</td></tr>';
         }
-        $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" style="' . $labelStyle . '"><strong>Datum aanvraag:</strong></td><td class="info-request-field-value" style="' . $valueStyle . '">{{ DATUM_AANVRAAG }}</td></tr>';
+        $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" width="175" style="'.$labelStyle.'"><strong>Datum aanvraag:</strong></td><td class="info-request-field-value" width="99%" style="'.$valueStyle.'">{{ DATUM_AANVRAAG }}</td></tr>';
 
-        $rows = [];
-        foreach ($fieldRows as $index => $row) {
-            $rows[] = $row;
-            if ($index < count($fieldRows) - 1) {
-                $rows[] = $divider;
-            }
-        }
-
-        return implode("\n", $rows);
+        return implode("\n", $fieldRows);
     }
 
     /**
@@ -163,5 +155,3 @@ class EmailTemplate extends Model
         return $this->hasMany(Notification::class);
     }
 }
-
-

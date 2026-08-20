@@ -15,7 +15,7 @@
         </div>
     </div>
     <div class="hero-visual">
-        <img src="{{ asset('assets/marketing/images/hero-nexa-suite.png') }}" alt="NEXA Suite platform overzicht" width="640" height="400">
+        <img src="{{ asset('assets/marketing/images/hero-nexa-platform.png') }}" alt="NEXA Suite platform overzicht" width="640" height="400">
     </div>
 </section>
 

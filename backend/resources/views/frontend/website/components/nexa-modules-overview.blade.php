@@ -65,12 +65,12 @@
     ];
 
     $items = isset($sectionData['items']) && is_array($sectionData['items']) ? array_values($sectionData['items']) : [];
-    if (count($items) < 3) {
-        $items = array_merge($items, array_slice($defaultItems, count($items)));
+    if ($items === []) {
+        $items = $defaultItems;
     }
 @endphp
 
-<section id="modules-overview" class="py-16 md:py-20 bg-white dark:bg-gray-900 nexa-modules-overview-scroll-reveal">
+<section id="modules-overview" class="pt-6 md:pt-8 pb-10 md:pb-14 bg-white dark:bg-gray-900 nexa-modules-overview-scroll-reveal">
     <div class="website-section-inner">
         <div class="text-center mb-12">
             <p class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-300 mb-6 nexa-modules-animate-item nexa-modules-animate-eyebrow">{{ $sectionData['eyebrow'] ?? 'Onze modules' }}</p>
@@ -93,8 +93,14 @@
                         : (in_array($iconKey, $emeraldKeys, true) ? 'emerald' : 'blue');
                     $badgeVariant = $item['badge_variant'] ?? 'available';
                     $features = isset($item['features']) && is_array($item['features']) ? array_values(array_filter($item['features'], fn ($f) => trim((string) $f) !== '')) : [];
+                    $itemUrl = trim((string) ($item['url'] ?? ''));
+                    $cardClass = 'rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-6 flex flex-col h-full shadow-sm relative transform-gpu will-change-transform transition-[transform,box-shadow] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] nexa-modules-hover-card nexa-modules-animate-item nexa-modules-animate-card';
                 @endphp
-                <article class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-6 flex flex-col h-full shadow-sm relative transform-gpu will-change-transform transition-[transform,box-shadow] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] nexa-modules-hover-card nexa-modules-animate-item nexa-modules-animate-card">
+                @if($itemUrl !== '')
+                <a href="{{ $itemUrl }}" class="{{ $cardClass }} no-underline">
+                @else
+                <article class="{{ $cardClass }}">
+                @endif
                     <div class="w-16 h-16 rounded-xl mx-auto flex items-center justify-center mb-4 @if($iconTone === 'amber') bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 @elseif($iconTone === 'emerald') bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 @else bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 @endif">
                         @if($iconSvg !== '')
                             <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">{!! $iconSvg !!}</svg>
@@ -112,7 +118,11 @@
                             <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full {{ $badgeVariant === 'soon' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:ring-1 dark:ring-gray-500/40' : 'bg-green-100 text-green-800 dark:bg-emerald-950 dark:text-emerald-100 dark:ring-1 dark:ring-emerald-500/35' }}">{{ $item['badge'] }}</span>
                         </div>
                     @endif
+                @if($itemUrl !== '')
+                </a>
+                @else
                 </article>
+                @endif
             @endforeach
         </div>
     </div>

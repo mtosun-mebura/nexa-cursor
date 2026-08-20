@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="badge">Hoogste saleskans</div>
-<h1>Nexa Taxi — van telefoon naar online boeking &amp; chauffeur-app</h1>
+<h1>Nexa Taxi: van telefoon naar online boeking &amp; chauffeur-app</h1>
 <p class="lead">Het product waarmee je de meeste taxibedrijven binnenhaalt: website, boeking, dispatch, betaling en chauffeur-PWA in één stack.</p>
 
 <div class="feature-visual" style="margin-bottom:1.25rem;">
@@ -17,20 +17,37 @@
     </article>
     <article class="card">
         <h3>Dispatch</h3>
-        <p>Ritten toewijzen, waves, accept/decline, redispatch — overzicht voor de centrale.</p>
+        <p>Ritten toewijzen, waves, accept/decline, redispatch: overzicht voor de centrale.</p>
     </article>
     <article class="card">
         <h3>Chauffeur-PWA</h3>
-        <p>Online/offline, inbox, rit starten/afronden, stops, betaling — <code>/taxi/chauffeur</code>.</p>
+        <p>Online/offline, inbox, rit starten/afronden, stops, betaling: <code>/taxi/chauffeur</code>.</p>
     </article>
     <article class="card">
-        <h3>Mijn Taxi</h3>
-        <p>Klantportaal voor eigen ritten + AI-chat over de eigen boeking.</p>
+        <h3>Jouw merk, jouw tarieven</h3>
+        <p>Logo, kleuren en tarieven per voertuig. De klant boekt bij jou, niet bij een marktplaats.</p>
     </article>
 </div>
 
-<div class="feature-visual" style="margin:1.25rem 0;">
-    <img src="{{ asset('assets/marketing/images/feature-chauffeur-app.png') }}" alt="Chauffeur app scherm">
+<div class="screenshot-grid">
+    <figure>
+        <div class="feature-visual">
+            <img src="{{ asset('assets/marketing/images/feature-chauffeur-inbox.png') }}" alt="Chauffeur-app: nieuwe ritaanvraag">
+        </div>
+        <figcaption>Nieuwe ritaanvraag</figcaption>
+    </figure>
+    <figure>
+        <div class="feature-visual">
+            <img src="{{ asset('assets/marketing/images/feature-chauffeur-active.png') }}" alt="Chauffeur-app: actieve rit">
+        </div>
+        <figcaption>Actieve rit</figcaption>
+    </figure>
+    <figure>
+        <div class="feature-visual">
+            <img src="{{ asset('assets/marketing/images/feature-chauffeur-app.png') }}" alt="Chauffeur-app: geplande ritten in de auto">
+        </div>
+        <figcaption>Geplande ritten</figcaption>
+    </figure>
 </div>
 
 <h2>Waarom dit scoort in sales</h2>

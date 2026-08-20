@@ -60,6 +60,7 @@ class GeneralSetting extends Model
         'info_request_success_icon_size',
         'info_request_success_image_size_percent',
         'info_request_success_image',
+        'nexa_pricing',
     ];
 
     protected $fillable = [

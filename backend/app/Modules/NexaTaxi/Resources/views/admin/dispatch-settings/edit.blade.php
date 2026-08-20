@@ -323,14 +323,23 @@
                             <p class="text-xs text-muted-foreground mb-2 break-all">
                                 Webhook: {{ $mollieSummary['webhook_url'] }}
                             </p>
-                            @if($canManagePaymentProviders)
+                            @if(auth()->user()->hasRole('super-admin'))
+                                <a href="{{ route('admin.settings.index') }}#mollie" class="kt-btn kt-btn-outline kt-btn-sm">
+                                    Mollie-instellingen bewerken
+                                </a>
+                            @elseif($canManagePaymentProviders)
                                 <a href="{{ route('admin.payment-providers.edit', $mollieSummary['provider']) }}" class="kt-btn kt-btn-outline kt-btn-sm">
                                     Mollie-instellingen bewerken
                                 </a>
                             @endif
                         @else
                             <p class="text-sm text-secondary-foreground mb-2">
-                                Er is nog geen actieve Mollie-provider voor dit bedrijf. Configureer API-sleutel en webhook onder <strong>Betalingsproviders</strong>.
+                                Er is nog geen actieve Mollie-omgeving voor dit bedrijf. Vul de API-sleutel van <strong>dit bedrijf</strong> in — chauffeur-betalingen komen dan op die Mollie-rekening.
+                                @if(auth()->user()->hasRole('super-admin'))
+                                    Super-admin: <strong>Configuraties → Mollie (tenant)</strong>.
+                                @else
+                                    Onder <strong>Betalingsproviders</strong>.
+                                @endif
                             </p>
                             <p class="text-xs text-muted-foreground mb-2">
                                 Aanbevolen webhook voor taxi-betalingen: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl }}</code>
@@ -338,7 +347,11 @@
                             <p class="text-xs text-muted-foreground mb-2">
                                 Lokaal (<code>localhost</code> of <code>192.168.x.x</code>): Mollie kan die URL niet bereiken. Betalingen werken zonder webhook via terugkeer-URL en polling in de chauffeur-app. Voor webhooks: gebruik een tunnel (ngrok) en zet <code>TAXI_MOLLIE_WEBHOOK_URL</code> in <code>.env</code>.
                             </p>
-                            @if($canManagePaymentProviders)
+                            @if(auth()->user()->hasRole('super-admin'))
+                                <a href="{{ route('admin.settings.index') }}#mollie" class="kt-btn kt-btn-outline kt-btn-sm">
+                                    Mollie instellen
+                                </a>
+                            @elseif($canManagePaymentProviders)
                                 <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-outline kt-btn-sm">
                                     Mollie-provider aanmaken
                                 </a>

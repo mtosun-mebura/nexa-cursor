@@ -9,7 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
-    <link rel="manifest" href="{{ route('taxi.contract.manifest') }}">
+    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.contract.manifest') ? route('taxi.contract.manifest') : url('/taxi/contract/manifest.webmanifest') }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -323,6 +323,46 @@
             color: #64748b;
         }
         .error { color: #fca5a5; font-size: 0.875rem; margin: 0.75rem 0 0; }
+        #login-error {
+            display: none;
+            margin: 0.75rem 0 1rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 0.5rem;
+            background: rgba(239, 68, 68, 0.16);
+            border: 1px solid rgba(248, 113, 113, 0.45);
+            color: #fecaca;
+            font-size: 0.9rem;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+        #login-error:not([hidden]) {
+            display: block;
+        }
+        html[data-theme="light"] #login-error {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+        #login-form .field-error {
+            display: none;
+            margin: -0.3rem 0 0.55rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #fca5a5;
+            line-height: 1.3;
+        }
+        #login-form .field-error:not([hidden]) {
+            display: block;
+        }
+        #login-form input.is-invalid {
+            border-color: #ef4444;
+        }
+        html[data-theme="light"] #login-form .field-error {
+            color: #b91c1c;
+        }
+        html[data-theme="light"] #login-form input.is-invalid {
+            border-color: #dc2626;
+        }
         .muted { color: var(--muted); font-size: 0.875rem; }
         .btn {
             display: inline-flex;
@@ -454,6 +494,47 @@
             background: #ecfdf5;
             border-color: #6ee7b7;
             color: #065f46;
+        }
+        .banner-guide-hint {
+            position: relative;
+            background: rgba(249, 115, 22, 0.14);
+            border: 1px solid rgba(249, 115, 22, 0.4);
+            color: #fed7aa;
+            border-radius: 0.75rem;
+            padding: 0.75rem 2.25rem 0.75rem 1rem;
+            font-size: 0.8125rem;
+            line-height: 1.45;
+        }
+        html[data-theme="light"] .banner-guide-hint {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+        .banner-guide-hint a.btn-inline {
+            display: inline-block;
+            margin-top: 0.5rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.5rem;
+            border: none;
+            background: var(--orange);
+            color: #fff;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .profile-guide-link {
+            display: flex;
+            align-items: center;
+            margin: 0.85rem 0 0.35rem;
+            padding: 0.75rem 0.85rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--line);
+            background: var(--card-elevated, #252528);
+            color: var(--text);
+            text-decoration: none;
+        }
+        .profile-guide-link strong {
+            font-size: 0.95rem;
         }
         .banner-dismiss-btn,
         .banner-dismiss {
@@ -755,17 +836,19 @@
         <div id="install-hint" class="banner-install-app" hidden role="note">
             <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install" aria-label="Sluiten">×</button>
             <span>Installeer deze app op je telefoon voor snelle toegang tot status en afmelden.</span>
-            <button type="button" class="btn-link" id="btn-install-guide">Handleiding</button>
+            <button type="button" class="btn-link" id="btn-install-guide">Hoe installeren</button>
             <button type="button" class="btn-inline" id="btn-install-app" hidden>Installeer app</button>
         </div>
         <h1>Contract inloggen</h1>
         <div class="card">
-            <form id="login-form" autocomplete="on">
+            <form id="login-form" autocomplete="on" novalidate>
                 <label for="email">E-mail</label>
-                <input id="email" name="email" type="email" inputmode="email" autocomplete="username" required>
+                <input id="email" name="email" type="email" inputmode="email" autocomplete="username" required aria-describedby="email-error">
+                <p id="email-error" class="field-error" hidden role="alert"></p>
                 <label for="password">Wachtwoord</label>
-                <input id="password" name="password" type="password" autocomplete="current-password" required>
-                <p id="login-error" class="error" hidden></p>
+                <input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="password-error">
+                <p id="password-error" class="field-error" hidden role="alert"></p>
+                <p id="login-error" class="error" hidden role="alert" aria-live="assertive"></p>
                 <button type="submit" class="btn btn-primary" id="login-btn">Inloggen</button>
             </form>
         </div>
@@ -777,6 +860,13 @@
                 <h1 id="home-title">Vandaag</h1>
             </div>
             <div class="home-banners">
+                <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+                    <strong>Handleiding.</strong>
+                    Nieuw of even niet zeker? Open de handleiding voor inloggen, ritten en afmelden.
+                    Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+                    <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">Handleiding openen</a>
+                </div>
                 <div id="announcement-banners" class="banner-announcements" hidden></div>
             </div>
         </div>
@@ -812,6 +902,9 @@
                         </dl>
                     </div>
                     <p class="muted profile-session-note">Gegevens zijn alleen ter inzage.</p>
+                    <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">
+                        <strong>Handleiding</strong>
+                    </a>
                     <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
                 </div>
             </div>
@@ -874,10 +967,11 @@ window.NEXA_TAXI_CONTRACT = {
     apiBase: @json($apiBase),
     loginUrl: @json(url('/api/taxi/v1/contract/login')),
     appUrl: @json($appUrl ?? url('/taxi/contract')),
+    guideUrl: @json($guideUrl ?? url('/taxi/contract/handleiding')),
     pollMs: {{ (int) ($pollMs ?? 15000) }},
 };
 </script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=16" defer></script>
+<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=19" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

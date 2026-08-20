@@ -14,6 +14,7 @@ final readonly class AiChatRequestContext
         public ?User $user = null,
         public ?string $sessionId = null,
         public string $module = 'taxi',
+        public bool $isCentralWebsite = false,
     ) {}
 
     public function isAdminChannel(): bool
@@ -29,6 +30,11 @@ final readonly class AiChatRequestContext
     public function isPublicChannel(): bool
     {
         return $this->channel === AiChatChannel::Public;
+    }
+
+    public function isCentralWebsite(): bool
+    {
+        return $this->isCentralWebsite;
     }
 
     /**

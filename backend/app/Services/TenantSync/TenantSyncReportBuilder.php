@@ -24,6 +24,8 @@ final class TenantSyncReportBuilder
     /** @var list<string> */
     private array $notes = [];
 
+    private ?string $customSummary = null;
+
     /** @var null|callable(array<string, mixed>): void */
     private $onProgress = null;
 
@@ -60,12 +62,13 @@ final class TenantSyncReportBuilder
         ($this->onProgress)(array_merge(['type' => $type], $payload));
     }
 
-    public function setSummary(int $remoteCompanyId, int $inserted, int $updated, int $skipped): void
+    public function setSummary(int $remoteCompanyId, int $inserted, int $updated, int $skipped, ?string $summaryOverride = null): void
     {
         $this->remoteCompanyId = $remoteCompanyId;
         $this->totalInserted = $inserted;
         $this->totalUpdated = $updated;
         $this->totalSkipped = $skipped;
+        $this->customSummary = $summaryOverride;
 
         $this->emit('summary', [
             'remote_company_id' => $remoteCompanyId,
@@ -143,6 +146,10 @@ final class TenantSyncReportBuilder
 
     public function summaryLine(): string
     {
+        if ($this->customSummary !== null && $this->customSummary !== '') {
+            return $this->customSummary;
+        }
+
         return sprintf(
             'Tenant-sync voltooid. Doel company_id: %d. Toegevoegd: %d, bijgewerkt: %d, overgeslagen: %d.',
             $this->remoteCompanyId,

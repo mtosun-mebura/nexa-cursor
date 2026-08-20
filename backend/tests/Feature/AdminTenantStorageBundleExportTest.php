@@ -80,6 +80,115 @@ class AdminTenantStorageBundleExportTest extends TestCase
     }
 
     #[Test]
+    public function nexa_saas_website_bundle_export_streams_zip_with_central_manifest(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        if (Schema::hasTable('website_pages') && Schema::hasColumn('website_pages', 'company_id')) {
+            WebsitePage::query()->create([
+                'slug' => 'prijzen-export-'.uniqid(),
+                'title' => 'Prijzen',
+                'page_type' => 'custom',
+                'company_id' => null,
+                'is_active' => true,
+                'show_in_menu' => true,
+                'sort_order' => 4,
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get(
+            route('admin.settings.tenant-storage-bundle.export', ['company_id' => 'nexa'])
+        );
+
+        $response->assertOk();
+        $this->assertStringContainsString('zip', (string) $response->headers->get('Content-Type'));
+
+        $binary = $response->streamedContent();
+        $this->assertIsString($binary);
+        $this->assertSame('PK', substr($binary, 0, 2));
+
+        $tmp = tempnam(sys_get_temp_dir(), 'nexa_cwe_');
+        $this->assertNotFalse($tmp);
+        try {
+            file_put_contents($tmp, $binary);
+            $zip = new ZipArchive;
+            $this->assertTrue($zip->open($tmp) === true);
+            $manifestJson = $zip->getFromName('manifest.json');
+            $this->assertIsString($manifestJson);
+            $manifest = json_decode($manifestJson, true);
+            $this->assertIsArray($manifest);
+            $this->assertSame('nexa_saas_website', $manifest['bundle_type'] ?? null);
+            $this->assertArrayHasKey('source_company_id', $manifest);
+            $this->assertNull($manifest['source_company_id']);
+            $this->assertSame('NEXA SaaS', $manifest['source_company_name'] ?? null);
+            $this->assertArrayHasKey('pages', $manifest);
+            $this->assertArrayHasKey('general_settings', $manifest);
+            $zip->close();
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    #[Test]
+    public function nexa_saas_website_bundle_import_upserts_central_pages(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+        $slug = 'prijzen-import-'.uniqid();
+
+        $manifest = [
+            'bundle_type' => TenantStorageBundleService::BUNDLE_TYPE_CENTRAL,
+            'bundle_version' => TenantStorageBundleService::BUNDLE_VERSION,
+            'exported_at' => now()->toIso8601String(),
+            'source_company_id' => null,
+            'source_company_name' => 'NEXA SaaS',
+            'pages' => [[
+                'connection' => (string) config('database.default'),
+                'theme_slug' => null,
+                'attributes' => [
+                    'slug' => $slug,
+                    'title' => 'Prijzen import',
+                    'page_type' => 'custom',
+                    'is_active' => true,
+                    'show_in_menu' => true,
+                    'sort_order' => 4,
+                    'company_id' => null,
+                ],
+            ]],
+            'general_settings' => [],
+            'storage_paths' => [],
+            'website_media' => [],
+        ];
+
+        $tmpZip = tempnam(sys_get_temp_dir(), 'nexa_cwi_');
+        $this->assertNotFalse($tmpZip);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tmpZip, ZipArchive::OVERWRITE) === true);
+        $zip->addFromString('manifest.json', json_encode($manifest));
+        $zip->close();
+
+        try {
+            $file = new UploadedFile($tmpZip, 'nexa-saas-website.zip', 'application/zip', null, true);
+            $response = $this->actingAs($user)->post(
+                route('admin.settings.tenant-storage-bundle.import'),
+                [
+                    'company_id' => 'nexa',
+                    'bundle' => $file,
+                ]
+            );
+            $response->assertRedirect();
+            $response->assertSessionHas('success');
+            $this->assertSame(
+                'Prijzen import',
+                WebsitePage::query()->whereNull('company_id')->where('slug', $slug)->value('title')
+            );
+        } finally {
+            @unlink($tmpZip);
+        }
+    }
+
+    #[Test]
     public function tenant_sync_scope_includes_payment_company_scoped_tables(): void
     {
         $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();

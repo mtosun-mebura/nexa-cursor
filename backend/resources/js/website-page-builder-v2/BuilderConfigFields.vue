@@ -4,6 +4,7 @@ import BuilderConfigFields from './BuilderConfigFields.vue'
 import BuilderFooterLogoField from './BuilderFooterLogoField.vue'
 import BuilderFooterMapField from './BuilderFooterMapField.vue'
 import BuilderFooterSocialIcon from './BuilderFooterSocialIcon.vue'
+import BuilderPricingPackagesPreview from './BuilderPricingPackagesPreview.vue'
 import BuilderWysiwygField from './BuilderWysiwygField.vue'
 import type { ConfigField, FieldVisibleWhen, SelectOption } from './section-config-schemas'
 import { buildPatchForPath, getByPath } from './nested-data'
@@ -188,6 +189,26 @@ function isFooterLinkList(field: ConfigField): boolean {
   return field.key === 'quick_links' || field.key === 'support_links'
 }
 
+function isCompactItemList(field: ConfigField): boolean {
+  return field.type === 'item-list' && !!field.compact
+}
+
+function compactItemPlaceholder(field: ConfigField): string {
+  if (field.type !== 'item-list') {
+    return ''
+  }
+  const first = field.fields.find((sub) => sub.type === 'text')
+  return first && first.type === 'text' ? (first.placeholder ?? '') : ''
+}
+
+function compactItemTextKey(field: ConfigField): string {
+  if (field.type !== 'item-list') {
+    return 'text'
+  }
+  const first = field.fields.find((sub) => sub.type === 'text')
+  return first && 'key' in first ? first.key : 'text'
+}
+
 function wysiwygEditorKey(fieldKey: string, itemIndex?: number): string {
   const block = props.blockKey ?? 'block'
   if (itemIndex !== undefined) {
@@ -196,13 +217,20 @@ function wysiwygEditorKey(fieldKey: string, itemIndex?: number): string {
   return `${block}-${fieldKey}`
 }
 
+function resolveSubVisibilityKey(key: string): string {
+  if (key.startsWith('_') && props.blockKey) {
+    return `${props.blockKey}${key}`
+  }
+  return key
+}
+
 function subVisibilityVisible(key: string): boolean {
-  const v = props.visibility?.[key]
+  const v = props.visibility?.[resolveSubVisibilityKey(key)]
   return v !== false && v !== '0' && v !== 0
 }
 
 function toggleSubVisibility(key: string) {
-  emit('patch-visibility', key, !subVisibilityVisible(key))
+  emit('patch-visibility', resolveSubVisibilityKey(key), !subVisibilityVisible(key))
 }
 
 function num(key: string, fallback = 0): number {
@@ -382,6 +410,35 @@ function hexForPicker(value: string, fallback: string): string {
     return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`
   }
   return fallback
+}
+
+function groupHeading(field: ConfigField): string {
+  if (field.type !== 'group') {
+    return ''
+  }
+  if (field.headingKey) {
+    const heading = str(field.headingKey).trim()
+    if (heading !== '') {
+      return heading
+    }
+  }
+  return field.label
+}
+
+function groupIsOpen(field: ConfigField, index: number): boolean {
+  if (field.type === 'group' && field.alwaysOpen) {
+    return true
+  }
+  return !isCollapsed(index, field.type === 'group' ? field.label : String(index))
+}
+
+function groupAccentStyle(field: ConfigField): Record<string, string> | undefined {
+  if (field.type !== 'group' || !field.accentColorKey) {
+    return undefined
+  }
+  return {
+    '--builder-group-accent': hexForPicker(str(field.accentColorKey), field.accentColorFallback ?? '#2563eb'),
+  }
 }
 
 async function uploadImage(fieldKey: string, file: File, onSuccess?: (url: string) => void) {
@@ -575,10 +632,15 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
       <div
         v-if="field.type === 'group'"
         class="builder-config-group"
-        :class="{ 'builder-config-group--collapsed': isCollapsed(fi, field.label) }"
+        :class="{
+          'builder-config-group--collapsed': !groupIsOpen(field, fi),
+          'builder-config-group--hidden': field.subVisibilityKey && !subVisibilityVisible(field.subVisibilityKey),
+          'builder-config-group--accent': !!field.accentColorKey,
+        }"
+        :style="groupAccentStyle(field)"
       >
         <div class="builder-config-group__header">
-          <span class="builder-config-group__legend">{{ field.label }}</span>
+          <span class="builder-config-group__legend">{{ groupHeading(field) }}</span>
           <div class="builder-config-section__actions">
             <button
               v-if="field.subVisibilityKey"
@@ -594,10 +656,11 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               />
             </button>
             <button
+              v-if="!field.alwaysOpen"
               type="button"
               class="builder-icon-btn"
               :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
-              :aria-expanded="!isCollapsed(fi, field.label)"
+              :aria-expanded="groupIsOpen(field, fi)"
               @click="toggleCollapsed(fi, field.label)"
             >
               <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
@@ -606,7 +669,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         </div>
         <p v-if="field.hint" class="builder-field-hint builder-config-group__hint">{{ field.hint }}</p>
         <div
-          v-if="field.label === 'Social media' && !isCollapsed(fi, field.label)"
+          v-if="field.label === 'Social media' && groupIsOpen(field, fi)"
           class="builder-social-preview-row"
           aria-hidden="true"
         >
@@ -620,7 +683,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             }"
           />
         </div>
-        <div v-show="!isCollapsed(fi, field.label)" class="builder-config-group__body">
+        <div v-show="groupIsOpen(field, fi)" class="builder-config-group__body">
           <BuilderConfigFields
             :fields="field.fields"
             :data="data"
@@ -675,12 +738,17 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         </div>
       </div>
 
+      <div v-else-if="field.type === 'pricing-packages-preview'" class="builder-config-field builder-config-field--pricing-preview min-w-0 max-w-full">
+        <BuilderPricingPackagesPreview />
+      </div>
+
       <div
         v-else-if="field.type === 'item-list'"
         class="builder-config-item-list"
         :class="{
           'builder-config-section--collapsed': !isFooterLinkList(field) && isCollapsed(fi, field.label),
           'builder-config-item-list--footer-links': isFooterLinkList(field),
+          'builder-config-item-list--compact': isCompactItemList(field),
         }"
       >
         <div class="builder-config-section__header">
@@ -713,7 +781,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           v-for="(item, index) in ensureItemCount(field.key, field.minItems ?? 0, field.maxItems ?? 99, {})"
           :key="`${field.key}-${index}`"
           class="builder-config-item"
-          :class="{ 'builder-config-item--footer-link': isFooterLinkList(field) }"
+          :class="{
+            'builder-config-item--footer-link': isFooterLinkList(field),
+            'builder-config-item--compact': isCompactItemList(field),
+          }"
         >
           <template v-if="isFooterLinkList(field)">
             <label
@@ -741,6 +812,25 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               <i class="ki-filled ki-trash" />
             </button>
           </template>
+          <template v-else-if="isCompactItemList(field)">
+            <input
+              class="kt-input"
+              :value="itemFieldDisplay(item, compactItemTextKey(field))"
+              :placeholder="compactItemPlaceholder(field)"
+              :aria-label="`Punt ${index + 1}`"
+              @input="patchItemField(field.key, index, compactItemTextKey(field), ($event.target as HTMLInputElement).value)"
+            />
+            <button
+              v-if="items(field.key).length > (field.minItems ?? 0)"
+              type="button"
+              class="builder-config-item__remove"
+              title="Verwijderen"
+              aria-label="Verwijderen"
+              @click="removeItem(field.key, index, field.minItems ?? 0)"
+            >
+              <i class="ki-filled ki-trash" />
+            </button>
+          </template>
           <template v-else>
           <div class="builder-config-item__header">
             <span>{{ field.itemLabel ?? 'Item' }} {{ index + 1 }}</span>
@@ -756,7 +846,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           </div>
           <template v-for="(sub, si) in field.fields" :key="`${field.key}-${index}-${si}`">
             <label v-if="sub.type === 'text'" class="builder-field">
-              <span>{{ sub.label }}</span>
+              <span v-if="sub.label">{{ sub.label }}</span>
               <input
                 class="kt-input"
                 :value="itemFieldDisplay(item, sub.key)"
@@ -1120,13 +1210,13 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           <input
             type="color"
             class="builder-color-picker"
-            :value="hexForPicker(str(field.key), '#2563eb')"
+            :value="hexForPicker(str(field.key), field.defaultValue ?? '#2563eb')"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
           />
           <input
             class="kt-input font-mono text-sm"
             :value="str(field.key)"
-            placeholder="#hex (leeg = standaard)"
+            :placeholder="field.defaultValue ?? '#hex (leeg = standaard)'"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
           />
         </div>
@@ -1361,6 +1451,13 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   grid-column: 1 / -1;
 }
 
+.builder-config-fields--compact .builder-config-item--compact {
+  display: flex;
+  grid-template-columns: none;
+  flex-direction: row;
+  align-items: center;
+}
+
 .builder-config-fields--compact .builder-field-hint {
   font-size: 0.6875rem;
   margin-top: 0.1rem;
@@ -1382,6 +1479,27 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 
 .builder-config-group--collapsed {
   padding-bottom: 0.65rem;
+}
+
+.builder-config-group--hidden {
+  opacity: 0.72;
+}
+
+.builder-config-group--accent {
+  border-color: color-mix(in srgb, var(--builder-group-accent, var(--border)) 42%, var(--border));
+  overflow: hidden;
+}
+
+.builder-config-group--accent .builder-config-group__header {
+  margin: -0.65rem -0.75rem 0;
+  padding: 0.7rem 0.85rem;
+  background: color-mix(in srgb, var(--builder-group-accent, transparent) 12%, transparent);
+}
+
+.builder-config-group--accent .builder-config-group__legend {
+  color: var(--builder-group-accent, var(--foreground));
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .builder-config-group__header,
@@ -1454,6 +1572,22 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.builder-config-item--compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.builder-config-item--compact .kt-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.builder-config-item-list--compact {
+  gap: 0.45rem;
 }
 
 .builder-config-item__header {
@@ -1967,5 +2101,12 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   background: #f8fafc;
   border-color: #60a5fa;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+}
+
+.builder-config-field--pricing-preview {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 </style>
