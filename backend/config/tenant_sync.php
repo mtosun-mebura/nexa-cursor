@@ -297,6 +297,7 @@ return [
         'website_pages' => ['company_id', 'frontend_theme_id', 'module_name', 'slug'],
         'vacancies' => ['company_id', 'slug'],
         'notifications' => ['company_id', 'title'],
+        'companies' => ['slug'],
         'invoices' => ['company_id', 'invoice_number'],
         'invoice_settings' => ['company_id', 'location_id'],
         'ride_payments' => ['mollie_payment_id'],

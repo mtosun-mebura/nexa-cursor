@@ -1186,6 +1186,7 @@ final class TenantCompanyDataPushService
 
                 continue;
             }
+            $row['company_id'] = $remoteCompanyId;
 
             $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
             if ($payload === []) {
@@ -1193,6 +1194,7 @@ final class TenantCompanyDataPushService
 
                 continue;
             }
+            $payload['company_id'] = $remoteCompanyId;
 
             $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, $table, $payload);
             if ($existingId !== null && $existingId > 0) {
@@ -1634,8 +1636,9 @@ final class TenantCompanyDataPushService
         array $fkEdges
     ): ?array {
         unset($row['id']);
+        $keepNullCompanyId = $table === 'email_templates' && ($row['company_id'] ?? null) === null;
         if ($table === 'email_templates') {
-            $row['company_id'] = ($row['company_id'] ?? null) === null ? null : $remoteCompanyId;
+            $row['company_id'] = $keepNullCompanyId ? null : $remoteCompanyId;
             $row = $this->sanitizeEmailTemplateRowForSync($row, $idMaps);
         } else {
             $row['company_id'] = $remoteCompanyId;
@@ -1649,7 +1652,20 @@ final class TenantCompanyDataPushService
             return null;
         }
 
+        // company_id is tenant scope (already set to remote id), never an FK remap target.
+        if (! $keepNullCompanyId) {
+            $row['company_id'] = $remoteCompanyId;
+        }
+
         $payload = $this->stripUnsupportedColumns($table, $row, TenantWebsiteBundleService::SYNC_CONNECTION);
+
+        // stripUnsupportedColumns kan company_id droppen als doel-schema-cache de kolom mist;
+        // zonder herstel faalt Postgres met NOT NULL (o.a. invoices).
+        if ($keepNullCompanyId) {
+            $payload['company_id'] = null;
+        } else {
+            $payload['company_id'] = $remoteCompanyId;
+        }
 
         return $payload === [] ? null : $payload;
     }
@@ -1666,6 +1682,10 @@ final class TenantCompanyDataPushService
                 continue;
             }
             $col = $edge['child_column'];
+            // Tenant-scope: company_id is al gezet naar remote company id; niet hermappen via idMaps.
+            if ($col === 'company_id') {
+                continue;
+            }
             if (! array_key_exists($col, $row) || $row[$col] === null) {
                 continue;
             }
@@ -1698,6 +1718,9 @@ final class TenantCompanyDataPushService
                 continue;
             }
             $col = $edge['child_column'];
+            if ($col === 'company_id') {
+                continue;
+            }
             if (! array_key_exists($col, $row) || $row[$col] === null) {
                 continue;
             }
@@ -1913,6 +1936,9 @@ final class TenantCompanyDataPushService
 
         foreach ($configured as $column => $parentTable) {
             if (! is_string($column) || $column === '' || ! is_string($parentTable) || $parentTable === '') {
+                continue;
+            }
+            if ($column === 'company_id') {
                 continue;
             }
             if (! array_key_exists($column, $row) || $row[$column] === null) {
@@ -2182,12 +2208,13 @@ final class TenantCompanyDataPushService
     /**
      * @param  array<string, array<int, int>>  $idMaps
      */
-    private function resolveOrCreateRemoteCompany(string $targetConn, Company $source, array &$messages, array $idMaps = []): int
+    private function resolveOrCreateRemoteCompany(string $targetConn, Company $source, array &$messages, array &$idMaps): int
     {
         $attrs = $source->getAttributes();
         unset($attrs['id']);
         $slug = $attrs['slug'] ?? null;
         $sourceTimestamps = $this->timestampsPayloadFromAttributes($attrs);
+        $sourceId = (int) $source->id;
 
         if (is_string($slug) && $slug !== '') {
             $existing = DB::connection($targetConn)->table('companies')->where('slug', $slug)->value('id');
@@ -2210,8 +2237,12 @@ final class TenantCompanyDataPushService
                         ->update($updatePayload);
                 }
                 $this->backfillTimestampsIfMissingOnTarget($targetConn, 'companies', (int) $existing, $sourceTimestamps);
+                $remoteId = (int) $existing;
+                if ($sourceId > 0) {
+                    $idMaps['companies'][$sourceId] = $remoteId;
+                }
 
-                return (int) $existing;
+                return $remoteId;
             }
         }
 
@@ -2226,7 +2257,12 @@ final class TenantCompanyDataPushService
             }
         }
 
-        return (int) DB::connection($targetConn)->table('companies')->insertGetId($payload);
+        $remoteId = (int) DB::connection($targetConn)->table('companies')->insertGetId($payload);
+        if ($sourceId > 0) {
+            $idMaps['companies'][$sourceId] = $remoteId;
+        }
+
+        return $remoteId;
     }
 
     /**
@@ -2333,9 +2369,13 @@ final class TenantCompanyDataPushService
         $companySet = array_flip($companyTables);
         $discovered = [];
 
+        // companies wordt apart via resolveOrCreateRemoteCompany gezet — niet als prerequisite bulk-kopiëren.
+        $excluded['companies'] = true;
+
         foreach ($this->discoverForeignKeyEdgesForChildren($connection, $companyTables) as $edge) {
             $parent = $edge['parent'];
-            if (! isset($companySet[$parent], $excluded[$parent])
+            if (! isset($companySet[$parent])
+                && ! isset($excluded[$parent])
                 && Schema::connection($connection)->hasTable($parent)) {
                 $discovered[$parent] = true;
             }

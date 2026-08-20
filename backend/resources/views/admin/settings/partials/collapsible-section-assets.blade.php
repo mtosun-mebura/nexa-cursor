@@ -45,12 +45,31 @@
     }
     .tenant-sync-progress {
         width: 100%;
-        max-width: 56rem;
+        max-width: 100%;
+        min-width: 0;
         font-size: 0.75rem;
         line-height: 1.375;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
     .tenant-sync-progress .tenant-sync-progress-heading {
         font-size: 0.8125rem;
+        min-width: 0;
+        max-width: 100%;
+    }
+    .tenant-sync-progress .tenant-sync-progress-heading > span {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal;
+    }
+    #tenant-sync-submit-status {
+        min-width: 0;
+        max-width: 100%;
+        flex: 1 1 12rem;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
     .tenant-sync-progress .font-mono {
         min-width: 9rem;
