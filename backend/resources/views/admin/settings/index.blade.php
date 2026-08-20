@@ -1469,12 +1469,12 @@
                             <div class="text-xs text-destructive">{{ $message }}</div>
                         @enderror
                         <div id="tenant-sync-ajax-error-confirm_full_sync" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
-                        <div class="flex flex-wrap items-start gap-3">
+                        <div class="flex flex-wrap items-start gap-3 min-w-0 w-full">
                             <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
                                     style="padding-top: 2px;">
                                 <i class="ki-filled ki-cloud-add me-2"></i> Start sync
                             </button>
-                            <span id="tenant-sync-submit-status" class="block w-full text-xs min-h-[2.125rem]" aria-live="polite"></span>
+                            <span id="tenant-sync-submit-status" class="block min-w-0 max-w-full flex-1 basis-full text-xs min-h-[2.125rem] break-words" aria-live="polite"></span>
                         </div>
                     </form>
                 </div>
@@ -2052,14 +2052,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!container) return null;
 
         container.textContent = '';
-        container.className = 'block w-full text-xs min-h-[2.125rem]';
+        container.className = 'block min-w-0 max-w-full flex-1 basis-full text-xs min-h-[2.125rem] break-words';
 
         var wrap = document.createElement('div');
-        wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left';
+        wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left min-w-0 max-w-full';
 
         var heading = document.createElement('p');
-        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-2.5 flex items-center gap-2';
-        heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0" aria-hidden="true"></i><span>Sync bezig…</span>';
+        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-2.5 flex items-start gap-2 min-w-0';
+        heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words">Sync bezig…</span>';
 
         var list = document.createElement('ul');
         list.className = 'tenant-sync-progress-list space-y-1.5';
@@ -2137,10 +2137,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!progressUi) return;
 
         if (progressUi.heading) {
-            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-2.5 flex items-start gap-2 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-2.5 flex items-start gap-2 min-w-0 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            var safeMessage = String(message || (success ? (progressUi.summaryText || 'Sync voltooid.') : 'Sync mislukt.'));
             progressUi.heading.innerHTML = success
-                ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || progressUi.summaryText || 'Sync voltooid.') + '</span>'
-                : '<i class="ki-filled ki-information text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || 'Sync mislukt.') + '</span>';
+                ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words"></span>'
+                : '<i class="ki-filled ki-information text-base shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words"></span>';
+            var messageSpan = progressUi.heading.querySelector('span');
+            if (messageSpan) {
+                messageSpan.textContent = safeMessage;
+            }
         }
     }
 
@@ -2214,11 +2219,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         tenantSyncSubmitStatus.textContent = '';
         var wrap = document.createElement('span');
-        wrap.className = 'inline-flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium';
+        wrap.className = 'inline-flex items-start gap-1.5 min-w-0 max-w-full text-emerald-600 dark:text-emerald-400 font-medium';
         var icon = document.createElement('i');
         icon.className = 'ki-filled ki-check-circle text-lg shrink-0 mt-0.5';
         icon.setAttribute('aria-hidden', 'true');
         var txt = document.createElement('span');
+        txt.className = 'min-w-0 break-words';
         txt.textContent = message || 'Sync voltooid.';
         wrap.appendChild(icon);
         wrap.appendChild(txt);
@@ -2229,11 +2235,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!tenantSyncSubmitStatus) return;
         tenantSyncSubmitStatus.textContent = '';
         var wrap = document.createElement('span');
-        wrap.className = 'inline-flex items-start gap-1.5 text-destructive font-medium';
+        wrap.className = 'inline-flex items-start gap-1.5 min-w-0 max-w-full text-destructive font-medium';
         var icon = document.createElement('i');
         icon.className = 'ki-filled ki-information text-lg shrink-0 mt-0.5';
         icon.setAttribute('aria-hidden', 'true');
         var txt = document.createElement('span');
+        txt.className = 'min-w-0 break-words';
         txt.textContent = message || 'Er is een fout opgetreden.';
         wrap.appendChild(icon);
         wrap.appendChild(txt);
