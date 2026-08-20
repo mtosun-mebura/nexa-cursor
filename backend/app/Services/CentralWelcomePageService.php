@@ -18,6 +18,8 @@ class CentralWelcomePageService
 
     public const PRIJZEN_SLUG = 'prijzen';
 
+    public const COMPARISON_SLUG = 'voor-en-nadelen';
+
     public function __construct(
         protected WebsiteBuilderService $websiteBuilder
     ) {}
@@ -46,6 +48,7 @@ class CentralWelcomePageService
             $this->firstOrCreateCentralPage(self::CONTRACT_SLUG, $this->contractPageAttributes()),
             $this->firstOrCreateCentralPage(self::WEBSITE_SLUG, $this->websiteBuilderPageAttributes()),
             $this->firstOrCreateCentralPage(self::PRIJZEN_SLUG, $this->prijzenPageAttributes()),
+            $this->firstOrCreateCentralPage(self::COMPARISON_SLUG, $this->comparisonPageAttributes()),
             $this->firstOrCreateCentralPage(self::CONTACT_SLUG, $this->contactPageAttributes()),
         ]);
 
@@ -213,6 +216,7 @@ class CentralWelcomePageService
             self::CONTRACT_SLUG => $this->contractPageAttributes($themeSlug),
             self::WEBSITE_SLUG => $this->websiteBuilderPageAttributes($themeSlug),
             self::PRIJZEN_SLUG => $this->prijzenPageAttributes($themeSlug),
+            self::COMPARISON_SLUG => $this->comparisonPageAttributes($themeSlug),
             self::CONTACT_SLUG => $this->contactPageAttributes($themeSlug),
         ];
     }
@@ -333,6 +337,28 @@ class CentralWelcomePageService
     /**
      * @return array<string, mixed>
      */
+    private function comparisonPageAttributes(?string $themeSlug = null): array
+    {
+        $theme = $this->websiteBuilder->getActiveTheme();
+        $themeSlug = $themeSlug ?? ($theme?->slug ?? 'modern');
+
+        return [
+            'title' => 'Voor- en nadelen',
+            'menu_title' => 'Voor & nadelen',
+            'page_type' => 'custom',
+            'meta_description' => 'Herkenbare pijnpunten in taxi versus wat Nexa vandaag oplost: online boeking, chauffeur-app en contractvervoer.',
+            'content' => null,
+            'home_sections' => $this->defaultComparisonSections($themeSlug),
+            'is_active' => true,
+            'show_in_menu' => false,
+            'sort_order' => 5,
+            'frontend_theme_id' => $theme?->id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function contactPageAttributes(?string $themeSlug = null): array
     {
         $theme = $this->websiteBuilder->getActiveTheme();
@@ -347,7 +373,7 @@ class CentralWelcomePageService
             'home_sections' => $this->defaultContactSections($themeSlug),
             'is_active' => true,
             'show_in_menu' => true,
-            'sort_order' => 5,
+            'sort_order' => 6,
             'frontend_theme_id' => $theme?->id,
         ];
     }
@@ -423,35 +449,7 @@ class CentralWelcomePageService
         $modulesKey = 'component:website.nexa_modules_overview';
         $packagesKey = NexaPricingService::PACKAGES_SECTION_KEY;
 
-        $sections[$tableKey] = [
-            'title' => 'Herkenbaar? Dit lost Nexa vandaag op',
-            'subtitle' => '',
-            'left_heading' => 'Pijnpunt',
-            'right_heading' => 'NEXA-antwoord',
-            'left_color' => '#dc2626',
-            'right_color' => '#16a34a',
-            'layout' => 'columns',
-            'left_width_percent' => '50',
-            'right_width_percent' => '50',
-            'cons' => [
-                ['text' => 'Geen online boekingen / verloren calls'],
-                ['text' => 'Chauffeurs via WhatsApp/Excel'],
-                ['text' => 'Schoolvervoer handmatig afmelden'],
-                ['text' => 'Losse website + losse app'],
-            ],
-            'pros' => [
-                ['text' => 'Boekingsmodule op eigen website + tarieven'],
-                ['text' => 'Dispatch + chauffeur-PWA met inbox'],
-                ['text' => 'Contractportaal met status & afmeldingen'],
-                ['text' => 'Alles in één SaaS, white-label per tenant'],
-            ],
-            'rows' => [
-                ['left' => 'Geen online boekingen / verloren calls', 'right' => 'Boekingsmodule op eigen website + tarieven'],
-                ['left' => 'Chauffeurs via WhatsApp/Excel', 'right' => 'Dispatch + chauffeur-PWA met inbox'],
-                ['left' => 'Schoolvervoer handmatig afmelden', 'right' => 'Contractportaal met status & afmeldingen'],
-                ['left' => 'Losse website + losse app', 'right' => 'Alles in één SaaS, white-label per tenant'],
-            ],
-        ];
+        $sections[$tableKey] = $this->defaultComparisonTableData();
         $sections[$galleryKey] = [
             'title' => 'Feature-visuals',
             'subtitle' => 'Boeking, chauffeur-app en contractportaal — zoals klanten het zien.',
@@ -929,6 +927,100 @@ class CentralWelcomePageService
         $sections['visibility']['cta'] = true;
 
         return $sections;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultComparisonSections(string $themeSlug): array
+    {
+        $sections = WebsitePage::defaultPageSectionsForNonHome($themeSlug);
+        $tableKey = 'component:website.comparison_table';
+
+        $sections['hero']['title'] = 'Voor- en nadelen van Nexa.';
+        $sections['hero']['title_highlight'] = 'Voor- en nadelen';
+        $sections['hero']['subtitle'] = 'Herkenbare pijnpunten in taxi versus wat Nexa vandaag oplost.';
+        $sections['hero']['cta_primary_text'] = 'Neem contact op';
+        $sections['hero']['cta_primary_url'] = '/contact';
+        $sections['hero']['cta_secondary_text'] = 'Bekijk prijzen';
+        $sections['hero']['cta_secondary_url'] = '/prijzen';
+        $sections['hero']['overlay'] = true;
+        $sections['hero']['subtitle_width_percent'] = '55';
+        $sections['hero']['background_image_url'] = $this->marketingImage('hero-nexa-platform.png');
+
+        $sections[$tableKey] = $this->defaultComparisonTableData([
+            'title' => 'Pijnpunt versus NEXA-antwoord',
+            'subtitle' => 'Scroll: de blokken en regels komen staggered in beeld.',
+        ]);
+
+        $sections['cta'] = [
+            'title' => 'Klaar om telefoonchaos te ruilen voor online boekingen?',
+            'subtitle' => 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien.',
+            'cta_primary_text' => 'Neem contact op',
+            'cta_primary_url' => '/contact',
+            'cta_secondary_text' => 'Nexa Taxi',
+            'cta_secondary_url' => '/taxi',
+        ];
+        $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
+        $sections['footer']['inherit_from_home'] = false;
+        $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
+        $sections['section_order'] = ['hero', $tableKey, 'cta'];
+        $sections['visibility']['hero'] = true;
+        $sections['visibility'][$tableKey] = true;
+        $sections['visibility']['cta'] = true;
+
+        return $sections;
+    }
+
+    /**
+     * Sample content for builder block-preview (comparison table).
+     *
+     * @return array<string, mixed>
+     */
+    public function comparisonTableSample(): array
+    {
+        return $this->defaultComparisonTableData();
+    }
+
+    /**
+     * Gedeelde content voor het geanimeerde voor-/nadelen-blok (home + /voor-en-nadelen).
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function defaultComparisonTableData(array $overrides = []): array
+    {
+        $base = [
+            'title' => 'Herkenbaar? Dit lost Nexa vandaag op',
+            'subtitle' => '',
+            'left_heading' => 'Pijnpunt',
+            'right_heading' => 'NEXA-antwoord',
+            'left_color' => '#dc2626',
+            'right_color' => '#16a34a',
+            'layout' => 'columns',
+            'left_width_percent' => '50',
+            'right_width_percent' => '50',
+            'cons' => [
+                ['text' => 'Geen online boekingen / verloren calls'],
+                ['text' => 'Chauffeurs via WhatsApp/Excel'],
+                ['text' => 'Schoolvervoer handmatig afmelden'],
+                ['text' => 'Losse website + losse app'],
+            ],
+            'pros' => [
+                ['text' => 'Boekingsmodule op eigen website + tarieven'],
+                ['text' => 'Dispatch + chauffeur-PWA met inbox'],
+                ['text' => 'Contractportaal met status & afmeldingen'],
+                ['text' => 'Alles in één SaaS, white-label per tenant'],
+            ],
+            'rows' => [
+                ['left' => 'Geen online boekingen / verloren calls', 'right' => 'Boekingsmodule op eigen website + tarieven'],
+                ['left' => 'Chauffeurs via WhatsApp/Excel', 'right' => 'Dispatch + chauffeur-PWA met inbox'],
+                ['left' => 'Schoolvervoer handmatig afmelden', 'right' => 'Contractportaal met status & afmeldingen'],
+                ['left' => 'Losse website + losse app', 'right' => 'Alles in één SaaS, white-label per tenant'],
+            ],
+        ];
+
+        return array_merge($base, $overrides);
     }
 
     /**

@@ -8,6 +8,7 @@
     const NOTIFICATIONS_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_notifications_hint';
     const IOS_AWAKE_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_ios_awake_hint';
     const INSTALL_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_install_hint';
+    const GUIDE_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_guide_hint';
 
     let deferredInstallPrompt = null;
 
@@ -1133,6 +1134,9 @@
             setMainTab(mainTab || 'requests');
         }
         syncScreenWakeLock();
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+        }
     }
 
     function shouldKeepScreenAwake() {
@@ -1637,6 +1641,32 @@
         updateInstallHint();
     }
 
+    function updateGuideHint() {
+        const hint = $('#guide-hint');
+        const profileLink = $('#profile-guide-link');
+        const guideUrl = cfg.guideUrl || '/taxi/chauffeur/handleiding';
+        if (profileLink) {
+            profileLink.setAttribute('href', guideUrl);
+            profileLink.hidden = false;
+        }
+        const openGuide = $('#btn-open-guide');
+        if (openGuide) {
+            openGuide.setAttribute('href', guideUrl);
+        }
+        if (!hint) {
+            return;
+        }
+        hint.hidden = localStorage.getItem(GUIDE_HINT_DISMISSED_KEY) === '1';
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+        }
+    }
+
+    function dismissGuideHint() {
+        localStorage.setItem(GUIDE_HINT_DISMISSED_KEY, '1');
+        updateGuideHint();
+    }
+
     function updateInstallHint() {
         const hint = $('#install-app-hint');
         const hintText = $('#install-app-hint-text');
@@ -1646,6 +1676,9 @@
         }
         if (isStandalonePwa() || isInstallHintDismissed()) {
             hint.hidden = true;
+            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+                window.nexaPwaSyncThemeToggleTop();
+            }
             return;
         }
         if (deferredInstallPrompt) {
@@ -1656,6 +1689,9 @@
             }
             if (btn) {
                 btn.hidden = false;
+            }
+            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+                window.nexaPwaSyncThemeToggleTop();
             }
             return;
         }
@@ -1668,9 +1704,15 @@
             if (btn) {
                 btn.hidden = true;
             }
+            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+                window.nexaPwaSyncThemeToggleTop();
+            }
             return;
         }
         hint.hidden = true;
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+        }
     }
 
     async function handleInstallAppClick() {
@@ -7628,6 +7670,15 @@
         });
     }
 
+    const btnDismissGuideHint = $('#btn-dismiss-guide-hint');
+    if (btnDismissGuideHint) {
+        btnDismissGuideHint.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            dismissGuideHint();
+        });
+    }
+
     const btnDismissNotificationsHint = $('#btn-dismiss-notifications-hint');
     if (btnDismissNotificationsHint) {
         btnDismissNotificationsHint.addEventListener('click', function (ev) {
@@ -7685,6 +7736,7 @@
     ensureServiceWorkerReady().then(function () {
         updateNotificationsHint();
         updateInstallHint();
+        updateGuideHint();
     });
 
     initCashConfirmDialog();
@@ -7692,5 +7744,6 @@
     initDeclineReasonDialog();
     initPickupAdjustDialog();
 
+    updateGuideHint();
     bootstrap();
 })();

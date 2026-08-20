@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\NexaTaxi\Controllers\ContractPortalAppController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,14 +16,18 @@ class TaxiContractHandleidingTest extends TestCase
 
         View::addNamespace('taxi', app_path('Modules/NexaTaxi/Resources/views'));
 
-        if (! Route::has('taxi.contract.handleiding')) {
+        if (! Route::has('taxi.contract.index')) {
             Route::middleware('web')
                 ->prefix('taxi/contract')
                 ->name('taxi.contract.')
                 ->group(app_path('Modules/NexaTaxi/Routes/contract-web.php'));
         }
+        if (! Route::has('taxi.contract.handleiding')) {
+            Route::get('/taxi/contract/handleiding', [ContractPortalAppController::class, 'handleiding'])
+                ->name('taxi.contract.handleiding');
+        }
         if (! Route::has('taxi.contract.manifest')) {
-            Route::get('/taxi/contract/manifest.webmanifest', fn () => response('', 200))
+            Route::get('/taxi/contract/manifest.webmanifest', [ContractPortalAppController::class, 'manifest'])
                 ->name('taxi.contract.manifest');
         }
     }
@@ -33,6 +38,7 @@ class TaxiContractHandleidingTest extends TestCase
         $this->get('/taxi/contract/handleiding')
             ->assertOk()
             ->assertSee('Handleiding contract', false)
+            ->assertSee('1. App op je telefoon', false)
             ->assertSee('Inloggen', false)
             ->assertSee('Vandaag', false)
             ->assertSee('Planning', false)
@@ -66,5 +72,7 @@ class TaxiContractHandleidingTest extends TestCase
         $this->assertStringContainsString('Na wegklikken vind je die altijd terug onder', $html);
         $this->assertStringContainsString('profile-guide-link', $html);
         $this->assertStringContainsString('/taxi/contract/handleiding', $html);
+        $this->assertStringNotContainsString('id="install-hint"', $html);
+        $this->assertStringNotContainsString('Hoe installeren', $html);
     }
 }

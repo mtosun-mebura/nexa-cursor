@@ -9,7 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
-    <link rel="manifest" href="{{ route('taxi.chauffeur.manifest') }}">
+    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.chauffeur.manifest') ? route('taxi.chauffeur.manifest') : url('/taxi/chauffeur/manifest.webmanifest') }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -319,6 +319,7 @@
         }
         .dispatch-banners .banner-ios-awake,
         .dispatch-banners .banner-notifications-hint,
+        .dispatch-banners .banner-guide-hint,
         .dispatch-banners .banner-inactive,
         .dispatch-banners #notifications-feedback {
             margin-bottom: 0;
@@ -2145,6 +2146,86 @@
             border-color: rgba(249, 115, 22, 0.55);
             box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.25);
         }
+        .banner-guide-hint {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(249, 115, 22, 0.14);
+            border: 1px solid rgba(249, 115, 22, 0.4);
+            color: #fed7aa;
+            border-radius: 0.75rem;
+            padding: 0.65rem 2.75rem 0.65rem 1rem;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+        }
+        html[data-theme="light"] .banner-guide-hint {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+        .banner-guide-hint__body {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem 0.75rem;
+            flex: 1;
+            min-width: 0;
+            padding-right: 0.85rem;
+        }
+        .banner-guide-hint__text {
+            margin: 0;
+            flex: 1 1 14rem;
+        }
+        .banner-guide-hint a.btn-inline {
+            display: inline-flex;
+            align-items: center;
+            margin: 0;
+            padding: 0.28rem 0.55rem;
+            border-radius: 0.45rem;
+            border: none;
+            background: var(--orange, #f97316);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1.2;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        #guide-hint > .banner-dismiss-btn {
+            top: 50%;
+            right: 0.45rem;
+            transform: translateY(-50%);
+        }
+        .profile-guide-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin: 0.85rem 0 0.35rem;
+            padding: 0.85rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(249, 115, 22, 0.45);
+            background: rgba(249, 115, 22, 0.14);
+            color: #fed7aa;
+            text-decoration: none;
+            font-size: 0.9375rem;
+            line-height: 1.35;
+        }
+        .profile-guide-link strong {
+            font-size: 0.95rem;
+            color: inherit;
+        }
+        .profile-guide-link span {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            opacity: 0.9;
+            white-space: nowrap;
+        }
+        html[data-theme="light"] .profile-guide-link {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
         .banner-notifications-hint,
         .banner-install-app {
             position: relative;
@@ -2160,6 +2241,13 @@
         #install-app-hint {
             margin: 1rem 1rem 0;
             flex-shrink: 0;
+        }
+        #guide-hint {
+            margin: 1rem 1rem 0;
+            flex-shrink: 0;
+        }
+        #guide-hint + #install-app-hint:not([hidden]) {
+            margin-top: 0.65rem;
         }
         .banner-dismiss-btn {
             position: absolute;
@@ -2460,6 +2548,17 @@
 <body>
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
+    <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+        <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+        <div class="banner-guide-hint__body">
+            <p class="banner-guide-hint__text">
+                <strong>Handleiding.</strong>
+                Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
+                Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+            </p>
+            <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
+        </div>
+    </div>
     <div id="install-app-hint" class="banner-install-app" hidden role="note">
         <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
         <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
@@ -2767,6 +2866,10 @@
                     </dl>
                 </div>
                 <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
+                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">
+                    <strong>Handleiding</strong>
+                    <span>Openen →</span>
+                </a>
                 <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
             </div>
         </div>
@@ -2926,10 +3029,11 @@ window.NEXA_TAXI_DRIVER = {
     streamEnabled: @json($streamEnabled ?? false),
     loginUrl: @json(url('/api/taxi/v1/driver/login')),
     appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
+    guideUrl: @json($guideUrl ?? url('/taxi/chauffeur/handleiding')),
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=105" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=108" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

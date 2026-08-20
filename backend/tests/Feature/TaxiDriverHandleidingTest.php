@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\NexaTaxi\Controllers\DriverAppController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,14 +16,18 @@ class TaxiDriverHandleidingTest extends TestCase
 
         View::addNamespace('taxi', app_path('Modules/NexaTaxi/Resources/views'));
 
-        if (! Route::has('taxi.chauffeur.handleiding')) {
+        if (! Route::has('taxi.chauffeur.index')) {
             Route::middleware('web')
                 ->prefix('taxi/chauffeur')
                 ->name('taxi.chauffeur.')
                 ->group(app_path('Modules/NexaTaxi/Routes/driver-web.php'));
         }
+        if (! Route::has('taxi.chauffeur.handleiding')) {
+            Route::get('/taxi/chauffeur/handleiding', [DriverAppController::class, 'handleiding'])
+                ->name('taxi.chauffeur.handleiding');
+        }
         if (! Route::has('taxi.chauffeur.manifest')) {
-            Route::get('/taxi/chauffeur/manifest.webmanifest', fn () => response('', 200))
+            Route::get('/taxi/chauffeur/manifest.webmanifest', [DriverAppController::class, 'manifest'])
                 ->name('taxi.chauffeur.manifest');
         }
     }
@@ -33,6 +38,7 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->get('/taxi/chauffeur/handleiding')
             ->assertOk()
             ->assertSee('Handleiding chauffeur', false)
+            ->assertSee('1. App op je telefoon', false)
             ->assertSee('Inloggen', false)
             ->assertSee('Online zetten', false)
             ->assertSee('Iconen bovenin', false)
@@ -68,6 +74,7 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('id="guide-hint"', $html);
         $this->assertStringContainsString('Na wegklikken vind je die altijd terug onder', $html);
         $this->assertStringContainsString('profile-guide-link', $html);
+        $this->assertStringContainsString('Openen →', $html);
         $this->assertStringContainsString('/taxi/chauffeur/handleiding', $html);
     }
 }

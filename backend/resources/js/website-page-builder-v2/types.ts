@@ -98,6 +98,7 @@ export type BuilderBootstrap = {
     websiteMediaServeBase: string
     postcodeLookup: string
     nexaPricingEdit: string
+    blockPreview: string
   }
   nexaPricing: Record<string, unknown>
   googleMapsApiKey: string

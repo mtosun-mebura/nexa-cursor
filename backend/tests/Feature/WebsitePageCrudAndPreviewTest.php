@@ -100,8 +100,11 @@ class WebsitePageCrudAndPreviewTest extends TestCase
         $tenantA = Company::query()->create(['name' => 'Tenant A Pages', 'slug' => 'tenant-a-pages-'.uniqid()]);
         $tenantB = Company::query()->create(['name' => 'Tenant B Pages', 'slug' => 'tenant-b-pages-'.uniqid()]);
 
+        $tenantASlug = 'tenant-a-only-'.uniqid();
+        $tenantBSlug = 'tenant-b-only-'.uniqid();
+
         WebsitePage::query()->create([
-            'slug' => 'tenant-a-only-'.uniqid(),
+            'slug' => $tenantASlug,
             'title' => 'Tenant A Home',
             'page_type' => 'home',
             'frontend_theme_id' => $theme->id,
@@ -111,7 +114,7 @@ class WebsitePageCrudAndPreviewTest extends TestCase
             'sort_order' => 1,
         ]);
         WebsitePage::query()->create([
-            'slug' => 'tenant-b-only-'.uniqid(),
+            'slug' => $tenantBSlug,
             'title' => 'Tenant B Home',
             'page_type' => 'home',
             'frontend_theme_id' => $theme->id,
@@ -129,8 +132,8 @@ class WebsitePageCrudAndPreviewTest extends TestCase
             ->get(route('admin.website-pages.index'));
 
         $response->assertStatus(200);
-        $response->assertSee('Tenant A Home');
-        $response->assertDontSee('Tenant B Home');
+        $response->assertSee($tenantASlug);
+        $response->assertDontSee($tenantBSlug);
     }
 
     #[Test]

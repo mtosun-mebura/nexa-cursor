@@ -430,21 +430,32 @@
 </header>
 <main class="guide-wrap">
     <div class="guide-intro">
-        <p>Deze handleiding is voor ouders en opdrachtgevers: inloggen, ritten van vandaag bekijken, de weekplanning en afmelden bij afwezigheid.</p>
+        <p>Deze handleiding is voor ouders en opdrachtgevers: eerst de app op je telefoon zetten, daarna inloggen, ritten van vandaag bekijken, de weekplanning en afmelden bij afwezigheid.</p>
         <p>Je opent deze pagina altijd opnieuw via <strong style="color:var(--text)">Profiel</strong> onderin de app, ook als je de banner hebt weggeklikt.</p>
     </div>
 
     <nav class="guide-toc" aria-label="Inhoud">
-        <a href="#inloggen"><span class="num">1</span> Inloggen</a>
-        <a href="#vandaag"><span class="num">2</span> Vandaag</a>
-        <a href="#planning"><span class="num">3</span> Planning</a>
-        <a href="#afmelden"><span class="num">4</span> Afmelden</a>
-        <a href="#tabs"><span class="num">5</span> Tabbladen onderin</a>
-        <a href="#telefoon"><span class="num">6</span> App op je telefoon</a>
+        <a href="#telefoon"><span class="num">1</span> App op je telefoon</a>
+        <a href="#inloggen"><span class="num">2</span> Inloggen</a>
+        <a href="#vandaag"><span class="num">3</span> Vandaag</a>
+        <a href="#planning"><span class="num">4</span> Planning</a>
+        <a href="#afmelden"><span class="num">5</span> Afmelden</a>
+        <a href="#tabs"><span class="num">6</span> Tabbladen onderin</a>
     </nav>
 
+    <section class="guide-section" id="telefoon">
+        <h2>1. App op je telefoon</h2>
+        <p>Zet de contract-app op het beginscherm. Geen App Store: één keer openen, daarna een icoon naast WhatsApp.</p>
+        <ol class="guide-steps">
+            <li data-step="1"><strong>iPhone</strong> Open in Safari → Deel → Zet op beginscherm.</li>
+            <li data-step="2"><strong>Android</strong> Open in Chrome → menu → App installeren of Toevoegen aan startscherm.</li>
+            <li data-step="3"><strong>Snel openen</strong> Daarna tik je het icoon aan, zonder telkens het wachtwoord te zoeken in de mail.</li>
+        </ol>
+        <p class="guide-tip"><strong>Onthoud:</strong> banner weggeklikt? Open de app → <strong>Profiel</strong> → <strong>Handleiding</strong>.</p>
+    </section>
+
     <section class="guide-section" id="inloggen">
-        <h2>1. Inloggen</h2>
+        <h2>2. Inloggen</h2>
         <p>Open de contract-app. Vul het e-mailadres en wachtwoord in dat je van het taxibedrijf hebt gekregen.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>E-mail</strong> Gebruik een volledig adres, met een @ en een punt (bijvoorbeeld naam@school.nl).</li>
@@ -466,7 +477,7 @@
     </section>
 
     <section class="guide-section" id="vandaag">
-        <h2>2. Vandaag</h2>
+        <h2>3. Vandaag</h2>
         <p>Na het inloggen zie je <strong style="color:var(--text)">Vandaag</strong>: de reizigers van deze dag, met ophaal- en afzetadres en de status van de rit. Een <strong style="color:var(--text)">contractant</strong> ziet alle reizigers van de opdracht; een <strong style="color:var(--text)">ouder</strong> alleen het eigen kind.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Tik op een naam</strong> om de rit open te klappen: tijden, adressen en status.</li>
@@ -500,7 +511,7 @@
     </section>
 
     <section class="guide-section" id="planning">
-        <h2>3. Planning</h2>
+        <h2>4. Planning</h2>
         <p>Onder <strong style="color:var(--text)">Planning</strong> zie je de week. Tik op een dag, of gebruik de pijltjes om naar de vorige of volgende week te gaan.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Kies een dag</strong> in de weekstrook bovenaan.</li>
@@ -518,7 +529,7 @@
     </section>
 
     <section class="guide-section" id="afmelden">
-        <h2>4. Afmelden</h2>
+        <h2>5. Afmelden</h2>
         <p>Is iemand ziek of niet mee? Meld af vanaf Vandaag of Planning. De chauffeur ziet dat dan in de rit.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Afmelden</strong> Open de reiziger en tik op Afmelden.</li>
@@ -542,7 +553,7 @@
     </section>
 
     <section class="guide-section" id="tabs">
-        <h2>5. Tabbladen onderin</h2>
+        <h2>6. Tabbladen onderin</h2>
         <p>Onderin de app staan vier tabbladen. Tik erop om te wisselen.</p>
         <ul class="guide-icons">
             <li>
@@ -595,17 +606,6 @@
             </div>
             <figcaption>Onder Profiel staat Handleiding — ook nadat je de banner hebt gesloten.</figcaption>
         </figure>
-    </section>
-
-    <section class="guide-section" id="telefoon">
-        <h2>6. App op je telefoon</h2>
-        <p>Zet de contract-app op het beginscherm. Geen App Store: één keer openen, daarna een icoon naast WhatsApp.</p>
-        <ol class="guide-steps">
-            <li data-step="1"><strong>iPhone</strong> Open in Safari → Deel → Zet op beginscherm.</li>
-            <li data-step="2"><strong>Android</strong> Open in Chrome → menu → App installeren of Toevoegen aan startscherm.</li>
-            <li data-step="3"><strong>Snel openen</strong> Daarna tik je het icoon aan, zonder telkens het wachtwoord te zoeken in de mail.</li>
-        </ol>
-        <p class="guide-tip"><strong>Onthoud:</strong> banner weggeklikt? Open de app → <strong>Profiel</strong> → <strong>Handleiding</strong>.</p>
     </section>
 
     <div class="guide-footer">

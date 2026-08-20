@@ -29,11 +29,15 @@ class CentralWelcomePageServiceTest extends TestCase
 
         $pages = app(CentralWelcomePageService::class)->ensureMarketingPagesExist();
 
-        $this->assertGreaterThanOrEqual(5, $pages->count());
+        $this->assertGreaterThanOrEqual(6, $pages->count());
         $this->assertNotNull(WebsitePage::query()->where('slug', WebsitePage::CENTRAL_WELCOME_SLUG)->first());
         $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::TAXI_SLUG)->first());
         $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::CONTRACT_SLUG)->first());
         $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::WEBSITE_SLUG)->first());
+        $comparison = WebsitePage::query()->where('slug', CentralWelcomePageService::COMPARISON_SLUG)->first();
+        $this->assertNotNull($comparison);
+        $this->assertFalse((bool) $comparison->show_in_menu);
+        $this->assertSame('Voor & nadelen', $comparison->publicNavLabel());
         $contact = WebsitePage::query()->where('slug', CentralWelcomePageService::CONTACT_SLUG)->first();
         $this->assertNotNull($contact);
         $this->assertSame('contact', $contact->page_type);
@@ -128,6 +132,16 @@ class CentralWelcomePageServiceTest extends TestCase
         $this->assertContains('Ziekenhuisvervoer', $typeTitles);
         $this->assertContains('Zakelijk vervoer', $typeTitles);
         $this->assertContains('Privévervoer', $typeTitles);
+
+        $comparison = WebsitePage::query()->where('slug', CentralWelcomePageService::COMPARISON_SLUG)->first();
+        $this->assertNotNull($comparison);
+        $comparisonSections = $comparison->getHomeSections();
+        $this->assertSame('Voor- en nadelen van Nexa.', $comparisonSections['hero']['title'] ?? null);
+        $this->assertContains('component:website.comparison_table', $comparisonSections['section_order'] ?? []);
+        $this->assertSame(
+            'Pijnpunt versus NEXA-antwoord',
+            $comparisonSections['component:website.comparison_table']['title'] ?? null
+        );
 
         $contact = WebsitePage::query()->where('slug', CentralWelcomePageService::CONTACT_SLUG)->first();
         $this->assertNotNull($contact);

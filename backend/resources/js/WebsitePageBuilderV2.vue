@@ -446,6 +446,8 @@ onUnmounted(() => {
         :sections="bootstrap.catalog.sections"
         :components="bootstrap.catalog.components"
         :query="paletteQuery"
+        :block-preview-url="bootstrap.routes.blockPreview"
+        :theme-slug="bootstrap.themeSlug"
         @update:query="paletteQuery = $event"
         @add="handlePaletteAdd"
         @drag-start="paletteDragging = true"
@@ -1010,6 +1012,36 @@ onUnmounted(() => {
   text-align: left;
   color: var(--foreground);
   min-width: 0;
+  flex: 1;
+}
+
+:deep(.builder-palette-preview-btn) {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.45rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+:deep(.builder-palette-tile:hover .builder-palette-preview-btn),
+:deep(.builder-palette-row:hover .builder-palette-preview-btn),
+:deep(.builder-palette-preview-btn:focus-visible) {
+  opacity: 1;
+}
+
+:deep(.builder-palette-preview-btn:hover),
+:deep(.builder-palette-preview-btn:focus-visible) {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 :deep(.builder-palette-list) {

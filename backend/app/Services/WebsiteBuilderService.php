@@ -544,9 +544,12 @@ class WebsiteBuilderService
         }
 
         // Nexa SaaS-hoofdwebsite (geen tenant): geen Mijn Taxi / portaal-knop.
-        $resolvedTenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
-        if ($resolvedTenantId === null || (int) $resolvedTenantId <= 0) {
-            $dashboardLinkVisible = false;
+        // Staging-preview mag wél de knop tonen o.b.v. module-config (admin-voorbeeld).
+        if (! $forStagingPreview) {
+            $resolvedTenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+            if ($resolvedTenantId === null || (int) $resolvedTenantId <= 0) {
+                $dashboardLinkVisible = false;
+            }
         }
 
         $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl, $forCompanyId);

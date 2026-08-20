@@ -464,63 +464,62 @@
         html[data-theme="light"] .status-absent { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
         html[data-theme="light"] .status-none { background: rgba(100, 116, 139, 0.12); color: #475569; }
         .card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-        .banner-install-app {
-            position: relative;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.35rem 0.65rem;
-            min-height: 2.75rem;
-            background: rgba(22, 163, 74, 0.12);
-            border: 1px solid rgba(22, 163, 74, 0.35);
-            color: #bbf7d0;
-            border-radius: 0.75rem;
-            padding: 0.65rem 2.5rem 0.65rem 1rem;
-            font-size: 0.8125rem;
-            margin-bottom: 0;
-            line-height: 1.45;
-        }
-        #install-hint {
-            margin: 0 0 1rem;
-            flex-shrink: 0;
-        }
-        #screen-home > #install-hint {
-            margin: 0.75rem 1rem 0;
-        }
-        #screen-home > #install-hint + .home-scroll {
-            padding-top: 0.75rem;
-        }
-        html[data-theme="light"] .banner-install-app {
-            background: #ecfdf5;
-            border-color: #6ee7b7;
-            color: #065f46;
-        }
         .banner-guide-hint {
             position: relative;
+            display: flex;
+            align-items: center;
             background: rgba(249, 115, 22, 0.14);
             border: 1px solid rgba(249, 115, 22, 0.4);
             color: #fed7aa;
             border-radius: 0.75rem;
-            padding: 0.75rem 2.25rem 0.75rem 1rem;
+            padding: 0.65rem 2.75rem 0.65rem 1rem;
             font-size: 0.8125rem;
-            line-height: 1.45;
+            line-height: 1.4;
+        }
+        #guide-hint {
+            margin: 0 0 1rem;
+            flex-shrink: 0;
+        }
+        #screen-home #guide-hint {
+            margin: 0 0 0.75rem;
         }
         html[data-theme="light"] .banner-guide-hint {
             background: #fff7ed;
             border-color: #fdba74;
             color: #9a3412;
         }
+        .banner-guide-hint__body {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem 0.75rem;
+            flex: 1;
+            min-width: 0;
+            padding-right: 0.85rem;
+        }
+        .banner-guide-hint__text {
+            margin: 0;
+            flex: 1 1 14rem;
+        }
         .banner-guide-hint a.btn-inline {
-            display: inline-block;
-            margin-top: 0.5rem;
-            padding: 0.45rem 0.75rem;
-            border-radius: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            margin: 0;
+            padding: 0.28rem 0.55rem;
+            border-radius: 0.45rem;
             border: none;
             background: var(--orange);
             color: #fff;
-            font-size: 0.8125rem;
+            font-size: 0.75rem;
             font-weight: 600;
+            line-height: 1.2;
             text-decoration: none;
+            white-space: nowrap;
+        }
+        #guide-hint > .banner-dismiss-btn {
+            top: 50%;
+            right: 0.45rem;
+            transform: translateY(-50%);
         }
         .profile-guide-link {
             display: flex;
@@ -554,21 +553,6 @@
             cursor: pointer;
             -webkit-appearance: none;
             touch-action: manipulation;
-        }
-        .banner-install-app .btn-inline,
-        .banner-install-app .btn-link {
-            display: inline;
-            margin: 0;
-            background: transparent;
-            border: 0;
-            color: inherit;
-            font: inherit;
-            font-weight: 700;
-            text-decoration: underline;
-            text-underline-offset: 2px;
-            padding: 0;
-            cursor: pointer;
-            width: auto;
         }
         .banner-announcements { display: flex; flex-direction: column; gap: 0.5rem; }
         .banner-announcement {
@@ -833,11 +817,16 @@
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
-        <div id="install-hint" class="banner-install-app" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install" aria-label="Sluiten">×</button>
-            <span>Installeer deze app op je telefoon voor snelle toegang tot status en afmelden.</span>
-            <button type="button" class="btn-link" id="btn-install-guide">Hoe installeren</button>
-            <button type="button" class="btn-inline" id="btn-install-app" hidden>Installeer app</button>
+        <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+            <div class="banner-guide-hint__body">
+                <p class="banner-guide-hint__text">
+                    <strong>Handleiding.</strong>
+                    Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, ritten en afmelden.
+                    Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+                </p>
+                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">Handleiding openen</a>
+            </div>
         </div>
         <h1>Contract inloggen</h1>
         <div class="card">
@@ -860,13 +849,6 @@
                 <h1 id="home-title">Vandaag</h1>
             </div>
             <div class="home-banners">
-                <div id="guide-hint" class="banner-guide-hint" hidden role="note">
-                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
-                    <strong>Handleiding.</strong>
-                    Nieuw of even niet zeker? Open de handleiding voor inloggen, ritten en afmelden.
-                    Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
-                    <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">Handleiding openen</a>
-                </div>
                 <div id="announcement-banners" class="banner-announcements" hidden></div>
             </div>
         </div>
@@ -950,18 +932,6 @@
     </div>
 </div>
 
-<div id="install-guide-dialog" class="dialog" hidden>
-    <div class="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="install-guide-title">
-        <h2 id="install-guide-title" style="margin:0 0 0.5rem;font-size:1.1rem;">App installeren</h2>
-        <span class="guide-platform" id="install-guide-platform"></span>
-        <p class="muted" id="install-guide-intro" style="margin:0.35rem 0 0;"></p>
-        <ol class="guide-steps" id="install-guide-steps"></ol>
-        <div class="dialog-actions" style="margin-top:1rem;">
-            <button type="button" class="btn btn-primary" id="install-guide-close">Sluiten</button>
-        </div>
-    </div>
-</div>
-
 <script>
 window.NEXA_TAXI_CONTRACT = {
     apiBase: @json($apiBase),
@@ -971,7 +941,7 @@ window.NEXA_TAXI_CONTRACT = {
     pollMs: {{ (int) ($pollMs ?? 15000) }},
 };
 </script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=19" defer></script>
+<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=21" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

@@ -802,6 +802,441 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * Live frontend-voorbeeld van één sectie of component (builder palette preview popup).
+     */
+    public function blockPreview(Request $request): View
+    {
+        $this->ensureSuperAdmin();
+        $valid = $request->validate([
+            'kind' => 'required|string|in:section,component',
+            'type' => 'nullable|string|max:64',
+            'component' => 'nullable|string|max:120',
+            'theme' => 'nullable|string|max:64',
+            'dark' => 'nullable|boolean',
+        ]);
+
+        $previewDark = $request->boolean('dark');
+        $themeSlug = trim((string) ($valid['theme'] ?? 'modern')) ?: 'modern';
+        $theme = FrontendTheme::query()->where('slug', $themeSlug)->where('is_active', true)->first()
+            ?? $this->websiteBuilder->getActiveTheme();
+        $themeSlug = $theme?->slug ?? $themeSlug;
+        $themeSettings = $theme ? $theme->getSettings() : [];
+
+        $defaults = WebsitePage::defaultHomeSectionsForTheme($themeSlug);
+        $label = 'Voorbeeld';
+        $sectionKey = '';
+
+        if (($valid['kind'] ?? '') === 'section') {
+            $type = trim((string) ($valid['type'] ?? ''));
+            $allowed = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
+            if (! in_array($type, $allowed, true)) {
+                abort(404);
+            }
+            $sectionKey = $type;
+            $sectionData = $this->sampleSectionDataForBlockPreview(
+                $type,
+                is_array($defaults[$type] ?? null) ? $defaults[$type] : []
+            );
+            $homeSections = array_merge($defaults, [
+                'section_order' => [$sectionKey],
+                $sectionKey => $sectionData,
+                'visibility' => array_merge(
+                    is_array($defaults['visibility'] ?? null) ? $defaults['visibility'] : [],
+                    [$sectionKey => true]
+                ),
+            ]);
+            $catalog = collect(WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug));
+            $label = (string) ($catalog->firstWhere('type', $type)['label'] ?? $type);
+        } else {
+            $raw = trim((string) ($valid['component'] ?? ''));
+            if ($raw === '') {
+                abort(400);
+            }
+            if (str_starts_with(strtolower($raw), 'component:')) {
+                $raw = (string) preg_replace('/^component:+/i', '', $raw);
+            }
+            $componentService = app(FrontendComponentService::class);
+            $comp = $componentService->getById($raw);
+            if (! $comp) {
+                abort(404);
+            }
+            $canonicalId = trim((string) ($comp->id ?? $raw));
+            $label = (string) ($comp->name ?? $canonicalId);
+
+            // E-mailformuliercomponent: render via de werkende email_template-sectie.
+            if ($canonicalId === 'website.email_template_section') {
+                $sectionKey = 'email_template';
+                $sectionData = $this->sampleSectionDataForBlockPreview('email_template', is_array($defaults['email_template'] ?? null) ? $defaults['email_template'] : []);
+            } else {
+                $sectionKey = 'component:'.$canonicalId;
+                $sectionData = $this->sampleComponentDataForBlockPreview($canonicalId, $sectionKey);
+            }
+
+            $homeSections = array_merge($defaults, [
+                'section_order' => [$sectionKey],
+                $sectionKey => $sectionData,
+                'visibility' => array_merge(
+                    is_array($defaults['visibility'] ?? null) ? $defaults['visibility'] : [],
+                    [$sectionKey => true]
+                ),
+            ]);
+        }
+
+        $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections);
+        $env = app(\App\Services\EnvService::class);
+        $googleMapsApiKey = trim((string) ($env->getGoogleMapsApiKey() ?? ''));
+        $googleMapsMapId = $env->getGoogleMapsMapId() ?? '';
+
+        $previewReviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage(null);
+        $googleReviews = app(GoogleReviewsService::class)->getReviews($previewReviewsCompanyId);
+        $reviewList = is_array($googleReviews['reviews'] ?? null) ? $googleReviews['reviews'] : [];
+        if ($reviewList === []) {
+            $googleReviews = $this->sampleGoogleReviewsForBlockPreview();
+        }
+
+        $jobs = $this->sampleJobsForBlockPreview();
+
+        return view('admin.website-pages.block-preview', [
+            'previewLabel' => $label,
+            'previewDark' => $previewDark,
+            'sectionKey' => $sectionKey,
+            'themeSlug' => $themeSlug,
+            'themeSettings' => $themeSettings,
+            'homeSections' => $homeSections,
+            'emailTemplateBySectionKey' => $emailTemplateBySectionKey,
+            'jobs' => $jobs,
+            'googleReviews' => $googleReviews,
+            'googleMapsApiKey' => $googleMapsApiKey,
+            'googleMapsMapId' => $googleMapsMapId,
+            'page' => null,
+            'branding' => ['site_name' => config('app.name'), 'site_description' => ''],
+            'loadAtomV2Styles' => $themeSlug === 'atom-v2',
+            'errors' => session('errors') ?: new \Illuminate\Support\ViewErrorBag(new \Illuminate\Support\MessageBag),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $base
+     * @return array<string, mixed>
+     */
+    private function sampleSectionDataForBlockPreview(string $type, array $base = []): array
+    {
+        $img = fn (string $file): string => '/assets/marketing/images/'.$file;
+
+        return match ($type) {
+            'hero' => array_merge($base, [
+                'title' => 'Mis je ritten aan de telefoon? Laat klanten zelf boeken.',
+                'title_highlight' => 'zelf boeken',
+                'subtitle' => 'Online boeking, chauffeur-app en contractvervoer in één platform.',
+                'cta_primary_text' => 'Neem contact op',
+                'cta_primary_url' => '/contact',
+                'cta_secondary_text' => 'Bekijk Nexa Taxi',
+                'cta_secondary_url' => '/taxi',
+                'background_image_url' => $img('hero-nexa-platform.png'),
+                'overlay' => true,
+            ]),
+            'cta' => array_merge($base, [
+                'title' => 'Klaar voor meer online boekingen?',
+                'subtitle' => 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien.',
+                'cta_primary_text' => 'Neem contact op',
+                'cta_primary_url' => '/contact',
+                'cta_secondary_text' => 'Bekijk prijzen',
+                'cta_secondary_url' => '/prijzen',
+                'background_image_url' => $img('hero-nexa-platform.png'),
+            ]),
+            'carousel' => [
+                'interval_seconds' => 3,
+                'max_height_percent' => 48,
+                'items' => [
+                    [
+                        'image_url' => $img('feature-taxi-booking.png'),
+                        'alt' => 'Online taxi boeking',
+                        'title' => 'Online taxi boeking',
+                        'caption_position' => 'bottom',
+                        'caption_animation' => 'rise',
+                    ],
+                    [
+                        'image_url' => $img('feature-chauffeur-app.png'),
+                        'alt' => 'Chauffeur-app',
+                        'title' => 'Chauffeur-app',
+                        'caption_position' => 'bottom',
+                        'caption_animation' => 'fade',
+                    ],
+                    [
+                        'image_url' => $img('feature-contract-portal.png'),
+                        'alt' => 'Contractportaal',
+                        'title' => 'Contractportaal',
+                        'caption_position' => 'bottom',
+                        'caption_animation' => 'slide_left',
+                    ],
+                ],
+            ],
+            'cards_ronde_hoeken' => [
+                'cards_per_row' => 3,
+                'items' => [
+                    [
+                        'image_url' => $img('feature-taxi-booking.png'),
+                        'text' => '<p><strong>Online boeking</strong><br>Tarieven en ritten op je eigen site.</p>',
+                        'font_size' => 15,
+                        'font_style' => 'normal',
+                        'card_size' => 'normal',
+                        'text_align' => 'left',
+                        'image_padding' => 2,
+                        'image_bg_color' => '',
+                        'text_color' => '',
+                    ],
+                    [
+                        'image_url' => $img('feature-chauffeur-app.png'),
+                        'text' => '<p><strong>Chauffeur-app</strong><br>Dispatch zonder WhatsApp-chaos.</p>',
+                        'font_size' => 15,
+                        'font_style' => 'normal',
+                        'card_size' => 'normal',
+                        'text_align' => 'left',
+                        'image_padding' => 2,
+                        'image_bg_color' => '',
+                        'text_color' => '',
+                    ],
+                    [
+                        'image_url' => $img('feature-website-builder.png'),
+                        'text' => '<p><strong>Website builder</strong><br>White-label pagina’s in minuten.</p>',
+                        'font_size' => 15,
+                        'font_style' => 'normal',
+                        'card_size' => 'normal',
+                        'text_align' => 'left',
+                        'image_padding' => 2,
+                        'image_bg_color' => '',
+                        'text_color' => '',
+                    ],
+                ],
+            ],
+            'featured_services' => array_merge($base, [
+                'title' => 'Wat Nexa vandaag kan',
+                'subtitle' => 'Drie bouwstenen die taxiondernemers direct herkennen.',
+                'animation_speed' => 'slow',
+                'items' => [
+                    ['icon' => 'truck', 'title' => 'Online boeking', 'description' => 'Klanten boeken zelf; jij mist minder telefoonritten.'],
+                    ['icon' => 'device-phone-mobile', 'title' => 'Chauffeur-app', 'description' => 'Inbox, accept/decline en statusupdates in één PWA.'],
+                    ['icon' => 'user-group', 'title' => 'Contractvervoer', 'description' => 'Schoolroutes, afmeldingen en maandfacturatie.'],
+                ],
+            ]),
+            'email_template' => [
+                'title' => 'Plan een gesprek',
+                'template_id' => app(\App\Services\NexaContactAanvraagEmailTemplateService::class)->ensureExists()->id,
+            ],
+            'text_block' => array_merge($base, [
+                'content' => '<h2>Voorbeeld tekstblok</h2><p>Hier komt je eigen content: uitleg, USP’s of een korte intro. Rechts of links kun je later een afbeelding of formulier koppelen.</p><ul><li>White-label per tenant</li><li>Website + boeking + chauffeur-app</li><li>Optioneel contractvervoer</li></ul>',
+                'alignment' => 'left',
+                'image_url' => $img('feature-website-builder.png'),
+                'width_percent' => 100,
+            ]),
+            'stats' => array_merge($base !== [] ? $base : [], [
+                'items' => [
+                    ['value' => '24/7', 'label' => 'Online boeken', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '1 SaaS', 'label' => 'Alles gekoppeld', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '0%', 'label' => 'Commissie per rit', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => 'White-label', 'label' => 'Jouw merk', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                ],
+            ]),
+            'why_nexa' => array_merge($base, [
+                'title' => 'Waarom ondernemers voor NEXA kiezen',
+                'subtitle' => 'Minder telefoonchaos, meer boekingen — white-label en klaar om te groeien.',
+            ]),
+            'features' => array_merge($base, [
+                'section_title' => 'Wat de SaaS vandaag kan',
+                'items' => [
+                    [
+                        'title' => 'Nexa Taxi',
+                        'description' => 'Website-boeking, tarieven, ritten, chauffeur-dispatch en klantportaal.',
+                        'icon' => 'truck',
+                        'icon_size' => 'medium',
+                        'icon_align' => 'center',
+                    ],
+                    [
+                        'title' => 'Contractvervoer',
+                        'description' => 'Schoolroutes, ouderportaal en afmeldingen zonder Excel.',
+                        'icon' => 'user-group',
+                        'icon_size' => 'medium',
+                        'icon_align' => 'center',
+                    ],
+                    [
+                        'title' => 'Website builder',
+                        'description' => 'Pagina’s, hero’s en componenten — live in jouw merkkleuren.',
+                        'icon' => 'color-swatch',
+                        'icon_size' => 'medium',
+                        'icon_align' => 'center',
+                    ],
+                ],
+            ]),
+            default => $base,
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sampleComponentDataForBlockPreview(string $canonicalId, string $sectionKey): array
+    {
+        $img = fn (string $file): string => '/assets/marketing/images/'.$file;
+
+        if ($canonicalId === 'website.comparison_table') {
+            return app(\App\Services\CentralWelcomePageService::class)->comparisonTableSample();
+        }
+        if ($canonicalId === 'website.pricing_packages' || $sectionKey === \App\Services\NexaPricingService::PACKAGES_SECTION_KEY) {
+            return app(\App\Services\NexaPricingService::class)->sectionPayload();
+        }
+        if ($canonicalId === 'website.screenshot_gallery') {
+            return [
+                'title' => 'Feature-visuals',
+                'subtitle' => 'Boeking, chauffeur-app en contractportaal — zoals klanten het zien.',
+                'layout' => 'grid',
+                'items' => [
+                    ['image_url' => $img('feature-taxi-booking.png'), 'caption' => 'Online taxi boeking', 'alt' => 'Online taxi boeking', 'crop' => 'none', 'url' => '/taxi'],
+                    ['image_url' => $img('feature-chauffeur-app.png'), 'caption' => 'Chauffeur-app', 'alt' => 'Chauffeur-app', 'crop' => 'phone'],
+                    ['image_url' => $img('feature-contract-portal.png'), 'caption' => 'Contractportaal', 'alt' => 'Contractportaal', 'crop' => 'portal'],
+                ],
+            ];
+        }
+        if ($canonicalId === 'website.nexa_modules_overview') {
+            return [
+                'eyebrow' => 'Onze modules',
+                'title' => 'Taxi eerst — de rest groeit mee',
+                'subtitle' => 'Elke module werkt standalone of in combinatie.',
+                'items' => [
+                    [
+                        'name' => 'NEXA Taxi',
+                        'description' => 'Online boeking, ritten, chauffeur-app, tarieven en facturatie.',
+                        'features' => ['Website-boekingsmodule', 'Chauffeur-app', 'Klantportaal'],
+                        'badge' => 'Beschikbaar',
+                        'badge_variant' => 'available',
+                        'icon' => 'truck',
+                        'url' => '/taxi',
+                    ],
+                    [
+                        'name' => 'Contractvervoer',
+                        'description' => 'Schoolroutes, planning en ouderportaal.',
+                        'features' => ['Vaste routes', 'Afmeldingen', 'Maandfacturatie'],
+                        'badge' => 'Beschikbaar',
+                        'badge_variant' => 'available',
+                        'icon' => 'user-group',
+                        'url' => '/contractvervoer',
+                    ],
+                    [
+                        'name' => 'NEXA Garage',
+                        'description' => 'Werkplaatsbeheer voor garages en autobedrijven.',
+                        'features' => ['Werkorders', 'Voertuighistorie', 'Onderdelen'],
+                        'badge' => 'Binnenkort',
+                        'badge_variant' => 'soon',
+                        'icon' => 'cog-6-tooth',
+                        'url' => '',
+                    ],
+                ],
+            ];
+        }
+        if (in_array($canonicalId, ['website.google_reviews', 'nexa.google_reviews'], true)) {
+            return [
+                'section_title' => 'Wat anderen zeggen',
+                'section_background' => '',
+            ];
+        }
+        if (in_array($canonicalId, ['taxi.boekingsmodule', 'taxi.boekingsmodule_v2', 'taxiroyaal.boekingsmodule'], true)) {
+            $config = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+            $config['style'] = is_array($config['style'] ?? null) ? $config['style'] : [];
+            $config['style']['border_radius'] = 16;
+
+            return $config;
+        }
+        if ($canonicalId === 'taxi.tarieven' || $canonicalId === 'taxiroyaal.tarieven') {
+            return $this->normalizeNexaTaxiTarievenSection([]);
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sampleGoogleReviewsForBlockPreview(): array
+    {
+        return [
+            'place_name' => 'NEXA Taxi Demo',
+            'rating' => 4.8,
+            'user_rating_count' => 126,
+            'section_title' => 'Wat anderen zeggen',
+            'write_review_url' => '',
+            'reviews' => [
+                [
+                    'author_name' => 'Lisa de Vries',
+                    'rating' => 5,
+                    'text' => 'Super makkelijk online geboekt. Chauffeur was op tijd en de app werkte feilloos.',
+                    'time' => '2 weken geleden',
+                    'profile_photo_url' => '',
+                ],
+                [
+                    'author_name' => 'Mark Jansen',
+                    'rating' => 5,
+                    'text' => 'Eindelijk geen WhatsApp-gedoe meer met chauffeurs. Dispatch is overzichtelijk.',
+                    'time' => 'een maand geleden',
+                    'profile_photo_url' => '',
+                ],
+                [
+                    'author_name' => 'Sara Bakker',
+                    'rating' => 4,
+                    'text' => 'Contractvervoer voor schoolritten is duidelijk. Ouders melden zelf af via het portaal.',
+                    'time' => '2 maanden geleden',
+                    'profile_photo_url' => '',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function sampleJobsForBlockPreview(): Collection
+    {
+        $make = static function (string $title, string $company, string $location, string $description, int $min, int $max, int $id): object {
+            return new class($title, $company, $location, $description, $min, $max, $id)
+            {
+                public string $title;
+
+                public string $description;
+
+                public string $location;
+
+                public int $salary_min;
+
+                public int $salary_max;
+
+                public object $company;
+
+                private int $id;
+
+                public function __construct(string $title, string $company, string $location, string $description, int $min, int $max, int $id)
+                {
+                    $this->title = $title;
+                    $this->description = $description;
+                    $this->location = $location;
+                    $this->salary_min = $min;
+                    $this->salary_max = $max;
+                    $this->company = (object) ['name' => $company];
+                    $this->id = $id;
+                }
+
+                public function getRouteKey(): int
+                {
+                    return $this->id;
+                }
+            };
+        };
+
+        return collect([
+            $make('Taxichauffeur (fulltime)', 'Nexa Taxi Amsterdam', 'Amsterdam', 'Rijden met moderne app-dispatch. Dag- en avonddiensten mogelijk.', 2800, 3400, 1),
+            $make('Planner contractvervoer', 'Nexa Mobility', 'Utrecht', 'Plan schoolroutes en beheer afmeldingen in het contractportaal.', 3200, 3900, 2),
+            $make('Klantenservice taxi', 'Stadstaxi Demo', 'Rotterdam', 'Beantwoord boekingen en help klanten met hun ritten in het portaal.', 2500, 3000, 3),
+        ]);
+    }
+
+    /**
      * Preview van de pagina met het thema van de module / standaardthema (zoals op de website).
      */
     public function preview(WebsitePage $website_page): View
@@ -843,6 +1278,9 @@ class AdminWebsitePageController extends Controller
         $useThemeHomeLayout = $themeHasHomeSections && ($website_page->page_type === 'home' || $website_page->slug === 'home' || ! empty($website_page->home_sections));
         // Altijd homeSections doorgeven wanneer de pagina home_sections heeft, zodat footer/visibility op preview werken
         $homeSections = ! empty($website_page->home_sections) ? $website_page->getHomeSections() : [];
+        if ($homeSections !== []) {
+            $homeSections = $this->websiteBuilder->applyInheritedHomeFooter($homeSections, $website_page);
+        }
         // E-mailtemplate per sectie (zelfde logica als frontend WebsitePageController: module-DB bij module-pagina)
         $templateConnection = null;
         $moduleName = $website_page->module_name;
@@ -3348,6 +3786,7 @@ class AdminWebsitePageController extends Controller
                 'updateMeta' => route('admin.website-pages.builder-v2.update-meta', ['website_page' => $website_page]),
                 'generateSeo' => route('admin.website-pages.generate-seo'),
                 'preview' => $previewUrl,
+                'blockPreview' => route('admin.website-pages.block-preview'),
                 'classicEdit' => $classicEditUrl,
                 'index' => route('admin.website-pages.index', $wizardIndexQuery),
                 'self' => $builderV2EditUrl,

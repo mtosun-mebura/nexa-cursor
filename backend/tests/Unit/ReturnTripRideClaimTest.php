@@ -226,7 +226,8 @@ class ReturnTripRideClaimTest extends TestCase
             'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
             'pickup_address' => 'Kerkstraat 2',
             'dropoff_address' => 'Luchthaven',
-            'pickup_at' => now()->addHour(),
+            // Naive Amsterdam wall-clock; now()->addHour() is te krap t.o.v. UTC↔CEST.
+            'pickup_at' => now('Europe/Amsterdam')->addHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Andere klant',
             'quoted_price' => 30,
         ]);

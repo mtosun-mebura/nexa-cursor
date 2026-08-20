@@ -108,9 +108,13 @@
         $bookingSectionStyleParts[] = '--booking-v2-inside-map-offset: calc(var(--booking-step-heading-size-max) * 1.25 + 1rem)';
     }
     $bookingSectionStyle = implode('; ', $bookingSectionStyleParts).';';
+    // Builder-voorbeeld: skin volgt light/dark van de preview. Live site: standaard dark.
+    $bookingSkinInitial = isset($previewDark)
+        ? (! empty($previewDark) ? 'dark' : 'light')
+        : 'dark';
 @endphp
 
-<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-skin="dark" data-scroll-reveal data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
+<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-skin="{{ $bookingSkinInitial }}" data-scroll-reveal data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
     <div class="booking-module-layout w-full max-w-full {{ $bookingPortalMode ? 'booking-module-layout--portal' : 'website-section-inner website-section-inner--flush' }}">
     @if($bookingSplitMapBesideCard)
     <div class="booking-module-v2-split">
@@ -1116,7 +1120,8 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
     text-align: center;
 }
 .dark [data-nexataxi-booking-module] .booking-trip-distance-wrap,
-html.dark [data-nexataxi-booking-module] .booking-trip-distance-wrap {
+html.dark [data-nexataxi-booking-module] .booking-trip-distance-wrap,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-trip-distance-wrap {
     border-top-color: rgba(71, 85, 105, 0.42);
 }
 [data-nexataxi-booking-module] .booking-trip-distance-label {
@@ -1126,15 +1131,19 @@ html.dark [data-nexataxi-booking-module] .booking-trip-distance-wrap {
 .dark [data-nexataxi-booking-module] .booking-confirm-total-strip,
 html.dark [data-nexataxi-booking-module] .booking-confirm-total-strip,
 .dark [data-nexataxi-booking-module] .booking-confirm-section-divider,
-html.dark [data-nexataxi-booking-module] .booking-confirm-section-divider {
+html.dark [data-nexataxi-booking-module] .booking-confirm-section-divider,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-confirm-total-strip,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-confirm-section-divider {
     border-top-color: rgba(71, 85, 105, 0.42) !important;
 }
 .dark [data-nexataxi-booking-module] .booking-confirm-wireframe,
-html.dark [data-nexataxi-booking-module] .booking-confirm-wireframe {
+html.dark [data-nexataxi-booking-module] .booking-confirm-wireframe,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-confirm-wireframe {
     border-color: rgba(71, 85, 105, 0.42) !important;
 }
 .dark [data-nexataxi-booking-module] .booking-confirm-surface,
-html.dark [data-nexataxi-booking-module] .booking-confirm-surface {
+html.dark [data-nexataxi-booking-module] .booking-confirm-surface,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-confirm-surface {
     border-color: rgba(71, 85, 105, 0.42) !important;
 }
 /* Linkerkolom / kaart: geen onderborder of shadow die als witte streep leest */
@@ -1174,10 +1183,17 @@ html.dark [data-nexataxi-booking-module] .booking-confirm-surface {
     border-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 28%, rgba(148, 163, 184, 0.55)) !important;
     color: #0f172a;
 }
-.dark [data-nexataxi-booking-module] .booking-trip-route-card {
+.dark [data-nexataxi-booking-module] .booking-trip-route-card,
+html.dark [data-nexataxi-booking-module] .booking-trip-route-card,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-trip-route-card {
     background-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 14%, rgb(30 41 59)) !important;
     border-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 38%, rgb(71 85 105)) !important;
     color: #f8fafc;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-trip-route-card {
+    background-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 11%, white) !important;
+    border-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 28%, rgba(148, 163, 184, 0.55)) !important;
+    color: #0f172a;
 }
 /* Metronic .hidden overschrijft Tailwind sm:flex/md:flex — eigen responsive regels */
 [data-nexataxi-booking-module] [data-booking-steps-nav].booking-steps-nav,
@@ -1771,8 +1787,16 @@ body.booking-modal-open {
     color: #0f172a;
 }
 .dark [data-nexataxi-booking-module] [data-step-panel] .rounded-xl,
-.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg {
+.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
+html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-xl,
+html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
+[data-nexataxi-booking-module][data-booking-skin="dark"] [data-step-panel] .rounded-xl,
+[data-nexataxi-booking-module][data-booking-skin="dark"] [data-step-panel] .rounded-lg {
     color: #f8fafc;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] [data-step-panel] .rounded-xl,
+[data-nexataxi-booking-module][data-booking-skin="light"] [data-step-panel] .rounded-lg {
+    color: #0f172a;
 }
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-calendar-picker-indicator {
     opacity: 0;
@@ -1788,9 +1812,15 @@ body.booking-modal-open {
     text-shadow: none;
     color-scheme: light;
 }
-.dark [data-nexataxi-booking-module] .booking-datetime-input {
+.dark [data-nexataxi-booking-module] .booking-datetime-input,
+html.dark [data-nexataxi-booking-module] .booking-datetime-input,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-datetime-input {
     border-color: rgba(148, 163, 184, 0.55) !important;
     color-scheme: dark;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-datetime-input {
+    border-color: rgba(148, 163, 184, 0.45) !important;
+    color-scheme: light;
 }
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-clear-button,
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-inner-spin-button {
@@ -4593,9 +4623,18 @@ body.booking-modal-open {
     function initBookingSkinToggle() {
         if (!root) return;
         var storageKey = 'nexataxi-booking-skin';
-        var saved = null;
-        try { saved = localStorage.getItem(storageKey); } catch (e) {}
-        var skin = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+        var isBlockPreview = !!(document.body && document.body.getAttribute('data-nexa-block-preview') === '1');
+        var skin = 'dark';
+        if (isBlockPreview) {
+            // In builder-voorbeeld: volg light/dark van de preview-pagina, niet localStorage.
+            skin = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark')
+                ? 'dark'
+                : 'light';
+        } else {
+            var saved = null;
+            try { saved = localStorage.getItem(storageKey); } catch (e) {}
+            skin = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+        }
         root.setAttribute('data-booking-skin', skin);
         var btn = root.querySelector('[data-booking-skin-toggle]');
         if (!btn || btn.getAttribute('data-bound') === '1') return;
@@ -4603,7 +4642,9 @@ body.booking-modal-open {
         btn.addEventListener('click', function() {
             var next = root.getAttribute('data-booking-skin') === 'light' ? 'dark' : 'light';
             root.setAttribute('data-booking-skin', next);
-            try { localStorage.setItem(storageKey, next); } catch (e2) {}
+            if (!isBlockPreview) {
+                try { localStorage.setItem(storageKey, next); } catch (e2) {}
+            }
             if (bookingSplitMapV2 && typeof applyLiveRouteMapAppearance === 'function') {
                 applyLiveRouteMapAppearance();
             }

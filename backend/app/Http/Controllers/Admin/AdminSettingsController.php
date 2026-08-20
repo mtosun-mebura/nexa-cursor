@@ -203,6 +203,16 @@ class AdminSettingsController extends Controller
 
         $tenantSyncTargetDatabaseUrlPrefill = $this->tenantWebsiteBundle->suggestedTargetDatabaseUrl();
 
+        $paymentProviders = app(\App\Services\PaymentProviderService::class);
+        $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $mollieSummary = $paymentProviders->mollieSummaryForCompany($settingsCompanyId);
+        $paymentOptions = $settingsCompanyId !== null
+            ? $dispatchSettings->paymentOptionsForTenant($settingsCompanyId)
+            : ['booking' => false, 'driver' => false, 'mollie_configured' => false];
+        $mollieDriverPaymentsEnabled = (bool) ($paymentOptions['driver'] ?? false);
+        $mollieBookingPaymentsEnabled = (bool) ($paymentOptions['booking'] ?? false);
+        $defaultTaxiWebhookUrl = url('/api/taxi/webhooks/mollie');
+
         return view('admin.settings.index', compact(
             'mailSettings',
             'seoSettings',
@@ -225,7 +235,57 @@ class AdminSettingsController extends Controller
             'tenantSyncScope',
             'settingsCompanyId',
             'tenantScopedSettingsActive',
+            'mollieSummary',
+            'mollieDriverPaymentsEnabled',
+            'mollieBookingPaymentsEnabled',
+            'defaultTaxiWebhookUrl',
         ));
+    }
+
+    /**
+     * Tenant Mollie (chauffeur-/boekingsbetalingen) opslaan.
+     */
+    public function updateMollie(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
+
+        $validated = $request->validate([
+            'mollie_api_key' => 'nullable|string|max:255',
+            'mollie_is_active' => 'nullable|in:0,1',
+            'mollie_test_mode' => 'nullable|in:0,1',
+            'mollie_driver_payments' => 'nullable|in:0,1',
+            'mollie_booking_payments' => 'nullable|in:0,1',
+            'mollie_webhook_url' => 'nullable|string|max:500',
+        ]);
+
+        $apiKey = isset($validated['mollie_api_key']) ? trim((string) $validated['mollie_api_key']) : '';
+        $isActive = ($validated['mollie_is_active'] ?? '1') === '1';
+        $testMode = ($validated['mollie_test_mode'] ?? '0') === '1';
+        $webhookUrl = isset($validated['mollie_webhook_url']) ? trim((string) $validated['mollie_webhook_url']) : null;
+
+        try {
+            app(\App\Services\PaymentProviderService::class)->upsertMollieForCompany(
+                (int) $companyId,
+                $apiKey !== '' ? $apiKey : null,
+                $isActive,
+                $testMode,
+                $webhookUrl
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e->redirectTo(route('admin.settings.index').'#mollie');
+        }
+
+        $dispatch = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $dispatch->setPaymentDriverEnabled(($validated['mollie_driver_payments'] ?? '0') === '1', $companyId);
+        $dispatch->setPaymentBookingEnabled(($validated['mollie_booking_payments'] ?? '0') === '1', $companyId);
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#mollie')
+            ->with('success', 'Mollie-instellingen voor deze tenant opgeslagen.');
     }
 
     /**

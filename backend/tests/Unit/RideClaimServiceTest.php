@@ -307,7 +307,8 @@ class RideClaimServiceTest extends TestCase
             'status' => RideRequest::STATUS_OFFERED,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => now()->addHour(),
+            // Naive Amsterdam wall-clock (niet app-TZ converteren).
+            'pickup_at' => now('Europe/Amsterdam')->addHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Test',
         ]);
 
@@ -338,7 +339,7 @@ class RideClaimServiceTest extends TestCase
             'status' => RideRequest::STATUS_PENDING_DISPATCH,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => now()->subHours(2),
+            'pickup_at' => now('Europe/Amsterdam')->subHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Test',
         ]);
 
@@ -352,7 +353,7 @@ class RideClaimServiceTest extends TestCase
             'responded_at' => now()->subHour(),
         ]);
 
-        $newPickup = now()->addDay()->startOfMinute();
+        $newPickup = now('Europe/Amsterdam')->addDay()->startOfMinute();
         $claim = app(RideClaimService::class);
         $result = $claim->acceptOffer(
             'module_taxi',
@@ -366,20 +367,19 @@ class RideClaimServiceTest extends TestCase
         $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $result['ride']->pickup_proposal_status);
         $this->assertNotNull($result['ride']->pickup_proposal_at);
         // Oude pickup_at blijft tot de klant via WhatsApp (rit_ophaal_voorstel) accepteert.
-        $this->assertTrue($result['ride']->pickup_at->lt($newPickup));
+        $this->assertTrue($result['ride']->pickup_at->format('Y-m-d H:i:s') < $newPickup->format('Y-m-d H:i:s'));
     }
 
-    public function test_accept_declined_overdue_ride_keeps_pickup_at_without_change(): void
+    public function test_accept_declined_overdue_ride_requires_new_pickup_at(): void
     {
         $driver = User::factory()->create();
-        $originalPickup = now()->subHours(2)->startOfMinute();
 
         $ride = RideRequest::on('module_taxi')->create([
             'company_id' => 1,
             'status' => RideRequest::STATUS_PENDING_DISPATCH,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => $originalPickup,
+            'pickup_at' => now('Europe/Amsterdam')->subHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Test',
         ]);
 
@@ -394,8 +394,8 @@ class RideClaimServiceTest extends TestCase
         ]);
 
         $claim = app(RideClaimService::class);
-        $result = $claim->acceptOffer('module_taxi', $driver, $offer->id, null);
 
-        $this->assertTrue($result['ride']->pickup_at->equalTo($originalPickup));
+        $this->expectException(ValidationException::class);
+        $claim->acceptOffer('module_taxi', $driver, $offer->id, null);
     }
 }

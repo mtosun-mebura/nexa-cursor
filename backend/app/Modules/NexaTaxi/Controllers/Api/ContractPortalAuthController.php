@@ -11,7 +11,6 @@ use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class ContractPortalAuthController extends Controller
 {
@@ -27,9 +26,9 @@ class ContractPortalAuthController extends Controller
 
         $user = User::where('email', $data['email'])->first();
         if (! $user || ! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Onjuiste inloggegevens.'],
-            ]);
+            return response()->json([
+                'message' => 'Onjuiste e-mail of wachtwoord.',
+            ], 401);
         }
 
         if (! $user->email_verified_at) {

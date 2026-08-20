@@ -85,17 +85,18 @@
         $trackWidth = min(100, $rightWidth);
         $columnsMode = 'single';
     }
+    $ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
 @endphp
 @if($cons !== [] || $pros !== [])
-<section class="nexa-comparison-table nexa-pros-cons pt-6 md:pt-8 pb-8 md:pb-12">
+<section class="nexa-comparison-table nexa-pros-cons pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section" data-scroll-reveal>
     <div class="website-section-inner">
         @if($title !== '' || $subtitle !== '')
-        <div class="text-center mb-8 max-w-3xl mx-auto">
+        <div class="text-center mb-8 max-w-3xl mx-auto nexa-pros-cons__intro">
             @if($title !== '')
-            <h2 class="nexa-pros-cons__title text-2xl md:text-3xl font-bold mb-3">{{ $title }}</h2>
+            <h2 class="nexa-pros-cons__title nexa-pros-cons__reveal text-2xl md:text-3xl font-bold mb-3" style="--reveal-delay: 0ms;">{{ $title }}</h2>
             @endif
             @if($subtitle !== '')
-            <p class="nexa-pros-cons__subtitle">{{ $subtitle }}</p>
+            <p class="nexa-pros-cons__subtitle nexa-pros-cons__reveal" style="--reveal-delay: 120ms;">{{ $subtitle }}</p>
             @endif
         </div>
         @endif
@@ -104,7 +105,7 @@
             style="--track-width: {{ $trackWidth }}%; --left-fr: {{ $leftFr }}fr; --right-fr: {{ $rightFr }}fr;"
         >
             @if($cons !== [])
-            <div class="nexa-pros-cons__card nexa-pros-cons__card--cons" style="--block-color: {{ $leftColor }};">
+            <div class="nexa-pros-cons__card nexa-pros-cons__card--cons nexa-pros-cons__reveal nexa-pros-cons__reveal--from-left" style="--block-color: {{ $leftColor }}; --reveal-delay: 180ms;">
                 <h3 class="nexa-pros-cons__heading">
                     <svg class="nexa-pros-cons__icon nexa-pros-cons__icon--con" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
@@ -112,8 +113,8 @@
                     {{ $leftHeading }}
                 </h3>
                 <ul class="nexa-pros-cons__list">
-                    @foreach($cons as $item)
-                    <li class="nexa-pros-cons__item nexa-comparison-table__pain">
+                    @foreach($cons as $i => $item)
+                    <li class="nexa-pros-cons__item nexa-comparison-table__pain nexa-pros-cons__item-reveal" style="--item-delay: {{ 420 + ($i * 140) }}ms;">
                         <svg class="nexa-pros-cons__icon nexa-pros-cons__icon--con" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
                         </svg>
@@ -124,7 +125,7 @@
             </div>
             @endif
             @if($pros !== [])
-            <div class="nexa-pros-cons__card nexa-pros-cons__card--pros" style="--block-color: {{ $rightColor }};">
+            <div class="nexa-pros-cons__card nexa-pros-cons__card--pros nexa-pros-cons__reveal nexa-pros-cons__reveal--from-right" style="--block-color: {{ $rightColor }}; --reveal-delay: 280ms;">
                 <h3 class="nexa-pros-cons__heading">
                     <svg class="nexa-pros-cons__icon nexa-pros-cons__icon--pro" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
@@ -132,8 +133,8 @@
                     {{ $rightHeading }}
                 </h3>
                 <ul class="nexa-pros-cons__list">
-                    @foreach($pros as $item)
-                    <li class="nexa-pros-cons__item nexa-comparison-table__answer">
+                    @foreach($pros as $i => $item)
+                    <li class="nexa-pros-cons__item nexa-comparison-table__answer nexa-pros-cons__item-reveal" style="--item-delay: {{ 560 + ($i * 140) }}ms;">
                         <svg class="nexa-pros-cons__icon nexa-pros-cons__icon--pro" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                         </svg>
@@ -235,6 +236,50 @@
             .nexa-pros-cons__item.nexa-comparison-table__answer {
                 color: #0f172a;
                 font-weight: 500;
+            }
+            /* Scroll reveal — Spark UI-achtige staggered motion, CSS-only */
+            .nexa-pros-cons.scroll-reveal-section .nexa-pros-cons__reveal {
+                opacity: 0;
+                transform: translateY(28px);
+                transition:
+                    opacity 0.7s {{ $ease }},
+                    transform 0.7s {{ $ease }};
+                transition-delay: var(--reveal-delay, 0ms);
+                will-change: opacity, transform;
+            }
+            .nexa-pros-cons.scroll-reveal-section .nexa-pros-cons__reveal--from-left {
+                transform: translateX(-40px) translateY(12px);
+            }
+            .nexa-pros-cons.scroll-reveal-section .nexa-pros-cons__reveal--from-right {
+                transform: translateX(40px) translateY(12px);
+            }
+            .nexa-pros-cons.scroll-reveal-section .nexa-pros-cons__item-reveal {
+                opacity: 0;
+                transform: translateY(14px);
+                transition:
+                    opacity 0.85s {{ $ease }},
+                    transform 0.85s {{ $ease }};
+                transition-delay: var(--item-delay, 0ms);
+                will-change: opacity, transform;
+            }
+            .nexa-pros-cons.scroll-reveal-section.is-in-view .nexa-pros-cons__reveal,
+            .nexa-pros-cons.scroll-reveal-section.is-in-view .nexa-pros-cons__item-reveal {
+                opacity: 1;
+                transform: translate(0, 0);
+            }
+            .nexa-pros-cons.scroll-reveal-section.is-in-view .nexa-pros-cons__card--cons:hover,
+            .nexa-pros-cons.scroll-reveal-section.is-in-view .nexa-pros-cons__card--pros:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 14px 28px -18px color-mix(in srgb, var(--block-color) 55%, #0f172a);
+                transition: transform 0.25s ease, box-shadow 0.25s ease;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .nexa-pros-cons.scroll-reveal-section .nexa-pros-cons__reveal,
+                .nexa-pros-cons.scroll-reveal-section .nexa-pros-cons__item-reveal {
+                    opacity: 1 !important;
+                    transform: none !important;
+                    transition: none !important;
+                }
             }
             html.dark .nexa-pros-cons {
                 background: #020617;

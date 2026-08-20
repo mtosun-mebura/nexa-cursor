@@ -3,13 +3,12 @@
 
     const cfg = window.NEXA_TAXI_CONTRACT || {};
     const STORAGE_KEY = 'nexa_taxi_contract_token';
-    const INSTALL_HINT_KEY = 'nexa_taxi_contract_dismiss_install';
+    const GUIDE_HINT_KEY = 'nexa_taxi_contract_dismiss_guide';
     const ANNOUNCEMENT_DISMISS_KEY = 'nexa_taxi_contract_dismiss_announcements';
 
     let token = sessionStorage.getItem(STORAGE_KEY) || '';
     let user = null;
     let pollTimer = null;
-    let deferredInstallPrompt = null;
     let absencePassengerId = null;
     let weekFrom = null;
     let weekPayload = null;
@@ -66,15 +65,15 @@
         return { ok: res.ok, status: res.status, data: data };
     }
 
-    function placeInstallHint() {
-        const hint = $('#install-hint');
+    function placeGuideHint() {
+        const hint = $('#guide-hint');
         if (!hint) {
             return;
         }
         if (screenHome && screenHome.classList.contains('is-active')) {
-            const homeTop = screenHome.querySelector('.home-top');
-            if (homeTop && hint.previousElementSibling !== homeTop) {
-                homeTop.insertAdjacentElement('afterend', hint);
+            const banners = screenHome.querySelector('.home-banners');
+            if (banners && hint.parentElement !== banners) {
+                banners.insertBefore(hint, banners.firstChild);
             }
         } else if (screenLogin) {
             const loginTitle = screenLogin.querySelector('h1');
@@ -87,11 +86,15 @@
     function showScreen(name) {
         screenLogin.classList.toggle('is-active', name === 'login');
         screenHome.classList.toggle('is-active', name === 'home');
-        placeInstallHint();
+        placeGuideHint();
         requestAnimationFrame(syncThemeToggleTop);
     }
 
     function syncThemeToggleTop() {
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+            return;
+        }
         let anchor = null;
         if (screenHome && screenHome.classList.contains('is-active')) {
             anchor = document.querySelector('.home-top__row') || $('#home-title');
@@ -105,7 +108,6 @@
         const rect = anchor.getBoundingClientRect();
         const chrome = document.getElementById('nexa-pwa-chrome-actions');
         const chromeH = chrome ? chrome.getBoundingClientRect().height || 36 : 36;
-        // Verticaal centreren t.o.v. de titelrij (home-top__row / login-h1).
         const top = Math.round(rect.top + (rect.height - chromeH) / 2);
         document.documentElement.style.setProperty(
             '--nexa-pwa-theme-top',
@@ -959,107 +961,13 @@
         startPoll();
     }
 
-    function detectInstallPlatform() {
-        const ua = navigator.userAgent || '';
-        const isIos =
-            /iPad|iPhone|iPod/i.test(ua) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        if (isIos) {
-            return 'ios';
-        }
-        if (/Android/i.test(ua)) {
-            return 'android';
-        }
-        return 'desktop';
-    }
-
-    function installGuideContent(platform) {
-        if (platform === 'ios') {
-            return {
-                label: 'iPhone / iPad',
-                intro: 'Voeg de app toe aan je beginscherm via Safari:',
-                steps: [
-                    'Open deze pagina in Safari (niet in Chrome of een andere browser).',
-                    'Tik op de Deel-knop onderaan (vierkant met pijl omhoog).',
-                    'Scroll en kies “Zet op beginscherm”.',
-                    'Tik op “Voeg toe”. De app verschijnt nu op je beginscherm.',
-                ],
-            };
-        }
-        if (platform === 'android') {
-            return {
-                label: 'Android',
-                intro: 'Installeer de app via Chrome op je telefoon:',
-                steps: [
-                    'Open deze pagina in Chrome.',
-                    'Tik rechtsboven op het menu (⋮).',
-                    'Kies “App installeren” of “Toevoegen aan startscherm”.',
-                    'Bevestig met “Installeren” of “Toevoegen”.',
-                ],
-            };
-        }
-        return {
-            label: 'Computer / overig',
-            intro: 'Het beste werkt dit op je telefoon. Op een computer:',
-            steps: [
-                'Open deze pagina in Chrome of Edge.',
-                'Klik op het installatie-icoon in de adresbalk, of gebruik de knop “Installeer app” als die zichtbaar is.',
-                'Op iPhone: open de link in Safari → Deel → Zet op beginscherm.',
-                'Op Android: Chrome-menu (⋮) → App installeren / Toevoegen aan startscherm.',
-            ],
-        };
-    }
-
-    function openInstallGuide() {
-        const dialog = $('#install-guide-dialog');
-        if (!dialog) {
-            return;
-        }
-        const content = installGuideContent(detectInstallPlatform());
-        const platformEl = $('#install-guide-platform');
-        const introEl = $('#install-guide-intro');
-        const stepsEl = $('#install-guide-steps');
-        if (platformEl) {
-            platformEl.textContent = content.label;
-        }
-        if (introEl) {
-            introEl.textContent = content.intro;
-        }
-        if (stepsEl) {
-            stepsEl.innerHTML = content.steps
-                .map(function (step) {
-                    return '<li>' + escapeHtml(step) + '</li>';
-                })
-                .join('');
-        }
-        dialog.hidden = false;
-    }
-
-    function closeInstallGuide() {
-        const dialog = $('#install-guide-dialog');
-        if (dialog) {
-            dialog.hidden = true;
-        }
-    }
-
-    function updateInstallHint() {
-        const hint = $('#install-hint');
+    function updateGuideHint() {
+        const hint = $('#guide-hint');
         if (!hint) {
             return;
         }
-        if (localStorage.getItem(INSTALL_HINT_KEY) === '1') {
-            hint.hidden = true;
-            requestAnimationFrame(syncThemeToggleTop);
-            return;
-        }
-        const isStandalone =
-            window.matchMedia('(display-mode: standalone)').matches ||
-            window.navigator.standalone === true;
-        hint.hidden = isStandalone;
-        const installBtn = $('#btn-install-app');
-        if (installBtn) {
-            installBtn.hidden = !deferredInstallPrompt;
-        }
+        hint.hidden = localStorage.getItem(GUIDE_HINT_KEY) === '1';
+        placeGuideHint();
         requestAnimationFrame(syncThemeToggleTop);
     }
 
@@ -1224,48 +1132,16 @@
     if (absenceDateTo) {
         absenceDateTo.addEventListener('change', syncAbsenceDateBounds);
     }
-    $('#btn-dismiss-install').addEventListener('click', function () {
-        localStorage.setItem(INSTALL_HINT_KEY, '1');
-        updateInstallHint();
-    });
-    const btnInstallGuide = $('#btn-install-guide');
-    if (btnInstallGuide) {
-        btnInstallGuide.addEventListener('click', openInstallGuide);
-    }
-    const btnInstallGuideClose = $('#install-guide-close');
-    if (btnInstallGuideClose) {
-        btnInstallGuideClose.addEventListener('click', closeInstallGuide);
-    }
-    const installGuideDialog = $('#install-guide-dialog');
-    if (installGuideDialog) {
-        installGuideDialog.addEventListener('click', function (ev) {
-            if (ev.target === installGuideDialog) {
-                closeInstallGuide();
-            }
+    const dismissGuideBtn = $('#btn-dismiss-guide-hint');
+    if (dismissGuideBtn) {
+        dismissGuideBtn.addEventListener('click', function () {
+            localStorage.setItem(GUIDE_HINT_KEY, '1');
+            updateGuideHint();
         });
     }
-    $('#btn-install-app').addEventListener('click', async function () {
-        if (!deferredInstallPrompt) {
-            return;
-        }
-        deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        updateInstallHint();
-    });
-
-    window.addEventListener('beforeinstallprompt', function (ev) {
-        ev.preventDefault();
-        deferredInstallPrompt = ev;
-        updateInstallHint();
-    });
-    window.addEventListener('appinstalled', function () {
-        deferredInstallPrompt = null;
-        updateInstallHint();
-    });
 
     registerServiceWorker();
-    updateInstallHint();
+    updateGuideHint();
     window.addEventListener('resize', syncThemeToggleTop);
     requestAnimationFrame(syncThemeToggleTop);
 

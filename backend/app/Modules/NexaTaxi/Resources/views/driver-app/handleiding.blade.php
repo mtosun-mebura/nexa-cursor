@@ -430,23 +430,34 @@
 </header>
 <main class="guide-wrap">
     <div class="guide-intro">
-        <p>Deze handleiding loopt met je mee: van inloggen tot een rit afronden en betalen. Tik een onderwerp aan, of lees van boven naar beneden.</p>
+        <p>Deze handleiding loopt met je mee: eerst de app op je telefoon zetten, daarna van inloggen tot een rit afronden en betalen. Tik een onderwerp aan, of lees van boven naar beneden.</p>
         <p>Je opent deze pagina altijd opnieuw via <strong style="color:var(--text)">Profiel</strong> onderin de app, ook als je de banner hebt weggeklikt.</p>
     </div>
 
     <nav class="guide-toc" aria-label="Inhoud">
-        <a href="#inloggen"><span class="num">1</span> Inloggen</a>
-        <a href="#online"><span class="num">2</span> Online zetten</a>
-        <a href="#iconen"><span class="num">3</span> Iconen bovenin</a>
-        <a href="#aanvragen"><span class="num">4</span> Nieuwe ritaanvraag</a>
-        <a href="#rit"><span class="num">5</span> Rit rijden</a>
-        <a href="#betalen"><span class="num">6</span> Betalen en factuur</a>
-        <a href="#tabs"><span class="num">7</span> Ritten, inkomsten, profiel</a>
-        <a href="#telefoon"><span class="num">8</span> App op je telefoon</a>
+        <a href="#telefoon"><span class="num">1</span> App op je telefoon</a>
+        <a href="#inloggen"><span class="num">2</span> Inloggen</a>
+        <a href="#online"><span class="num">3</span> Online zetten</a>
+        <a href="#iconen"><span class="num">4</span> Iconen bovenin</a>
+        <a href="#aanvragen"><span class="num">5</span> Nieuwe ritaanvraag</a>
+        <a href="#rit"><span class="num">6</span> Rit rijden</a>
+        <a href="#betalen"><span class="num">7</span> Betalen en factuur</a>
+        <a href="#tabs"><span class="num">8</span> Ritten, inkomsten, profiel</a>
     </nav>
 
+    <section class="guide-section" id="telefoon">
+        <h2>1. App op je telefoon</h2>
+        <p>Zet de chauffeur-app op het beginscherm. Geen App Store: één keer openen, daarna een icoon naast WhatsApp.</p>
+        <ol class="guide-steps">
+            <li data-step="1"><strong>iPhone</strong> Open in Safari → Deel → Zet op beginscherm.</li>
+            <li data-step="2"><strong>Android</strong> Open in Chrome → menu → Toevoegen aan startscherm.</li>
+            <li data-step="3"><strong>Meldingen</strong> Sta ze toe, zodat nieuwe ritten een geluid geven — ook als de app op de achtergrond staat.</li>
+        </ol>
+        <p class="guide-tip"><strong>Onthoud:</strong> banner weggeklikt? Open de app → <strong>Profiel</strong> → <strong>Handleiding</strong>.</p>
+    </section>
+
     <section class="guide-section" id="inloggen">
-        <h2>1. Inloggen</h2>
+        <h2>2. Inloggen</h2>
         <p>Open de chauffeur-app. Vul het e-mailadres en wachtwoord in dat je van je werkgever hebt gekregen.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>E-mail</strong> Gebruik een volledig adres, met een @ en een punt (bijvoorbeeld naam@bedrijf.nl).</li>
@@ -467,7 +478,7 @@
     </section>
 
     <section class="guide-section" id="online">
-        <h2>2. Online zetten</h2>
+        <h2>3. Online zetten</h2>
         <p>Na het inloggen kom je op Aanvragen. Rechtsboven staat de schakelaar <strong style="color:var(--text)">Online</strong>. Alleen als die aan staat, ontvang je nieuwe ritten.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Zet Online aan</strong> als je klaar bent om te rijden.</li>
@@ -488,7 +499,7 @@
     </section>
 
     <section class="guide-section" id="iconen">
-        <h2>3. Iconen bovenin</h2>
+        <h2>4. Iconen bovenin</h2>
         <p>Als je online bent, staan in het midden van de balk iconen. Het rode cijfer is het aantal in die map. Niet elk icoon is altijd zichtbaar: de auto verschijnt alleen bij een rit onderweg, de andere als er iets in die map staat.</p>
         <div class="guide-icon-strip" aria-hidden="true">
             <span class="guide-icon-pic is-ride">
@@ -560,7 +571,7 @@
     </section>
 
     <section class="guide-section" id="aanvragen">
-        <h2>4. Nieuwe ritaanvraag</h2>
+        <h2>5. Nieuwe ritaanvraag</h2>
         <p>Een nieuwe rit komt binnen op het tabblad Aanvragen. Je ziet ophalen, bestemming, tijd, voertuig en prijs.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Bekijk de rit</strong> Controleer adres, tijd en of het voertuig klopt.</li>
@@ -579,7 +590,7 @@
     </section>
 
     <section class="guide-section" id="rit">
-        <h2>5. Rit rijden</h2>
+        <h2>6. Rit rijden</h2>
         <p>Na accepteren start je de rit, rijd je de stops af en rond je af. Tik op een adres om navigatie te openen.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Starten</strong> als je onderweg gaat naar de klant.</li>
@@ -605,7 +616,7 @@
     </section>
 
     <section class="guide-section" id="betalen">
-        <h2>6. Betalen en factuur</h2>
+        <h2>7. Betalen en factuur</h2>
         <p>Als betalen in de app aanstaat, toon je na de rit een QR-code of kies je contant. Daarna kun je een factuur-pdf naar de klant mailen — met betaald-indicatie.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>QR-code</strong> Laat de klant scannen en wacht tot de status op betaald springt.</li>
@@ -616,7 +627,7 @@
     </section>
 
     <section class="guide-section" id="tabs">
-        <h2>7. Ritten, inkomsten en profiel</h2>
+        <h2>8. Ritten, inkomsten en profiel</h2>
         <p>Onderin de app staan de tabbladen. Tik erop om te wisselen — ook tijdens een rit kun je naar Ritten.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Aanvragen</strong> Nieuwe ritten die op jou wachten.</li>
@@ -637,17 +648,6 @@
             </div>
             <figcaption>Onder Profiel staat Handleiding — ook nadat je de banner hebt gesloten.</figcaption>
         </figure>
-    </section>
-
-    <section class="guide-section" id="telefoon">
-        <h2>8. App op je telefoon</h2>
-        <p>Zet de chauffeur-app op het beginscherm. Geen App Store: één keer openen, daarna een icoon naast WhatsApp.</p>
-        <ol class="guide-steps">
-            <li data-step="1"><strong>iPhone</strong> Open in Safari → Deel → Zet op beginscherm.</li>
-            <li data-step="2"><strong>Android</strong> Open in Chrome → menu → Toevoegen aan startscherm.</li>
-            <li data-step="3"><strong>Meldingen</strong> Sta ze toe, zodat nieuwe ritten een geluid geven — ook als de app op de achtergrond staat.</li>
-        </ol>
-        <p class="guide-tip"><strong>Onthoud:</strong> banner weggeklikt? Open de app → <strong>Profiel</strong> → <strong>Handleiding</strong>.</p>
     </section>
 
     <div class="guide-footer">

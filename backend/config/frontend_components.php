@@ -57,7 +57,7 @@ return [
             'name' => 'Voor- en nadelen',
             'module_name' => 'Algemeen',
             'view' => 'frontend.website.components.comparison-table',
-            'description' => 'Twee blokken: nadelen en voordelen, elk met eigen koptekst en kleur.',
+            'description' => 'Twee geanimeerde blokken: nadelen en voordelen, met scroll-reveal en staggered items.',
             'available_on_all_pages' => true,
         ],
         [

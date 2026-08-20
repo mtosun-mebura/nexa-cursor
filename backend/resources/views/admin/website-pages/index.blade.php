@@ -95,7 +95,7 @@
                         @endif
                         <th class="website-pages-col-theme" data-label="Thema">Thema</th>
                         <th class="website-pages-col-status" data-label="Status">Status</th>
-                        <th class="website-pages-col-actions text-end" data-label="Acties">Acties</th>
+                        <th class="website-pages-col-actions text-center" data-label="Acties">Acties</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -184,8 +184,8 @@
                                     <span class="kt-badge kt-badge-secondary">Inactief</span>
                                 @endif
                             </td>
-                            <td class="text-end relative website-page-actions-cell" onclick="event.stopPropagation()">
-                                <div class="website-pages-actions-menu flex justify-end">
+                            <td class="text-center relative website-page-actions-cell" onclick="event.stopPropagation()">
+                                <div class="website-pages-actions-menu flex justify-center">
                                     <div class="relative">
                                         <button type="button" class="website-pages-actions-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties" aria-expanded="false" aria-haspopup="true">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
@@ -268,8 +268,11 @@
         width: 6.5rem;
     }
 
-    #content #website-pages-table.website-pages-table .website-pages-col-actions {
+    #content #website-pages-table.website-pages-table .website-pages-col-actions,
+    #content #website-pages-table.website-pages-table .website-page-actions-cell {
         width: 4.5rem;
+        text-align: center !important;
+        vertical-align: middle !important;
     }
 
     #content #website-pages-table.website-pages-table .website-pages-col-slug {

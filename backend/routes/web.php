@@ -748,6 +748,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
         Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
         Route::get('website-pages/component-section-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
+        Route::get('website-pages/block-preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
         Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
         Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
         Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
