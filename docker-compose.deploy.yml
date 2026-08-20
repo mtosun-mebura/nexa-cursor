@@ -13,8 +13,9 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-nexa}
     volumes:
       - nexa_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
+    # Geen host-bind van 5432: voorkomt conflict met legacy compose-project "current"
+    # of een host-Postgres. De app bereikt db via het Docker-netwerk (DB_HOST=db).
+    # Lokaal debuggen: docker compose exec db psql -U nexa
     healthcheck:
       test:
         - CMD-SHELL
