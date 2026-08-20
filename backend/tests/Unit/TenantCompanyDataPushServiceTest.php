@@ -532,6 +532,33 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function ride_stops_manual_foreign_keys_include_ride_request_id(): void
+    {
+        $keys = config('tenant_sync.taxi_module.manual_foreign_keys.ride_stops', []);
+
+        $this->assertSame('ride_requests', $keys['ride_request_id'] ?? null);
+    }
+
+    #[Test]
+    public function remap_configured_foreign_keys_remaps_ride_stops_ride_request_id(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapConfiguredForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'tenant_sync.taxi_module.manual_foreign_keys',
+            'ride_stops',
+            ['ride_request_id' => 10, 'sequence' => 1, 'transport_passenger_id' => null],
+            ['ride_requests' => [10 => 55]]
+        );
+
+        $this->assertIsArray($result);
+        $this->assertSame(55, (int) $result['ride_request_id']);
+    }
+
+    #[Test]
     public function remap_configured_foreign_keys_nulls_optional_parent_when_missing(): void
     {
         $service = app(TenantCompanyDataPushService::class);

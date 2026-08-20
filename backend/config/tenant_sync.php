@@ -191,12 +191,14 @@ return [
                 'transport_contract_id' => 'transport_contracts',
             ],
             'transport_group_members' => [
+                'transport_group_id' => 'transport_groups',
                 'transport_passenger_id' => 'transport_passengers',
             ],
             'transport_route_templates' => [
                 'transport_group_id' => 'transport_groups',
             ],
             'transport_route_stops' => [
+                'transport_route_template_id' => 'transport_route_templates',
                 'transport_passenger_id' => 'transport_passengers',
             ],
             'transport_assignments' => [
@@ -228,6 +230,7 @@ return [
                 'transport_passenger_id' => 'transport_passengers',
             ],
             'ride_stops' => [
+                'ride_request_id' => 'ride_requests',
                 'transport_passenger_id' => 'transport_passengers',
             ],
             'ride_dispatch_offers' => [
