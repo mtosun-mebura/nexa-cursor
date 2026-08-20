@@ -1469,12 +1469,14 @@
                             <div class="text-xs text-destructive">{{ $message }}</div>
                         @enderror
                         <div id="tenant-sync-ajax-error-confirm_full_sync" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
-                        <div class="flex flex-wrap items-start gap-3 min-w-0 w-full">
-                            <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
-                                    style="padding-top: 2px;">
-                                <i class="ki-filled ki-cloud-add me-2"></i> Start sync
-                            </button>
-                            <span id="tenant-sync-submit-status" class="block min-w-0 max-w-full flex-1 basis-full text-xs min-h-[2.125rem] break-words" aria-live="polite"></span>
+                        <div class="flex flex-col gap-3 min-w-0 w-full">
+                            <div class="flex flex-wrap items-start gap-3 min-w-0 w-full">
+                                <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
+                                        style="padding-top: 2px;">
+                                    <i class="ki-filled ki-cloud-add me-2"></i> Start sync
+                                </button>
+                            </div>
+                            <span id="tenant-sync-submit-status" class="block min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words" aria-live="polite"></span>
                         </div>
                     </form>
                 </div>
@@ -2052,29 +2054,103 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!container) return null;
 
         container.textContent = '';
-        container.className = 'block min-w-0 max-w-full flex-1 basis-full text-xs min-h-[2.125rem] break-words';
+        container.className = 'block min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words';
+
+        var shell = document.createElement('div');
+        shell.className = 'tenant-sync-progress-shell';
+
+        var meter = document.createElement('div');
+        meter.className = 'tenant-sync-progress-meter';
+        meter.innerHTML =
+            '<div class="tenant-sync-progress-meter-label">' +
+                '<span class="tenant-sync-progress-meter-status">Bezig met synchroniseren…</span>' +
+                '<span class="tenant-sync-progress-meter-percent">0%</span>' +
+            '</div>' +
+            '<div class="tenant-sync-progress-meter-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+                '<div class="tenant-sync-progress-meter-fill"></div>' +
+            '</div>';
 
         var wrap = document.createElement('div');
         wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left min-w-0 max-w-full';
 
+        var toolbar = document.createElement('div');
+        toolbar.className = 'tenant-sync-progress-toolbar';
+
         var heading = document.createElement('p');
-        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-2.5 flex items-start gap-2 min-w-0';
+        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-0 flex items-start gap-2 min-w-0 flex-1';
         heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words">Sync bezig…</span>';
+
+        var toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'tenant-sync-progress-toggle';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.textContent = 'Uitklappen';
+
+        toolbar.appendChild(heading);
+        toolbar.appendChild(toggle);
+
+        var body = document.createElement('div');
+        body.className = 'tenant-sync-progress-body';
 
         var list = document.createElement('ul');
         list.className = 'tenant-sync-progress-list space-y-1.5';
         list.setAttribute('aria-live', 'polite');
 
-        wrap.appendChild(heading);
-        wrap.appendChild(list);
-        container.appendChild(wrap);
+        body.appendChild(list);
+        wrap.appendChild(toolbar);
+        wrap.appendChild(body);
+        shell.appendChild(meter);
+        shell.appendChild(wrap);
+        container.appendChild(shell);
 
-        return {
+        var progressUi = {
+            shell: shell,
             wrap: wrap,
             heading: heading,
             list: list,
+            body: body,
+            toggle: toggle,
+            meter: meter,
+            meterFill: meter.querySelector('.tenant-sync-progress-meter-fill'),
+            meterTrack: meter.querySelector('.tenant-sync-progress-meter-track'),
+            meterPercent: meter.querySelector('.tenant-sync-progress-meter-percent'),
+            meterStatus: meter.querySelector('.tenant-sync-progress-meter-status'),
             sections: {},
+            percent: 0,
+            expanded: false,
         };
+
+        toggle.addEventListener('click', function() {
+            progressUi.expanded = !progressUi.expanded;
+            wrap.classList.toggle('is-expanded', progressUi.expanded);
+            toggle.setAttribute('aria-expanded', progressUi.expanded ? 'true' : 'false');
+            toggle.textContent = progressUi.expanded ? 'Inklappen' : 'Uitklappen';
+            if (progressUi.expanded && body) {
+                body.scrollTop = 0;
+            }
+        });
+
+        setTenantSyncProgressPercent(progressUi, 0, 'Bezig met synchroniseren…');
+
+        return progressUi;
+    }
+
+    function setTenantSyncProgressPercent(progressUi, percent, statusText) {
+        if (!progressUi) return;
+        var value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+        progressUi.percent = value;
+        if (progressUi.meterFill) {
+            progressUi.meterFill.style.width = value + '%';
+        }
+        if (progressUi.meterTrack) {
+            progressUi.meterTrack.setAttribute('aria-valuenow', String(value));
+        }
+        if (progressUi.meterPercent) {
+            progressUi.meterPercent.textContent = value + '%';
+        }
+        if (statusText && progressUi.meterStatus) {
+            progressUi.meterStatus.textContent = statusText;
+        }
     }
 
     function appendTenantSyncProgressSection(progressUi, sectionTitle) {
@@ -2083,36 +2159,61 @@ document.addEventListener('DOMContentLoaded', function() {
         progressUi.sections[sectionTitle] = true;
 
         var li = document.createElement('li');
-        li.className = 'tenant-sync-progress-item text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0';
+        li.className = 'tenant-sync-progress-item text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1';
         li.textContent = sectionTitle;
-        progressUi.list.appendChild(li);
+        prependTenantSyncProgressItem(progressUi, li);
+    }
+
+    function prependTenantSyncProgressItem(progressUi, li) {
+        if (!progressUi || !li) return;
+        li.classList.add('tenant-sync-progress-item');
+        if (progressUi.list.firstChild) {
+            progressUi.list.insertBefore(li, progressUi.list.firstChild);
+        } else {
+            progressUi.list.appendChild(li);
+        }
+        if (progressUi.body && !progressUi.expanded) {
+            progressUi.body.scrollTop = 0;
+        }
     }
 
     function appendTenantSyncProgressItem(progressUi, li) {
-        if (!progressUi || !li) return;
-        li.classList.add('tenant-sync-progress-item');
-        progressUi.list.appendChild(li);
-        if (progressUi.list.lastElementChild) {
-            progressUi.list.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
+        prependTenantSyncProgressItem(progressUi, li);
     }
 
     function handleTenantSyncProgressEvent(progressUi, event) {
         if (!progressUi || !event || !event.type) return;
 
+        if (event.type === 'progress') {
+            var percent = typeof event.percent === 'number' ? event.percent : progressUi.percent;
+            var status = 'Bezig met synchroniseren…';
+            if (event.total > 0) {
+                status = 'Voortgang ' + (event.done || 0) + ' / ' + event.total;
+            }
+            setTenantSyncProgressPercent(progressUi, percent, status);
+            return;
+        }
+
         if (event.type === 'step') {
             var stepLi = document.createElement('li');
             stepLi.className = 'flex items-start gap-2 text-foreground';
-            stepLi.innerHTML = '<i class="ki-filled ki-check-circle text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (event.label || 'Stap voltooid') + '</span>';
-            appendTenantSyncProgressItem(progressUi, stepLi);
+            var stepIcon = document.createElement('i');
+            stepIcon.className = 'ki-filled ki-check-circle text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5';
+            stepIcon.setAttribute('aria-hidden', 'true');
+            var stepText = document.createElement('span');
+            stepText.className = 'min-w-0 break-words';
+            stepText.textContent = event.label || 'Stap voltooid';
+            stepLi.appendChild(stepIcon);
+            stepLi.appendChild(stepText);
+            prependTenantSyncProgressItem(progressUi, stepLi);
             return;
         }
 
         if (event.type === 'note') {
             var noteLi = document.createElement('li');
-            noteLi.className = 'text-muted-foreground text-[11px]';
+            noteLi.className = 'text-muted-foreground text-[11px] break-words';
             noteLi.textContent = event.note || '';
-            appendTenantSyncProgressItem(progressUi, noteLi);
+            prependTenantSyncProgressItem(progressUi, noteLi);
             return;
         }
 
@@ -2120,11 +2221,19 @@ document.addEventListener('DOMContentLoaded', function() {
             var row = event.row || {};
             if (!tenantSyncRowIsNotable(row)) return;
 
+            var rowLi = buildTenantSyncReportRowLi(row);
             if (event.section) {
-                appendTenantSyncProgressSection(progressUi, event.section);
+                var sectionTag = document.createElement('span');
+                sectionTag.className = 'text-[10px] uppercase tracking-wide text-muted-foreground mr-2';
+                sectionTag.textContent = event.section;
+                if (rowLi.firstChild) {
+                    rowLi.insertBefore(sectionTag, rowLi.firstChild);
+                } else {
+                    rowLi.appendChild(sectionTag);
+                }
             }
 
-            appendTenantSyncProgressItem(progressUi, buildTenantSyncReportRowLi(row));
+            prependTenantSyncProgressItem(progressUi, rowLi);
             return;
         }
 
@@ -2136,8 +2245,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function finishTenantSyncProgressUi(progressUi, success, message) {
         if (!progressUi) return;
 
+        setTenantSyncProgressPercent(
+            progressUi,
+            success ? 100 : Math.max(progressUi.percent || 0, 1),
+            success ? 'Sync voltooid' : 'Sync mislukt'
+        );
+        if (progressUi.meterFill) {
+            progressUi.meterFill.classList.toggle('is-success', !!success);
+            progressUi.meterFill.classList.toggle('is-error', !success);
+        }
+
         if (progressUi.heading) {
-            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-2.5 flex items-start gap-2 min-w-0 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-0 flex items-start gap-2 min-w-0 flex-1 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
             var safeMessage = String(message || (success ? (progressUi.summaryText || 'Sync voltooid.') : 'Sync mislukt.'));
             progressUi.heading.innerHTML = success
                 ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words"></span>'

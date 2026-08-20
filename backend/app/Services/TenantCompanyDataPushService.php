@@ -146,6 +146,7 @@ final class TenantCompanyDataPushService
         $this->resetSyncRunState();
         $report = $this->report();
         $report->onProgress($onProgress);
+        $report->setProgressTotal(4);
         $report->addStep('NEXA SaaS-website-sync gestart');
 
         try {
@@ -299,6 +300,18 @@ final class TenantCompanyDataPushService
                 ? $this->discoverForeignKeysToParentId($sourceConn, $prerequisiteTables)
                 : [];
 
+            $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
+            $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
+            $taxiTableCount = count($this->taxiModuleSyncTableNames());
+            // Stappen + prerequisite-rijen + company-tabellen + taxi-tabellen (schatting voor %).
+            $report->setProgressTotal(
+                4
+                + count($prerequisiteTables)
+                + max(0, count($orderedTables) - 1)
+                + $taxiTableCount
+                + 6
+            );
+
             $idMaps = [];
             if ($prerequisiteTables !== []) {
                 $preStats = $this->pushPrerequisiteTables(
@@ -335,9 +348,7 @@ final class TenantCompanyDataPushService
 
             $report->addStep('Schema op doel gecontroleerd');
 
-            $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
             $allFkEdges = array_merge($fkEdges, $prerequisiteFkEdges);
-            $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
 
             $remoteCompanyId = $this->resolveOrCreateRemoteCompany($targetConn, $company, $messages, $idMaps);
             $sameDatabase = $this->connectionsPointToSameDatabase($sourceConn, $targetConn);
