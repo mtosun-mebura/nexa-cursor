@@ -175,9 +175,30 @@ _docker_safe_prune() {
 
 # docker-compose 1.29.x faalt soms met KeyError 'ContainerConfig' bij `up -d` + recreate.
 # down + up (zonder --volumes) maakt nieuwe containers; named volumes (Postgres-data) blijven.
+# Let op: vroeger was COMPOSE_PROJECT_NAME vaak de mapnaam "current"; die stack kan 5432
+# nog vasthouden terwijl we nu als project "nexa" deployen.
 _compose_up_deploy() {
   echo "==> Compose down (remove-orphans, volumes blijven behouden)"
   _compose down --remove-orphans 2>/dev/null || true
+
+  if [[ "${COMPOSE_PROJECT_NAME:-nexa}" != "current" ]]; then
+    echo "==> Compose down legacy project 'current' (oude TENANT_DIR-naam / poort 5432)"
+    if docker compose version >/dev/null 2>&1; then
+      docker compose -p current -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+    elif command -v docker-compose >/dev/null 2>&1; then
+      docker-compose -p current -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+    fi
+  fi
+
+  # Laatste redmiddel: iets anders (ander compose-project) houdt 127.0.0.1:5432 bezet.
+  local busy
+  busy="$(docker ps -q --filter publish=5432 2>/dev/null || true)"
+  if [[ -n "$busy" ]]; then
+    echo "==> Poort 5432 nog bezet; stop containers: $busy"
+    # shellcheck disable=SC2086
+    docker stop $busy >/dev/null 2>&1 || true
+  fi
+
   echo "==> Compose up -d"
   _compose up -d
 }
