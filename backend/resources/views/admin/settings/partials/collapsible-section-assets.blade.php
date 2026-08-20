@@ -52,6 +52,52 @@
         overflow-wrap: anywhere;
         word-break: break-word;
     }
+    .tenant-sync-progress-shell {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .tenant-sync-progress-meter {
+        width: 100%;
+        min-width: 0;
+    }
+    .tenant-sync-progress-meter-track {
+        height: 0.5rem;
+        border-radius: 9999px;
+        background: color-mix(in srgb, var(--muted) 80%, transparent);
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+    .tenant-sync-progress-meter-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: var(--primary);
+        transition: width 0.35s ease;
+    }
+    .tenant-sync-progress-meter-fill.is-error {
+        background: var(--destructive);
+    }
+    .tenant-sync-progress-meter-fill.is-success {
+        background: #059669;
+    }
+    .tenant-sync-progress-meter-label {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.375rem;
+        font-size: 0.75rem;
+        color: var(--secondary-foreground, var(--muted-foreground));
+    }
+    .tenant-sync-progress-meter-percent {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: var(--foreground);
+    }
     .tenant-sync-progress .tenant-sync-progress-heading {
         font-size: 0.8125rem;
         min-width: 0;
@@ -63,6 +109,38 @@
         overflow-wrap: anywhere;
         word-break: break-word;
         white-space: normal;
+    }
+    .tenant-sync-progress-toolbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.625rem;
+    }
+    .tenant-sync-progress-toggle {
+        flex-shrink: 0;
+        font-size: 0.6875rem;
+        line-height: 1.25;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--secondary-foreground, var(--muted-foreground));
+        cursor: pointer;
+    }
+    .tenant-sync-progress-toggle:hover {
+        color: var(--foreground);
+        border-color: color-mix(in srgb, var(--foreground) 25%, var(--border));
+    }
+    .tenant-sync-progress-body {
+        max-height: 14rem;
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding-right: 0.25rem;
+        scrollbar-gutter: stable;
+    }
+    .tenant-sync-progress.is-expanded .tenant-sync-progress-body {
+        max-height: min(70vh, 36rem);
     }
     #tenant-sync-submit-status {
         min-width: 0;
