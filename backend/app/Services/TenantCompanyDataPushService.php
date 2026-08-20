@@ -1302,6 +1302,20 @@ final class TenantCompanyDataPushService
             $row = (array) $rowObj;
             $oldId = isset($row['id']) ? (int) $row['id'] : null;
             unset($row['id']);
+
+            // Parent-FK uit child_tables-config altijd hermappen (niet alleen manual_foreign_keys).
+            if (array_key_exists($foreignKey, $row) && $row[$foreignKey] !== null) {
+                $oldParentId = (int) $row[$foreignKey];
+                if ($oldParentId > 0) {
+                    if (! isset($idMaps[$parentTable][$oldParentId])) {
+                        $skipped++;
+
+                        continue;
+                    }
+                    $row[$foreignKey] = $idMaps[$parentTable][$oldParentId];
+                }
+            }
+
             $row = $this->remapConfiguredForeignKeys('tenant_sync.taxi_module.manual_foreign_keys', $table, $row, $idMaps);
             if ($row === null) {
                 $skipped++;
