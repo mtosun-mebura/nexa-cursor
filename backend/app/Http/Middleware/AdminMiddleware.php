@@ -2,11 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\NexaDemoAccountService;
 use App\Support\AdminReturnUrl;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Config;
+use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
 
 class AdminMiddleware
@@ -49,8 +52,13 @@ class AdminMiddleware
             );
         }
 
-        // Check if user has admin role (super-admin, company-admin, or staff)
-        if (! auth('web')->user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
+        $user = auth('web')->user();
+        if ($user && $user->company_id) {
+            app(PermissionRegistrar::class)->setPermissionsTeamId((int) $user->company_id);
+            $user->unsetRelation('roles');
+            $user->unsetRelation('permissions');
+        }
+        if (! $user->canAccessAdminPanel()) {
             // For AJAX requests, return 403 status instead of redirect
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
@@ -61,6 +69,10 @@ class AdminMiddleware
 
             // Redirect to admin login page instead of home
             return redirect()->route('admin.login')->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
+        }
+
+        if (app(NexaDemoAccountService::class)->isDemoUser($user)) {
+            Config::set('mail.default', 'array');
         }
 
         return $next($request);

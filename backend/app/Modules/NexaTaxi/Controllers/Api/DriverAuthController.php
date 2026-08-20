@@ -6,17 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Modules\NexaTaxi\Services\TaxiDriverEarningsAccessService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class DriverAuthController extends Controller
 {
-    public function login(Request $request, TaxiDriverEligibilityService $eligibility, ModuleDatabaseService $moduleDb): JsonResponse
+    public function login(Request $request, TaxiDriverEligibilityService $eligibility, ModuleDatabaseService $moduleDb, TaxiDriverEarningsAccessService $earningsAccess): JsonResponse
     {
         $data = $request->validate([
             'email' => 'required|email',
@@ -25,9 +25,9 @@ class DriverAuthController extends Controller
 
         $user = User::where('email', $data['email'])->first();
         if (! $user || ! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Onjuiste inloggegevens.'],
-            ]);
+            return response()->json([
+                'message' => 'Onjuiste e-mail of wachtwoord.',
+            ], 401);
         }
 
         if (! $user->email_verified_at) {
@@ -57,18 +57,16 @@ class DriverAuthController extends Controller
         );
 
         $isOnline = $this->driverIsOnline($moduleDb, (int) $user->id);
+        $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
 
         return response()->json([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
-            'user' => [
-                'id' => $user->id,
-                'name' => trim($user->first_name.' '.$user->last_name),
-                'email' => $user->email,
-                'company_id' => $companyId,
-                'is_account_active' => true,
-                'is_online' => $isOnline,
+            'user' => $this->driverUserPayload($user, $companyId, true, $isOnline),
+            'permissions' => [
+                'earnings_view' => $earningsPerms['view'],
+                'earnings_view_month' => $earningsPerms['view_month'],
             ],
             'meta' => [
                 'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
@@ -83,7 +81,7 @@ class DriverAuthController extends Controller
         return response()->json(['message' => 'Uitgelogd.']);
     }
 
-    public function me(Request $request, ModuleDatabaseService $moduleDb): JsonResponse
+    public function me(Request $request, ModuleDatabaseService $moduleDb, TaxiDriverEarningsAccessService $earningsAccess): JsonResponse
     {
         $user = $request->user();
         $companyId = (int) $request->attributes->get('taxi_company_id', $user->company_id);
@@ -91,20 +89,52 @@ class DriverAuthController extends Controller
         $accountActive = TaxiDriverAccountStatus::isActive($user);
 
         $isOnline = $this->driverIsOnline($moduleDb, (int) $user->id);
+        $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
 
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => trim($user->first_name.' '.$user->last_name),
-                'email' => $user->email,
-                'company_id' => $companyId,
-                'is_account_active' => $accountActive,
-                'is_online' => $isOnline,
+            'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline),
+            'permissions' => [
+                'earnings_view' => $earningsPerms['view'],
+                'earnings_view_month' => $earningsPerms['view_month'],
             ],
             'meta' => [
                 'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
             ],
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function driverUserPayload(User $user, int $companyId, bool $accountActive, bool $isOnline): array
+    {
+        $firstName = trim((string) ($user->first_name ?? ''));
+        $lastName = trim((string) ($user->last_name ?? ''));
+        $fullName = trim($firstName.' '.$lastName);
+        $companyName = null;
+        if ($companyId > 0) {
+            if ((int) ($user->company_id ?? 0) === $companyId) {
+                $company = $user->company;
+                $companyName = $company ? (trim((string) ($company->name ?? '')) ?: null) : null;
+            }
+            if ($companyName === null) {
+                $raw = \App\Models\Company::query()->whereKey($companyId)->value('name');
+                $companyName = is_string($raw) && trim($raw) !== '' ? trim($raw) : null;
+            }
+        }
+
+        return [
+            'id' => $user->id,
+            'first_name' => $firstName !== '' ? $firstName : null,
+            'last_name' => $lastName !== '' ? $lastName : null,
+            'name' => $fullName !== '' ? $fullName : (string) ($user->email ?? ''),
+            'email' => $user->email,
+            'phone' => trim((string) ($user->phone ?? '')) ?: null,
+            'company_id' => $companyId,
+            'company_name' => $companyName,
+            'is_account_active' => $accountActive,
+            'is_online' => $isOnline,
+        ];
     }
 
     private function driverIsOnline(ModuleDatabaseService $moduleDb, int $driverId): bool

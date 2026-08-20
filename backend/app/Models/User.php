@@ -75,6 +75,11 @@ class User extends Authenticatable
         return $this->isSuperAdminCache;
     }
 
+    public function canAccessAdminPanel(): bool
+    {
+        return \App\Support\AdminPanelRoles::canAccessPanel($this);
+    }
+
     /**
      * Spatie teams: als de super-admin-rol niet via de gefilterde relatie matcht, alsnog true
      * wanneer {@see isSuperAdmin()} dat aangeeft — gelijk aan {@see hasRole()} met rolnaam `super-admin`.

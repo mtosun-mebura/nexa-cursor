@@ -34,8 +34,32 @@ final class TenantWebsiteBundleService
 
     public const SYNC_MODULE_TAXI_CONNECTION = 'tenant_sync_module_taxi';
 
+    /** Select-waarde in Omgeving-sync voor de NEXA SaaS-hoofdwebsite (company_id null). */
+    public const CENTRAL_SOURCE_KEY = 'nexa';
+
     /** Schijf waarop versleutelde website_media staan (root: storage/app/private). */
     private const MEDIA_DISK = 'local';
+
+    public static function isCentralSource(mixed $value): bool
+    {
+        return is_string($value) && strtolower(trim($value)) === self::CENTRAL_SOURCE_KEY;
+    }
+
+    /**
+     * Pagina's van de NEXA SaaS-hoofdwebsite (geen tenant: company_id null).
+     *
+     * @return \Illuminate\Support\Collection<int, WebsitePage>
+     */
+    public function centralWebsitePages(): \Illuminate\Support\Collection
+    {
+        $q = WebsitePage::query()->with('theme');
+        $table = (new WebsitePage)->getTable();
+        if (Schema::hasColumn($table, 'company_id')) {
+            $q->whereNull('company_id');
+        }
+
+        return $q->orderBy('sort_order')->orderBy('title')->get();
+    }
 
     public function __construct(
         protected WebsiteBuilderService $websiteBuilder,
@@ -317,9 +341,26 @@ final class TenantWebsiteBundleService
      */
     public function collectWebsiteMediaPathsForCompany(Company $company): array
     {
-        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
-            ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
+        return $this->collectWebsiteMediaPathsFromPages(
+            $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
+                ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug))
+        );
+    }
 
+    /**
+     * @return list<string>
+     */
+    public function collectWebsiteMediaPathsForCentral(): array
+    {
+        return $this->collectWebsiteMediaPathsFromPages($this->centralWebsitePages());
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, WebsitePage>  $pages
+     * @return list<string>
+     */
+    private function collectWebsiteMediaPathsFromPages(\Illuminate\Support\Collection $pages): array
+    {
         $allPaths = [];
         foreach ($pages as $page) {
             $paths = $this->collectReferencedPublicPaths($page);
@@ -361,6 +402,23 @@ final class TenantWebsiteBundleService
         $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
             ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
 
+        return $this->pageExportPayloadsFromPages($pages);
+    }
+
+    /**
+     * @return list<array{connection: string, theme_slug: ?string, attributes: array<string, mixed>}>
+     */
+    public function buildCentralPageExportPayloads(): array
+    {
+        return $this->pageExportPayloadsFromPages($this->centralWebsitePages());
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, WebsitePage>  $pages
+     * @return list<array{connection: string, theme_slug: ?string, attributes: array<string, mixed>}>
+     */
+    private function pageExportPayloadsFromPages(\Illuminate\Support\Collection $pages): array
+    {
         $pagePayloads = [];
         foreach ($pages as $page) {
             $themeSlug = null;
@@ -454,9 +512,95 @@ final class TenantWebsiteBundleService
     }
 
     /**
+     * Sync de NEXA SaaS-hoofdwebsite (company_id null) naar het sync-doel.
+     *
+     * @return array{inserted: int, updated: int, skipped: int, message: string}
+     */
+    public function pushCentralWebsitePagesForSync(): array
+    {
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        $entries = $this->buildCentralPageExportPayloads();
+        if ($entries === []) {
+            return [
+                'inserted' => 0,
+                'updated' => 0,
+                'skipped' => 0,
+                'message' => 'NEXA SaaS-website: geen centrale pagina\'s gevonden op bron.',
+            ];
+        }
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $sourceConn = isset($entry['connection']) && is_string($entry['connection'])
+                ? $entry['connection']
+                : (string) config('database.default');
+
+            try {
+                $targetConn = $this->resolveSyncTargetConnectionForSource($sourceConn);
+            } catch (Throwable) {
+                $skipped++;
+
+                continue;
+            }
+
+            $outcome = $this->upsertWebsitePageEntry(
+                $targetConn,
+                null,
+                $entry,
+                self::SYNC_CONNECTION
+            );
+
+            if ($outcome === 'inserted') {
+                $inserted++;
+            } elseif ($outcome === 'updated') {
+                $updated++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'message' => sprintf(
+                'NEXA SaaS-website: %d nieuw, %d bijgewerkt, %d overgeslagen (totaal %d op bron).',
+                $inserted,
+                $updated,
+                $skipped,
+                count($entries)
+            ),
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $pages
      */
     public function importWebsitePagesFromManifestEntries(Company $targetCompany, array $pages): int
+    {
+        return $this->importWebsitePageEntries($pages, (int) $targetCompany->id);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $pages
+     */
+    public function importCentralWebsitePagesFromManifestEntries(array $pages): int
+    {
+        return $this->importWebsitePageEntries($pages, null);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $pages
+     */
+    private function importWebsitePageEntries(array $pages, ?int $companyId): int
     {
         $imported = 0;
         foreach ($pages as $entry) {
@@ -467,7 +611,7 @@ final class TenantWebsiteBundleService
                 ? $entry['connection']
                 : (string) config('database.default');
 
-            if ($this->upsertWebsitePageEntry($conn, (int) $targetCompany->id, $entry) !== 'skipped') {
+            if ($this->upsertWebsitePageEntry($conn, $companyId, $entry) !== 'skipped') {
                 $imported++;
             }
         }
@@ -481,7 +625,7 @@ final class TenantWebsiteBundleService
      */
     private function upsertWebsitePageEntry(
         string $connection,
-        int $companyId,
+        ?int $companyId,
         array $entry,
         ?string $frontendThemeLookupConnection = null
     ): string {
@@ -510,12 +654,20 @@ final class TenantWebsiteBundleService
         }
 
         $slug = (string) ($attrs['slug'] ?? '');
-        if ($slug === '' || WebsitePage::isCentralMarketingWelcomeSlug($slug)) {
+        if ($slug === '') {
+            return 'skipped';
+        }
+        if ($companyId !== null && WebsitePage::isCentralMarketingWelcomeSlug($slug)) {
             return 'skipped';
         }
 
         $moduleName = $attrs['module_name'] ?? null;
-        $q = WebsitePage::on($connection)->where('company_id', $companyId)->where('slug', $slug);
+        $q = WebsitePage::on($connection)->where('slug', $slug);
+        if ($companyId === null) {
+            $q->whereNull('company_id');
+        } else {
+            $q->where('company_id', $companyId);
+        }
         if ($moduleName === null || $moduleName === '') {
             $q->whereNull('module_name');
         } else {
@@ -569,7 +721,24 @@ final class TenantWebsiteBundleService
      */
     public function buildWebsiteMediaExportPayloads(Company $company): array
     {
-        return $this->collectWebsiteMediaRecordsForCompany($company)
+        return $this->websiteMediaPayloadsFromRecords($this->collectWebsiteMediaRecordsForCompany($company));
+    }
+
+    /**
+     * @return list<array{uuid: string, original_filename: ?string, mime_type: ?string, encrypted_path: string, size: ?int}>
+     */
+    public function buildCentralWebsiteMediaExportPayloads(): array
+    {
+        return $this->websiteMediaPayloadsFromRecords($this->collectWebsiteMediaRecordsForPages($this->centralWebsitePages()));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, WebsiteMedia>  $records
+     * @return list<array{uuid: string, original_filename: ?string, mime_type: ?string, encrypted_path: string, size: ?int}>
+     */
+    private function websiteMediaPayloadsFromRecords(\Illuminate\Support\Collection $records): array
+    {
+        return $records
             ->map(fn (WebsiteMedia $m) => [
                 'uuid' => (string) $m->uuid,
                 'original_filename' => $m->original_filename,
@@ -949,6 +1118,15 @@ final class TenantWebsiteBundleService
         $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
             ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
 
+        return $this->collectReferencedWebsiteMediaUuidsFromPages($pages);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, WebsitePage>  $pages
+     * @return list<string>
+     */
+    private function collectReferencedWebsiteMediaUuidsFromPages(\Illuminate\Support\Collection $pages): array
+    {
         $blob = '';
         foreach ($pages as $page) {
             $blob .= json_encode([
@@ -971,11 +1149,23 @@ final class TenantWebsiteBundleService
      */
     public function collectWebsiteMediaRecordsForCompany(Company $company): \Illuminate\Support\Collection
     {
+        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
+            ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
+
+        return $this->collectWebsiteMediaRecordsForPages($pages);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, WebsitePage>  $pages
+     * @return \Illuminate\Support\Collection<int, WebsiteMedia>
+     */
+    private function collectWebsiteMediaRecordsForPages(\Illuminate\Support\Collection $pages): \Illuminate\Support\Collection
+    {
         if (! Schema::hasTable('website_media')) {
             return collect();
         }
 
-        $uuids = $this->collectReferencedWebsiteMediaUuids($company);
+        $uuids = $this->collectReferencedWebsiteMediaUuidsFromPages($pages);
         if ($uuids === []) {
             return collect();
         }

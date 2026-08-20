@@ -375,6 +375,19 @@
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" title="Zichtbaar op website" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                                 @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#bfdbfe'])
+                @php
+                    $heroSubtitleWidthPct = (int) old('home_sections.'.$sectionKey.'.subtitle_width_percent', $sectionData['subtitle_width_percent'] ?? 50);
+                    $heroSubtitleWidthPct = max(30, min(100, $heroSubtitleWidthPct));
+                @endphp
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                    <label class="text-sm font-medium text-secondary-foreground shrink-0" for="hero-{{ $sectionKey }}-subtitle_width_percent">Breedte ondertitel</label>
+                    <select name="home_sections[{{ $sectionKey }}][subtitle_width_percent]" id="hero-{{ $sectionKey }}-subtitle_width_percent" class="kt-input text-sm w-full max-w-[8rem]" title="Breedte ondertitel (%)">
+                        @foreach ([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
+                            <option value="{{ $pct }}" @selected($heroSubtitleWidthPct === $pct)>{{ $pct }}%</option>
+                        @endforeach
+                    </select>
+                    <span class="text-xs text-muted-foreground">Percentage van de bannerbreedte</span>
+                </div>
                 @include('admin.website-pages.partials.hero-text-bg-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ons geavanceerde AI-platform...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
@@ -430,6 +443,7 @@
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
+                        @include('admin.website-pages.partials.home-section-cta-hover-colors', ['hoverPrefix' => 'cta_primary', 'hoverDefaults' => ['bg' => '#ffffff', 'text' => '#1e3a8a', 'border' => '#1e40af']])
                     </div>
                 </div>
                 <div class="space-y-2">
@@ -459,10 +473,11 @@
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
+                        @include('admin.website-pages.partials.home-section-cta-hover-colors', ['hoverPrefix' => 'cta_secondary', 'hoverDefaults' => ['bg' => '#ffffff', 'text' => '#1e40af', 'border' => '#1e40af']])
                     </div>
                 </div>
             </div>
-            <p class="text-xs text-muted-foreground mt-2">Achtergrond, tekstkleur en border per knop. Laat leeg voor standaardkleuren. Gebruik hex (bijv. #2563eb).</p>
+            <p class="text-xs text-muted-foreground mt-2">Achtergrond, tekstkleur, border en hoverkleuren per knop. Lege hoverkleur = dezelfde kleur als de knop. Gebruik hex (bijv. #2563eb).</p>
             </div>
         </div>
     </div>
@@ -617,6 +632,71 @@
                 </div>
                                 @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#4b5563'])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ondertitel...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
+            </div>
+            <div class="row-visibility-row space-y-2 pt-2 border-t border-border">
+                <div class="flex items-center gap-2 mb-1">
+                    <label class="text-sm font-medium text-secondary-foreground">Achtergrond light mode</label>
+                </div>
+                <p class="text-xs text-muted-foreground mb-2">Voor de lichte weergave. Wordt over de volle paginabreedte getoond.</p>
+                <div class="flex flex-wrap items-start gap-2">
+                    <div class="shrink-0 flex flex-col items-center">
+                        <img alt="Waarom Nexa achtergrond light" id="hero-{{ $sectionKey }}-background_image-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image" data-preview-id="hero-{{ $sectionKey }}-background_image-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                    </div>
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image" style="width: 500px; min-width: 500px; height: 130px;">
+                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
+                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                    </div>
+                </div>
+                <input type="file" class="hero-image-file-input hidden" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image">
+                <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image]" id="hero-{{ $sectionKey }}-background_image" value="{{ old('home_sections.'.$sectionKey.'.background_image', $sectionData['background_image'] ?? '') }}">
+            </div>
+            <div class="row-visibility-row space-y-2 pt-2 border-t border-border">
+                <div class="flex items-center gap-2 mb-1">
+                    <label class="text-sm font-medium text-secondary-foreground">Achtergrond dark mode</label>
+                </div>
+                <p class="text-xs text-muted-foreground mb-2">Voor de donkere weergave. Leeg = het light-mode plaatje.</p>
+                <div class="flex flex-wrap items-start gap-2">
+                    <div class="shrink-0 flex flex-col items-center">
+                        <img alt="Waarom Nexa achtergrond dark" id="hero-{{ $sectionKey }}-background_image_dark-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_dark']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_dark'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_dark" data-preview-id="hero-{{ $sectionKey }}-background_image_dark-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                    </div>
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_dark" style="width: 500px; min-width: 500px; height: 130px;">
+                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
+                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                    </div>
+                </div>
+                <input type="file" class="hero-image-file-input hidden" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image_dark">
+                <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image_dark]" id="hero-{{ $sectionKey }}-background_image_dark" value="{{ old('home_sections.'.$sectionKey.'.background_image_dark', $sectionData['background_image_dark'] ?? '') }}">
+            </div>
+            <div class="space-y-2 pt-2 border-t border-border">
+                <label class="block text-sm font-medium text-secondary-foreground">Achtergrondkleur</label>
+                <p class="text-xs text-muted-foreground mb-2">Wordt over de volle paginabreedte getoond. Leeg = standaard.</p>
+                <div class="flex items-center gap-2 w-full">
+                    <input type="color" id="why_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ !empty($sectionData['background']) ? $sectionData['background'] : '#ffffff' }}" title="Kies kleur" aria-label="Achtergrondkleur">
+                    <div class="home-section-hex-input-wrap shrink-0">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][background]" id="why_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.background', $sectionData['background'] ?? '') }}" placeholder="#ffffff" maxlength="7" data-skip-validation-wrapper="1">
+                    </div>
+                    <button type="button" class="stats-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="why_bg_picker_{{ $sectionKey }}" data-input-id="why_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
+                </div>
+            </div>
+            @php
+                $whyTitleColor = old('home_sections.'.$sectionKey.'.title_color', $sectionData['title_color'] ?? '');
+                $whyTitleColor = is_string($whyTitleColor) ? trim($whyTitleColor) : '';
+                if ($whyTitleColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $whyTitleColor)) {
+                    $whyTitleColor = '';
+                }
+                $whyTitleColorPicker = $whyTitleColor !== '' ? $whyTitleColor : '#111827';
+            @endphp
+            <div class="space-y-2 pt-2 border-t border-border max-w-md">
+                <label class="block text-sm font-medium text-secondary-foreground" for="hero-{{ $sectionKey }}-title_color">Titelkleur</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" id="hero-{{ $sectionKey }}-title_color_color" class="hero-subtitle-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="{{ $whyTitleColorPicker }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-title_color">
+                    <div class="home-section-hex-input-wrap shrink-0">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][title_color]" id="hero-{{ $sectionKey }}-title_color" class="kt-input w-full font-mono text-sm home-section-hex-input hero-subtitle-color-hex-input" value="{{ $whyTitleColor }}" placeholder="#111827" maxlength="7" data-skip-validation-wrapper="1">
+                    </div>
+                </div>
+                <p class="text-xs text-muted-foreground">Handig bij een donkere achtergrond. Leeg = standaard.</p>
             </div>
         </div>
     </div>

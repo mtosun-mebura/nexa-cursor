@@ -49,4 +49,43 @@ class TenantWebsiteBundleServiceTest extends TestCase
                 ->value('title')
         );
     }
+
+    #[Test]
+    public function upsert_website_page_entry_creates_central_nexa_page(): void
+    {
+        if (! Schema::hasTable('website_pages')) {
+            $this->markTestSkipped('website_pages table required');
+        }
+
+        $service = app(TenantWebsiteBundleService::class);
+        $method = new \ReflectionMethod(TenantWebsiteBundleService::class, 'upsertWebsitePageEntry');
+        $method->setAccessible(true);
+        $conn = (string) config('database.default');
+        $slug = 'taxi-'.uniqid();
+
+        $entry = [
+            'attributes' => [
+                'slug' => $slug,
+                'title' => 'Nexa Taxi',
+                'page_type' => 'custom',
+                'is_active' => true,
+                'home_sections' => [],
+            ],
+        ];
+
+        $this->assertSame('inserted', $method->invoke($service, $conn, null, $entry));
+        $this->assertSame(
+            'Nexa Taxi',
+            WebsitePage::query()->whereNull('company_id')->where('slug', $slug)->value('title')
+        );
+    }
+
+    #[Test]
+    public function is_central_source_detects_nexa_key(): void
+    {
+        $this->assertTrue(TenantWebsiteBundleService::isCentralSource('nexa'));
+        $this->assertTrue(TenantWebsiteBundleService::isCentralSource('NEXA'));
+        $this->assertFalse(TenantWebsiteBundleService::isCentralSource('1'));
+        $this->assertFalse(TenantWebsiteBundleService::isCentralSource(1));
+    }
 }

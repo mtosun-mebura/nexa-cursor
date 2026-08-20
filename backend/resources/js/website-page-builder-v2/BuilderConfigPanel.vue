@@ -175,7 +175,11 @@ const emailTemplateOptions = computed(() =>
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(.builder-media-image-row)),
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-group),
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-item-list),
-.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-step-order) {
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-step-order),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(+ .builder-config-field--pricing-preview)),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(+ .nexa-pricing-preview)),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-field--pricing-preview),
+.builder-config-panel--expanded :deep(.builder-config-fields > .nexa-pricing-preview) {
   grid-column: 1 / -1;
 }
 
@@ -189,11 +193,18 @@ const emailTemplateOptions = computed(() =>
   grid-column: 1 / -1;
 }
 
-.builder-config-panel--expanded :deep(.builder-config-item:not(.builder-config-item--footer-link)) {
+.builder-config-panel--expanded :deep(.builder-config-item:not(.builder-config-item--footer-link):not(.builder-config-item--compact)) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem 1.25rem;
   align-items: start;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-item--compact) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  grid-column: 1 / -1;
 }
 
 .builder-config-panel--expanded :deep(.builder-config-item--footer-link) {
@@ -227,6 +238,11 @@ const emailTemplateOptions = computed(() =>
 .builder-config-panel--expanded :deep(.builder-media-upload-area) {
   min-height: 4.5rem;
   max-width: 100%;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-field--pricing-preview),
+.builder-config-panel--expanded :deep(.builder-config-fields > .nexa-pricing-preview) {
+  margin-top: 0.5rem;
 }
 
 @media (max-width: 768px) {

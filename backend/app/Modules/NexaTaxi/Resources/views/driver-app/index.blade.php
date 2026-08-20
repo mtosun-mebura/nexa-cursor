@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#16a34a">
+    <meta name="theme-color" content="#f97316">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
-    <link rel="manifest" href="{{ route('taxi.chauffeur.manifest') }}">
+    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.chauffeur.manifest') ? route('taxi.chauffeur.manifest') : url('/taxi/chauffeur/manifest.webmanifest') }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -17,14 +17,55 @@
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
     <style>
         :root {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f8fafc;
-            --muted: #94a3b8;
-            --green: #16a34a;
-            --red: #dc2626;
+            --bg: #121214;
+            --card: #1c1c1e;
+            --card-elevated: #252528;
+            --chrome: #1c1c1e;
+            --text: #ffffff;
+            --muted: #9ca3af;
+            --orange: #f97316;
+            --orange-hover: #ea580c;
+            --green: #22c55e;
+            --red: #ef4444;
+            --line: rgba(255,255,255,0.08);
+            --price: #ffffff;
+            --soft-text: #d1d5db;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --bottom-nav-h: 4.75rem;
+        }
+        html[data-theme="dark"] {
+            --nexa-pwa-bg: #121214;
+            --nexa-pwa-card: #1c1c1e;
+            --nexa-pwa-chrome: #1c1c1e;
+            --bg: #121214;
+            --card: #1c1c1e;
+            --card-elevated: #252528;
+            --chrome: #1c1c1e;
+            --text: #ffffff;
+            --muted: #9ca3af;
+            --line: rgba(255,255,255,0.08);
+            --price: #ffffff;
+            --soft-text: #d1d5db;
+        }
+        html[data-theme="light"] {
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --card-elevated: #f8fafc;
+            --chrome: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --line: rgba(15, 23, 42, 0.1);
+            --price: #0f172a;
+            --soft-text: #475569;
+            --nexa-pwa-bg: #f1f5f9;
+            --nexa-pwa-card: #ffffff;
+            --nexa-pwa-chrome: #ffffff;
+            --nexa-pwa-text: #0f172a;
+            --nexa-pwa-muted: #64748b;
+            --nexa-pwa-border: #cbd5e1;
+            --nexa-pwa-input-bg: #ffffff;
+            --nexa-pwa-input-border: #cbd5e1;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         [hidden] {
@@ -92,12 +133,183 @@
             height: 100dvh;
             max-height: 100dvh;
             overflow: hidden;
-            padding: 0 0 calc(0.5rem + var(--safe-bottom));
+            padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
         }
         .dispatch-top {
             flex: 0 0 auto;
-            padding: calc(0.75rem + var(--safe-top)) 1rem 0;
-            padding-right: calc(1rem + 3rem);
+            padding: calc(0.65rem + var(--safe-top)) 1rem 0.1rem;
+            background: var(--chrome);
+            border-bottom: 1px solid var(--line);
+        }
+        .driver-app-header {
+            position: relative;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 2.75rem;
+            margin-bottom: 0.25rem;
+        }
+        .driver-app-header__online {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text);
+            z-index: 1;
+            justify-self: start;
+        }
+        .driver-app-header__online .switch {
+            width: 2.15rem;
+            height: 1.25rem;
+        }
+        .driver-app-header__online .switch::after {
+            top: 0.15rem;
+            left: 0.15rem;
+            width: 0.95rem;
+            height: 0.95rem;
+        }
+        .driver-app-header__online .switch.is-on::after {
+            transform: translateX(0.9rem);
+        }
+        .driver-app-header__center {
+            grid-column: 2;
+            justify-self: center;
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+        .driver-app-header__end {
+            grid-column: 3;
+            width: 2.25rem;
+            height: 2.25rem;
+            flex-shrink: 0;
+            pointer-events: none;
+        }
+        .driver-app-header__active-ride {
+            width: 2.75rem;
+            height: 2.75rem;
+            border: none;
+            border-radius: 0.75rem;
+            background: transparent;
+            color: var(--green);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            animation: active-ride-flicker 1.15s ease-in-out infinite;
+        }
+        .driver-app-header__active-ride svg {
+            width: 1.85rem;
+            height: 1.85rem;
+        }
+        .driver-app-header__active-ride:active {
+            background: transparent;
+            opacity: 0.85;
+        }
+        @keyframes active-ride-flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.28; }
+        }
+        .driver-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin: 0.35rem 0 0.85rem;
+            padding-top: 0.7rem;
+        }
+        .driver-section-head h2 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .driver-section-head__bell,
+        .driver-section-head__icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            flex-shrink: 0;
+            color: var(--orange);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .driver-section-head__bell svg,
+        .driver-section-head__icon svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        .driver-section-head__today {
+            flex-shrink: 0;
+            min-height: auto;
+            width: auto;
+            padding: 0.35rem 0.7rem;
+            border-radius: 0.65rem;
+            border: 1px solid var(--line);
+            background: var(--card-elevated);
+            color: var(--text);
+            font-size: 0.78rem;
+            font-weight: 650;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .driver-section-head__today:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        .driver-section-head__today:not(:disabled):active {
+            opacity: 0.85;
+        }
+        .driver-tab-panel[hidden] { display: none !important; }
+        .driver-bottom-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 40;
+            display: none;
+            align-items: stretch;
+            justify-content: center;
+            gap: 0.15rem;
+            padding: 0.45rem 0.35rem calc(0.45rem + var(--safe-bottom));
+            background: var(--chrome);
+            border-top: 1px solid var(--line);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        #screen-dispatch.is-active > .driver-bottom-nav {
+            display: flex;
+        }
+        .driver-bottom-nav__btn {
+            display: flex;
+            flex: 1 1 0;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            min-width: 0;
+            min-height: 3.6rem;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 0.75rem;
+            padding: 0.35rem 0.2rem;
+        }
+        .driver-bottom-nav__btn svg {
+            width: 1.45rem;
+            height: 1.45rem;
+        }
+        .driver-bottom-nav__btn.is-active {
+            color: var(--orange);
+        }
+        .driver-bottom-nav__btn:active {
+            background: rgba(249, 115, 22, 0.08);
         }
         .dispatch-banners {
             display: flex;
@@ -107,7 +319,7 @@
         }
         .dispatch-banners .banner-ios-awake,
         .dispatch-banners .banner-notifications-hint,
-        .dispatch-banners .banner-offline-hint,
+        .dispatch-banners .banner-guide-hint,
         .dispatch-banners .banner-inactive,
         .dispatch-banners #notifications-feedback {
             margin-bottom: 0;
@@ -132,29 +344,40 @@
         #active-ride-strip.is-contract-ride #payment-ride-error {
             display: none !important;
         }
-        #active-ride-strip .card {
-            margin-bottom: 0;
+        #active-ride-strip.active-ride-card {
+            margin-bottom: 0.85rem;
+        }
+        #active-ride-strip .active-ride-hint {
+            margin: -0.15rem 0 0.85rem;
+            font-size: 0.8125rem;
+        }
+        #active-ride-strip .active-ride-actions {
+            margin-top: 0.85rem;
+        }
+        #active-ride-strip .active-ride-actions:not(:has(button:not([hidden]))) {
+            display: none;
+        }
+        #active-ride-strip .active-ride-actions .btn[hidden] {
+            display: none !important;
         }
         #btn-complete-ride,
         #btn-pay-ride,
-        #btn-send-invoice {
+        #btn-send-invoice,
+        #btn-start-return,
+        #btn-release-return {
             width: 100%;
-            margin-top: 0.75rem;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            margin-top: 0;
+            min-height: 2.55rem;
+            font-size: 0.82rem;
+            border-radius: 0.55rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
         }
-        .btn-toolbar-inbox-back {
-            width: 100%;
-            margin: 0 0 0.5rem;
-            min-height: 2.75rem;
-            font-size: 0.9375rem;
-            justify-content: flex-start;
-            padding-left: 0.25rem;
-        }
-        #btn-pay-ride { background: #ca8a04; color: #fff; }
+        #btn-pay-ride { background: var(--orange); color: #fff; }
+        #btn-pay-ride:hover { background: var(--orange-hover); color: #fff; }
         #btn-pay-ride.is-paid {
             background: #64748b;
-            color: #e2e8f0;
+            color: #fff;
             cursor: not-allowed;
         }
         #payment-ride-error {
@@ -162,84 +385,38 @@
             padding: 0.625rem 0.75rem;
             border-radius: 0.5rem;
             background: rgba(239, 68, 68, 0.12);
-            color: #fca5a5;
+            color: #f87171;
             font-size: 0.9375rem;
             line-height: 1.4;
         }
-        #payment-panel {
-            position: fixed;
-            inset: 0;
-            z-index: 50;
-            background: var(--bg);
+        #payment-panel,
+        #invoice-panel {
             display: none;
             flex-direction: column;
-            padding: calc(1rem + var(--safe-top)) 1rem calc(1rem + var(--safe-bottom));
-            overflow-y: auto;
+            gap: 0.75rem;
+            padding-bottom: 0.5rem;
         }
         #payment-panel.is-open,
-        #invoice-panel.is-open { display: flex; }
-        #screen-dispatch.overlay-panel-open .dispatch-top,
-        #screen-dispatch.overlay-panel-open .dispatch-footer {
-            display: none;
+        #invoice-panel.is-open {
+            display: flex;
         }
-        #invoice-panel {
-            position: fixed;
-            inset: 0;
-            z-index: 50;
-            background: var(--bg);
-            display: none;
-            flex-direction: column;
-            padding: calc(1rem + var(--safe-top)) 1rem calc(1rem + var(--safe-bottom));
-            overflow-y: auto;
+        #payment-panel .driver-section-head,
+        #invoice-panel .driver-section-head {
+            align-items: center;
         }
-        #btn-send-invoice {
-            background: #2563eb;
-            color: #fff;
+        #payment-panel .driver-section-head__close,
+        #invoice-panel .driver-section-head__close {
+            margin-left: auto;
+            width: auto;
+            min-height: 2.25rem;
+            padding: 0.35rem 0.75rem;
+            flex-shrink: 0;
         }
-        #btn-send-invoice:disabled,
-        #btn-send-invoice.is-disabled,
-        #btn-complete-ride:disabled,
-        #btn-complete-ride.is-disabled {
-            background: #64748b;
-            color: #e2e8f0;
-            cursor: not-allowed;
-            opacity: 0.9;
-        }
-        #invoice-panel .invoice-field-input,
-        .driver-field-input {
-            width: 100%;
-            font-size: 1rem;
-            padding: 0.75rem 1rem;
-            border-radius: 0.75rem;
-            border: 1px solid var(--nexa-pwa-input-border, rgba(255,255,255,0.15));
-            background: var(--nexa-pwa-input-bg, var(--card));
-            color: var(--text);
-            margin: 0.35rem 0 1rem;
-            min-height: 3rem;
-        }
-        #invoice-panel .invoice-field-input:focus,
-        .driver-field-input:focus {
-            outline: none;
-            border-color: rgba(37, 99, 235, 0.6);
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
-        }
-        textarea.driver-field-input {
-            min-height: 5rem;
-            resize: vertical;
-            line-height: 1.4;
-        }
-        #invoice-send-status {
-            margin-top: 0.75rem;
-            font-size: 0.9375rem;
-            color: #86efac;
-            text-align: center;
-        }
-        #invoice-send-status.is-error { color: #fca5a5; }
         #payment-panel .payment-amount-wrap {
             display: flex;
             align-items: center;
             border-radius: 0.75rem;
-            border: 1px solid rgba(255,255,255,0.15);
+            border: 1px solid var(--nexa-pwa-input-border, var(--line));
             background: var(--card);
             margin: 0.5rem 0 1rem;
         }
@@ -289,10 +466,64 @@
             opacity: 0.55;
             cursor: not-allowed;
         }
+        #btn-send-invoice {
+            background: #2563eb;
+            color: #fff;
+            border: 1.5px solid #2563eb;
+        }
+        #btn-send-invoice:disabled,
+        #btn-send-invoice.is-disabled,
+        #btn-complete-ride:disabled,
+        #btn-complete-ride.is-disabled {
+            background: transparent;
+            color: #94a3b8;
+            border: 1.5px solid #64748b;
+            cursor: not-allowed;
+            opacity: 1;
+            pointer-events: none;
+        }
+        #btn-send-invoice:disabled:hover,
+        #btn-send-invoice.is-disabled:hover,
+        #btn-complete-ride:disabled:hover,
+        #btn-complete-ride.is-disabled:hover {
+            background: transparent;
+            color: #94a3b8;
+            border-color: #64748b;
+        }
+        #invoice-panel .invoice-field-input,
+        .driver-field-input {
+            width: 100%;
+            font-size: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--nexa-pwa-input-border, rgba(255,255,255,0.15));
+            background: var(--nexa-pwa-input-bg, var(--card));
+            color: var(--text);
+            margin: 0.35rem 0 1rem;
+            min-height: 3rem;
+        }
+        #invoice-panel .invoice-field-input:focus,
+        .driver-field-input:focus {
+            outline: none;
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+        }
+        textarea.driver-field-input {
+            min-height: 5rem;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        #invoice-send-status {
+            margin-top: 0.75rem;
+            font-size: 0.9375rem;
+            color: #86efac;
+            text-align: center;
+        }
+        #invoice-send-status.is-error { color: #fca5a5; }
         .driver-dialog {
             position: fixed;
             inset: 0;
-            z-index: 60;
+            z-index: 240;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -325,7 +556,7 @@
             width: 100%;
             max-width: 22rem;
             background: var(--card);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--line);
             border-radius: 1rem;
             padding: 1.5rem 1.25rem 1.25rem;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
@@ -389,8 +620,32 @@
             min-width: 0;
         }
         #pickup-adjust-dialog .driver-dialog__panel {
-            overflow: hidden;
+            overflow: auto;
+            max-height: min(90dvh, 36rem);
             min-width: 0;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 0.65rem;
+            padding: 1rem;
+            box-shadow: none;
+        }
+        #pickup-adjust-dialog .driver-dialog__title {
+            font-size: 1.125rem;
+            margin-bottom: 0.65rem;
+        }
+        #pickup-adjust-dialog .driver-dialog__text {
+            margin-bottom: 0.85rem;
+            font-size: 0.875rem;
+        }
+        #pickup-adjust-dialog .driver-dialog__actions {
+            gap: 0.5rem;
+        }
+        #pickup-adjust-dialog .driver-dialog__actions .btn {
+            min-height: 2.55rem;
+            text-transform: uppercase;
+            font-size: 0.82rem;
+            border-radius: 0.55rem;
+            letter-spacing: 0.03em;
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__title {
             text-align: center;
@@ -406,7 +661,7 @@
             display: grid;
             grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
             gap: 0.625rem;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
             min-width: 0;
         }
         #pickup-adjust-dialog .pickup-adjust-datetime-field {
@@ -420,10 +675,12 @@
             margin: 0;
             font-size: 0.9375rem;
             padding: 0.625rem 0.625rem;
-            min-height: 2.75rem;
+            min-height: 2.55rem;
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__actions {
             margin-top: 0.25rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
         }
         #pickup-adjust-dialog #pickup-adjust-current {
             margin: 0 0 0.75rem;
@@ -439,6 +696,57 @@
             font-weight: 600;
             color: #f97316;
         }
+        #decline-reason-dialog .driver-dialog__panel {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 0.65rem;
+            padding: 1rem;
+            box-shadow: none;
+            text-align: left;
+        }
+        #decline-reason-dialog .driver-dialog__title {
+            font-size: 1.125rem;
+            margin-bottom: 0.65rem;
+            text-align: center;
+        }
+        #decline-reason-dialog .driver-dialog__text {
+            margin-bottom: 0.85rem;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+        #decline-reason-dialog label.offer-meta {
+            display: block;
+            margin: 0 0 0.35rem;
+            text-align: left;
+        }
+        #decline-reason-dialog #decline-reason-input {
+            margin: 0 0 0.85rem;
+            min-height: 5rem;
+            border-radius: 0.65rem;
+            border: 1px solid var(--line);
+            background: var(--bg);
+            font-size: 0.9375rem;
+            padding: 0.75rem 0.85rem;
+        }
+        #decline-reason-dialog #decline-reason-input:focus {
+            border-color: rgba(249, 115, 22, 0.55);
+            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.18);
+        }
+        #decline-reason-dialog .driver-dialog__actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.15rem;
+            padding-top: 0.7rem;
+            border-top: 1px solid var(--line);
+        }
+        #decline-reason-dialog .driver-dialog__actions .btn {
+            min-height: 2.55rem;
+            text-transform: uppercase;
+            font-size: 0.82rem;
+            border-radius: 0.55rem;
+            letter-spacing: 0.03em;
+        }
         #payment-qr-wrap {
             text-align: center;
             margin: 1rem 0;
@@ -451,31 +759,78 @@
             padding: 0.5rem;
         }
         .dispatch-footer {
-            flex: 0 0 auto;
-            padding: 0.75rem 1rem 0;
-            background: var(--bg);
+            display: none;
         }
         #offer-actions-panel {
             margin: 0;
         }
         h1 { font-size: 1.25rem; margin: 0 0 1rem; font-weight: 600; }
+        #screen-login h1 {
+            min-height: 2.25rem;
+            display: flex;
+            align-items: center;
+            padding-right: 2.75rem;
+            box-sizing: border-box;
+        }
         .card {
             background: var(--card);
             border-radius: 1rem;
             padding: 1rem;
             margin-bottom: 1rem;
-            border: 1px solid var(--nexa-pwa-border, rgba(255,255,255,0.06));
+            border: 1px solid var(--line);
         }
         label { display: block; font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.35rem; }
         input[type="email"], input[type="password"], #login-form input[type="text"] {
             width: 100%;
             padding: 0.85rem 1rem;
             border-radius: 0.75rem;
-            border: 1px solid var(--nexa-pwa-input-border, rgba(255,255,255,0.12));
-            background: var(--nexa-pwa-input-bg, #0b1220);
+            border: 1px solid var(--line);
+            background: var(--card-elevated, #252528);
             color: var(--text);
             font-size: 1rem;
             margin-bottom: 0.75rem;
+        }
+        #login-form input[type="email"],
+        #login-form input[type="password"],
+        #login-form input[type="text"] {
+            background: #252528;
+            border-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            -webkit-text-fill-color: #ffffff;
+            caret-color: #ffffff;
+        }
+        #login-form input[type="email"]::placeholder,
+        #login-form input[type="password"]::placeholder,
+        #login-form input[type="text"]::placeholder {
+            color: #9ca3af;
+            -webkit-text-fill-color: #9ca3af;
+        }
+        #login-form input[type="email"]:-webkit-autofill,
+        #login-form input[type="email"]:-webkit-autofill:hover,
+        #login-form input[type="email"]:-webkit-autofill:focus,
+        #login-form input[type="password"]:-webkit-autofill,
+        #login-form input[type="password"]:-webkit-autofill:hover,
+        #login-form input[type="password"]:-webkit-autofill:focus,
+        #login-form input[type="text"]:-webkit-autofill,
+        #login-form input[type="text"]:-webkit-autofill:hover,
+        #login-form input[type="text"]:-webkit-autofill:focus {
+            -webkit-text-fill-color: #ffffff;
+            caret-color: #ffffff;
+            box-shadow: 0 0 0 1000px #252528 inset;
+            transition: background-color 99999s ease-in-out 0s;
+        }
+        #login-form .js-pw-toggle-wrap {
+            margin-bottom: 0.75rem;
+        }
+        #login-form .js-pw-toggle-wrap input {
+            margin-bottom: 0;
+        }
+        #login-form .js-pw-toggle-btn {
+            top: 50%;
+            bottom: auto;
+            transform: translateY(-50%);
+            margin: 0;
+            color: #9ca3af;
         }
         .btn {
             display: inline-flex;
@@ -487,15 +842,24 @@
             border: none;
             border-radius: 0.75rem;
             font-size: 1rem;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             touch-action: manipulation;
+            letter-spacing: 0.02em;
         }
-        .btn-primary { background: var(--green); color: #fff; }
-        .btn-accept { background: #ea580c; color: #fff; }
-        .btn-accept:hover { background: #c2410c; }
-        .btn-danger { background: var(--red); color: #fff; }
-        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--nexa-pwa-border, rgba(255,255,255,0.15)); }
+        .btn-primary { background: var(--orange); color: #fff; }
+        .btn-primary:hover { background: var(--orange-hover); }
+        .btn-accept { background: var(--orange); color: #fff; }
+        .btn-accept:hover { background: var(--orange-hover); }
+        .btn-danger {
+            background: transparent;
+            color: var(--text);
+            border: 1.5px solid var(--orange);
+        }
+        .btn-danger:hover {
+            background: rgba(249, 115, 22, 0.12);
+        }
+        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn.is-loading {
             pointer-events: none;
@@ -523,23 +887,18 @@
         .toolbar-nav {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-bottom: 0.65rem;
-            min-height: 2rem;
+            margin: 0;
+            min-height: 0;
         }
         .toolbar-nav-buttons {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.35rem;
+            gap: 0;
             flex-wrap: nowrap;
             max-width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        .toolbar-nav-buttons::-webkit-scrollbar {
-            display: none;
+            padding: 0;
+            overflow: visible;
         }
         .dispatch-screen-title {
             text-align: center;
@@ -548,18 +907,16 @@
             margin: 0 0 0.65rem;
             line-height: 1.3;
         }
-        .banner-new-ride,
         .banner-ride-accepted {
             background: rgba(22, 163, 74, 0.25);
             border: 1px solid rgba(22, 163, 74, 0.55);
             color: #bbf7d0;
             border-radius: 0.75rem;
             padding: 0.75rem 1rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             font-weight: 600;
             font-size: 0.9375rem;
         }
-        .banner-ride-accepted { margin-bottom: 0.75rem; }
         .contract-ride-badge {
             display: inline-block;
             background: rgba(59, 130, 246, 0.2);
@@ -608,17 +965,17 @@
             min-height: 3rem;
             font-size: 1rem;
             background: transparent;
-            color: #cbd5e1;
-            border: 1px solid rgba(148, 163, 184, 0.35);
+            color: var(--soft-text);
+            border: 1px solid var(--line);
         }
         .contract-stops-panel { margin-top: 0.75rem; }
         .contract-stops-progress { margin: 0 0 0.75rem !important; }
         .contract-stop-item {
-            border: 1px solid rgba(148, 163, 184, 0.25);
+            border: 1px solid var(--line);
             border-radius: 0.65rem;
             padding: 0.65rem 0.75rem;
             margin-bottom: 0.5rem;
-            background: rgba(15, 23, 42, 0.35);
+            background: var(--card-elevated);
         }
         .contract-stop-item.is-done { opacity: 0.72; }
         .contract-stop-head {
@@ -630,24 +987,24 @@
         .contract-stop-seq {
             font-size: 0.75rem;
             font-weight: 700;
-            color: #94a3b8;
+            color: var(--muted);
             min-width: 1.25rem;
         }
         .contract-stop-main { flex: 1; min-width: 0; }
         .contract-stop-main strong { display: block; font-size: 0.875rem; }
-        .contract-stop-time { font-size: 0.75rem; color: #94a3b8; }
+        .contract-stop-time { font-size: 0.75rem; color: var(--muted); }
         .contract-stop-status {
             font-size: 0.6875rem;
-            color: #cbd5e1;
+            color: var(--soft-text);
             white-space: nowrap;
             font-weight: 600;
             letter-spacing: 0.02em;
         }
-        .contract-stop-status--planned { color: #cbd5e1; }
+        .contract-stop-status--planned { color: var(--soft-text); }
         .contract-stop-status--arrived { color: #4ade80; }
         .contract-stop-status--picked_up { color: #86efac; }
         .contract-stop-status--skipped { color: #fca5a5; }
-        .contract-stop-status--completed { color: #94a3b8; }
+        .contract-stop-status--completed { color: var(--muted); }
         .contract-stop-status--arriving {
             position: relative;
             display: inline-block;
@@ -657,7 +1014,7 @@
         }
         .contract-stop-status-phase { display: inline-block; }
         .contract-stop-status--arriving .contract-stop-status-phase--from {
-            color: #cbd5e1;
+            color: var(--soft-text);
             animation: contract-stop-from-out 0.42s ease-in forwards;
         }
         .contract-stop-status--arriving .contract-stop-status-phase--to {
@@ -721,7 +1078,7 @@
         .contract-stop-auto-hint {
             margin: 0.5rem 0 0;
             font-size: 0.75rem;
-            color: #94a3b8;
+            color: var(--muted);
         }
         .active-ride-collapsed-banner {
             margin-bottom: 0.75rem;
@@ -730,6 +1087,16 @@
             width: 100%;
             margin-top: 0.75rem;
             min-height: 3rem;
+        }
+        .parked-assigned-ride-card.is-active-ride {
+            border-color: rgba(34, 197, 94, 0.45);
+            box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.18);
+        }
+        .parked-assigned-ride-card .offer-card-top {
+            margin-bottom: 0.55rem;
+        }
+        .parked-assigned-ride-card .offer-title {
+            margin-bottom: 0.25rem;
         }
         .parked-assigned-rides-strip {
             display: flex;
@@ -748,45 +1115,202 @@
         }
         .active-ride-card { overflow: visible; }
         .offer-price { white-space: nowrap; }
-        .offer-card { animation: pulse-border 1.5s ease-in-out infinite; }
-        @keyframes pulse-border {
-            0%, 100% { border-color: rgba(22, 163, 74, 0.4); }
-            50% { border-color: rgba(22, 163, 74, 1); }
+        .offer-card {
+            animation: none;
+            margin-bottom: 0.85rem;
+            overflow: visible;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 0.65rem;
+            padding: 1rem;
         }
-        .offer-title { font-size: 1.125rem; font-weight: 700; margin: 0 0 0.5rem; }
-        .offer-meta { font-size: 0.875rem; color: var(--muted); line-height: 1.45; }
-        .offer-address-row {
+        .offer-card-top {
             display: flex;
             align-items: flex-start;
-            gap: 0.5rem;
-            margin: 0.65rem 0;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.85rem;
         }
-        .offer-address-icon {
+        .offer-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.65rem;
+            border-radius: 0.5rem;
+            background: rgba(249, 115, 22, 0.18);
+            color: var(--orange);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .offer-badge-row {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem;
+            min-width: 0;
+        }
+        .offer-badge.is-muted {
+            background: rgba(148, 163, 184, 0.16);
+            color: var(--soft-text);
+        }
+        .offer-badge.is-success {
+            background: rgba(34, 197, 94, 0.18);
+            color: #4ade80;
+        }
+        .offer-badge.is-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        .offer-card-meta-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.35rem;
+            text-align: right;
+        }
+        .offer-ago {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .offer-vehicle-pill {
+            display: inline-flex;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.16);
+            color: var(--soft-text);
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .offer-body-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+        .offer-meta-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.75rem 1rem;
+            align-items: end;
+            margin-bottom: 0.65rem;
+        }
+        .offer-meta-grid .offer-customer-block {
+            margin: 0;
+            align-self: end;
+        }
+        .offer-meta-grid .offer-stats {
+            text-align: right;
+            align-self: end;
+        }
+        .offer-meta-grid .offer-stats .offer-price-wrap {
+            align-items: flex-end;
+        }
+        .offer-actions:has(> :only-child),
+        .offer-actions.declined-ride-actions,
+        .offer-actions.overdue-ride-actions:not(:has(.btn-start-ride)) {
+            grid-template-columns: 1fr;
+        }
+        .scheduled-ride-actions.offer-actions,
+        .overdue-ride-actions.offer-actions {
+            margin-top: 0.85rem;
+        }
+        .offer-route {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            position: relative;
+            padding-left: 0;
+        }
+        .offer-route::before {
+            content: "";
+            position: absolute;
+            left: 0.55rem;
+            top: 1.15rem;
+            bottom: 0;
+            width: 0;
+            border-left: 2px dashed rgba(156, 163, 175, 0.55);
+        }
+        .offer-route-stop {
+            position: relative;
+            padding-bottom: 0.85rem;
+            padding-left: 0;
+        }
+        .offer-route-stop:last-child { padding-bottom: 0; }
+        .offer-route-head {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin: 0 0 0.2rem;
+        }
+        .offer-route-dot {
+            position: relative;
+            left: auto;
+            top: auto;
+            width: 1.15rem;
+            height: 1.15rem;
+            border-radius: 999px;
+            border: 2px solid var(--bg);
             flex-shrink: 0;
-            font-size: 1.25rem;
-            line-height: 1.35;
+            z-index: 1;
         }
-        .offer-address {
-            flex: 1;
-            font-size: 1.0625rem;
-            font-weight: 500;
-            line-height: 1.4;
-            color: #e2e8f0;
+        .offer-route-dot--pickup { background: var(--green); }
+        .offer-route-dot--dropoff { background: var(--orange); }
+        .offer-route-label {
+            font-size: 0.8125rem;
+            text-transform: none;
+            letter-spacing: 0.01em;
+            color: var(--soft-text);
+            font-weight: 600;
+            margin: 0;
+            line-height: 1.3;
+        }
+        .offer-route-link {
+            display: block;
             text-decoration: none;
-            padding: 0.15rem 0;
-            touch-action: manipulation;
+            color: inherit;
+            padding-left: 1.7rem;
         }
-        a.offer-address:active,
-        a.offer-address:focus-visible {
-            color: #86efac;
-            text-decoration: underline;
-            outline: none;
+        .offer-route-main {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.3;
+        }
+        .offer-route-sub {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: 0.1rem;
+            line-height: 1.3;
+        }
+        .offer-customer-block {
+            margin-top: 0;
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            min-width: 0;
+        }
+        .offer-customer-row {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text);
+            line-height: 1.4;
+        }
+        .offer-customer-label {
+            font-size: 0.8125rem;
+            letter-spacing: 0.01em;
+            color: var(--soft-text);
+            font-weight: 600;
+            line-height: 1.3;
+            margin-right: 0.25rem;
         }
         a.offer-phone {
             color: #93c5fd;
             font-weight: 600;
             text-decoration: none;
-            touch-action: manipulation;
         }
         a.offer-phone:active,
         a.offer-phone:focus-visible {
@@ -794,34 +1318,304 @@
             text-decoration: underline;
             outline: none;
         }
-        .offer-price { font-size: 1.5rem; font-weight: 700; color: #86efac; margin: 0.75rem 0; }
+        .offer-stats {
+            text-align: right;
+        }
+        .offer-stats .offer-price-wrap {
+            margin: 0;
+            align-items: flex-end;
+        }
+        .offer-stats .offer-price {
+            margin: 0;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: var(--price);
+        }
+        .offer-stats-line {
+            margin: 0.25rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+        .offer-title { font-size: 1.125rem; font-weight: 700; margin: 0 0 0.5rem; }
+        .offer-meta { font-size: 0.875rem; color: var(--muted); line-height: 1.45; }
+        .offer-address-row { display: none; }
         .offer-price-wrap {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
-            margin: 0.75rem 0 0;
+            gap: 0.15rem;
+            margin: 0;
         }
-        .offer-price-wrap .offer-price { margin: 0; }
-        .offer-price-total {
-            font-size: 0.8125rem;
-            font-weight: 500;
-            color: #94a3b8;
-            margin: 0.75rem 0 0.75rem;
+        .offer-price-wrap .offer-price-leg {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text);
+            line-height: 1.4;
         }
-        .offer-price-wrap .offer-price-total { margin: 0; }
+        .offer-price-wrap .offer-price-total {
+            margin: 0.2rem 0 0;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
         #offer-container { flex-shrink: 0; }
-        .offer-card {
-            margin-bottom: 0.75rem;
-            overflow: visible;
-        }
         .offer-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-            margin: 0 0 1rem;
+            gap: 0.5rem;
+            margin-top: 0.85rem;
+            padding-top: 0.7rem;
+            border-top: 1px solid var(--line);
+        }
+        .offer-actions .btn {
+            min-height: 2.55rem;
+            text-transform: uppercase;
+            font-size: 0.82rem;
+            border-radius: 0.55rem;
+            letter-spacing: 0.03em;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(249, 115, 22, 0.35); }
+            50% { border-color: rgba(249, 115, 22, 0.95); }
+        }
+        .offer-card.is-waiting {
+            animation: pulse-border 1.5s ease-in-out infinite;
+        }
+        .toggle-row { display: none !important; }
+        .dispatch-screen-title { display: none; }
+        .toolbar-nav-buttons .btn-toolbar {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.75rem;
+            min-width: 2.75rem;
+            max-width: 2.75rem;
+            height: 2.75rem;
+            min-height: 2.75rem;
+            max-height: 2.75rem;
+            padding: 0;
+            border: none;
+            border-radius: 0.75rem;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0;
+            font-weight: 400;
+            letter-spacing: 0;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            gap: 0;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .toolbar-nav-buttons .btn-toolbar.is-active {
+            border: none;
+            color: var(--orange);
+            background: transparent;
+        }
+        .toolbar-nav-buttons .btn-toolbar:active {
+            background: transparent;
+            opacity: 0.85;
+        }
+        .toolbar-nav-icon {
+            position: relative;
+            display: inline-flex;
+            width: 1.85rem;
+            height: 1.85rem;
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
         }
-        .offer-actions .btn { min-height: 3.25rem; font-size: 1.0625rem; }
+        .toolbar-nav-icon svg,
+        .toolbar-nav-buttons .btn-toolbar svg {
+            width: 1.85rem;
+            height: 1.85rem;
+            display: block;
+            flex-shrink: 0;
+        }
+        .toolbar-nav-badge {
+            position: absolute;
+            top: -0.55rem;
+            right: -0.65rem;
+            z-index: 1;
+            min-width: 1.25rem;
+            height: 1.25rem;
+            padding: 0 0.28rem;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 800;
+            line-height: 1.25rem;
+            letter-spacing: 0;
+            text-align: center;
+            box-shadow: 0 0 0 2px var(--chrome);
+        }
+        .profile-panel .card {
+            margin-top: 0.5rem;
+        }
+        .profile-panel .profile-info {
+            margin: 0 0 0.85rem;
+        }
+        .profile-panel .profile-info__name {
+            margin: 0 0 0.85rem;
+            font-size: 1.125rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: var(--text);
+            word-break: break-word;
+        }
+        .profile-panel .profile-info__list {
+            margin: 0;
+            display: grid;
+            gap: 0.65rem;
+        }
+        .profile-panel .profile-info__row {
+            display: grid;
+            gap: 0.15rem;
+        }
+        .profile-panel .profile-info__label {
+            margin: 0;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .profile-panel .profile-info__value {
+            margin: 0;
+            font-size: 0.9375rem;
+            line-height: 1.4;
+            color: var(--text);
+            word-break: break-word;
+        }
+        .profile-panel .profile-info__value.is-empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+        .profile-panel .profile-session-note {
+            margin: 0 0 0.25rem;
+        }
+        .profile-panel .btn,
+        .earnings-panel .btn {
+            margin-top: 0.75rem;
+        }
+        .earnings-day-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin: 0 0 0.85rem;
+        }
+        .earnings-day-nav__btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--line);
+            background: var(--card-elevated);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            flex-shrink: 0;
+        }
+        .earnings-day-nav__btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        .earnings-day-nav__btn svg {
+            width: 1.1rem;
+            height: 1.1rem;
+        }
+        .earnings-day-nav__meta {
+            min-width: 0;
+            text-align: center;
+            flex: 1;
+        }
+        .earnings-day-nav__label {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.25;
+        }
+        .earnings-day-nav__sub {
+            margin: 0.15rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+        .earnings-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .earnings-summary__card.offer-card {
+            margin-bottom: 0;
+            padding: 1rem;
+        }
+        .earnings-summary__label {
+            margin: 0;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--soft-text);
+            line-height: 1.3;
+        }
+        .earnings-summary__value {
+            margin: 0.35rem 0 0;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: var(--price);
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+        }
+        .earnings-summary__hint {
+            margin: 0.25rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+        .earnings-rides-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .earnings-ride-card.offer-card {
+            margin-bottom: 0;
+        }
+        .earnings-ride-card .earnings-ride-toggle-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        .earnings-ride-card .earnings-ride-toggle-top .offer-badge-row {
+            flex-wrap: wrap;
+        }
+        .earnings-ride-card .earnings-ride-amount-summary {
+            margin: 0.15rem 0 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .earnings-ride-card .offer-meta-grid {
+            margin-bottom: 0;
+        }
+        .earnings-empty,
+        .earnings-error,
+        .earnings-loading {
+            text-align: center;
+            color: var(--muted);
+            padding: 1.25rem 0.75rem;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        .earnings-error { color: #f87171; }
+        .driver-bottom-nav__btn[hidden] {
+            display: none !important;
+        }
         .scheduled-rides-strip { margin-bottom: 1rem; }
         .scheduled-rides-title {
             margin: 0 0 0.75rem;
@@ -829,19 +1623,21 @@
             font-weight: 600;
             color: var(--muted);
         }
-        #overdue-strip .scheduled-rides-title,
         #overdue-strip #overdue-hint,
         #declined-strip .scheduled-rides-title,
         #declined-strip #declined-hint {
             text-align: center;
         }
-        #overdue-strip #overdue-hint,
+        #overdue-strip #overdue-hint {
+            margin: 0 0 0.85rem;
+            font-size: 0.8125rem;
+            color: var(--muted);
+        }
         #declined-strip #declined-hint {
             margin: -0.25rem 0 0.75rem;
             font-size: 0.8125rem;
-            color: #94a3b8;
+            color: var(--muted);
         }
-        .scheduled-ride-card + .scheduled-ride-card { margin-top: 0.75rem; }
         .scheduled-ride-card .scheduled-ride-toggle {
             display: flex;
             align-items: center;
@@ -883,7 +1679,32 @@
         .scheduled-ride-card .scheduled-ride-toggle .scheduled-pickup-at {
             margin: 0;
             font-size: 0.8125rem;
-            color: #94a3b8;
+            color: var(--muted);
+        }
+        .scheduled-ride-card .scheduled-ride-toggle .scheduled-route-summary,
+        .scheduled-ride-card .scheduled-ride-toggle .scheduled-proposal-summary {
+            margin: 0;
+            font-size: 0.78rem;
+            color: var(--soft-text);
+            line-height: 1.35;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .scheduled-ride-card .scheduled-ride-toggle .scheduled-proposal-summary {
+            color: #fca5a5;
+            font-weight: 600;
+        }
+        .scheduled-ride-card.overdue-ride-card .scheduled-ride-toggle-text .offer-badge {
+            align-self: flex-start;
+            margin-bottom: 0.15rem;
+        }
+        .scheduled-ride-card + .scheduled-ride-card,
+        .scheduled-ride-card + .overdue-ride-card,
+        .overdue-ride-card + .scheduled-ride-card,
+        .overdue-ride-card + .overdue-ride-card {
+            margin-top: 0.75rem;
         }
         .scheduled-ride-chevron {
             flex-shrink: 0;
@@ -893,18 +1714,30 @@
             align-items: center;
             justify-content: center;
             border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #94a3b8;
+            border: 1px solid var(--line);
+            color: var(--muted);
             transition: transform 0.2s ease, color 0.2s ease;
         }
         .scheduled-ride-card.is-expanded .scheduled-ride-chevron {
             transform: rotate(180deg);
-            color: #e2e8f0;
+            color: var(--text);
         }
         .scheduled-ride-body {
             margin-top: 0.85rem;
             padding-top: 0.85rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid var(--line);
+        }
+        .scheduled-ride-card > .offer-actions,
+        .scheduled-ride-card > .scheduled-ride-actions,
+        .scheduled-ride-card > .overdue-ride-actions {
+            margin-top: 0.75rem;
+        }
+        .scheduled-ride-card:not(.is-expanded) > .scheduled-ride-body[hidden] + .offer-actions,
+        .scheduled-ride-card:not(.is-expanded) > .scheduled-ride-body[hidden] + .scheduled-ride-actions,
+        .scheduled-ride-card:not(.is-expanded) > .scheduled-ride-body[hidden] + .overdue-ride-actions {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--line);
         }
         .scheduled-ride-actions {
             display: grid;
@@ -916,16 +1749,21 @@
             margin: 0;
             width: 100%;
             text-align: center;
-            color: #94a3b8;
+            color: var(--muted);
         }
         .scheduled-ride-card.is-contract-ride .scheduled-ride-actions {
             grid-template-columns: 1fr;
         }
         .scheduled-ride-actions .btn { margin-top: 0; width: 100%; }
-        .scheduled-ride-actions .btn-release-ride {
+        .scheduled-ride-actions .btn-release-ride,
+        .overdue-ride-actions .btn-release-ride {
             background: transparent;
-            color: #fca5a5;
-            border: 1px solid rgba(248, 113, 113, 0.45);
+            color: var(--text);
+            border: 1.5px solid var(--orange);
+        }
+        .scheduled-ride-actions .btn-release-ride:hover,
+        .overdue-ride-actions .btn-release-ride:hover {
+            background: rgba(249, 115, 22, 0.12);
         }
         .scheduled-ride-card .btn-start-ride { margin-top: 0; }
         .offer-pickup-at { margin: 0 0 0.75rem; font-weight: 600; color: #fbbf24; }
@@ -937,63 +1775,102 @@
             margin: 0.5rem 0 0.75rem;
             padding: 0.5rem 0.65rem;
             border-radius: 0.65rem;
-            background: rgba(15, 23, 42, 0.55);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--card-elevated);
+            border: 1px solid var(--line);
         }
         .offer-queue-nav .btn-queue {
             min-height: 2.25rem;
             width: auto;
             padding: 0.4rem 0.75rem;
             font-size: 0.8125rem;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(148, 163, 184, 0.12);
             color: var(--text);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid var(--line);
         }
         .offer-queue-nav .btn-queue:disabled { opacity: 0.35; }
         .offer-queue-label { font-size: 0.8125rem; color: var(--muted); text-align: center; flex: 1; }
-        .offer-timer {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #fbbf24;
-            margin: 0 0 0.5rem;
-        }
-        .offer-timer.is-urgent {
-            color: #fb923c;
-        }
-        .offer-timer.is-waiting,
-        .offer-timer-wait.is-waiting {
-            color: #f87171;
-            font-size: 1rem;
-            animation: offer-waiting-pulse 1.25s ease-in-out infinite;
-        }
-        .offer-timer-accept {
-            color: #fbbf24;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin: 0 0 0.35rem;
-        }
-        .offer-timer-wait {
-            margin: 0 0 0.25rem;
-        }
         .offer-waiting-banner {
-            display: none;
-            margin: 0 0 0.65rem;
-            padding: 0.65rem 0.75rem;
-            border-radius: 0.65rem;
-            background: rgba(220, 38, 38, 0.18);
-            border: 1px solid rgba(248, 113, 113, 0.55);
-            color: #fecaca;
-            font-size: 0.8125rem;
-            font-weight: 600;
-            line-height: 1.4;
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
         .offer-waiting-banner.is-visible {
-            display: block;
-            animation: offer-waiting-pulse 1.25s ease-in-out infinite;
+            position: static;
+            width: auto;
+            height: auto;
+            margin: 0 0 0.75rem;
+            padding: 0.55rem 0.75rem;
+            overflow: visible;
+            clip: auto;
+            white-space: normal;
+            border: 1px solid rgba(248, 113, 113, 0.45);
+            border-radius: 0.5rem;
+            background: rgba(220, 38, 38, 0.16);
+            color: #fecaca;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            animation: offer-waiting-pulse 1.2s ease-in-out infinite;
+        }
+        .offer-waiting-banner.is-visible.is-overdue {
+            border-color: rgba(239, 68, 68, 0.7);
+            background: rgba(185, 28, 28, 0.22);
+            color: #fecaca;
+        }
+        .offer-waiting-banner.is-visible.is-success-banner {
+            border-color: rgba(34, 197, 94, 0.55);
+            background: rgba(22, 163, 74, 0.18);
+            color: #86efac;
+            animation: none;
+        }
+        .offer-waiting-dot {
+            width: 0.7rem;
+            height: 0.7rem;
+            border-radius: 999px;
+            background: #ef4444;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            flex-shrink: 0;
+            animation: offer-waiting-blink 1.1s ease-in-out infinite;
+        }
+        .offer-waiting-dot[hidden] {
+            display: none !important;
+        }
+        .offer-card-top .offer-badge-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        @keyframes offer-waiting-blink {
+            0%, 100% {
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.35;
+                box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+                transform: scale(0.92);
+            }
         }
         .offer-card.is-waiting {
             border-color: rgba(248, 113, 113, 0.55);
             box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.25);
+            animation: pulse-border 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-border-overdue {
+            0%, 100% { border-color: rgba(239, 68, 68, 0.45); box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.2); }
+            50% { border-color: rgba(239, 68, 68, 0.95); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.35); }
+        }
+        .offer-card.is-pickup-overdue {
+            border-color: rgba(239, 68, 68, 0.75);
+            box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.35);
+            animation: pulse-border-overdue 1.2s ease-in-out infinite;
         }
         @keyframes offer-waiting-pulse {
             0%, 100% { opacity: 1; }
@@ -1010,7 +1887,7 @@
             justify-content: center;
             background: rgba(148, 163, 184, 0.1);
             border: 1px solid rgba(148, 163, 184, 0.2);
-            color: #94a3b8;
+            color: var(--muted);
         }
         .inbox-empty-icon svg {
             width: 2.85rem;
@@ -1024,7 +1901,20 @@
         .inbox-empty-icon[data-state="offline"] {
             background: rgba(100, 116, 139, 0.14);
             border-color: rgba(100, 116, 139, 0.28);
-            color: #64748b;
+            color: var(--muted);
+        }
+        .inbox-empty-icon[data-state="loading"] {
+            background: rgba(249, 115, 22, 0.1);
+            border-color: rgba(249, 115, 22, 0.28);
+            color: var(--orange);
+        }
+        .inbox-empty-spinner {
+            width: 2.35rem;
+            height: 2.35rem;
+            border: 3px solid rgba(249, 115, 22, 0.22);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: btn-spin 0.75s linear infinite;
         }
         .inbox-empty-icon[data-state="inactive"],
         .inbox-empty-icon[data-state="error"] {
@@ -1036,13 +1926,26 @@
             margin: 0 0 0.5rem;
             font-size: 1.0625rem;
             font-weight: 600;
-            color: #cbd5e1;
+            color: var(--soft-text);
         }
         #inbox-empty-hint {
             margin: 0;
             max-width: 18rem;
             margin-inline: auto;
             line-height: 1.45;
+        }
+        .inbox-empty-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            max-width: 18rem;
+            margin: 1rem auto 0;
+        }
+        .inbox-empty-actions .btn {
+            width: 100%;
+            min-height: 2.75rem;
+            margin-top: 0;
+            font-size: 0.9rem;
         }
         .error { color: #fca5a5; font-size: 0.875rem; margin-top: 0.5rem; }
         .toggle-row {
@@ -1126,6 +2029,13 @@
             color: #fff;
             font-weight: 600;
         }
+        .toolbar-nav-buttons .btn-toolbar,
+        .toolbar-nav-buttons .btn-toolbar.is-active,
+        .toolbar-nav-buttons .btn-toolbar:active {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
         .declined-ride-card {
             margin-bottom: 0.75rem;
         }
@@ -1176,22 +2086,145 @@
             flex: 1;
             min-height: 2.75rem;
         }
-        .overdue-ride-actions .btn-release-ride {
-            background: #ea580c;
-            color: #fff;
-            border: none;
-        }
-        .overdue-ride-actions .btn-release-ride:hover {
-            background: #c2410c;
-        }
-        .banner-offline-hint {
-            background: rgba(148, 163, 184, 0.12);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            color: var(--muted);
+        .archived-bulk-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin: 0 0 0.85rem;
+            padding: 0.65rem 0.75rem;
             border-radius: 0.75rem;
-            padding: 0.75rem 1rem;
+            border: 1px solid var(--line);
+            background: var(--card);
+        }
+        .archived-bulk-bar__select-all {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+            cursor: pointer;
+            min-width: 0;
+        }
+        .archived-bulk-bar__select-all input,
+        .archived-offer-check {
+            width: 1.15rem;
+            height: 1.15rem;
+            accent-color: var(--orange);
+            flex-shrink: 0;
+        }
+        #btn-archived-delete-selected {
+            width: auto;
+            min-height: 2.5rem;
+            padding: 0.4rem 0.85rem;
+            margin: 0;
+            flex-shrink: 0;
+        }
+        #btn-archived-delete-selected:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .archived-ride-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+        }
+        .archived-ride-select {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 0.55rem;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .archived-ride-row .archived-ride-toggle {
+            flex: 1;
+            min-width: 0;
+        }
+        .overdue-ride-card--archived.is-selected {
+            border-color: rgba(249, 115, 22, 0.55);
+            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.25);
+        }
+        .banner-guide-hint {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(249, 115, 22, 0.14);
+            border: 1px solid rgba(249, 115, 22, 0.4);
+            color: #fed7aa;
+            border-radius: 0.75rem;
+            padding: 0.65rem 2.75rem 0.65rem 1rem;
             font-size: 0.8125rem;
-            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+        html[data-theme="light"] .banner-guide-hint {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+        .banner-guide-hint__body {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem 0.75rem;
+            flex: 1;
+            min-width: 0;
+            padding-right: 0.85rem;
+        }
+        .banner-guide-hint__text {
+            margin: 0;
+            flex: 1 1 14rem;
+        }
+        .banner-guide-hint a.btn-inline {
+            display: inline-flex;
+            align-items: center;
+            margin: 0;
+            padding: 0.28rem 0.55rem;
+            border-radius: 0.45rem;
+            border: none;
+            background: var(--orange, #f97316);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1.2;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        #guide-hint > .banner-dismiss-btn {
+            top: 50%;
+            right: 0.45rem;
+            transform: translateY(-50%);
+        }
+        .profile-guide-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin: 0.85rem 0 0.35rem;
+            padding: 0.85rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(249, 115, 22, 0.45);
+            background: rgba(249, 115, 22, 0.14);
+            color: #fed7aa;
+            text-decoration: none;
+            font-size: 0.9375rem;
+            line-height: 1.35;
+        }
+        .profile-guide-link strong {
+            font-size: 0.95rem;
+            color: inherit;
+        }
+        .profile-guide-link span {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            opacity: 0.9;
+            white-space: nowrap;
+        }
+        html[data-theme="light"] .profile-guide-link {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
         }
         .banner-notifications-hint,
         .banner-install-app {
@@ -1208,6 +2241,13 @@
         #install-app-hint {
             margin: 1rem 1rem 0;
             flex-shrink: 0;
+        }
+        #guide-hint {
+            margin: 1rem 1rem 0;
+            flex-shrink: 0;
+        }
+        #guide-hint + #install-app-hint:not([hidden]) {
+            margin-top: 0.65rem;
         }
         .banner-dismiss-btn {
             position: absolute;
@@ -1271,14 +2311,254 @@
         }
         html[data-theme="light"] .scheduled-ride-card,
         html[data-theme="light"] .offer-card,
-        html[data-theme="light"] .ride-card {
-            border-color: var(--nexa-pwa-border);
+        html[data-theme="light"] .ride-card,
+        html[data-theme="light"] .card {
+            border-color: var(--line);
+            background: var(--card);
+        }
+        html[data-theme="light"] .dispatch-top,
+        html[data-theme="light"] .driver-bottom-nav {
+            background: var(--chrome);
+            border-color: var(--line);
+        }
+        html[data-theme="light"] .offer-badge.is-muted,
+        html[data-theme="light"] .offer-vehicle-pill {
+            background: rgba(15, 23, 42, 0.06);
+            color: #334155;
+        }
+        html[data-theme="light"] .offer-badge.is-success {
+            background: rgba(22, 163, 74, 0.12);
+            color: #15803d;
+        }
+        html[data-theme="light"] .offer-badge.is-danger,
+        html[data-theme="light"] .offer-card.is-pickup-overdue .offer-badge {
+            background: rgba(220, 38, 38, 0.12);
+            color: #b91c1c;
+        }
+        html[data-theme="light"] .scheduled-ride-card .scheduled-ride-toggle .scheduled-proposal-summary {
+            color: #b91c1c;
+        }
+        html[data-theme="light"] .offer-waiting-banner.is-visible.is-success-banner {
+            border-color: rgba(22, 163, 74, 0.45);
+            background: rgba(22, 163, 74, 0.12);
+            color: #166534;
+        }
+        html[data-theme="light"] .offer-waiting-banner.is-visible,
+        html[data-theme="light"] .offer-waiting-banner.is-visible.is-overdue {
+            background: rgba(254, 226, 226, 0.95);
+            border-color: rgba(239, 68, 68, 0.55);
+            color: #991b1b;
+        }
+        html[data-theme="light"] .offer-card.is-pickup-overdue {
+            border-color: rgba(220, 38, 38, 0.65);
+        }
+        html[data-theme="light"] a.offer-phone {
+            color: #2563eb;
+        }
+        html[data-theme="light"] a.offer-phone:active,
+        html[data-theme="light"] a.offer-phone:focus-visible {
+            color: #1d4ed8;
+        }
+        html[data-theme="light"] #inbox-empty-title {
+            color: #334155;
+        }
+        html[data-theme="light"] #overdue-strip #overdue-hint,
+        html[data-theme="light"] #declined-strip #declined-hint {
+            color: var(--muted);
+        }
+        html[data-theme="light"] .toolbar-nav-badge {
+            box-shadow: 0 0 0 2px var(--chrome);
+        }
+        html[data-theme="light"] .earnings-day-nav__btn,
+        html[data-theme="light"] .driver-section-head__today {
+            background: var(--card-elevated);
+            border-color: var(--line);
+            color: var(--text);
+        }
+        html[data-theme="light"] .offer-queue-nav {
+            background: var(--card-elevated);
+            border-color: var(--line);
+        }
+        html[data-theme="light"] .offer-queue-nav .btn-queue {
+            background: rgba(15, 23, 42, 0.05);
+            border-color: var(--line);
+            color: var(--text);
+        }
+        html[data-theme="light"] .banner-ride-accepted {
+            background: rgba(22, 163, 74, 0.1);
+            border-color: rgba(22, 163, 74, 0.35);
+            color: #166534;
+        }
+        html[data-theme="light"] .banner-unclaimed {
+            background: rgba(234, 88, 12, 0.1);
+            border-color: rgba(234, 88, 12, 0.35);
+            color: #9a3412;
+        }
+        html[data-theme="light"] .banner-inactive {
+            background: rgba(220, 38, 38, 0.1);
+            border-color: rgba(220, 38, 38, 0.3);
+            color: #991b1b;
+        }
+        html[data-theme="light"] .banner-notifications-hint,
+        html[data-theme="light"] .banner-install-app {
+            background: rgba(22, 163, 74, 0.1);
+            border-color: rgba(22, 163, 74, 0.35);
+            color: #166534;
+        }
+        html[data-theme="light"] #notifications-feedback {
+            color: #334155;
+            background: rgba(148, 163, 184, 0.18);
+        }
+        html[data-theme="light"] #notifications-feedback.is-error {
+            color: #991b1b;
+            background: rgba(220, 38, 38, 0.1);
+        }
+        html[data-theme="light"] #notifications-feedback.is-success {
+            color: #166534;
+            background: rgba(22, 163, 74, 0.12);
+        }
+        html[data-theme="light"] .driver-dialog__panel {
+            background: var(--card);
+            border-color: var(--line);
+            box-shadow: 0 20px 40px -16px rgba(15, 23, 42, 0.25);
+        }
+        html[data-theme="light"] .driver-dialog__backdrop {
+            background: rgba(15, 23, 42, 0.45);
+        }
+        html[data-theme="light"] .contract-stop-item {
+            background: var(--card-elevated);
+            border-color: var(--line);
+        }
+        html[data-theme="light"] .contract-stop-status--planned,
+        html[data-theme="light"] .contract-stop-time,
+        html[data-theme="light"] .contract-stop-seq,
+        html[data-theme="light"] .contract-ride-meta,
+        html[data-theme="light"] .contract-stop-auto-hint {
+            color: var(--muted);
+        }
+        html[data-theme="light"] .contract-ride-badge {
+            background: rgba(37, 99, 235, 0.1);
+            border-color: rgba(37, 99, 235, 0.35);
+            color: #1d4ed8;
+        }
+        html[data-theme="light"] .return-ride-badge {
+            background: rgba(124, 58, 237, 0.1);
+            border-color: rgba(124, 58, 237, 0.35);
+            color: #6d28d9;
+        }
+        html[data-theme="light"] .return-outbound-done,
+        html[data-theme="light"] .offer-return-at {
+            color: #6d28d9 !important;
+        }
+        html[data-theme="light"] .declined-badge {
+            color: #991b1b;
+            background: rgba(220, 38, 38, 0.12);
+        }
+        html[data-theme="light"] .overdue-badge {
+            color: #9a3412;
+            background: rgba(234, 88, 12, 0.14);
+        }
+        html[data-theme="light"] .scheduled-ride-actions .btn-release-ride,
+        html[data-theme="light"] .overdue-ride-actions .btn-release-ride,
+        html[data-theme="light"] #btn-release-return {
+            color: var(--text);
+        }
+        html[data-theme="light"] .earnings-error,
+        html[data-theme="light"] #payment-ride-error {
+            color: #b91c1c;
+        }
+        html[data-theme="light"] #invoice-send-status {
+            color: #15803d;
+        }
+        html[data-theme="light"] #invoice-send-status.is-error {
+            color: #b91c1c;
+        }
+        html[data-theme="light"] .parked-assigned-ride-card.is-active-ride {
+            border-color: rgba(22, 163, 74, 0.4);
+            box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.15);
+        }
+        html[data-theme="light"] .offer-ago,
+        html[data-theme="light"] .soft-muted {
+            color: var(--muted);
+        }
+        html[data-theme="light"] .toolbar-nav-buttons .btn-toolbar {
+            color: var(--muted);
+        }
+        html[data-theme="light"] .toolbar-nav-buttons .btn-toolbar.is-active {
+            color: var(--orange);
+        }
+        html[data-theme="light"] .driver-app-header__online {
+            color: var(--text);
+        }
+        html[data-theme="light"] #payment-panel,
+        html[data-theme="light"] #invoice-panel {
+            background: var(--bg);
+        }
+        html[data-theme="light"] .release-return-note,
+        html[data-theme="light"] .contract-start-hint {
+            color: var(--muted);
+        }
+        html[data-theme="light"] #btn-send-invoice:disabled,
+        html[data-theme="light"] #btn-send-invoice.is-disabled,
+        html[data-theme="light"] #btn-complete-ride:disabled,
+        html[data-theme="light"] #btn-complete-ride.is-disabled {
+            color: var(--muted);
+            border-color: #94a3b8;
+        }
+        html[data-theme="light"] #pickup-adjust-dialog #pickup-adjust-current {
+            color: #c2410c;
+        }
+        html[data-theme="light"] #pickup-adjust-dialog #pickup-adjust-current .pickup-adjust-current__value {
+            color: #ea580c;
+        }
+        html[data-theme="light"] input[type="email"],
+        html[data-theme="light"] input[type="password"],
+        html[data-theme="light"] #login-form input[type="text"] {
+            background: var(--nexa-pwa-input-bg, #ffffff);
+            border-color: var(--nexa-pwa-input-border, #cbd5e1);
+            color: var(--text);
+        }
+        html[data-theme="light"] #login-form input[type="email"],
+        html[data-theme="light"] #login-form input[type="password"],
+        html[data-theme="light"] #login-form input[type="text"] {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+            -webkit-text-fill-color: #0f172a;
+            caret-color: #0f172a;
+        }
+        html[data-theme="light"] #login-form input[type="email"]:-webkit-autofill,
+        html[data-theme="light"] #login-form input[type="email"]:-webkit-autofill:hover,
+        html[data-theme="light"] #login-form input[type="email"]:-webkit-autofill:focus,
+        html[data-theme="light"] #login-form input[type="password"]:-webkit-autofill,
+        html[data-theme="light"] #login-form input[type="password"]:-webkit-autofill:hover,
+        html[data-theme="light"] #login-form input[type="password"]:-webkit-autofill:focus,
+        html[data-theme="light"] #login-form input[type="text"]:-webkit-autofill,
+        html[data-theme="light"] #login-form input[type="text"]:-webkit-autofill:hover,
+        html[data-theme="light"] #login-form input[type="text"]:-webkit-autofill:focus {
+            -webkit-text-fill-color: #0f172a;
+            caret-color: #0f172a;
+            box-shadow: 0 0 0 1000px #ffffff inset;
+        }
+        html[data-theme="light"] #login-form .js-pw-toggle-btn {
+            color: #64748b;
         }
     </style>
 </head>
 <body>
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
+    <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+        <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+        <div class="banner-guide-hint__body">
+            <p class="banner-guide-hint__text">
+                <strong>Handleiding.</strong>
+                Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
+                Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+            </p>
+            <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
+        </div>
+    </div>
     <div id="install-app-hint" class="banner-install-app" hidden role="note">
         <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
         <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
@@ -1298,14 +2578,51 @@
         </div>
     </section>
 
-    <section id="screen-dispatch" class="screen" aria-label="Ritten">
+    <section id="screen-dispatch" class="screen" aria-label="Chauffeur">
         <div class="dispatch-top">
+            <div class="driver-app-header">
+                <div class="driver-app-header__online">
+                    <span id="online-label">Online</span>
+                    <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
+                </div>
+                <div class="driver-app-header__center">
+                    <button type="button" class="driver-app-header__active-ride" id="btn-active-ride-jump" hidden aria-label="Actieve rit">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                    </button>
+                    <div class="toolbar-nav" id="toolbar-nav" hidden>
+                        <div class="toolbar-nav-buttons">
+                            <button type="button" class="btn-toolbar is-active" id="btn-show-offers" aria-current="page" aria-label="Open">
+                                <span class="toolbar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="-3 -3 30 30" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M22 12h-6l-2 3H10l-2-3H2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+                                    <span id="offers-count" class="toolbar-nav-badge" hidden>0</span>
+                                </span>
+                            </button>
+                            <button type="button" class="btn-toolbar" id="btn-show-overdue" hidden aria-label="Verlopen">
+                                <span class="toolbar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="-3 -3 30 30" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3.2 1.8"/></svg>
+                                    <span id="overdue-count" class="toolbar-nav-badge" hidden>0</span>
+                                </span>
+                            </button>
+                            <button type="button" class="btn-toolbar" id="btn-show-declined" hidden aria-label="Afgewezen">
+                                <span class="toolbar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="-3 -3 30 30" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m15 9-6 6M9 9l6 6"/></svg>
+                                    <span id="declined-count" class="toolbar-nav-badge" hidden>0</span>
+                                </span>
+                            </button>
+                            <button type="button" class="btn-toolbar" id="btn-show-archived" hidden aria-label="Archief">
+                                <span class="toolbar-nav-icon" aria-hidden="true">
+                                    <svg viewBox="-3 -3 30 30" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M2 8h20M10 12h4"/></svg>
+                                    <span id="archived-count" class="toolbar-nav-badge" hidden>0</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="driver-app-header__end" aria-hidden="true"></div>
+            </div>
             <div class="dispatch-banners">
                 <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
                     Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
-                </div>
-                <div id="offline-hint" class="banner-offline-hint" hidden>
-                    Je bent offline. Zet je status op <strong>online</strong> om ritten te ontvangen.
                 </div>
                 <div id="ios-awake-hint" class="banner-ios-awake" hidden role="note">
                     <button type="button" class="banner-dismiss-btn" id="btn-dismiss-ios-awake-hint" aria-label="Melding sluiten">×</button>
@@ -1326,39 +2643,45 @@
                     <span id="notifications-feedback-text"></span>
                 </p>
             </div>
-            <div class="toolbar-nav">
-                <div class="toolbar-nav-buttons">
-                    <button type="button" class="btn btn-ghost btn-toolbar is-active" id="btn-show-offers" aria-current="page">Ritten <span id="offers-count">(0)</span></button>
-                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
-                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
-                </div>
-            </div>
             <div class="card toggle-row">
                 <span>Online voor ritten</span>
-                <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
+                <button type="button" id="online-toggle-legacy" class="switch" aria-pressed="false" aria-label="Online" hidden disabled></button>
             </div>
-            <button type="button" class="btn btn-ghost btn-toolbar-inbox-back" id="btn-toolbar-inbox-back" hidden>← Rittenoverzicht</button>
-            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
+            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Aanvragen</h1>
         </div>
         <div class="dispatch-scroll">
-        <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
+        <div id="tab-panel-requests" class="driver-tab-panel" data-main-tab-panel="requests">
+        <div class="driver-section-head" id="requests-section-head">
+            <h2 id="requests-section-title">Nieuwe ritaanvraag</h2>
+            <span class="driver-section-head__icon" id="requests-section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0"/></svg>
+            </span>
+        </div>
         <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
-        <div id="parked-assigned-rides-strip" class="parked-assigned-rides-strip" hidden>
-            <p class="scheduled-rides-title">Jouw actieve ritten</p>
-            <div id="parked-assigned-rides-list"></div>
-        </div>
-        <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
-            <p class="scheduled-rides-title">Geplande ritten</p>
-            <div id="scheduled-rides-list"></div>
-        </div>
         <div id="overdue-strip" hidden>
-            <p class="scheduled-rides-title">Verlopen geplande ritten</p>
             <p class="offer-meta" id="overdue-hint">
-                Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, geef hem vrij, of accepteer een vrijgegeven rit opnieuw.
+                Ritten die je hebt afgewezen of die na het grace-venster zijn verlopen. Geaccepteerde ritten met een verlopen ophaalmoment staan onder Ritten — stel daar een nieuw tijdstip voor aan de klant.
             </p>
             <div id="overdue-rides-list"></div>
             <div id="overdue-empty" class="empty" hidden>
-                <p>Geen verlopen geplande ritten.</p>
+                <p>Geen verlopen openstaande ritten.</p>
+                <button type="button" class="btn btn-ghost" id="btn-empty-show-archived" hidden>Bekijk archief</button>
+            </div>
+        </div>
+        <div id="archived-strip" hidden>
+            <p class="offer-meta" id="archived-hint">
+                Gearchiveerde verlopen ritten. Selecteer er een of meer om permanent te verwijderen.
+            </p>
+            <div id="archived-bulk-bar" class="archived-bulk-bar" hidden>
+                <label class="archived-bulk-bar__select-all">
+                    <input type="checkbox" id="archived-select-all">
+                    <span>Alles selecteren</span>
+                </label>
+                <button type="button" class="btn btn-danger" id="btn-archived-delete-selected" disabled>Verwijderen</button>
+            </div>
+            <div id="archived-rides-list"></div>
+            <div id="archived-empty" class="empty" hidden>
+                <p>Geen gearchiveerde ritten.</p>
             </div>
         </div>
         <div id="declined-strip" hidden>
@@ -1374,9 +2697,20 @@
         <div id="offer-strip" hidden>
             <div id="offer-container">
                 <div class="card offer-card" id="offer-card">
-                    <p class="offer-title" id="offer-title">Nieuwe rit</p>
+                    <div class="offer-card-top">
+                        <div class="offer-badge-row">
+                            <span class="offer-badge" id="offer-badge">Nieuw</span>
+                            <span class="offer-waiting-dot" id="offer-waiting-dot" hidden aria-hidden="true"></span>
+                        </div>
+                        <div class="offer-card-meta-right">
+                            <span class="offer-ago" id="offer-ago"></span>
+                            <span class="offer-vehicle-pill" id="offer-vehicle-badge">Sedan</span>
+                        </div>
+                    </div>
+                    <p class="offer-waiting-banner" id="offer-waiting-banner" role="status" aria-live="polite"></p>
+                    <p class="offer-title" id="offer-title" hidden>Nieuwe rit</p>
                     <div id="offer-return-meta" hidden></div>
-                    <p class="offer-meta" id="offer-queue-hint" hidden style="margin:-0.25rem 0 0.5rem;font-size:0.8125rem;color:#94a3b8;">
+                    <p class="offer-meta" id="offer-queue-hint" hidden style="margin:-0.25rem 0 0.5rem;font-size:0.8125rem;">
                         Je reageert op deze rit. Andere openstaande ritten blijven wachten tot je afwijst of accepteert.
                     </p>
                     <div id="offer-queue-nav" class="offer-queue-nav" hidden>
@@ -1384,35 +2718,39 @@
                         <span class="offer-queue-label" id="offer-queue-label">Rit 1 van 1</span>
                         <button type="button" class="btn btn-queue" id="btn-offer-next" aria-label="Volgende rit">Volgende →</button>
                     </div>
-                    <p class="offer-waiting-banner" id="offer-waiting-banner" role="status" aria-live="polite"></p>
                     <p class="offer-meta offer-pickup-at" id="offer-pickup-at" hidden></p>
-                    <p class="offer-timer offer-timer-wait is-waiting" id="offer-timer-wait" hidden aria-live="polite"></p>
-                    <p class="offer-timer offer-timer-accept" id="offer-timer-accept" hidden aria-live="polite"></p>
-                    <p class="offer-address-row">
-                        <span class="offer-address-icon" aria-hidden="true">📍</span>
-                        <a id="offer-pickup" class="offer-address" href="#" target="_blank" rel="noopener noreferrer">—</a>
-                    </p>
-                    <p class="offer-address-row">
-                        <span class="offer-address-icon" aria-hidden="true">🏁</span>
-                        <a id="offer-dropoff" class="offer-address" href="#" target="_blank" rel="noopener noreferrer">—</a>
-                    </p>
-                    <p class="offer-meta" id="offer-customer"></p>
-                    <div class="offer-price-wrap" id="offer-price"></div>
+                    <div class="offer-body-grid">
+                        <div class="offer-route">
+                            <div class="offer-route-stop">
+                                <div class="offer-route-head">
+                                    <span class="offer-route-dot offer-route-dot--pickup" aria-hidden="true"></span>
+                                    <p class="offer-route-label">Ophalen</p>
+                                </div>
+                                <a id="offer-pickup" class="offer-route-link" href="#" target="_blank" rel="noopener noreferrer">—</a>
+                            </div>
+                            <div class="offer-route-stop">
+                                <div class="offer-route-head">
+                                    <span class="offer-route-dot offer-route-dot--dropoff" aria-hidden="true"></span>
+                                    <p class="offer-route-label">Afzetten</p>
+                                </div>
+                                <a id="offer-dropoff" class="offer-route-link" href="#" target="_blank" rel="noopener noreferrer">—</a>
+                            </div>
+                        </div>
+                        <div class="offer-meta-grid">
+                            <div class="offer-customer-block" id="offer-customer"></div>
+                            <div class="offer-stats">
+                                <div class="offer-price-wrap" id="offer-price"></div>
+                                <p class="offer-stats-line" id="offer-stats-distance"></p>
+                                <p class="offer-stats-line" id="offer-stats-duration"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="offer-actions-panel" class="offer-actions">
+                        <button type="button" class="btn btn-danger" id="btn-decline">Weigeren</button>
+                        <button type="button" class="btn btn-accept" id="btn-accept">Accepteren</button>
+                    </div>
                 </div>
             </div>
-            <div id="offer-actions-panel" class="offer-actions">
-                <button type="button" class="btn btn-danger" id="btn-decline">Afwijzen</button>
-                <button type="button" class="btn btn-accept" id="btn-accept">Accepteren</button>
-            </div>
-        </div>
-        <div id="active-ride-strip" hidden>
-            <div id="active-ride" class="card active-ride-card"></div>
-            <p id="payment-ride-error" hidden role="alert"></p>
-            <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
-            <button type="button" class="btn" id="btn-send-invoice" hidden>Factuur versturen</button>
-            <button type="button" class="btn btn-primary" id="btn-start-return" hidden>Retour starten</button>
-            <button type="button" class="btn btn-ghost" id="btn-release-return" hidden>Retour vrijgeven</button>
-            <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afronden</button>
         </div>
         <div id="inbox-empty" class="empty">
             <div id="inbox-empty-icon" class="inbox-empty-icon" data-state="no-rides" aria-hidden="true">
@@ -1428,15 +2766,118 @@
             </div>
             <p id="inbox-empty-title">Geen openstaande ritten.</p>
             <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
+            <div id="inbox-empty-actions" class="inbox-empty-actions" hidden>
+                <button type="button" class="btn btn-ghost" id="btn-empty-show-overdue" hidden>Bekijk verlopen ritten</button>
+                <button type="button" class="btn btn-ghost" id="btn-empty-show-declined" hidden>Bekijk afgewezen ritten</button>
+                <button type="button" class="btn btn-ghost" id="btn-empty-show-archived-inbox" hidden>Bekijk archief</button>
+            </div>
         </div>
         </div>
-        <div class="dispatch-footer">
-            <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
+
+        <div id="tab-panel-trips" class="driver-tab-panel" data-main-tab-panel="trips" hidden>
+        <div class="driver-section-head"><h2>Ritten</h2></div>
+        <div id="parked-assigned-rides-strip" class="parked-assigned-rides-strip" hidden>
+            <p class="scheduled-rides-title">Jouw actieve ritten</p>
+            <div id="parked-assigned-rides-list"></div>
         </div>
+        <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
+            <p class="scheduled-rides-title">Geplande ritten</p>
+            <div id="scheduled-rides-list"></div>
+        </div>
+        <div id="active-ride-strip" class="card offer-card active-ride-card" hidden>
+            <div id="active-ride"></div>
+            <p id="payment-ride-error" hidden role="alert"></p>
+            <div class="offer-actions active-ride-actions" id="active-ride-actions">
+                <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
+                <button type="button" class="btn" id="btn-send-invoice" hidden>Factuur versturen</button>
+                <button type="button" class="btn btn-primary" id="btn-start-return" hidden>Retour starten</button>
+                <button type="button" class="btn btn-ghost" id="btn-release-return" hidden>Retour vrijgeven</button>
+                <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afronden</button>
+            </div>
+        </div>
+        <div id="trips-empty" class="empty" hidden>
+            <p id="trips-empty-title">Geen actieve of geplande ritten.</p>
+            <p id="trips-empty-hint" class="offer-meta" style="margin-top:0.5rem;">
+                Geaccepteerde ritten verschijnen hier. Nieuwe aanvragen staan onder Aanvragen.
+            </p>
+        </div>
+        </div>
+
+        <div id="tab-panel-earnings" class="driver-tab-panel earnings-panel" data-main-tab-panel="earnings" hidden>
+            <div class="driver-section-head">
+                <h2>Inkomsten</h2>
+                <button type="button" class="driver-section-head__today" id="btn-earnings-today" disabled>Vandaag</button>
+            </div>
+            <div class="earnings-day-nav" id="earnings-day-nav">
+                <button type="button" class="earnings-day-nav__btn" id="btn-earnings-prev" aria-label="Vorige dag">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <div class="earnings-day-nav__meta">
+                    <p class="earnings-day-nav__label" id="earnings-day-label">Vandaag</p>
+                    <p class="earnings-day-nav__sub" id="earnings-day-sub"></p>
+                </div>
+                <button type="button" class="earnings-day-nav__btn" id="btn-earnings-next" aria-label="Volgende dag" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </div>
+            <div class="earnings-summary" id="earnings-summary" hidden>
+                <div class="card offer-card earnings-summary__card">
+                    <p class="earnings-summary__label">Totaal deze dag</p>
+                    <p class="earnings-summary__value" id="earnings-day-total">€&nbsp;0,00</p>
+                    <p class="earnings-summary__hint" id="earnings-day-count">0 ritten</p>
+                </div>
+                <div class="card offer-card earnings-summary__card" id="earnings-month-card" hidden>
+                    <p class="earnings-summary__label" id="earnings-month-label">Totaal deze maand</p>
+                    <p class="earnings-summary__value" id="earnings-month-total">€&nbsp;0,00</p>
+                    <p class="earnings-summary__hint" id="earnings-month-count">0 ritten</p>
+                </div>
+            </div>
+            <div id="earnings-rides-strip" class="scheduled-rides-strip">
+                <p class="scheduled-rides-title">Afgeronde ritten</p>
+                <p class="earnings-loading" id="earnings-loading" hidden>Inkomsten laden…</p>
+                <p class="earnings-error" id="earnings-error" hidden></p>
+                <p class="earnings-empty empty" id="earnings-empty" hidden>Geen afgeronde ritten op deze dag.</p>
+                <div class="earnings-rides-list" id="earnings-rides-list"></div>
+            </div>
+        </div>
+
+        <div id="tab-panel-profile" class="driver-tab-panel profile-panel" data-main-tab-panel="profile" hidden>
+            <div class="driver-section-head"><h2>Profiel</h2></div>
+            <div class="card">
+                <div class="profile-info" id="profile-info" aria-live="polite">
+                    <p class="profile-info__name" id="profile-name">—</p>
+                    <dl class="profile-info__list">
+                        <div class="profile-info__row">
+                            <dt class="profile-info__label">E-mailadres</dt>
+                            <dd class="profile-info__value" id="profile-email">—</dd>
+                        </div>
+                        <div class="profile-info__row">
+                            <dt class="profile-info__label">Telefoonnummer</dt>
+                            <dd class="profile-info__value" id="profile-phone">—</dd>
+                        </div>
+                        <div class="profile-info__row">
+                            <dt class="profile-info__label">Bedrijf</dt>
+                            <dd class="profile-info__value" id="profile-company">—</dd>
+                        </div>
+                        <div class="profile-info__row">
+                            <dt class="profile-info__label">Accountstatus</dt>
+                            <dd class="profile-info__value" id="profile-account-status">—</dd>
+                        </div>
+                    </dl>
+                </div>
+                <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
+                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">
+                    <strong>Handleiding</strong>
+                    <span>Openen →</span>
+                </a>
+                <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
+            </div>
+        </div>
+
         <div id="payment-panel" hidden aria-label="Betaling">
-            <div class="toolbar" style="margin-bottom:1rem">
-                <h1 style="margin:0;font-size:1.125rem">Betaling</h1>
-                <button type="button" class="btn btn-ghost" id="btn-payment-close" style="width:auto;min-height:auto;padding:0.35rem 0.75rem">Sluiten</button>
+            <div class="driver-section-head">
+                <h2>Betaling</h2>
+                <button type="button" class="btn btn-ghost driver-section-head__close" id="btn-payment-close">Sluiten</button>
             </div>
             <div class="card">
                 <p class="offer-meta" style="margin:0 0 0.5rem">Te betalen bedrag</p>
@@ -1459,9 +2900,9 @@
             </div>
         </div>
         <div id="invoice-panel" hidden aria-label="Factuur versturen">
-            <div class="toolbar" style="margin-bottom:1rem">
-                <h1 style="margin:0;font-size:1.125rem">Factuur versturen</h1>
-                <button type="button" class="btn btn-ghost" id="btn-invoice-close" style="width:auto;min-height:auto;padding:0.35rem 0.75rem">Sluiten</button>
+            <div class="driver-section-head">
+                <h2>Factuur versturen</h2>
+                <button type="button" class="btn btn-ghost driver-section-head__close" id="btn-invoice-close">Sluiten</button>
             </div>
             <div class="card">
                 <p class="offer-meta" style="margin:0 0 0.25rem">De factuur wordt als PDF naar de klant gemaild.</p>
@@ -1473,6 +2914,26 @@
                 <p id="invoice-send-status" hidden role="status" aria-live="polite"></p>
             </div>
         </div>
+        </div>
+        <div class="dispatch-footer"></div>
+        <nav class="driver-bottom-nav" aria-label="Hoofdnavigatie">
+            <button type="button" class="driver-bottom-nav__btn is-active" data-main-tab="requests" aria-current="page">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Aanvragen</span>
+            </button>
+            <button type="button" class="driver-bottom-nav__btn" data-main-tab="trips">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
+                <span>Ritten</span>
+            </button>
+            <button type="button" class="driver-bottom-nav__btn" data-main-tab="earnings" id="nav-tab-earnings" hidden>
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 8v8M9.5 10.5c.5-1 1.5-1.5 2.5-1.5s2 .6 2 1.5-1 1.5-2.5 1.5-2.5.5-2.5 1.5.9 1.5 2.5 1.5 2-.5 2.5-1.5"/></svg>
+                <span>Inkomsten</span>
+            </button>
+            <button type="button" class="driver-bottom-nav__btn" data-main-tab="profile">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>
+                <span>Profiel</span>
+            </button>
+        </nav>
     </section>
 
 </div>
@@ -1486,7 +2947,7 @@
             <p class="driver-dialog__text">Het geplande ophaalmoment is verstreken. Wil je een nieuw moment kiezen?</p>
             <div class="driver-dialog__actions">
                 <button type="button" class="btn btn-primary" id="pickup-adjust-keep">Niet aanpassen</button>
-                <button type="button" class="btn" id="pickup-adjust-change">Aanpassen</button>
+                <button type="button" class="btn btn-danger" id="pickup-adjust-change">Aanpassen</button>
                 <button type="button" class="btn btn-ghost" id="pickup-adjust-cancel-ask">Annuleren</button>
             </div>
         </div>
@@ -1505,7 +2966,7 @@
             <input type="hidden" id="pickup-adjust-input">
             <div class="driver-dialog__actions">
                 <button type="button" class="btn btn-ghost" id="pickup-adjust-back">Terug</button>
-                <button type="button" class="btn btn-primary" id="pickup-adjust-confirm">Accepteren</button>
+                <button type="button" class="btn btn-primary" id="pickup-adjust-confirm">Voorstellen</button>
             </div>
         </div>
     </div>
@@ -1521,6 +2982,20 @@
         <div class="driver-dialog__actions">
             <button type="button" class="btn btn-cash-confirm" id="cash-confirm-ok">Bevestigen</button>
             <button type="button" class="btn btn-ghost" id="cash-confirm-cancel">Annuleren</button>
+        </div>
+    </div>
+</div>
+
+<div id="archive-delete-confirm-dialog" class="driver-dialog" hidden aria-hidden="true">
+    <div class="driver-dialog__backdrop" data-archive-delete-dismiss tabindex="-1"></div>
+    <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="archive-delete-confirm-title">
+        <h2 id="archive-delete-confirm-title" class="driver-dialog__title">Weet u het zeker?</h2>
+        <p id="archive-delete-confirm-text" class="driver-dialog__text">
+            U staat op het punt deze gearchiveerde rit permanent te verwijderen. Deze wijziging kan niet meer ongedaan worden gemaakt.
+        </p>
+        <div class="driver-dialog__actions">
+            <button type="button" class="btn btn-danger" id="archive-delete-confirm-ok">Definitief verwijderen</button>
+            <button type="button" class="btn btn-ghost" id="archive-delete-confirm-cancel">Annuleren</button>
         </div>
     </div>
 </div>
@@ -1554,10 +3029,11 @@ window.NEXA_TAXI_DRIVER = {
     streamEnabled: @json($streamEnabled ?? false),
     loginUrl: @json(url('/api/taxi/v1/driver/login')),
     appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
+    guideUrl: @json($guideUrl ?? url('/taxi/chauffeur/handleiding')),
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=82" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=108" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

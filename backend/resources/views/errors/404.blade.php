@@ -75,19 +75,24 @@
             background: #2f9229;
         }
         .page_404-brand {
-            margin-bottom: 8px;
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #888;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: center;
+        }
+        .page_404-brand img {
+            display: block;
+            height: 40px;
+            width: auto;
+            max-width: 180px;
+            object-fit: contain;
         }
     </style>
 </head>
 <body>
     <section class="page_404" role="main" aria-labelledby="error-404-title">
-        <div class="page_404-brand">NEXA</div>
+        <div class="page_404-brand">
+            @include('partials.nexa-brand-logo', ['class' => '', 'alt' => 'NEXA'])
+        </div>
         <div class="four_zero_four_bg">
             <h1 id="error-404-title">404</h1>
         </div>

@@ -11,7 +11,13 @@ use Illuminate\Support\Facades\DB;
 class TaxiDriverEligibilityService
 {
     /** @var list<string> */
-    private const CHAUFFEUR_ROLE_NAMES = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur'];
+    private const CHAUFFEUR_ROLE_NAMES = [
+        'chauffeur',
+        'taxi-chauffeur',
+        'taxi_chauffeur',
+        'taxichauffeur',
+        'chauffeur-inkomsten',
+    ];
 
     public function isChauffeurForCompany(User $user, int $companyId): bool
     {

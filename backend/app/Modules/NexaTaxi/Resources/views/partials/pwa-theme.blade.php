@@ -24,6 +24,7 @@
     html[data-theme="dark"] {
         --nexa-pwa-bg: #0f172a;
         --nexa-pwa-card: #1e293b;
+        --nexa-pwa-chrome: #1c1c1e;
         --nexa-pwa-text: #f8fafc;
         --nexa-pwa-muted: #94a3b8;
         --nexa-pwa-border: #334155;
@@ -35,6 +36,7 @@
     html[data-theme="light"] {
         --nexa-pwa-bg: #f1f5f9;
         --nexa-pwa-card: #ffffff;
+        --nexa-pwa-chrome: #ffffff;
         --nexa-pwa-text: #0f172a;
         --nexa-pwa-muted: #64748b;
         --nexa-pwa-border: #cbd5e1;
@@ -49,6 +51,7 @@
     html[data-theme="light"] {
         --bg: var(--nexa-pwa-bg);
         --card: var(--nexa-pwa-card);
+        --chrome: var(--nexa-pwa-chrome);
         --text: var(--nexa-pwa-text);
         --muted: var(--nexa-pwa-muted);
     }
@@ -62,13 +65,15 @@
         gap: 0.35rem;
         flex-shrink: 0;
     }
-    /* Chauffeur-app: theme blijft rechtsboven gefixed */
+    /* Theme rechtsboven; top via --nexa-pwa-theme-top (gecentreerd op titelrij) */
     body > .nexa-pwa-chrome-actions {
         position: fixed;
-        top: calc(1rem + env(safe-area-inset-top, 0px));
+        top: var(--nexa-pwa-theme-top, calc(1rem + env(safe-area-inset-top, 0px)));
         right: calc(1rem + env(safe-area-inset-right, 0px));
         z-index: 200;
         padding: 0;
+        height: 2.25rem;
+        align-items: center;
     }
     .nexa-pwa-theme-toggle {
         width: 2.25rem;
@@ -206,6 +211,82 @@
     btn.addEventListener('click', function () {
         applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
     });
+
+    function isActiveScreen(el) {
+        return !!(el && el.classList.contains('is-active') && !el.hidden);
+    }
+
+    function findThemeToggleAnchor() {
+        var login = document.getElementById('screen-login');
+        if (isActiveScreen(login)) {
+            return login.querySelector('h1');
+        }
+        var home = document.getElementById('screen-home');
+        if (isActiveScreen(home)) {
+            return home.querySelector('.home-top__row') || home.querySelector('#home-title') || home.querySelector('h1');
+        }
+        var dispatch = document.getElementById('screen-dispatch');
+        if (isActiveScreen(dispatch)) {
+            return dispatch.querySelector('.driver-app-header') ||
+                dispatch.querySelector('#dispatch-toolbar-title') ||
+                dispatch.querySelector('h1');
+        }
+        var guideTop = document.querySelector('.guide-top h1');
+        if (guideTop) {
+            return guideTop;
+        }
+        return document.querySelector('#screen-login h1');
+    }
+
+    function syncThemeToggleTop() {
+        var anchor = findThemeToggleAnchor();
+        if (!anchor) {
+            document.documentElement.style.removeProperty('--nexa-pwa-theme-top');
+            return;
+        }
+        var rect = anchor.getBoundingClientRect();
+        var chrome = document.getElementById('nexa-pwa-chrome-actions');
+        var chromeH = chrome ? (chrome.getBoundingClientRect().height || 36) : 36;
+        var top = Math.round(rect.top + (rect.height - chromeH) / 2);
+        document.documentElement.style.setProperty(
+            '--nexa-pwa-theme-top',
+            Math.max(0, top) + 'px'
+        );
+    }
+
+    function scheduleSyncThemeToggleTop() {
+        requestAnimationFrame(function () {
+            syncThemeToggleTop();
+            requestAnimationFrame(syncThemeToggleTop);
+        });
+    }
+
+    window.nexaPwaSyncThemeToggleTop = scheduleSyncThemeToggleTop;
+
+    window.addEventListener('resize', scheduleSyncThemeToggleTop);
+    window.addEventListener('orientationchange', scheduleSyncThemeToggleTop);
+    window.addEventListener('scroll', scheduleSyncThemeToggleTop, { passive: true });
+
+    if (typeof MutationObserver !== 'undefined') {
+        var mo = new MutationObserver(scheduleSyncThemeToggleTop);
+        ['screen-login', 'screen-home', 'screen-dispatch', 'guide-hint', 'install-app-hint', 'install-hint'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                mo.observe(el, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+            }
+        });
+        var app = document.getElementById('app');
+        if (app) {
+            mo.observe(app, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', scheduleSyncThemeToggleTop);
+    } else {
+        scheduleSyncThemeToggleTop();
+    }
+    window.addEventListener('load', scheduleSyncThemeToggleTop);
 })();
 </script>
 @endif

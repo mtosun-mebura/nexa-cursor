@@ -21,12 +21,14 @@ class RideDispatchOffer extends Model
         'expires_at',
         'responded_at',
         'decline_reason',
+        'archived_at',
     ];
 
     protected $casts = [
         'offered_at' => 'datetime',
         'expires_at' => 'datetime',
         'responded_at' => 'datetime',
+        'archived_at' => 'datetime',
         'wave' => 'integer',
     ];
 
@@ -87,25 +89,50 @@ class RideDispatchOffer extends Model
         return $query
             ->where('driver_id', $driverId)
             ->where('status', self::STATUS_DECLINED)
-            ->whereHas('rideRequest', fn ($q) => $q->whereNull('driver_id'))
-            ->ridePickupWithinQueueWindow($pickupCutoff);
+            ->whereNull('archived_at')
+            ->whereHas('rideRequest', function ($q) use ($pickupCutoff) {
+                $q->whereNull('driver_id')
+                    ->whereIn('status', [
+                        RideRequest::STATUS_PENDING_DISPATCH,
+                        RideRequest::STATUS_OFFERED,
+                    ])
+                    ->where(function ($q2) use ($pickupCutoff) {
+                        $q2->whereNull('pickup_at')
+                            ->orWhere('pickup_at', '>=', $pickupCutoff);
+                    });
+            });
     }
 
     /**
-     * Vrijgegeven of afgewezen verlopen ritten (zonder pickup-grace-filter) voor de Verlopen-pagina.
+     * Vrijgegeven/afgewezen of na grace verlopen aanbiedingen voor de Verlopen-pagina.
      */
-    public function scopeOverdueReleasedForDriver($query, int $driverId)
+    public function scopeOverdueReleasedForDriver($query, int $driverId, ?CarbonInterface $pickupCutoff = null)
     {
         return $query
             ->where('driver_id', $driverId)
-            ->where('status', self::STATUS_DECLINED)
-            ->whereHas('rideRequest', function ($q) {
+            ->whereIn('status', [self::STATUS_DECLINED, self::STATUS_EXPIRED])
+            ->whereNull('archived_at')
+            ->whereHas('rideRequest', function ($q) use ($pickupCutoff) {
                 $q->whereNull('driver_id')
                     ->whereNotNull('pickup_at')
                     ->whereIn('status', [
                         RideRequest::STATUS_PENDING_DISPATCH,
                         RideRequest::STATUS_OFFERED,
                     ]);
+                if ($pickupCutoff) {
+                    $q->where('pickup_at', '<', $pickupCutoff);
+                }
             });
+    }
+
+    /**
+     * Door deze chauffeur gearchiveerde verlopen/afgewezen aanbiedingen.
+     */
+    public function scopeArchivedForDriver($query, int $driverId)
+    {
+        return $query
+            ->where('driver_id', $driverId)
+            ->whereIn('status', [self::STATUS_DECLINED, self::STATUS_EXPIRED])
+            ->whereNotNull('archived_at');
     }
 }

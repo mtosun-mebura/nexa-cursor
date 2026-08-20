@@ -26,6 +26,11 @@ class GenerateContractInvoicesJob implements ShouldQueue
         $errors = 0;
 
         foreach ($contracts as $contract) {
+            if (app(\App\Services\NexaDemoAccountService::class)->isDemoCompanyId((int) ($contract->company_id ?? 0))) {
+                $skipped++;
+
+                continue;
+            }
             if ($invoices->findInvoiceForContractPeriod($contract->id, $period)) {
                 $skipped++;
 

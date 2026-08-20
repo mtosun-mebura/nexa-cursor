@@ -378,8 +378,8 @@
                                                    aria-label="Taalcode status-template">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
-                                            Eén Meta-template voor acceptatie, afwijzing (met optionele opmerking in de details), start, afronding, annulering en herdispatch.
-                                            Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> details.
+                                            Eén Meta-template voor acceptatie, afwijzing (met optionele opmerking), start, afronding, annulering en herdispatch.
+                                            Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> opmerking, <code>@{{5}}</code> chauffeur, <code>@{{6}}</code> ophaalmoment, <code>@{{7}}</code> ophaaladres.
                                         </p>
                                     </td>
                                 </tr>
@@ -387,7 +387,7 @@
                                     <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst (status)</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
-                                            Kopieer naar Meta als Hulpmiddel-sjabloon. Alleen <code>@{{3}}</code> wisselt per gebeurtenis.
+                                            Kopieer naar Meta als Hulpmiddel-sjabloon. <code>@{{3}}</code> (status) en <code>@{{4}}</code> (opmerking) wisselen per gebeurtenis; chauffeur en ophaalgegevens vullen automatisch.
                                         </p>
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['status'] ?? '' }}</pre>
                                     </td>
@@ -413,6 +413,76 @@
                                     <td class="min-w-56 text-secondary-foreground font-normal align-top">Voorbeeld statusbericht</td>
                                     <td class="min-w-0 w-full align-top">
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words py-3 h-auto min-h-[10rem]">{{ $whatsappStatusSamplePreview['preview'] ?? '' }}</pre>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="whatsapp-pickup-proposal-template">
+                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-time me-2"></i> Ophaalvoorstel (verlopen rit)'])
+                        <div class="settings-collapsible-body">
+                            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table mb-0">
+                                <colgroup>
+                                    <col class="admin-form-label-col">
+                                    <col>
+                                </colgroup>
+                                <tbody>
+                                <tr>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Template-naam</td>
+                                    <td class="min-w-0 w-full align-top">
+                                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 max-w-xl">
+                                            <input type="text"
+                                                   class="kt-input w-full min-w-0 flex-1"
+                                                   id="WHATSAPP_PICKUP_PROPOSAL_TEMPLATE"
+                                                   name="WHATSAPP_PICKUP_PROPOSAL_TEMPLATE"
+                                                   value="{{ old('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE', $whatsappPlatformSettings['WHATSAPP_PICKUP_PROPOSAL_TEMPLATE'] ?? 'rit_ophaal_voorstel') }}"
+                                                   placeholder="rit_ophaal_voorstel"
+                                                   autocomplete="off">
+                                            <input type="text"
+                                                   class="kt-input w-full sm:w-24 shrink-0"
+                                                   id="WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG"
+                                                   name="WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG"
+                                                   value="{{ old('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG', $whatsappPlatformSettings['WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG'] ?? 'nl') }}"
+                                                   placeholder="nl"
+                                                   autocomplete="off"
+                                                   aria-label="Taalcode ophaalvoorstel-template">
+                                        </div>
+                                        <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
+                                            Meta-template met <strong>twee Quick Reply-knoppen</strong>:
+                                            <code>Accepteren</code> (payload <code>pickup_accept</code>) en
+                                            <code>Weigeren</code> (payload <code>pickup_decline</code>).
+                                            Variabelen (elk maximaal 1×, in leesvolgorde):
+                                            <code>@{{1}}</code> klant,
+                                            <code>@{{2}}</code> bedrijf,
+                                            <code>@{{3}}</code> telefoon tenant,
+                                            <code>@{{4}}</code> huidig ophaalmoment,
+                                            <code>@{{5}}</code> voorstel,
+                                            <code>@{{6}}</code> ophaaladres,
+                                            <code>@{{7}}</code> afleveradres,
+                                            <code>@{{8}}</code> chauffeur.
+                                            Bronnummer: bedrijfsveld <code>phone</code> van de tenant (internationaal +31…).
+                                            Na Weigeren mag de klant een los tekstbericht sturen als opmerking.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst</td>
+                                    <td class="min-w-0 w-full align-top">
+                                        <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
+                                            Kopieer naar Meta als Utility-sjabloon en voeg de twee knoppen toe.
+                                            Elke parameter <code>@{{1}}</code>–<code>@{{8}}</code> mag maar 1× in de body staan.
+                                            Zet het telefoonnummer (<code>@{{3}}</code>) op een eigen regel zodat het in WhatsApp klikbaar is.
+                                            Geen Call-knop erbij: Quick Reply en Call-to-action mogen niet gemengd in één sjabloon.
+                                        </p>
+                                        <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['pickup_proposal'] ?? '' }}</pre>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voorbeeld</td>
+                                    <td class="min-w-0 w-full align-top">
+                                        <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words py-3 h-auto min-h-[10rem]">{{ $whatsappPickupProposalSamplePreview['preview'] ?? '' }}</pre>
                                     </td>
                                 </tr>
                                 </tbody>

@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\EmailTemplate;
 use App\Models\Candidate;
+use App\Models\EmailTemplate;
 use App\Modules\Skillmatching\Models\Vacancy;
 use Illuminate\Support\Facades\Mail;
 
@@ -17,20 +17,20 @@ class EmailTemplateService
         // Get the rejection email template
         $template = EmailTemplate::where('type', 'rejection')
             ->where('is_active', true)
-            ->where(function($q) use ($vacancy) {
+            ->where(function ($q) use ($vacancy) {
                 $q->whereNull('company_id')
-                  ->orWhere('company_id', $vacancy->company_id);
+                    ->orWhere('company_id', $vacancy->company_id);
             })
             ->orderBy('company_id', 'desc') // Prefer company-specific template
             ->first();
 
-        if (!$template) {
+        if (! $template) {
             throw new \Exception('Geen actieve afwijzings e-mail template gevonden.');
         }
 
         // Prepare variables
         $variables = [
-            'CANDIDATE_NAME' => $candidate->first_name . ' ' . $candidate->last_name,
+            'CANDIDATE_NAME' => $candidate->first_name.' '.$candidate->last_name,
             'CANDIDATE_FIRST_NAME' => $candidate->first_name,
             'CANDIDATE_LAST_NAME' => $candidate->last_name,
             'CANDIDATE_EMAIL' => $candidate->email,
@@ -47,14 +47,14 @@ class EmailTemplateService
 
         // Send email using send method with raw content
         Mail::send([], [], function ($message) use ($candidate, $subject, $htmlContent, $textContent) {
-            $message->to($candidate->email, $candidate->first_name . ' ' . $candidate->last_name)
-                    ->subject($subject);
-            
+            $message->to($candidate->email, $candidate->first_name.' '.$candidate->last_name)
+                ->subject($subject);
+
             // Set HTML body
             if ($htmlContent) {
                 $message->html($htmlContent);
             }
-            
+
             // Add plain text alternative
             if ($textContent) {
                 $message->text($textContent);
@@ -70,35 +70,35 @@ class EmailTemplateService
         // Get the interview update email template
         $template = EmailTemplate::where('type', 'interview_update')
             ->where('is_active', true)
-            ->where(function($q) use ($vacancy) {
+            ->where(function ($q) use ($vacancy) {
                 $q->whereNull('company_id')
-                  ->orWhere('company_id', $vacancy->company_id);
+                    ->orWhere('company_id', $vacancy->company_id);
             })
             ->orderBy('company_id', 'desc') // Prefer company-specific template
             ->first();
 
         // If no template exists, create a default message
-        if (!$template) {
-            $subject = 'Interview aangepast - ' . $vacancy->title;
-            $htmlContent = '<p>Beste ' . htmlspecialchars($candidate->first_name) . ',</p>';
-            $htmlContent .= '<p>Er zijn wijzigingen doorgevoerd in uw geplande interview voor de vacature "' . htmlspecialchars($vacancy->title) . '".</p>';
+        if (! $template) {
+            $subject = 'Interview aangepast - '.$vacancy->title;
+            $htmlContent = '<p>Beste '.htmlspecialchars($candidate->first_name).',</p>';
+            $htmlContent .= '<p>Er zijn wijzigingen doorgevoerd in uw geplande interview voor de vacature "'.htmlspecialchars($vacancy->title).'".</p>';
             $htmlContent .= '<p><strong>Wijzigingen:</strong></p><ul>';
             foreach ($changes as $change) {
-                $htmlContent .= '<li>' . htmlspecialchars($change) . '</li>';
+                $htmlContent .= '<li>'.htmlspecialchars($change).'</li>';
             }
             $htmlContent .= '</ul>';
-            $htmlContent .= '<p>Met vriendelijke groet,<br>' . htmlspecialchars($vacancy->company->name ?? 'Ons bedrijf') . '</p>';
+            $htmlContent .= '<p>Met vriendelijke groet,<br>'.htmlspecialchars($vacancy->company->name ?? 'Ons bedrijf').'</p>';
             $textContent = strip_tags($htmlContent);
         } else {
             // Prepare variables
             $variables = [
-                'CANDIDATE_NAME' => $candidate->first_name . ' ' . $candidate->last_name,
+                'CANDIDATE_NAME' => $candidate->first_name.' '.$candidate->last_name,
                 'CANDIDATE_FIRST_NAME' => $candidate->first_name,
                 'CANDIDATE_LAST_NAME' => $candidate->last_name,
                 'CANDIDATE_EMAIL' => $candidate->email,
                 'COMPANY_NAME' => $vacancy->company->name ?? 'Ons bedrijf',
                 'VACANCY_TITLE' => $vacancy->title,
-                'CHANGES' => '<ul><li>' . implode('</li><li>', array_map('htmlspecialchars', $changes)) . '</li></ul>',
+                'CHANGES' => '<ul><li>'.implode('</li><li>', array_map('htmlspecialchars', $changes)).'</li></ul>',
                 'CHANGES_TEXT' => implode("\n", $changes),
                 'VACANCY_REFERENCE' => $vacancy->reference_number ?? '',
             ];
@@ -111,13 +111,13 @@ class EmailTemplateService
 
         // Send email
         Mail::send([], [], function ($message) use ($candidate, $subject, $htmlContent, $textContent) {
-            $message->to($candidate->email, $candidate->first_name . ' ' . $candidate->last_name)
-                    ->subject($subject);
-            
+            $message->to($candidate->email, $candidate->first_name.' '.$candidate->last_name)
+                ->subject($subject);
+
             if ($htmlContent) {
                 $message->html($htmlContent);
             }
-            
+
             if ($textContent) {
                 $message->text($textContent);
             }
@@ -128,14 +128,14 @@ class EmailTemplateService
      * Send a test email using an email template with custom variables.
      *
      * @param  string|null  $fromEmail  Optioneel From-adres (bijv. ingelogde gebruiker); voorkomt SMTP 550 "not authorized to send on behalf of"
-     * @param  string|null  $fromName   Optioneel From-naam
+     * @param  string|null  $fromName  Optioneel From-naam
      */
     public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null): void
     {
         $logoCompanyId = $template->company_id
             ?? (function_exists('auth') && auth()->check() ? auth()->user()->company_id : null);
         $logoCompanyId = $logoCompanyId ? (int) $logoCompanyId : null;
-        $defaultCompanyName = $template->company?->name ?? 'Ons bedrijf';
+        $defaultCompanyName = $template->company?->name ?? 'NEXA Suite';
 
         $defaults = [
             'USER_NAME' => $toName ?: $toEmail,
@@ -173,22 +173,37 @@ class EmailTemplateService
 
         $logoService = app(CompanyEmailLogoService::class);
 
+        $replyToEmail = trim((string) ($merged['EMAIL_AANVRAAG'] ?? ''));
+        $replyToName = trim(trim((string) ($merged['VOORNAAM'] ?? '')).' '.trim((string) ($merged['ACHTERNAAM'] ?? '')));
+
+        $resolvedFromEmail = $fromEmail ?: config('mail.from.address');
+        $resolvedFromName = $fromName;
+        if ($resolvedFromName === null && $template->type === 'informatieaanvraag' && $template->company_id === null) {
+            $resolvedFromName = NexaContactAanvraagEmailTemplateService::FROM_NAME;
+        }
+        $resolvedFromName = $resolvedFromName ?: config('mail.from.name');
+
         Mail::send([], [], function ($message) use (
             $toEmail,
             $toName,
             $subject,
             $htmlContent,
             $textContent,
-            $fromEmail,
-            $fromName,
+            $resolvedFromEmail,
+            $resolvedFromName,
             $logoCompanyId,
             $defaultCompanyName,
-            $logoService
+            $logoService,
+            $replyToEmail,
+            $replyToName
         ) {
-            if ($fromEmail) {
-                $message->from($fromEmail, $fromName ?: $fromEmail);
+            if ($resolvedFromEmail) {
+                $message->from($resolvedFromEmail, $resolvedFromName ?: $resolvedFromEmail);
             }
             $message->to($toEmail, $toName)->subject($subject);
+            if (filter_var($replyToEmail, FILTER_VALIDATE_EMAIL) && strcasecmp($replyToEmail, $toEmail) !== 0) {
+                $message->replyTo($replyToEmail, $replyToName !== '' ? $replyToName : $replyToEmail);
+            }
             if ($htmlContent) {
                 $htmlBody = $logoService->embedInHtml(
                     $htmlContent,
@@ -261,10 +276,10 @@ class EmailTemplateService
 
         foreach ($variables as $key => $value) {
             $search = [
-                '{' . $key . '}',
-                '{{' . $key . '}}',
-                '{ ' . $key . ' }',
-                '{{ ' . $key . ' }}',
+                '{'.$key.'}',
+                '{{'.$key.'}}',
+                '{ '.$key.' }',
+                '{{ '.$key.' }}',
             ];
             $result = str_replace($search, $value, $result);
         }
@@ -283,33 +298,33 @@ class EmailTemplateService
         // Get the interview reactivation email template (or use update template as fallback)
         $template = EmailTemplate::where('type', 'interview_reactivation')
             ->where('is_active', true)
-            ->where(function($q) use ($vacancy) {
+            ->where(function ($q) use ($vacancy) {
                 $q->whereNull('company_id')
-                  ->orWhere('company_id', $vacancy->company_id);
+                    ->orWhere('company_id', $vacancy->company_id);
             })
             ->orderBy('company_id', 'desc')
             ->first();
 
         // Fallback to interview update template if reactivation template doesn't exist
-        if (!$template) {
+        if (! $template) {
             $template = EmailTemplate::where('type', 'interview_update')
                 ->where('is_active', true)
-                ->where(function($q) use ($vacancy) {
+                ->where(function ($q) use ($vacancy) {
                     $q->whereNull('company_id')
-                      ->orWhere('company_id', $vacancy->company_id);
+                        ->orWhere('company_id', $vacancy->company_id);
                 })
                 ->orderBy('company_id', 'desc')
                 ->first();
         }
 
-        if (!$template) {
+        if (! $template) {
             throw new \Exception('Geen actieve interview e-mail template gevonden.');
         }
 
         // Prepare interview details
         $interviewDate = $interview->scheduled_at ? $interview->scheduled_at->format('d-m-Y') : 'Niet opgegeven';
         $interviewTime = $interview->scheduled_at ? $interview->scheduled_at->format('H:i') : 'Niet opgegeven';
-        
+
         $typeMap = [
             'phone' => 'Telefoon',
             'video' => 'Video',
@@ -321,7 +336,7 @@ class EmailTemplateService
 
         // Prepare variables
         $variables = [
-            'CANDIDATE_NAME' => $candidate->first_name . ' ' . $candidate->last_name,
+            'CANDIDATE_NAME' => $candidate->first_name.' '.$candidate->last_name,
             'CANDIDATE_FIRST_NAME' => $candidate->first_name,
             'CANDIDATE_LAST_NAME' => $candidate->last_name,
             'CANDIDATE_EMAIL' => $candidate->email,
@@ -343,19 +358,19 @@ class EmailTemplateService
 
         // Send email to candidate
         Mail::send([], [], function ($message) use ($candidate, $subject, $htmlContent, $textContent) {
-            $message->to($candidate->email, $candidate->first_name . ' ' . $candidate->last_name)
-                    ->subject($subject)
-                    ->html($htmlContent)
-                    ->text($textContent);
+            $message->to($candidate->email, $candidate->first_name.' '.$candidate->last_name)
+                ->subject($subject)
+                ->html($htmlContent)
+                ->text($textContent);
         });
 
         // Send email to interviewer if email is provided
         if ($interview->interviewer_email && $interview->interviewer_email !== $candidate->email) {
             Mail::send([], [], function ($message) use ($interview, $subject, $htmlContent, $textContent) {
                 $message->to($interview->interviewer_email, $interview->interviewer_name ?? 'Interviewer')
-                        ->subject($subject)
-                        ->html($htmlContent)
-                        ->text($textContent);
+                    ->subject($subject)
+                    ->html($htmlContent)
+                    ->text($textContent);
             });
         }
 
@@ -368,53 +383,54 @@ class EmailTemplateService
     public function sendInterviewScheduledEmail(Candidate $candidate, Vacancy $vacancy, $interview)
     {
         // Try to find template specific to interview type (e.g., interview_phone, interview_video)
-        $interviewTypeTemplate = 'interview_' . $interview->type;
+        $interviewTypeTemplate = 'interview_'.$interview->type;
         $template = EmailTemplate::where('type', $interviewTypeTemplate)
             ->where('is_active', true)
-            ->where(function($q) use ($vacancy) {
+            ->where(function ($q) use ($vacancy) {
                 $q->whereNull('company_id')
-                  ->orWhere('company_id', $vacancy->company_id);
+                    ->orWhere('company_id', $vacancy->company_id);
             })
             ->orderBy('company_id', 'desc') // Prefer company-specific template
             ->first();
 
         // Fallback to general interview template if type-specific template doesn't exist
-        if (!$template) {
+        if (! $template) {
             $template = EmailTemplate::where('type', 'interview')
                 ->where('is_active', true)
-                ->where(function($q) use ($vacancy) {
+                ->where(function ($q) use ($vacancy) {
                     $q->whereNull('company_id')
-                      ->orWhere('company_id', $vacancy->company_id);
+                        ->orWhere('company_id', $vacancy->company_id);
                 })
                 ->orderBy('company_id', 'desc') // Prefer company-specific template
                 ->first();
         }
 
         // If still no template, use interview_confirmed as fallback
-        if (!$template) {
+        if (! $template) {
             $template = EmailTemplate::where('type', 'interview_confirmed')
                 ->where('is_active', true)
-                ->where(function($q) use ($vacancy) {
+                ->where(function ($q) use ($vacancy) {
                     $q->whereNull('company_id')
-                      ->orWhere('company_id', $vacancy->company_id);
+                        ->orWhere('company_id', $vacancy->company_id);
                 })
                 ->orderBy('company_id', 'desc')
                 ->first();
         }
 
         // If no template exists at all, create a default message
-        if (!$template) {
+        if (! $template) {
             \Log::warning('No active interview email template found', [
                 'interview_type' => $interview->type,
                 'company_id' => $vacancy->company_id,
             ]);
+
             return false;
         }
 
         // Prepare interview details
         $interviewDate = $interview->scheduled_at ? $interview->scheduled_at->format('d-m-Y') : 'Niet opgegeven';
         $interviewTime = $interview->scheduled_at ? $interview->scheduled_at->format('H:i') : 'Niet opgegeven';
-        
+
         $typeMap = [
             'phone' => 'Telefoon',
             'video' => 'Video',
@@ -432,7 +448,7 @@ class EmailTemplateService
 
         // Prepare variables
         $variables = [
-            'CANDIDATE_NAME' => $candidate->first_name . ' ' . $candidate->last_name,
+            'CANDIDATE_NAME' => $candidate->first_name.' '.$candidate->last_name,
             'CANDIDATE_FIRST_NAME' => $candidate->first_name,
             'CANDIDATE_LAST_NAME' => $candidate->last_name,
             'CANDIDATE_EMAIL' => $candidate->email,
@@ -456,13 +472,13 @@ class EmailTemplateService
         // Send email to candidate
         try {
             Mail::send([], [], function ($message) use ($candidate, $subject, $htmlContent, $textContent) {
-                $message->to($candidate->email, $candidate->first_name . ' ' . $candidate->last_name)
-                        ->subject($subject);
-                
+                $message->to($candidate->email, $candidate->first_name.' '.$candidate->last_name)
+                    ->subject($subject);
+
                 if ($htmlContent) {
                     $message->html($htmlContent);
                 }
-                
+
                 if ($textContent) {
                     $message->text($textContent);
                 }
@@ -481,6 +497,7 @@ class EmailTemplateService
                 'interview_id' => $interview->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -490,31 +507,33 @@ class EmailTemplateService
      */
     public function sendNotificationEmail(\App\Models\Notification $notification)
     {
-        if (!$notification->email_template_id) {
+        if (! $notification->email_template_id) {
             return false; // No email template selected
         }
 
         $template = EmailTemplate::find($notification->email_template_id);
-        if (!$template || !$template->is_active) {
+        if (! $template || ! $template->is_active) {
             \Log::warning('Email template not found or inactive', [
                 'notification_id' => $notification->id,
                 'email_template_id' => $notification->email_template_id,
             ]);
+
             return false;
         }
 
         $user = $notification->user;
-        if (!$user || !$user->email) {
+        if (! $user || ! $user->email) {
             \Log::warning('User not found or no email address', [
                 'notification_id' => $notification->id,
                 'user_id' => $notification->user_id,
             ]);
+
             return false;
         }
 
         // Prepare variables from notification and user data
         $variables = [
-            'USER_NAME' => $user->first_name . ' ' . $user->last_name,
+            'USER_NAME' => $user->first_name.' '.$user->last_name,
             'USER_FIRST_NAME' => $user->first_name,
             'USER_LAST_NAME' => $user->last_name,
             'USER_EMAIL' => $user->email,
@@ -547,7 +566,7 @@ class EmailTemplateService
                             }
                         }
                         if ($match->candidate) {
-                            $variables['CANDIDATE_NAME'] = $match->candidate->first_name . ' ' . $match->candidate->last_name;
+                            $variables['CANDIDATE_NAME'] = $match->candidate->first_name.' '.$match->candidate->last_name;
                             $variables['CANDIDATE_FIRST_NAME'] = $match->candidate->first_name;
                             $variables['CANDIDATE_LAST_NAME'] = $match->candidate->last_name;
                             $variables['CANDIDATE_EMAIL'] = $match->candidate->email;
@@ -565,13 +584,13 @@ class EmailTemplateService
         // Send email
         try {
             Mail::send([], [], function ($message) use ($user, $subject, $htmlContent, $textContent) {
-                $message->to($user->email, $user->first_name . ' ' . $user->last_name)
-                        ->subject($subject);
-                
+                $message->to($user->email, $user->first_name.' '.$user->last_name)
+                    ->subject($subject);
+
                 if ($htmlContent) {
                     $message->html($htmlContent);
                 }
-                
+
                 if ($textContent) {
                     $message->text($textContent);
                 }
@@ -590,8 +609,8 @@ class EmailTemplateService
                 'user_email' => $user->email,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
 }
-

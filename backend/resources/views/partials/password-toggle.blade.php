@@ -6,15 +6,20 @@
 <style>
 .js-pw-toggle-wrap { position: relative; display: block; width: 100%; }
 .js-pw-toggle-btn {
-    position: absolute; top: 0; bottom: 0; right: .5rem; margin: auto 0;
+    position: absolute; top: 50%; right: .5rem; bottom: auto;
+    transform: translateY(-50%);
     height: 1.75rem; width: 1.75rem;
     display: inline-flex; align-items: center; justify-content: center;
     padding: 0; border: 0; background: transparent; color: currentColor;
-    opacity: .55; cursor: pointer; border-radius: .375rem; line-height: 0; z-index: 3;
-    -webkit-appearance: none; appearance: none;
+    opacity: .55; cursor: pointer; border-radius: .375rem; line-height: 0; z-index: 4;
+    -webkit-appearance: none; appearance: none; margin: 0;
 }
 .js-pw-toggle-btn:hover, .js-pw-toggle-btn:focus { opacity: .95; outline: none; }
 .js-pw-toggle-btn svg { width: 1.15rem; height: 1.15rem; display: block; pointer-events: none; }
+.relative:has(> .js-pw-toggle-btn) > .validation-icon-wrapper,
+.js-pw-toggle-wrap:has(> .js-pw-toggle-btn) > .validation-icon-wrapper {
+    right: 2.6rem !important;
+}
 </style>
 <script>
 (function () {
@@ -68,10 +73,15 @@
             wrap.style.position = 'relative';
         }
 
-        // Op formulieren met form-validation.js staat er (soms) een validatie-icoon uiterst rechts
-        // (right: ~0.75rem). Dan plaatsen we het oogje links daarvan, zodat ze elkaar niet overlappen.
-        var hasValidationIcon = (wrap.querySelector && wrap.querySelector('.validation-icon-wrapper')) ||
-            (typeof input.closest === 'function' && input.closest('form[data-validate="true"]'));
+        // Margin onder het wrap i.p.v. de input, zodat het oogje verticaal
+        // in het midden van het veld blijft (niet van veld+margin).
+        if (window.getComputedStyle) {
+            var mb = getComputedStyle(input).marginBottom;
+            if (mb && mb !== '0px') {
+                wrap.style.marginBottom = mb;
+                input.style.marginBottom = '0';
+            }
+        }
 
         var btn = document.createElement('button');
         btn.type = 'button';
@@ -80,12 +90,9 @@
         btn.setAttribute('aria-label', 'Wachtwoord tonen');
         btn.setAttribute('aria-pressed', 'false');
         btn.innerHTML = EYE;
-        if (hasValidationIcon) {
-            btn.style.right = '2.5rem';
-            input.style.paddingRight = '4.25rem';
-        } else {
-            input.style.paddingRight = '2.6rem';
-        }
+
+        var validationIcon = wrap.querySelector && wrap.querySelector('.validation-icon-wrapper');
+        input.style.paddingRight = validationIcon ? '4.25rem' : '2.6rem';
         wrap.appendChild(btn);
 
         btn.addEventListener('click', function (e) {

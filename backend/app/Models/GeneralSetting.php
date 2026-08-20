@@ -38,6 +38,8 @@ class GeneralSetting extends Model
         'WHATSAPP_RIDE_STATUS_TEMPLATE',
         'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG',
         'WHATSAPP_RIDE_STATUS_EVENTS',
+        'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE',
+        'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG',
         'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED',
         // Algemene configuraties (admin.settings.general) — platform-breed
         'logo',
@@ -58,6 +60,7 @@ class GeneralSetting extends Model
         'info_request_success_icon_size',
         'info_request_success_image_size_percent',
         'info_request_success_image',
+        'nexa_pricing',
     ];
 
     protected $fillable = [

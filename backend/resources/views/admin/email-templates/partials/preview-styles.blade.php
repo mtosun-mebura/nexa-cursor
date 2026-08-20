@@ -109,7 +109,8 @@
 
     .email-preview-content table.info-request-fields td.info-request-field-value,
     .email-preview-content table.info-request-fields td.info-request-field-value--multiline {
-        width: auto !important;
+        width: 99% !important;
+        max-width: none !important;
         padding: 6px 10px 6px 10px !important;
         vertical-align: top !important;
         word-break: break-word !important;
@@ -118,14 +119,8 @@
         border: none !important;
     }
 
-    .email-preview-content tr.info-request-field-divider td {
-        padding: 0 !important;
-        margin: 0 !important;
-        height: 1px !important;
-        line-height: 1px !important;
-        font-size: 1px !important;
-        background-color: #d1d5db !important;
-        border: none !important;
+    .email-preview-content tr.info-request-field-divider {
+        display: none !important;
     }
 
     .email-preview-content table.info-request-fields td.info-request-field-value--multiline {

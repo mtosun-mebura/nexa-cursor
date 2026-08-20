@@ -6,11 +6,11 @@ use App\DTO\AiChat\AiChatWebhookPayload;
 use App\Models\GeneralSetting;
 use App\Models\User;
 use App\Models\WebsitePage;
-use App\Services\EnvService;
 use App\Services\AiChat\AiChatAccessService;
 use App\Services\AiChat\AiChatAssistantOrchestrator;
 use App\Services\AiChat\AiChatKnowledgeFallbackService;
 use App\Services\AiChat\AiChatMessageSettingsService;
+use App\Support\Tenancy\CentralDomains;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -37,6 +37,18 @@ class AiChatAssistantService
         $settingsModule = $isTaxi ? 'taxi' : 'default';
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $messages = app(AiChatMessageSettingsService::class);
+
+        if ($companyId === null && ! $isTaxi && $this->isCentralPublicChat()) {
+            return array_merge([
+                'module' => 'nexa',
+                'endpoint' => route('frontend.ai-chat.message'),
+                'channel' => 'public',
+                'greeting' => 'Hallo! Ik help je met vragen over NEXA Suite: de taxi-applicatie, contractvervoer, prijzen en pakketten, je website en hoe je contact opneemt. Waar kan ik je mee helpen?',
+                'title' => 'NEXA-assistent',
+                'subtitle' => 'Vragen over het platform',
+                'storageKey' => 'ai-chat-messages-nexa',
+            ], $this->chatMapsConfig());
+        }
 
         return array_merge([
             'module' => $isTaxi ? 'taxi' : 'default',
@@ -133,6 +145,13 @@ class AiChatAssistantService
             'googleMapsApiKey' => $mapsKey,
             'addressSearchUrl' => route('nexataxi.booking.address-search'),
         ];
+    }
+
+    private function isCentralPublicChat(): bool
+    {
+        $host = strtolower(trim((string) (request()->getHost() ?? '')));
+
+        return $host !== '' && CentralDomains::isCentral($host);
     }
 
     public function webhookSettingKey(string $moduleName): string
@@ -250,6 +269,15 @@ class AiChatAssistantService
             throw new RuntimeException('AI-chat webhook is niet geconfigureerd voor deze module.');
         }
 
+        if ($this->laravelCallbackTunnelIsDown()) {
+            Log::warning('AI chat slaat n8n over: Laravel callback-tunnel is offline', [
+                'laravel_api_url' => config('ai_chat.laravel_api_url'),
+                'message' => Str::limit($payload->message, 120),
+            ]);
+
+            return $this->localFallbackReply($payload, 'tunnel-offline');
+        }
+
         $response = Http::timeout(45)
             ->acceptJson()
             ->asJson()
@@ -279,38 +307,16 @@ class AiChatAssistantService
         }
 
         $reply = $this->extractReplyText($response->json(), $response->body());
-        if ($reply === null || trim($reply) === '') {
-            $knowledgeFallback = app(AiChatKnowledgeFallbackService::class)
-                ->search($payload->message, $module);
-            if ($knowledgeFallback !== null && trim($knowledgeFallback) !== '') {
-                Log::info('AI chat gebruikte kennisbank-fallback na leeg webhook-antwoord', [
-                    'module' => $module,
-                    'message' => Str::limit($payload->message, 120),
-                ]);
-
-                return trim($knowledgeFallback);
-            }
-
-            $fallback = $this->resolveWebsiteFallbackReply($payload->message, $payload->context->companyId);
-            if ($fallback !== null && trim($fallback) !== '') {
-                Log::info('AI chat gebruikte website-fallback na leeg webhook-antwoord', [
-                    'module' => $module,
-                    'message' => Str::limit($payload->message, 120),
-                ]);
-
-                return trim($fallback);
-            }
-
-            Log::warning('AI chat webhook gaf leeg antwoord', [
+        if ($this->isUnusableWebhookReply($reply)) {
+            Log::warning('AI chat negeert onbruikbaar n8n-antwoord', [
                 'module' => $module,
                 'url' => $webhookUrl,
-                'body' => Str::limit((string) $response->body(), 500),
+                'body' => Str::limit((string) $reply, 300),
             ]);
-
-            return app(AiChatMessageSettingsService::class)->notFoundMessage(
-                $payload->context->companyId,
-                $module,
-            );
+            $reply = null;
+        }
+        if ($reply === null || trim($reply) === '') {
+            return $this->localFallbackReply($payload, 'empty-webhook-reply');
         }
 
         return trim($reply);
@@ -329,9 +335,6 @@ class AiChatAssistantService
         return $orchestrator->handle($context, $message)->reply;
     }
 
-    /**
-     * @param  mixed  $payload
-     */
     public function extractReplyText(mixed $payload, ?string $rawBody = null): ?string
     {
         if (is_string($payload) && trim($payload) !== '') {
@@ -430,6 +433,7 @@ class AiChatAssistantService
         foreach ($answer as $item) {
             if (is_string($item) && trim($item) !== '') {
                 $textParts[] = trim($item);
+
                 continue;
             }
 
@@ -710,6 +714,90 @@ class AiChatAssistantService
         }
 
         return $message;
+    }
+
+    public function isUnusableWebhookReply(?string $reply): bool
+    {
+        $text = strtolower(trim((string) $reply));
+        if ($text === '') {
+            return true;
+        }
+
+        return str_contains($text, 'err_ngrok')
+            || str_contains($text, 'ngrok-free.dev')
+            || str_contains($text, 'ngrok-free.app')
+            || (str_contains($text, 'endpoint') && str_contains($text, 'is offline'));
+    }
+
+    private function laravelCallbackTunnelIsDown(): bool
+    {
+        $base = rtrim((string) config('ai_chat.laravel_api_url', ''), '/');
+        if ($base === '') {
+            return false;
+        }
+
+        $host = strtolower((string) (parse_url($base, PHP_URL_HOST) ?: ''));
+        if ($host === '' || ! str_contains($host, 'ngrok')) {
+            return false;
+        }
+
+        try {
+            $healthPath = (string) config('ai_chat.laravel_live_query_path', '/integrations/n8n/ai-chat/live-query');
+            $healthUrl = $base.rtrim($healthPath, '/').'/health';
+            $response = Http::timeout(3)
+                ->withHeaders(['ngrok-skip-browser-warning' => '1'])
+                ->get($healthUrl);
+
+            if ($response->successful()) {
+                return false;
+            }
+
+            $body = strtolower((string) $response->body());
+
+            return $response->status() === 404
+                || str_contains($body, 'err_ngrok')
+                || str_contains($body, 'offline');
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    private function localFallbackReply(AiChatWebhookPayload $payload, string $reason): string
+    {
+        $module = $payload->context->module;
+        $knowledgeFallback = app(AiChatKnowledgeFallbackService::class)
+            ->search($payload->message, $module);
+        if ($knowledgeFallback !== null && trim($knowledgeFallback) !== '') {
+            Log::info('AI chat gebruikte kennisbank-fallback', [
+                'reason' => $reason,
+                'module' => $module,
+                'message' => Str::limit($payload->message, 120),
+            ]);
+
+            return trim($knowledgeFallback);
+        }
+
+        $fallback = $this->resolveWebsiteFallbackReply($payload->message, $payload->context->companyId);
+        if ($fallback !== null && trim($fallback) !== '') {
+            Log::info('AI chat gebruikte website-fallback', [
+                'reason' => $reason,
+                'module' => $module,
+                'message' => Str::limit($payload->message, 120),
+            ]);
+
+            return trim($fallback);
+        }
+
+        Log::warning('AI chat had geen lokaal fallback-antwoord', [
+            'reason' => $reason,
+            'module' => $module,
+            'message' => Str::limit($payload->message, 120),
+        ]);
+
+        return app(AiChatMessageSettingsService::class)->notFoundMessage(
+            $payload->context->companyId,
+            $module,
+        );
     }
 
     private function plainBodyFallback(?string $rawBody): ?string

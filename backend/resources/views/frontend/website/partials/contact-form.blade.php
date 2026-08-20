@@ -9,9 +9,9 @@
     </div>
 @endif
 
-<form method="POST" action="{{ route('contact.submit') }}" class="space-y-6">
+<form method="POST" action="{{ route('contact.submit') }}" class="relative overflow-hidden space-y-6">
     @csrf
-    <input type="text" name="website" style="display: none;" tabindex="-1" autocomplete="off">
+    @include('frontend.website.components.partials.public-form-honeypot', ['honeypotId' => 'contact-form-website'])
     <input type="hidden" name="_submit_time" value="{{ time() }}">
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

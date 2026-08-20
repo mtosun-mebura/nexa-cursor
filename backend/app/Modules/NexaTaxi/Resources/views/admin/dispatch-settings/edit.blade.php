@@ -72,25 +72,26 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Grace na ophaalmoment (uren)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Verlopen ophaalmoment in aanvragen (minuten)</td>
                     <td class="min-w-48 w-full pt-4">
                         <input
                             type="number"
-                            name="past_pickup_grace_hours"
-                            id="past_pickup_grace_hours"
-                            class="kt-input w-full max-w-md @error('past_pickup_grace_hours') border-destructive @enderror"
-                            min="{{ $minPastPickupGraceHours }}"
-                            max="{{ $maxPastPickupGraceHours }}"
+                            name="past_pickup_grace_minutes"
+                            id="past_pickup_grace_minutes"
+                            class="kt-input w-full max-w-md @error('past_pickup_grace_minutes') border-destructive @enderror"
+                            min="{{ $minPastPickupGraceMinutes }}"
+                            max="{{ $maxPastPickupGraceMinutes }}"
                             step="1"
                             required
-                            value="{{ old('past_pickup_grace_hours', $pastPickupGraceHours) }}"
+                            value="{{ old('past_pickup_grace_minutes', $pastPickupGraceMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            Ritten met een ophaalmoment in het verleden blijven nog zo lang in de chauffeur-wachtrij staan.
-                            Daarna verdwijnen ze automatisch uit de inbox (standaard server: {{ $envDefaultPastPickupGraceHours }} uur).
-                            Tussen {{ $minPastPickupGraceHours }} en {{ $maxPastPickupGraceHours }} uur.
+                            Zodra het ophaalmoment voorbij is, blijft de rit nog zo lang onder Nieuwe ritaanvraag
+                            (met rode verlopen-banner). Daarna alleen onder Verlopen ritten.
+                            Standaard server: {{ $envDefaultPastPickupGraceMinutes }} minuten.
+                            Tussen {{ $minPastPickupGraceMinutes }} en {{ $maxPastPickupGraceMinutes }} minuten.
                         </p>
-                        @error('past_pickup_grace_hours')
+                        @error('past_pickup_grace_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                         @enderror
                     </td>
@@ -322,14 +323,23 @@
                             <p class="text-xs text-muted-foreground mb-2 break-all">
                                 Webhook: {{ $mollieSummary['webhook_url'] }}
                             </p>
-                            @if($canManagePaymentProviders)
+                            @if(auth()->user()->hasRole('super-admin'))
+                                <a href="{{ route('admin.settings.index') }}#mollie" class="kt-btn kt-btn-outline kt-btn-sm">
+                                    Mollie-instellingen bewerken
+                                </a>
+                            @elseif($canManagePaymentProviders)
                                 <a href="{{ route('admin.payment-providers.edit', $mollieSummary['provider']) }}" class="kt-btn kt-btn-outline kt-btn-sm">
                                     Mollie-instellingen bewerken
                                 </a>
                             @endif
                         @else
                             <p class="text-sm text-secondary-foreground mb-2">
-                                Er is nog geen actieve Mollie-provider voor dit bedrijf. Configureer API-sleutel en webhook onder <strong>Betalingsproviders</strong>.
+                                Er is nog geen actieve Mollie-omgeving voor dit bedrijf. Vul de API-sleutel van <strong>dit bedrijf</strong> in — chauffeur-betalingen komen dan op die Mollie-rekening.
+                                @if(auth()->user()->hasRole('super-admin'))
+                                    Super-admin: <strong>Configuraties → Mollie (tenant)</strong>.
+                                @else
+                                    Onder <strong>Betalingsproviders</strong>.
+                                @endif
                             </p>
                             <p class="text-xs text-muted-foreground mb-2">
                                 Aanbevolen webhook voor taxi-betalingen: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl }}</code>
@@ -337,7 +347,11 @@
                             <p class="text-xs text-muted-foreground mb-2">
                                 Lokaal (<code>localhost</code> of <code>192.168.x.x</code>): Mollie kan die URL niet bereiken. Betalingen werken zonder webhook via terugkeer-URL en polling in de chauffeur-app. Voor webhooks: gebruik een tunnel (ngrok) en zet <code>TAXI_MOLLIE_WEBHOOK_URL</code> in <code>.env</code>.
                             </p>
-                            @if($canManagePaymentProviders)
+                            @if(auth()->user()->hasRole('super-admin'))
+                                <a href="{{ route('admin.settings.index') }}#mollie" class="kt-btn kt-btn-outline kt-btn-sm">
+                                    Mollie instellen
+                                </a>
+                            @elseif($canManagePaymentProviders)
                                 <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-outline kt-btn-sm">
                                     Mollie-provider aanmaken
                                 </a>

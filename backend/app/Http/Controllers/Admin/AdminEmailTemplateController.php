@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
-use App\Models\EmailTemplate;
+use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\EmailTemplate;
+use App\Models\InfoRequestFormField;
 use App\Models\User;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
 use App\Services\InformatieaanvraagEmailHtmlNormalizer;
 use App\Services\MenuService;
-use App\Models\InfoRequestFormField;
 use Illuminate\Http\Request;
 
 class AdminEmailTemplateController extends Controller
@@ -38,6 +38,7 @@ class AdminEmailTemplateController extends Controller
             $vars[static::fieldNameToVariableKey($field->name)] = $field->label;
         }
         $vars['DATUM_AANVRAAG'] = 'Datum/tijd aanvraag';
+
         return $vars;
     }
 
@@ -57,8 +58,9 @@ class AdminEmailTemplateController extends Controller
         }
         $rules = [];
         foreach ($formFields as $field) {
-            $rules['test_' . $field->name] = $field->getValidationRules();
+            $rules['test_'.$field->name] = $field->getValidationRules();
         }
+
         return $rules;
     }
 
@@ -176,7 +178,7 @@ class AdminEmailTemplateController extends Controller
         $activeModuleKeys = [];
         $grouped = $menuService->getModulePermissionsGrouped();
         foreach ($grouped as $moduleData) {
-            if (!empty($moduleData['module'])) {
+            if (! empty($moduleData['module'])) {
                 $activeModuleKeys[] = $moduleData['module'];
             }
         }
@@ -186,6 +188,7 @@ class AdminEmailTemplateController extends Controller
                 $allowed[] = $type;
             }
         }
+
         return $allowed;
     }
 
@@ -241,7 +244,7 @@ class AdminEmailTemplateController extends Controller
 
     public function index(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
         }
 
@@ -251,12 +254,12 @@ class AdminEmailTemplateController extends Controller
         $query = EmailTemplate::with('company');
 
         $query = $this->applyEmailTemplateListFilter($query);
-        
+
         // Filter op type
         if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
-        
+
         // Filter op status
         if ($request->filled('status')) {
             if ($request->status === 'active') {
@@ -265,52 +268,52 @@ class AdminEmailTemplateController extends Controller
                 $query->where('is_active', false);
             }
         }
-        
+
         // Filter op bedrijf (alleen voor super-admin)
         if ($request->filled('company') && auth()->user()->hasRole('super-admin')) {
             $query->where('company_id', $request->company);
         }
-        
+
         // Search functionality
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('subject', 'like', "%{$search}%")
-                  ->orWhere('type', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhereHas('company', function($companyQuery) use ($search) {
-                      $companyQuery->where('name', 'like', "%{$search}%");
-                  });
+                    ->orWhere('subject', 'like', "%{$search}%")
+                    ->orWhere('type', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhereHas('company', function ($companyQuery) use ($search) {
+                        $companyQuery->where('name', 'like', "%{$search}%");
+                    });
             });
         }
-        
+
         // Sorting
         $sortField = $request->get('sort', 'id');
         $sortDirection = $request->get('direction', 'asc');
-        
+
         $allowedSortFields = ['id', 'name', 'type', 'company_id', 'is_active', 'created_at'];
-        
+
         // Set default direction based on sort field
-        if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+        if (! $sortDirection || ! in_array($sortDirection, ['asc', 'desc'])) {
             if (in_array($sortField, ['created_at'])) {
                 $sortDirection = 'desc';
             } else {
                 $sortDirection = 'asc';
             }
         }
-        
+
         if (in_array($sortField, $allowedSortFields)) {
             if ($sortField === 'company_id') {
                 $query->join('companies', 'email_templates.company_id', '=', 'companies.id')
-                      ->orderBy('companies.name', $sortDirection)
-                      ->select('email_templates.*');
+                    ->orderBy('companies.name', $sortDirection)
+                    ->select('email_templates.*');
             } elseif ($sortField === 'is_active') {
-                $query->orderByRaw("
+                $query->orderByRaw('
                     CASE
                         WHEN is_active = false THEN 1
                         WHEN is_active = true THEN 2
-                    END " . $sortDirection
+                    END '.$sortDirection
                 )->orderBy('id', 'asc');
             } else {
                 $query->orderBy($sortField, $sortDirection)->orderBy('id', 'asc');
@@ -318,21 +321,21 @@ class AdminEmailTemplateController extends Controller
         } else {
             $query->orderBy('id', 'asc');
         }
-        
+
         // Load all email templates for client-side pagination
         $emailTemplates = $query->get();
-        
+
         // Calculate statistics
         $statsQuery = EmailTemplate::query();
         $statsQuery = $this->applyEmailTemplateListFilter($statsQuery);
-        
+
         $stats = [
             'total_templates' => (clone $statsQuery)->count(),
             'active' => (clone $statsQuery)->where('is_active', true)->count(),
             'inactive' => (clone $statsQuery)->where('is_active', false)->count(),
             'unique_types' => (clone $statsQuery)->distinct('type')->count('type'),
         ];
-        
+
         // Get companies for filter (only for super-admin)
         $companies = auth()->user()->hasRole('super-admin') ? Company::orderBy('name')->get() : collect();
 
@@ -344,14 +347,14 @@ class AdminEmailTemplateController extends Controller
 
     public function create()
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
         }
-        
+
         $query = Company::query();
         $query = $this->applyTenantFilter($query);
         $companies = $query->get();
-        
+
         $templateVariables = static::templateVariablesForType(old('type'));
 
         // Default HTML template
@@ -425,7 +428,7 @@ class AdminEmailTemplateController extends Controller
                                 Er is een informatieaanvraag binnengekomen met de volgende gegevens:
                             </p>
                             <table role="presentation" class="info-request-fields" width="100%" style="width: 100%; border-collapse: collapse; margin: 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left; table-layout: fixed;">
-                                <colgroup><col style="width: 175px;"><col></colgroup>
+                                <colgroup><col width="175" style="width: 175px;"><col width="*" style="width: auto;"></colgroup>
 {{ DYNAMIC_FORM_FIELDS }}
                             </table>
                             <p style="margin: 0 0 8px 0; color: #333333; font-size: 16px; font-weight: bold;">Omschrijving / vraag:</p>
@@ -446,7 +449,7 @@ class AdminEmailTemplateController extends Controller
     </table>
 </body>
 </html>';
-        
+
         $menuService = app(MenuService::class);
         $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
         $typeLabels = static::emailTemplateTypeLabels();
@@ -483,7 +486,7 @@ class AdminEmailTemplateController extends Controller
 
     public function store(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
         }
 
@@ -493,7 +496,7 @@ class AdminEmailTemplateController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
-            'type' => ['required', 'string', 'max:50', 'in:' . implode(',', $allowedTypes)],
+            'type' => ['required', 'string', 'max:50', 'in:'.implode(',', $allowedTypes)],
             'html_content' => 'required|string',
             'text_content' => 'nullable|string',
             'description' => 'nullable|string',
@@ -515,7 +518,7 @@ class AdminEmailTemplateController extends Controller
         if ($request->filled('recipient_type') && $request->recipient_type === 'user') {
             $emailTemplateData['recipient_email'] = null;
         }
-        if (!$request->filled('recipient_type')) {
+        if (! $request->filled('recipient_type')) {
             $emailTemplateData['recipient_type'] = null;
             $emailTemplateData['recipient_user_id'] = null;
             $emailTemplateData['recipient_email'] = null;
@@ -536,16 +539,17 @@ class AdminEmailTemplateController extends Controller
                     ? $emailTemplate->getOrderedFormFields()
                     : collect();
                 foreach ($formFields as $field) {
-                    $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_' . $field->name, '');
+                    $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_'.$field->name, '');
                 }
                 $toName = $toEmail;
                 if ($formFields->count() >= 2) {
-                    $toName = trim($request->input('test_' . $formFields->get(0)->name, '') . ' ' . $request->input('test_' . $formFields->get(1)->name, ''));
+                    $toName = trim($request->input('test_'.$formFields->get(0)->name, '').' '.$request->input('test_'.$formFields->get(1)->name, ''));
                 } elseif ($formFields->isNotEmpty()) {
-                    $toName = trim((string) $request->input('test_' . $formFields->first()->name, '')) ?: $toEmail;
+                    $toName = trim((string) $request->input('test_'.$formFields->first()->name, '')) ?: $toEmail;
                 }
                 app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables);
-                return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template aangemaakt en testmail verstuurd naar ' . $toEmail);
+
+                return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template aangemaakt en testmail verstuurd naar '.$toEmail);
             }
         }
 
@@ -554,15 +558,15 @@ class AdminEmailTemplateController extends Controller
 
     public function show(EmailTemplate $emailTemplate)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($emailTemplate)) {
+        if (! $this->canAccessResource($emailTemplate)) {
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
-        
+
         $templateVariables = static::templateVariablesForType($emailTemplate->type);
 
         $tenantId = $this->getTenantId();
@@ -584,30 +588,30 @@ class AdminEmailTemplateController extends Controller
 
     public function edit(EmailTemplate $emailTemplate)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($emailTemplate)) {
+        if (! $this->canAccessResource($emailTemplate)) {
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
-        
+
         $query = Company::query();
         $query = $this->applyTenantFilter($query);
         $companies = $query->get();
-        
+
         $templateVariables = static::templateVariablesForType($emailTemplate->type);
 
         $tenantId = $this->getTenantId();
         $users = $tenantId
             ? User::where('company_id', $tenantId)->orderBy('first_name')->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'email'])
             : collect();
-        
+
         $menuService = app(MenuService::class);
         $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
         // Ensure current template type is in the list when editing (e.g. module was disabled later)
-        if (!in_array($emailTemplate->type, $allowedTypes, true)) {
+        if (! in_array($emailTemplate->type, $allowedTypes, true)) {
             $allowedTypes[] = $emailTemplate->type;
         }
         $typeLabels = static::emailTemplateTypeLabels();
@@ -626,26 +630,26 @@ class AdminEmailTemplateController extends Controller
 
     public function update(Request $request, EmailTemplate $emailTemplate)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($emailTemplate)) {
+        if (! $this->canAccessResource($emailTemplate)) {
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
 
         $menuService = app(MenuService::class);
         $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
         // When updating, allow keeping the current type even if its module is now disabled
-        if (!in_array($emailTemplate->type, $allowedTypes, true)) {
+        if (! in_array($emailTemplate->type, $allowedTypes, true)) {
             $allowedTypes[] = $emailTemplate->type;
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
-            'type' => ['required', 'string', 'max:50', 'in:' . implode(',', $allowedTypes)],
+            'type' => ['required', 'string', 'max:50', 'in:'.implode(',', $allowedTypes)],
             'html_content' => 'required|string',
             'text_content' => 'nullable|string',
             'description' => 'nullable|string',
@@ -669,7 +673,7 @@ class AdminEmailTemplateController extends Controller
             $emailTemplateData['form_field_order'] = array_values(array_map('intval', $emailTemplateData['form_field_order']));
             $required = [];
             foreach ($emailTemplateData['form_field_order'] as $fieldId) {
-                $required[(string) $fieldId] = $request->boolean('form_field_required.' . $fieldId);
+                $required[(string) $fieldId] = $request->boolean('form_field_required.'.$fieldId);
             }
             $emailTemplateData['form_field_required'] = $required;
         }
@@ -679,7 +683,7 @@ class AdminEmailTemplateController extends Controller
         if ($request->filled('recipient_type') && $request->recipient_type === 'user') {
             $emailTemplateData['recipient_email'] = null;
         }
-        if (!$request->filled('recipient_type')) {
+        if (! $request->filled('recipient_type')) {
             $emailTemplateData['recipient_type'] = null;
             $emailTemplateData['recipient_user_id'] = null;
             $emailTemplateData['recipient_email'] = null;
@@ -693,6 +697,7 @@ class AdminEmailTemplateController extends Controller
         }
 
         $emailTemplate->update($emailTemplateData);
+
         return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', 'E-mail template succesvol bijgewerkt.');
     }
 
@@ -800,49 +805,51 @@ class AdminEmailTemplateController extends Controller
 
     public function toggleStatus(EmailTemplate $emailTemplate)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om e-mail templates te bewerken.'], 403);
             }
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
 
-        if (!$this->canAccessResource($emailTemplate)) {
+        if (! $this->canAccessResource($emailTemplate)) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json(['success' => false, 'message' => 'Je hebt geen toegang tot deze e-mail template.'], 403);
             }
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
 
-        $emailTemplate->update(['is_active' => !$emailTemplate->is_active]);
+        $emailTemplate->update(['is_active' => ! $emailTemplate->is_active]);
 
         if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
             return response()->json(['success' => true, 'is_active' => $emailTemplate->fresh()->is_active]);
         }
+
         return redirect()->back()->with('success', 'Status bijgewerkt.');
     }
 
     public function destroy(EmailTemplate $emailTemplate)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te verwijderen.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($emailTemplate)) {
+        if (! $this->canAccessResource($emailTemplate)) {
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
-        
+
         $emailTemplate->delete();
+
         return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol verwijderd.');
     }
 
     public function sendTest(Request $request, EmailTemplate $emailTemplate)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
-        if (!$this->canAccessResource($emailTemplate)) {
+        if (! $this->canAccessResource($emailTemplate)) {
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
 
@@ -851,7 +858,7 @@ class AdminEmailTemplateController extends Controller
             : collect();
         $rules = [];
         foreach ($formFields as $field) {
-            $key = 'test_' . $field->name;
+            $key = 'test_'.$field->name;
             $rules[$key] = $emailTemplate->validationRulesForFormField($field);
         }
         if ($rules) {
@@ -859,32 +866,32 @@ class AdminEmailTemplateController extends Controller
         }
 
         $toEmail = $emailTemplate->getRecipientEmailAddress();
-        if (!$toEmail) {
+        if (! $toEmail) {
             return redirect()->back()->with('error', 'Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).');
         }
 
         $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
         foreach ($formFields as $field) {
-            $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_' . $field->name, '');
+            $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_'.$field->name, '');
         }
         $toName = $toEmail;
         if ($formFields->isNotEmpty()) {
             $first = $formFields->first();
-            $nameKey = 'test_' . $first->name;
+            $nameKey = 'test_'.$first->name;
             $toName = trim((string) $request->input($nameKey, ''));
         }
         if ($toName === '' && $formFields->count() >= 2) {
             $second = $formFields->get(1);
-            $toName = trim($request->input('test_' . $formFields->get(0)->name, '') . ' ' . $request->input('test_' . $second->name, ''));
+            $toName = trim($request->input('test_'.$formFields->get(0)->name, '').' '.$request->input('test_'.$second->name, ''));
         }
         if ($toName === '') {
             $toName = $toEmail;
         }
         $user = auth()->user();
         $fromEmail = $user?->email;
-        $fromName = $user ? trim($user->first_name . ' ' . $user->last_name) : null;
+        $fromName = $user ? trim($user->first_name.' '.$user->last_name) : null;
         app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, $fromEmail, $fromName ?: null);
 
-        return redirect()->back()->with('success', 'Testmail verstuurd naar ' . $toEmail);
+        return redirect()->back()->with('success', 'Testmail verstuurd naar '.$toEmail);
     }
 }

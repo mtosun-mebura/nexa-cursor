@@ -12,7 +12,7 @@ class NexaTaxiBookingPricingService
     /**
      * Standaard accentkleur (rgb(57, 113, 243)) voor de Taxi boekingsmodule: primair + actieve tab, en fallbacks in de UI.
      */
-    public const DEFAULT_BRAND_ACCENT_HEX = '#3971f3';
+    public const DEFAULT_BRAND_ACCENT_HEX = '#f97316';
 
     public function __construct(
         protected ModuleDatabaseService $moduleDb,
@@ -287,6 +287,7 @@ class NexaTaxiBookingPricingService
                 'features' => [trim((string) ($sectionConfig['texts']['person_range_feature_text'] ?? 'Tarief op basis van aantal personen')) ?: 'Tarief op basis van aantal personen'],
                 'vehicle_id' => $personRangeVehicle?->id,
                 'vehicle_name' => $personRangeVehicle?->name,
+                'seats' => $personRangeVehicle ? max(0, (int) ($personRangeVehicle->seats ?? 0)) : null,
                 'image_url' => $personRangeImageUrl,
                 'price' => $total,
                 'old_price' => $baseOldTotal > $total ? $baseOldTotal : null,
@@ -348,6 +349,7 @@ class NexaTaxiBookingPricingService
                     'features' => $features,
                     'vehicle_id' => $vehicleForDisplay?->id,
                     'vehicle_name' => $vehicleForDisplay?->name,
+                    'seats' => $vehicleForDisplay ? max(0, (int) ($vehicleForDisplay->seats ?? 0)) : null,
                     'image_url' => $this->resolveVehicleImageUrlForOffer($vehicleForDisplay),
                     'price' => $total,
                     'old_price' => $oldTotal > $total ? $oldTotal : null,

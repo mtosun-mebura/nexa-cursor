@@ -48,4 +48,17 @@ class FrontendComponentServiceTest extends TestCase
             FrontendComponentService::normalizeComponentSectionKey('component:nexa.google_reviews')
         );
     }
+
+    public function test_screenshot_gallery_and_comparison_table_are_page_components(): void
+    {
+        $service = app(FrontendComponentService::class);
+
+        $this->assertNotNull($service->getById('website.screenshot_gallery'));
+        $this->assertNotNull($service->getById('website.comparison_table'));
+        $this->assertNotNull($service->getById('website.pricing_packages'));
+        $ids = $service->availableForPage(null)->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('website.screenshot_gallery', $ids);
+        $this->assertContains('website.comparison_table', $ids);
+        $this->assertContains('website.pricing_packages', $ids);
+    }
 }

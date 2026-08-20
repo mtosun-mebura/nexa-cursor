@@ -137,6 +137,8 @@ class Module extends BaseModule
             'ai_chatbot.create',
             'ai_chatbot.update',
             'ai_chatbot.delete',
+            'earnings.view',
+            'earnings.view_month',
         ];
     }
 }

@@ -3,7 +3,6 @@
 <head>
     @include('layouts.partials.head')
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') - Nexa Skillmatching</title>
 
     <!-- Theme Mode -->
     <script data-navigate-once>

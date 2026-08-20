@@ -1,10 +1,10 @@
 {
-  "_bootstrap-CPkzYBNQ.js": {
-    "file": "assets/bootstrap-CPkzYBNQ.js",
+  "_bootstrap-DEPrlejE.js": {
+    "file": "assets/bootstrap-DEPrlejE.js",
     "name": "bootstrap"
   },
-  "_runtime-dom.esm-bundler-Bk8zr2wy.js": {
-    "file": "assets/runtime-dom.esm-bundler-Bk8zr2wy.js",
+  "_runtime-dom.esm-bundler-DQmk46Du.js": {
+    "file": "assets/runtime-dom.esm-bundler-DQmk46Du.js",
     "name": "runtime-dom.esm-bundler"
   },
   "node_modules/flag-icons/flags/1x1/ad.svg": {
@@ -2176,7 +2176,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CzJuzU0d.css",
+    "file": "assets/app-RAVx5F7-.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2184,57 +2184,57 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-Gu_b4y8f.js",
+    "file": "assets/app-yP8-Y8cn.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_bootstrap-CPkzYBNQ.js"
+      "_bootstrap-DEPrlejE.js"
     ],
     "css": [
-      "assets/app-CWoeGQUe.css"
+      "assets/app-DdRkytdv.css"
     ]
   },
   "resources/js/frontend-app.js": {
-    "file": "assets/frontend-app-D_cWppn7.js",
+    "file": "assets/frontend-app-De09Nm0u.js",
     "name": "frontend-app",
     "src": "resources/js/frontend-app.js",
     "isEntry": true,
     "imports": [
-      "_bootstrap-CPkzYBNQ.js"
+      "_bootstrap-DEPrlejE.js"
     ]
   },
   "resources/js/metronic-vue-demo1.ts": {
-    "file": "assets/metronic-vue-demo1-C6EXMczB.js",
+    "file": "assets/metronic-vue-demo1-kHp0AqsR.js",
     "name": "metronic-vue-demo1",
     "src": "resources/js/metronic-vue-demo1.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-Bk8zr2wy.js"
+      "_runtime-dom.esm-bundler-DQmk46Du.js"
     ]
   },
   "resources/js/taxi-portal-app.ts": {
-    "file": "assets/taxi-portal-app-n-kQppan.js",
+    "file": "assets/taxi-portal-app-qLorluH1.js",
     "name": "taxi-portal-app",
     "src": "resources/js/taxi-portal-app.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-Bk8zr2wy.js"
+      "_runtime-dom.esm-bundler-DQmk46Du.js"
     ],
     "css": [
       "assets/taxi-portal-app-DEO4neoZ.css"
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-B8-dnhOt.js",
+    "file": "assets/website-page-builder-v2-DftSgXKv.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-Bk8zr2wy.js"
+      "_runtime-dom.esm-bundler-DQmk46Du.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-B0g-8uop.css"
+      "assets/website-page-builder-v2-DHO6Zp-D.css"
     ]
   }
 }

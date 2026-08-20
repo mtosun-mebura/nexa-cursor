@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
@@ -28,6 +29,7 @@ class DriverDispatchController extends Controller
     ): JsonResponse {
         $user = $request->user();
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
 
         $companyId = (int) $request->attributes->get('taxi_company_id');
 
@@ -60,24 +62,21 @@ class DriverDispatchController extends Controller
 
         $overdueReleasedOffers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
-            ->overdueReleasedForDriver($user->id)
+            ->overdueReleasedForDriver($user->id, $pickupCutoff)
             ->get()
-            ->filter(function (RideDispatchOffer $offer) use ($dispatchSettings, $companyId) {
-                $ride = $offer->rideRequest;
-                if (! $ride) {
-                    return false;
-                }
-
-                $rideCompanyId = (int) ($ride->company_id ?: $offer->company_id ?: $companyId);
-
-                return $dispatchSettings->scheduledRideIsOverdue($ride, $rideCompanyId > 0 ? $rideCompanyId : null);
-            })
             ->sortByDesc(function (RideDispatchOffer $offer) {
                 return $offer->responded_at?->timestamp ?? $offer->offered_at?->timestamp ?? 0;
             })
             ->values();
 
         $overdueReleasedOfferIds = $overdueReleasedOffers->pluck('id');
+
+        $archivedOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->archivedForDriver($user->id)
+            ->orderByDesc('archived_at')
+            ->limit(100)
+            ->get();
 
         $declinedOffers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
@@ -134,6 +133,7 @@ class DriverDispatchController extends Controller
             ->values();
 
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
+        $pickupProposalAlert = Cache::pull('taxi_driver_pickup_proposal_alert:'.(int) $user->id);
 
         return response()->json([
             'data' => [
@@ -156,24 +156,24 @@ class DriverDispatchController extends Controller
                     ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true))
                     ->values(),
                 'overdue_released_offers' => $overdueReleasedOffers
-                    ->map(function (RideDispatchOffer $offer) use ($dispatchSettings, $companyId) {
-                        $ride = $offer->rideRequest;
-                        $rideCompanyId = (int) ($ride?->company_id ?: $offer->company_id ?: $companyId);
-                        $isOverdue = $ride && $dispatchSettings->scheduledRideIsOverdue(
-                            $ride,
-                            $rideCompanyId > 0 ? $rideCompanyId : null
-                        );
-
-                        return TaxiDispatchOfferResource::fromOffer($offer, $ride, $isOverdue);
+                    ->map(function (RideDispatchOffer $offer) {
+                        return TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true);
+                    })
+                    ->values(),
+                'archived_offers' => $archivedOffers
+                    ->map(function (RideDispatchOffer $offer) {
+                        return TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true);
                     })
                     ->values(),
                 'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
+                'pickup_proposal_alert' => is_array($pickupProposalAlert) ? $pickupProposalAlert : null,
             ],
             'meta' => array_merge(
                 [
                     'server_time' => now()->toIso8601String(),
                     'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
                     'offer_ttl_seconds' => $dispatchSettings->offerTtlSeconds($companyId),
+                    'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
                     'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
                     'unclaimed_rides' => $unclaimedRides,
                 ],
@@ -207,11 +207,16 @@ class DriverDispatchController extends Controller
             ], 409);
         }
 
+        $message = ! empty($result['pickup_proposed'])
+            ? 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.'
+            : 'Rit geaccepteerd.';
+
         return response()->json([
-            'message' => 'Rit geaccepteerd.',
+            'message' => $message,
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($result['ride']),
                 'offer_id' => $result['offer']->id,
+                'pickup_proposed' => ! empty($result['pickup_proposed']),
             ],
         ]);
     }
@@ -383,6 +388,143 @@ class DriverDispatchController extends Controller
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($completed),
                 'outbound_completed' => $isOutboundOnlyComplete,
+            ],
+        ]);
+    }
+
+    public function proposePickup(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        TaxiPickupProposalService $proposals,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+
+        $data = $request->validate([
+            'pickup_at' => ['required', 'date'],
+        ]);
+
+        try {
+            $updated = $proposals->proposeNewPickup(
+                $conn,
+                $request->user(),
+                $ride,
+                (string) $data['pickup_at']
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan voorstel niet versturen.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($updated, true),
+            ],
+        ]);
+    }
+
+    public function archiveOffer(
+        Request $request,
+        int $offer,
+        ModuleDatabaseService $moduleDb,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        $user = $request->user();
+
+        $row = RideDispatchOffer::on($conn)
+            ->whereKey($offer)
+            ->where('driver_id', $user->id)
+            ->whereIn('status', [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED])
+            ->first();
+
+        if (! $row) {
+            return response()->json(['message' => 'Verlopen rit niet gevonden.'], 404);
+        }
+
+        if ($row->archived_at) {
+            return response()->json([
+                'message' => 'Rit staat al in het archief.',
+                'data' => [
+                    'offer' => TaxiDispatchOfferResource::fromOffer($row, $row->rideRequest, true),
+                ],
+            ]);
+        }
+
+        $row->update(['archived_at' => now()]);
+        $fresh = $row->fresh(['rideRequest']) ?? $row;
+
+        return response()->json([
+            'message' => 'Rit gearchiveerd.',
+            'data' => [
+                'offer' => TaxiDispatchOfferResource::fromOffer($fresh, $fresh->rideRequest, true),
+            ],
+        ]);
+    }
+
+    public function deleteArchivedOffer(
+        Request $request,
+        int $offer,
+        ModuleDatabaseService $moduleDb,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        $user = $request->user();
+
+        $row = RideDispatchOffer::on($conn)
+            ->whereKey($offer)
+            ->where('driver_id', $user->id)
+            ->whereNotNull('archived_at')
+            ->whereIn('status', [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED])
+            ->first();
+
+        if (! $row) {
+            return response()->json(['message' => 'Gearchiveerde rit niet gevonden.'], 404);
+        }
+
+        $row->delete();
+
+        return response()->json([
+            'message' => 'Rit verwijderd uit archief.',
+        ]);
+    }
+
+    public function deleteArchivedOffers(
+        Request $request,
+        ModuleDatabaseService $moduleDb,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        $user = $request->user();
+
+        $data = $request->validate([
+            'offer_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'offer_ids.*' => ['integer', 'min:1'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $data['offer_ids'])));
+
+        $deleted = RideDispatchOffer::on($conn)
+            ->where('driver_id', $user->id)
+            ->whereNotNull('archived_at')
+            ->whereIn('status', [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED])
+            ->whereIn('id', $ids)
+            ->delete();
+
+        if ($deleted < 1) {
+            return response()->json(['message' => 'Geen gearchiveerde ritten gevonden om te verwijderen.'], 404);
+        }
+
+        return response()->json([
+            'message' => $deleted === 1
+                ? '1 rit verwijderd uit archief.'
+                : $deleted.' ritten verwijderd uit archief.',
+            'data' => [
+                'deleted' => $deleted,
             ],
         ]);
     }

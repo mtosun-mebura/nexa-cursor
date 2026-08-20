@@ -3,13 +3,12 @@
 
     const cfg = window.NEXA_TAXI_CONTRACT || {};
     const STORAGE_KEY = 'nexa_taxi_contract_token';
-    const INSTALL_HINT_KEY = 'nexa_taxi_contract_dismiss_install';
+    const GUIDE_HINT_KEY = 'nexa_taxi_contract_dismiss_guide';
     const ANNOUNCEMENT_DISMISS_KEY = 'nexa_taxi_contract_dismiss_announcements';
 
     let token = sessionStorage.getItem(STORAGE_KEY) || '';
     let user = null;
     let pollTimer = null;
-    let deferredInstallPrompt = null;
     let absencePassengerId = null;
     let weekFrom = null;
     let weekPayload = null;
@@ -66,13 +65,76 @@
         return { ok: res.ok, status: res.status, data: data };
     }
 
+    function placeGuideHint() {
+        const hint = $('#guide-hint');
+        if (!hint) {
+            return;
+        }
+        if (screenHome && screenHome.classList.contains('is-active')) {
+            const banners = screenHome.querySelector('.home-banners');
+            if (banners && hint.parentElement !== banners) {
+                banners.insertBefore(hint, banners.firstChild);
+            }
+        } else if (screenLogin) {
+            const loginTitle = screenLogin.querySelector('h1');
+            if (loginTitle && hint.nextElementSibling !== loginTitle) {
+                screenLogin.insertBefore(hint, loginTitle);
+            }
+        }
+    }
+
     function showScreen(name) {
         screenLogin.classList.toggle('is-active', name === 'login');
         screenHome.classList.toggle('is-active', name === 'home');
-        const logoutBtn = $('#btn-logout');
-        if (logoutBtn) {
-            logoutBtn.hidden = name !== 'home';
+        placeGuideHint();
+        requestAnimationFrame(syncThemeToggleTop);
+    }
+
+    function syncThemeToggleTop() {
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+            return;
         }
+        let anchor = null;
+        if (screenHome && screenHome.classList.contains('is-active')) {
+            anchor = document.querySelector('.home-top__row') || $('#home-title');
+        } else if (screenLogin && screenLogin.classList.contains('is-active')) {
+            anchor = screenLogin.querySelector('h1');
+        }
+        if (!anchor) {
+            document.documentElement.style.removeProperty('--nexa-pwa-theme-top');
+            return;
+        }
+        const rect = anchor.getBoundingClientRect();
+        const chrome = document.getElementById('nexa-pwa-chrome-actions');
+        const chromeH = chrome ? chrome.getBoundingClientRect().height || 36 : 36;
+        const top = Math.round(rect.top + (rect.height - chromeH) / 2);
+        document.documentElement.style.setProperty(
+            '--nexa-pwa-theme-top',
+            Math.max(0, top) + 'px'
+        );
+    }
+
+    function setProfileField(el, value) {
+        if (!el) {
+            return;
+        }
+        const text = value != null ? String(value).trim() : '';
+        if (text !== '') {
+            el.textContent = text;
+            el.classList.remove('is-empty');
+        } else {
+            el.textContent = 'Niet beschikbaar';
+            el.classList.add('is-empty');
+        }
+    }
+
+    function renderProfileUser(u) {
+        setProfileField($('#profile-name'), u && u.name);
+        setProfileField($('#profile-email'), u && u.email);
+        setProfileField($('#profile-phone'), u && u.phone);
+        setProfileField($('#profile-role'), u && u.portal_role_label);
+        setProfileField($('#profile-company'), u && u.company_name);
     }
 
     function setTab(tab) {
@@ -80,20 +142,38 @@
         const isToday = tab === 'today';
         const isWeek = tab === 'week';
         const isAbsences = tab === 'absences';
-        $('#tab-today').classList.toggle('is-active', isToday);
-        const tabWeek = $('#tab-week');
-        if (tabWeek) {
-            tabWeek.classList.toggle('is-active', isWeek);
+        const isProfile = tab === 'profile';
+        const panelTodayWrap = $('#tab-panel-today');
+        if (panelTodayWrap) {
+            panelTodayWrap.hidden = !isToday;
         }
-        $('#tab-absences').classList.toggle('is-active', isAbsences);
         panelToday.hidden = !isToday;
         if (panelWeek) {
             panelWeek.hidden = !isWeek;
         }
         panelAbsences.hidden = !isAbsences;
+        const panelProfile = $('#panel-profile');
+        if (panelProfile) {
+            panelProfile.hidden = !isProfile;
+        }
+        document.querySelectorAll('.contract-bottom-nav__btn').forEach(function (btn) {
+            const on = btn.getAttribute('data-main-tab') === tab;
+            btn.classList.toggle('is-active', on);
+            if (on) {
+                btn.setAttribute('aria-current', 'page');
+            } else {
+                btn.removeAttribute('aria-current');
+            }
+        });
         const title = $('#home-title');
         if (title) {
-            title.textContent = isWeek ? 'Planning' : isAbsences ? 'Afmeldingen' : 'Vandaag';
+            title.textContent = isWeek
+                ? 'Planning'
+                : isAbsences
+                  ? 'Afmeldingen'
+                  : isProfile
+                    ? 'Profiel'
+                    : 'Vandaag';
         }
     }
 
@@ -175,6 +255,7 @@
         token = data.token;
         sessionStorage.setItem(STORAGE_KEY, token);
         user = data.user;
+        renderProfileUser(user);
         return data;
     }
 
@@ -195,6 +276,7 @@
         token = '';
         user = null;
         sessionStorage.removeItem(STORAGE_KEY);
+        renderProfileUser(null);
         showScreen('login');
     }
 
@@ -267,10 +349,104 @@
         return pills.join('');
     }
 
+    let passengerCardExpanded = {};
+
+    function passengerExpandKey(item, options) {
+        const opts = options || {};
+        const dateKey = opts.absenceDate || 'today';
+        return String(item.passenger_id || item.name || '') + '|' + dateKey;
+    }
+
+    function passengerCollapsedSummary(item, options) {
+        const opts = options || {};
+        const legs = Array.isArray(item.legs) ? item.legs : [];
+        if (opts.dayStatus === 'absent') {
+            return 'Afgemeld';
+        }
+        if (opts.dayStatus === 'exception') {
+            return 'Geen vervoer';
+        }
+        if (legs.length === 0) {
+            return opts.dayStatusLabel || item.status || 'Geen rit';
+        }
+        return legs
+            .map(function (leg) {
+                const label = leg.leg_label || '';
+                const time = formatTime(leg.planned_at);
+                const parts = [];
+                if (label) {
+                    parts.push(label);
+                }
+                if (time) {
+                    parts.push(time);
+                }
+                return parts.join(' ');
+            })
+            .filter(Boolean)
+            .join(' · ');
+    }
+
+    function splitAddressLines(address) {
+        const text = address != null ? String(address).trim() : '';
+        if (!text) {
+            return { main: '', sub: '' };
+        }
+        const comma = text.indexOf(',');
+        if (comma > 0 && comma < text.length - 1) {
+            return {
+                main: text.slice(0, comma).trim(),
+                sub: text.slice(comma + 1).trim(),
+            };
+        }
+        return { main: text, sub: '' };
+    }
+
+    function routeAddressInnerHtml(address) {
+        const parts = splitAddressLines(address);
+        let html =
+            '<span class="offer-route-main">' + escapeHtml(parts.main || '—') + '</span>';
+        if (parts.sub) {
+            html += '<span class="offer-route-sub">' + escapeHtml(parts.sub) + '</span>';
+        }
+        return html;
+    }
+
+    function routeStopHtml(label, address, variant, timeLabel) {
+        const time = timeLabel ? String(timeLabel).trim() : '';
+        return (
+            '<div class="offer-route-stop">' +
+            '<div class="offer-route-head">' +
+            '<span class="offer-route-dot offer-route-dot--' +
+            escapeHtml(variant) +
+            '" aria-hidden="true"></span>' +
+            '<p class="offer-route-label">' +
+            escapeHtml(label) +
+            '</p>' +
+            (time ? '<span class="offer-route-label-time">' + escapeHtml(time) + '</span>' : '') +
+            '</div>' +
+            '<div class="offer-route-body">' +
+            routeAddressInnerHtml(address) +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function routeTimelineHtml(pickupAddress, dropoffAddress, pickupTime, dropoffTime) {
+        return (
+            '<div class="offer-route">' +
+            routeStopHtml('Ophalen', pickupAddress, 'pickup', pickupTime) +
+            routeStopHtml('Afzetten', dropoffAddress || '—', 'dropoff', dropoffTime) +
+            '</div>'
+        );
+    }
+
     function passengerCardHtml(item, options) {
         const opts = options || {};
         const legs = Array.isArray(item.legs) ? item.legs : [];
         const showLegLabels = legs.length > 1;
+        const expandKey = passengerExpandKey(item, opts);
+        const expanded = !!passengerCardExpanded[expandKey];
+        const bodyId = 'passenger-card-body-' + expandKey.replace(/[^a-zA-Z0-9_-]/g, '-');
         let actions = '';
         if (item.can_cancel) {
             actions =
@@ -309,25 +485,24 @@
                 '</span></div>';
         } else if (legs.length === 0) {
             body =
-                '<p class="muted" style="margin:0;">' +
-                escapeHtml(item.pickup_address || 'Geen ophaaladres') +
-                '</p>' +
+                routeTimelineHtml(item.pickup_address || 'Geen ophaaladres', item.destination_address || '') +
                 '<div class="status-pills">' +
                 statusPillsHtml(item) +
                 '</div>';
         } else {
             body = legs
                 .map(function (leg) {
-                    const time = formatTime(leg.planned_at);
                     return (
                         '<div class="leg-block">' +
-                        (showLegLabels
+                        (showLegLabels || leg.leg_label
                             ? '<p class="leg-label">' + escapeHtml(leg.leg_label || '') + '</p>'
                             : '') +
-                        '<p class="muted" style="margin:0;">' +
-                        escapeHtml(leg.pickup_address || item.pickup_address || 'Geen ophaaladres') +
-                        (time ? ' · ' + escapeHtml(time) : '') +
-                        '</p>' +
+                        routeTimelineHtml(
+                            leg.pickup_address || item.pickup_address || 'Geen ophaaladres',
+                            leg.destination_address || '',
+                            formatTime(leg.planned_at),
+                            formatTime(leg.destination_at)
+                        ) +
                         '<div class="status-pills">' +
                         statusPillsHtml(leg) +
                         '</div>' +
@@ -337,17 +512,43 @@
                 .join('');
         }
 
+        const summary = passengerCollapsedSummary(item, opts);
+
         return (
-            '<div class="card">' +
-            '<p class="passenger-name">' +
+            '<div class="card passenger-card' +
+            (expanded ? ' is-expanded' : '') +
+            '" data-expand-key="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<button type="button" class="passenger-card-toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="' +
+            escapeHtml(bodyId) +
+            '" data-expand-key="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<span class="passenger-card-toggle-text">' +
+            '<span class="passenger-name">' +
             escapeHtml(item.name) +
-            '</p>' +
+            '</span>' +
+            (summary
+                ? '<span class="passenger-card-summary">' + escapeHtml(summary) + '</span>'
+                : '') +
+            '</span>' +
+            '<span class="passenger-card-chevron" aria-hidden="true">▼</span>' +
+            '</button>' +
+            '<div class="passenger-card-body" id="' +
+            escapeHtml(bodyId) +
+            '"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
             body +
             (item.absence_reason
                 ? '<p class="muted" style="margin:0.5rem 0 0;">' +
                   escapeHtml(item.absence_reason) +
                   '</p>'
                 : '') +
+            '</div>' +
             actions +
             '</div>'
         );
@@ -519,7 +720,7 @@
         const rows = (payload && payload.absences) || [];
         if (!rows.length) {
             panelAbsences.innerHTML =
-                '<div class="empty">Geen openstaande afmeldingen (tot 14 dagen vooruit).</div>';
+                '<div class="empty">Geen openstaande afmeldingen.<br><span class="empty__sub">(tot 14 dagen vooruit)</span></div>';
             return;
         }
         panelAbsences.innerHTML = rows
@@ -751,6 +952,7 @@
             const me = await api('/me');
             if (me.ok && me.data && me.data.user) {
                 user = me.data.user;
+                renderProfileUser(user);
             }
         } catch (e) {
             /* ignore */
@@ -759,106 +961,14 @@
         startPoll();
     }
 
-    function detectInstallPlatform() {
-        const ua = navigator.userAgent || '';
-        const isIos =
-            /iPad|iPhone|iPod/i.test(ua) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        if (isIos) {
-            return 'ios';
-        }
-        if (/Android/i.test(ua)) {
-            return 'android';
-        }
-        return 'desktop';
-    }
-
-    function installGuideContent(platform) {
-        if (platform === 'ios') {
-            return {
-                label: 'iPhone / iPad',
-                intro: 'Voeg de app toe aan je beginscherm via Safari:',
-                steps: [
-                    'Open deze pagina in Safari (niet in Chrome of een andere browser).',
-                    'Tik op de Deel-knop onderaan (vierkant met pijl omhoog).',
-                    'Scroll en kies “Zet op beginscherm”.',
-                    'Tik op “Voeg toe”. De app verschijnt nu op je beginscherm.',
-                ],
-            };
-        }
-        if (platform === 'android') {
-            return {
-                label: 'Android',
-                intro: 'Installeer de app via Chrome op je telefoon:',
-                steps: [
-                    'Open deze pagina in Chrome.',
-                    'Tik rechtsboven op het menu (⋮).',
-                    'Kies “App installeren” of “Toevoegen aan startscherm”.',
-                    'Bevestig met “Installeren” of “Toevoegen”.',
-                ],
-            };
-        }
-        return {
-            label: 'Computer / overig',
-            intro: 'Het beste werkt dit op je telefoon. Op een computer:',
-            steps: [
-                'Open deze pagina in Chrome of Edge.',
-                'Klik op het installatie-icoon in de adresbalk, of gebruik de knop “Installeer app” als die zichtbaar is.',
-                'Op iPhone: open de link in Safari → Deel → Zet op beginscherm.',
-                'Op Android: Chrome-menu (⋮) → App installeren / Toevoegen aan startscherm.',
-            ],
-        };
-    }
-
-    function openInstallGuide() {
-        const dialog = $('#install-guide-dialog');
-        if (!dialog) {
-            return;
-        }
-        const content = installGuideContent(detectInstallPlatform());
-        const platformEl = $('#install-guide-platform');
-        const introEl = $('#install-guide-intro');
-        const stepsEl = $('#install-guide-steps');
-        if (platformEl) {
-            platformEl.textContent = content.label;
-        }
-        if (introEl) {
-            introEl.textContent = content.intro;
-        }
-        if (stepsEl) {
-            stepsEl.innerHTML = content.steps
-                .map(function (step) {
-                    return '<li>' + escapeHtml(step) + '</li>';
-                })
-                .join('');
-        }
-        dialog.hidden = false;
-    }
-
-    function closeInstallGuide() {
-        const dialog = $('#install-guide-dialog');
-        if (dialog) {
-            dialog.hidden = true;
-        }
-    }
-
-    function updateInstallHint() {
-        const hint = $('#install-hint');
+    function updateGuideHint() {
+        const hint = $('#guide-hint');
         if (!hint) {
             return;
         }
-        if (localStorage.getItem(INSTALL_HINT_KEY) === '1') {
-            hint.hidden = true;
-            return;
-        }
-        const isStandalone =
-            window.matchMedia('(display-mode: standalone)').matches ||
-            window.navigator.standalone === true;
-        hint.hidden = isStandalone;
-        const installBtn = $('#btn-install-app');
-        if (installBtn) {
-            installBtn.hidden = !deferredInstallPrompt;
-        }
+        hint.hidden = localStorage.getItem(GUIDE_HINT_KEY) === '1';
+        placeGuideHint();
+        requestAnimationFrame(syncThemeToggleTop);
     }
 
     function registerServiceWorker() {
@@ -891,20 +1001,20 @@
         });
     }
 
-    $('#tab-today').addEventListener('click', function () {
-        setTab('today');
-        loadToday();
-    });
-    const tabWeek = $('#tab-week');
-    if (tabWeek) {
-        tabWeek.addEventListener('click', function () {
-            setTab('week');
-            loadWeek();
+    document.querySelectorAll('.contract-bottom-nav__btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const tab = btn.getAttribute('data-main-tab') || 'today';
+            setTab(tab);
+            if (tab === 'today') {
+                loadToday();
+            } else if (tab === 'week') {
+                loadWeek();
+            } else if (tab === 'absences') {
+                loadAbsences();
+            } else if (tab === 'profile') {
+                renderProfileUser(user);
+            }
         });
-    }
-    $('#tab-absences').addEventListener('click', function () {
-        setTab('absences');
-        loadAbsences();
     });
 
     function bindAbsentClick(ev) {
@@ -925,12 +1035,41 @@
         return false;
     }
 
+    function bindPassengerCardToggle(ev) {
+        const toggle = ev.target.closest('.passenger-card-toggle');
+        if (!toggle) {
+            return false;
+        }
+        const key = toggle.getAttribute('data-expand-key');
+        if (!key) {
+            return true;
+        }
+        passengerCardExpanded[key] = !passengerCardExpanded[key];
+        const card = toggle.closest('.passenger-card');
+        const expanded = !!passengerCardExpanded[key];
+        if (card) {
+            card.classList.toggle('is-expanded', expanded);
+            const body = card.querySelector('.passenger-card-body');
+            if (body) {
+                body.hidden = !expanded;
+            }
+        }
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        return true;
+    }
+
     panelToday.addEventListener('click', function (ev) {
+        if (bindPassengerCardToggle(ev)) {
+            return;
+        }
         bindAbsentClick(ev);
     });
 
     if (panelWeek) {
         panelWeek.addEventListener('click', function (ev) {
+            if (bindPassengerCardToggle(ev)) {
+                return;
+            }
             if (bindAbsentClick(ev)) {
                 return;
             }
@@ -993,48 +1132,18 @@
     if (absenceDateTo) {
         absenceDateTo.addEventListener('change', syncAbsenceDateBounds);
     }
-    $('#btn-dismiss-install').addEventListener('click', function () {
-        localStorage.setItem(INSTALL_HINT_KEY, '1');
-        updateInstallHint();
-    });
-    const btnInstallGuide = $('#btn-install-guide');
-    if (btnInstallGuide) {
-        btnInstallGuide.addEventListener('click', openInstallGuide);
-    }
-    const btnInstallGuideClose = $('#install-guide-close');
-    if (btnInstallGuideClose) {
-        btnInstallGuideClose.addEventListener('click', closeInstallGuide);
-    }
-    const installGuideDialog = $('#install-guide-dialog');
-    if (installGuideDialog) {
-        installGuideDialog.addEventListener('click', function (ev) {
-            if (ev.target === installGuideDialog) {
-                closeInstallGuide();
-            }
+    const dismissGuideBtn = $('#btn-dismiss-guide-hint');
+    if (dismissGuideBtn) {
+        dismissGuideBtn.addEventListener('click', function () {
+            localStorage.setItem(GUIDE_HINT_KEY, '1');
+            updateGuideHint();
         });
     }
-    $('#btn-install-app').addEventListener('click', async function () {
-        if (!deferredInstallPrompt) {
-            return;
-        }
-        deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        updateInstallHint();
-    });
-
-    window.addEventListener('beforeinstallprompt', function (ev) {
-        ev.preventDefault();
-        deferredInstallPrompt = ev;
-        updateInstallHint();
-    });
-    window.addEventListener('appinstalled', function () {
-        deferredInstallPrompt = null;
-        updateInstallHint();
-    });
 
     registerServiceWorker();
-    updateInstallHint();
+    updateGuideHint();
+    window.addEventListener('resize', syncThemeToggleTop);
+    requestAnimationFrame(syncThemeToggleTop);
 
     if (token) {
         bootAuthenticated();

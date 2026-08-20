@@ -114,6 +114,7 @@
     $heroTitleSizePx = (int) (round($heroTitleSizePx / 2) * 2);
     $heroSubtitleSizePx = max(12, min(50, (int) ($sectionData['subtitle_font_size_px'] ?? 22)));
     $heroSubtitleSizePx = (int) (round($heroSubtitleSizePx / 2) * 2);
+    $heroSubtitleWidthPct = max(30, min(100, (int) ($sectionData['subtitle_width_percent'] ?? 50)));
     $heroCaptionWidthPct = max(30, min(100, (int) ($sectionData['text_bg_width_percent'] ?? 70)));
     $heroCaptionWidthStyle = $heroHasTextBg ? '--hero-caption-width-pct: '.$heroCaptionWidthPct.';' : '';
     $heroTextPosition = $sectionData['text_position'] ?? 'center';
@@ -180,7 +181,7 @@
                 $heroSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
                 $heroSubtitleColorStyle = ($heroSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroSubtitleColor)) ? 'color: ' . $heroSubtitleColor . ';' : '';
             @endphp
-            <div class="scroll-reveal-item hero-reveal-zoom hero-caption-subtitle w-full mx-auto max-w-none {{ $heroHasImage ? 'prose prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 leading-snug' : 'text-xl mb-8 leading-relaxed max-w-3xl prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}@if($heroHasImage) --hero-subtitle-size-max: {{ $heroSubtitleSizePx }}px;@endif">
+            <div class="scroll-reveal-item hero-reveal-zoom hero-caption-subtitle w-full mx-auto {{ $heroHasImage ? 'prose prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 leading-snug' : 'text-xl mb-8 leading-relaxed prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}--hero-subtitle-width-pct: {{ $heroSubtitleWidthPct }};@if($heroHasImage) --hero-subtitle-size-max: {{ $heroSubtitleSizePx }}px;@endif">
                 {!! $sectionData['subtitle'] ?? 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' !!}
             </div>
             @endif
@@ -188,7 +189,7 @@
             </div>
             </div>
             @endif
-            @if($v('_cta'))
+            @if($v('_cta') && ($v('_cta_primary') || $v('_cta_secondary')))
             @php
                 $heroPrimaryStyle = '';
                 if (!empty($sectionData['cta_primary_bg']) || !empty($sectionData['cta_primary_border']) || !empty($sectionData['cta_primary_text_color'])) {
@@ -205,13 +206,17 @@
                 $heroBtnPrimaryFullStyle = trim($heroRevealStyle($heroBtnPrimaryDelayMs) . ' ' . $heroPrimaryStyle);
                 $heroBtnSecondaryFullStyle = trim($heroRevealStyle($heroBtnSecondaryDelayMs) . ' ' . $heroSecondaryStyle);
             @endphp
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mt-6 sm:mt-8">
+                @if($v('_cta_primary'))
                 <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="scroll-reveal-item hero-reveal-btn hero-reveal-btn-primary inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold bg-white text-blue-600 hover:bg-blue-50 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5" @if($heroBtnPrimaryFullStyle !== '') style="{{ $heroBtnPrimaryFullStyle }}" @endif>
                     {{ $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken' }}
                 </a>
+                @endif
+                @if($v('_cta_secondary'))
                 <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="scroll-reveal-item hero-reveal-btn hero-reveal-btn-secondary inline-flex items-center justify-center px-8 py-4 bg-transparent hover:bg-white text-white hover:text-blue-600 dark:hover:text-blue-700 font-semibold rounded-lg border-2 border-white hover:border-white shadow-lg hover:shadow-xl transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 hover:-translate-y-0.5" @if($heroBtnSecondaryFullStyle !== '') style="{{ $heroBtnSecondaryFullStyle }}" @endif>
                     {{ $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken' }}
                 </a>
+                @endif
             </div>
             @endif
         </div>
@@ -227,12 +232,14 @@
     @endif
 
     @if($base === 'why_nexa' && $v(''))
+@php $whyBg = \App\Models\WebsitePage::whyNexaBackgroundPresentation($sectionData); @endphp
 <!-- Waarom Nexa -->
-<section class="modern-home-waarom py-16 md:py-20 bg-white dark:bg-gray-900">
-    <div class="website-section-inner">
+<section class="modern-home-waarom pt-8 md:pt-10 pb-12 md:pb-16 {{ $whyBg['surface_class'] }} {{ $whyBg['wrapper_class'] }}" @if($whyBg['color_style'] !== '') style="{{ $whyBg['color_style'] }}" @endif>
+    @include('frontend.website.partials.why-nexa-background-layers')
+    <div class="website-section-inner relative z-10">
         <div class="max-w-5xl mx-auto text-center">
             @if($v('_title'))
-            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
+            <h2 class="text-3xl md:text-4xl font-bold mb-6 {{ $whyBg['title_color_style'] === '' ? 'text-gray-900 dark:text-white' : '' }}" @if($whyBg['title_color_style'] !== '') style="{{ $whyBg['title_color_style'] }}" @endif>
                 {{ $sectionData['title'] ?? 'Waarom kiezen voor Nexa?' }}
             </h2>
             @endif
@@ -259,7 +266,7 @@
     $featuresEasing = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 @endphp
 <!-- Wat Wij Bieden -->
-<section class="modern-home-features py-16 md:py-20 bg-white dark:bg-gray-900 scroll-reveal-section" data-scroll-reveal>
+<section class="modern-home-features pt-8 md:pt-10 pb-12 md:pb-16 bg-white dark:bg-gray-900 scroll-reveal-section" data-scroll-reveal>
     <div class="website-section-inner">
         <div class="max-w-5xl mx-auto">
             @if($visibility[$sectionKey . '_section_title'] ?? $visibility['features_section_title'] ?? true)
@@ -336,7 +343,7 @@
     $ctaBgStyle = $ctaBgUrl !== '' ? 'background-image: url(' . e($ctaBgUrl) . ');' : '';
 @endphp
 <!-- CTA -->
-<section class="modern-home-cta py-16 relative overflow-hidden scroll-reveal-section {{ $ctaBgUrl === '' ? 'bg-gray-100 dark:bg-gray-900' : '' }}" data-scroll-reveal>
+<section class="modern-home-cta pt-8 md:pt-10 pb-12 md:pb-16 relative overflow-hidden scroll-reveal-section {{ $ctaBgUrl === '' ? 'bg-gray-100 dark:bg-gray-900' : '' }}" data-scroll-reveal>
     @if($ctaBgUrl !== '')
     <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style="{{ $ctaBgStyle }}" aria-hidden="true"></div>
     <div class="absolute inset-0 z-[1] bg-gray-900/70 dark:bg-gray-900/80" aria-hidden="true"></div>
@@ -372,7 +379,7 @@
         @endphp
         <div class="scroll-reveal-item cta-reveal-rise text-lg {{ $ctaSubtitleThemeClasses }} mb-8 prose {{ $ctaBgUrl !== '' ? 'prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' : 'prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} max-w-none" style="{{ $ctaRevealStyleRiseFast($ctaSubtitleDelayMs) }}{{ $ctaSubtitleColorStyle }}">{!! $sectionData['subtitle'] ?? 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.' !!}</div>
         @endif
-        @if($v('_buttons'))
+        @if($v('_buttons') && ($v('_cta_primary') || $v('_cta_secondary')))
         @php
             $ctaPrimaryStyle = !empty($sectionData['cta_primary_bg']) ? 'background-color:' . $sectionData['cta_primary_bg'] . ';' : 'background-color: var(--theme-primary);';
             $ctaPrimaryStyle .= !empty($sectionData['cta_primary_text_color']) ? 'color:' . $sectionData['cta_primary_text_color'] . ';' : 'color: #fff;';
@@ -385,8 +392,12 @@
             $ctaBtnSecondaryFullStyle = trim($ctaRevealStyleBtn($ctaBtnSecondaryDelayMs) . ' ' . $ctaSecondaryStyle);
         @endphp
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            @if($v('_cta_primary'))
             <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="scroll-reveal-item cta-reveal-btn cta-reveal-btn-left inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-white transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5" @if($ctaBtnPrimaryFullStyle !== '') style="{{ $ctaBtnPrimaryFullStyle }}" @endif>{{ $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken' }}</a>
-            <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="scroll-reveal-item cta-reveal-btn cta-reveal-btn-right inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold border-2 bg-white border-gray-800 text-gray-900 hover:bg-gray-800 hover:text-white hover:border-gray-800 dark:bg-gray-700 dark:border-gray-300 dark:text-white dark:hover:bg-gray-100 dark:hover:text-gray-900 dark:hover:border-gray-100 hover:shadow-lg hover:-translate-y-0.5 transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 focus-visible:outline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-900 dark:focus-visible:ring-gray-100" @if($ctaBtnSecondaryFullStyle !== '') style="{{ $ctaBtnSecondaryFullStyle }}" @endif>{{ $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken' }}</a>
+            @endif
+            @if($v('_cta_secondary'))
+            <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="scroll-reveal-item cta-reveal-btn cta-reveal-btn-right inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold border-2 bg-white border-gray-800 text-gray-900 hover:bg-gray-800 hover:text-white hover:border-gray-800 dark:bg-gray-700 dark:border-gray-300 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white dark:hover:border-gray-300 dark:hover:shadow-none dark:hover:translate-y-0 hover:shadow-lg hover:-translate-y-0.5 transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 focus-visible:outline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-900 dark:focus-visible:ring-gray-100" @if($ctaBtnSecondaryFullStyle !== '') style="{{ $ctaBtnSecondaryFullStyle }}" @endif>{{ $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken' }}</a>
+            @endif
         </div>
         @endif
     </div>

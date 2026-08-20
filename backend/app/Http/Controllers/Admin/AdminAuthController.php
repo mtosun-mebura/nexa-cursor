@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\EnvService;
+use App\Support\AdminReturnUrl;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Spatie\Permission\PermissionRegistrar;
 
 class AdminAuthController extends Controller
 {
@@ -27,7 +28,8 @@ class AdminAuthController extends Controller
         // Only redirect to dashboard if user is authenticated AND has admin role
         if (Auth::guard('web')->check()) {
             try {
-                if (Auth::user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
+                $this->applyPermissionsTeamForUser(Auth::user());
+                if (Auth::user()->canAccessAdminPanel()) {
                     return redirect()->route('admin.dashboard');
                 }
             } catch (QueryException) {
@@ -89,7 +91,8 @@ class AdminAuthController extends Controller
         }
 
         try {
-            $hasAdminRole = $user->hasAnyRole(['super-admin', 'company-admin', 'staff']);
+            $this->applyPermissionsTeamForUser($user);
+            $hasAdminRole = $user->canAccessAdminPanel();
             $isCandidate = $user->hasRole('candidate');
         } catch (QueryException $e) {
             return back()->withErrors(['email' => $dbSetupHint])->withInput($withInput);
@@ -196,8 +199,9 @@ class AdminAuthController extends Controller
         $status = Password::broker()->sendResetLink(
             $request->only('email'),
             function ($user, $token) use ($envService) {
+                $this->applyPermissionsTeamForUser($user);
                 // Check if user has admin role
-                if (! $user->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
+                if (! $user->canAccessAdminPanel()) {
                     throw new \Exception('Dit e-mailadres heeft geen toegang tot het admin panel.');
                 }
 
@@ -330,5 +334,13 @@ class AdminAuthController extends Controller
                 Config::set('mail.mailers.smtp.auth_mode', null);
             }
         }
+    }
+
+    private function applyPermissionsTeamForUser(User $user): void
+    {
+        $teamId = $user->company_id ? (int) $user->company_id : null;
+        app(PermissionRegistrar::class)->setPermissionsTeamId($teamId);
+        $user->unsetRelation('roles');
+        $user->unsetRelation('permissions');
     }
 }

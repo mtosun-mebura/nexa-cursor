@@ -7,32 +7,11 @@
             @php
                 $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                 $logoHeight = $logoSize . 'px';
-                $company = auth()->user()?->company;
-                $useCompanyLogo = $company && $company->logo_blob;
-                $settingsLogo = \App\Models\GeneralSetting::get('logo');
-                $hasSettingsLogo = $settingsLogo && \Storage::disk('public')->exists($settingsLogo);
-                $settingsLogoMode = \App\Models\GeneralSetting::get('logo_mode', 'single');
-                $settingsLogoDark = \App\Models\GeneralSetting::get('logo_dark');
-                $hasSettingsLogoDark = $settingsLogoDark && \Storage::disk('public')->exists($settingsLogoDark);
-                $logoLightUrl = $hasSettingsLogo ? route('admin.settings.logo') : null;
-                $logoDarkUrl = ($hasSettingsLogo && $settingsLogoMode === 'light_dark' && $hasSettingsLogoDark)
-                    ? route('admin.settings.logo-dark')
-                    : $logoLightUrl;
+                $nexaLogoUrl = asset('images/nexa-logo.png');
+                $nexaMarkUrl = asset('images/nexa-x-logo.png');
             @endphp
-            @if($hasSettingsLogo)
-                <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ $logoLightUrl }}" alt="Logo" />
-                <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $logoDarkUrl }}" alt="Logo" />
-            @elseif($useCompanyLogo)
-                @php
-                    $companyLogoDarkUrl = ! empty($company->logo_dark_blob)
-                        ? route('admin.companies.logo.dark', $company)
-                        : route('admin.companies.logo', $company);
-                @endphp
-                <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
-                <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
-            @else
-                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ \App\Support\NexaBranding::defaultLogoUrl() }}" alt="NEXA" />
-            @endif
+            <img class="default-logo w-auto max-w-[350px] object-contain" style="height: {{ $logoHeight }};" src="{{ $nexaLogoUrl }}" alt="NEXA" />
+            <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ $nexaMarkUrl }}" alt="NEXA" />
         </a>
         <button
             type="button"
@@ -761,7 +740,7 @@
                 </div>
                 @endif
 
-                <!-- Front-end (Super Admin only): Coming Soon, Pagina's, Thema's, Componenten -->
+                <!-- Front-end (Super Admin only): Coming Soon, Pagina's, Prijzen, Thema's, Componenten -->
                 @if(auth()->user()?->hasRole('super-admin'))
                 @php
                     $websitePageRouteParam = request()->route('website_page');
@@ -775,7 +754,7 @@
                         || (request()->routeIs('admin.website-pages.*') && $isCentralWelcomeWebsitePage);
                     $isWebsitePagesMenuActive = request()->routeIs('admin.website-pages.*') && ! $isCentralWelcomeWebsitePage;
                 @endphp
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') ? 'here show' : '' }}" 
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') || request()->routeIs('admin.nexa-pricing.*') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -827,6 +806,15 @@
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Pagina's
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-pricing.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.nexa-pricing.edit') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Prijzen
                                 </span>
                             </a>
                         </div>

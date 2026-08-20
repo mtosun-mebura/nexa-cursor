@@ -68,21 +68,22 @@ HTML;
     }
 
     #[Test]
-    public function test_inserts_light_gray_divider_rows_between_field_rows(): void
+    public function test_removes_divider_rows_between_field_rows(): void
     {
         $html = <<<'HTML'
 <table class="info-request-fields" width="100%">
 <tr class="info-request-field-row"><td class="info-request-field-label" style="border-bottom: 1px solid #ffffff;">Voornaam</td><td class="info-request-field-value" style="border-bottom: 1px solid #e5e7eb;">Jan</td></tr>
+<tr class="info-request-field-divider"><td colspan="2" bgcolor="#d1d5db" style="background-color: #d1d5db;">&#8203;</td></tr>
 <tr class="info-request-field-row"><td class="info-request-field-label">Achternaam</td><td class="info-request-field-value">Jansen</td></tr>
 </table>
 HTML;
 
         $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
 
-        $this->assertStringContainsString('info-request-field-divider', $normalized);
-        $this->assertStringContainsString('background-color: #d1d5db', $normalized);
-        $this->assertStringContainsString('bgcolor="#d1d5db"', $normalized);
+        $this->assertStringNotContainsString('info-request-field-divider', $normalized);
         $this->assertStringNotContainsString('border-bottom: 1px solid #ffffff', $normalized);
+        $this->assertStringContainsString('Voornaam', $normalized);
+        $this->assertStringContainsString('Achternaam', $normalized);
     }
 
     #[Test]
@@ -106,6 +107,7 @@ HTML;
         $this->assertStringContainsString('class="info-request-fields"', $normalized);
         $this->assertStringContainsString('info-request-email-body', $normalized);
         $this->assertStringContainsString('Intro', $normalized);
+        $this->assertStringNotContainsString('info-request-field-divider', $normalized);
     }
 
     #[Test]
@@ -120,7 +122,7 @@ HTML;
         $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
 
         $this->assertStringContainsString('class="info-request-fields"', $normalized);
-        $this->assertStringContainsString('<colgroup><col style="width: 175px;"><col></colgroup>', $normalized);
+        $this->assertStringContainsString(InformatieaanvraagEmailHtmlNormalizer::FIELDS_COLGROUP_HTML, $normalized);
     }
 
     #[Test]
@@ -143,5 +145,24 @@ HTML;
         $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
 
         $this->assertStringNotContainsString('width: 1%', $normalized);
+        $this->assertStringContainsString('width="99%"', $normalized);
+    }
+
+    #[Test]
+    public function test_gives_value_column_remaining_table_width(): void
+    {
+        $html = <<<'HTML'
+<table class="info-request-fields" width="100%" style="table-layout: fixed;">
+<colgroup><col style="width: 175px;"><col></colgroup>
+<tr class="info-request-field-row"><td class="info-request-field-label">E-mailadres:</td><td class="info-request-field-value">mehmet@tosun.nl</td></tr>
+</table>
+HTML;
+
+        $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
+
+        $this->assertStringContainsString('<col width="*" style="width: auto;">', $normalized);
+        $this->assertStringContainsString('width="175"', $normalized);
+        $this->assertStringContainsString('width="99%"', $normalized);
+        $this->assertStringContainsString('width: 99%', $normalized);
     }
 }

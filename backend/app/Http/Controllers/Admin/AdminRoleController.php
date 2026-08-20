@@ -3,44 +3,43 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\PermissionSetService;
 use App\Services\MenuService;
+use App\Services\PermissionSetService;
+use App\Support\AdminPanelRoles;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class AdminRoleController extends Controller
 {
-
-
     public function index(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te bekijken.');
         }
-        
+
         $query = Role::with(['permissions', 'users'])
             ->where('guard_name', 'web')
             ->withCount('users');
-        
+
         // Apply search
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
-        
+
         // Apply filters
         if ($request->filled('type')) {
             if ($request->type === 'system') {
-                $query->whereIn('name', ['super-admin', 'company-admin', 'staff', 'candidate']);
+                $query->whereIn('name', AdminPanelRoles::SYSTEM);
             } elseif ($request->type === 'custom') {
-                $query->whereNotIn('name', ['super-admin', 'company-admin', 'staff', 'candidate']);
+                $query->whereNotIn('name', AdminPanelRoles::SYSTEM);
             }
         }
-        
+
         if ($request->filled('users')) {
             if ($request->users === 'with_users') {
                 $query->whereHas('users');
@@ -48,7 +47,7 @@ class AdminRoleController extends Controller
                 $query->whereDoesntHave('users');
             }
         }
-        
+
         if ($request->filled('permissions')) {
             if ($request->permissions === 'with_permissions') {
                 $query->whereHas('permissions');
@@ -56,7 +55,7 @@ class AdminRoleController extends Controller
                 $query->whereDoesntHave('permissions');
             }
         }
-        
+
         // Apply status filter
         if ($request->filled('status')) {
             if ($request->status === 'active') {
@@ -65,13 +64,13 @@ class AdminRoleController extends Controller
                 $query->where('is_active', false);
             }
         }
-        
+
         // Apply sorting
         $sortBy = $request->get('sort');
         $sortDirection = $request->get('direction');
-        
+
         if ($sortBy && in_array($sortBy, ['name', 'users_count', 'created_at', 'is_active'])) {
-            if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+            if (! $sortDirection || ! in_array($sortDirection, ['asc', 'desc'])) {
                 if ($sortBy === 'created_at') {
                     $sortDirection = 'desc';
                 } else {
@@ -83,7 +82,7 @@ class AdminRoleController extends Controller
             // Default sort: order by name
             $query->orderBy('name', 'asc');
         }
-        
+
         // Load all roles for client-side pagination (like users)
         $roles = $query->get();
 
@@ -91,10 +90,10 @@ class AdminRoleController extends Controller
         $stats = [
             'total_roles' => Role::where('guard_name', 'web')->count(),
             'system_roles' => Role::where('guard_name', 'web')
-                ->whereIn('name', ['super-admin', 'company-admin', 'staff', 'candidate'])
+                ->whereIn('name', AdminPanelRoles::SYSTEM)
                 ->count(),
             'custom_roles' => Role::where('guard_name', 'web')
-                ->whereNotIn('name', ['super-admin', 'company-admin', 'staff', 'candidate'])
+                ->whereNotIn('name', AdminPanelRoles::SYSTEM)
                 ->count(),
             'roles_with_permissions' => Role::where('guard_name', 'web')
                 ->whereHas('permissions')
@@ -107,16 +106,17 @@ class AdminRoleController extends Controller
 
     public function create()
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-roles')) {
             abort(403, 'Je hebt geen rechten om rollen aan te maken.');
         }
-        
+
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
             ->get()
             ->groupBy(function ($permission) {
                 // Group permissions by their prefix (e.g., 'view-', 'create-', 'edit-', 'delete-')
                 $parts = explode('-', $permission->name);
+
                 return $parts[0] ?? 'other';
             });
 
@@ -129,21 +129,21 @@ class AdminRoleController extends Controller
 
     public function store(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-roles')) {
             abort(403, 'Je hebt geen rechten om rollen aan te maken.');
         }
-        
+
         $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
             'description' => 'nullable|string|max:500',
             'permissions' => 'required|array',
-            'permissions.*' => 'exists:permissions,name'
+            'permissions.*' => 'exists:permissions,name',
         ]);
 
         $role = Role::create([
             'name' => $request->name,
             'guard_name' => 'web',
-            'description' => $request->description
+            'description' => $request->description,
         ]);
 
         $role->syncPermissions($request->permissions);
@@ -154,16 +154,17 @@ class AdminRoleController extends Controller
 
     public function show(Role $role)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te bekijken.');
         }
-        
+
         $role->load(['permissions', 'users.company']);
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
             ->get()
             ->groupBy(function ($permission) {
                 $parts = explode('-', $permission->name);
+
                 return $parts[0] ?? 'other';
             });
 
@@ -172,10 +173,10 @@ class AdminRoleController extends Controller
 
     public function edit(Role $role)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te bewerken.');
         }
-        
+
         $role->load('permissions');
         // Pass all permissions (not grouped) like in create method
         $permissions = Permission::where('guard_name', 'web')
@@ -183,11 +184,12 @@ class AdminRoleController extends Controller
             ->get()
             ->groupBy(function ($permission) {
                 $parts = explode('-', $permission->name);
+
                 return $parts[0] ?? 'other';
             });
 
         $permissionSets = PermissionSetService::getSets();
-        
+
         // Get module permissions
         $menuService = app(MenuService::class);
         $modulePermissions = $menuService->getModulePermissionsGrouped();
@@ -197,34 +199,34 @@ class AdminRoleController extends Controller
 
     public function update(Request $request, Role $role)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te bewerken.');
         }
-        
+
         // Check if this is a system role
-        $isSystemRole = in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']);
-        
+        $isSystemRole = \App\Support\AdminPanelRoles::isSystemRole((string) $role->name);
+
         // Define validation rules
         $validationRules = [
             'description' => 'nullable|string|max:500',
             'permissions' => 'required|array',
-            'permissions.*' => 'exists:permissions,name'
+            'permissions.*' => 'exists:permissions,name',
         ];
-        
+
         // Only validate name if it's not a system role
-        if (!$isSystemRole) {
-            $validationRules['name'] = 'required|string|max:255|unique:roles,name,' . $role->id;
+        if (! $isSystemRole) {
+            $validationRules['name'] = 'required|string|max:255|unique:roles,name,'.$role->id;
         }
-        
+
         $request->validate($validationRules);
 
         // Update role data
         $updateData = [
-            'description' => $request->description
+            'description' => $request->description,
         ];
-        
+
         // Only update name if it's not a system role
-        if (!$isSystemRole) {
+        if (! $isSystemRole) {
             $updateData['name'] = $request->name;
         }
 
@@ -237,12 +239,12 @@ class AdminRoleController extends Controller
 
     public function destroy(Role $role)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te verwijderen.');
         }
-        
+
         // Prevent deletion of system roles
-        if (in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate'])) {
+        if (\App\Support\AdminPanelRoles::isSystemRole((string) $role->name)) {
             return back()->with('error', 'Systeem rollen kunnen niet worden verwijderd.');
         }
 
@@ -259,18 +261,19 @@ class AdminRoleController extends Controller
 
     public function toggleStatus(Request $request, Role $role)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-roles')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te bewerken.');
         }
 
         // Prevent deactivating system roles
-        if (in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate'])) {
+        if (\App\Support\AdminPanelRoles::isSystemRole((string) $role->name)) {
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Systeem rollen kunnen niet worden gedeactiveerd.'
+                    'message' => 'Systeem rollen kunnen niet worden gedeactiveerd.',
                 ], 403);
             }
+
             return back()->with('error', 'Systeem rollen kunnen niet worden gedeactiveerd.');
         }
 
@@ -279,45 +282,47 @@ class AdminRoleController extends Controller
         try {
             // Check if is_active column exists
             $columnExists = \Schema::hasColumn('roles', 'is_active');
-            
-            if (!$columnExists) {
+
+            if (! $columnExists) {
                 // Try to add the column automatically
                 try {
                     \DB::statement('ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true');
                     \DB::statement('UPDATE roles SET is_active = true WHERE is_active IS NULL');
                     $columnExists = true;
                 } catch (\Exception $e) {
-                    \Log::error('Failed to add is_active column to roles: ' . $e->getMessage());
+                    \Log::error('Failed to add is_active column to roles: '.$e->getMessage());
                     if ($isAjax) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'De is_active kolom bestaat niet.'
+                            'message' => 'De is_active kolom bestaat niet.',
                         ], 500);
                     }
+
                     return back()->with('error', 'De is_active kolom bestaat niet.');
                 }
             }
 
             $role->refresh();
-            $role->update(['is_active' => !($role->is_active ?? true)]);
+            $role->update(['is_active' => ! ($role->is_active ?? true)]);
 
             if ($isAjax) {
                 return response()->json([
                     'success' => true,
                     'message' => '',
-                    'is_active' => $role->is_active
+                    'is_active' => $role->is_active,
                 ]);
             }
 
             return back();
         } catch (\Exception $e) {
-            \Log::error('Failed to toggle role status: ' . $e->getMessage());
+            \Log::error('Failed to toggle role status: '.$e->getMessage());
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Er is een fout opgetreden bij het wijzigen van de status.'
+                    'message' => 'Er is een fout opgetreden bij het wijzigen van de status.',
                 ], 500);
             }
+
             return back()->with('error', 'Er is een fout opgetreden bij het wijzigen van de status.');
         }
     }

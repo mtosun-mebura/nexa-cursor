@@ -17,6 +17,10 @@ final class AiChatAuditLogger
         string $message,
         AiChatDataSource $dataSource,
     ): void {
+        if ($context->companyId <= 0) {
+            return;
+        }
+
         try {
             AiChatAuditLog::query()->create([
                 'company_id' => $context->companyId,

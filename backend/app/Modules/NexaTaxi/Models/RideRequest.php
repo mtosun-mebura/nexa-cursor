@@ -33,6 +33,11 @@ class RideRequest extends Model
         'duration_seconds',
         'passengers',
         'pickup_at',
+        'pickup_proposal_at',
+        'pickup_proposal_status',
+        'pickup_proposal_customer_remark',
+        'pickup_proposal_sent_at',
+        'pickup_proposal_responded_at',
         'return_at',
         'outbound_completed_at',
         'outbound_driver_id',
@@ -54,6 +59,9 @@ class RideRequest extends Model
 
     protected $casts = [
         'pickup_at' => 'datetime',
+        'pickup_proposal_at' => 'datetime',
+        'pickup_proposal_sent_at' => 'datetime',
+        'pickup_proposal_responded_at' => 'datetime',
         'return_at' => 'datetime',
         'outbound_completed_at' => 'datetime',
         'return_started_at' => 'datetime',
@@ -76,6 +84,12 @@ class RideRequest extends Model
     public const STATUS_ASSIGNED = 'assigned';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_CANCELLED = 'cancelled';
+
+    public const PICKUP_PROPOSAL_PENDING = 'pending';
+
+    public const PICKUP_PROPOSAL_ACCEPTED = 'accepted';
+
+    public const PICKUP_PROPOSAL_DECLINED = 'declined';
 
     public const STATUS_PENDING_PAYMENT = 'pending_payment';
 
@@ -339,6 +353,30 @@ class RideRequest extends Model
         $amount = $this->final_price ?? $this->quoted_price;
 
         return $amount !== null ? (float) $amount : null;
+    }
+
+    /**
+     * Bedrag dat deze chauffeur voor een afgeronde rit mag zien in Inkomsten.
+     */
+    public function earningsAmountForDriver(int $driverId): ?float
+    {
+        $full = $this->final_price !== null
+            ? (float) $this->final_price
+            : ($this->quoted_price !== null ? (float) $this->quoted_price : null);
+
+        if ($full === null) {
+            return null;
+        }
+
+        if ((int) $this->driver_id === $driverId) {
+            return round($full, 2);
+        }
+
+        if ((int) $this->outbound_driver_id === $driverId && $this->isReturnTrip()) {
+            return round($this->splitReturnTripLegAmounts()['outbound'], 2);
+        }
+
+        return null;
     }
 
     public function requiresPerLegDriverPayment(): bool

@@ -6,6 +6,7 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverAuthController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverAvailabilityController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchStreamController;
+use App\Modules\NexaTaxi\Controllers\Api\DriverEarningsController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideInvoiceController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRidePaymentController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideStopController;
@@ -40,6 +41,9 @@ Route::prefix('v1/driver')
         Route::post('logout', [DriverAuthController::class, 'logout']);
         Route::get('me', [DriverAuthController::class, 'me']);
 
+        Route::get('earnings', [DriverEarningsController::class, 'show'])
+            ->middleware('throttle:60,1');
+
         Route::put('availability', [DriverAvailabilityController::class, 'update'])
             ->middleware('throttle:60,1');
 
@@ -57,6 +61,20 @@ Route::prefix('v1/driver')
             ->middleware('throttle:30,1')
             ->whereNumber('offer');
 
+        Route::post('dispatch/offers/{offer}/archive', [DriverDispatchController::class, 'archiveOffer'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('offer');
+
+        Route::delete('dispatch/offers/{offer}/archive', [DriverDispatchController::class, 'deleteArchivedOffer'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('offer');
+
+        Route::post('dispatch/archived-offers/delete', [DriverDispatchController::class, 'deleteArchivedOffers'])
+            ->middleware('throttle:20,1');
+
+        Route::post('dispatch/rides/{ride}/propose-pickup', [DriverDispatchController::class, 'proposePickup'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('ride');
         Route::post('dispatch/rides/{ride}/start', [DriverDispatchController::class, 'start'])
             ->middleware('throttle:30,1')
             ->whereNumber('ride');

@@ -6,9 +6,9 @@ class NexaBranding
 {
     public static function defaultLogoPath(): string
     {
-        $path = (string) config('nexa.default_logo', 'images/nexa-x-logo.png');
+        $path = (string) config('nexa.default_logo', 'images/nexa-logo.png');
 
-        return $path !== '' ? $path : 'images/nexa-x-logo.png';
+        return $path !== '' ? $path : 'images/nexa-logo.png';
     }
 
     public static function defaultUserAvatarPath(): string

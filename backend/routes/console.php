@@ -1,8 +1,8 @@
 <?php
 
 use App\Jobs\ProcessPlatformBillingJob;
-use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
+use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Services\ModuleDatabaseService;
@@ -42,6 +42,11 @@ Artisan::command('taxi:resync-contract-schedule-times', function () {
 
     $this->info("Contractrittijden gesynchroniseerd voor {$updated} ritten.");
 })->purpose('Corrigeer geplande tijden van bestaande contract-groepsritten (Europe/Amsterdam)');
+
+Schedule::command('nexa:reset-demo')
+    ->dailyAt('03:00')
+    ->name('nexa-reset-demo')
+    ->withoutOverlapping();
 
 Schedule::command('taxi:generate-contract-occurrences --days=14')
     ->dailyAt('04:00')

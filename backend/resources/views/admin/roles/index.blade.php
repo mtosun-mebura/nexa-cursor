@@ -295,7 +295,7 @@
                                             </div>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                            @if(\App\Support\AdminPanelRoles::isSystemRole((string) $role->name))
                                                 <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
                                             @else
                                                 <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
@@ -351,7 +351,7 @@
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
                                                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles'))
-                                                        @if(!in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                        @if(!\App\Support\AdminPanelRoles::isSystemRole((string) $role->name))
                                                         <div class="kt-menu-item">
                                                             <form action="{{ route('admin.roles.toggle-status', $role) }}" method="POST" class="inline" onsubmit="return confirm('Weet je zeker dat je de status van deze rol wilt wijzigen?')">
                                                                 @csrf
@@ -370,11 +370,11 @@
                                                         </div>
                                                         @endif
                                                         @endif
-                                                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles')) && !in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles')) && !\App\Support\AdminPanelRoles::isSystemRole((string) $role->name))
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
                                                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-roles'))
-                                                        @if(!in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                        @if(!\App\Support\AdminPanelRoles::isSystemRole((string) $role->name))
                                                         <div class="kt-menu-item">
                                                             <form action="{{ route('admin.roles.destroy', $role) }}" 
                                                                   method="POST" 

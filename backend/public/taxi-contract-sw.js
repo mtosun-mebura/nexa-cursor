@@ -1,5 +1,5 @@
 /* PWA service worker for contract portal. */
-const CACHE = 'nexa-taxi-contract-v1';
+const CACHE = 'nexa-taxi-contract-v2';
 const CONTRACT_URL = '/taxi/contract';
 
 self.addEventListener('install', () => {
@@ -28,6 +28,7 @@ self.addEventListener('fetch', (event) => {
     }
     if (
         url.pathname === '/taxi/contract' ||
+        url.pathname === '/taxi/contract/handleiding' ||
         url.pathname.startsWith('/assets/js/taxi-contract-app')
     ) {
         event.respondWith(

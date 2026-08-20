@@ -89,7 +89,7 @@ class WebsitePageModelTest extends TestCase
     public function model_has_expected_fillable_attributes(): void
     {
         $expected = [
-            'slug', 'title', 'content', 'meta_description', 'home_sections',
+            'slug', 'title', 'menu_title', 'content', 'meta_description', 'home_sections',
             'page_type', 'module_name', 'frontend_theme_id', 'company_id',
             'is_active', 'show_in_menu', 'sort_order',
         ];

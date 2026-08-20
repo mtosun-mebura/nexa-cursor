@@ -111,6 +111,150 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * Push de NEXA SaaS-hoofdwebsite (pagina's + nexa_pricing) naar het sync-doel.
+     *
+     * @param  null|callable(array<string, mixed>): void  $onProgress
+     * @return array{remote_company_id: int, inserted: int, skipped: int, updated: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
+     */
+    public function pushCentralWebsite(?callable $onProgress = null): array
+    {
+        return $this->websiteBundle->runWithSyncTarget(function () use ($onProgress) {
+            return $this->pushCentralWebsiteThroughTunnel($onProgress);
+        });
+    }
+
+    /**
+     * @param  null|callable(array<string, mixed>): void  $onProgress
+     * @return array{remote_company_id: int, inserted: int, skipped: int, updated: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
+     */
+    private function pushCentralWebsiteThroughTunnel(?callable $onProgress = null): array
+    {
+        $sourceConn = (string) config('database.default');
+        $targetConn = TenantWebsiteBundleService::SYNC_CONNECTION;
+
+        $this->websiteBundle->registerSyncConnection();
+
+        try {
+            DB::connection($targetConn)->getPdo();
+        } catch (\Throwable $e) {
+            throw new RuntimeException($this->websiteBundle->explainSyncTargetConnectionError($e), 0, $e);
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+        $this->resetSyncRunState();
+        $report = $this->report();
+        $report->onProgress($onProgress);
+        $report->addStep('NEXA SaaS-website-sync gestart');
+
+        try {
+            $pageStats = $this->websiteBundle->pushCentralWebsitePagesForSync();
+            $inserted += (int) ($pageStats['inserted'] ?? 0);
+            $updated += (int) ($pageStats['updated'] ?? 0);
+            $skipped += (int) ($pageStats['skipped'] ?? 0);
+            $report->addRow(
+                'NEXA SaaS',
+                'website_pages',
+                (int) ($pageStats['inserted'] ?? 0),
+                (int) ($pageStats['updated'] ?? 0),
+                (int) ($pageStats['skipped'] ?? 0)
+            );
+
+            $settingStats = $this->pushCentralNexaPricingSetting($sourceConn, $targetConn);
+            $inserted += (int) ($settingStats['inserted'] ?? 0);
+            $updated += (int) ($settingStats['updated'] ?? 0);
+            $skipped += (int) ($settingStats['skipped'] ?? 0);
+            $report->addRow(
+                'NEXA SaaS',
+                'general_settings (nexa_pricing)',
+                (int) ($settingStats['inserted'] ?? 0),
+                (int) ($settingStats['updated'] ?? 0),
+                (int) ($settingStats['skipped'] ?? 0)
+            );
+
+            $summary = sprintf(
+                'NEXA SaaS-website-sync voltooid. Toegevoegd: %d, bijgewerkt: %d, overgeslagen: %d.',
+                $inserted,
+                $updated,
+                $skipped
+            );
+            $report->setSummary(0, $inserted, $updated, $skipped, $summary);
+            $reportArray = $report->toArray();
+
+            Log::info('central_website_push', [
+                'inserted' => $inserted,
+                'skipped' => $skipped,
+                'updated' => $updated,
+            ]);
+
+            return [
+                'remote_company_id' => 0,
+                'inserted' => $inserted,
+                'skipped' => $skipped,
+                'updated' => $updated,
+                'tables' => ['website_pages', 'general_settings'],
+                'messages' => $reportArray['notes'],
+                'report' => $reportArray,
+            ];
+        } finally {
+            $this->resetSyncRunState();
+            DB::purge($targetConn);
+        }
+    }
+
+    /**
+     * @return array{inserted: int, updated: int, skipped: int}
+     */
+    private function pushCentralNexaPricingSetting(string $sourceConn, string $targetConn): array
+    {
+        if (! Schema::connection($sourceConn)->hasTable('general_settings')
+            || ! Schema::connection($targetConn)->hasTable('general_settings')) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 1];
+        }
+
+        $q = DB::connection($sourceConn)->table('general_settings')->where('key', 'nexa_pricing');
+        if (Schema::connection($sourceConn)->hasColumn('general_settings', 'company_id')) {
+            $q->whereNull('company_id');
+        }
+        $row = $q->first();
+        if ($row === null) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 1];
+        }
+
+        $value = (string) ($row->value ?? '');
+        $target = DB::connection($targetConn)->table('general_settings')->where('key', 'nexa_pricing');
+        if (Schema::connection($targetConn)->hasColumn('general_settings', 'company_id')) {
+            $target->whereNull('company_id');
+        }
+        $existing = $target->first();
+        $payload = [
+            'key' => 'nexa_pricing',
+            'value' => $value,
+            'updated_at' => now(),
+        ];
+        if (Schema::connection($targetConn)->hasColumn('general_settings', 'company_id')) {
+            $payload['company_id'] = null;
+        }
+
+        if ($existing === null) {
+            $payload['created_at'] = now();
+            DB::connection($targetConn)->table('general_settings')->insert($payload);
+
+            return ['inserted' => 1, 'updated' => 0, 'skipped' => 0];
+        }
+
+        DB::connection($targetConn)->table('general_settings')
+            ->where('id', $existing->id)
+            ->update([
+                'value' => $value,
+                'updated_at' => now(),
+            ]);
+
+        return ['inserted' => 0, 'updated' => 1, 'skipped' => 0];
+    }
+
+    /**
      * @param  null|callable(array<string, mixed>): void  $onProgress
      * @return array{remote_company_id: int, inserted: int, skipped: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
      */

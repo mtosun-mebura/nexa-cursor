@@ -272,12 +272,32 @@ export function registerAiChatbot(Alpine) {
             window.addEventListener('resize', this._onViewportChange);
         },
 
+        siteHeaderBottomPx() {
+            const header = document.querySelector('header.sticky') || document.querySelector('header');
+            if (!header) {
+                return 65;
+            }
+
+            const rect = header.getBoundingClientRect();
+            const bottom = Math.round(rect.bottom);
+
+            return bottom > 0 ? bottom : Math.round(rect.height);
+        },
+
+        applySiteHeaderOffset(panel) {
+            const bottom = `${this.siteHeaderBottomPx()}px`;
+            panel.style.setProperty('--nexa-site-header-bottom', bottom);
+            document.documentElement.style.setProperty('--nexa-site-header-bottom', bottom);
+        },
+
         syncMobileViewport() {
             const panel = this.$refs.chatPanel;
             if (!panel || !this.isMobileChatViewport() || !this.isOpen) {
                 this.resetMobileViewport();
                 return;
             }
+
+            this.applySiteHeaderOffset(panel);
 
             const visualViewport = window.visualViewport;
             if (!visualViewport) {
@@ -307,6 +327,7 @@ export function registerAiChatbot(Alpine) {
             panel.classList.remove('ai-chat-panel--keyboard');
             panel.style.removeProperty('--ai-chat-panel-top');
             panel.style.removeProperty('--ai-chat-panel-height');
+            panel.style.removeProperty('--nexa-site-header-bottom');
         },
 
         onInputFocus() {
@@ -370,7 +391,7 @@ export function registerAiChatbot(Alpine) {
             }
 
             if (input.type === 'text') {
-                this.remarksValue = '';
+                this.remarksValue = String(input.prefill || '').trim();
             }
         },
 

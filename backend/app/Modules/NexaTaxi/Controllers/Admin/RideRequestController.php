@@ -480,7 +480,7 @@ class RideRequestController extends Controller
      */
     private function buildChauffeurQuery(?int $companyId)
     {
-        return $this->buildTenantRoleUserQuery($companyId, ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur']);
+        return $this->buildTenantRoleUserQuery($companyId, ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur', 'chauffeur-inkomsten']);
     }
 
     /**
@@ -584,7 +584,7 @@ class RideRequestController extends Controller
             User::class,
             (new User)->getMorphClass(),
         ])));
-        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur'];
+        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur', 'chauffeur-inkomsten'];
 
         $query->where('company_id', $companyId)
             ->whereExists(function ($sub) use ($companyId, $pivot, $roles, $teamKey, $morphTypes, $roleNamesLower) {

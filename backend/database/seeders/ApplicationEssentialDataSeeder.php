@@ -20,6 +20,9 @@ class ApplicationEssentialDataSeeder extends Seeder
             InfoRequestFormFieldSeeder::class,
             PaymentProviderSeeder::class,
             TaxiRideAcceptedEmailTemplateSeeder::class,
+            NexaContactAanvraagEmailTemplateSeeder::class,
         ]);
+
+        app(\App\Services\NexaDemoAccountService::class)->ensure();
     }
 }

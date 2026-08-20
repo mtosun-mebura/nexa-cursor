@@ -1,4 +1,4 @@
-import type { ConfigField, SelectOption } from './section-config-schemas'
+import { sectionWidthPercentOptions, type ConfigField, type SelectOption } from './section-config-schemas'
 
 const alignOptions: SelectOption[] = [
   { value: 'left', label: 'Links' },
@@ -203,7 +203,35 @@ const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
         { type: 'wysiwyg', key: 'description', label: 'Beschrijving', placeholder: 'Beschrijving…' },
         { type: 'text', key: 'badge', label: 'Badge' },
         { type: 'text', key: 'icon', label: 'Icoon (heroicon-id)' },
+        { type: 'text', key: 'url', label: 'Link (optioneel)', placeholder: '/taxi' },
         { type: 'textarea', key: 'features_text', label: 'Features (1 per regel)', rows: 3 },
+      ],
+    },
+  ],
+  'component:website.screenshot_gallery': [
+    { type: 'text', key: 'title', label: 'Titel' },
+    { type: 'text', key: 'subtitle', label: 'Subtitel' },
+    { type: 'select', key: 'layout', label: 'Layout', options: [
+      { value: 'stack', label: 'Gestapeld (één kolom)' },
+      { value: 'grid', label: 'Grid' },
+    ]},
+    {
+      type: 'item-list',
+      key: 'items',
+      label: 'Screenshots',
+      minItems: 1,
+      maxItems: 8,
+      itemLabel: 'Screenshot',
+      fields: [
+        { type: 'image', key: 'image_url', label: 'Afbeelding' },
+        { type: 'text', key: 'caption', label: 'Bijschrift', placeholder: 'Korte tekst bij deze afbeelding' },
+        { type: 'text', key: 'alt', label: 'Alt-tekst', placeholder: 'Beschrijving voor toegankelijkheid' },
+        { type: 'text', key: 'url', label: 'Link (optioneel)', placeholder: '/taxi' },
+        { type: 'select', key: 'crop', label: 'Crop', options: [
+          { value: 'none', label: 'Geen crop' },
+          { value: 'phone', label: 'Telefoon (inzoomen)' },
+          { value: 'portal', label: 'Portaal (inzoomen)' },
+        ]},
       ],
     },
   ],
@@ -228,6 +256,127 @@ const GOOGLE_REVIEWS_SCHEMA: ConfigField[] = [
 
 COMPONENT_SCHEMAS['component:website.google_reviews'] = GOOGLE_REVIEWS_SCHEMA
 COMPONENT_SCHEMAS['component:nexa.google_reviews'] = GOOGLE_REVIEWS_SCHEMA
+
+COMPONENT_SCHEMAS['component:website.pricing_packages'] = [
+  {
+    type: 'select',
+    key: 'width_percent',
+    label: 'Schaal prijzenoverzicht',
+    options: sectionWidthPercentOptions,
+    defaultValue: '100',
+    hint: 'Breedte van het overzicht ten opzichte van de pagina. 100% is volle breedte.',
+  },
+  {
+    type: 'select',
+    key: 'packages_font_size_px',
+    label: 'Tekstgrootte pakketten',
+    options: pxSelectOptions(10, 24, 1),
+    defaultValue: '14',
+    hint: 'Vergelijkingstabel met maandpakketten (Start / Pro / Business).',
+  },
+  {
+    type: 'select',
+    key: 'website_font_size_px',
+    label: 'Tekstgrootte website eenmalig',
+    options: pxSelectOptions(10, 24, 1),
+    defaultValue: '14',
+    hint: 'Blok “Website live zetten” onder de pakketten.',
+  },
+  {
+    type: 'select',
+    key: 'website_width_percent',
+    label: 'Breedte website eenmalig',
+    options: sectionWidthPercentOptions,
+    defaultValue: '50',
+    hint: 'Breedte van de tekstkolom in het eenmalige websiteblok.',
+  },
+  {
+    type: 'select',
+    key: 'addons_font_size_px',
+    label: 'Tekstgrootte extra’s',
+    options: pxSelectOptions(10, 24, 1),
+    defaultValue: '14',
+    hint: 'Kaarten zoals extra vestiging, AI-assistent en vloot.',
+  },
+  { type: 'pricing-packages-preview' },
+]
+
+COMPONENT_SCHEMAS['component:website.comparison_table'] = [
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'select',
+    key: 'layout',
+    label: 'Plaatsing',
+    options: [
+      { value: 'columns', label: 'Naast elkaar' },
+      { value: 'stack', label: 'Onder elkaar' },
+    ],
+    defaultValue: 'columns',
+  },
+  {
+    type: 'group',
+    label: 'Nadelen',
+    headingKey: 'left_heading',
+    accentColorKey: 'left_color',
+    accentColorFallback: '#dc2626',
+    alwaysOpen: true,
+    fields: [
+      { type: 'text', key: 'left_heading', label: 'Koptekst', placeholder: 'Nadelen' },
+      { type: 'color', key: 'left_color', label: 'Kleur', defaultValue: '#dc2626' },
+      {
+        type: 'select',
+        key: 'left_width_percent',
+        label: 'Breedte',
+        options: sectionWidthPercentOptions,
+        defaultValue: '50',
+        hint: 'Telt op met de andere kolom. De rest is lege ruimte links en rechts.',
+      },
+      {
+        type: 'item-list',
+        key: 'cons',
+        label: 'Punten',
+        minItems: 1,
+        maxItems: 16,
+        compact: true,
+        fields: [
+          { type: 'text', key: 'text', label: '', placeholder: 'Bijv. Klanten haken af zonder online boeking' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'group',
+    label: 'Voordelen',
+    headingKey: 'right_heading',
+    accentColorKey: 'right_color',
+    accentColorFallback: '#16a34a',
+    alwaysOpen: true,
+    fields: [
+      { type: 'text', key: 'right_heading', label: 'Koptekst', placeholder: 'Voordelen' },
+      { type: 'color', key: 'right_color', label: 'Kleur', defaultValue: '#16a34a' },
+      {
+        type: 'select',
+        key: 'right_width_percent',
+        label: 'Breedte',
+        options: sectionWidthPercentOptions,
+        defaultValue: '50',
+        hint: 'Telt op met de andere kolom. De rest is lege ruimte links en rechts.',
+      },
+      {
+        type: 'item-list',
+        key: 'pros',
+        label: 'Punten',
+        minItems: 1,
+        maxItems: 16,
+        compact: true,
+        fields: [
+          { type: 'text', key: 'text', label: '', placeholder: 'Bijv. 24/7 een rit vastleggen op jouw site' },
+        ],
+      },
+    ],
+  },
+]
 
 COMPONENT_SCHEMAS['component:taxiroyaal.tarieven'] = COMPONENT_SCHEMAS['component:taxi.tarieven']
 

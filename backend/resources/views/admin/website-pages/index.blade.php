@@ -26,6 +26,12 @@
                     </a>
                 </div>
             @endif
+            @if(!empty($websitePagesManagingCentralSite))
+                <p class="text-sm text-muted-foreground mt-2 mb-0">
+                    Pagina&rsquo;s van de <span class="text-foreground font-medium">hoofdwebsite van Nexa SaaS</span> (geen tenant).
+                    Kies een tenant in de zijbalk om de website van een klantbedrijf te beheren.
+                </p>
+            @endif
             @php
                 $wtc = $websiteTenantContext ?? ['visible' => false];
             @endphp
@@ -35,23 +41,36 @@
                 </p>
             @endif
         </div>
-        @if($websitePagesTenantScopedActive ?? false)
-        <div class="flex flex-wrap items-center gap-2 shrink-0">
+        <div class="flex flex-wrap items-center gap-2 shrink-0 admin-page-actions">
             @php
                 $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('home', [
                     'nexa_admin_preview' => 1,
                     'admin_back' => route('admin.website-pages.index', $wizardIndexQuery ?? [], false),
                 ]);
+                $websitePagesSeoCount = ($pages ?? collect())->count();
             @endphp
             <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
                 Pagina voorbeeld
             </a>
+            <form method="POST" action="{{ route('admin.website-pages.generate-seo-all', $wizardIndexQuery ?? []) }}" id="website-pages-generate-seo-all-form" class="m-0">
+                @csrf
+                @foreach ($wizardIndexQuery ?? [] as $wizKey => $wizVal)
+                    <input type="hidden" name="{{ $wizKey }}" value="{{ $wizVal }}">
+                @endforeach
+                <button type="submit"
+                        id="website-pages-generate-seo-all-btn"
+                        class="kt-btn kt-btn-outline"
+                        @disabled($websitePagesSeoCount < 1)
+                        title="Genereer SEO-titels, meta-omschrijvingen en hero-teksten voor alle pagina's op deze lijst">
+                    <i class="ki-filled ki-magic me-2"></i>
+                    SEO teksten
+                </button>
+            </form>
             <a href="{{ route('admin.website-pages.create', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i> Nieuwe pagina
             </a>
         </div>
-        @endif
     </div>
 
     @if(session('success'))
@@ -60,7 +79,6 @@
         </div>
     @endif
 
-    @if($websitePagesTenantScopedActive ?? false)
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-content p-0 min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap min-w-0">
@@ -68,16 +86,16 @@
                 <thead>
                     <tr>
                         <th class="website-pages-col-order" data-label="Volgorde">Volgorde</th>
-                        <th class="website-pages-col-title" data-label="Titel">Titel</th>
+                        <th class="website-pages-col-menu" data-label="Menuitem">Menuitem</th>
                         <th class="website-pages-col-slug" data-label="Slug">Slug</th>
                         <th class="website-pages-col-type" data-label="Type">Type</th>
                         <th class="website-pages-col-module" data-label="Module">Module</th>
-                        @if(!empty($websiteTenantContext['visible'] ?? false))
+                        @if(!empty($websiteTenantContext['visible'] ?? false) && empty($websitePagesManagingCentralSite))
                             <th class="website-pages-col-company" data-label="Bedrijf">Bedrijf</th>
                         @endif
                         <th class="website-pages-col-theme" data-label="Thema">Thema</th>
                         <th class="website-pages-col-status" data-label="Status">Status</th>
-                        <th class="website-pages-col-actions text-end" data-label="Acties">Acties</th>
+                        <th class="website-pages-col-actions text-center" data-label="Acties">Acties</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -91,14 +109,60 @@
                         @endphp
                         @php
                             $rowEditUrl = route('admin.website-pages.builder-v2.edit', $page).$pageModule.$wizSuffix;
+                            $reorderQuery = $wizardIndexQuery ?? [];
+                            if ($page->module_name) {
+                                $reorderQuery['module'] = $page->module_name;
+                            }
+                            $reorderUrl = route('admin.website-pages.reorder', $page);
+                            if ($reorderQuery !== []) {
+                                $reorderUrl .= '?'.http_build_query($reorderQuery);
+                            }
                         @endphp
                         <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-row-href="{{ $rowEditUrl }}" role="button" tabindex="0">
-                            <td class="tabular-nums">{{ $page->sort_order }}</td>
-                            <td class="font-medium">{{ $page->title }}</td>
+                            <td class="website-page-order-cell whitespace-nowrap" onclick="event.stopPropagation()">
+                                <div class="flex items-center gap-1.5">
+                                    <div class="flex flex-col">
+                                        @if($loop->first)
+                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost opacity-30 cursor-not-allowed" disabled aria-label="Omhoog" title="Staat al bovenaan">
+                                                <i class="ki-filled ki-arrow-up"></i>
+                                            </button>
+                                        @else
+                                            <form action="{{ $reorderUrl }}" method="POST" class="m-0">
+                                                @csrf
+                                                @if($page->module_name)
+                                                    <input type="hidden" name="module_name" value="{{ $page->module_name }}">
+                                                @endif
+                                                <input type="hidden" name="direction" value="up">
+                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Omhoog" title="Omhoog">
+                                                    <i class="ki-filled ki-arrow-up"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                        @if($loop->last)
+                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost opacity-30 cursor-not-allowed" disabled aria-label="Omlaag" title="Staat al onderaan">
+                                                <i class="ki-filled ki-arrow-down"></i>
+                                            </button>
+                                        @else
+                                            <form action="{{ $reorderUrl }}" method="POST" class="m-0">
+                                                @csrf
+                                                @if($page->module_name)
+                                                    <input type="hidden" name="module_name" value="{{ $page->module_name }}">
+                                                @endif
+                                                <input type="hidden" name="direction" value="down">
+                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Omlaag" title="Omlaag">
+                                                    <i class="ki-filled ki-arrow-down"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                    <span class="tabular-nums">{{ $page->sort_order }}</span>
+                                </div>
+                            </td>
+                            <td class="font-medium">{{ $page->publicNavLabel() }}</td>
                             <td><code class="text-xs break-all">{{ $page->slug }}</code></td>
                             <td>{{ $page->page_type }}</td>
                             <td>{{ $page->module_name ?? '—' }}</td>
-                            @if(!empty($websiteTenantContext['visible'] ?? false))
+                            @if(!empty($websiteTenantContext['visible'] ?? false) && empty($websitePagesManagingCentralSite))
                                 @php
                                     $namesMap = $websitePagesCompanyNames ?? collect();
                                     $rowCompanyId = isset($page->company_id) && $page->company_id !== null && $page->company_id !== '' ? (int) $page->company_id : null;
@@ -108,7 +172,7 @@
                                     @if($rowCompanyId !== null)
                                         <span class="font-medium text-foreground">{{ $rowCompanyName ?? ('Bedrijf #'.$rowCompanyId) }}</span>
                                     @else
-                                        <span class="text-muted-foreground">Niet gekoppeld</span>
+                                        <span class="text-muted-foreground">Nexa SaaS</span>
                                     @endif
                                 </td>
                             @endif
@@ -120,8 +184,8 @@
                                     <span class="kt-badge kt-badge-secondary">Inactief</span>
                                 @endif
                             </td>
-                            <td class="text-end relative website-page-actions-cell" onclick="event.stopPropagation()">
-                                <div class="website-pages-actions-menu flex justify-end">
+                            <td class="text-center relative website-page-actions-cell" onclick="event.stopPropagation()">
+                                <div class="website-pages-actions-menu flex justify-center">
                                     <div class="relative">
                                         <button type="button" class="website-pages-actions-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties" aria-expanded="false" aria-haspopup="true">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
@@ -180,7 +244,6 @@
             </div>
         </div>
     </div>
-    @endif
 </div>
 
 @push('styles')
@@ -188,7 +251,13 @@
     .website-pages-actions-dropdown.is-open { display: block !important; }
 
     #content #website-pages-table.website-pages-table .website-pages-col-order {
-        width: 4.5rem;
+        width: 7.5rem;
+    }
+
+    #content #website-pages-table.website-pages-table .website-page-order-cell .kt-btn-icon {
+        width: 1.75rem;
+        height: 1.5rem;
+        min-height: 1.5rem;
     }
 
     #content #website-pages-table.website-pages-table .website-pages-col-type {
@@ -199,15 +268,18 @@
         width: 6.5rem;
     }
 
-    #content #website-pages-table.website-pages-table .website-pages-col-actions {
+    #content #website-pages-table.website-pages-table .website-pages-col-actions,
+    #content #website-pages-table.website-pages-table .website-page-actions-cell {
         width: 4.5rem;
+        text-align: center !important;
+        vertical-align: middle !important;
     }
 
     #content #website-pages-table.website-pages-table .website-pages-col-slug {
         width: 14%;
     }
 
-    #content #website-pages-table.website-pages-table .website-pages-col-title {
+    #content #website-pages-table.website-pages-table .website-pages-col-menu {
         width: 16%;
     }
 
@@ -223,16 +295,33 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var toggles = document.querySelectorAll('.website-pages-actions-toggle');
+    var seoAllForm = document.getElementById('website-pages-generate-seo-all-form');
+    var seoAllBtn = document.getElementById('website-pages-generate-seo-all-btn');
+    if (seoAllForm && seoAllBtn && !seoAllBtn.disabled) {
+        seoAllForm.addEventListener('submit', function(e) {
+            var count = {{ (int) ($pages ?? collect())->count() }};
+            var msg = count === 1
+                ? 'SEO-titel, meta-omschrijving en hero-tekst van deze pagina overschrijven?'
+                : 'SEO-titels, meta-omschrijvingen en hero-teksten van alle ' + count + " pagina's op deze lijst overschrijven?";
+            if (!window.confirm(msg)) {
+                e.preventDefault();
+                return;
+            }
+            seoAllBtn.setAttribute('aria-busy', 'true');
+            seoAllBtn.innerHTML = '<i class="ki-filled ki-arrows-circle me-2 animate-spin"></i> Bezig…';
+        });
+    }
+
     var openDropdown = null;
 
     document.querySelectorAll('.website-page-row[data-row-href]').forEach(function(row) {
         row.addEventListener('click', function(e) {
-            if (e.target.closest('.website-page-actions-cell')) return;
+            if (e.target.closest('.website-page-actions-cell, .website-page-order-cell')) return;
             var url = row.getAttribute('data-row-href');
             if (url) window.location.href = url;
         });
         row.addEventListener('keydown', function(e) {
-            if (e.target.closest('.website-page-actions-cell')) return;
+            if (e.target.closest('.website-page-actions-cell, .website-page-order-cell')) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 var url = row.getAttribute('data-row-href');

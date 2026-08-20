@@ -32,4 +32,52 @@ final class TaxiDispatchSchema
             });
         }
     }
+
+    public static function ensurePickupProposalColumns(string $connection): void
+    {
+        $schema = Schema::connection($connection);
+        if (! $schema->hasTable('ride_requests')) {
+            return;
+        }
+
+        if (! $schema->hasColumn('ride_requests', 'pickup_proposal_at')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->dateTime('pickup_proposal_at')->nullable();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'pickup_proposal_status')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->string('pickup_proposal_status', 32)->nullable();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'pickup_proposal_customer_remark')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->text('pickup_proposal_customer_remark')->nullable();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'pickup_proposal_sent_at')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->timestamp('pickup_proposal_sent_at')->nullable();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'pickup_proposal_responded_at')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->timestamp('pickup_proposal_responded_at')->nullable();
+            });
+        }
+    }
+
+    public static function ensureOfferArchiveColumn(string $connection): void
+    {
+        $schema = Schema::connection($connection);
+        if (! $schema->hasTable('ride_dispatch_offers')) {
+            return;
+        }
+
+        if (! $schema->hasColumn('ride_dispatch_offers', 'archived_at')) {
+            $schema->table('ride_dispatch_offers', function ($table) {
+                $table->timestamp('archived_at')->nullable();
+            });
+        }
+    }
 }

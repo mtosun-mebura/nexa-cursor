@@ -1,8 +1,8 @@
 <?php
 
-use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
+use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
 use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminCompanyDomainController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
@@ -11,21 +11,20 @@ use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
 use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
-use App\Http\Controllers\Admin\AdminPlatformBillingSettingsController;
-use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
-use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
-use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
-use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
-use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
-// AdminVacancyController moved to Skillmatching module
-// AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminModuleController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentProviderController;
 use App\Http\Controllers\Admin\AdminPermissionController;
+use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
+// AdminVacancyController moved to Skillmatching module
+// AdminMatchController and AdminInterviewController moved to Skillmatching module
+use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
+use App\Http\Controllers\Admin\AdminPlatformBillingSettingsController;
+use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
 use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
+use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
@@ -33,14 +32,15 @@ use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
 use App\Http\Controllers\Frontend\InfoRequestController;
 use App\Http\Controllers\Frontend\MatchController;
-use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
-use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\WebsitePageController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Models\Vacancy;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
 use App\Services\WebsiteBuilderService;
+use App\Support\AdminReturnUrl;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -699,6 +699,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/seo/submit-sitemap', [App\Http\Controllers\Admin\AdminSettingsController::class, 'submitSeoSitemap'])->name('settings.seo.submit-sitemap');
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
         Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
+        Route::post('settings/mollie', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMollie'])->name('settings.mollie.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         Route::post('settings/whatsapp/platform', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsappPlatform'])->name('settings.whatsapp.platform.update');
         Route::post('settings/whatsapp/platform/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testWhatsappPlatform'])->name('settings.whatsapp.platform.test');
@@ -740,18 +741,24 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         // Welkom-pagina editor (Super Admin only)
         Route::get('welcome-page', [App\Http\Controllers\Admin\AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
 
+        Route::get('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
+        Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
+
         // Website builder (Super Admin only)
         Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
         Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
         Route::get('website-pages/component-section-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
+        Route::get('website-pages/block-preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
         Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
         Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
         Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
         Route::post('website-pages/generate-seo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
+        Route::post('website-pages/generate-seo-all', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
         Route::get('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
         Route::put('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
         Route::patch('website-pages/{website_page}/builder-v2/meta', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
+        Route::post('website-pages/{website_page}/reorder', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
         Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
@@ -810,7 +817,7 @@ Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'inde
 Route::get('/marketing', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'index'])
     ->name('marketing.index');
 Route::get('/marketing/{page}', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'show'])
-    ->where('page', 'strategie|taxi|contractvervoer|skillmatching|website|website-copy')
+    ->where('page', 'strategie|taxi|contractvervoer|website|prijzen|website-copy')
     ->name('marketing.show');
 
 // Preview van de 404-pagina (geen echte 404-status, zodat je de UI kunt beoordelen)
@@ -883,7 +890,7 @@ Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController:
     ->name('frontend.ai-chat.message');
 
 Route::post('/info-request', [InfoRequestController::class, 'submit'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:public-forms')
     ->name('frontend.send-info-request');
 
 // Test routes voor error pagina's (alleen in development)

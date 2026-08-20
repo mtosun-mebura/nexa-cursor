@@ -125,6 +125,8 @@ class TaxiRideInvoiceServiceTest extends TestCase
             'driver' => true,
             'mollie_configured' => true,
         ]);
+        $settings->shouldReceive('offerPickupIsPast')->andReturn(false);
+        $settings->shouldReceive('offerTtlSeconds')->andReturn(300);
 
         $this->app->instance(TaxiDispatchSettingsService::class, $settings);
         $this->app->instance(TaxiRidePaymentService::class, new TaxiRidePaymentService(

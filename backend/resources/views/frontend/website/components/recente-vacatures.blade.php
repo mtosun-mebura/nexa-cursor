@@ -1,5 +1,5 @@
 {{-- Component: Recente Vacatures (container-custom, grid van vacaturekaarten). Altijd tonen; bij geen vacatures een lege staat. --}}
-<section class="py-16 bg-gray-50 dark:bg-gray-900">
+<section class="pt-8 md:pt-10 pb-12 md:pb-16 bg-gray-50 dark:bg-gray-900">
     <div class="website-section-inner">
         <div class="mb-12 text-center">
             <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Recente <span class="text-orange-500 dark:text-orange-400">Vacatures</span></h2>

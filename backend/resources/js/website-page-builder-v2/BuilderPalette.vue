@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { componentMeta, sectionMeta } from './palette-meta'
 import type { PaletteDragPayload } from './types'
 import { writeDragPayload } from './builder-state'
+import BuilderBlockPreviewModal from './BuilderBlockPreviewModal.vue'
 
-defineProps<{
+const props = defineProps<{
   sections: Array<{ type: string; label: string }>
   components: Array<{ id: string; name: string; description: string; moduleName: string; sectionKey: string }>
   query: string
+  blockPreviewUrl: string
+  themeSlug: string
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +21,17 @@ const emit = defineEmits<{
 }>()
 
 const suppressClick = ref(false)
+const previewOpen = ref(false)
+const previewTitle = ref('')
+const previewQuery = ref('')
+
+const previewUrl = computed(() => {
+  if (!props.blockPreviewUrl || !previewQuery.value) {
+    return ''
+  }
+  const joiner = props.blockPreviewUrl.includes('?') ? '&' : '?'
+  return `${props.blockPreviewUrl}${joiner}${previewQuery.value}`
+})
 
 function onDragStart(event: DragEvent, payload: PaletteDragPayload) {
   suppressClick.value = false
@@ -43,6 +57,52 @@ function clickAdd(payload: PaletteDragPayload) {
 function matches(text: string, query: string) {
   if (!query.trim()) return true
   return text.toLowerCase().includes(query.trim().toLowerCase())
+}
+
+function currentAdminIsDark(): boolean {
+  return (
+    document.documentElement.classList.contains('dark') ||
+    document.body.classList.contains('dark')
+  )
+}
+
+function openSectionPreview(event: Event, section: { type: string; label: string }) {
+  event.preventDefault()
+  event.stopPropagation()
+  const params = new URLSearchParams({
+    kind: 'section',
+    type: section.type,
+    theme: props.themeSlug || 'modern',
+  })
+  if (currentAdminIsDark()) {
+    params.set('dark', '1')
+  }
+  previewTitle.value = section.label
+  previewQuery.value = params.toString()
+  previewOpen.value = true
+}
+
+function openComponentPreview(
+  event: Event,
+  component: { id: string; name: string; sectionKey: string }
+) {
+  event.preventDefault()
+  event.stopPropagation()
+  const params = new URLSearchParams({
+    kind: 'component',
+    component: component.id || component.sectionKey.replace(/^component:/, ''),
+    theme: props.themeSlug || 'modern',
+  })
+  if (currentAdminIsDark()) {
+    params.set('dark', '1')
+  }
+  previewTitle.value = component.name
+  previewQuery.value = params.toString()
+  previewOpen.value = true
+}
+
+function closePreview() {
+  previewOpen.value = false
 }
 </script>
 
@@ -81,6 +141,18 @@ function matches(text: string, query: string) {
               <i class="ki-filled text-white text-lg" :class="sectionMeta(section.type).icon" />
             </span>
             <span class="builder-palette-tile__label">{{ section.label }}</span>
+            <button
+              type="button"
+              class="builder-palette-preview-btn"
+              title="Voorbeeld tonen"
+              aria-label="Voorbeeld tonen"
+              draggable="false"
+              @click="openSectionPreview($event, section)"
+              @mousedown.stop
+              @dragstart.stop.prevent
+            >
+              <i class="ki-filled ki-eye" aria-hidden="true" />
+            </button>
           </div>
         </div>
       </section>
@@ -104,13 +176,32 @@ function matches(text: string, query: string) {
             <span class="builder-palette-row__icon bg-gradient-to-br" :class="componentMeta(component.sectionKey).accent">
               <i class="ki-filled text-white" :class="componentMeta(component.sectionKey).icon" />
             </span>
-            <span class="min-w-0">
+            <span class="min-w-0 grow">
               <span class="block text-sm font-medium">{{ component.name }}</span>
               <span class="block text-xs text-muted-foreground">{{ component.moduleName }}</span>
             </span>
+            <button
+              type="button"
+              class="builder-palette-preview-btn"
+              title="Voorbeeld tonen"
+              aria-label="Voorbeeld tonen"
+              draggable="false"
+              @click="openComponentPreview($event, component)"
+              @mousedown.stop
+              @dragstart.stop.prevent
+            >
+              <i class="ki-filled ki-eye" aria-hidden="true" />
+            </button>
           </div>
         </div>
       </section>
     </div>
+
+    <BuilderBlockPreviewModal
+      :open="previewOpen"
+      :title="previewTitle"
+      :preview-url="previewUrl"
+      @close="closePreview"
+    />
   </aside>
 </template>

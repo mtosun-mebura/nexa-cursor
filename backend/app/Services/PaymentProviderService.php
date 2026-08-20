@@ -230,6 +230,78 @@ class PaymentProviderService
     }
 
     /**
+     * Sla de Mollie-omgeving van één tenant op. Betalingen (chauffeur-app, boeking)
+     * gebruiken deze API-sleutel, dus het geld komt op de Mollie-rekening van de tenant.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function upsertMollieForCompany(
+        int $companyId,
+        ?string $apiKey,
+        bool $isActive = true,
+        ?bool $testMode = null,
+        ?string $webhookUrl = null,
+        string $name = 'Mollie'
+    ): PaymentProvider {
+        if ($companyId <= 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'mollie_api_key' => 'Selecteer eerst een tenant (bedrijf).',
+            ]);
+        }
+
+        $provider = PaymentProvider::query()
+            ->where('company_id', $companyId)
+            ->where('provider_type', 'mollie')
+            ->first();
+
+        $config = is_array($provider?->config) ? $provider->config : [];
+        $trimmedKey = is_string($apiKey) ? trim($apiKey) : '';
+
+        if ($trimmedKey !== '') {
+            if (! self::isValidMollieApiKeyFormat($trimmedKey)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'mollie_api_key' => 'Ongeldige Mollie API-sleutel. Gebruik een sleutel die begint met test_ of live_.',
+                ]);
+            }
+            $config['api_key'] = Crypt::encryptString($trimmedKey);
+        } elseif ($provider === null || $this->getDecryptedApiKey($provider) === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'mollie_api_key' => 'Vul de Mollie API-sleutel van dit bedrijf in (uit het Mollie-dashboard van de tenant).',
+            ]);
+        }
+
+        if ($webhookUrl !== null) {
+            $config['webhook_url'] = trim($webhookUrl);
+        }
+
+        $resolvedTestMode = (bool) ($testMode ?? ($config['test_mode'] ?? false));
+        $keyForMode = $trimmedKey !== '' ? $trimmedKey : ($provider ? $this->getDecryptedApiKey($provider) : null);
+        if (is_string($keyForMode) && str_starts_with($keyForMode, 'test_')) {
+            $resolvedTestMode = true;
+        }
+        $config['test_mode'] = $resolvedTestMode;
+        if (! isset($config['description']) || trim((string) $config['description']) === '') {
+            $config['description'] = 'Tenant Mollie voor taxi- en chauffeur-betalingen';
+        }
+
+        if ($provider === null) {
+            $provider = new PaymentProvider([
+                'company_id' => $companyId,
+                'provider_type' => 'mollie',
+                'name' => $name !== '' ? $name : 'Mollie',
+            ]);
+        } elseif ($name !== '') {
+            $provider->name = $name;
+        }
+
+        $provider->is_active = $isActive;
+        $provider->config = $config;
+        $provider->save();
+
+        return $provider;
+    }
+
+    /**
      * @return array{configured: bool, provider: ?PaymentProvider, api_key_preview: ?string, webhook_url: ?string, test_mode: bool}
      */
     public function mollieSummaryForCompany(?int $companyId = null): array
@@ -316,17 +388,17 @@ class PaymentProviderService
             Log::error('Payment provider connection test failed', [
                 'provider_id' => $provider->id,
                 'provider_type' => $provider->provider_type,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
-            return ['success' => false, 'message' => 'Fout bij testen van verbinding: ' . $e->getMessage()];
+
+            return ['success' => false, 'message' => 'Fout bij testen van verbinding: '.$e->getMessage()];
         }
     }
 
     private function testMollieConnection($apiKey)
     {
         try {
-            $client = new \GuzzleHttp\Client();
+            $client = new \GuzzleHttp\Client;
             $response = $client->get('https://api.mollie.com/v2/methods', [
                 'headers' => [
                     'Authorization' => 'Bearer '.trim((string) $apiKey),
@@ -358,66 +430,66 @@ class PaymentProviderService
     private function testStripeConnection($apiKey)
     {
         try {
-            $client = new \GuzzleHttp\Client();
+            $client = new \GuzzleHttp\Client;
             $response = $client->get('https://api.stripe.com/v1/account', [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type' => 'application/x-www-form-urlencoded'
-                ]
+                    'Authorization' => 'Bearer '.$apiKey,
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ],
             ]);
 
             if ($response->getStatusCode() === 200) {
                 return ['success' => true, 'message' => 'Stripe verbinding succesvol getest'];
             } else {
-                return ['success' => false, 'message' => 'Stripe API reageerde met status: ' . $response->getStatusCode()];
+                return ['success' => false, 'message' => 'Stripe API reageerde met status: '.$response->getStatusCode()];
             }
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Stripe verbinding mislukt: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Stripe verbinding mislukt: '.$e->getMessage()];
         }
     }
 
     private function testPayPalConnection($clientId, $clientSecret)
     {
         try {
-            $client = new \GuzzleHttp\Client();
+            $client = new \GuzzleHttp\Client;
             $response = $client->post('https://api-m.sandbox.paypal.com/v1/oauth2/token', [
                 'headers' => [
-                    'Authorization' => 'Basic ' . base64_encode($clientId . ':' . $clientSecret),
-                    'Content-Type' => 'application/x-www-form-urlencoded'
+                    'Authorization' => 'Basic '.base64_encode($clientId.':'.$clientSecret),
+                    'Content-Type' => 'application/x-www-form-urlencoded',
                 ],
                 'form_params' => [
-                    'grant_type' => 'client_credentials'
-                ]
+                    'grant_type' => 'client_credentials',
+                ],
             ]);
 
             if ($response->getStatusCode() === 200) {
                 return ['success' => true, 'message' => 'PayPal verbinding succesvol getest'];
             } else {
-                return ['success' => false, 'message' => 'PayPal API reageerde met status: ' . $response->getStatusCode()];
+                return ['success' => false, 'message' => 'PayPal API reageerde met status: '.$response->getStatusCode()];
             }
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'PayPal verbinding mislukt: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'PayPal verbinding mislukt: '.$e->getMessage()];
         }
     }
 
     private function testAdyenConnection($apiKey)
     {
         try {
-            $client = new \GuzzleHttp\Client();
+            $client = new \GuzzleHttp\Client;
             $response = $client->get('https://checkout-test.adyen.com/v70/account', [
                 'headers' => [
                     'X-API-Key' => $apiKey,
-                    'Content-Type' => 'application/json'
-                ]
+                    'Content-Type' => 'application/json',
+                ],
             ]);
 
             if ($response->getStatusCode() === 200) {
                 return ['success' => true, 'message' => 'Adyen verbinding succesvol getest'];
             } else {
-                return ['success' => false, 'message' => 'Adyen API reageerde met status: ' . $response->getStatusCode()];
+                return ['success' => false, 'message' => 'Adyen API reageerde met status: '.$response->getStatusCode()];
             }
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Adyen verbinding mislukt: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Adyen verbinding mislukt: '.$e->getMessage()];
         }
     }
 
@@ -425,7 +497,7 @@ class PaymentProviderService
     {
         try {
             $apiKey = Crypt::decryptString($provider->getConfigValue('api_key'));
-            
+
             switch ($provider->provider_type) {
                 case 'mollie':
                     return $this->createMolliePayment($apiKey, $amount, $currency, $description, $metadata);
@@ -438,31 +510,31 @@ class PaymentProviderService
             Log::error('Payment creation failed', [
                 'provider_id' => $provider->id,
                 'provider_type' => $provider->provider_type,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             throw $e;
         }
     }
 
     private function createMolliePayment($apiKey, $amount, $currency, $description, $metadata)
     {
-        $client = new \GuzzleHttp\Client();
+        $client = new \GuzzleHttp\Client;
         $response = $client->post('https://api.mollie.com/v2/payments', [
             'headers' => [
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type' => 'application/json'
+                'Authorization' => 'Bearer '.$apiKey,
+                'Content-Type' => 'application/json',
             ],
             'json' => [
                 'amount' => [
                     'currency' => $currency,
-                    'value' => number_format($amount, 2, '.', '')
+                    'value' => number_format($amount, 2, '.', ''),
                 ],
                 'description' => $description,
                 'redirectUrl' => $metadata['redirect_url'] ?? 'https://example.com/return',
                 'webhookUrl' => $metadata['webhook_url'] ?? null,
-                'metadata' => $metadata
-            ]
+                'metadata' => $metadata,
+            ],
         ]);
 
         return json_decode($response->getBody(), true);
@@ -470,18 +542,18 @@ class PaymentProviderService
 
     private function createStripePayment($apiKey, $amount, $currency, $description, $metadata)
     {
-        $client = new \GuzzleHttp\Client();
+        $client = new \GuzzleHttp\Client;
         $response = $client->post('https://api.stripe.com/v1/payment_intents', [
             'headers' => [
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type' => 'application/x-www-form-urlencoded'
+                'Authorization' => 'Bearer '.$apiKey,
+                'Content-Type' => 'application/x-www-form-urlencoded',
             ],
             'form_params' => [
-                'amount' => (int)($amount * 100), // Stripe expects cents
+                'amount' => (int) ($amount * 100), // Stripe expects cents
                 'currency' => strtolower($currency),
                 'description' => $description,
-                'metadata' => json_encode($metadata)
-            ]
+                'metadata' => json_encode($metadata),
+            ],
         ]);
 
         return json_decode($response->getBody(), true);

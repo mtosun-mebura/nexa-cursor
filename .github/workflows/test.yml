@@ -82,7 +82,7 @@ jobs:
       run: npm run build
       
     - name: Execute tests (Unit and Feature tests) via PHPUnit
-      run: php artisan test
+      run: php -d memory_limit=512M artisan test
       working-directory: ./backend
       
     - name: Check for syntax errors

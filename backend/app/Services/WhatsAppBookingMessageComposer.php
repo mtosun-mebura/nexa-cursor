@@ -43,23 +43,58 @@ Afzender: {{4}}. Controleer de rit in het dispatch-overzicht.
 TXT;
 
     /**
-     * Universeel status-sjabloon (klant) — één Meta-template voor acceptatie, start, afronding, annulering, enz.
-     * {{3}} = statuslabel (wisselbaar), {{4}} = details.
+     * Universeel status-sjabloon (klant) — één Meta-template voor acceptatie, afwijzing, start, afronding, enz.
+     * {{1}} klant, {{2}} bedrijf, {{3}} status, {{4}} opmerking, {{5}} chauffeur, {{6}} ophaalmoment, {{7}} ophaaladres.
      */
     public const META_BODY_STATUS = <<<'TXT'
 Beste {{1}},
 
-Hierbij een statusupdate over uw taxirit bij {{2}}.
+Hierbij de reactie op uw taxirit bij {{2}}.
 
-Huidige status: {{3}}.
+Status: {{3}}.
+Opmerking: {{4}}.
 
-De bijbehorende gegevens zijn:
-{{4}}
+Chauffeur: {{5}}
+Ophaalmoment: {{6}}
+Ophaaladres: {{7}}
 
-Heeft u vragen over deze rit? Reageer gerust op dit WhatsApp-bericht. Wij helpen u graag verder.
-
-Met vriendelijke groet en tot ziens.
+Met vriendelijke groet.
 TXT;
+
+    /**
+     * Ophaalvoorstel (klant) — Meta-template met Quick Reply-knoppen Accepteren / Weigeren.
+     * Knop-payloads in Meta: pickup_accept en pickup_decline (of knoptekst Accepteren/Weigeren).
+     * Elke body-parameter komt maximaal 1× voor (Meta-eis), in leesvolgorde:
+     * {{1}} klant, {{2}} bedrijf, {{3}} telefoon tenant, {{4}} huidig ophaalmoment,
+     * {{5}} voorgesteld moment, {{6}} ophaaladres, {{7}} afleveradres, {{8}} chauffeur.
+     */
+    public const META_BODY_PICKUP_PROPOSAL = <<<'TXT'
+Beste {{1}},
+
+Uw chauffeur stelt een nieuw ophaalmoment voor, omdat het eerdere tijdstip is verstreken.
+
+Taxi / vervoerder: {{2}}
+Telefoon: {{3}}
+
+Huidig ophaalmoment: {{4}}
+Voorgesteld ophaalmoment: {{5}}
+Ophaaladres: {{6}}
+Afleveradres: {{7}}
+Chauffeur: {{8}}
+
+Kies Accepteren of Weigeren.
+Bij Weigeren kunt u daarna een korte opmerking sturen voor de chauffeur.
+
+Voor vragen kunt u ons bereiken via het telefoonnummer hierboven.
+
+Met vriendelijke groet,
+
+Wij houden u graag op de hoogte via WhatsApp.
+TXT;
+
+    public const PICKUP_PROPOSAL_TEMPLATE_KEY = 'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE';
+
+    public const PICKUP_PROPOSAL_TEMPLATE_LANG_KEY = 'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG';
 
     /**
      * SMS-tekst bij chauffeur-acceptatie / -afwijzing (geen Meta; plain SMS).
@@ -281,6 +316,7 @@ TXT;
      *     section_config?: array<string, mixed>,
      *     driver_name?: string|null,
      *     driver_phone?: string|null,
+     *     remark?: string|null,
      *     extra_lines?: list<string>
      * }  $context
      * @return array{
@@ -310,55 +346,76 @@ TXT;
             $customerName = 'klant';
         }
 
-        $detailLines = [];
+        $remark = $this->resolveStatusRemark($context);
         $driverName = trim((string) ($context['driver_name'] ?? ''));
-        if ($driverName !== '') {
-            $detailLines[] = 'Chauffeur: '.$driverName;
-        }
-        $driverPhone = trim((string) ($context['driver_phone'] ?? ''));
-        if ($driverPhone !== '') {
-            $detailLines[] = 'Chauffeur telefoon: '.$driverPhone;
+        if ($driverName === '') {
+            $driverName = '—';
         }
 
-        $details = $this->summaryText->buildSelected(
-            $ride,
-            $this->selectedDetailFields(),
-            $context
-        );
-        if ($details === '') {
-            $details = $this->summaryText->build($ride, $context);
-        }
-        if ($details !== '') {
-            $detailLines[] = $details;
-        }
-        foreach ($context['extra_lines'] ?? [] as $line) {
-            $line = is_string($line) ? trim($line) : '';
-            if ($line !== '') {
-                $detailLines[] = $line;
-            }
-        }
-
-        $detailsBlock = implode("\n", $detailLines);
-        if ($detailsBlock === '') {
-            $detailsBlock = 'Referentie: rit #'.(string) ($ride->id ?: '—');
+        $pickupAt = $ride->pickup_at
+            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+            : '—';
+        $pickupAddress = trim((string) ($ride->pickup_address ?: '—'));
+        if ($pickupAddress === '') {
+            $pickupAddress = '—';
         }
 
         $params = [
             $customerName,
             $companyName,
             $statusLabel,
-            mb_substr($detailsBlock, 0, 1024),
+            mb_substr($remark, 0, 1024),
+            $driverName,
+            $pickupAt,
+            mb_substr($pickupAddress, 0, 1024),
         ];
         $preview = $this->renderPreview(self::META_BODY_STATUS, $params);
+        $detailsBlock = trim(implode("\n", array_filter([
+            $remark !== '—' ? 'Opmerking: '.$remark : null,
+            $driverName !== '—' ? 'Chauffeur: '.$driverName : null,
+            $pickupAt !== '—' ? 'Ophaalmoment: '.$pickupAt : null,
+            $pickupAddress !== '—' ? 'Ophaaladres: '.$pickupAddress : null,
+        ])));
 
         return [
             'template_params' => $params,
             'fallback_body' => $preview,
-            'details' => $detailsBlock,
+            'details' => $detailsBlock !== '' ? $detailsBlock : 'Referentie: rit #'.(string) ($ride->id ?: '—'),
             'preview' => $preview,
             'status_label' => $statusLabel,
             'event' => $event,
         ];
+    }
+
+    /**
+     * @param  array{remark?: string|null, extra_lines?: list<string>}  $context
+     */
+    protected function resolveStatusRemark(array $context): string
+    {
+        $remark = trim((string) ($context['remark'] ?? ''));
+        if ($remark !== '') {
+            return $remark;
+        }
+
+        $parts = [];
+        foreach ($context['extra_lines'] ?? [] as $line) {
+            $line = is_string($line) ? trim($line) : '';
+            if ($line === '') {
+                continue;
+            }
+            if (str_starts_with($line, 'Opmerking:')) {
+                $line = trim(mb_substr($line, strlen('Opmerking:')));
+            }
+            if ($line !== '') {
+                $parts[] = $line;
+            }
+        }
+
+        if ($parts === []) {
+            return '—';
+        }
+
+        return implode(' ', $parts);
     }
 
     /**
@@ -481,14 +538,20 @@ TXT;
      */
     public function sampleStatusPreview(string $event = self::EVENT_ACCEPTED, ?array $detailFields = null): array
     {
-        $sample = $this->sampleCustomerPreview($detailFields);
         $statusLabel = self::statusEventLabels()[$event] ?? 'Statusupdate';
-        $details = "Chauffeur: Piet Chauffeur\n".$sample['details'];
-        $params = ['Jan de Vries', 'Taxi Voorbeeld', $statusLabel, mb_substr($details, 0, 1024)];
+        $params = [
+            'Jan de Vries',
+            'Taxi Voorbeeld',
+            $statusLabel,
+            '—',
+            'Piet Chauffeur',
+            '16-07-2026 14:30',
+            'Dam 1, Amsterdam',
+        ];
 
         return [
             'preview' => $this->renderPreview(self::META_BODY_STATUS, $params),
-            'details' => $details,
+            'details' => "Opmerking: —\nChauffeur: Piet Chauffeur\nOphaalmoment: 16-07-2026 14:30\nOphaaladres: Dam 1, Amsterdam",
             'params' => $params,
         ];
     }
@@ -572,6 +635,102 @@ TXT;
         return [
             'preview' => $this->renderPreview(self::META_BODY_CUSTOMER, $params),
             'details' => $details,
+            'params' => $params,
+        ];
+    }
+
+    public function pickupProposalTemplateName(): string
+    {
+        $name = trim((string) $this->env->get(self::PICKUP_PROPOSAL_TEMPLATE_KEY, ''));
+        if ($name === '') {
+            $name = trim((string) GeneralSetting::get(self::PICKUP_PROPOSAL_TEMPLATE_KEY, ''));
+        }
+
+        return $name !== '' ? $name : 'rit_ophaal_voorstel';
+    }
+
+    public function pickupProposalTemplateLanguage(): string
+    {
+        $lang = trim((string) $this->env->get(self::PICKUP_PROPOSAL_TEMPLATE_LANG_KEY, 'nl'));
+        if ($lang === '') {
+            $lang = trim((string) GeneralSetting::get(self::PICKUP_PROPOSAL_TEMPLATE_LANG_KEY, 'nl')) ?: 'nl';
+        }
+
+        return $lang !== '' ? $lang : 'nl';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function pickupProposalBodyParameters(RideRequest $ride, ?\App\Models\User $driver = null): array
+    {
+        $companyName = 'Taxi';
+        $companyPhone = '—';
+        try {
+            if ($ride->company_id) {
+                $company = \App\Models\Company::query()->find($ride->company_id);
+                if ($company && trim((string) $company->name) !== '') {
+                    $companyName = trim((string) $company->name);
+                }
+                $rawPhone = trim((string) ($company->phone ?? ''));
+                if ($rawPhone !== '') {
+                    $normalized = \App\Support\DutchPhoneNumber::normalizeOptionalNlToInternational($rawPhone);
+                    $companyPhone = ($normalized !== null && $normalized !== '') ? $normalized : $rawPhone;
+                }
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        $driverName = 'uw chauffeur';
+        if ($driver) {
+            $driverName = trim(($driver->first_name ?? '').' '.($driver->last_name ?? ''));
+            if ($driverName === '') {
+                $driverName = 'uw chauffeur';
+            }
+        }
+
+        $format = function ($value) {
+            if (! $value) {
+                return '—';
+            }
+            $wall = \App\Modules\NexaTaxi\Support\ContractTransportTimezone::asAmsterdamWall($value)
+                ?? \Illuminate\Support\Carbon::parse($value);
+
+            return $wall->timezone(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)
+                ->format('d-m-Y H:i');
+        };
+
+        return [
+            (string) ($ride->customer_name ?: 'klant'),
+            $companyName,
+            $companyPhone,
+            $format($ride->pickup_at),
+            $format($ride->pickup_proposal_at),
+            (string) ($ride->pickup_address ?: '—'),
+            (string) ($ride->dropoff_address ?: '—'),
+            $driverName,
+        ];
+    }
+
+    /**
+     * @return array{preview: string, params: list<string>}
+     */
+    public function samplePickupProposalPreview(): array
+    {
+        $params = [
+            'Jan de Vries',
+            'Taxi Voorbeeld',
+            '+31531234567',
+            '13-08-2026 08:25',
+            '13-08-2026 09:15',
+            'Deurningerstraat 153, Enschede',
+            'KFC Spaansland, Enschede',
+            'Piet Chauffeur',
+        ];
+
+        return [
+            'preview' => $this->renderPreview(self::META_BODY_PICKUP_PROPOSAL, $params),
             'params' => $params,
         ];
     }
