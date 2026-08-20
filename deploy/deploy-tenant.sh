@@ -488,6 +488,15 @@ _require_compose_file
 _stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
 _git_sync_code
+
+# Bash heeft dit bestand al geparsed vóór git reset. Herstart zodat helpers
+# (compose up, poortvrijgave, enz.) overeenkomen met origin/release/test.
+if [[ "${DEPLOY_POST_GIT_REEXEC:-}" != "1" ]]; then
+  export DEPLOY_POST_GIT_REEXEC=1
+  echo "==> Herstart deploy-tenant.sh na git sync (actuele deploy-helpers)"
+  exec bash "$TENANT_DIR/deploy/deploy-tenant.sh"
+fi
+
 _build_frontend_assets
 
 echo "==> Docker Compose pull/build/up"
