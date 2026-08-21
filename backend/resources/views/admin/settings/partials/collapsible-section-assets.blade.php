@@ -137,17 +137,46 @@
         overflow: auto;
         overscroll-behavior: contain;
         padding-right: 0.25rem;
-        scrollbar-gutter: stable;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent) transparent;
+    }
+    .tenant-sync-progress-body::-webkit-scrollbar {
+        width: 0.5rem;
+        height: 0.5rem;
+    }
+    .tenant-sync-progress-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .tenant-sync-progress-body::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+        border-radius: 9999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+    .tenant-sync-progress-body::-webkit-scrollbar-thumb:hover {
+        background-color: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
     }
     .tenant-sync-progress.is-expanded .tenant-sync-progress-body {
         max-height: min(70vh, 36rem);
     }
     #tenant-sync-submit-status {
+        display: block;
+        position: relative;
+        width: 100%;
         min-width: 0;
         max-width: 100%;
-        flex: 1 1 12rem;
         overflow-wrap: anywhere;
         word-break: break-word;
+    }
+    #tenant-sync-submit-status:empty {
+        display: none;
+        min-height: 0;
+    }
+    .tenant-sync-progress-shell,
+    .tenant-sync-progress {
+        position: relative;
+        display: block;
+        width: 100%;
     }
     .tenant-sync-progress .font-mono {
         min-width: 9rem;

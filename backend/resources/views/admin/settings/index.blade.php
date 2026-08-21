@@ -1476,7 +1476,7 @@
                                     <i class="ki-filled ki-cloud-add me-2"></i> Start sync
                                 </button>
                             </div>
-                            <span id="tenant-sync-submit-status" class="block min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words" aria-live="polite"></span>
+                            <div id="tenant-sync-submit-status" class="min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words" aria-live="polite"></div>
                         </div>
                     </form>
                 </div>
@@ -2054,7 +2054,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!container) return null;
 
         container.textContent = '';
-        container.className = 'block min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words';
+        container.className = 'min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words';
 
         var shell = document.createElement('div');
         shell.className = 'tenant-sync-progress-shell';
