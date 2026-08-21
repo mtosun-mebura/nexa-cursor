@@ -63,6 +63,7 @@
     .tenant-sync-progress-meter {
         width: 100%;
         min-width: 0;
+        margin-bottom: 1.25rem;
     }
     .tenant-sync-progress-meter-track {
         height: 0.5rem;
