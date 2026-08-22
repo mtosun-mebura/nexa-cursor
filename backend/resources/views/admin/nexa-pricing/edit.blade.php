@@ -20,6 +20,15 @@
 @endphp
 @include('admin.platform-billing.partials.form-switch-styles')
 <style>
+    .nexa-pricing-feature-toggle {
+        --nexa-pricing-toggle-border: color-mix(in oklab, var(--input) 68%, var(--muted-foreground) 32%);
+        border: 1px solid var(--nexa-pricing-toggle-border);
+        background-color: var(--background);
+        box-shadow: 0 1px 2px 0 color-mix(in oklab, rgb(0 0 0 / 0.05) 100%, transparent);
+    }
+    .nexa-pricing-feature-toggle:hover {
+        border-color: color-mix(in oklab, rgb(34 197 94) 35%, var(--nexa-pricing-toggle-border));
+    }
     .nexa-pricing-feature-toggle:has(.nexa-pricing-feature-included:not(:checked)) {
         opacity: 0.45;
     }
@@ -27,7 +36,7 @@
         opacity: 0;
     }
     .nexa-pricing-feature-toggle:has(.nexa-pricing-feature-included:checked) {
-        border-color: color-mix(in oklab, rgb(34 197 94) 45%, var(--border));
+        border-color: color-mix(in oklab, rgb(34 197 94) 45%, var(--nexa-pricing-toggle-border));
         background: color-mix(in oklab, rgb(34 197 94) 12%, transparent);
     }
 </style>

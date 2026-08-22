@@ -1,7 +1,8 @@
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { BuilderBootstrap, CanvasBlock, PaletteDragPayload } from './types'
 import { baseTypeFromKey } from './palette-meta'
 import { denormalizeHomeSectionsForSave, normalizeHomeSectionsForBuilder } from './section-data-normalize'
+import { flushAllWysiwygFields } from './wysiwyg-flush'
 
 const FIXED_KEYS = new Set(['footer', 'copyright'])
 
@@ -210,6 +211,8 @@ export function useBuilderState(bootstrap: BuilderBootstrap) {
   }
 
   async function save() {
+    flushAllWysiwygFields()
+    await nextTick()
     saving.value = true
     saveMessage.value = null
     saveError.value = null

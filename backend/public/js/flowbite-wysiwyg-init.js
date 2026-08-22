@@ -762,9 +762,11 @@
 
     window.initFlowbiteWysiwyg = function (container) {
         var scope = container && container.nodeType === 1 ? container : document;
+        var jobs = [];
         scope.querySelectorAll('[data-flowbite-wysiwyg]').forEach(function (w) {
-            if (!w._flowbiteEditor) initEditor(w);
+            if (!w._flowbiteEditor) jobs.push(Promise.resolve(initEditor(w)));
         });
+        return Promise.all(jobs);
     };
 
     window.destroyFlowbiteWysiwygIn = function (container) {

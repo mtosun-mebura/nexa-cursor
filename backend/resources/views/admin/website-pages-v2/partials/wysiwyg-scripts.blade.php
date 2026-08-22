@@ -32,4 +32,4 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
 <script type="importmap">
 {"imports":{"https://esm.sh/v135/prosemirror-model@1.22.3/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs","https://esm.sh/v135/prosemirror-model@1.22.1/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs"}}
 </script>
-<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260516d"></script>
+<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260822a"></script>

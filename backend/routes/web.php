@@ -26,6 +26,9 @@ use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminWebsitePageController;
+use App\Http\Controllers\Admin\AdminWelcomePageController;
+use App\Http\Controllers\Admin\AdminNexaPricingController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
@@ -741,25 +744,27 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         // Welkom-pagina editor (Super Admin only)
         Route::get('welcome-page', [App\Http\Controllers\Admin\AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
 
-        Route::get('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
-        Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
+        Route::middleware('role:super-admin')->group(function () {
+            Route::get('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
+            Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
+        });
 
         // Website builder (Super Admin only)
-        Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
-        Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
-        Route::get('website-pages/component-section-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
-        Route::get('website-pages/block-preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
-        Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
-        Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
-        Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
-        Route::post('website-pages/generate-seo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
-        Route::post('website-pages/generate-seo-all', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
-        Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
-        Route::get('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
-        Route::put('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
-        Route::patch('website-pages/{website_page}/builder-v2/meta', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
-        Route::post('website-pages/{website_page}/reorder', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
-        Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
+        Route::get('website-pages/theme-blocks', [AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
+        Route::get('website-pages/section-card-html', [AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
+        Route::get('website-pages/component-section-html', [AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
+        Route::get('website-pages/block-preview', [AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
+        Route::post('website-pages/upload-footer-logo', [AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
+        Route::post('website-pages/upload-hero-image', [AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
+        Route::post('website-pages/upload-wysiwyg-document', [AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
+        Route::post('website-pages/generate-seo', [AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
+        Route::post('website-pages/generate-seo-all', [AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
+        Route::get('website-pages/{website_page}/preview', [AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
+        Route::get('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
+        Route::put('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
+        Route::patch('website-pages/{website_page}/builder-v2/meta', [AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
+        Route::post('website-pages/{website_page}/reorder', [AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
+        Route::resource('website-pages', AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
         Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
         Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
