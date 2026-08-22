@@ -62,6 +62,18 @@ class AdminNexaPricingTest extends TestCase
     }
 
     #[Test]
+    public function company_admin_does_not_see_paketten_menu(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('company-admin');
+
+        $this->actingAs($user)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Paketten', false);
+    }
+
+    #[Test]
     public function super_admin_can_open_admin_prijzen(): void
     {
         $admin = $this->superAdmin();
@@ -69,6 +81,7 @@ class AdminNexaPricingTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.nexa-pricing.edit'))
             ->assertOk()
+            ->assertSee('Paketten', false)
             ->assertSee('Prijzen', false)
             ->assertSee('Maandprijs', false)
             ->assertSee('Aanbiedingsprijs', false)

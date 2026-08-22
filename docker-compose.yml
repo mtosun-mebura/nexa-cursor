@@ -25,6 +25,9 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-nexa}
+      DB_USERNAME: ${DB_USERNAME:-nexa}
+      DB_PASSWORD: ${DB_PASSWORD:?Zet DB_PASSWORD in .env (repo-root)}
 
       N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
       N8N_PORT: ${N8N_PORT:-5678}

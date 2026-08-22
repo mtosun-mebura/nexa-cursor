@@ -4,7 +4,7 @@
     $included = (bool) ($included ?? true);
 @endphp
 <div class="nexa-pricing-feature-row flex items-center gap-2 min-w-0">
-    <label class="nexa-pricing-feature-toggle shrink-0 inline-flex items-center justify-center size-8 rounded-md border border-border bg-background cursor-pointer hover:border-green-500/50" title="Kenmerk voor dit pakket">
+    <label class="nexa-pricing-feature-toggle shrink-0 inline-flex items-center justify-center size-8 rounded-md cursor-pointer" title="Kenmerk voor dit pakket">
         <input type="checkbox" class="nexa-pricing-feature-included sr-only" @checked($included)>
         <i class="ki-filled ki-check text-green-500 text-base" aria-hidden="true"></i>
         <span class="sr-only">Kenmerk voor dit pakket</span>

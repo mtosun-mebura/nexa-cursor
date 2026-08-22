@@ -137,16 +137,16 @@
     <div class="booking-module-outer w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
     <div class="booking-module-card booking-module-reveal-item rounded-xl border p-0 shadow-sm bg-neutral-primary text-heading"
         style="{{ $moduleShellStyle }}">
-        <div class="booking-module-header px-4 py-4 sm:px-6 sm:py-5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}33;">
+        <div class="booking-module-header px-4 py-3 sm:px-5 sm:py-3.5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}33;">
             <div class="min-w-0">
                 <h2 class="booking-module-title font-bold leading-tight" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
                 @if(!empty($bookingConfig['subtitle']))
-                <p class="mt-2 text-body">{{ e($bookingConfig['subtitle']) }}</p>
+                <p class="mt-1 text-sm text-body">{{ e($bookingConfig['subtitle']) }}</p>
                 @endif
             </div>
         </div>
 
-        <div class="px-3 pt-2 border-b bg-neutral-primary" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22; border-bottom: 0 !important;">
+        <div class="booking-module-tabs px-3 pt-1.5 border-b bg-neutral-primary" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22; border-bottom: 0 !important;">
             <div class="border-b border-default">
                 <div class="booking-steps-select-mobile" data-booking-step-select-mobile>
                     <label for="booking-steps-select" class="sr-only">Selecteer stap</label>
@@ -223,13 +223,14 @@
         </div>
 
         @if($bookingSplitMapInsideContent)
-        <div class="p-6 bg-neutral-secondary-soft booking-module-v2-card-content-pad">
+        <div class="booking-module-body p-4 sm:p-5 bg-neutral-secondary-soft booking-module-v2-card-content-pad">
         <div class="booking-module-v2-card-body-split">
         <div class="booking-module-v2-card-content-col min-w-0">
         @else
-        <div class="p-6 bg-neutral-secondary-soft">
+        <div class="booking-module-body p-4 sm:p-5 bg-neutral-secondary-soft">
         @endif
-            <div class="space-y-8">
+            <div class="booking-module-body-main">
+            <div class="space-y-4">
                 <div class="booking-step-panels-shell w-full" data-booking-step-panels-shell>
                 <div class="hidden" id="booking-panel-baggage" role="tabpanel" aria-labelledby="booking-tab-baggage" data-step-panel="baggage">
                     <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['baggage'] ?? 'Bagage') }}</h3>
@@ -245,10 +246,10 @@
                                         @if(!empty($row['subtitle']))<div class="text-sm text-body">{{ e($row['subtitle']) }}</div>@endif
                                         @if(!empty($row['price']) && (float)$row['price'] > 0)<div class="text-xs text-body">+ € {{ number_format((float)$row['price'], 2, ',', '.') }}</div>@endif
                                     </div>
-                                    <div class="booking-baggage-qty inline-flex items-center gap-2 self-start">
-                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-8 w-8 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="baggage.{{ e($key) }}" data-delta="-1">-</button>
-                                        <span class="min-w-5 text-center font-semibold text-base leading-none text-heading" data-qty-display="baggage.{{ e($key) }}">0</span>
-                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-8 w-8 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="baggage.{{ e($key) }}" data-delta="1" data-max="{{ (int)($row['max_qty'] ?? 4) }}">+</button>
+                                    <div class="booking-baggage-qty inline-flex items-center gap-1.5 self-start">
+                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-7 w-7 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="baggage.{{ e($key) }}" data-delta="-1">-</button>
+                                        <span class="min-w-4 text-center font-semibold text-sm leading-none text-heading" data-qty-display="baggage.{{ e($key) }}">0</span>
+                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-7 w-7 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="baggage.{{ e($key) }}" data-delta="1" data-max="{{ (int)($row['max_qty'] ?? 4) }}">+</button>
                                     </div>
                                 </div>
                                 @endforeach
@@ -261,18 +262,18 @@
                                 <span class="text-base font-semibold text-heading">Wil je bijzondere bagage meenemen?</span>
                             </label>
                             <p class="text-sm text-body mt-2">Zet aan en selecteer hieronder het aantal per type.</p>
-                            <div class="hidden mt-4 grid grid-cols-1 gap-3" data-special-baggage-wrap>
+                            <div class="hidden mt-3 grid grid-cols-1 gap-2" data-special-baggage-wrap>
                                 @foreach(($bookingConfig['special_items'] ?? []) as $row)
                                 @php $key = $row['key'] ?? ''; @endphp
-                                <div class="rounded-lg border p-3 flex items-center justify-between bg-neutral-secondary-medium" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22;">
-                                    <div class="pe-3">
-                                        <div class="font-semibold text-heading">{{ e($row['title'] ?? '') }}</div>
-                                        @if(!empty($row['price']) && (float)$row['price'] > 0)<div class="text-xs text-body">+ € {{ number_format((float)$row['price'], 2, ',', '.') }}</div>@endif
+                                <div class="booking-special-baggage-row rounded-lg border py-2 px-2.5 flex items-center justify-between gap-2 bg-neutral-secondary-medium" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22;">
+                                    <div class="min-w-0 pe-2">
+                                        <div class="text-sm font-semibold text-heading leading-snug">{{ e($row['title'] ?? '') }}</div>
+                                        @if(!empty($row['price']) && (float)$row['price'] > 0)<div class="text-[0.6875rem] text-body leading-tight mt-0.5">+ € {{ number_format((float)$row['price'], 2, ',', '.') }}</div>@endif
                                     </div>
-                                    <div class="inline-flex items-center gap-2 px-1.5 py-1 rounded-lg bg-neutral-primary shadow-xs">
-                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-8 w-8 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="special_baggage.{{ e($key) }}" data-delta="-1">-</button>
-                                        <span class="min-w-5 text-center font-semibold text-base leading-none text-heading" data-qty-display="special_baggage.{{ e($key) }}">0</span>
-                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-8 w-8 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="special_baggage.{{ e($key) }}" data-delta="1" data-max="{{ (int)($row['max_qty'] ?? 4) }}">+</button>
+                                    <div class="booking-special-baggage-qty inline-flex items-center gap-1.5 px-1 py-0.5 rounded-md bg-neutral-primary shadow-xs shrink-0">
+                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-7 w-7 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="special_baggage.{{ e($key) }}" data-delta="-1">-</button>
+                                        <span class="min-w-4 text-center font-semibold text-sm leading-none text-heading" data-qty-display="special_baggage.{{ e($key) }}">0</span>
+                                        <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-7 w-7 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="special_baggage.{{ e($key) }}" data-delta="1" data-max="{{ (int)($row['max_qty'] ?? 4) }}">+</button>
                                     </div>
                                 </div>
                                 @endforeach
@@ -494,20 +495,24 @@
 
                 <div class="hidden w-full" id="booking-panel-confirm" role="tabpanel" aria-labelledby="booking-tab-confirm" data-step-panel="confirm">
                     <div class="booking-confirm-root w-full max-w-none mx-0">
-                        <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
+                        <h3 class="booking-module-step-heading font-semibold mb-2" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
 
                         <div class="booking-confirm-wireframe rounded-2xl border bg-stone-100/90 dark:bg-slate-950/40 shadow-[0_2px_12px_rgba(15,23,42,0.06)] overflow-hidden w-full">
-                            {{-- 50/50: links route, kaart, voertuig; rechts details + opmerking --}}
-                            <div class="booking-confirm-grid grid grid-cols-1 lg:grid-cols-2 gap-0 min-w-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-200/90 dark:divide-slate-600/35">
-                                <div class="p-5 md:p-6 space-y-4 min-w-0 bg-stone-50/90 dark:bg-slate-900/40 booking-confirm-col-left">
-                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 min-w-0 w-full max-w-full overflow-hidden">
-                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2 text-center w-full">Route</div>
-                                        <div class="booking-confirm-route-stack" data-summary-route-stacked></div>
-                                        <div class="booking-confirm-route-distance hidden mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-600/35 text-center" data-summary-route-distance-wrap aria-live="polite">
-                                            <p class="text-base sm:text-lg font-semibold tabular-nums text-fg-brand" data-summary-route-distance-total>—</p>
-                                            <p class="booking-confirm-route-distance-legs hidden mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400" data-summary-route-distance-legs></p>
+                            {{-- Route volle breedte; daaronder voertuig links + details rechts — compact, zonder interne scroll --}}
+                            <div class="booking-confirm-layout min-w-0">
+                                <div class="booking-confirm-route-band p-2.5 sm:p-3 bg-stone-50/90 dark:bg-slate-900/40 border-b border-slate-200/90 dark:border-slate-600/35">
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-2.5 sm:p-3 min-w-0 w-full max-w-full overflow-hidden text-center">
+                                        <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-1">Route</div>
+                                        <div class="booking-confirm-route-stack booking-confirm-route-stack--compact" data-summary-route-stacked></div>
+                                        <div class="booking-confirm-route-distance hidden mt-1.5 pt-1.5 border-t border-slate-200/80 dark:border-slate-600/35 text-center" data-summary-route-distance-wrap aria-live="polite">
+                                            <p class="text-sm font-semibold tabular-nums text-fg-brand" data-summary-route-distance-total>—</p>
+                                            <p class="booking-confirm-route-distance-legs hidden mt-0.5 text-[0.6875rem] leading-snug text-slate-500 dark:text-slate-400" data-summary-route-distance-legs></p>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="booking-confirm-grid grid grid-cols-1 lg:grid-cols-2 gap-0 min-w-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-200/90 dark:divide-slate-600/35">
+                                <div class="p-2.5 sm:p-3 space-y-2.5 min-w-0 bg-stone-50/90 dark:bg-slate-900/40 booking-confirm-col-left">
                                     <div class="booking-confirm-surface booking-confirm-map-surface rounded-xl border bg-neutral-primary p-0 min-w-0 overflow-hidden">
                                         <div class="booking-confirm-map-host booking-route-map-viewport relative w-full">
                                         <div class="booking-summary-route-map booking-confirm-summary-route-map overflow-hidden bg-slate-200/50 dark:bg-slate-800/50" data-summary-route-map-wrap>
@@ -533,40 +538,43 @@
                                         </div>
                                         </div>
                                     </div>
-                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary shadow-sm overflow-hidden">
-                                        <div class="px-4 pt-4 pb-2">
-                                            <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Voertuig / aanbieding</div>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary shadow-sm overflow-hidden text-center">
+                                        <div class="px-2.5 pt-2 pb-0.5">
+                                            <div class="booking-confirm-label text-slate-500 dark:text-slate-400">Voertuig / aanbieding</div>
                                         </div>
                                         <div class="hidden w-full" data-summary-vehicle-image-wrap>
-                                            <div class="flex items-center justify-center bg-neutral-secondary/30 dark:bg-slate-800/45 min-h-[11rem] sm:min-h-[12rem]">
-                                                <img src="" alt="" class="w-full max-h-52 sm:max-h-60 h-auto object-contain object-center block" data-summary-vehicle-image>
+                                            <div class="flex items-center justify-center bg-stone-50/90 dark:bg-slate-900/40 min-h-[5rem] sm:min-h-[5.5rem]">
+                                                <img src="" alt="" class="w-full max-h-24 sm:max-h-28 h-auto object-contain object-center block" data-summary-vehicle-image>
                                             </div>
                                         </div>
-                                        <div class="px-4 py-3 text-center">
-                                            <div class="text-base font-bold text-heading leading-snug" data-summary-offer>—</div>
+                                        <div class="px-2.5 py-1.5">
+                                            <div class="text-sm font-bold text-heading leading-snug" data-summary-offer>—</div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="p-5 md:p-6 space-y-4 min-w-0 bg-stone-50/90 dark:bg-slate-900/40 booking-confirm-col-right">
-                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
-                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Ophaalmoment</div>
-                                        <div class="text-lg sm:text-xl font-bold text-heading tabular-nums tracking-tight" data-summary-pickup-at>—</div>
+                                <div class="p-2.5 sm:p-3 min-w-0 bg-stone-50/90 dark:bg-slate-900/40 booking-confirm-col-right">
+                                    <div class="booking-confirm-details-grid grid grid-cols-2 gap-2">
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-2 shadow-sm text-center">
+                                        <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-0.5">Ophaalmoment</div>
+                                        <div class="text-sm font-bold text-heading tabular-nums tracking-tight leading-snug" data-summary-pickup-at>—</div>
                                     </div>
-                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
-                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Passagiers</div>
-                                        <div class="text-lg font-bold text-heading tabular-nums" data-summary-confirm-passengers>—</div>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-2 shadow-sm text-center">
+                                        <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-0.5">Passagiers</div>
+                                        <div class="text-sm font-bold text-heading tabular-nums leading-snug" data-summary-confirm-passengers>—</div>
                                     </div>
-                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
-                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Bagage</div>
-                                        <div class="flex flex-wrap items-start gap-2" data-summary-baggage-list>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-2 shadow-sm col-span-2 text-center">
+                                        <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-0.5">Bagage</div>
+                                        <div class="flex flex-wrap items-start justify-center gap-1 text-sm" data-summary-baggage-list>
                                             <span class="text-sm text-body">—</span>
                                         </div>
                                     </div>
-                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
-                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Opmerking</div>
-                                        <p class="text-sm text-body whitespace-pre-wrap break-words min-w-0" data-summary-remarks>—</p>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-2 shadow-sm col-span-2 text-center">
+                                        <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-0.5">Opmerking</div>
+                                        <p class="text-sm text-body whitespace-pre-wrap break-words min-w-0 line-clamp-3" data-summary-remarks>—</p>
                                     </div>
+                                    </div>
+                                </div>
                                 </div>
                             </div>
 
@@ -577,16 +585,16 @@
                             @endphp
                             @if($payBooking || $payDriver)
                             <div class="booking-confirm-section-divider border-t border-slate-200/90 dark:border-slate-600/40" aria-hidden="true"></div>
-                            <div class="booking-confirm-surface mx-5 md:mx-8 my-4 rounded-xl border bg-neutral-primary px-4 py-4 shadow-sm" data-booking-payment-block>
-                                <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-3">Betaalwijze</div>
+                            <div class="booking-confirm-surface mx-2.5 sm:mx-3 my-2 rounded-xl bg-neutral-primary px-2.5 py-2 shadow-sm text-center" data-booking-payment-block>
+                                <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-1">Betaalwijze</div>
                                 @if($payChoiceVisible)
-                                <div class="space-y-2 text-sm" data-booking-payment-choice>
+                                <div class="space-y-1 text-sm text-left" data-booking-payment-choice>
                                     <label class="flex items-start gap-2 cursor-pointer">
-                                        <input type="radio" name="booking_payment_method" value="booking" class="mt-1" data-booking-payment-radio checked>
+                                        <input type="radio" name="booking_payment_method" value="booking" class="mt-0.5" data-booking-payment-radio checked>
                                         <span><strong>Direct online betalen</strong><br><span class="text-slate-500 dark:text-slate-400">Na bevestiging ga je naar Mollie (iDEAL, kaart, …).</span></span>
                                     </label>
                                     <label class="flex items-start gap-2 cursor-pointer">
-                                        <input type="radio" name="booking_payment_method" value="driver" class="mt-1" data-booking-payment-radio>
+                                        <input type="radio" name="booking_payment_method" value="driver" class="mt-0.5" data-booking-payment-radio>
                                         <span><strong>Betalen in de taxi</strong><br><span class="text-slate-500 dark:text-slate-400">De chauffeur ontvangt een QR-code na de rit.</span></span>
                                     </label>
                                 </div>
@@ -600,59 +608,62 @@
                             </div>
                             @endif
 
-                            <div class="booking-confirm-total-strip flex flex-row items-start justify-between gap-4 border-t border-slate-200/90 dark:border-slate-600/40 px-5 py-3 md:px-8 md:py-4 bg-white/80 dark:bg-slate-900/50">
+                            <div class="booking-confirm-total-strip flex flex-row items-center justify-between gap-3 border-t border-slate-200/90 dark:border-slate-600/40 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/80 dark:bg-slate-900/50">
                                 <div class="min-w-0">
                                     <span class="text-sm font-bold uppercase tracking-wide text-heading">Totaalbedrag</span>
-                                    <div class="booking-confirm-total-legs hidden mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400" data-summary-total-legs>
+                                    <div class="booking-confirm-total-legs hidden mt-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400" data-summary-total-legs>
                                         <span>Heenrit <span class="tabular-nums font-medium text-slate-600 dark:text-slate-300" data-summary-leg-outbound>—</span></span>
                                         <span class="mx-1.5" aria-hidden="true">·</span>
                                         <span>Terugrit <span class="tabular-nums font-medium text-slate-600 dark:text-slate-300" data-summary-leg-return>—</span></span>
                                     </div>
-                                    <p class="booking-confirm-total-legs-note hidden mt-0.5 text-[0.6875rem] leading-snug text-slate-500 dark:text-slate-400" data-summary-total-legs-note>Te betalen per heen- en terugrit</p>
+                                    <p class="booking-confirm-total-legs-note hidden mt-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400" data-summary-total-legs-note>Te betalen per heen- en terugrit</p>
                                 </div>
-                                <span class="text-lg md:text-xl font-bold tabular-nums text-heading shrink-0" data-summary-total>—</span>
+                                <span class="text-lg sm:text-xl font-bold tabular-nums text-heading shrink-0" data-summary-total>—</span>
                             </div>
                         </div>
-                        <p class="text-sm mt-4 text-slate-600 dark:text-slate-300 text-center">Controleer je gegevens en verstuur je boeking.</p>
+                        <p class="text-xs mt-2 text-slate-600 dark:text-slate-300 text-center">Controleer je gegevens en verstuur je boeking.</p>
                     </div>
+                </div>
                 </div>
                 </div>
             </div>
 
             @unless($bookingSplitMapInsideContent)
-            <p class="mb-4 text-sm font-medium text-red-600 dark:text-red-300 hidden" data-booking-error role="alert"></p>
+            <div class="booking-module-body-footer">
+            <p class="mb-2 text-sm font-medium text-red-600 dark:text-red-300 hidden" data-booking-error role="alert"></p>
             @include('frontend.website.components.partials.nexataxi-boekingsmodule-vehicle-summary', ['summaryVariant' => 'footer'])
-            <div class="mt-8 flex items-center justify-between">
-                <button type="button" class="booking-nav-btn booking-nav-btn--ghost inline-flex items-center justify-center gap-2 w-max shrink-0 whitespace-nowrap px-4 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-prev><span class="inline-flex shrink-0 leading-none" aria-hidden="true">&larr;</span><span>terug</span></button>
-                <div class="flex items-center gap-3 shrink-0">
+            <div class="mt-3 flex items-center justify-between gap-3">
+                <button type="button" class="booking-nav-btn booking-nav-btn--ghost inline-flex items-center justify-center gap-2 w-max shrink-0 whitespace-nowrap px-3.5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-prev><span class="inline-flex shrink-0 leading-none" aria-hidden="true">&larr;</span><span>terug</span></button>
+                <div class="flex items-center gap-2.5 shrink-0">
                     @if($bookingPortalMode)
-                    <button type="button" class="inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1 booking-portal-cancel-default" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($bookingPortalCancelAccent) }} 45%, transparent); color: {{ e($bookingPortalCancelAccent) }};" data-booking-portal-cancel>Annuleren</button>
+                    <button type="button" class="inline-flex justify-center items-center px-5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1 booking-portal-cancel-default" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($bookingPortalCancelAccent) }} 45%, transparent); color: {{ e($bookingPortalCancelAccent) }};" data-booking-portal-cancel>Annuleren</button>
                     @endif
-                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-next-default inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-next>Verder</button>
-                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-new-default justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-new hidden aria-hidden="true">Nieuwe boeking</button>
+                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-next-default inline-flex justify-center items-center px-5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-next>Verder</button>
+                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-new-default justify-center items-center px-5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-new hidden aria-hidden="true">Nieuwe boeking</button>
                 </div>
             </div>
-            <p class="mt-3 text-sm font-medium text-green-700 dark:text-green-300 hidden" data-booking-success></p>
+            <p class="mt-2 text-sm font-medium text-green-700 dark:text-green-300 hidden" data-booking-success></p>
+            </div>
             @endunless
         @if($bookingSplitMapInsideContent)
         </div>
         @include('frontend.website.components.partials.nexataxi-boekingsmodule-live-map')
         </div>
         </div>
-        <div class="p-6 bg-neutral-secondary-soft border-t booking-module-v2-card-footer" style="border-color: rgba(148, 163, 184, 0.35);">
-            <p class="mb-4 text-sm font-medium text-red-600 dark:text-red-300 hidden" data-booking-error role="alert"></p>
+        <div class="p-4 sm:p-5 bg-neutral-secondary-soft border-t booking-module-v2-card-footer" style="border-color: rgba(148, 163, 184, 0.35);">
+            <p class="mb-2 text-sm font-medium text-red-600 dark:text-red-300 hidden" data-booking-error role="alert"></p>
             @include('frontend.website.components.partials.nexataxi-boekingsmodule-vehicle-summary', ['summaryVariant' => 'footer'])
-            <div class="mt-0 flex items-center justify-between">
-                <button type="button" class="booking-nav-btn booking-nav-btn--ghost inline-flex items-center justify-center gap-2 w-max shrink-0 whitespace-nowrap px-4 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-prev><span class="inline-flex shrink-0 leading-none" aria-hidden="true">&larr;</span><span>terug</span></button>
-                <div class="flex items-center gap-3 shrink-0">
+            <div class="mt-0 flex items-center justify-between gap-3">
+                <button type="button" class="booking-nav-btn booking-nav-btn--ghost inline-flex items-center justify-center gap-2 w-max shrink-0 whitespace-nowrap px-3.5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-prev><span class="inline-flex shrink-0 leading-none" aria-hidden="true">&larr;</span><span>terug</span></button>
+                <div class="flex items-center gap-2.5 shrink-0">
                     @if($bookingPortalMode)
-                    <button type="button" class="inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1 booking-portal-cancel-default" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($bookingPortalCancelAccent) }} 45%, transparent); color: {{ e($bookingPortalCancelAccent) }};" data-booking-portal-cancel>Annuleren</button>
+                    <button type="button" class="inline-flex justify-center items-center px-5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1 booking-portal-cancel-default" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($bookingPortalCancelAccent) }} 45%, transparent); color: {{ e($bookingPortalCancelAccent) }};" data-booking-portal-cancel>Annuleren</button>
                     @endif
-                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-next-default inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-next>Verder</button>
-                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-new-default justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-new hidden aria-hidden="true">Nieuwe boeking</button>
+                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-next-default inline-flex justify-center items-center px-5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-next>Verder</button>
+                    <button type="button" class="booking-nav-btn booking-nav-btn--primary booking-new-default justify-center items-center px-5 py-2.5 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1" data-booking-new hidden aria-hidden="true">Nieuwe boeking</button>
                 </div>
             </div>
-            <p class="mt-3 text-sm font-medium text-green-700 dark:text-green-300 hidden" data-booking-success></p>
+            <p class="mt-2 text-sm font-medium text-green-700 dark:text-green-300 hidden" data-booking-success></p>
         </div>
         @endif
         @if(!$bookingSplitMapInsideContent)
@@ -996,7 +1007,46 @@
 }
 
 [data-nexataxi-booking-module] .booking-module-card {
+    overflow: hidden;
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-module-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-module-body-main {
+    min-width: 0;
     overflow: visible;
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-module-step-heading {
+    margin-bottom: 0.5rem !important;
+    font-size: clamp(0.95rem, 1.8vw + 0.45rem, 1.35rem);
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-trip-left.space-y-5 {
+    gap: 0.75rem;
+}
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-trip-left.space-y-5 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-route-input-short,
+[data-nexataxi-booking-module]:not(.booking-module--portal) input.booking-route-input-short {
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-baggage-card,
+[data-nexataxi-booking-module]:not(.booking-module--portal) .booking-baggage-special {
+    padding: 0.75rem !important;
+}
+
+[data-nexataxi-booking-module]:not(.booking-module--portal) [data-booking-steps-nav] .booking-step-tab {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
 }
 
 [data-nexataxi-booking-module] .booking-step-panels-shell {
@@ -1078,8 +1128,41 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
     color: #475569 !important;
 }
 
+[data-nexataxi-booking-module] .booking-confirm-label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: 1.375;
+    color: rgb(100 116 139);
+}
+.dark [data-nexataxi-booking-module] .booking-confirm-label,
+html.dark [data-nexataxi-booking-module] .booking-confirm-label,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-confirm-label {
+    color: rgb(148 163 184);
+}
 [data-nexataxi-booking-module] .booking-confirm-route-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
     width: 100%;
+}
+[data-nexataxi-booking-module] .booking-confirm-route-stack--compact {
+    gap: 0.15rem;
+}
+[data-nexataxi-booking-module] .booking-confirm-route-stack--compact .booking-confirm-route-line {
+    font-size: 0.875rem;
+    line-height: 1.35;
+}
+[data-nexataxi-booking-module] .booking-confirm-layout {
+    min-width: 0;
+}
+[data-nexataxi-booking-module] .booking-confirm-route-band {
+    min-width: 0;
+}
+[data-nexataxi-booking-module] .booking-confirm-details-grid {
+    min-width: 0;
 }
 /* Zelfde viewport voor rit-stap en bevestiging → identieke static-map crop/zoom (object-cover) */
 [data-nexataxi-booking-module] .booking-route-map-viewport,
@@ -1129,8 +1212,10 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
     border-color: rgb(241 245 249) !important;
 }
 [data-nexataxi-booking-module] [data-booking-payment-block].booking-confirm-surface {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-width: 0 !important;
+    border-style: none !important;
 }
 [data-nexataxi-booking-module] .booking-confirm-total-strip,
 [data-nexataxi-booking-module] .booking-confirm-section-divider {
@@ -1964,7 +2049,9 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
 }
 [data-nexataxi-booking-module] .booking-module-header,
 [data-nexataxi-booking-module] .booking-module-card > .border-b.bg-neutral-primary,
+[data-nexataxi-booking-module] .booking-module-tabs,
 [data-nexataxi-booking-module] .p-6.bg-neutral-secondary-soft,
+[data-nexataxi-booking-module] .booking-module-body,
 [data-nexataxi-booking-module] .booking-module-v2-card-footer {
     background: var(--booking-skin-soft) !important;
     color: var(--booking-skin-text);
@@ -2530,7 +2617,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
 
     function formatEuro(value) {
         var num = (typeof value === 'number' ? value : parseFloat(value || 0));
-        return '€ ' + num.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '€\u00a0' + num.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function returnTripPriceMultiplier() {
@@ -2663,6 +2750,8 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         var second = parts[1] || '';
         if (/^\d+[a-zA-Z\-]*$/.test(first) && second && !/^\d/.test(second)) {
             first = second + ' ' + first;
+        } else if (second && /^\d+[a-zA-Z\-]*$/.test(second) && first && !/\d/.test(first)) {
+            first = first + ' ' + second;
         }
 
         var postcode = '';
@@ -2740,7 +2829,6 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         }
 
         var out = first;
-        if (postcode) out += ', ' + postcode;
         if (city) out += ', ' + city;
         return out || text;
     }
@@ -3826,7 +3914,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
                 '</div>' +
                 '<div class="text-right w-full md:w-auto">' +
                     (offer.old_price ? '<div class="text-sm font-medium text-slate-500 dark:text-slate-400">van <span style="text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: rgb(244 63 94 / 0.8);">' + formatEuro(offer.old_price) + '</span></div>' : '') +
-                    '<div class="booking-offer-price text-4xl font-bold tabular-nums text-heading">' + formatEuro(offer.price) + '</div>' +
+                    '<div class="booking-offer-price text-2xl font-bold tabular-nums text-heading whitespace-nowrap">' + formatEuro(offer.price) + '</div>' +
                 '</div>';
             list.appendChild(card);
         });
@@ -4323,11 +4411,31 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             var drSeg = compactAddress(state.dropoff_address || '');
             if (drSeg) segs.push(drSeg);
             routeStackEl.innerHTML = '';
+            var routeCompact = routeStackEl.classList.contains('booking-confirm-route-stack--compact');
             if (!segs.length) {
                 var emptyP = document.createElement('p');
-                emptyP.className = 'text-sm text-body w-full max-w-md mx-auto text-center';
+                emptyP.className = routeCompact
+                    ? 'text-sm text-body'
+                    : 'text-sm text-body w-full max-w-md mx-auto text-center';
                 emptyP.textContent = '—';
                 routeStackEl.appendChild(emptyP);
+            } else if (routeCompact) {
+                var col = document.createElement('div');
+                col.className = 'flex flex-col items-center w-full gap-0.5';
+                segs.forEach(function(seg, i) {
+                    var line = document.createElement('div');
+                    line.className = 'booking-confirm-route-line text-sm font-semibold text-heading leading-snug w-full text-center';
+                    line.textContent = seg;
+                    col.appendChild(line);
+                    if (i < segs.length - 1) {
+                        var arr = document.createElement('div');
+                        arr.className = 'flex justify-center w-full py-0.5 text-fg-brand';
+                        arr.setAttribute('aria-hidden', 'true');
+                        arr.innerHTML = '<svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>';
+                        col.appendChild(arr);
+                    }
+                });
+                routeStackEl.appendChild(col);
             } else {
                 var col = document.createElement('div');
                 col.className = 'flex flex-col items-center w-full max-w-md mx-auto gap-1';

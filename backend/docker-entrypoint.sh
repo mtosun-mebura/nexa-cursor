@@ -32,11 +32,12 @@ chmod -R 775 storage bootstrap/cache || true
 # zodat requests parallel worden afgehandeld i.p.v. single-threaded (1 trage request blokkeert anders alles).
 export PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-8}"
 
-# Caches: eerst clear (verse staat), daarna Blade-views vooraf compileren.
+# Caches: eerst clear (verse staat), daarna autoload + Blade-views vooraf compileren.
 php artisan config:clear || true
 php artisan cache:clear || true
 php artisan route:clear || true
 php artisan view:clear || true
+composer dump-autoload -o --no-interaction 2>/dev/null || composer dump-autoload --no-interaction 2>/dev/null || true
 
 # Blade-views vooraf compileren zodat de EERSTE weergave van een (admin)pagina niet hoeft te
 # compileren tijdens de request. Scheelt merkbaar bij het navigeren in de admin na een herstart.
