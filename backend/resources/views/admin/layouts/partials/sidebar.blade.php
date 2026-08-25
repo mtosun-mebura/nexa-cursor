@@ -349,7 +349,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-email-templates'))
+                @if(auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
@@ -383,7 +383,7 @@
                                 </span>
                             </a>
                         </div>
-                        @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('edit-email-templates'))
+                        @if(auth()->user()?->hasRole('super-admin'))
                         <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.form-fields.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.email-templates.form-fields.index') }}" tabindex="0">

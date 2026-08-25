@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Controllers\Admin\Concerns\AuthorizesTaxiPermissions;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
@@ -13,6 +14,8 @@ use App\Modules\NexaTaxi\Models\TransportPassengerGuardian;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +38,8 @@ class TransportCustomerPortalController extends Controller
 
         $customer = $this->findCustomer($conn, $customerId);
         $companyId = (int) $customer->company_id;
+        $company = Company::query()->find($companyId);
+        app(CompanyEntitlementService::class)->assertAllows($company, TenantPackageCapability::CONTRACT_PORTAL);
 
         if ($request->input('existing_user_id') === '' || $request->input('existing_user_id') === '0') {
             $request->merge(['existing_user_id' => null]);

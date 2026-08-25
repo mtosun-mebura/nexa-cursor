@@ -282,7 +282,9 @@ class TaxiRideInvoiceService
             'return_invoice_sent' => $returnInvoice?->status === 'sent',
             'includes_total_invoice' => $sendableLeg === RideRequest::INVOICE_BILLING_TERUG
                 && $ride->returnPaidAmount() !== null,
-            'can_send' => $sendableLeg !== null && $invoice?->status !== 'sent',
+            'can_send' => $sendableLeg !== null
+                && $invoice?->status !== 'sent'
+                && $this->invoicePdfAllowedForRide($ride),
         ];
     }
 
@@ -298,6 +300,8 @@ class TaxiRideInvoiceService
                 'invoice' => ['Er is momenteel geen factuur beschikbaar om te versturen.'],
             ]);
         }
+
+        $this->assertInvoicePdfAllowed($ride);
 
         $email = trim($email);
         if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -900,5 +904,30 @@ class TaxiRideInvoiceService
         }
 
         return 0;
+    }
+
+    protected function invoicePdfAllowedForRide(RideRequest $ride): bool
+    {
+        $companyId = $this->resolveCompanyIdForRide($ride);
+        if ($companyId <= 0) {
+            return true;
+        }
+
+        return app(\App\Services\CompanyEntitlementService::class)
+            ->allowsCompanyId($companyId, \App\Support\TenantPackageCapability::INVOICE_PDF);
+    }
+
+    protected function assertInvoicePdfAllowed(RideRequest $ride): void
+    {
+        if ($this->invoicePdfAllowedForRide($ride)) {
+            return;
+        }
+
+        $company = Company::query()->find($this->resolveCompanyIdForRide($ride));
+
+        throw ValidationException::withMessages([
+            'invoice' => [app(\App\Services\CompanyEntitlementService::class)
+                ->deniedMessage(\App\Support\TenantPackageCapability::INVOICE_PDF, $company)],
+        ]);
     }
 }

@@ -441,26 +441,65 @@
             width: 100%;
         }
     }
+
+    #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--block:not(.is-in-view) {
+        opacity: 0;
+        transform: translateY(12px);
+        transition: none;
+    }
+    #prijzen-pakketten .nexa-pricing-reveal--block.is-in-view {
+        opacity: 1;
+        transform: none;
+        transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--intro:not(.is-in-view) .nexa-pricing-reveal__item,
+    #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--addons:not(.is-in-view) .nexa-pricing-reveal__card {
+        opacity: 0;
+        transform: translateY(10px);
+        transition: none;
+    }
+    #prijzen-pakketten .nexa-pricing-reveal.is-in-view .nexa-pricing-reveal__item,
+    #prijzen-pakketten .nexa-pricing-reveal--addons.is-in-view .nexa-pricing-reveal__card {
+        opacity: 1;
+        transform: none;
+        transition: opacity 0.5s ease, transform 0.5s ease;
+        transition-delay: var(--nexa-pricing-reveal-delay, 0ms);
+    }
+    #prijzen-pakketten .nexa-pricing-reveal--addons.is-in-view .nexa-pricing-reveal__card:nth-child(2) {
+        transition-delay: 80ms;
+    }
+    #prijzen-pakketten .nexa-pricing-reveal--addons.is-in-view .nexa-pricing-reveal__card:nth-child(3) {
+        transition-delay: 160ms;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--block,
+        #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal__item,
+        #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--addons .nexa-pricing-reveal__card {
+            opacity: 1;
+            transform: none;
+            transition: none;
+        }
+    }
 </style>
 <section id="prijzen-pakketten" class="nexa-pricing-packages pt-6 md:pt-8 pb-10 md:pb-14">
     <div class="nexa-pricing-packages__scale" style="--nexa-pricing-scale: {{ $widthPercent }}%;">
     <div class="website-section-inner">
         @if($eyebrow !== '' || $title !== '' || $subtitle !== '')
-        <div class="text-center mb-10 md:mb-12 max-w-3xl mx-auto">
+        <div class="text-center mb-10 md:mb-12 max-w-3xl mx-auto nexa-pricing-reveal nexa-pricing-reveal--intro" data-scroll-reveal>
             @if($eyebrow !== '')
-            <p class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-300 mb-6">{{ $eyebrow }}</p>
+            <p class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-300 mb-6 nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 0ms;">{{ $eyebrow }}</p>
             @endif
             @if($title !== '')
-            <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3">{{ $title }}</h2>
+            <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3 nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 70ms;">{{ $title }}</h2>
             @endif
             @if($subtitle !== '')
-            <p class="text-gray-600 dark:text-gray-300">{{ $subtitle }}</p>
+            <p class="text-gray-600 dark:text-gray-300 nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 140ms;">{{ $subtitle }}</p>
             @endif
         </div>
         @endif
 
         @if($packages !== [])
-        <div class="kt-scrollable-x-auto pt-3 -mt-3 nexa-pricing-block nexa-pricing-block--packages" style="--nexa-pricing-fs: {{ $packagesFontPx }}px;">
+        <div class="kt-scrollable-x-auto pt-3 -mt-3 nexa-pricing-block nexa-pricing-block--packages nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="--nexa-pricing-fs: {{ $packagesFontPx }}px;">
             <table class="kt-table table-fixed border-separate border-spacing-0 w-full min-w-0 rounded-xl">
                 <tr class="*:border-border">
                     <td class="nexa-plan-intro border-b-0 align-bottom p-5! pt-7.5!" rowspan="3">
@@ -613,7 +652,7 @@
             $websiteDeal = $pricingService->websitePricePresentation($website);
             $websitePrefix = trim((string) ($website['price_prefix'] ?? 'vanaf'));
         @endphp
-        <div class="mt-7.5 rounded-xl border border-border p-5 md:p-7.5 md:flex md:items-start md:justify-between md:gap-10 nexa-pricing-block nexa-pricing-block--website" style="border-color: var(--border); background: var(--background); --nexa-pricing-fs: {{ $websiteFontPx }}px; --nexa-pricing-website-width: {{ $websiteWidthPct }}%;">
+        <div class="mt-7.5 rounded-xl border border-border p-5 md:p-7.5 md:flex md:items-start md:justify-between md:gap-10 nexa-pricing-block nexa-pricing-block--website nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="border-color: var(--border); background: var(--background); --nexa-pricing-fs: {{ $websiteFontPx }}px; --nexa-pricing-website-width: {{ $websiteWidthPct }}%;">
             <div class="nexa-pricing-website-copy">
                 <div class="kt-badge nexa-plan-badge kt-badge-outline mb-3">Eenmalig</div>
                 <h3 class="text-lg text-mono font-medium pb-2">{{ $website['title'] ?? 'Website live zetten' }}</h3>
@@ -665,9 +704,9 @@
         @endif
 
         @if($addons !== [])
-        <div class="mt-7.5 grid grid-cols-1 md:grid-cols-3 gap-5 nexa-pricing-block nexa-pricing-block--addons" style="--nexa-pricing-fs: {{ $addonsFontPx }}px;">
+        <div class="mt-7.5 grid grid-cols-1 md:grid-cols-3 gap-5 nexa-pricing-block nexa-pricing-block--addons nexa-pricing-reveal nexa-pricing-reveal--addons" data-scroll-reveal style="--nexa-pricing-fs: {{ $addonsFontPx }}px;">
             @foreach($addons as $addon)
-            <div class="rounded-xl border p-5" style="border-color: var(--border); background: var(--background);">
+            <div class="rounded-xl border p-5 nexa-pricing-reveal__card" style="border-color: var(--border); background: var(--background);">
                 <h4 class="text-mono font-medium">{{ $addon['name'] ?? '' }}</h4>
                 <div class="text-sm font-medium text-primary mt-1" style="color: var(--primary);">{{ $addon['price'] ?? '' }}</div>
                 @if(!empty($addon['description']))
@@ -678,7 +717,7 @@
         </div>
         @endif
 
-        <div class="mt-7.5 rounded-xl border p-5 md:p-7.5 flex flex-col md:flex-row md:items-center md:justify-between gap-5" style="border-color: var(--border); background: var(--muted);">
+        <div class="mt-7.5 rounded-xl border p-5 md:p-7.5 flex flex-col md:flex-row md:items-center md:justify-between gap-5 nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="border-color: var(--border); background: var(--muted);">
             <div>
                 <h3 class="text-lg text-mono font-medium mb-1">Klaar om te starten?</h3>
                 <div class="text-secondary-foreground text-sm">Meld je aan. We nemen contact op over onboarding of een voorstel op maat.</div>
@@ -692,8 +731,57 @@
         </div>
 
         @if($note !== '')
-        <p class="text-center text-xs text-secondary-foreground mt-8">{{ $note }}</p>
+        <p class="text-center text-xs text-secondary-foreground mt-8 nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal>{{ $note }}</p>
         @endif
     </div>
     </div>
 </section>
+@once
+@push('scripts')
+<script>
+(function () {
+    var root = document.getElementById('prijzen-pakketten');
+    if (!root || root.getAttribute('data-nexa-pricing-reveal-init') === '1') return;
+    root.setAttribute('data-nexa-pricing-reveal-init', '1');
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+    var blocks = root.querySelectorAll('.nexa-pricing-reveal');
+    if (!blocks.length) return;
+    function show(el) {
+        el.classList.add('is-in-view');
+    }
+    function isVisibleEnough(el) {
+        var rect = el.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        return rect.bottom > 48 && rect.top < vh * 0.92;
+    }
+    function revealVisible() {
+        Array.prototype.forEach.call(blocks, function (el) {
+            if (!el.classList.contains('is-in-view') && isVisibleEnough(el)) {
+                show(el);
+            }
+        });
+    }
+    revealVisible();
+    root.classList.add('nexa-pricing-reveal-ready');
+    var opts = { threshold: 0.01, rootMargin: '0px 0px -8% 0px', once: true };
+    if (typeof window.nexaObserveWhenVisible === 'function') {
+        window.nexaObserveWhenVisible(blocks, show, opts);
+    } else if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    show(entry.target);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, opts);
+        Array.prototype.forEach.call(blocks, function (el) { observer.observe(el); });
+    }
+    window.addEventListener('scroll', revealVisible, { passive: true });
+    window.addEventListener('resize', revealVisible);
+})();
+</script>
+@endpush
+@endonce

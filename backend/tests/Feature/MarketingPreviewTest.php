@@ -39,7 +39,7 @@ class MarketingPreviewTest extends TestCase
             ->assertOk()
             ->assertSee('€ 49', false)
             ->assertSee('€ 750', false)
-            ->assertSee('Pro — € 99', false);
+            ->assertSee('Pro: € 99', false);
     }
 
     #[Test]

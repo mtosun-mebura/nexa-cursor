@@ -471,10 +471,20 @@
                     });
                     </script>
                     @endif
-                    @if(session('error'))
-                        <div class="kt-alert kt-alert-danger mb-5">
+                    @php
+                        $adminBannerError = session('error');
+                        $adminBannerWarning = session('warning') ?: $errors->first('package');
+                    @endphp
+                    @if($adminBannerError)
+                        <div class="kt-alert kt-alert-danger mb-5" role="alert">
                             <i class="ki-filled ki-information"></i>
-                            {{ session('error') }}
+                            {{ $adminBannerError }}
+                        </div>
+                    @endif
+                    @if($adminBannerWarning)
+                        <div class="kt-alert kt-alert-warning mb-5" role="alert">
+                            <i class="ki-filled ki-information"></i>
+                            {{ $adminBannerWarning }}
                         </div>
                     @endif
 

@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Company;
 use App\Models\FrontendTheme;
+use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
 use App\Services\WebsiteBuilderService;
@@ -251,12 +252,22 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         $this->assertNull(app(WebsiteBuilderService::class)->getThemeForCompany($company->id));
     }
 
-    public function test_google_maps_key_uses_tenant_setting_over_env(): void
+    public function test_google_maps_key_uses_platform_setting_not_tenant(): void
     {
-        config(['maps.api_key' => 'ENV_GLOBAL_KEY']);
+        try {
+            GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'PLATFORM_KEY_123');
+        } catch (\RuntimeException $e) {
+            $this->markTestSkipped($e->getMessage());
+        }
 
         $company = Company::query()->create(['name' => 'Maps Tenant']);
-        \App\Models\GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'TENANT_KEY_123', $company->id);
+        // Legacy tenant-rij mag de platform-sleutel niet overschrijven (set() negeert company_id).
+        GeneralSetting::query()->create([
+            'key' => 'GOOGLE_MAPS_API_KEY',
+            'company_id' => $company->id,
+            'value' => 'TENANT_KEY_123',
+        ]);
+        GeneralSetting::clearRequestCache();
 
         $page = WebsitePage::query()->create([
             'slug' => 'home',
@@ -267,9 +278,8 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         ]);
 
         $service = app(WebsiteBuilderService::class);
-        $this->assertSame('TENANT_KEY_123', $service->resolveGoogleMapsApiKeyForPage($page));
+        $this->assertSame('PLATFORM_KEY_123', $service->resolveGoogleMapsApiKeyForPage($page));
 
-        // Zonder tenant-instelling valt het terug op .env/config.
         $other = Company::query()->create(['name' => 'No Maps Tenant']);
         $otherPage = WebsitePage::query()->create([
             'slug' => 'home-2',
@@ -278,7 +288,7 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
             'company_id' => $other->id,
             'is_active' => true,
         ]);
-        $this->assertSame('ENV_GLOBAL_KEY', $service->resolveGoogleMapsApiKeyForPage($otherPage));
+        $this->assertSame('PLATFORM_KEY_123', $service->resolveGoogleMapsApiKeyForPage($otherPage));
     }
 
     public function test_whatsapp_widget_enabled_only_from_tenant_setting(): void

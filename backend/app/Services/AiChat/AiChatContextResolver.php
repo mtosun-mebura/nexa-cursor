@@ -54,7 +54,9 @@ final class AiChatContextResolver
 
         $host = strtolower(trim((string) (request()->getHost() ?? '')));
 
-        return $host !== '' && CentralDomains::isCentral($host) && $module !== 'taxi';
+        // Centrale marketing-site (localhost / APP_URL), ook als de frontend per ongeluk
+        // module=taxi meestuurt omdat de branding-module taxi is.
+        return $host !== '' && CentralDomains::isCentral($host);
     }
 
     public function forMijnTaxiRequest(User $user, ?string $module = null, ?string $sessionId = null): AiChatRequestContext

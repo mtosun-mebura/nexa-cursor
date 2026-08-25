@@ -10,7 +10,12 @@ class TenantMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
+        } catch (\Throwable $e) {
+            report($e);
+            $user = null;
+        }
         $registrar = app(PermissionRegistrar::class);
         if ($user && $user->company_id) {
             $teamId = (int) $user->company_id;

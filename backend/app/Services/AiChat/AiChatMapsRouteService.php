@@ -400,9 +400,7 @@ final class AiChatMapsRouteService
 
     private function mapsApiKey(): string
     {
-        $fromConfig = trim((string) config('maps.api_key', ''));
-
-        return $fromConfig !== '' ? $fromConfig : trim((string) app(EnvService::class)->getGoogleMapsApiKey());
+        return trim((string) app(EnvService::class)->getGoogleMapsApiKey());
     }
 
     private function formatOsrmCoordinate(float $lng, float $lat): string

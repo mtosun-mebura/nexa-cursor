@@ -7,7 +7,7 @@
         <h1>NEXA Suite: modulair SaaS dat taxibedrijven en recruitmentteams online laat groeien</h1>
         <p class="lead">
             Eén multi-tenant platform met website builder, rollen &amp; rechten, SaaS-facturatie en AI-chat.
-            Activeer alleen de modules die je nodig hebt — start met <strong style="color:#fff">Nexa Taxi</strong> (hoogste saleskans).
+            Activeer alleen de modules die je nodig hebt. Start met <strong style="color:#fff">Nexa Taxi</strong> (hoogste saleskans).
         </p>
         <div class="cta-row">
             <a class="btn btn-primary" href="{{ route('marketing.show', 'strategie') }}">Bekijk verkoopstrategie</a>
@@ -46,19 +46,19 @@
     <article class="card">
         <div class="badge">Tweede vertical</div>
         <h3>Skillmatching</h3>
-        <p>Vacatures, AI-matches, interviews, kandidatenportaal — recruitment zonder losse tools.</p>
+        <p>Vacatures, AI-matches, interviews, kandidatenportaal: recruitment zonder losse tools.</p>
         <p><a href="{{ route('marketing.show', 'skillmatching') }}">Lees meer →</a></p>
     </article>
     <article class="card">
         <div class="badge">Conversie</div>
         <h3>Website builder</h3>
-        <p>Merkbare tenant-sites met boekingsmodule, reviews, SEO — zonder apart CMS.</p>
+        <p>Merkbare tenant-sites met boekingsmodule, reviews en SEO, zonder apart CMS.</p>
         <p><a href="{{ route('marketing.show', 'website') }}">Lees meer →</a></p>
     </article>
     <article class="card">
         <div class="badge warn">Roadmap</div>
         <h3>NEXA Garage</h3>
-        <p>Werkplaats / werkorders — positioneer als “binnenkort”, niet als live product.</p>
+        <p>Werkplaats / werkorders: positioneer als “binnenkort”, niet als live product.</p>
     </article>
 </div>
 

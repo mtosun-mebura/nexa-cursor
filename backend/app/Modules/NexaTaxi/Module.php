@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi;
 
 use App\Modules\Base\Module as BaseModule;
+use App\Support\TenantPackageCapability;
 
 class Module extends BaseModule
 {
@@ -73,6 +74,7 @@ class Module extends BaseModule
                 'route' => 'admin.taxi.transport_customers.index',
                 'icon' => 'ki-filled ki-people',
                 'permission' => 'rides.view',
+                'package_capability' => TenantPackageCapability::CONTRACT_TRANSPORT,
                 'order' => 22,
                 'children' => [
                     [
@@ -95,6 +97,7 @@ class Module extends BaseModule
                 'route' => 'admin.taxi.dispatch_settings.edit',
                 'icon' => 'ki-filled ki-phone',
                 'permission' => 'rides.view',
+                'package_capability' => TenantPackageCapability::DISPATCH,
                 'order' => 25,
             ],
             [
@@ -103,7 +106,7 @@ class Module extends BaseModule
                 'route' => 'admin.taxi.knowledge_documents.index',
                 'icon' => 'ki-filled ki-technology-2',
                 'permission' => 'ai_chatbot.view',
-                'permission_any' => ['ai_chatbot.view', 'rides.view', 'vehicles.view'],
+                'super_admin_only' => true,
                 'order' => 30,
                 'children' => [
                     [

@@ -49,6 +49,20 @@ class AdminNexaPricingController extends Controller
             'packages.*.features' => ['nullable', 'array'],
             'packages.*.features.*' => ['nullable', 'string', 'max:255'],
             'packages.*.features_text' => ['nullable', 'string', 'max:4000'],
+            'packages.*.key' => ['nullable', 'string', 'max:80'],
+            'packages.*.entitlements' => ['nullable', 'array'],
+            'packages.*.entitlements.max_drivers' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'packages.*.entitlements.max_drivers_unlimited' => ['nullable'],
+            'packages.*.entitlements.website_booking' => ['nullable'],
+            'packages.*.entitlements.mollie_payments' => ['nullable'],
+            'packages.*.entitlements.invoice_pdf' => ['nullable'],
+            'packages.*.entitlements.dispatch' => ['nullable'],
+            'packages.*.entitlements.driver_app' => ['nullable'],
+            'packages.*.entitlements.contract_transport' => ['nullable'],
+            'packages.*.entitlements.contract_portal' => ['nullable'],
+            'packages.*.entitlements.multiple_admins' => ['nullable'],
+            'packages.*.entitlements.monthly_invoice_sepa' => ['nullable'],
+            'packages.*.entitlements.max_contract_clients' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'website.title' => ['nullable', 'string', 'max:120'],
             'website.price_prefix' => ['nullable', 'string', 'max:40'],
             'website.price_label' => ['required', 'string', 'max:20'],
@@ -64,6 +78,11 @@ class AdminNexaPricingController extends Controller
             'addons.*.name' => ['nullable', 'string', 'max:80'],
             'addons.*.price' => ['nullable', 'string', 'max:80'],
             'addons.*.description' => ['nullable', 'string', 'max:255'],
+            'modules' => ['nullable', 'array'],
+            'modules.*.key' => ['nullable', 'string', 'max:80'],
+            'modules.*.name' => ['nullable', 'string', 'max:80'],
+            'modules.*.price' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'modules.*.description' => ['nullable', 'string', 'max:255'],
         ], [
             'packages.required' => 'Voeg minstens één maandpakket toe.',
             'packages.min' => 'Voeg minstens één maandpakket toe.',
@@ -76,13 +95,13 @@ class AdminNexaPricingController extends Controller
 
         return redirect()
             ->route('admin.nexa-pricing.edit')
-            ->with('success', 'Prijzen opgeslagen. De websitepagina /prijzen is bijgewerkt.');
+            ->with('success', 'Paketten opgeslagen. De websitepagina /prijzen is bijgewerkt.');
     }
 
     private function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->isSuperAdmin()) {
-            abort(403, 'Alleen super-admins hebben toegang tot de prijzen.');
+            abort(403, 'Alleen super-admins hebben toegang tot de paketten.');
         }
     }
 }

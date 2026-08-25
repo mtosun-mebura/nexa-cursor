@@ -2,9 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Company;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
+use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Support\TenantPackageCapability;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -36,6 +39,12 @@ class EnsureTaxiContractPortal
         $request->attributes->set('taxi_contract_conn', $conn);
         $request->attributes->set('taxi_contract_context', $context);
         $request->attributes->set('taxi_company_id', $context['company_id']);
+
+        $company = Company::query()->find($context['company_id'] ?? null);
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($company, TenantPackageCapability::CONTRACT_PORTAL)) {
+            return $entitlements->jsonDenied($company, TenantPackageCapability::CONTRACT_PORTAL);
+        }
 
         return $next($request);
     }

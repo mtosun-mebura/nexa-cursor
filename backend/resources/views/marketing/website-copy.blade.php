@@ -18,9 +18,9 @@
 <div class="card">
     <p><strong style="color:#fff">Hero:</strong> Duidelijke prijzen. Start bij € 49 per maand.</p>
     <p><strong style="color:#fff">Subtitel:</strong> Kies Start, Pro of Business. De details staan in de pakketten hieronder.</p>
-    <p><strong style="color:#fff">Start:</strong> € 49 / maand — ZZP, tot 3 chauffeurs, boeking + merksite.</p>
-    <p><strong style="color:#fff">Pro (aanbevolen):</strong> € 99 / maand — dispatch, chauffeur-app, Mollie.</p>
-    <p><strong style="color:#fff">Business:</strong> € 179 / maand — plus contractvervoer en contract-app.</p>
+    <p><strong style="color:#fff">Start:</strong> € 49 / maand: ZZP, tot 3 chauffeurs, boeking + merksite.</p>
+    <p><strong style="color:#fff">Pro (aanbevolen):</strong> € 99 / maand: dispatch, chauffeur-app, Mollie.</p>
+    <p><strong style="color:#fff">Business:</strong> € 179 / maand: plus contractvervoer en contract-app.</p>
     <p><strong style="color:#fff">Website:</strong> vanaf € 750 eenmalig. Uitgebreid vanaf € 1.250.</p>
     <p><strong style="color:#fff">Extra:</strong> AI + € 29 / maand, extra vestiging + € 49 / maand, vloot vanaf € 249 / maand.</p>
 </div>
@@ -28,7 +28,7 @@
 <h2>Waarom NEXA</h2>
 <div class="card">
     <p><strong style="color:#fff">Titel:</strong> Waarom ondernemers voor NEXA kiezen</p>
-    <p><strong style="color:#fff">Subtitel:</strong> Minder telefoonchaos, meer boekingen — white-label en klaar om te groeien.</p>
+    <p><strong style="color:#fff">Subtitel:</strong> Minder telefoonchaos, meer boekingen. White-label en klaar om te groeien.</p>
 </div>
 
 <h2>Modules (volgorde: Taxi eerst)</h2>

@@ -84,6 +84,16 @@ class NexaPricingServiceTest extends TestCase
         ])['after_label']);
         $this->assertSame(['Start', 'Pro', 'Business'], $service->packageNames());
         $this->assertSame('Start', $service->matchPackageName('start'));
+        $this->assertSame(['start' => 'Start', 'pro' => 'Pro', 'business' => 'Business'], $service->packagesForSelect());
+        $this->assertSame('start', $service->packageByKey('start')['key'] ?? null);
+        $this->assertSame(3, $service->defaults()['packages'][0]['entitlements']['max_drivers'] ?? null);
+        $this->assertSame(10, $service->defaults()['packages'][2]['entitlements']['max_contract_clients'] ?? null);
+        $this->assertSame(0, $service->defaults()['packages'][1]['entitlements']['max_contract_clients'] ?? null);
+        $this->assertFalse($service->packageByKey('start')['entitlements']['mollie_payments'] ?? true);
+        $this->assertTrue($service->packageByKey('pro')['entitlements']['mollie_payments'] ?? false);
+        $this->assertTrue($service->packageByKey('business')['entitlements']['contract_transport'] ?? false);
+        $this->assertNotEmpty($service->modulesCatalog());
+        $this->assertArrayNotHasKey('entitlements', $service->sectionPayload()['packages'][0]);
         $this->assertNull($service->matchPackageName('Onbekend'));
         $this->assertStringContainsString('pakket Start', $service->interestMessage('Start'));
         $overview = $service->faqPackagesOverview('info@nexasuite.nl');

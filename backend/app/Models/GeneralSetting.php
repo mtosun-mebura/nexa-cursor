@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
@@ -24,6 +25,12 @@ class GeneralSetting extends Model
         'tenant_sync_ssh_remote_db_port',
         'tenant_sync_ssh_db_username',
         'tenant_sync_ssh_db_database',
+        'database_backup_enabled',
+        'database_backup_frequency',
+        'database_backup_time',
+        'database_backup_retention_days',
+        'database_backup_sync_target_id',
+        'database_backup_last_run_at',
         'WHATSAPP_API_TOKEN',
         'WHATSAPP_PHONE_NUMBER_ID',
         'WHATSAPP_BUSINESS_ACCOUNT_ID',
@@ -41,6 +48,12 @@ class GeneralSetting extends Model
         'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE',
         'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG',
         'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED',
+        'GOOGLE_MAPS_API_KEY',
+        'GOOGLE_MAPS_MAP_ID',
+        'GOOGLE_MAPS_ZOOM',
+        'GOOGLE_MAPS_CENTER_LAT',
+        'GOOGLE_MAPS_CENTER_LNG',
+        'GOOGLE_MAPS_TYPE',
         // Algemene configuraties (admin.settings.general) — platform-breed
         'logo',
         'logo_dark',
@@ -82,6 +95,7 @@ class GeneralSetting extends Model
     public static function clearRequestCache(): void
     {
         self::$getCache = [];
+        self::$tableExistsCache = [];
         self::$resolvedScopeCompanyId = null;
         self::$resolvedScopeCompanyIdComputed = false;
     }
@@ -132,8 +146,8 @@ class GeneralSetting extends Model
         if (! app()->runningInConsole() && request()) {
             $path = request()->path();
             if (str_starts_with($path, 'admin')) {
-                $user = auth()->user();
-                if ($user && $user->hasRole('super-admin')) {
+                $user = self::adminSessionUser();
+                if ($user instanceof User && $user->hasRole('super-admin')) {
                     $st = session('selected_tenant');
                     if ($st !== null && $st !== '' && is_numeric($st)) {
                         $id = (int) $st;
@@ -149,7 +163,7 @@ class GeneralSetting extends Model
 
                     return null;
                 }
-                if ($user && $user->company_id) {
+                if ($user instanceof User && $user->company_id) {
                     self::$resolvedScopeCompanyId = (int) $user->company_id;
 
                     return self::$resolvedScopeCompanyId;
@@ -176,6 +190,27 @@ class GeneralSetting extends Model
     }
 
     /**
+     * Admin-tenant uit de web-sessie, zonder de hele request te laten 500'en
+     * als het User-model (nog) niet geladen kan worden.
+     */
+    private static function adminSessionUser(): ?User
+    {
+        try {
+            if (! class_exists(User::class)) {
+                return null;
+            }
+
+            $user = Auth::guard('web')->user();
+
+            return $user instanceof User ? $user : null;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
      * @param  list<string>  $keys
      * @return array<string, string|null>
      */
@@ -196,7 +231,10 @@ class GeneralSetting extends Model
             }
         }
 
-        $cid = $forCompanyId ?? self::resolveScopeCompanyId();
+        $cid = $forCompanyId;
+        if ($scopedKeys !== [] && $cid === null) {
+            $cid = self::resolveScopeCompanyId();
+        }
 
         if ($scopedKeys !== [] && $cid !== null) {
             foreach (self::query()->whereIn('key', $scopedKeys)->where('company_id', $cid)->pluck('value', 'key') as $key => $value) {

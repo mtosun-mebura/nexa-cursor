@@ -23,8 +23,15 @@ class AdminMiddleware
     {
         Auth::shouldUse('web');
 
+        try {
+            $authenticated = auth('web')->check();
+        } catch (\Throwable $e) {
+            report($e);
+            $authenticated = false;
+        }
+
         // Check if user is authenticated (sessie op web-guard; zie AdminRoutesUseWebGuard bij AUTH_GUARD=api)
-        if (! auth('web')->check()) {
+        if (! $authenticated) {
             // Alleen een echte paginapagina als intended bewaren, niet API-endpoints (bijv. unread-count)
             $path = $request->path();
             $isUtilityPath = preg_match('#^(admin/)?(chat|notifications)/unread-count#', $path);
@@ -52,8 +59,18 @@ class AdminMiddleware
             );
         }
 
-        $user = auth('web')->user();
-        if ($user && $user->company_id) {
+        try {
+            $user = auth('web')->user();
+        } catch (\Throwable $e) {
+            report($e);
+            $user = null;
+        }
+        if (! $user) {
+            return new RedirectResponse(
+                '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()])
+            );
+        }
+        if ($user->company_id) {
             app(PermissionRegistrar::class)->setPermissionsTeamId((int) $user->company_id);
             $user->unsetRelation('roles');
             $user->unsetRelation('permissions');

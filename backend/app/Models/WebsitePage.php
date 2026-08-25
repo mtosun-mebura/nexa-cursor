@@ -646,6 +646,7 @@ class WebsitePage extends Model
             'footer_social' => true,
             'footer_map' => true,
         ];
+        $base['footer']['inherit_from_home'] = true;
 
         return $base;
     }

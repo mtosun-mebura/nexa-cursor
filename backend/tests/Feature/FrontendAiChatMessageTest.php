@@ -269,4 +269,49 @@ class FrontendAiChatMessageTest extends TestCase
 
         Http::assertNothingSent();
     }
+
+    public function test_central_website_chat_answers_visitor_questions_even_when_module_is_taxi(): void
+    {
+        Http::fake();
+
+        config()->set('tenancy.central_domains', ['localhost']);
+        config()->set('app.url', 'http://localhost:8085');
+
+        $middleware = [
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ];
+
+        $prices = $this->withoutMiddleware($middleware)->postJson('/ai-chat/message', [
+            'message' => 'wat zijn de prijzen?',
+            'module' => 'taxi',
+        ]);
+        $prices->assertOk()->assertJsonPath('success', true);
+        $priceReply = (string) $prices->json('reply');
+        $this->assertStringContainsString('Start', $priceReply);
+        $this->assertStringContainsString('Pro', $priceReply);
+        $this->assertStringContainsString('€ 49', $priceReply);
+        $this->assertStringContainsString('/prijzen', $priceReply);
+
+        $products = $this->withoutMiddleware($middleware)->postJson('/ai-chat/message', [
+            'message' => 'welke producten zijn er',
+            'module' => 'taxi',
+        ]);
+        $products->assertOk()->assertJsonPath('success', true);
+        $productReply = (string) $products->json('reply');
+        $this->assertStringContainsString('Nexa Taxi', $productReply);
+        $this->assertStringContainsString('Contractvervoer', $productReply);
+
+        $signup = $this->withoutMiddleware($middleware)->postJson('/ai-chat/message', [
+            'message' => 'hoe kan ik me aanmelden?',
+            'module' => 'taxi',
+        ]);
+        $signup->assertOk()->assertJsonPath('success', true);
+        $signupReply = mb_strtolower((string) $signup->json('reply'));
+        $this->assertStringContainsString('contactformulier', $signupReply);
+        $this->assertStringContainsString('/contact', $signupReply);
+
+        Http::assertNothingSent();
+    }
 }

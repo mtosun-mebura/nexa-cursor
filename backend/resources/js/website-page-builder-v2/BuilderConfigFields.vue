@@ -132,6 +132,13 @@ function toggleCollapsed(index: number, label: string) {
   expanded.value = next
 }
 
+function onCollapsibleHeaderClick(field: ConfigField, index: number) {
+  if (field.type === 'group' && field.alwaysOpen) {
+    return
+  }
+  toggleCollapsed(index, field.label)
+}
+
 function childCollapsePrefix(index: number, label: string): string {
   return sectionKey(index, label)
 }
@@ -639,9 +646,18 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         }"
         :style="groupAccentStyle(field)"
       >
-        <div class="builder-config-group__header">
+        <div
+          class="builder-config-group__header"
+          :class="{ 'builder-config-header--clickable': !field.alwaysOpen }"
+          :role="field.alwaysOpen ? undefined : 'button'"
+          :tabindex="field.alwaysOpen ? undefined : 0"
+          :aria-expanded="field.alwaysOpen ? undefined : groupIsOpen(field, fi)"
+          @click="onCollapsibleHeaderClick(field, fi)"
+          @keydown.enter.prevent="onCollapsibleHeaderClick(field, fi)"
+          @keydown.space.prevent="onCollapsibleHeaderClick(field, fi)"
+        >
           <span class="builder-config-group__legend">{{ groupHeading(field) }}</span>
-          <div class="builder-config-section__actions">
+          <div class="builder-config-section__actions" @click.stop>
             <button
               v-if="field.subVisibilityKey"
               type="button"
@@ -661,13 +677,14 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               class="builder-icon-btn"
               :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
               :aria-expanded="groupIsOpen(field, fi)"
-              @click="toggleCollapsed(fi, field.label)"
+              tabindex="-1"
+              @click.stop="toggleCollapsed(fi, field.label)"
             >
               <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
             </button>
           </div>
         </div>
-        <p v-if="field.hint" class="builder-field-hint builder-config-group__hint">{{ field.hint }}</p>
+        <p v-if="field.hint && groupIsOpen(field, fi)" class="builder-field-hint builder-config-group__hint">{{ field.hint }}</p>
         <div
           v-if="field.label === 'Social media' && groupIsOpen(field, fi)"
           class="builder-social-preview-row"
@@ -712,17 +729,28 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         class="builder-config-step-order"
         :class="{ 'builder-config-section--collapsed': isCollapsed(fi, field.label) }"
       >
-        <div class="builder-config-section__header">
+        <div
+          class="builder-config-section__header builder-config-header--clickable"
+          role="button"
+          tabindex="0"
+          :aria-expanded="!isCollapsed(fi, field.label)"
+          @click="toggleCollapsed(fi, field.label)"
+          @keydown.enter.prevent="toggleCollapsed(fi, field.label)"
+          @keydown.space.prevent="toggleCollapsed(fi, field.label)"
+        >
           <span class="builder-config-item-list__title">{{ field.label }}</span>
-          <button
-            type="button"
-            class="builder-icon-btn"
-            :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
-            :aria-expanded="!isCollapsed(fi, field.label)"
-            @click="toggleCollapsed(fi, field.label)"
-          >
-            <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
-          </button>
+          <div class="builder-config-section__actions" @click.stop>
+            <button
+              type="button"
+              class="builder-icon-btn"
+              :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
+              :aria-expanded="!isCollapsed(fi, field.label)"
+              tabindex="-1"
+              @click.stop="toggleCollapsed(fi, field.label)"
+            >
+              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+            </button>
+          </div>
         </div>
         <div v-show="!isCollapsed(fi, field.label)" class="builder-config-step-order__grid">
           <label v-for="(_, index) in 5" :key="`${field.key}-${index}`" class="builder-field">
@@ -751,16 +779,25 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           'builder-config-item-list--compact': isCompactItemList(field),
         }"
       >
-        <div class="builder-config-section__header">
+        <div
+          class="builder-config-section__header"
+          :class="{ 'builder-config-header--clickable': !isFooterLinkList(field) }"
+          :role="isFooterLinkList(field) ? undefined : 'button'"
+          :tabindex="isFooterLinkList(field) ? undefined : 0"
+          :aria-expanded="isFooterLinkList(field) ? undefined : !isCollapsed(fi, field.label)"
+          @click="!isFooterLinkList(field) && toggleCollapsed(fi, field.label)"
+          @keydown.enter.prevent="!isFooterLinkList(field) && toggleCollapsed(fi, field.label)"
+          @keydown.space.prevent="!isFooterLinkList(field) && toggleCollapsed(fi, field.label)"
+        >
           <span class="builder-config-item-list__title">{{ field.label }}</span>
-          <div class="builder-config-section__actions">
+          <div class="builder-config-section__actions" @click.stop>
             <button
               v-if="(field.maxItems ?? 99) > items(field.key).length"
               type="button"
               class="builder-icon-btn"
               title="Toevoegen"
               aria-label="Toevoegen"
-              @click="addItem(field.key, field.maxItems ?? 99, {})"
+              @click.stop="addItem(field.key, field.maxItems ?? 99, {})"
             >
               <i class="ki-filled ki-plus" aria-hidden="true" />
             </button>
@@ -770,7 +807,8 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               class="builder-icon-btn"
               :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
               :aria-expanded="!isCollapsed(fi, field.label)"
-              @click="toggleCollapsed(fi, field.label)"
+              tabindex="-1"
+              @click.stop="toggleCollapsed(fi, field.label)"
             >
               <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
             </button>
@@ -1015,9 +1053,17 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         class="builder-config-group"
         :class="{ 'builder-config-section--collapsed': isCollapsed(fi, field.label) }"
       >
-        <div class="builder-config-group__header">
+        <div
+          class="builder-config-group__header builder-config-header--clickable"
+          role="button"
+          tabindex="0"
+          :aria-expanded="!isCollapsed(fi, field.label)"
+          @click="toggleCollapsed(fi, field.label)"
+          @keydown.enter.prevent="toggleCollapsed(fi, field.label)"
+          @keydown.space.prevent="toggleCollapsed(fi, field.label)"
+        >
           <span class="builder-config-group__legend">{{ field.label }}</span>
-          <div class="builder-config-section__actions">
+          <div class="builder-config-section__actions" @click.stop>
             <button
               v-if="field.subVisibilityKey"
               type="button"
@@ -1034,7 +1080,8 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               type="button"
               class="builder-icon-btn"
               :title="isCollapsed(fi, field.label) ? 'Uitklappen' : 'Inklappen'"
-              @click="toggleCollapsed(fi, field.label)"
+              tabindex="-1"
+              @click.stop="toggleCollapsed(fi, field.label)"
             >
               <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
             </button>
@@ -1481,6 +1528,29 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   padding-bottom: 0.65rem;
 }
 
+.builder-config-group--collapsed .builder-config-group__header.builder-config-header--clickable {
+  margin: -0.65rem -0.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.builder-config-group--accent.builder-config-group--collapsed .builder-config-group__header.builder-config-header--clickable {
+  margin: -0.65rem -0.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.builder-config-section--collapsed .builder-config-section__header.builder-config-header--clickable,
+.builder-config-section--collapsed .builder-config-group__header.builder-config-header--clickable {
+  margin: -0.65rem -0.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.builder-config-fields--compact .builder-config-group--collapsed .builder-config-group__header.builder-config-header--clickable,
+.builder-config-fields--compact .builder-config-section--collapsed .builder-config-section__header.builder-config-header--clickable,
+.builder-config-fields--compact .builder-config-section--collapsed .builder-config-group__header.builder-config-header--clickable {
+  margin: -0.5rem -0.6rem;
+  padding: 0.5rem 0.6rem;
+}
+
 .builder-config-group--hidden {
   opacity: 0.72;
 }
@@ -1511,11 +1581,23 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   min-height: 1.75rem;
 }
 
+.builder-config-header--clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.builder-config-header--clickable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-primary, #2563eb) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 0.45rem;
+}
+
 .builder-config-group__legend {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--foreground);
   min-width: 0;
+  flex: 1;
 }
 
 .builder-config-group__hint {
@@ -1559,6 +1641,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   font-weight: 600;
   color: var(--foreground);
   min-width: 0;
+  flex: 1;
 }
 
 .builder-config-item {

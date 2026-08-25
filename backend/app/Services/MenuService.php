@@ -43,6 +43,10 @@ class MenuService
                 ? (int) session('selected_tenant')
                 : ($user->company_id ? (int) $user->company_id : null);
             $allowedModuleNames = $this->allowedModuleNamesForMenu($user, $companyId);
+            $menuCompany = ($companyId !== null && $companyId > 0)
+                ? Company::query()->find($companyId)
+                : null;
+            $entitlements = app(CompanyEntitlementService::class);
 
             foreach ($activeModules as $module) {
                 if (! $module) {
@@ -58,6 +62,9 @@ class MenuService
 
                 foreach ($moduleMenuItems as $item) {
                     if ($isDemoUser && $demoMenuKeys !== [] && isset($item['key']) && ! in_array($item['key'], $demoMenuKeys, true)) {
+                        continue;
+                    }
+                    if (! empty($item['super_admin_only']) && ! $isSuperAdmin) {
                         continue;
                     }
                     // Filter op door gebruiker geselecteerde onderdelen (enabled_menu_items in config)
@@ -94,6 +101,15 @@ class MenuService
                                 continue;
                             }
                         }
+                    }
+                    if (! $this->menuItemAllowedForPackage($item, $entitlements, $menuCompany)) {
+                        continue;
+                    }
+                    if (! empty($item['children']) && is_array($item['children'])) {
+                        $item['children'] = array_values(array_filter(
+                            $item['children'],
+                            fn (array $child) => $this->menuItemAllowedForPackage($child, $entitlements, $menuCompany)
+                        ));
                     }
                     // If no permission specified, show for everyone (or check if logged in)
 
@@ -190,6 +206,19 @@ class MenuService
         }
 
         return $enabled;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function menuItemAllowedForPackage(array $item, CompanyEntitlementService $entitlements, ?Company $company): bool
+    {
+        $capability = $item['package_capability'] ?? null;
+        if (! is_string($capability) || $capability === '') {
+            return true;
+        }
+
+        return $entitlements->allows($company, $capability);
     }
 
     /**

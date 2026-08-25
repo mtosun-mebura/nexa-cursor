@@ -20,6 +20,28 @@ class CentralWelcomePageService
 
     public const COMPARISON_SLUG = 'voor-en-nadelen';
 
+    /** @return list<string> */
+    public static function marketingSlugs(): array
+    {
+        return [
+            self::TAXI_SLUG,
+            self::CONTRACT_SLUG,
+            self::WEBSITE_SLUG,
+            self::PRIJZEN_SLUG,
+            self::COMPARISON_SLUG,
+            self::CONTACT_SLUG,
+        ];
+    }
+
+    public static function isMarketingSlug(?string $slug): bool
+    {
+        if ($slug === null || $slug === '') {
+            return false;
+        }
+
+        return in_array(strtolower($slug), self::marketingSlugs(), true);
+    }
+
     public function __construct(
         protected WebsiteBuilderService $websiteBuilder
     ) {}
@@ -420,14 +442,14 @@ class CentralWelcomePageService
             ],
             [
                 'title' => 'Website builder',
-                'description' => 'Merkbare tenant-sites met boekingsmodule, reviews en SEO — zonder apart CMS.',
+                'description' => 'Merkbare tenant-sites met boekingsmodule, reviews en SEO, zonder apart CMS.',
                 'icon' => 'computer-desktop',
                 'icon_size' => 'medium',
                 'icon_align' => 'center',
             ],
             [
                 'title' => 'NEXA Garage',
-                'description' => 'Werkplaats / werkorders — positioneer als “binnenkort”, niet als live product.',
+                'description' => 'Werkplaats / werkorders: positioneer als “binnenkort”, niet als live product.',
                 'icon' => 'cog-6-tooth',
                 'icon_size' => 'medium',
                 'icon_align' => 'center',
@@ -435,10 +457,10 @@ class CentralWelcomePageService
         ];
 
         $sections['why_nexa']['title'] = 'Waarom ondernemers voor NEXA kiezen';
-        $sections['why_nexa']['subtitle'] = 'Minder telefoonchaos, meer boekingen — white-label en klaar om te groeien.';
+        $sections['why_nexa']['subtitle'] = 'Minder telefoonchaos, meer boekingen. White-label en klaar om te groeien.';
 
         $sections['cta']['title'] = 'Klaar voor meer online boekingen?';
-        $sections['cta']['subtitle'] = 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien — met jullie merkkleuren.';
+        $sections['cta']['subtitle'] = 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.';
         $sections['cta']['cta_primary_text'] = 'Naar admin';
         $sections['cta']['cta_primary_url'] = '/admin/login';
         $sections['cta']['cta_secondary_text'] = 'Bekijk prijzen';
@@ -452,7 +474,7 @@ class CentralWelcomePageService
         $sections[$tableKey] = $this->defaultComparisonTableData();
         $sections[$galleryKey] = [
             'title' => 'Feature-visuals',
-            'subtitle' => 'Boeking, chauffeur-app en contractportaal — zoals klanten het zien.',
+            'subtitle' => 'Boeking, chauffeur-app en contractportaal, zoals klanten het zien.',
             'layout' => 'grid',
             'items' => [
                 [
@@ -478,7 +500,7 @@ class CentralWelcomePageService
         ];
         $sections[$modulesKey] = [
             'eyebrow' => 'Onze modules',
-            'title' => 'Taxi eerst — de rest groeit mee',
+            'title' => 'Taxi eerst. De rest groeit mee',
             'subtitle' => 'Elke module werkt standalone of in combinatie. Begin met vervoer; voeg garage toe wanneer u klaar bent.',
             'items' => [
                 [
@@ -492,7 +514,7 @@ class CentralWelcomePageService
                 ],
                 [
                     'name' => 'Contractvervoer',
-                    'description' => 'Schoolroutes, planning, ouderportaal en afmeldingen — upsell binnen Taxi.',
+                    'description' => 'Schoolroutes, planning, ouderportaal en afmeldingen: upsell binnen Taxi.',
                     'features' => ['Vaste routes en groepen', 'Afmeldingen van–tot', 'Maandfacturatie'],
                     'badge' => 'Beschikbaar',
                     'badge_variant' => 'available',
@@ -562,7 +584,7 @@ class CentralWelcomePageService
                 ],
                 [
                     'title' => 'Dispatch',
-                    'description' => 'Ritten toewijzen, waves, accept/decline, redispatch — overzicht voor de centrale.',
+                    'description' => 'Ritten toewijzen, waves, accept/decline, redispatch: overzicht voor de centrale.',
                     'icon' => 'map',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
@@ -595,7 +617,7 @@ class CentralWelcomePageService
 
         $sections[$galleryKey] = [
             'title' => 'Chauffeur-app',
-            'subtitle' => 'Inbox, actieve rit en geplande ritten — zoals de chauffeur het ziet.',
+            'subtitle' => 'Inbox, actieve rit en geplande ritten, zoals de chauffeur het ziet.',
             'layout' => 'stack',
             'items' => [
                 [
@@ -621,14 +643,14 @@ class CentralWelcomePageService
 
         $sections['cta'] = [
             'title' => 'Klaar voor meer online boekingen?',
-            'subtitle' => 'We laten website, dispatch en chauffeur-app zien — met jullie merkkleuren.',
+            'subtitle' => 'We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.',
             'cta_primary_text' => 'Naar admin',
             'cta_primary_url' => '/admin/login',
             'cta_secondary_text' => 'Contractvervoer',
             'cta_secondary_url' => '/contractvervoer',
         ];
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
-        $sections['footer']['inherit_from_home'] = false;
+        $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = ['hero', 'text_block', 'features', $galleryKey, 'text_block_2', 'cta'];
         $sections['visibility'][$galleryKey] = true;
@@ -661,7 +683,7 @@ class CentralWelcomePageService
 
         $sections['featured_services'] = array_merge($sections['featured_services'] ?? [], [
             'title' => 'Voor elk vast contract dat je rijdt',
-            'subtitle' => 'Zelfde planning, zelfde afmeldingen, zelfde factuur — of je nu kinderen naar school brengt of cliënten naar het ziekenhuis.',
+            'subtitle' => 'Zelfde planning, zelfde afmeldingen, zelfde factuur, of je nu kinderen naar school brengt of cliënten naar het ziekenhuis.',
             'blocks_per_row' => 3,
             'items' => [
                 [
@@ -769,7 +791,7 @@ class CentralWelcomePageService
             'cta_secondary_url' => '/admin/login',
         ];
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
-        $sections['footer']['inherit_from_home'] = false;
+        $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = ['hero', 'featured_services', $galleryKey, 'features', 'text_block', 'cta'];
         $sections['visibility']['featured_services'] = true;
@@ -789,7 +811,7 @@ class CentralWelcomePageService
         $sections = WebsitePage::defaultPageSectionsForNonHome($themeSlug);
         $galleryKey = 'component:website.screenshot_gallery';
 
-        $sections['hero']['title'] = 'Website builder — merk + boeking zonder apart CMS';
+        $sections['hero']['title'] = 'Website builder: merk + boeking zonder apart CMS';
         $sections['hero']['title_highlight'] = 'Website builder';
         $sections['hero']['subtitle'] = 'Elke tenant krijgt een eigen site met thema’s, secties, SEO en inzetbare modules (boeking, reviews, vacatures).';
         $sections['hero']['cta_primary_text'] = 'Bekijk Nexa Taxi';
@@ -817,7 +839,7 @@ class CentralWelcomePageService
             'items' => [
                 [
                     'title' => 'Online zichtbaar',
-                    'description' => 'Taxibedrijf wil “online zichtbaar” — de website is de haak.',
+                    'description' => 'Taxibedrijf wil “online zichtbaar”: de website is de haak.',
                     'icon' => 'globe-europe-africa',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
@@ -848,7 +870,7 @@ class CentralWelcomePageService
             'cta_secondary_url' => '/taxi',
         ];
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
-        $sections['footer']['inherit_from_home'] = false;
+        $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = ['hero', $galleryKey, 'features', 'cta'];
         $sections['visibility'][$galleryKey] = true;
@@ -919,7 +941,7 @@ class CentralWelcomePageService
             'cta_secondary_url' => '/taxi',
         ];
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
-        $sections['footer']['inherit_from_home'] = false;
+        $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = ['hero', $packagesKey, 'features', 'cta'];
         $sections['visibility'][$packagesKey] = true;
@@ -962,7 +984,7 @@ class CentralWelcomePageService
             'cta_secondary_url' => '/taxi',
         ];
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
-        $sections['footer']['inherit_from_home'] = false;
+        $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = ['hero', $tableKey, 'cta'];
         $sections['visibility']['hero'] = true;
@@ -1046,6 +1068,7 @@ class CentralWelcomePageService
         ];
 
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
+        $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = ['hero', 'email_template'];
         $sections['visibility']['hero'] = true;
@@ -1060,7 +1083,7 @@ class CentralWelcomePageService
      */
     private function centralFooter(array $footer): array
     {
-        $footer['tagline'] = 'Modulair SaaS voor taxibedrijven: website, online boeking, chauffeur-app en contractvervoer — white-label per tenant.';
+        $footer['tagline'] = 'Modulair SaaS voor taxibedrijven: website, online boeking, chauffeur-app en contractvervoer. White-label per tenant.';
         $footer['quick_links_title'] = 'Product';
         $footer['quick_links'] = [
             ['label' => 'Home', 'url' => '/'],

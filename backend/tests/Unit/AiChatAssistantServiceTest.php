@@ -35,6 +35,9 @@ class AiChatAssistantServiceTest extends TestCase
 
     public function test_frontend_config_uses_taxi_copy_for_taxi_module(): void
     {
+        app()->instance('resolved_tenant_id', 1);
+        GeneralSetting::clearRequestCache();
+
         $websiteBuilder = Mockery::mock(WebsiteBuilderService::class);
         $websiteBuilder->shouldReceive('resolvePublicFrontendModuleName')->andReturn('taxi');
 
@@ -52,6 +55,23 @@ class AiChatAssistantServiceTest extends TestCase
 
         $websiteBuilder = Mockery::mock(WebsiteBuilderService::class);
         $websiteBuilder->shouldReceive('resolvePublicFrontendModuleName')->andReturn(null);
+
+        $service = new AiChatAssistantService($websiteBuilder);
+        $config = $service->frontendConfig();
+
+        $this->assertSame('nexa', $config['module']);
+        $this->assertSame('NEXA-assistent', $config['title']);
+        $this->assertStringContainsString('NEXA Suite', $config['greeting']);
+    }
+
+    public function test_frontend_config_uses_product_copy_on_central_website_even_when_branding_is_taxi(): void
+    {
+        config()->set('tenancy.central_domains', ['localhost']);
+        $this->app->instance('request', \Illuminate\Http\Request::create('http://localhost:8085/', 'GET'));
+        GeneralSetting::clearRequestCache();
+
+        $websiteBuilder = Mockery::mock(WebsiteBuilderService::class);
+        $websiteBuilder->shouldReceive('resolvePublicFrontendModuleName')->andReturn('taxi');
 
         $service = new AiChatAssistantService($websiteBuilder);
         $config = $service->frontendConfig();

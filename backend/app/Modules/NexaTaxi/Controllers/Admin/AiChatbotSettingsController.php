@@ -56,11 +56,6 @@ class AiChatbotSettingsController extends Controller
         if (auth()->user()->hasRole('super-admin')) {
             return;
         }
-        foreach ($abilities as $ability) {
-            if (auth()->user()->can($ability)) {
-                return;
-            }
-        }
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, 'Alleen een super-admin mag de AI-chatbot beheren.');
     }
 }

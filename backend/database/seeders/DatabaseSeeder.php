@@ -12,7 +12,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            ApplicationBootstrapSeeder::class,
+            ApplicationBootstrapSeeder::class, // altijd eerst: super-admin + rollen
             VacancySeeder::class,
             CandidateSeeder::class,
             MatchSeeder::class, // Nieuwe seeder voor matches

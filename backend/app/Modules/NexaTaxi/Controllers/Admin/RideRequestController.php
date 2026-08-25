@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Controllers\Admin;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
@@ -16,6 +17,8 @@ use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -286,6 +289,7 @@ class RideRequestController extends Controller
     {
         $this->authorizeOrPermission('rides.update');
         $this->ensureCanAccessRide($ride_request);
+        $this->assertDispatchAllowedForRide($ride_request);
 
         $conn = $this->moduleConnection();
         $companyId = $this->resolveCompanyIdForChauffeurList($ride_request, $conn);
@@ -333,6 +337,7 @@ class RideRequestController extends Controller
     {
         $this->authorizeOrPermission('rides.update');
         $this->ensureCanAccessRide($ride_request);
+        $this->assertDispatchAllowedForRide($ride_request);
 
         $conn = $this->moduleConnection();
 
@@ -454,6 +459,14 @@ class RideRequestController extends Controller
         }
 
         return $this->resolveTenantCompanyId();
+    }
+
+    private function assertDispatchAllowedForRide(RideRequest $ride): void
+    {
+        $conn = $this->moduleConnection();
+        $companyId = $this->resolveRideCompanyId($ride, $conn);
+        $company = $companyId ? Company::query()->find($companyId) : null;
+        app(CompanyEntitlementService::class)->assertAllows($company, TenantPackageCapability::DISPATCH);
     }
 
     private function resolveRideCompanyId(RideRequest $ride, string $conn): ?int
