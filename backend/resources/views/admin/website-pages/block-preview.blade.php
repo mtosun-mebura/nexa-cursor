@@ -93,7 +93,7 @@
     </style>
     <script>
     (function () {
-        var ANIMATED_SEL = '.nexa-pros-cons__reveal, .nexa-pros-cons__item-reveal, .scroll-reveal-item, .footer-animate-brand, .footer-animate-tagline, .footer-footer-anim-left, .footer-map-reveal, .info-req-animate-left, .info-req-animate-right, .info-req-animate-bottom, .grw-summary, .grw-card, .grw-header h2, .grw-header p, .grw-btn-prev, .grw-btn-next, .grw-dots';
+        var ANIMATED_SEL = '.nexa-pros-cons__reveal, .nexa-pros-cons__item-reveal, .scroll-reveal-item, .footer-animate-brand, .footer-animate-tagline, .footer-footer-anim-left, .footer-map-reveal, .info-req-animate-left, .info-req-animate-right, .info-req-animate-bottom, .grw-summary, .grw-card, .grw-header h2, .grw-header p, .grw-btn-prev, .grw-btn-next, .grw-dots, .nexa-pricing-reveal--block, .nexa-pricing-reveal__item, .nexa-pricing-reveal__card';
         var restartTimer = null;
 
         function clearInline(node) {

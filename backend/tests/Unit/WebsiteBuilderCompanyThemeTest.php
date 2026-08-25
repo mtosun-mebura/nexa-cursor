@@ -261,11 +261,13 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         }
 
         $company = Company::query()->create(['name' => 'Maps Tenant']);
-        try {
-            GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'TENANT_KEY_123', $company->id);
-        } catch (\RuntimeException $e) {
-            $this->markTestSkipped($e->getMessage());
-        }
+        // Legacy tenant-rij mag de platform-sleutel niet overschrijven (set() negeert company_id).
+        GeneralSetting::query()->create([
+            'key' => 'GOOGLE_MAPS_API_KEY',
+            'company_id' => $company->id,
+            'value' => 'TENANT_KEY_123',
+        ]);
+        GeneralSetting::clearRequestCache();
 
         $page = WebsitePage::query()->create([
             'slug' => 'home',

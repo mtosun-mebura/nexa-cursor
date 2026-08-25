@@ -23,7 +23,7 @@ final class DestructiveDatabaseGuard
 
     public static function allowsDestructiveOperations(): bool
     {
-        if (filter_var(env('NEXA_ALLOW_DESTRUCTIVE_DB', false), FILTER_VALIDATE_BOOL)) {
+        if (self::envFlagAllowsDestructive()) {
             return true;
         }
 
@@ -78,6 +78,22 @@ final class DestructiveDatabaseGuard
             $action,
             $database
         ));
+    }
+
+    /**
+     * Laravel env() is immutable na boot. Tests en runtime-overrides zitten in $_ENV/$_SERVER/getenv.
+     */
+    private static function envFlagAllowsDestructive(): bool
+    {
+        $raw = $_ENV['NEXA_ALLOW_DESTRUCTIVE_DB']
+            ?? $_SERVER['NEXA_ALLOW_DESTRUCTIVE_DB']
+            ?? getenv('NEXA_ALLOW_DESTRUCTIVE_DB');
+
+        if ($raw === false || $raw === null || $raw === '') {
+            return false;
+        }
+
+        return filter_var($raw, FILTER_VALIDATE_BOOL);
     }
 
     public static function allowsDatabaseRestore(): bool

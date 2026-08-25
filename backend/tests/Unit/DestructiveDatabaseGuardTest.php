@@ -16,6 +16,20 @@ class DestructiveDatabaseGuardTest extends TestCase
         parent::tearDown();
     }
 
+    private function setDestructiveDbFlag(?string $value): void
+    {
+        if ($value === null) {
+            putenv('NEXA_ALLOW_DESTRUCTIVE_DB');
+            unset($_ENV['NEXA_ALLOW_DESTRUCTIVE_DB'], $_SERVER['NEXA_ALLOW_DESTRUCTIVE_DB']);
+
+            return;
+        }
+
+        putenv('NEXA_ALLOW_DESTRUCTIVE_DB='.$value);
+        $_ENV['NEXA_ALLOW_DESTRUCTIVE_DB'] = $value;
+        $_SERVER['NEXA_ALLOW_DESTRUCTIVE_DB'] = $value;
+    }
+
     public function test_migrate_fresh_is_allowed_on_sqlite_memory_database(): void
     {
         config([
@@ -30,8 +44,7 @@ class DestructiveDatabaseGuardTest extends TestCase
 
     public function test_migrate_fresh_is_blocked_on_dev_database_without_override(): void
     {
-        putenv('NEXA_ALLOW_DESTRUCTIVE_DB=false');
-        $_ENV['NEXA_ALLOW_DESTRUCTIVE_DB'] = 'false';
+        $this->setDestructiveDbFlag('false');
 
         config([
             'database.default' => 'sqlite',
@@ -48,8 +61,7 @@ class DestructiveDatabaseGuardTest extends TestCase
 
     public function test_migrate_fresh_is_allowed_when_override_env_is_true(): void
     {
-        putenv('NEXA_ALLOW_DESTRUCTIVE_DB=true');
-        $_ENV['NEXA_ALLOW_DESTRUCTIVE_DB'] = 'true';
+        $this->setDestructiveDbFlag('true');
 
         config([
             'database.default' => 'sqlite',
