@@ -12,7 +12,7 @@ use Throwable;
  * Haalt Google Place-reviews op via Places API (New) en cached ze.
  * Configuratie: GeneralSetting google_reviews_place_id, google_reviews_business_name, google_reviews_cache_hours, google_reviews_section_title, google_reviews_section_background.
  * Place ID of bedrijfsnaam: vul Place ID in (bijv. ChIJ...) of alleen bedrijfsnaam; bij bedrijfsnaam wordt Text Search gebruikt om het eerste resultaat te vinden.
- * API key: zelfde als Maps (config('maps.api_key')); Places API moet ingeschakeld zijn.
+ * API key: platform Maps-configuratie (Algemene configuraties); Places API moet ingeschakeld zijn.
  */
 class GoogleReviewsService
 {
@@ -243,7 +243,7 @@ class GoogleReviewsService
      */
     protected function resolvePlaceIdFromBusinessName(string $businessName): string
     {
-        $apiKey = config('maps.api_key') ?: (app(EnvService::class)->getGoogleMapsApiKey() ?: '');
+        $apiKey = app(EnvService::class)->getGoogleMapsApiKey();
         if ($apiKey === null || $apiKey === '') {
             Log::warning('Google Reviews: geen API key voor Text Search (bedrijfsnaam).');
 
@@ -294,7 +294,7 @@ class GoogleReviewsService
      */
     protected function fetchPlaceAndReviews(string $placeId): array
     {
-        $apiKey = config('maps.api_key') ?: (app(EnvService::class)->getGoogleMapsApiKey() ?: '');
+        $apiKey = app(EnvService::class)->getGoogleMapsApiKey();
         if ($apiKey === null || $apiKey === '') {
             Log::warning('Google Reviews: geen API key geconfigureerd (Maps/Places).');
 

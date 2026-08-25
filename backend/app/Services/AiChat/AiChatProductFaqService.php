@@ -56,8 +56,19 @@ final class AiChatProductFaqService
                     'bereikbaar', 'wie moet ik', 'met wie', 'aanvraag', 'formulier',
                     'geinteresseerd', 'interesse', 'afspraak', 'gesprek', 'offerte aanvragen',
                     'plan een gesprek', 'teruggebeld', 'terugbellen', 'sales',
+                    'aanmelden', 'inschrijven', 'registreren', 'account aanmaken',
+                    'klant worden', 'hoe start ik', 'hoe kan ik me', 'demo aanvragen',
                 ],
-                'answer' => "Fijn dat je interesse hebt. Stuur een korte aanvraag via [het contactformulier](/contact); we kijken naar jouw ritten en nemen contact op over onboarding of een voorstel.\n\nJe kunt ons ook mailen: {$contact}.",
+                'answer' => "Je kunt je aanmelden via [het contactformulier](/contact). We kijken naar jouw ritten en nemen contact op over onboarding of een voorstel. Er is geen self-service checkout: na je aanvraag zetten wij het account klaar.\n\nJe kunt ons ook mailen: {$contact}.",
+            ],
+            [
+                'needles' => [
+                    'aanbieding', 'aanbiedingen', 'korting', 'kortingen', 'actieprijs',
+                    'actie', 'acties', 'deal', 'deals', 'promotie', 'promo',
+                    'kortingscode', 'vouchercode', 'introductieprijs', 'aanbiedingsprijs',
+                    'gratis maand', 'gratis maanden', 'speciale prijs',
+                ],
+                'answer' => "De actuele aanbiedingen staan op de [Prijzen](/prijzen)-pagina. Daar zie je of er nu een actie loopt op een pakket of op het live zetten van de website.",
             ],
             [
                 'needles' => [
@@ -135,9 +146,10 @@ final class AiChatProductFaqService
             ],
             [
                 'needles' => [
-                    'wat is nexa', 'nexa suite', 'platform', 'product', 'applicatie', 'applicaties',
-                    'module', 'modules', 'hoe werkt', 'wat doen jullie', 'wat biedt',
-                    'white-label', 'white label',
+                    'wat is nexa', 'nexa suite', 'platform', 'product', 'producten',
+                    'applicatie', 'applicaties', 'module', 'modules', 'hoe werkt',
+                    'wat doen jullie', 'wat biedt', 'white-label', 'white label',
+                    'aanbod', 'wat bieden jullie',
                 ],
                 'answer' => "NEXA Suite is het platform voor taxibedrijven: eigen website, online boeking, chauffeur-app en contractvervoer. Jouw merk. Jouw ritten.\n\nJe start waar het het meeste oplevert:\n- **Nexa Taxi** — online boeking, dispatch en chauffeur-app.\n- **Contractvervoer** — vaste ritten ernaast: school, zorg, ziekenhuis, zakelijk of privé.\n- **Website** — jouw taxisite op jouw domein, met boekingsknop; inbegrepen bij het maandpakket, live zetten eenmalig.\n\nDrie maandpakketten: Start, Pro en Business, vanaf € ".$pricing->startPrice()." per maand. Overzicht: [Prijzen](/prijzen). Interesse: [contact](/contact).",
             ],

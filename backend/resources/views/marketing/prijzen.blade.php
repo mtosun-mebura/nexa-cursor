@@ -9,24 +9,24 @@
 <div class="grid">
     <article class="card">
         <div class="badge">Instap</div>
-        <h3>Start — € 49 / maand</h3>
+        <h3>Start: € 49 / maand</h3>
         <p>ZZP en tot 3 chauffeurs. Website met boeking, drie chauffeur-accounts, merkkleuren, e-mailsupport.</p>
     </article>
     <article class="card">
         <div class="badge">Aanbevolen</div>
-        <h3>Pro — € 99 / maand</h3>
+        <h3>Pro: € 99 / maand</h3>
         <p>Dagelijks ritten. Onbeperkt chauffeurs, dispatch, chauffeur-app, Mollie-betaling, factuur naar de klant.</p>
     </article>
     <article class="card">
         <div class="badge">Contract erbij</div>
-        <h3>Business — € 179 / maand</h3>
+        <h3>Business: € 179 / maand</h3>
         <p>Alles van Pro plus contractvervoer (school, zorg, zakelijk, privé), contract-app, maandfactuur en SEPA.</p>
     </article>
 </div>
 
 <h2>Website (eenmalig)</h2>
 <div class="card">
-    <p><strong style="color:#fff">Vanaf € 750</strong> — home, contact, boekingspagina, website builder met configureerbare componenten, SEO per pagina, Google Maps, logo en kleuren, live op jouw domein. Daarna alleen het maandabonnement.</p>
+    <p><strong style="color:#fff">Vanaf € 750</strong>: home, contact, boekingspagina, website builder met configureerbare componenten, SEO per pagina, Google Maps, logo en kleuren, live op jouw domein. Daarna alleen het maandabonnement.</p>
     <p>Uitgebreider (meer pagina’s of copy): vanaf € 1.250.</p>
 </div>
 

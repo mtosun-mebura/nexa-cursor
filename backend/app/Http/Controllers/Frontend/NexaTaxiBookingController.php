@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\WebsitePage;
 use App\Models\User;
 use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
@@ -15,7 +16,9 @@ use Illuminate\Support\Facades\Log;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\ModuleDatabaseService;
 use App\Services\NexaTaxiBookingPricingService;
+use App\Services\CompanyEntitlementService;
 use App\Services\WebsiteBuilderService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -59,6 +62,11 @@ class NexaTaxiBookingController extends Controller
         $quotes = $this->pricing->buildQuotes($resolved['config'], $data, $resolved['tenant_company_id']);
 
         $companyId = $resolved['tenant_company_id'] ?? null;
+        $company = is_numeric($companyId) ? Company::query()->find((int) $companyId) : null;
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($company, TenantPackageCapability::WEBSITE_BOOKING)) {
+            return $entitlements->jsonDenied($company, TenantPackageCapability::WEBSITE_BOOKING);
+        }
         $paymentOptions = app(TaxiDispatchSettingsService::class)
             ->paymentOptionsForTenant(is_numeric($companyId) ? (int) $companyId : null);
 
@@ -118,6 +126,13 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $bookingCompany = ! empty($resolved['tenant_company_id'])
+            ? Company::query()->find((int) $resolved['tenant_company_id'])
+            : null;
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($bookingCompany, TenantPackageCapability::WEBSITE_BOOKING)) {
+            return $entitlements->jsonDenied($bookingCompany, TenantPackageCapability::WEBSITE_BOOKING);
+        }
         $sectionConfig = $resolved['config'];
         $quotes = $this->pricing->buildQuotes($sectionConfig, $data, $resolved['tenant_company_id']);
         $selected = collect($quotes['offers'] ?? [])->firstWhere('id', (string) $data['selected_offer_id']);

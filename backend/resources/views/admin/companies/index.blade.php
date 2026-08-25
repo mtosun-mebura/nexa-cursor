@@ -11,7 +11,7 @@
                 Bedrijven Beheer
             </h1>
             @auth
-            {{-- Iedereen die deze pagina mag zien (super-admin of view-companies) ziet de acties; aanmaken blijft afgedwongen in controllers. --}}
+            @if(auth()->user()->canCreateCompanies())
             <div class="flex flex-1 flex-wrap items-center justify-end gap-2 relative z-10 min-w-0" data-company-create-actions="true">
                 <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-element-11 me-2"></i>
@@ -22,6 +22,7 @@
                     Nieuw bedrijf (formulier)
                 </a>
             </div>
+            @endif
             @endauth
         </div>
     </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
+use App\Services\EnvService;
 use App\Services\FrontendComponentService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Support\Collection;
@@ -124,7 +125,7 @@ class AdminFrontendComponentController extends Controller
             'page' => new WebsitePage(['title' => 'Demo', 'slug' => 'demo']),
             'themeSlug' => 'modern',
             'themeSettings' => [],
-            'googleMapsApiKey' => (string) (config('maps.api_key') ?? ''),
+            'googleMapsApiKey' => app(EnvService::class)->getGoogleMapsApiKey(),
             'emailTemplate' => $demoEmailTemplate,
             'formFields' => $demoFormFields,
             'emailTemplateBySectionKey' => ['component:website.email_template_section' => $demoEmailTemplate],

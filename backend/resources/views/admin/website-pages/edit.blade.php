@@ -506,6 +506,8 @@
                 }
                 collectFooterLinks('footer-quick-links-list', 'quick_links');
                 collectFooterLinks('footer-support-links-list', 'support_links');
+                var inheritEl = document.getElementById('footer-inherit-from-home');
+                if (inheritEl) footerPayload.inherit_from_home = inheritEl.checked ? 1 : 0;
                 footerConfigFb.value = JSON.stringify(footerPayload);
             }
             // Visibility footer-fallback: alle footer_* visibility-waarden in één veld (voorkomt verlies door max_input_vars)

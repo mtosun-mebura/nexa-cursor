@@ -38,7 +38,7 @@ class AiChatAssistantService
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $messages = app(AiChatMessageSettingsService::class);
 
-        if ($companyId === null && ! $isTaxi && $this->isCentralPublicChat()) {
+        if ($companyId === null && $this->isCentralPublicChat()) {
             return array_merge([
                 'module' => 'nexa',
                 'endpoint' => route('frontend.ai-chat.message'),

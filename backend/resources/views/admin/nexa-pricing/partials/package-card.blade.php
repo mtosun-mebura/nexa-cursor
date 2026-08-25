@@ -29,7 +29,7 @@
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Naam <span class="text-destructive">*</span></td>
                     <td class="min-w-48 w-full">
-                        <input class="kt-input w-full" type="text" name="packages[{{ $i }}][name]" value="{{ $package['name'] ?? '' }}" required>
+                        <input class="kt-input w-full" type="text" name="packages[{{ $i }}][name]" value="{{ $package['name'] ?? '' }}" required data-package-name>
                     </td>
                 </tr>
                 <tr>
@@ -111,6 +111,7 @@
                         <button type="button" class="nexa-pricing-feature-add kt-btn kt-btn-sm kt-btn-outline mt-2">+ Kenmerk toevoegen</button>
                     </td>
                 </tr>
+                @include('admin.nexa-pricing.partials.package-entitlements', ['i' => $i, 'package' => $package])
             </table>
         </div>
     </div>

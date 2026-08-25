@@ -239,8 +239,7 @@ class EnvService
     }
 
     /**
-     * Google Maps API key uit de root .env (projectroot).
-     * De key staat in .env in de projectroot, niet in backend/.env.
+     * Google Maps API key: eerst platform-configuratie (Algemene configuraties), daarna .env-fallback.
      */
     public function getGoogleMapsApiKey(): string
     {
@@ -248,6 +247,7 @@ class EnvService
         if ($key !== '') {
             return $key;
         }
+
         $rootEnv = self::getRootEnvPath();
         if (File::exists($rootEnv) && is_readable($rootEnv)) {
             $key = trim((string) $this->getFromFile($rootEnv, 'GOOGLE_MAPS_API_KEY', ''));
@@ -303,12 +303,48 @@ class EnvService
     }
 
     /**
+     * @return array<string, string>
+     */
+    public function mapsFormSettings(): array
+    {
+        return [
+            'GOOGLE_MAPS_API_KEY' => $this->getGoogleMapsApiKey(),
+            'GOOGLE_MAPS_MAP_ID' => $this->getGoogleMapsMapId(),
+            'GOOGLE_MAPS_ZOOM' => (string) $this->get('GOOGLE_MAPS_ZOOM', '12'),
+            'GOOGLE_MAPS_CENTER_LAT' => (string) $this->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
+            'GOOGLE_MAPS_CENTER_LNG' => (string) $this->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
+            'GOOGLE_MAPS_TYPE' => (string) $this->get('GOOGLE_MAPS_TYPE', 'roadmap'),
+        ];
+    }
+
+    /**
+     * Synchroniseer platform Maps-instellingen naar config('maps.*') voor legacy config()-gebruik.
+     */
+    public function syncMapsConfig(): void
+    {
+        $settings = $this->mapsFormSettings();
+        config([
+            'maps.api_key' => $settings['GOOGLE_MAPS_API_KEY'],
+            'maps.map_id' => $settings['GOOGLE_MAPS_MAP_ID'],
+            'maps.zoom' => (int) $settings['GOOGLE_MAPS_ZOOM'],
+            'maps.center_lat' => $settings['GOOGLE_MAPS_CENTER_LAT'],
+            'maps.center_lng' => $settings['GOOGLE_MAPS_CENTER_LNG'],
+            'maps.type' => $settings['GOOGLE_MAPS_TYPE'],
+        ]);
+    }
+
+    /**
      * Set environment variables
      */
     public function set(array $variables)
     {
         if (! File::exists($this->envPath)) {
             throw new \Exception('.env file not found');
+        }
+
+        if (is_file($this->envPath)) {
+            $backupPath = $this->envPath.'.backup.'.date('Y-m-d_His');
+            File::copy($this->envPath, $backupPath);
         }
 
         $env = $this->getAll();

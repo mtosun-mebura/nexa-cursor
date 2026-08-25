@@ -93,7 +93,17 @@ class AdminNexaPricingTest extends TestCase
             ->assertSee('name="packages[0][offer]"', false)
             ->assertSee('name="packages[0][free_months]"', false)
             ->assertSee('name="packages[0][features][]"', false)
-            ->assertSee('Kenmerk toevoegen', false);
+            ->assertSee('Kenmerk toevoegen', false)
+            ->assertSee('Functies (voor de software)', false)
+            ->assertSee('Maximum chauffeurs', false)
+            ->assertSee('TenantPackageCapability::MAX_DRIVERS', false)
+            ->assertSee('name="packages[0][key]"', false)
+            ->assertSee('name="packages[0][entitlements][max_drivers]"', false)
+            ->assertSee('Maximum contractklanten', false)
+            ->assertSee('name="packages[0][entitlements][max_contract_clients]"', false)
+            ->assertSee('Aanvullende modules', false)
+            ->assertSee('GPS-trackers', false)
+            ->assertSee('Extra contractklanten', false);
     }
 
     #[Test]
@@ -174,6 +184,12 @@ class AdminNexaPricingTest extends TestCase
         $this->assertContains('Website met boekingsmodule', $saved['packages'][0]['features'] ?? []);
         $this->assertNotContains('Onbeperkt chauffeurs', $saved['packages'][0]['features'] ?? []);
         $this->assertContains('Onbeperkt chauffeurs', $saved['packages'][1]['features'] ?? []);
+        $this->assertSame('start', $saved['packages'][0]['key'] ?? null);
+        $this->assertSame(3, $saved['packages'][0]['entitlements']['max_drivers'] ?? null);
+        $this->assertFalse((bool) ($saved['packages'][0]['entitlements']['mollie_payments'] ?? true));
+        $this->assertTrue((bool) ($saved['packages'][0]['entitlements']['invoice_pdf'] ?? false));
+        $this->assertSame(0, $saved['packages'][1]['entitlements']['max_drivers'] ?? null);
+        $this->assertTrue((bool) ($saved['packages'][1]['entitlements']['mollie_payments'] ?? false));
 
         $this->get('http://localhost:8085/prijzen')
             ->assertOk()
@@ -269,6 +285,7 @@ class AdminNexaPricingTest extends TestCase
         $packages = [];
         foreach ($pricing['packages'] as $i => $package) {
             $packages[$i] = [
+                'key' => $package['key'] ?? '',
                 'name' => $package['name'],
                 'audience' => $package['audience'],
                 'price' => $package['price'],
@@ -280,7 +297,11 @@ class AdminNexaPricingTest extends TestCase
                 'cta_text' => $package['cta_text'],
                 'cta_url' => $package['cta_url'],
                 'features' => $package['features'],
+                'entitlements' => $package['entitlements'] ?? [],
             ];
+            if ((int) (($packages[$i]['entitlements']['max_drivers'] ?? 0)) === 0) {
+                $packages[$i]['entitlements']['max_drivers_unlimited'] = '1';
+            }
         }
 
         $addons = [];

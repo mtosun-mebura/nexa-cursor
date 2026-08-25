@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\GeneralSetting;
 use App\Models\WebsitePage;
+use App\Support\TenantPackageAddon;
+use App\Support\TenantPackageCapability;
 
 /**
  * Publieke NEXA Suite-prijzen: config-defaults, overschrijfbaar via super-admin.
@@ -64,6 +66,7 @@ class NexaPricingService
         $packages = [];
         foreach ($pricing['packages'] as $package) {
             $features = $package['features'];
+            unset($package['entitlements']);
             $packages[] = array_merge($package, [
                 'features_text' => implode("\n", $features),
             ]);
@@ -193,6 +196,62 @@ class NexaPricingService
         }
 
         return $names;
+    }
+
+    /**
+     * @return array<string, string> key => naam
+     */
+    public function packagesForSelect(?array $pricing = null): array
+    {
+        $pricing = $pricing ?? $this->get();
+        $out = [];
+        foreach ($pricing['packages'] ?? [] as $package) {
+            if (! is_array($package)) {
+                continue;
+            }
+            $key = trim((string) ($package['key'] ?? ''));
+            $name = trim((string) ($package['name'] ?? ''));
+            if ($key === '' || $name === '') {
+                continue;
+            }
+            $out[$key] = $name;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function modulesCatalog(?array $pricing = null): array
+    {
+        $pricing = $pricing ?? $this->get();
+
+        return TenantPackageAddon::catalogWithPrices(
+            is_array($pricing['modules'] ?? null) ? $pricing['modules'] : []
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function packageByKey(string $key, ?array $pricing = null): ?array
+    {
+        $key = trim($key);
+        if ($key === '') {
+            return null;
+        }
+        $pricing = $pricing ?? $this->get();
+        foreach ($pricing['packages'] ?? [] as $package) {
+            if (! is_array($package)) {
+                continue;
+            }
+            if (strcasecmp((string) ($package['key'] ?? ''), $key) === 0) {
+                return $package;
+            }
+        }
+
+        return null;
     }
 
     public function matchPackageName(?string $value, ?array $pricing = null): ?string
@@ -541,6 +600,7 @@ class NexaPricingService
         };
 
         $packages = [];
+        $usedKeys = [];
         foreach (isset($raw['packages']) && is_array($raw['packages']) ? array_values($raw['packages']) : [] as $package) {
             if (! is_array($package)) {
                 continue;
@@ -551,7 +611,10 @@ class NexaPricingService
             if ($name === '' && $price === '' && $features === []) {
                 continue;
             }
+            $key = $this->uniquePackageKey($package, $name, $usedKeys);
+            $usedKeys[] = $key;
             $packages[] = [
+                'key' => $key,
                 'name' => $name,
                 'audience' => trim((string) ($package['audience'] ?? '')),
                 'price' => $price,
@@ -563,6 +626,10 @@ class NexaPricingService
                 'cta_text' => trim((string) ($package['cta_text'] ?? 'Aanvragen')),
                 'cta_url' => trim((string) ($package['cta_url'] ?? '/contact')),
                 'features' => $features,
+                'entitlements' => TenantPackageCapability::normalize(
+                    is_array($package['entitlements'] ?? null) ? $package['entitlements'] : [],
+                    $key
+                ),
             ];
         }
 
@@ -605,7 +672,32 @@ class NexaPricingService
                 'features' => $websiteFeatures,
             ],
             'addons' => $addons,
+            'modules' => TenantPackageAddon::normalizeCatalog(
+                is_array($raw['modules'] ?? null) ? $raw['modules'] : []
+            ),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $package
+     * @param  list<string>  $usedKeys
+     */
+    private function uniquePackageKey(array $package, string $name, array $usedKeys): string
+    {
+        $key = trim((string) ($package['key'] ?? ''));
+        if ($key === '') {
+            $key = TenantPackageCapability::slugFromName($name);
+        } else {
+            $key = TenantPackageCapability::slugFromName($key);
+        }
+        $base = $key;
+        $i = 2;
+        while (in_array($key, $usedKeys, true)) {
+            $key = $base.'-'.$i;
+            $i++;
+        }
+
+        return $key;
     }
 
     /**

@@ -8,7 +8,7 @@
         {!! $text !!}
     </div>
     @if($caption !== '')
-    <cite class="block mt-2 text-sm text-gray-500 dark:text-gray-400 not-italic">— {{ $caption }}</cite>
+    <cite class="block mt-2 text-sm text-gray-500 dark:text-gray-400 not-italic">{{ $caption }}</cite>
     @endif
 </blockquote>
 @endif

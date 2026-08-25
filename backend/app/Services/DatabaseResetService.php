@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\DestructiveDatabaseGuard;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,8 @@ class DatabaseResetService
 {
     public function resetAndRestoreSuperAdmin(): void
     {
+        DestructiveDatabaseGuard::assertAllowedForService('database reset via admin');
+
         $connection = DB::connection();
         $driver = $connection->getDriverName();
 

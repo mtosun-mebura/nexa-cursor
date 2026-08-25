@@ -1,6 +1,6 @@
 {
-  "_bootstrap-DEPrlejE.js": {
-    "file": "assets/bootstrap-DEPrlejE.js",
+  "_bootstrap-q14h8CwY.js": {
+    "file": "assets/bootstrap-q14h8CwY.js",
     "name": "bootstrap"
   },
   "_runtime-dom.esm-bundler-DQmk46Du.js": {
@@ -2176,7 +2176,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CGqftciW.css",
+    "file": "assets/app-BCnEm84S.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2184,24 +2184,24 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-yP8-Y8cn.js",
+    "file": "assets/app-DZu5VC1K.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_bootstrap-DEPrlejE.js"
+      "_bootstrap-q14h8CwY.js"
     ],
     "css": [
       "assets/app-DdRkytdv.css"
     ]
   },
   "resources/js/frontend-app.js": {
-    "file": "assets/frontend-app-De09Nm0u.js",
+    "file": "assets/frontend-app-DUZGjtZP.js",
     "name": "frontend-app",
     "src": "resources/js/frontend-app.js",
     "isEntry": true,
     "imports": [
-      "_bootstrap-DEPrlejE.js"
+      "_bootstrap-q14h8CwY.js"
     ]
   },
   "resources/js/metronic-vue-demo1.ts": {
@@ -2226,7 +2226,7 @@
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-t4WEwDO7.js",
+    "file": "assets/website-page-builder-v2-L3oZKDnY.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
@@ -2234,7 +2234,7 @@
       "_runtime-dom.esm-bundler-DQmk46Du.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-QDffstQx.css"
+      "assets/website-page-builder-v2-Bdknjk25.css"
     ]
   }
 }

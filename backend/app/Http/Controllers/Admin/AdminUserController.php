@@ -11,6 +11,7 @@ use App\Models\JobTitle;
 use App\Models\User;
 use App\Support\ModuleSchemaAvailability;
 use App\Support\WebRoleFormOptions;
+use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
 use App\Services\UserRoleAssignmentService;
 use Illuminate\Database\Eloquent\Builder;
@@ -203,6 +204,20 @@ class AdminUserController extends Controller
             ? ['company-admin']
             : $request->validated()['roles'];
 
+        if ($companyId && ! $willBeFirstUserForCompany) {
+            $company = Company::query()->find($companyId);
+            if ($company) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $entitlements->assertCanAssignChauffeurRoles($company, $roleNames);
+                $entitlements->assertCanAssignCompanyAdminRoles($company, $roleNames);
+            }
+        } elseif ($companyId) {
+            $company = Company::query()->find($companyId);
+            if ($company) {
+                app(CompanyEntitlementService::class)->assertCanAssignCompanyAdminRoles($company, $roleNames);
+            }
+        }
+
         // Save or update job title if function is provided
         if (! empty($userData['function'])) {
             $jobTitle = JobTitle::firstOrCreate(['name' => $userData['function']]);
@@ -322,6 +337,24 @@ class AdminUserController extends Controller
             $userData['job_title_id'] = null;
         }
 
+        $targetCompanyId = $userData['company_id'] ?? null;
+        if ($targetCompanyId) {
+            $targetCompany = Company::query()->find($targetCompanyId);
+            if ($targetCompany) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $entitlements->assertCanAssignChauffeurRoles(
+                    $targetCompany,
+                    $validated['roles'],
+                    (int) $user->company_id === (int) $targetCompanyId ? $user : null
+                );
+                $entitlements->assertCanAssignCompanyAdminRoles(
+                    $targetCompany,
+                    $validated['roles'],
+                    (int) $user->company_id === (int) $targetCompanyId ? $user : null
+                );
+            }
+        }
+
         $user->update($userData);
         $user->refresh();
         app(UserRoleAssignmentService::class)->syncWebRoles($user, $validated['roles']);
@@ -363,6 +396,15 @@ class AdminUserController extends Controller
         $roles = $request->input('roles', []);
         if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
             return back()->withErrors(['roles' => 'Je mag geen super-admin rol toewijzen.']);
+        }
+
+        if ($user->company_id) {
+            $company = Company::query()->find($user->company_id);
+            if ($company) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $entitlements->assertCanAssignChauffeurRoles($company, $roles, $user);
+                $entitlements->assertCanAssignCompanyAdminRoles($company, $roles, $user);
+            }
         }
 
         app(UserRoleAssignmentService::class)->syncWebRoles($user, $roles);

@@ -1900,6 +1900,10 @@ class AdminWebsitePageController extends Controller
             if (! is_string($key) || $key === '') {
                 continue;
             }
+            if ($key === 'inherit_from_home') {
+                $input['footer'][$key] = ! empty($value) && $value !== '0' && $value !== 0;
+                continue;
+            }
             $input['footer'][$key] = $value;
         }
     }

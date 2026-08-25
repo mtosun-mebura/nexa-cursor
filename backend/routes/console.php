@@ -62,3 +62,9 @@ Schedule::job(new ProcessPlatformBillingJob)
     ->hourly()
     ->name('platform-billing-monthly')
     ->withoutOverlapping();
+
+Schedule::command('database:backup-scheduled')
+    ->everyMinute()
+    ->timezone((string) config('database_backup.display_timezone', 'Europe/Amsterdam'))
+    ->name('database-backup-scheduled')
+    ->withoutOverlapping();

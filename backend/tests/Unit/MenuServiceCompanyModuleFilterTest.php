@@ -52,5 +52,52 @@ class MenuServiceCompanyModuleFilterTest extends TestCase
 
         $this->assertContains('taxi', $modules);
         $this->assertNotContains('skillmatching', $modules);
+        $this->assertNotContains('ai_chatbot', array_column($items, 'key'));
+    }
+
+    #[Test]
+    public function package_hides_menu_items_the_tenant_may_not_use(): void
+    {
+        Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        $taxi = Module::query()->create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'installed' => true,
+            'active' => true,
+        ]);
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+        $this->actingAs($admin);
+
+        $start = Company::query()->create(['name' => 'Start Menu', 'is_active' => true, 'package_key' => 'start']);
+        $pro = Company::query()->create(['name' => 'Pro Menu', 'is_active' => true, 'package_key' => 'pro']);
+        $business = Company::query()->create(['name' => 'Business Menu', 'is_active' => true, 'package_key' => 'business']);
+        $legacy = Company::query()->create(['name' => 'Legacy Menu', 'is_active' => true, 'package_key' => null]);
+        foreach ([$start, $pro, $business, $legacy] as $company) {
+            $company->modules()->attach($taxi->id);
+        }
+
+        session(['selected_tenant' => $start->id]);
+        $startKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
+        $this->assertContains('vehicles', $startKeys);
+        $this->assertContains('ride_requests', $startKeys);
+        $this->assertNotContains('transport_customers', $startKeys);
+        $this->assertNotContains('dispatch_settings', $startKeys);
+
+        session(['selected_tenant' => $pro->id]);
+        $proKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
+        $this->assertContains('dispatch_settings', $proKeys);
+        $this->assertNotContains('transport_customers', $proKeys);
+
+        session(['selected_tenant' => $business->id]);
+        $businessKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
+        $this->assertContains('transport_customers', $businessKeys);
+        $this->assertContains('dispatch_settings', $businessKeys);
+
+        session(['selected_tenant' => $legacy->id]);
+        $legacyKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
+        $this->assertContains('transport_customers', $legacyKeys);
+        $this->assertContains('dispatch_settings', $legacyKeys);
     }
 }

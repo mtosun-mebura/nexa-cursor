@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
@@ -10,6 +11,8 @@ use App\Modules\NexaTaxi\Services\TaxiDriverEarningsAccessService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Services\ModuleDatabaseService;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -41,6 +44,12 @@ class DriverAuthController extends Controller
             return response()->json([
                 'message' => 'Dit account heeft geen chauffeur-toegang.',
             ], 403);
+        }
+
+        $company = Company::query()->find($companyId);
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($company, TenantPackageCapability::DRIVER_APP)) {
+            return $entitlements->jsonDenied($company, TenantPackageCapability::DRIVER_APP);
         }
 
         if (! TaxiDriverAccountStatus::isActive($user)) {

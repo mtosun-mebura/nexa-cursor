@@ -67,6 +67,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => '/meld/sessie-verlopen?'.http_build_query(['intended' => $request->url()]));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
+            return \App\Services\CompanyEntitlementService::adminGetDeniedRedirect($e, $request);
+        });
+
         // Altijd onze volledige 403-pagina (CodePen-stijl), niet een gecachte oude layout met sidebar.
         // HttpException (abort(403)) implementeert HttpExceptionInterface; Gate/policy gebruikt AuthorizationException (anders).
         $exceptions->render(function (\Throwable $e, Request $request) {

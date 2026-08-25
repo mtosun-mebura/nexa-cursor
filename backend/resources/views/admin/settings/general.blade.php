@@ -483,6 +483,8 @@
 
         </form>
 
+        @include('admin.settings.partials.maps-platform')
+
         @include('admin.settings.partials.whatsapp-platform')
 
         </div>

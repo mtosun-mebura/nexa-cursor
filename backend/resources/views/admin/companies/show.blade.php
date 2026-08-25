@@ -164,6 +164,51 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
+                            Pakket
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $packageLabel = app(\App\Services\NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''));
+                            @endphp
+                            @if($packageLabel)
+                                <span>{{ $packageLabel['name'] ?? $company->package_key }}</span>
+                                <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
+                            @else
+                                <span class="text-muted-foreground">Geen pakket gekoppeld</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @php
+                        $addonSelections = \App\Support\TenantPackageAddon::normalizeSelections(
+                            is_array($company->package_addons ?? null) ? $company->package_addons : []
+                        );
+                        $entitlements = app(\App\Services\CompanyEntitlementService::class);
+                        $moduleCatalog = collect(app(\App\Services\NexaPricingService::class)->modulesCatalog());
+                    @endphp
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
+                        <td class="text-foreground font-normal">
+                            <ul class="list-disc ps-5 mb-0 text-sm space-y-1">
+                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] > 0)
+                                    <li>{{ (int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] }}× extra contractklanten (+{{ (int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK }} klanten)</li>
+                                @endif
+                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 1)
+                                    <li>{{ $moduleCatalog->firstWhere('key', \App\Support\TenantPackageAddon::GPS_TRACKING)['name'] ?? 'GPS-trackers' }}</li>
+                                @endif
+                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::FLEET] === 1)
+                                    <li>{{ $moduleCatalog->firstWhere('key', \App\Support\TenantPackageAddon::FLEET)['name'] ?? 'Vloot' }}</li>
+                                @endif
+                            </ul>
+                            @if((int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] === 0
+                                && (int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 0
+                                && (int) $addonSelections[\App\Support\TenantPackageAddon::FLEET] === 0)
+                                <span class="text-muted-foreground">Geen aanvullende modules</span>
+                            @endif
+                            <p class="text-xs text-muted-foreground mt-2 mb-0">Contractklantenlimiet: {{ $entitlements->contractClientLimitLabel($company) }}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
                             KVK Nummer
                         </td>
                         <td class="text-foreground font-normal">

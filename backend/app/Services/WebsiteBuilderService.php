@@ -7,6 +7,7 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
+use App\Services\EnvService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -116,32 +117,19 @@ class WebsiteBuilderService
     }
 
     /**
-     * Google Maps API-key per tenant: eerst de (tenant-)instelling in general_settings, daarna pas .env.
-     * Zo kan elke tenant een eigen key gebruiken; .env is alleen fallback als er niets is ingesteld.
+     * Google Maps API-key platform-breed: Algemene configuraties, daarna .env-fallback.
      */
     public function resolveGoogleMapsApiKeyForPage(WebsitePage $page): string
     {
-        $cid = $this->tenantCompanyIdForPage($page);
-        $fromSetting = trim((string) (GeneralSetting::get('GOOGLE_MAPS_API_KEY', null, $cid) ?? ''));
-        if ($fromSetting !== '') {
-            return $fromSetting;
-        }
-
-        return trim((string) (config('maps.api_key') ?? env('GOOGLE_MAPS_API_KEY', '')));
+        return app(EnvService::class)->getGoogleMapsApiKey();
     }
 
     /**
-     * Google Maps Map ID per tenant: eerst de (tenant-)instelling, daarna .env.
+     * Google Maps Map ID platform-breed: Algemene configuraties, daarna .env-fallback.
      */
     public function resolveGoogleMapsMapIdForPage(WebsitePage $page): string
     {
-        $cid = $this->tenantCompanyIdForPage($page);
-        $fromSetting = trim((string) (GeneralSetting::get('GOOGLE_MAPS_MAP_ID', null, $cid) ?? ''));
-        if ($fromSetting !== '') {
-            return $fromSetting;
-        }
-
-        return trim((string) (config('maps.map_id') ?? env('GOOGLE_MAPS_MAP_ID', '')));
+        return app(EnvService::class)->getGoogleMapsMapId();
     }
 
     /**
@@ -1274,6 +1262,7 @@ class WebsiteBuilderService
 
         $fromHome = $homePage->getHomeSections();
         $homeSections['footer'] = $fromHome['footer'] ?? [];
+        $homeSections['footer']['inherit_from_home'] = true;
         $homeSections['copyright'] = $fromHome['copyright'] ?? ($homeSections['copyright'] ?? '');
         if (! isset($homeSections['visibility']) || ! is_array($homeSections['visibility'])) {
             $homeSections['visibility'] = [];
@@ -1634,7 +1623,12 @@ class WebsiteBuilderService
             $q->whereNull($table.'.company_id');
         }
 
-        return $q->first();
+        $page = $q->first();
+        if ($page === null && $this->resolvedPublicTenantCompanyId() === null) {
+            return app(CentralWelcomePageService::class)->ensurePageExists();
+        }
+
+        return $page;
     }
 
     /**
@@ -1681,6 +1675,11 @@ class WebsiteBuilderService
         if (WebsitePage::isCentralMarketingWelcomeSlug($slug)) {
             return null;
         }
+
+        if ($this->resolvedPublicTenantCompanyId() === null && CentralWelcomePageService::isMarketingSlug($slug)) {
+            app(CentralWelcomePageService::class)->ensureMarketingPagesExist();
+        }
+
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
         $page = $this->firstActiveWebsitePage(

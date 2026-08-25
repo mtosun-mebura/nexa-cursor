@@ -575,6 +575,38 @@
             </div>
         </div>
 
+            @if(auth()->user()?->isSuperAdmin())
+            <div class="kt-card min-w-full mt-5">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Pakket</h3>
+                </div>
+                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
+                    Bepaalt welke functies dit bedrijf mag gebruiken. Functies stel je in bij Systeem → Paketten.
+                </p>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Pakket</td>
+                            <td class="min-w-48 w-full">
+                                <select name="package_key" class="kt-input @error('package_key') border-destructive @enderror">
+                                    <option value="">— Geen pakket (geen extra beperking) —</option>
+                                    @foreach($nexaPackages ?? [] as $packageKey => $packageName)
+                                        <option value="{{ $packageKey }}" {{ (string) old('package_key') === (string) $packageKey ? 'selected' : '' }}>
+                                            {{ $packageName }} ({{ $packageKey }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('package_key')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        @include('admin.companies.partials.package-addons')
+                    </table>
+                </div>
+            </div>
+            @endif
+
             <div class="kt-card min-w-full mt-5">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">Website-thema</h3>

@@ -1,0 +1,35 @@
+---
+description: Admin instellingen — introtekst onder collapsible header met ruimte erboven (responsive)
+globs: backend/**/views/admin/settings/**/*.blade.php
+alwaysApply: false
+---
+
+# Admin instellingen: sectie-introtekst
+
+Onder een **collapsible header** (Configuraties, Algemene configuraties, tenant Instellingen) hoort een korte uitleg vaak direct boven het formulier. Die tekst moet **niet tegen de header plakken** en moet **responsive** blijven (padding en regelafbreking op smalle schermen).
+
+## Patroon
+
+Gebruik de class **`settings-section-intro`** (gedefinieerd in `admin/settings/partials/collapsible-section-assets.blade.php`):
+
+```html
+<div class="settings-collapsible-body">
+    <div class="kt-card-table kt-scrollable-x-auto pb-3">
+        <p class="settings-section-intro">
+            Korte uitleg van deze sectie …
+        </p>
+        <form>…</form>
+    </div>
+</div>
+```
+
+De class zorgt voor:
+- ruimte **boven** de tekst (`padding-top`: `0.75rem` mobiel, `1rem` vanaf `sm`)
+- horizontale padding (`0.75rem` / `1.25rem` op `sm+`)
+- ruimte **onder** de tekst (`margin-bottom: 1rem`)
+- `overflow-wrap` / `word-break` voor lange zinnen op smalle viewports
+
+## Niet doen
+
+- Geen kale `text-sm text-muted-foreground mb-4 px-2` zonder top-padding — dat plakt tegen de header.
+- Geen vaste pixel-marges alleen voor desktop; altijd `settings-section-intro` of hetzelfde responsive patroon.

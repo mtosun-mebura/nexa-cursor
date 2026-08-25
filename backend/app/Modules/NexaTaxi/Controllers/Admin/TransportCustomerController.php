@@ -16,9 +16,14 @@ use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Services\ContractInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
+use App\Models\Company;
 use App\Models\User;
 use App\Rules\ValidIban;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class TransportCustomerController extends Controller
 {
@@ -28,9 +33,16 @@ class TransportCustomerController extends Controller
     // Contractklanten
     // -----------------------------------------------------------------------
 
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $this->authorizeOrPermission('rides.view');
+        $packageDeniedMessage = $this->contractTransportDeniedMessage();
+        if ($packageDeniedMessage !== null) {
+            return view('taxi::admin.transport_customers.index', [
+                'customers' => collect(),
+                'packageDeniedMessage' => $packageDeniedMessage,
+            ]);
+        }
 
         $conn = $this->moduleConnection();
         $query = TransportCustomer::on($conn);
@@ -38,12 +50,18 @@ class TransportCustomerController extends Controller
 
         $customers = $query->orderBy('name')->get();
 
-        return view('taxi::admin.transport_customers.index', compact('customers'));
+        return view('taxi::admin.transport_customers.index', [
+            'customers' => $customers,
+            'packageDeniedMessage' => null,
+        ]);
     }
 
-    public function create()
+    public function create(): View|RedirectResponse
     {
         $this->authorizeOrPermission('rides.create');
+        if ($this->contractTransportDeniedMessage() !== null) {
+            return redirect()->route('admin.taxi.transport_customers.index');
+        }
 
         return view('taxi::admin.transport_customers.create');
     }
@@ -51,6 +69,10 @@ class TransportCustomerController extends Controller
     public function store(Request $request)
     {
         $this->authorizeOrPermission('rides.create');
+        $company = $this->assertContractTransportAllowed();
+        if ($company) {
+            app(CompanyEntitlementService::class)->assertCanCreateContractCustomer($company);
+        }
 
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:200'],
@@ -371,9 +393,31 @@ class TransportCustomerController extends Controller
         }
     }
 
+    private function assertContractTransportAllowed(): ?Company
+    {
+        $company = Company::query()->find($this->getTenantId());
+        app(CompanyEntitlementService::class)->assertCanUseContractTransport($company);
+
+        return $company;
+    }
+
+    private function contractTransportDeniedMessage(): ?string
+    {
+        $company = Company::query()->find($this->getTenantId());
+        $entitlements = app(CompanyEntitlementService::class);
+        if ($entitlements->allows($company, TenantPackageCapability::CONTRACT_TRANSPORT)) {
+            return null;
+        }
+
+        return $entitlements->deniedMessage(TenantPackageCapability::CONTRACT_TRANSPORT, $company);
+    }
+
     public function mandateSave(Request $request, int $customerId, int $contractId)
     {
         $this->authorizeOrPermission('rides.update');
+        $this->assertContractTransportAllowed();
+        $company = Company::query()->find($this->getTenantId());
+        app(CompanyEntitlementService::class)->assertAllows($company, \App\Support\TenantPackageCapability::MONTHLY_INVOICE_SEPA);
 
         $request->merge([
             'signed_at' => parse_admin_date($request->input('signed_at')),

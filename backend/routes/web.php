@@ -717,6 +717,13 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/tenant-storage-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantStorageBundle'])->name('settings.tenant-storage-bundle.import');
         Route::get('settings/tenant-website-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantWebsiteBundle'])->name('settings.tenant-website-bundle.export');
         Route::post('settings/tenant-website-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantWebsiteBundle'])->name('settings.tenant-website-bundle.import');
+        Route::post('settings/database-backups', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateDatabaseBackupSettings'])->name('settings.database-backups.update');
+        Route::post('settings/database-backups/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runDatabaseBackupNow'])->name('settings.database-backups.run');
+        Route::get('settings/database-backups/table', [App\Http\Controllers\Admin\AdminSettingsController::class, 'databaseBackupsTable'])->name('settings.database-backups.table');
+        Route::post('settings/database-backups/bulk-delete', [App\Http\Controllers\Admin\AdminSettingsController::class, 'bulkDestroyDatabaseBackups'])->name('settings.database-backups.bulk-delete');
+        Route::post('settings/database-backups/{databaseBackup}/restore', [App\Http\Controllers\Admin\AdminSettingsController::class, 'restoreDatabaseBackup'])->name('settings.database-backups.restore');
+        Route::get('settings/database-backups/{databaseBackup}/download', [App\Http\Controllers\Admin\AdminSettingsController::class, 'downloadDatabaseBackup'])->name('settings.database-backups.download');
+        Route::delete('settings/database-backups/{databaseBackup}', [App\Http\Controllers\Admin\AdminSettingsController::class, 'destroyDatabaseBackup'])->name('settings.database-backups.destroy');
 
         // General Settings (Super Admin only)
         Route::get('settings/frontend', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');

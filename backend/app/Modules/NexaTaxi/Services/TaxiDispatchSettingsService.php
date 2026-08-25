@@ -389,16 +389,19 @@ class TaxiDispatchSettingsService
     }
 
     /**
-     * @return array{booking: bool, driver: bool, mollie_configured: bool}
+     * @return array{booking: bool, driver: bool, mollie_configured: bool, mollie_package_allowed: bool}
      */
     public function paymentOptionsForTenant(?int $companyId = null): array
     {
-        $mollieConfigured = $this->hasMollieConfigured($companyId);
+        $mollieAllowed = app(\App\Services\CompanyEntitlementService::class)
+            ->allowsCompanyId($companyId, \App\Support\TenantPackageCapability::MOLLIE_PAYMENTS);
+        $mollieConfigured = $mollieAllowed && $this->hasMollieConfigured($companyId);
 
         return [
             'booking' => $mollieConfigured && $this->paymentBookingEnabled($companyId),
             'driver' => $mollieConfigured && $this->paymentDriverEnabled($companyId),
             'mollie_configured' => $mollieConfigured,
+            'mollie_package_allowed' => $mollieAllowed,
         ];
     }
 

@@ -89,6 +89,13 @@ class AdminEmailTemplateController extends Controller
         ];
     }
 
+    private function ensureSuperAdminEmailTemplates(): void
+    {
+        if (! auth()->user()?->hasRole('super-admin')) {
+            abort(403, 'Alleen een super-admin mag e-mailtemplates beheren.');
+        }
+    }
+
     /**
      * Labels for email template types.
      */
@@ -244,9 +251,7 @@ class AdminEmailTemplateController extends Controller
 
     public function index(Request $request)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-email-templates')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
-        }
+        $this->ensureSuperAdminEmailTemplates();
 
         $menuService = app(MenuService::class);
         $this->provisionTaxiEmailTemplatesIfNeeded($menuService);
@@ -347,7 +352,7 @@ class AdminEmailTemplateController extends Controller
 
     public function create()
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
         }
 
@@ -486,7 +491,7 @@ class AdminEmailTemplateController extends Controller
 
     public function store(Request $request)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
         }
 
@@ -558,9 +563,7 @@ class AdminEmailTemplateController extends Controller
 
     public function show(EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-email-templates')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
-        }
+        $this->ensureSuperAdminEmailTemplates();
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
@@ -588,7 +591,7 @@ class AdminEmailTemplateController extends Controller
 
     public function edit(EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
 
@@ -630,7 +633,7 @@ class AdminEmailTemplateController extends Controller
 
     public function update(Request $request, EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
 
@@ -703,7 +706,7 @@ class AdminEmailTemplateController extends Controller
 
     public function duplicate(EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
         }
 
@@ -805,7 +808,7 @@ class AdminEmailTemplateController extends Controller
 
     public function toggleStatus(EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om e-mail templates te bewerken.'], 403);
             }
@@ -830,7 +833,7 @@ class AdminEmailTemplateController extends Controller
 
     public function destroy(EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te verwijderen.');
         }
 
@@ -846,7 +849,7 @@ class AdminEmailTemplateController extends Controller
 
     public function sendTest(Request $request, EmailTemplate $emailTemplate)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
         if (! $this->canAccessResource($emailTemplate)) {

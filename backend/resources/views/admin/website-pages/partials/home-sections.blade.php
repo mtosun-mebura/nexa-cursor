@@ -2367,17 +2367,17 @@
                 </button>
             </div>
         </div>
+        @if($isNonHomePage ?? false)
+        <div class="flex items-center gap-3 p-3 mx-4 mt-3 rounded-lg border border-border bg-muted/20 flex-shrink-0" id="footer-inherit-from-home-row" data-field-panel-skip="1">
+            <input type="hidden" name="home_sections[footer][inherit_from_home]" value="0">
+            <input type="checkbox" name="home_sections[footer][inherit_from_home]" id="footer-inherit-from-home" value="1" class="kt-switch kt-switch-sm"
+                {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'checked' : '' }}
+                data-toggle-target="footer-config-content">
+            <label for="footer-inherit-from-home" class="text-sm font-medium text-secondary-foreground cursor-pointer whitespace-nowrap shrink-0">Overnemen van Home</label>
+            <span class="text-xs text-muted-foreground">Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.</span>
+        </div>
+        @endif
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            @if($isNonHomePage ?? false)
-            <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 mb-4 flex-shrink-0" id="footer-inherit-from-home-row" data-field-panel-skip="1">
-                <input type="hidden" name="home_sections[footer][inherit_from_home]" value="0">
-                <input type="checkbox" name="home_sections[footer][inherit_from_home]" id="footer-inherit-from-home" value="1" class="kt-switch kt-switch-sm"
-                    {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'checked' : '' }}
-                    data-toggle-target="footer-config-content">
-                <label for="footer-inherit-from-home" class="text-sm font-medium text-secondary-foreground cursor-pointer whitespace-nowrap shrink-0">Overnemen van Home</label>
-                <span class="text-xs text-muted-foreground">Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.</span>
-            </div>
-            @endif
             <div id="footer-config-content" class="space-y-6 home-section-panelize-children {{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
             @php
                 $footerLogoUrl = old('home_sections.footer.logo_url', $footer['logo_url'] ?? '');

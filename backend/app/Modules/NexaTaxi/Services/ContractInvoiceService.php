@@ -17,6 +17,8 @@ use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -82,6 +84,9 @@ class ContractInvoiceService
                 'contract' => ['Contractklant niet gevonden.'],
             ]);
         }
+
+        $company = Company::query()->find((int) $contract->company_id);
+        app(CompanyEntitlementService::class)->assertAllows($company, TenantPackageCapability::MONTHLY_INVOICE_SEPA);
 
         $rideStats = $this->completedRideStatsForPeriod($conn, $contract, $period);
         $lineItems = $this->buildLineItems($contract, $period, $rideStats);

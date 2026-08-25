@@ -193,11 +193,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Mag bedrijven/tenants aanmaken (wizard of formulier).
+     * Mag bedrijven/tenants aanmaken (wizard of formulier). Alleen super-admin.
      */
     public function canCreateCompanies(): bool
     {
-        return $this->can('create-companies');
+        return $this->isSuperAdmin();
     }
 
     /**

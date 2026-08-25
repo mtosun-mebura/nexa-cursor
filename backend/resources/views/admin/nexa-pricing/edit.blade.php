@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Prijzen')
+@section('title', 'Paketten')
 
 @section('content')
 @php
@@ -42,8 +42,8 @@
 </style>
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Prijzen</h1>
-        <p class="text-sm text-muted-foreground">Maandpakketten en de eenmalige websiteprijs voor nexasuite.nl. Alleen zichtbaar voor super-admins.</p>
+        <h1 class="text-xl font-medium leading-none text-mono">Paketten</h1>
+        <p class="text-sm text-muted-foreground">Maandpakketten voor nexasuite.nl, inclusief de functies die de software afdwingt en aanvullende modules (GPS, extra contractklanten, Vloot). Alleen zichtbaar voor super-admins.</p>
         <div class="pt-3 flex flex-wrap gap-2">
             <a href="{{ $websitePageUrl }}" class="kt-btn kt-btn-outline" target="_blank" rel="noopener">
                 <i class="ki-filled ki-exit-right-corner me-2"></i>
@@ -177,6 +177,38 @@
                             </tr>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title mb-0">Aanvullende modules</h3>
+                </div>
+                <div class="kt-card-content p-5 lg:p-6 space-y-3">
+                    <p class="text-sm text-muted-foreground mb-0">Vaste modules die je per bedrijf bij het abonnement kunt zetten. GPS-trackers bouwen we later; de module kun je nu al activeren. Extra contractklanten verhogen het Business-limiet met 10 per bundel. Vloot maakt contractklanten onbeperkt.</p>
+                    @foreach(app(\App\Services\NexaPricingService::class)->modulesCatalog($pricing) as $module)
+                        @php
+                            $posted = old('modules.'.$module['key'], []);
+                            $moduleName = is_array($posted) && isset($posted['name']) ? $posted['name'] : $module['name'];
+                            $modulePrice = is_array($posted) && isset($posted['price']) ? $posted['price'] : $module['price'];
+                            $moduleDescription = is_array($posted) && isset($posted['description']) ? $posted['description'] : $module['description'];
+                        @endphp
+                        <div class="border border-border rounded-lg p-3 space-y-2">
+                            <input type="hidden" name="modules[{{ $module['key'] }}][key]" value="{{ $module['key'] }}">
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <div class="text-sm font-medium text-foreground">{{ $module['label'] }}</div>
+                                <code class="text-[11px] text-muted-foreground">{{ $module['code'] }}</code>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-[1fr_8rem_1.6fr] gap-2">
+                                <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][name]" value="{{ $moduleName }}" placeholder="Naam">
+                                <div class="flex items-center gap-1">
+                                    <span class="text-sm text-muted-foreground">€</span>
+                                    <input class="kt-input w-full tabular-nums" type="number" name="modules[{{ $module['key'] }}][price]" value="{{ $modulePrice }}" min="0" max="9999" step="1" inputmode="numeric">
+                                </div>
+                                <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][description]" value="{{ $moduleDescription }}" placeholder="Toelichting">
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
 
@@ -327,6 +359,7 @@ document.addEventListener('DOMContentLoaded', function () {
         packagesRoot.appendChild(node);
         const newList = node.querySelector('.nexa-pricing-feature-list');
         copyCatalogToPackageList(newList);
+        bindDriverLimit(node);
     });
 
     packagesRoot?.addEventListener('click', function (e) {
@@ -339,11 +372,56 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    function bindDriverLimit(root) {
+        (root || document).querySelectorAll('[data-max-drivers-unlimited]').forEach(function (cb) {
+            if (cb.dataset.bound === '1') return;
+            cb.dataset.bound = '1';
+            const card = cb.closest('.nexa-pricing-package');
+            const input = card ? card.querySelector('[data-max-drivers-input]') : null;
+            function sync() {
+                if (!input) return;
+                input.readOnly = cb.checked;
+                if (cb.checked) input.value = '0';
+            }
+            cb.addEventListener('change', sync);
+            sync();
+        });
+    }
+
+    function slugifyPackageName(value) {
+        return String(value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 80);
+    }
+
+    packagesRoot?.addEventListener('input', function (e) {
+        if (!e.target.matches('[data-package-name]')) return;
+        const card = e.target.closest('.nexa-pricing-package');
+        const keyInput = card ? card.querySelector('[data-package-key]') : null;
+        if (!keyInput || keyInput.dataset.manual === '1') return;
+        if (keyInput.value !== '' && keyInput.dataset.autofil !== '1') return;
+        const slug = slugifyPackageName(e.target.value);
+        keyInput.value = slug;
+        keyInput.dataset.autofil = slug ? '1' : '';
+    });
+
+    packagesRoot?.addEventListener('input', function (e) {
+        if (!e.target.matches('[data-package-key]')) return;
+        e.target.dataset.manual = '1';
+        e.target.dataset.autofil = '';
+    });
+
     packagesRoot?.addEventListener('input', function (e) {
         if (e.target.matches('.nexa-pricing-feature-row input[type="text"]')) {
             syncFeatureText(e.target);
         }
     });
+
+    bindDriverLimit(packagesRoot);
 
     document.getElementById('nexa-pricing-addon-add')?.addEventListener('click', function () {
         if (!addonsRoot || !addonTpl) return;

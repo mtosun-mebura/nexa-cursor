@@ -881,6 +881,44 @@ function bindAdminFilterPanelLiveSubmit(root = document) {
     });
 }
 
+function ensureAdminTableMenuDropdownVisible(dropdown, toggle) {
+    if (!dropdown || !toggle) {
+        return;
+    }
+
+    const viewportPadding = 12;
+    const rect = toggle.getBoundingClientRect();
+    const dropdownHeight = dropdown.offsetHeight || dropdown.scrollHeight;
+
+    let top = rect.bottom + 4;
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const spaceAbove = rect.top - viewportPadding;
+
+    if (dropdownHeight > spaceBelow && spaceAbove > spaceBelow) {
+        top = Math.max(viewportPadding, rect.top - dropdownHeight - 4);
+    }
+
+    dropdown.style.position = 'fixed';
+    dropdown.style.zIndex = '99999';
+    dropdown.style.top = `${top}px`;
+    dropdown.style.left = `${Math.max(viewportPadding, rect.right - dropdown.offsetWidth)}px`;
+
+    requestAnimationFrame(() => {
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const overflowBottom = dropdownRect.bottom - (window.innerHeight - viewportPadding);
+        if (overflowBottom > 0) {
+            window.scrollBy({ top: overflowBottom, behavior: 'smooth' });
+
+            return;
+        }
+
+        const overflowTop = viewportPadding - dropdownRect.top;
+        if (overflowTop > 0) {
+            window.scrollBy({ top: -overflowTop, behavior: 'smooth' });
+        }
+    });
+}
+
 function bindAdminTableActionMenus(root = document) {
     root.querySelectorAll('#content table .kt-menu-item[data-kt-menu-item-toggle="dropdown"]').forEach((menuItem) => {
         if (menuItem.dataset.adminTableMenuBound === '1') {
@@ -919,10 +957,7 @@ function bindAdminTableActionMenus(root = document) {
                 dropdown.style.display = 'block';
                 dropdown.style.visibility = 'visible';
                 dropdown.style.opacity = '1';
-
-                const rect = toggle.getBoundingClientRect();
-                dropdown.style.top = `${rect.bottom + 4}px`;
-                dropdown.style.left = `${Math.max(8, rect.right - dropdown.offsetWidth)}px`;
+                ensureAdminTableMenuDropdownVisible(dropdown, toggle);
             } else {
                 menuItem.classList.remove('show');
                 if (dropdown) {

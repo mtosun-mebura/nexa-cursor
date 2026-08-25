@@ -29,6 +29,23 @@
     .settings-collapsible-header {
         cursor: pointer;
     }
+    .settings-section-intro {
+        margin: 0 0 1rem;
+        padding: 0.75rem 0.75rem 0;
+        font-size: 0.875rem;
+        line-height: 1.4375;
+        color: var(--muted-foreground);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    @media (min-width: 640px) {
+        .settings-section-intro {
+            padding: 1rem 1.25rem 0;
+        }
+    }
+    .kt-card-content > .settings-section-intro:first-child {
+        padding-top: 0;
+    }
     .settings-collapsible-card--collapsed > .settings-collapsible-header,
     .settings-collapsible-section.settings-collapsible-card--collapsed > .settings-collapsible-header {
         border-bottom-width: 0 !important;

@@ -1207,4 +1207,169 @@ class WebsitePageUpdateTest extends TestCase
             'Metronic should not be selected when page uses VPN theme.'
         );
     }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_preserves_footer_inherit_from_home_when_checked(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'footer-inherit-keep',
+            'title' => 'Footer inherit',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => true, 'tagline' => 'Niet van home'],
+                'copyright' => '',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = array_filter([
+            'slug' => 'footer-inherit-keep',
+            'title' => 'Footer inherit',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'company_id' => $companyId !== null ? (string) $companyId : null,
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+                'hero' => ['title' => 'Nieuwe titel'],
+                'copyright' => '',
+                'footer' => [
+                    'inherit_from_home' => '1',
+                    'tagline' => 'Niet van home',
+                ],
+            ],
+        ], fn ($v) => $v !== null);
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $page->refresh();
+        $this->assertTrue(
+            (bool) ($page->home_sections['footer']['inherit_from_home'] ?? false),
+            'Overnemen van Home moet aan blijven na opslaan'
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_preserves_footer_inherit_from_home_via_config_fallback_when_post_has_zero(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'footer-inherit-fallback',
+            'title' => 'Footer inherit fallback',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => true],
+                'copyright' => '',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = array_filter([
+            'slug' => 'footer-inherit-fallback',
+            'title' => 'Footer inherit fallback',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'company_id' => $companyId !== null ? (string) $companyId : null,
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            '_footer_config_fallback' => json_encode(['inherit_from_home' => 1]),
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+                'hero' => ['title' => 'Nieuwe titel'],
+                'copyright' => '',
+                'footer' => ['inherit_from_home' => '0'],
+            ],
+        ], fn ($v) => $v !== null);
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $page->refresh();
+        $this->assertTrue(
+            (bool) ($page->home_sections['footer']['inherit_from_home'] ?? false),
+            'Fallback-JSON moet inherit_from_home=1 behouden als de checkbox uit de POST is gevallen'
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_update_preserves_footer_inherit_from_home_when_omitted(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'footer-inherit-v2',
+            'title' => 'Footer inherit v2',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => true, 'tagline' => 'Bewaar mij'],
+                'copyright' => '',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'hero' => ['title' => 'Nieuwe hero'],
+                'copyright' => '',
+                'footer' => ['tagline' => 'Bewaar mij'],
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+        $page->refresh();
+        $this->assertTrue(
+            (bool) ($page->home_sections['footer']['inherit_from_home'] ?? false),
+            'Builder v2 mag inherit_from_home niet wissen als het veld ontbreekt in de footer-payload'
+        );
+    }
 }

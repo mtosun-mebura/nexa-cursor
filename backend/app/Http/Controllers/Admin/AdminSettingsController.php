@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Models\Company;
+use App\Models\DatabaseBackup;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Services\AiChatAssistantService;
+use App\Services\DatabaseBackupService;
+use App\Services\DatabaseBackupSettingsService;
 use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\GoogleSearchConsoleService;
@@ -43,6 +46,10 @@ class AdminSettingsController extends Controller
 
     protected GoogleSearchConsoleService $googleSearchConsole;
 
+    protected DatabaseBackupSettingsService $databaseBackupSettings;
+
+    protected DatabaseBackupService $databaseBackupService;
+
     public function __construct(
         EnvService $envService,
         TenantWebsiteBundleService $tenantWebsiteBundle,
@@ -51,6 +58,8 @@ class AdminSettingsController extends Controller
         TenantSyncSettingsService $tenantSyncSettings,
         GoogleSeoSettingsService $googleSeoSettings,
         GoogleSearchConsoleService $googleSearchConsole,
+        DatabaseBackupSettingsService $databaseBackupSettings,
+        DatabaseBackupService $databaseBackupService,
     ) {
         $this->envService = $envService;
         $this->tenantWebsiteBundle = $tenantWebsiteBundle;
@@ -59,6 +68,8 @@ class AdminSettingsController extends Controller
         $this->tenantSyncSettings = $tenantSyncSettings;
         $this->googleSeoSettings = $googleSeoSettings;
         $this->googleSearchConsole = $googleSearchConsole;
+        $this->databaseBackupSettings = $databaseBackupSettings;
+        $this->databaseBackupService = $databaseBackupService;
     }
 
     /**
@@ -158,16 +169,6 @@ class AdminSettingsController extends Controller
         // Get current SEO settings (tenant + platform fallback via GeneralSetting)
         $seoSettings = $this->googleSeoSettings->formSettings($settingsCompanyId);
 
-        // Get current Maps settings (zelfde bron als overal elders: Admin → Instellingen → Maps)
-        $mapsSettings = [
-            'GOOGLE_MAPS_API_KEY' => $this->envService->getGoogleMapsApiKey(),
-            'GOOGLE_MAPS_MAP_ID' => $this->envService->getGoogleMapsMapId(),
-            'GOOGLE_MAPS_ZOOM' => $this->envService->get('GOOGLE_MAPS_ZOOM', '12'),
-            'GOOGLE_MAPS_CENTER_LAT' => $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
-            'GOOGLE_MAPS_CENTER_LNG' => $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
-            'GOOGLE_MAPS_TYPE' => $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap'),
-        ];
-
         // Get current WhatsApp tenant settings (widget / click-to-chat / company booking number)
         $whatsappSettings = [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0'),
@@ -208,15 +209,24 @@ class AdminSettingsController extends Controller
         $mollieSummary = $paymentProviders->mollieSummaryForCompany($settingsCompanyId);
         $paymentOptions = $settingsCompanyId !== null
             ? $dispatchSettings->paymentOptionsForTenant($settingsCompanyId)
-            : ['booking' => false, 'driver' => false, 'mollie_configured' => false];
+            : ['booking' => false, 'driver' => false, 'mollie_configured' => false, 'mollie_package_allowed' => true];
         $mollieDriverPaymentsEnabled = (bool) ($paymentOptions['driver'] ?? false);
         $mollieBookingPaymentsEnabled = (bool) ($paymentOptions['booking'] ?? false);
+        $molliePackageAllowed = (bool) ($paymentOptions['mollie_package_allowed'] ?? true);
+        $molliePackageDeniedMessage = null;
+        if ($settingsCompanyId !== null && ! $molliePackageAllowed) {
+            $mollieCompany = Company::query()->find($settingsCompanyId);
+            $molliePackageDeniedMessage = app(\App\Services\CompanyEntitlementService::class)
+                ->deniedMessage(\App\Support\TenantPackageCapability::MOLLIE_PAYMENTS, $mollieCompany);
+        }
         $defaultTaxiWebhookUrl = url('/api/taxi/webhooks/mollie');
+
+        $databaseBackupSettings = $this->databaseBackupSettings->formSettings();
+        $databaseBackups = $this->databaseBackupService->listBackups(100);
 
         return view('admin.settings.index', compact(
             'mailSettings',
             'seoSettings',
-            'mapsSettings',
             'whatsappSettings',
             'whatsappPlatformConfigured',
             'whatsappConnectionStatus',
@@ -238,7 +248,11 @@ class AdminSettingsController extends Controller
             'mollieSummary',
             'mollieDriverPaymentsEnabled',
             'mollieBookingPaymentsEnabled',
+            'molliePackageAllowed',
+            'molliePackageDeniedMessage',
             'defaultTaxiWebhookUrl',
+            'databaseBackupSettings',
+            'databaseBackups',
         ));
     }
 
@@ -253,6 +267,13 @@ class AdminSettingsController extends Controller
             return $redirect;
         }
         $companyId = $this->settingsCompanyId();
+        $entitlements = app(\App\Services\CompanyEntitlementService::class);
+        $company = \App\Models\Company::query()->find($companyId);
+        if ($company && ! $entitlements->allows($company, \App\Support\TenantPackageCapability::MOLLIE_PAYMENTS)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'mollie_api_key' => $entitlements->deniedMessage(\App\Support\TenantPackageCapability::MOLLIE_PAYMENTS, $company),
+            ])->redirectTo(route('admin.settings.index').'#mollie');
+        }
 
         $validated = $request->validate([
             'mollie_api_key' => 'nullable|string|max:255',
@@ -679,6 +700,138 @@ class AdminSettingsController extends Controller
             ->with('success', 'Website-import voltooid: '.$result['imported_pages']." pagina's, ".$result['copied_files'].' bestand(en) gekopieerd naar storage/app/public.');
     }
 
+    public function updateDatabaseBackupSettings(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validator = Validator::make($request->all(), $this->databaseBackupSettings->validationRules());
+        if ($validator->fails()) {
+            return redirect()->route('admin.settings.index')
+                ->withFragment('database-backups')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $this->databaseBackupSettings->saveFromRequest($request);
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', 'Database-backup instellingen opgeslagen.');
+    }
+
+    public function databaseBackupsTable()
+    {
+        $this->ensureSuperAdmin();
+
+        $databaseBackups = $this->databaseBackupService->listBackups(100);
+
+        return view('admin.settings.partials.database-backups-table', compact('databaseBackups'));
+    }
+
+    public function runDatabaseBackupNow(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $backup = $this->databaseBackupService->createBackup(DatabaseBackup::TRIGGER_MANUAL);
+        } catch (\Throwable $e) {
+            $message = 'Backup mislukt: '.$e->getMessage();
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+
+            return redirect()->route('admin.settings.index')
+                ->withFragment('database-backups')
+                ->with('database_backup_error', $message);
+        }
+
+        $message = 'Backup voltooid: '.$backup->filename.' ('.$backup->humanSize().').';
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'filename' => $backup->filename,
+            ]);
+        }
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', $message);
+    }
+
+    public function restoreDatabaseBackup(Request $request, DatabaseBackup $databaseBackup)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate(['confirm_restore' => ['required', 'in:1']]);
+
+        try {
+            $this->databaseBackupService->restore($databaseBackup);
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index')
+                ->withFragment('database-backups')
+                ->with('database_backup_error', 'Herstel mislukt: '.$e->getMessage());
+        }
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', 'Database hersteld vanuit '.$databaseBackup->filename.'.');
+    }
+
+    public function downloadDatabaseBackup(DatabaseBackup $databaseBackup)
+    {
+        $this->ensureSuperAdmin();
+
+        if ($databaseBackup->status !== DatabaseBackup::STATUS_COMPLETED || ! $databaseBackup->fileExists()) {
+            abort(404);
+        }
+
+        return response()->download($databaseBackup->absolutePath(), $databaseBackup->filename);
+    }
+
+    public function destroyDatabaseBackup(DatabaseBackup $databaseBackup)
+    {
+        $this->ensureSuperAdmin();
+
+        $name = $databaseBackup->filename;
+        $this->databaseBackupService->deleteBackup($databaseBackup);
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', 'Backup verwijderd: '.$name.'.');
+    }
+
+    public function bulkDestroyDatabaseBackups(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $result = $this->databaseBackupService->deleteBackups($validated['ids']);
+        $deleted = (int) ($result['deleted'] ?? 0);
+        $skipped = (int) ($result['skipped'] ?? 0);
+
+        $message = $deleted === 1
+            ? '1 backup verwijderd.'
+            : $deleted.' backups verwijderd.';
+        if ($skipped > 0) {
+            $message .= $skipped === 1
+                ? ' 1 bezig-backup overgeslagen.'
+                : ' '.$skipped.' bezig-backups overgeslagen.';
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => $deleted > 0 || $skipped > 0,
+                'message' => $message,
+                'deleted' => $deleted,
+                'skipped' => $skipped,
+            ], $deleted > 0 || $skipped > 0 ? 200 : 422);
+        }
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', $message);
+    }
+
     /**
      * Update mail settings
      * Alleen toegankelijk voor super-admin
@@ -891,17 +1044,12 @@ class AdminSettingsController extends Controller
     }
 
     /**
-     * Update Google Maps settings
-     * Alleen toegankelijk voor super-admin
+     * Update Google Maps settings (platform-breed, Algemene configuraties).
+     * Alleen toegankelijk voor super-admin.
      */
     public function updateMaps(Request $request)
     {
         $this->ensureSuperAdmin();
-
-        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
-            return $redirect;
-        }
-        $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
             'GOOGLE_MAPS_API_KEY' => 'required|string|max:255',
@@ -923,7 +1071,7 @@ class AdminSettingsController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->withErrors($validator)
                 ->withInput();
         }
@@ -939,13 +1087,13 @@ class AdminSettingsController extends Controller
             ];
 
             foreach ($mapsSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value, $companyId);
+                GeneralSetting::set($key, (string) $value);
             }
 
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->with('success', 'Google Maps instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
@@ -1487,6 +1635,8 @@ class AdminSettingsController extends Controller
         $whatsappPickupProposalSamplePreview = app(WhatsAppBookingMessageComposer::class)
             ->samplePickupProposalPreview();
 
+        $mapsSettings = $this->envService->mapsFormSettings();
+
         $whatsappConnectionStatus = null;
         if (session()->has('whatsapp_connection_test') && is_array(session('whatsapp_connection_test'))) {
             $whatsappConnectionStatus = session('whatsapp_connection_test');
@@ -1499,7 +1649,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'mapsSettings', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
     }
 
     /**

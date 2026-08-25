@@ -12,7 +12,13 @@ class EnforceTenantDomainMatchesUser
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! auth()->check()) {
+        try {
+            $authenticated = auth()->check();
+        } catch (\Throwable $e) {
+            report($e);
+            $authenticated = false;
+        }
+        if (! $authenticated) {
             return $next($request);
         }
 
@@ -32,7 +38,13 @@ class EnforceTenantDomainMatchesUser
             return $next($request);
         }
 
-        $user = auth()->user();
+        try {
+            $user = auth()->user();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $next($request);
+        }
         if ($user === null) {
             return $next($request);
         }

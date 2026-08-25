@@ -3,11 +3,14 @@
 namespace App\Modules\NexaTaxi\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\TransportCustomerPortalUser;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Services\ModuleDatabaseService;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -43,6 +46,12 @@ class ContractPortalAuthController extends Controller
             return response()->json([
                 'message' => 'Dit account heeft geen toegang tot het contractportaal.',
             ], 403);
+        }
+
+        $company = Company::query()->find($context['company_id'] ?? null);
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($company, TenantPackageCapability::CONTRACT_PORTAL)) {
+            return $entitlements->jsonDenied($company, TenantPackageCapability::CONTRACT_PORTAL);
         }
 
         $user->tokens()->where('name', 'taxi-contract')->delete();

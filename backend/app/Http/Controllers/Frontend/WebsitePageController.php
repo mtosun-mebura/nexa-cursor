@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
-use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\GoogleSeoSettingsService;
 use App\Services\ModuleDatabaseService;
@@ -165,16 +164,8 @@ class WebsitePageController extends Controller
         $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections, $templateConnection);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
-        $env = app(EnvService::class);
-        // Maps-key per tenant: eerst de (tenant-)instelling, daarna .env-fallback.
         $googleMapsApiKey = $this->websiteBuilder->resolveGoogleMapsApiKeyForPage($page);
-        if ($googleMapsApiKey === '') {
-            $googleMapsApiKey = $this->readGoogleMapsApiKeyFromEnvFiles();
-        }
         $googleMapsMapId = $this->websiteBuilder->resolveGoogleMapsMapIdForPage($page);
-        if ($googleMapsMapId === '') {
-            $googleMapsMapId = $env->getGoogleMapsMapId();
-        }
         $whatsappWidget = $this->websiteBuilder->resolveWhatsappWidgetForPage($page);
 
         $reviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage($page);
@@ -218,46 +209,5 @@ class WebsitePageController extends Controller
             'structuredDataGraph' => $structuredDataGraph,
             'seoTracking' => $seoTracking,
         ]);
-    }
-
-    /**
-     * Lees GOOGLE_MAPS_API_KEY uit de root .env (projectroot).
-     * Fallback als EnvService niets geeft.
-     */
-    private function readGoogleMapsApiKeyFromEnvFiles(): string
-    {
-        $keyName = 'GOOGLE_MAPS_API_KEY';
-        $rootEnv = \App\Services\EnvService::getRootEnvPath();
-        $paths = [$rootEnv];
-        $backendEnv = base_path('.env');
-        if ($backendEnv !== $rootEnv && is_readable($backendEnv)) {
-            $paths[] = $backendEnv;
-        }
-        foreach ($paths as $path) {
-            if (! is_readable($path)) {
-                continue;
-            }
-            $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if (! is_array($lines)) {
-                continue;
-            }
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
-                    continue;
-                }
-                [$k, $value] = explode('=', $line, 2);
-                if (trim($k) === $keyName) {
-                    $value = trim($value);
-                    if (strlen($value) >= 2 && ($value[0] === '"' && $value[strlen($value) - 1] === '"' || $value[0] === "'" && $value[strlen($value) - 1] === "'")) {
-                        $value = substr($value, 1, -1);
-                    }
-
-                    return trim($value);
-                }
-            }
-        }
-
-        return '';
     }
 }

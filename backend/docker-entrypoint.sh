@@ -46,6 +46,13 @@ php artisan view:cache || true
 # (Optioneel) storage symlink
 php artisan storage:link || true
 
+# PostgreSQL CLI-tools voor database-backups (pg_dump / pg_restore)
+if [ "${DB_CONNECTION:-}" = "pgsql" ] && ! command -v pg_dump >/dev/null 2>&1; then
+  echo "postgresql-client ontbreekt in backend-image; installeren..."
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-client >/dev/null
+fi
+
 # Wacht op PostgreSQL (compose service `db` met healthcheck)
 if [ -n "${DB_HOST:-}" ] && [ "${DB_HOST}" != "127.0.0.1" ] && [ "${DB_HOST}" != "localhost" ]; then
   echo "Wachten op database (${DB_HOST}:5432)..."
@@ -71,8 +78,8 @@ fi
 # Migraties + minimale seed (rollen, super admin, branches, thema's, …) als DB-variabelen aanwezig zijn
 if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan migrate --force || true
-  # Idempotent: veilig bij elke container-start; eerste deployment krijgt altijd basisdata
-  php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force || true
+  # Idempotent: veilig bij elke container-start; herstelt super-admin en centrale pagina's indien nodig
+  php artisan nexa:ensure-bootstrap || true
 fi
 
 echo "Start Laravel scheduler (schedule:work) op de achtergrond..."

@@ -237,23 +237,7 @@ class KnowledgeDocumentController extends Controller
         if (auth()->user()->hasRole('super-admin')) {
             return;
         }
-        if (auth()->user()->can($ability)) {
-            return;
-        }
 
-        $fallbacks = match ($ability) {
-            'ai_chatbot.view' => ['rides.view', 'vehicles.view'],
-            'ai_chatbot.create', 'ai_chatbot.update' => ['rides.update', 'vehicles.update'],
-            'ai_chatbot.delete' => ['rides.delete', 'vehicles.delete'],
-            default => [],
-        };
-
-        foreach ($fallbacks as $fallback) {
-            if (auth()->user()->can($fallback)) {
-                return;
-            }
-        }
-
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, 'Alleen een super-admin mag de AI-chatbot beheren.');
     }
 }

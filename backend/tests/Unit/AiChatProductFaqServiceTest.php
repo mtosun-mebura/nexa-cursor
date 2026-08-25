@@ -132,4 +132,49 @@ class AiChatProductFaqServiceTest extends TestCase
         $this->assertStringContainsString('NEXA Suite', $reply);
         $this->assertStringContainsString('/contact', $reply);
     }
+
+    public function test_plain_price_question_lists_packages(): void
+    {
+        $reply = $this->faq()->answer('wat zijn de prijzen?');
+
+        $this->assertStringContainsString('**Start**', $reply);
+        $this->assertStringContainsString('**Pro**', $reply);
+        $this->assertStringContainsString('**Business**', $reply);
+        $this->assertStringContainsString('/prijzen', $reply);
+        $this->assertStringContainsString('€ 49', $reply);
+    }
+
+    public function test_products_question_describes_suite(): void
+    {
+        $reply = $this->faq()->answer('welke producten zijn er');
+
+        $this->assertStringContainsString('NEXA Suite', $reply);
+        $this->assertStringContainsString('Nexa Taxi', $reply);
+        $this->assertStringContainsString('Contractvervoer', $reply);
+        $this->assertStringContainsString('Website', $reply);
+        $this->assertStringContainsString('/prijzen', $reply);
+    }
+
+    public function test_signup_question_points_to_contact_form(): void
+    {
+        $reply = $this->faq()->answer('hoe kan ik me aanmelden?');
+
+        $this->assertStringContainsString('/contact', $reply);
+        $this->assertStringContainsString('contactformulier', mb_strtolower($reply));
+        $this->assertStringContainsString(NexaContactAanvraagEmailTemplateService::RECIPIENT_EMAIL, $reply);
+        $this->assertStringContainsString('aanmelden', mb_strtolower($reply));
+    }
+
+    public function test_offer_question_points_to_pricing_page(): void
+    {
+        $reply = $this->faq()->answer('zijn er aanbiedingen?');
+
+        $this->assertStringContainsString('/prijzen', $reply);
+        $this->assertStringContainsString('actuele aanbiedingen', mb_strtolower($reply));
+        $this->assertStringNotContainsString('**Start**', $reply);
+
+        $korting = $this->faq()->answer('hebben jullie korting?');
+        $this->assertStringContainsString('/prijzen', $korting);
+        $this->assertStringContainsString('actuele aanbiedingen', mb_strtolower($korting));
+    }
 }

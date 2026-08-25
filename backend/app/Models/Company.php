@@ -20,7 +20,7 @@ class Company extends Model
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
         'is_active', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
         'logo_dark_blob', 'logo_dark_mime_type', 'building_image',
-        'frontend_theme_id',
+        'frontend_theme_id', 'package_key', 'package_addons',
     ];
 
     protected $casts = [
@@ -28,6 +28,7 @@ class Company extends Model
         'is_intermediary' => 'boolean',
         'is_main' => 'boolean',
         'building_image' => 'integer',
+        'package_addons' => 'array',
     ];
 
     protected static function boot()

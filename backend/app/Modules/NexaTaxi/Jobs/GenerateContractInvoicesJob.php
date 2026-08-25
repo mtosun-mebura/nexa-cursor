@@ -3,7 +3,10 @@
 namespace App\Modules\NexaTaxi\Jobs;
 
 use App\Modules\NexaTaxi\Services\ContractInvoiceService;
+use App\Models\Company;
+use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -27,6 +30,12 @@ class GenerateContractInvoicesJob implements ShouldQueue
 
         foreach ($contracts as $contract) {
             if (app(\App\Services\NexaDemoAccountService::class)->isDemoCompanyId((int) ($contract->company_id ?? 0))) {
+                $skipped++;
+
+                continue;
+            }
+            $company = Company::query()->find((int) ($contract->company_id ?? 0));
+            if (! app(CompanyEntitlementService::class)->allows($company, TenantPackageCapability::MONTHLY_INVOICE_SEPA)) {
                 $skipped++;
 
                 continue;

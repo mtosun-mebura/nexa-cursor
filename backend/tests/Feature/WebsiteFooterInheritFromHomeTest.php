@@ -70,6 +70,29 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
             ->assertDontSee('id="footer-google-map"', false)
             ->assertDontSee('footer-grid-with-map', false)
             ->assertDontSee('Stel de Google Maps API-sleutel in', false);
+
+        $this->assertTrue(
+            (bool) ($applied['footer']['inherit_from_home'] ?? false),
+            'Na overname van Home moet inherit_from_home aan blijven (niet de false van de Home-footer overnemen)'
+        );
+    }
+
+    #[Test]
+    public function maps_placeholder_points_to_admin_panel(): void
+    {
+        $html = view('frontend.layouts.partials.website-footer', [
+            'homeSections' => [
+                'footer' => ['tagline' => 'Nexa'],
+                'visibility' => ['footer' => true, 'footer_map' => true],
+            ],
+            'branding' => [],
+            'googleMapsApiKey' => '',
+        ])->render();
+
+        $this->assertStringContainsString(
+            'Stel de Google Maps API-sleutel in via het Admin paneel om de kaart te tonen.',
+            $html
+        );
     }
 
     #[Test]
