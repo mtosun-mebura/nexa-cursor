@@ -68,6 +68,21 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         $this->assertSame($modern->id, $theme->id);
     }
 
+    public function test_new_packaged_themes_are_wired_for_home_sections(): void
+    {
+        foreach (['landwind', 'play-tailwind', 'vue-material-kit'] as $slug) {
+            $this->assertTrue(FrontendTheme::usesHomeSections($slug), $slug);
+            $order = WebsitePage::defaultHomeSectionsForTheme($slug)['section_order'] ?? [];
+            $this->assertContains('hero', $order, $slug);
+            $this->assertContains('features', $order, $slug);
+            $this->assertContains('cta', $order, $slug);
+        }
+
+        $this->assertContains('landwind', FrontendTheme::PACKAGED_SOURCE_SLUGS);
+        $this->assertContains('play-tailwind', FrontendTheme::PACKAGED_SOURCE_SLUGS);
+        $this->assertContains('vue-material-kit', FrontendTheme::PACKAGED_SOURCE_SLUGS);
+    }
+
     public function test_get_theme_for_page_prefers_page_theme_over_company_default(): void
     {
         $modern = FrontendTheme::query()->create([

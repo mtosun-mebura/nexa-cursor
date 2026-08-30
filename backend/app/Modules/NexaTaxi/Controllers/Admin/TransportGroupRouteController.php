@@ -53,45 +53,52 @@ class TransportGroupRouteController extends Controller
         $template = $context['template'];
 
         if ($template->route_locked) {
-            throw ValidationException::withMessages([
-                'route_locked' => 'Route is vastgezet. Ontgrendel eerst om instellingen te wijzigen.',
+            $data = $request->validate([
+                'recurrence_days' => ['required', 'array', 'min:1'],
+                'recurrence_days.*' => ['integer', 'between:1,7'],
+            ]);
+
+            $template->update([
+                'recurrence_days' => array_values(array_unique(array_map('intval', $data['recurrence_days']))),
+            ]);
+        } else {
+            $data = $request->validate([
+                'label' => ['required', 'string', 'max:200'],
+                'recurrence_days' => ['required', 'array', 'min:1'],
+                'recurrence_days.*' => ['integer', 'between:1,7'],
+                'driver_start_mode' => ['required', Rule::in([
+                    TransportRouteTemplate::DRIVER_START_DEPOT,
+                    TransportRouteTemplate::DRIVER_START_FIRST_STOP,
+                ])],
+                'driver_start_address' => ['nullable', 'string', 'max:500'],
+                'driver_start_lat' => ['nullable', 'numeric', 'between:-90,90'],
+                'driver_start_lng' => ['nullable', 'numeric', 'between:-180,180'],
+                'buffer_seconds' => ['required', 'integer', 'min:0', 'max:900'],
+            ]);
+
+            if ($data['driver_start_mode'] === TransportRouteTemplate::DRIVER_START_DEPOT
+                && empty($data['driver_start_address'])) {
+                throw ValidationException::withMessages([
+                    'driver_start_address' => 'Vul een depotadres in of kies start bij eerste stop.',
+                ]);
+            }
+
+            $template->update([
+                'label' => $data['label'],
+                'recurrence_days' => array_values(array_unique(array_map('intval', $data['recurrence_days']))),
+                'driver_start_mode' => $data['driver_start_mode'],
+                'driver_start_address' => $data['driver_start_address'] ?? null,
+                'driver_start_lat' => $data['driver_start_lat'] ?? null,
+                'driver_start_lng' => $data['driver_start_lng'] ?? null,
+                'buffer_seconds' => (int) $data['buffer_seconds'],
             ]);
         }
 
-        $data = $request->validate([
-            'label' => ['required', 'string', 'max:200'],
-            'recurrence_days' => ['required', 'array', 'min:1'],
-            'recurrence_days.*' => ['integer', 'between:1,7'],
-            'driver_start_mode' => ['required', Rule::in([
-                TransportRouteTemplate::DRIVER_START_DEPOT,
-                TransportRouteTemplate::DRIVER_START_FIRST_STOP,
-            ])],
-            'driver_start_address' => ['nullable', 'string', 'max:500'],
-            'driver_start_lat' => ['nullable', 'numeric', 'between:-90,90'],
-            'driver_start_lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'buffer_seconds' => ['required', 'integer', 'min:0', 'max:900'],
-        ]);
-
-        if ($data['driver_start_mode'] === TransportRouteTemplate::DRIVER_START_DEPOT
-            && empty($data['driver_start_address'])) {
-            throw ValidationException::withMessages([
-                'driver_start_address' => 'Vul een depotadres in of kies start bij eerste stop.',
-            ]);
-        }
-
-        $template->update([
-            'label' => $data['label'],
-            'recurrence_days' => array_values(array_unique(array_map('intval', $data['recurrence_days']))),
-            'driver_start_mode' => $data['driver_start_mode'],
-            'driver_start_address' => $data['driver_start_address'] ?? null,
-            'driver_start_lat' => $data['driver_start_lat'] ?? null,
-            'driver_start_lng' => $data['driver_start_lng'] ?? null,
-            'buffer_seconds' => (int) $data['buffer_seconds'],
-        ]);
+        $stats = $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $template->id);
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Route-instellingen opgeslagen.');
+            ->with('success', 'Route-instellingen opgeslagen.'.$this->occurrenceSyncSuffix($stats));
     }
 
     public function calculate(Request $request, int $customerId, int $contractId, int $groupId)
@@ -127,10 +134,11 @@ class TransportGroupRouteController extends Controller
 
         $this->persistStops($conn, $template, $result['stops']);
         $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
+        $stats = $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $template->id);
 
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Route berekend en opgeslagen.');
+            ->with('success', 'Route berekend en opgeslagen.'.$this->occurrenceSyncSuffix($stats));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -220,7 +228,7 @@ class TransportGroupRouteController extends Controller
         $template->update(['route_locked' => ! $template->route_locked]);
 
         if ($template->route_locked) {
-            $this->occurrenceGenerator->generateForRouteTemplate($context['conn'], (int) $template->id);
+            $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($context['conn'], (int) $template->id);
         }
 
         return redirect()
@@ -407,6 +415,25 @@ class TransportGroupRouteController extends Controller
             'vehicles' => $vehicles,
             'assignment' => $template->assignment,
         ];
+    }
+
+    /**
+     * @param  array{created?: int, cancelled?: int, skipped?: int, errors?: int}  $stats
+     */
+    private function occurrenceSyncSuffix(array $stats): string
+    {
+        $parts = [];
+        $created = (int) ($stats['created'] ?? 0);
+        $cancelled = (int) ($stats['cancelled'] ?? 0);
+
+        if ($created > 0) {
+            $parts[] = $created.' rit(ten) ingepland in de contract-app.';
+        }
+        if ($cancelled > 0) {
+            $parts[] = $cancelled.' rit(ten) ingetrokken voor dagen die niet meer gelden.';
+        }
+
+        return $parts === [] ? '' : ' '.implode(' ', $parts);
     }
 
     private function authorizeOrPermission(string $ability): void

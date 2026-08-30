@@ -3,18 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\Module;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
 use App\Services\ModuleManager;
 use App\Services\ModuleThemePageService;
-use Illuminate\Support\Facades\Cache;
 use App\Services\WebsiteBuilderService;
 use Database\Seeders\FrontendThemeSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 
@@ -33,11 +34,11 @@ class AdminFrontendThemeController extends Controller
     {
         $this->ensureSuperAdmin();
         $path = $request->query('path');
-        if (!$path || !\Illuminate\Support\Str::startsWith($path, 'frontend-themes/')) {
+        if (! $path || ! \Illuminate\Support\Str::startsWith($path, 'frontend-themes/')) {
             abort(404);
         }
         $fullPath = public_path($path);
-        if (!File::isFile($fullPath) || !File::exists($fullPath)) {
+        if (! File::isFile($fullPath) || ! File::exists($fullPath)) {
             abort(404);
         }
         $ext = strtolower(File::extension($fullPath));
@@ -50,6 +51,7 @@ class AdminFrontendThemeController extends Controller
             'webp' => 'image/webp',
         ];
         $mime = $mimes[$ext] ?? 'application/octet-stream';
+
         return response(File::get($fullPath), 200, [
             'Content-Type' => $mime,
             'Cache-Control' => 'public, max-age=3600',
@@ -68,9 +70,10 @@ class AdminFrontendThemeController extends Controller
             'app_url' => config('app.url'),
             'active_theme' => $activeTheme ? $activeTheme->name : '—',
             'theme_slug' => $activeTheme ? $activeTheme->slug : null,
-            'extensions' => array_filter(get_loaded_extensions(), fn ($e) => !str_starts_with($e, 'xdebug')),
+            'extensions' => array_filter(get_loaded_extensions(), fn ($e) => ! str_starts_with($e, 'xdebug')),
         ];
         sort($setup['extensions']);
+
         return view('admin.frontend-themes.setup', compact('setup'));
     }
 
@@ -78,9 +81,9 @@ class AdminFrontendThemeController extends Controller
     {
         $this->ensureSuperAdmin();
         // Zorg dat alle thema's (Metronic + Atom v2, Nextly, Next Landing VPN) bestaan
-        $newSlugs = ['atom-v2', 'nextly-template', 'next-landing-vpn'];
+        $newSlugs = FrontendTheme::PACKAGED_SOURCE_SLUGS;
         if (FrontendTheme::count() === 0 || FrontendTheme::whereIn('slug', $newSlugs)->count() < count($newSlugs)) {
-            (new FrontendThemeSeeder())->run();
+            (new FrontendThemeSeeder)->run();
         }
         // Zorg dat thema Metronic de NEXA Home-screenshot gebruikt
         $modern = FrontendTheme::where('slug', 'modern')->first();
@@ -150,9 +153,14 @@ class AdminFrontendThemeController extends Controller
         }
 
         $websiteUrl = url('/');
+        $companies = Company::query()
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active', 'frontend_theme_id']);
+
         return view('admin.frontend-themes.index', compact(
             'themes', 'installedModules', 'activeModulesForThemes', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
-            'websiteUrl', 'stagingUrlTop', 'activeThemeId', 'themeStagingUrls'
+            'websiteUrl', 'stagingUrlTop', 'activeThemeId', 'themeStagingUrls', 'companies'
         ));
     }
 
@@ -187,7 +195,7 @@ class AdminFrontendThemeController extends Controller
             $theme = FrontendTheme::find((int) $requestedThemeId);
             if (! $theme && (int) $requestedThemeId > 0) {
                 return redirect()->route('admin.frontend-themes.index')
-                    ->with('error', 'Thema met id ' . (int) $requestedThemeId . ' niet gevonden.');
+                    ->with('error', 'Thema met id '.(int) $requestedThemeId.' niet gevonden.');
             }
         }
         if (! $theme) {
@@ -219,11 +227,10 @@ class AdminFrontendThemeController extends Controller
 
         $page = null;
         if ($pageParam) {
-            $page = $menuPages->first(fn (WebsitePage $p) =>
-                $p->page_type === $pageParam || $p->slug === $pageParam
+            $page = $menuPages->first(fn (WebsitePage $p) => $p->page_type === $pageParam || $p->slug === $pageParam
             );
         }
-        if (!$page && $menuPages->isNotEmpty()) {
+        if (! $page && $menuPages->isNotEmpty()) {
             // Zonder page-parameter: toon home zodat staging o.a. recente vacatures toont (modern thema)
             $page = $menuPages->first(fn (WebsitePage $p) => $p->page_type === 'home' || $p->slug === 'home')
                 ?? $menuPages->first();
@@ -291,9 +298,9 @@ class AdminFrontendThemeController extends Controller
             });
         }
 
-        $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
+        $themeHasHomeSections = \App\Models\FrontendTheme::usesHomeSections($themeSlug);
         $useThemeHomeLayout = $themeHasHomeSections && (
-            !empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
+            ! empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
         );
         $homeSections = $useThemeHomeLayout ? $page->getHomeSections() : [];
         // Staging: bij thema's met home-sections altijd dezelfde footer tonen (logo, tagline, links, map)
@@ -371,7 +378,7 @@ class AdminFrontendThemeController extends Controller
 
         $updated = 0;
         foreach (WebsitePage::all() as $websitePage) {
-            if (!$websitePage->content || !is_string($websitePage->content)) {
+            if (! $websitePage->content || ! is_string($websitePage->content)) {
                 continue;
             }
             $original = $websitePage->content;
@@ -386,6 +393,7 @@ class AdminFrontendThemeController extends Controller
         if ($updated > 0) {
             $message .= " In {$updated} pagina('s) zijn staging-URL's omgezet naar de daadwerkelijke URL's.";
         }
+
         return redirect()->route('admin.frontend-themes.index')->with('success', $message);
     }
 
@@ -394,24 +402,59 @@ class AdminFrontendThemeController extends Controller
      */
     private function replaceStagingUrlsWithProduction(string $content, string $stagingBasePath, string $productionBase): string
     {
-        $pattern = '#https?://[^\s"\'<>\]\)]+' . preg_quote($stagingBasePath, '#') . '[^\s"\'<>\]\)]*#';
+        $pattern = '#https?://[^\s"\'<>\]\)]+'.preg_quote($stagingBasePath, '#').'[^\s"\'<>\]\)]*#';
+
         return (string) preg_replace_callback($pattern, function (array $m) use ($productionBase): string {
             $url = $m[0];
             if (preg_match('/[?&]page=([^&\s"\'\]\)]+)/', $url, $pageMatch)) {
                 $page = $pageMatch[1];
                 if ($page === 'home') {
-                    return $productionBase . '/' . ltrim(route('home', [], false), '/');
+                    return $productionBase.'/'.ltrim(route('home', [], false), '/');
                 }
                 if ($page === 'about') {
-                    return $productionBase . '/' . ltrim(route('about', [], false), '/');
+                    return $productionBase.'/'.ltrim(route('about', [], false), '/');
                 }
                 if ($page === 'contact') {
-                    return $productionBase . '/' . ltrim(route('contact', [], false), '/');
+                    return $productionBase.'/'.ltrim(route('contact', [], false), '/');
                 }
-                return $productionBase . '/' . ltrim(route('website.page', ['slug' => $page], false), '/');
+
+                return $productionBase.'/'.ltrim(route('website.page', ['slug' => $page], false), '/');
             }
+
             return $productionBase;
         }, $content);
+    }
+
+    /**
+     * Website-thema van een tenant vastleggen. Elke tenant kan een eigen thema hebben.
+     */
+    public function updateCompanyTheme(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'company_id' => 'required|integer|exists:companies,id',
+            'frontend_theme_id' => 'nullable|exists:frontend_themes,id',
+        ]);
+
+        $company = Company::query()->findOrFail((int) $request->input('company_id'));
+        $rawThemeId = $request->input('frontend_theme_id');
+        $themeId = null;
+        if ($rawThemeId !== null && $rawThemeId !== '') {
+            $id = (int) $rawThemeId;
+            $theme = FrontendTheme::query()->whereKey($id)->first();
+            if ($theme && ($theme->is_active || (int) $company->frontend_theme_id === $id)) {
+                $themeId = $theme->id;
+            }
+        }
+
+        $company->update(['frontend_theme_id' => $themeId]);
+
+        $themeName = $themeId
+            ? (FrontendTheme::query()->whereKey($themeId)->value('name') ?: 'thema')
+            : 'geen thema';
+
+        return redirect()->route('admin.frontend-themes.index')
+            ->with('success', "Website-thema voor \"{$company->name}\" is bijgewerkt ({$themeName}).");
     }
 
     /**
@@ -463,6 +506,7 @@ class AdminFrontendThemeController extends Controller
     public function edit(FrontendTheme $frontend_theme)
     {
         $this->ensureSuperAdmin();
+
         return view('admin.frontend-themes.edit', compact('frontend_theme'));
     }
 
@@ -476,12 +520,13 @@ class AdminFrontendThemeController extends Controller
         $settings['footer_text'] = $request->input('footer_text', $settings['footer_text'] ?? '');
         $settings['dark_mode_available'] = $request->boolean('dark_mode_available');
         $frontend_theme->update(['settings' => $settings]);
+
         return redirect()->route('admin.frontend-themes.index')->with('success', 'Thema-instellingen opgeslagen.');
     }
 
     protected function ensureSuperAdmin(): void
     {
-        if (!auth()->check() || !auth()->user()->hasRole('super-admin')) {
+        if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Alleen super-admins hebben toegang tot frontend-thema\'s.');
         }
     }

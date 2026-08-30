@@ -15,14 +15,13 @@ use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\GoogleSearchConsoleService;
 use App\Services\GoogleSeoSettingsService;
+use App\Services\InfoRequestFormPreviewContextService;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantSyncSettingsService;
 use App\Services\TenantWebsiteBundleService;
-use App\Services\InfoRequestFormPreviewContextService;
 use App\Services\WebsiteBuilderService;
 use App\Services\WhatsAppBookingMessageComposer;
-use App\Services\WhatsAppBusinessService;
 use App\Support\DutchPhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -156,15 +155,26 @@ class AdminSettingsController extends Controller
 
         // Get current mail settings (EnvService reads from GeneralSetting first for these keys)
         $mailSettings = [
-            'MAIL_MAILER' => $this->envService->get('MAIL_MAILER', 'log'),
-            'MAIL_HOST' => $this->envService->get('MAIL_HOST', ''),
-            'MAIL_PORT' => $this->envService->get('MAIL_PORT', '587'),
-            'MAIL_USERNAME' => $this->envService->get('MAIL_USERNAME', ''),
-            'MAIL_PASSWORD' => $this->envService->get('MAIL_PASSWORD', ''),
-            'MAIL_ENCRYPTION' => $this->envService->get('MAIL_ENCRYPTION', 'tls'),
-            'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', 'noreply@nexa-skillmatching.nl'),
-            'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Skillmatching'),
+            'MAIL_MAILER' => $this->envService->get('MAIL_MAILER', 'log', $settingsCompanyId),
+            'MAIL_HOST' => $this->envService->get('MAIL_HOST', '', $settingsCompanyId),
+            'MAIL_PORT' => $this->envService->get('MAIL_PORT', '587', $settingsCompanyId),
+            'MAIL_USERNAME' => $this->envService->get('MAIL_USERNAME', '', $settingsCompanyId),
+            'MAIL_PASSWORD' => $this->envService->get('MAIL_PASSWORD', '', $settingsCompanyId),
+            'MAIL_ENCRYPTION' => $this->envService->get('MAIL_ENCRYPTION', 'tls', $settingsCompanyId),
+            'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', 'noreply@nexasuite.nl', $settingsCompanyId),
+            'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Suite', $settingsCompanyId),
         ];
+        $mailDeliveryHint = $this->envService->mailDeliveryHint($settingsCompanyId);
+        $mailSettingsIsPlatform = $settingsCompanyId === null;
+        $mailUsingPlatformFallback = false;
+        if ($settingsCompanyId !== null) {
+            $mailUsingPlatformFallback = ! \App\Models\GeneralSetting::query()
+                ->where('company_id', $settingsCompanyId)
+                ->whereIn('key', \App\Models\GeneralSetting::MAIL_SETTING_KEYS)
+                ->whereNotNull('value')
+                ->where('value', '!=', '')
+                ->exists();
+        }
 
         // Get current SEO settings (tenant + platform fallback via GeneralSetting)
         $seoSettings = $this->googleSeoSettings->formSettings($settingsCompanyId);
@@ -226,6 +236,9 @@ class AdminSettingsController extends Controller
 
         return view('admin.settings.index', compact(
             'mailSettings',
+            'mailDeliveryHint',
+            'mailSettingsIsPlatform',
+            'mailUsingPlatformFallback',
             'seoSettings',
             'whatsappSettings',
             'whatsappPlatformConfigured',
@@ -840,9 +853,6 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
-            return $redirect;
-        }
         $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
@@ -888,8 +898,12 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
+            $success = $companyId === null
+                ? 'Nexa SaaS-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
+                : 'Mail instellingen van deze tenant opgeslagen.';
+
             return redirect()->route('admin.settings.index')
-                ->with('success', 'Mail instellingen succesvol bijgewerkt!');
+                ->with('success', $success);
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
@@ -917,16 +931,12 @@ class AdminSettingsController extends Controller
         }
 
         try {
-            // Haal SMTP username op voor envelope sender
-            // De envelope sender (SMTP MAIL FROM) moet overeenkomen met de SMTP authenticatie gebruiker
-            // om te voorkomen dat de mailserver de verzending weigert
+            $this->envService->applyMailConfigToRuntime($this->settingsCompanyId());
+
             $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
             $configuredFromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
             $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
 
-            // Gebruik SMTP username als from address als deze beschikbaar is EN verschilt van configured address
-            // Dit voorkomt "not authorized to send on behalf of" errors wanneer de server dit niet toestaat
-            // Als SMTP username niet beschikbaar is of gelijk is aan configured address, gebruik de configured from address
             $fromAddress = (! empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
 
             \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
@@ -939,7 +949,7 @@ class AdminSettingsController extends Controller
             if ($mailer === 'log') {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Email is gelogd. Check storage/logs/laravel.log voor de inhoud. (Mailer staat op "log" mode)',
+                    'message' => 'Email is gelogd. Check storage/logs/laravel.log voor de inhoud. (Mailer staat op "log" mode — er is niets naar een inbox verstuurd.)',
                 ]);
             }
 
@@ -950,7 +960,7 @@ class AdminSettingsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden bij het verzenden: '.$e->getMessage(),
+                'message' => $this->envService->explainMailSendException($e),
             ], 500);
         }
     }

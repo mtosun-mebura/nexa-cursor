@@ -98,7 +98,7 @@
 
         {{-- Contractportaal --}}
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header">
+            <div class="kt-card-header px-5 py-5">
                 <div class="min-w-0">
                     <h3 class="kt-card-title mb-0">Contractportaal</h3>
                     <p class="text-sm text-muted-foreground mt-1.5 mb-0">
@@ -108,29 +108,41 @@
                 </div>
             </div>
             <div class="kt-card-content p-0 min-w-0">
-                <div class="portal-users-stack divide-y">
+                <div class="portal-users-stack p-5 flex flex-col gap-4">
                     @if(($portalUsers ?? collect())->isNotEmpty())
                         @foreach($portalUsers as $portalUser)
                             @php
                                 $u = ($portalUserModels ?? collect())->get($portalUser->user_id);
                                 $linkedPassengers = collect($guardianMap ?? [])->get((int) $portalUser->user_id, []);
                                 $portalName = $u ? trim($u->first_name.' '.$u->last_name) : 'Gebruiker #'.$portalUser->user_id;
+                                $portalRoleLabel = ($portalUser->portal_role === 'contractant') ? 'Contractant' : 'Contractouder';
                             @endphp
-                            <div class="px-3 sm:px-5 py-4 min-w-0">
+                            <div class="portal-user-block portal-user-block--collapsed rounded-xl min-w-0" data-portal-user-block>
+                                <button
+                                    type="button"
+                                    class="portal-user-block-toggle flex w-full items-start justify-between gap-3 px-5 py-5 text-start"
+                                    aria-expanded="false"
+                                >
+                                    <span class="min-w-0">
+                                        <span class="block font-medium text-foreground break-words">{{ $portalName }}</span>
+                                        <span class="block text-sm text-muted-foreground break-all">{{ $u?->email ?? '—' }}</span>
+                                        <span class="mt-1.5 inline-block text-xs text-muted-foreground">{{ $portalRoleLabel }}</span>
+                                    </span>
+                                    <span class="flex items-center gap-2 shrink-0 pt-0.5">
+                                        @if($portalUser->active)
+                                            <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                        @else
+                                            <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                        @endif
+                                        <span class="portal-user-block-chevron text-muted-foreground" aria-hidden="true">
+                                            <i class="ki-filled ki-down text-base"></i>
+                                        </span>
+                                    </span>
+                                </button>
+                                <div class="portal-user-block-body px-5 pb-5">
                                 <form method="POST" action="{{ route('admin.taxi.transport_customers.portal.update', [$customer->id, $portalUser->id]) }}" class="min-w-0">
                                     @csrf
                                     @method('PUT')
-                                    <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-                                        <div class="min-w-0">
-                                            <div class="font-medium text-foreground break-words">{{ $portalName }}</div>
-                                            <div class="text-sm text-muted-foreground break-all">{{ $u?->email ?? '—' }}</div>
-                                        </div>
-                                        @if($portalUser->active)
-                                            <span class="kt-badge kt-badge-success kt-badge-sm shrink-0">Actief</span>
-                                        @else
-                                            <span class="kt-badge kt-badge-secondary kt-badge-sm shrink-0">Inactief</span>
-                                        @endif
-                                    </div>
                                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                                         <tr>
                                             <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-normal align-top pt-3">Rol</td>
@@ -197,16 +209,15 @@
                                     @method('DELETE')
                                 </form>
                                 @endcan
+                                </div>
                             </div>
                         @endforeach
                     @else
-                        <div class="px-3 sm:px-5 py-4">
-                            <p class="text-sm text-muted-foreground mb-0">Nog geen portaalgebruikers gekoppeld.</p>
-                        </div>
+                        <p class="text-sm text-muted-foreground mb-0">Nog geen portaalgebruikers gekoppeld.</p>
                     @endif
 
                     @can('rides.update')
-                    <div class="px-3 sm:px-5 py-4 min-w-0" id="portal-user-add-section">
+                    <div class="min-w-0" id="portal-user-add-section">
                         <h4 class="text-sm font-medium text-foreground mb-3">Portaalgebruiker toevoegen</h4>
                     @if(session('success'))
                         <div class="kt-alert kt-alert-success mb-4" role="alert">
@@ -248,7 +259,19 @@
                             <tr class="portal-existing-fields" @if($manualMode) hidden @endif>
                                 <td class="text-secondary-foreground font-normal align-top pt-3">Kies gebruiker <span class="text-danger">*</span></td>
                                 <td class="min-w-0 w-full">
-                                    <select id="portal-existing-user" name="existing_user_id" class="kt-select w-full" @if($manualMode) disabled @endif>
+                                    <select
+                                        id="portal-existing-user"
+                                        name="existing_user_id"
+                                        class="kt-select"
+                                        data-kt-select="true"
+                                        data-kt-select-enable-search="true"
+                                        data-kt-select-placeholder="Selecteer een gebruiker"
+                                        data-kt-select-search-placeholder="Zoek op naam of e-mail…"
+                                        data-kt-select-dropdown-strategy="fixed"
+                                        data-kt-select-config='{"placeholder":"Selecteer een gebruiker","searchPlaceholder":"Zoek op naam of e-mail…","height":256,"dropdownStrategy":"fixed","dropdownWidth":"28rem","dropdownZindex":200,"closeOnEnter":true}'
+                                        aria-label="Kies bestaande gebruiker"
+                                        @if($manualMode) disabled @endif
+                                    >
                                         <option value="">— Selecteer —</option>
                                         @foreach(($tenantUsers ?? collect()) as $tenantUser)
                                             @php
@@ -290,15 +313,7 @@
                                     @error('email')
                                         <p class="text-xs text-danger mt-1.5 mb-0">{{ $message }}</p>
                                     @enderror
-                                </td>
-                            </tr>
-                            <tr class="portal-manual-fields" @if(! $manualMode) hidden @endif>
-                                <td class="text-secondary-foreground font-normal">Wachtwoord <span class="text-danger">*</span></td>
-                                <td>
-                                    <input id="portal-password" type="password" name="password" class="kt-input w-full" autocomplete="new-password" placeholder="Minimaal 8 tekens" maxlength="100" @if(! $manualMode) disabled @endif>
-                                    @error('password')
-                                        <p class="text-xs text-danger mt-1.5 mb-0">{{ $message }}</p>
-                                    @enderror
+                                    <p class="text-xs text-muted-foreground mt-1.5 mb-0">Er gaat een welkomstmail uit zonder wachtwoord. De gebruiker vraagt in het contractportaal een eenmalige inlogcode aan.</p>
                                 </td>
                             </tr>
                             <tr>
@@ -553,17 +568,194 @@
         white-space: nowrap;
     }
 
-    /* Zelfde lijnkleur als .kt-card-header (divide-y gebruikt border-bottom) */
-    #content .portal-users-stack.divide-y > :not(:last-child) {
-        border-bottom-style: solid !important;
-        border-bottom-width: 1px !important;
-        border-bottom-color: var(--border) !important;
+    /* Portaalgebruiker-kaarten: tint, ronde hoeken, inklapbaar */
+    #content .portal-user-block {
+        background-color: color-mix(in srgb, var(--muted) 72%, var(--background));
+        border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+    }
+    html.dark #content .portal-user-block,
+    .dark #content .portal-user-block {
+        background-color: color-mix(in srgb, var(--muted) 38%, #0b1220);
+    }
+    #content .portal-user-block-toggle {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        border-radius: 0.75rem;
+        width: 100%;
+    }
+    #content .portal-user-block:not(.portal-user-block--collapsed) .portal-user-block-toggle {
+        border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+        border-radius: 0.75rem 0.75rem 0 0;
+    }
+    #content .portal-user-block-toggle:hover {
+        color: var(--color-primary, #3b82f6);
+    }
+    #content .portal-user-block-chevron i {
+        display: inline-block;
+        transition: transform 0.15s ease;
+    }
+    #content .portal-user-block:not(.portal-user-block--collapsed) .portal-user-block-chevron i {
+        transform: rotate(180deg);
+    }
+    #content .portal-user-block--collapsed .portal-user-block-body {
+        display: none !important;
     }
 
     /* Voorkom dat admin-table CSS [hidden] overschrijft */
     #content #portal-user-add-form tr.portal-manual-fields[hidden],
     #content #portal-user-add-form tr.portal-existing-fields[hidden] {
         display: none !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper,
+    .kt-select-wrapper:has(#portal-existing-user) {
+        width: fit-content !important;
+        max-width: 100%;
+        position: relative !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-display,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-display],
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-display,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-display] {
+        width: max-content !important;
+        max-width: 100%;
+    }
+
+    /* Niet position forceren: Popper zet absolute/fixed. min-width:100% is bij
+       position:fixed de viewportbreedte — daarom een vaste, compacte breedte. */
+    #portal-existing-user + .kt-select-wrapper .kt-select-dropdown,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-dropdown],
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-dropdown,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-dropdown] {
+        width: min(28rem, calc(100vw - 2.5rem)) !important;
+        min-width: 16rem !important;
+        max-width: min(28rem, calc(100vw - 2.5rem)) !important;
+        z-index: 200 !important;
+        box-sizing: border-box !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-dropdown:not(.open),
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-dropdown]:not(.open),
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-dropdown:not(.open),
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-dropdown]:not(.open) {
+        display: none !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        opacity: 0 !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-dropdown.open,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-dropdown].open,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-dropdown.open,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-dropdown].open {
+        display: flex !important;
+        flex-direction: column !important;
+        max-height: min(16rem, 50vh) !important;
+        overflow: hidden !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        height: auto !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-options,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options],
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options] {
+        flex: 1 1 auto;
+        min-height: 0 !important;
+        max-height: min(14rem, 45vh) !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--muted-foreground) 50%, transparent) var(--popover);
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-options::-webkit-scrollbar,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options]::-webkit-scrollbar,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options::-webkit-scrollbar,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options]::-webkit-scrollbar {
+        width: 0.5rem;
+        height: 0.5rem;
+        background: transparent;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-options::-webkit-scrollbar-track,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options]::-webkit-scrollbar-track,
+    #portal-existing-user + .kt-select-wrapper .kt-select-options::-webkit-scrollbar-track-piece,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options]::-webkit-scrollbar-track-piece,
+    #portal-existing-user + .kt-select-wrapper .kt-select-options::-webkit-scrollbar-corner,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options]::-webkit-scrollbar-corner,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options::-webkit-scrollbar-track,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options]::-webkit-scrollbar-track,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options::-webkit-scrollbar-track-piece,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options]::-webkit-scrollbar-track-piece,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options::-webkit-scrollbar-corner,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options]::-webkit-scrollbar-corner {
+        background: var(--popover, transparent) !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-options::-webkit-scrollbar-thumb,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options]::-webkit-scrollbar-thumb,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options::-webkit-scrollbar-thumb,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options]::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+        border-radius: 9999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-options::-webkit-scrollbar-thumb:hover,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-options]::-webkit-scrollbar-thumb:hover,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-options::-webkit-scrollbar-thumb:hover,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-options]::-webkit-scrollbar-thumb:hover {
+        background-color: color-mix(in srgb, var(--muted-foreground) 65%, transparent);
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-option,
+    #portal-existing-user + .kt-select-wrapper [data-kt-select-option],
+    #portal-existing-user + .kt-select-wrapper .kt-select-option-text,
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-option,
+    .kt-select-wrapper:has(#portal-existing-user) [data-kt-select-option],
+    .kt-select-wrapper:has(#portal-existing-user) .kt-select-option-text {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        word-break: normal !important;
+        word-wrap: normal !important;
+    }
+
+    #content .kt-card:has(#portal-user-add-form) > .kt-card-content {
+        overflow: visible !important;
+    }
+
+    #portal-existing-user + .kt-select-wrapper .kt-select-search,
+    #portal-existing-user + .kt-select-wrapper .kt-select-search .kt-input,
+    #portal-user-add-form input[data-kt-select-search] {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        padding-inline: 0.75rem !important;
     }
 </style>
 @endpush
@@ -596,7 +788,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var firstNameInput = document.getElementById('portal-first-name');
     var lastNameInput = document.getElementById('portal-last-name');
     var emailInput = document.getElementById('portal-email');
-    var passwordInput = document.getElementById('portal-password');
+    var passwordInput = null;
     var manualRows = document.querySelectorAll('#portal-user-add-form .portal-manual-fields');
     var existingRows = document.querySelectorAll('#portal-user-add-form .portal-existing-fields');
 
@@ -606,6 +798,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         el.disabled = !enabled;
         el.required = false;
+
+        var wrapper = el.closest('[data-kt-select-wrapper], .kt-select-wrapper');
+        if (!wrapper) {
+            return;
+        }
+        wrapper.classList.toggle('pointer-events-none', !enabled);
+        wrapper.classList.toggle('opacity-60', !enabled);
+        wrapper.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+        var display = wrapper.querySelector('[data-kt-select-display]');
+        if (display) {
+            if (enabled) {
+                display.removeAttribute('tabindex');
+            } else {
+                display.setAttribute('tabindex', '-1');
+            }
+        }
     }
 
     function syncPortalUserMode() {
@@ -636,6 +844,59 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     syncPortalUserMode();
 
+    function portalExistingUserWrapper() {
+        if (!existingSelect) {
+            return null;
+        }
+        if (existingSelect.nextElementSibling && existingSelect.nextElementSibling.classList.contains('kt-select-wrapper')) {
+            return existingSelect.nextElementSibling;
+        }
+        return existingSelect.closest('.kt-select-wrapper');
+    }
+
+    function closePortalExistingUserDropdown() {
+        if (!existingSelect) {
+            return;
+        }
+        if (typeof window.KTSelect !== 'undefined' && typeof window.KTSelect.getInstance === 'function') {
+            var instance = window.KTSelect.getInstance(existingSelect);
+            if (instance && typeof instance.closeDropdown === 'function') {
+                instance.closeDropdown();
+            }
+        }
+        var wrapper = portalExistingUserWrapper();
+        if (!wrapper) {
+            return;
+        }
+        var dropdown = wrapper.querySelector('.kt-select-dropdown, [data-kt-select-dropdown]');
+        if (dropdown) {
+            dropdown.classList.remove('open');
+            dropdown.classList.add('hidden');
+            dropdown.style.display = 'none';
+            dropdown.style.opacity = '0';
+            dropdown.style.visibility = 'hidden';
+        }
+        var display = wrapper.querySelector('.kt-select-display, [data-kt-select-display]');
+        if (display) {
+            display.classList.remove('active');
+            display.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    if (existingSelect) {
+        existingSelect.addEventListener('change', closePortalExistingUserDropdown);
+        var existingWrapper = portalExistingUserWrapper();
+        if (existingWrapper) {
+            existingWrapper.addEventListener('change', closePortalExistingUserDropdown);
+            existingWrapper.addEventListener('click', function(event) {
+                if (!event.target.closest('[data-kt-select-option]')) {
+                    return;
+                }
+                window.setTimeout(closePortalExistingUserDropdown, 0);
+            });
+        }
+    }
+
     var addForm = document.getElementById('portal-user-add-form');
     if (addForm) {
         addForm.addEventListener('submit', function(e) {
@@ -654,10 +915,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (!emailInput || !String(emailInput.value || '').trim()) {
                     messages.push('E-mailadres is verplicht.');
-                }
-                var pw = passwordInput ? String(passwordInput.value || '') : '';
-                if (pw.length < 8) {
-                    messages.push('Wachtwoord moet minimaal 8 tekens zijn.');
                 }
             }
 
@@ -683,6 +940,37 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    document.querySelectorAll('[data-portal-user-block]').forEach(function(block) {
+        var toggle = block.querySelector('.portal-user-block-toggle');
+        if (!toggle) {
+            return;
+        }
+        toggle.addEventListener('click', function() {
+            var collapsed = block.classList.toggle('portal-user-block--collapsed');
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        });
+    });
+
+    document.querySelectorAll('.portal-users-stack select[name="portal_role"]').forEach(function(select) {
+        select.addEventListener('change', function() {
+            if (select.value !== 'contractant') {
+                return;
+            }
+            var form = select.closest('form');
+            if (!form) {
+                return;
+            }
+            form.querySelectorAll('input[name="passenger_ids[]"]').forEach(function(cb) {
+                cb.checked = true;
+            });
+            var selectAll = form.querySelector('.portal-passenger-select-all');
+            if (selectAll) {
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
+            }
+        });
+    });
 
     document.querySelectorAll('[data-portal-passengers]').forEach(function(picker) {
         var selectAll = picker.querySelector('.portal-passenger-select-all');

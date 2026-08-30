@@ -11,6 +11,9 @@ use App\Models\PlatformPaymentMandate;
 use App\Services\PlatformBilling\PlatformBillingService;
 use App\Services\PlatformBilling\PlatformInvoicePdfService;
 use App\Services\PlatformBilling\PlatformMollieRequestBuilder;
+use App\Services\PlatformBilling\TenantBillingAccessService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
+use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +25,12 @@ class AdminCompanyBillingProfileController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        $filterCompanyId = app(AdminTenantScope::class)->optionalFilterTenantId($request);
         $query = Company::query()->where('is_active', true);
+
+        if ($filterCompanyId) {
+            $query->where('id', $filterCompanyId);
+        }
 
         if ($request->filled('search')) {
             $search = $request->string('search')->trim()->toString();
@@ -74,7 +82,15 @@ class AdminCompanyBillingProfileController extends Controller
             ->get()
             ->keyBy('company_id');
 
-        return view('admin.platform-billing.tenants.index', compact('companies', 'profiles', 'mandates'));
+        $tenantOptions = Company::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+
+        return view('admin.platform-billing.tenants.index', compact(
+            'companies',
+            'profiles',
+            'mandates',
+            'tenantOptions',
+            'filterCompanyId',
+        ));
     }
 
     public function edit(Company $company, PlatformBillingService $billing, PlatformMollieRequestBuilder $mollieRequests): View
@@ -85,7 +101,8 @@ class AdminCompanyBillingProfileController extends Controller
             ['billing_mode' => CompanyBillingProfile::MODE_PACKAGE, 'extra_lines_one_time' => true]
         );
         $profile->load(['package', 'lineItems', 'company']);
-        $packages = PlatformBillingPackage::query()->where('is_active', true)->orderBy('sort_order')->get();
+        app(TenantSubscriptionService::class)->syncPlatformPackagesFromPricing();
+        $packages = PlatformBillingPackage::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $catalogLineItems = PlatformBillingLineItem::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $mandate = PlatformPaymentMandate::query()->where('company_id', $company->id)->first();
         $invoicePreview = $this->buildInvoicePreviewData($company, $profile, $billing);
@@ -102,7 +119,7 @@ class AdminCompanyBillingProfileController extends Controller
         ));
     }
 
-    public function update(Request $request, Company $company): RedirectResponse
+    public function update(Request $request, Company $company, TenantBillingAccessService $access): RedirectResponse
     {
         $this->ensureSuperAdmin();
         $request->merge([
@@ -120,6 +137,8 @@ class AdminCompanyBillingProfileController extends Controller
             'billing_email' => 'nullable|email|max:255',
             'billing_contact_name' => 'nullable|string|max:255',
             'auto_collect_enabled' => 'sometimes|boolean',
+            'overdue_block_mode' => 'required|in:bookings,full',
+            'access_restriction' => 'required|in:none,bookings,full',
             'notes' => 'nullable|string|max:5000',
             'extra_lines_one_time' => 'sometimes|boolean',
             'platform_billing_line_item_ids' => 'nullable|array',
@@ -148,6 +167,7 @@ class AdminCompanyBillingProfileController extends Controller
             'billing_contact_name' => $validated['billing_contact_name'] ?? null,
             'notes' => $validated['notes'] ?? null,
             'auto_collect_enabled' => $request->boolean('auto_collect_enabled'),
+            'overdue_block_mode' => $validated['overdue_block_mode'],
             'extra_lines_one_time' => $request->boolean('extra_lines_one_time'),
             'platform_billing_package_id' => $validated['billing_mode'] === 'package'
                 ? ($validated['platform_billing_package_id'] ?? null)
@@ -163,6 +183,17 @@ class AdminCompanyBillingProfileController extends Controller
 
         $profile->save();
         $profile->lineItems()->sync($selectedLineItemIds->all());
+
+        $desiredRestriction = $validated['access_restriction'];
+        $currentRestriction = in_array($profile->access_restriction, [TenantBillingAccessService::BOOKINGS, TenantBillingAccessService::FULL], true)
+            ? $profile->access_restriction
+            : TenantBillingAccessService::NONE;
+        if ($desiredRestriction === TenantBillingAccessService::NONE && $currentRestriction !== TenantBillingAccessService::NONE) {
+            $access->clearRestriction($profile, waiveOverdueBlocks: true);
+        } elseif (in_array($desiredRestriction, [TenantBillingAccessService::BOOKINGS, TenantBillingAccessService::FULL], true)
+            && $desiredRestriction !== $currentRestriction) {
+            $access->applyRestriction($profile, $desiredRestriction, TenantBillingAccessService::SOURCE_MANUAL);
+        }
 
         return redirect()->route('admin.platform-billing.tenants.edit', $company)
             ->with('success', 'Tenant-facturatie opgeslagen.');

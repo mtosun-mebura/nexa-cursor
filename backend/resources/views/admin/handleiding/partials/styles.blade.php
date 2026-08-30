@@ -75,8 +75,4 @@
         color: var(--primary);
         font-weight: 600;
     }
-    @media (max-width: 1023px) {
-        .handleiding-layout-aside { order: 2; }
-        .handleiding-layout-main { order: 1; }
-    }
 </style>

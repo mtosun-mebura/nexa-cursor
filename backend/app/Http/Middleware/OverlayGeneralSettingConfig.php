@@ -17,16 +17,20 @@ class OverlayGeneralSettingConfig
         if (! app()->bound('mail_config_overlay_applied')) {
             try {
                 $mail = app(EnvService::class)->getMailOverlayValues();
+                $env = app(EnvService::class);
+                $encryption = $mail['MAIL_ENCRYPTION'] ?? 'tls';
+                $port = $mail['MAIL_PORT'] ?? config('mail.mailers.smtp.port');
 
                 config([
                     'mail.default' => $mail['MAIL_MAILER'] ?? config('mail.default'),
                     'mail.from.address' => $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address'),
                     'mail.from.name' => $mail['MAIL_FROM_NAME'] ?? config('mail.from.name'),
                     'mail.mailers.smtp.host' => $mail['MAIL_HOST'] ?? config('mail.mailers.smtp.host'),
-                    'mail.mailers.smtp.port' => $mail['MAIL_PORT'] ?? config('mail.mailers.smtp.port'),
+                    'mail.mailers.smtp.port' => $port,
                     'mail.mailers.smtp.username' => $mail['MAIL_USERNAME'] ?? config('mail.mailers.smtp.username'),
                     'mail.mailers.smtp.password' => $mail['MAIL_PASSWORD'] ?? config('mail.mailers.smtp.password'),
-                    'mail.mailers.smtp.encryption' => $mail['MAIL_ENCRYPTION'] ?? 'tls',
+                    'mail.mailers.smtp.scheme' => $env->smtpSchemeForEncryption($encryption, $port),
+                    'mail.mailers.smtp.encryption' => $encryption === 'null' || $encryption === '' ? null : $encryption,
                 ]);
             } catch (\Throwable $e) {
                 report($e);

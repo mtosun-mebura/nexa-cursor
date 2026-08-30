@@ -90,4 +90,85 @@ class AdminTenantScopeTest extends TestCase
     {
         $this->assertTrue(\App\Models\GeneralSetting::isGlobalPlatformKey('nexa_release_version'));
     }
+
+    public function test_super_admin_without_tenant_can_manage_frontend_themes(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/frontend-themes', 'admin.frontend-themes.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_super_admin_without_tenant_can_view_frontend_components(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/frontend-components', 'admin.frontend-components.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_super_admin_without_tenant_can_manage_newsletters(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/newsletters', 'admin.newsletters.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_super_admin_without_tenant_can_manage_email_templates(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/email-templates', 'admin.email-templates.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_super_admin_without_tenant_can_manage_saas_platform_billing(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/platform-billing/invoices', 'admin.platform-billing.invoices.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_optional_filter_prefers_query_over_sidebar_tenant(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        session(['selected_tenant' => 9]);
+
+        $request = Request::create('/admin/platform-billing/invoices', 'GET', ['company_id' => '4']);
+        $this->assertSame(4, app(AdminTenantScope::class)->optionalFilterTenantId($request));
+
+        $cleared = Request::create('/admin/platform-billing/invoices', 'GET', ['company_id' => '']);
+        $this->assertNull(app(AdminTenantScope::class)->optionalFilterTenantId($cleared));
+
+        $fromSidebar = Request::create('/admin/platform-billing/invoices', 'GET');
+        $this->assertSame(9, app(AdminTenantScope::class)->optionalFilterTenantId($fromSidebar));
+    }
 }

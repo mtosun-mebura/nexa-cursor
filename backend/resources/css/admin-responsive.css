@@ -108,7 +108,7 @@ body.dark #header [data-ai-chat-toggle] svg,
         color: #fff;
     }
 
-    /* Drawer boven vaste header, tenant-switcher niet meer verborgen */
+    /* Drawer boven vaste header; logo-rij verborgen (staat al in topbar), tenant-switcher blijft zichtbaar */
     .kt-drawer-backdrop {
         z-index: 10040 !important;
     }
@@ -126,16 +126,13 @@ body.dark #header [data-ai-chat-toggle] svg,
     }
 
     #sidebar .kt-sidebar-content {
-        padding-top: 1rem;
+        padding-top: 0.25rem;
     }
 
     #sidebar .tenant-switcher {
         position: relative;
         z-index: 2;
-    }
-
-    #sidebar #sidebar_menu > .tenant-switcher {
-        margin-top: 0;
+        padding-top: 0.75rem;
     }
 
     #sidebar .tenant-toggle-icon {
@@ -1230,6 +1227,39 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 
 #admin-notification-form .admin-form-field-wrap.admin-form-field-datetime .kt-input:has(input[type="time"]) {
     max-width: 7.5rem;
+}
+
+/* Gebruiker create/edit: velden met vaste max-breedte, geen horizontale scroll */
+#admin-user-form .kt-card-table {
+    overflow-x: visible;
+}
+#admin-user-form .wizard-onboarding-form-table input.kt-input:not(#user-create-password),
+#admin-user-form .wizard-onboarding-form-table input[type="text"]:not([data-kt-date-picker]),
+#admin-user-form .wizard-onboarding-form-table input[type="email"],
+#admin-user-form .wizard-onboarding-form-table input[type="tel"],
+#admin-user-form .wizard-onboarding-form-table select.kt-input,
+#admin-user-form #user-function-row .relative,
+#admin-user-form .wizard-onboarding-form-table .kt-select,
+#admin-user-form .wizard-onboarding-form-table [data-kt-select],
+#admin-user-form .wizard-onboarding-form-table [data-kt-select-display],
+#admin-user-form .wizard-onboarding-form-table td > .relative {
+    width: 100%;
+    max-width: 28rem;
+}
+#admin-user-form #user-create-password-row .user-create-password-fields,
+#admin-user-form #user-create-password-row .flex.items-center {
+    width: 100%;
+    max-width: 28rem;
+}
+#admin-user-form #user-create-password {
+    width: auto;
+    max-width: none;
+    flex: 1 1 0%;
+    min-width: 0;
+}
+#admin-user-form [data-required-checkbox-group="roles"] {
+    max-width: 36rem;
+    row-gap: 0.5rem;
 }
 
 #content form label:has(.kt-switch) {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ProcessPlatformBillingJob;
+use App\Jobs\ProcessPlatformDunningJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
@@ -61,6 +62,11 @@ Schedule::job(new GenerateContractInvoicesJob)
 Schedule::job(new ProcessPlatformBillingJob)
     ->hourly()
     ->name('platform-billing-monthly')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessPlatformDunningJob)
+    ->dailyAt('06:00')
+    ->name('platform-billing-dunning')
     ->withoutOverlapping();
 
 Schedule::command('database:backup-scheduled')

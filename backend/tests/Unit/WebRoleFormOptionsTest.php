@@ -44,4 +44,12 @@ class WebRoleFormOptionsTest extends TestCase
         $this->assertSame(1, $result->firstWhere('name', 'klant')?->id);
         $this->assertSame(4, $result->firstWhere('name', 'chauffeur')?->id);
     }
+
+    #[Test]
+    public function test_is_selected_is_case_insensitive(): void
+    {
+        $this->assertTrue(WebRoleFormOptions::isSelected('chauffeur', ['Chauffeur']));
+        $this->assertTrue(WebRoleFormOptions::isSelected('Chauffeur', ['chauffeur']));
+        $this->assertFalse(WebRoleFormOptions::isSelected('chauffeur', ['company-admin']));
+    }
 }

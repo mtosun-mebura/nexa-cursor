@@ -97,6 +97,7 @@ class CentralContactPageTest extends TestCase
         $html = (string) $messages->last()->getOriginalMessage()->getHtmlBody();
         $this->assertStringContainsString('Start', $html);
         $this->assertStringContainsString('Pakket', $html);
+        $this->assertStringNotContainsString(EmailTemplateService::TEMPLATE_SAMPLE_NOTICE, $html);
     }
 
     #[Test]

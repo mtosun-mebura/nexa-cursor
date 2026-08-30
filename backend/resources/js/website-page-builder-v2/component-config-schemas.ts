@@ -181,7 +181,7 @@ const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
           { value: 'overige_kosten', label: 'Overige kosten' },
         ]},
         { type: 'text', key: 'title', label: 'Titel' },
-        { type: 'text', key: 'image_url', label: 'Afbeelding URL' },
+        { type: 'image', key: 'image_url', label: 'Afbeelding' },
         { type: 'number', key: 'vehicle_id', label: 'Voertuig ID', min: 0, step: 1 },
       ],
     },
@@ -191,6 +191,14 @@ const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
     { type: 'text', key: 'eyebrow', label: 'Boventitel' },
     { type: 'text', key: 'title', label: 'Titel' },
     { type: 'text', key: 'subtitle', label: 'Subtitel' },
+    {
+      type: 'select',
+      key: 'width_percent',
+      label: 'Blokbreedte',
+      options: sectionWidthPercentOptions,
+      defaultValue: '100',
+      hint: 'Breedte van dit blok ten opzichte van de pagina. 100% is volle breedte.',
+    },
     {
       type: 'item-list',
       key: 'items',
@@ -202,7 +210,7 @@ const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
         { type: 'text', key: 'name', label: 'Naam' },
         { type: 'wysiwyg', key: 'description', label: 'Beschrijving', placeholder: 'Beschrijving…' },
         { type: 'text', key: 'badge', label: 'Badge' },
-        { type: 'text', key: 'icon', label: 'Icoon (heroicon-id)' },
+        { type: 'heroicon', key: 'icon', label: 'Icoon' },
         { type: 'text', key: 'url', label: 'Link (optioneel)', placeholder: '/taxi' },
         { type: 'textarea', key: 'features_text', label: 'Features (1 per regel)', rows: 3 },
       ],
@@ -379,6 +387,337 @@ COMPONENT_SCHEMAS['component:website.comparison_table'] = [
 ]
 
 COMPONENT_SCHEMAS['component:taxiroyaal.tarieven'] = COMPONENT_SCHEMAS['component:taxi.tarieven']
+
+COMPONENT_SCHEMAS['component:landwind.faq'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Vragen',
+    minItems: 1,
+    maxItems: 16,
+    itemLabel: 'Vraag',
+    fields: [
+      { type: 'text', key: 'question', label: 'Vraag' },
+      { type: 'textarea', key: 'answer', label: 'Antwoord', rows: 3 },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:landwind.trusted_by'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Merken',
+    minItems: 1,
+    maxItems: 16,
+    itemLabel: 'Merk',
+    fields: [
+      { type: 'image', key: 'image_url', label: 'Logo' },
+      { type: 'text', key: 'name', label: 'Naam' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:play.team'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Teamleden',
+    minItems: 1,
+    maxItems: 12,
+    itemLabel: 'Lid',
+    fields: [
+      { type: 'image', key: 'image_url', label: 'Foto' },
+      { type: 'text', key: 'name', label: 'Naam' },
+      { type: 'text', key: 'role', label: 'Rol' },
+      { type: 'text', key: 'initials', label: 'Initialen (als er geen foto is)' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:play.video_spotlight'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  { type: 'image', key: 'image_url', label: 'Poster / still' },
+  { type: 'video', key: 'video_url', label: 'Video', hint: 'Sleep een MP4/WebM, of plak een YouTube- of Vimeo-link.' },
+  { type: 'text', key: 'cta_label', label: 'Overlay-tekst' },
+]
+
+COMPONENT_SCHEMAS['component:vue_material.elevated_cards'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Kaarten',
+    minItems: 1,
+    maxItems: 8,
+    itemLabel: 'Kaart',
+    fields: [
+      { type: 'image', key: 'image_url', label: 'Afbeelding (optioneel)' },
+      { type: 'text', key: 'title', label: 'Titel' },
+      { type: 'textarea', key: 'text', label: 'Tekst', rows: 3 },
+      { type: 'color', key: 'accent', label: 'Accentkleur', defaultValue: '#e91e63' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:vue_material.quote_cards'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Quotes',
+    minItems: 1,
+    maxItems: 8,
+    itemLabel: 'Quote',
+    fields: [
+      { type: 'image', key: 'image_url', label: 'Foto auteur' },
+      { type: 'textarea', key: 'quote', label: 'Quote', rows: 3 },
+      { type: 'text', key: 'author', label: 'Naam' },
+      { type: 'text', key: 'role', label: 'Functie' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:landwind.feature_checklist'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  { type: 'image', key: 'image_url', label: 'Screenshot' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Vinkjes',
+    minItems: 1,
+    maxItems: 12,
+    itemLabel: 'Punt',
+    compact: true,
+    fields: [{ type: 'text', key: 'text', label: 'Tekst' }],
+  },
+]
+
+COMPONENT_SCHEMAS['component:landwind.stats_strip'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Cijfers',
+    minItems: 1,
+    maxItems: 8,
+    itemLabel: 'Cijfer',
+    fields: [
+      { type: 'text', key: 'value', label: 'Getal' },
+      { type: 'text', key: 'suffix', label: 'Suffix' },
+      { type: 'text', key: 'label', label: 'Label' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:play.about_overlap'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  { type: 'textarea', key: 'body', label: 'Tekst', rows: 4 },
+  { type: 'image', key: 'image_url', label: 'Foto 1' },
+  { type: 'image', key: 'image_url_2', label: 'Foto 2' },
+  { type: 'text', key: 'cta_label', label: 'Knoptekst' },
+  { type: 'text', key: 'cta_url', label: 'Knop-URL' },
+]
+
+COMPONENT_SCHEMAS['component:play.blog_preview'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Berichten',
+    minItems: 1,
+    maxItems: 9,
+    itemLabel: 'Bericht',
+    fields: [
+      { type: 'image', key: 'image_url', label: 'Foto' },
+      { type: 'text', key: 'title', label: 'Titel' },
+      { type: 'textarea', key: 'excerpt', label: 'Excerpt', rows: 2 },
+      { type: 'text', key: 'date', label: 'Datum' },
+      { type: 'text', key: 'url', label: 'Link' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:play.contact_split'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  { type: 'image', key: 'image_url', label: 'Foto (optioneel)' },
+  { type: 'text', key: 'address', label: 'Adres' },
+  { type: 'text', key: 'phone', label: 'Telefoon' },
+  { type: 'text', key: 'email', label: 'E-mail' },
+  { type: 'text', key: 'hours', label: 'Openingstijden' },
+  { type: 'text', key: 'cta_label', label: 'Knoptekst' },
+]
+
+COMPONENT_SCHEMAS['component:vue_material.stats_counters'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Tellers',
+    minItems: 1,
+    maxItems: 8,
+    itemLabel: 'Teller',
+    fields: [
+      { type: 'text', key: 'value', label: 'Getal' },
+      { type: 'text', key: 'suffix', label: 'Suffix' },
+      { type: 'text', key: 'decimals', label: 'Decimalen' },
+      { type: 'text', key: 'label', label: 'Label' },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:vue_material.info_pills'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Titel' },
+  { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Pills',
+    minItems: 1,
+    maxItems: 8,
+    itemLabel: 'Pill',
+    fields: [
+      { type: 'image', key: 'image_url', label: 'Afbeelding (optioneel)' },
+      { type: 'text', key: 'label', label: 'Pill' },
+      { type: 'text', key: 'title', label: 'Paneeltitel' },
+      { type: 'textarea', key: 'text', label: 'Tekst', rows: 3 },
+    ],
+  },
+]
+
+COMPONENT_SCHEMAS['component:vue_material.author_header'] = [
+  { type: 'text', key: 'eyebrow', label: 'Boventitel' },
+  { type: 'text', key: 'title', label: 'Naam' },
+  { type: 'text', key: 'subtitle', label: 'Functie' },
+  { type: 'image', key: 'image_url', label: 'Foto' },
+  { type: 'textarea', key: 'bio', label: 'Bio', rows: 4 },
+  {
+    type: 'item-list',
+    key: 'items',
+    label: 'Socials',
+    minItems: 0,
+    maxItems: 8,
+    itemLabel: 'Link',
+    fields: [
+      { type: 'text', key: 'label', label: 'Label' },
+      { type: 'text', key: 'url', label: 'URL' },
+    ],
+  },
+]
+
+const FIELD_LABELS: Record<string, string> = {
+  eyebrow: 'Boventitel',
+  title: 'Titel',
+  subtitle: 'Subtitel',
+  body: 'Tekst',
+  bio: 'Bio',
+  image_url: 'Afbeelding',
+  image_url_2: 'Tweede afbeelding',
+  video_url: 'Video',
+  poster_url: 'Poster',
+  cta_label: 'Knoptekst',
+  cta_url: 'Knop-URL',
+  address: 'Adres',
+  phone: 'Telefoon',
+  email: 'E-mail',
+  hours: 'Openingstijden',
+  icon: 'Icoon',
+}
+
+function humanizeFieldKey(key: string): string {
+  return FIELD_LABELS[key] ?? key.replace(/_/g, ' ')
+}
+
+function looksLikeImageKey(key: string): boolean {
+  return /(^|_)(image|photo|poster|logo|avatar|screenshot|thumb)(s|_url|_url_2|$)|image_url/i.test(key)
+}
+
+function looksLikeVideoKey(key: string): boolean {
+  return /video/i.test(key)
+}
+
+function inferScalarField(key: string, value: unknown): ConfigField {
+  if (looksLikeImageKey(key)) {
+    return { type: 'image', key, label: humanizeFieldKey(key) }
+  }
+  if (looksLikeVideoKey(key)) {
+    return { type: 'video', key, label: humanizeFieldKey(key), hint: 'Sleep een MP4/WebM, of plak een YouTube- of Vimeo-link.' }
+  }
+  if (key === 'icon' || key.endsWith('_icon')) {
+    return { type: 'heroicon', key, label: humanizeFieldKey(key) === key.replace(/_/g, ' ') ? 'Icoon' : humanizeFieldKey(key) }
+  }
+  if (typeof value === 'boolean') {
+    return { type: 'checkbox', key, label: humanizeFieldKey(key) }
+  }
+  if (typeof value === 'number') {
+    return { type: 'number', key, label: humanizeFieldKey(key) }
+  }
+  if (typeof value === 'string' && (value.length > 80 || /body|bio|text|answer|excerpt/i.test(key))) {
+    return { type: 'textarea', key, label: humanizeFieldKey(key), rows: 3 }
+  }
+  return { type: 'text', key, label: humanizeFieldKey(key) }
+}
+
+/** Fallback als een component nog geen vast schema heeft: media als drag-and-drop, lijsten met +/verwijderen. */
+export function inferConfigFieldsFromData(data: Record<string, unknown>): ConfigField[] {
+  const fields: ConfigField[] = []
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('_') || key === 'visibility') {
+      continue
+    }
+    if (Array.isArray(value)) {
+      const sample = value.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined
+      const itemFields = sample
+        ? Object.entries(sample)
+            .filter(([, itemValue]) => itemValue === null || ['string', 'number', 'boolean'].includes(typeof itemValue))
+            .map(([itemKey, itemValue]) => inferScalarField(itemKey, itemValue))
+        : [{ type: 'text' as const, key: 'text', label: 'Tekst' }]
+      fields.push({
+        type: 'item-list',
+        key,
+        label: humanizeFieldKey(key) === key.replace(/_/g, ' ') ? 'Onderdelen' : humanizeFieldKey(key),
+        minItems: 0,
+        maxItems: 16,
+        itemLabel: 'Onderdeel',
+        fields: itemFields.length > 0 ? itemFields : [{ type: 'text', key: 'text', label: 'Tekst' }],
+      })
+      continue
+    }
+    if (value !== null && typeof value === 'object') {
+      continue
+    }
+    fields.push(inferScalarField(key, value))
+  }
+  return fields
+}
 
 export function schemaForComponent(blockKey: string): ConfigField[] {
   if (COMPONENT_SCHEMAS[blockKey]) {

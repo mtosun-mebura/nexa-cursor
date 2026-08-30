@@ -172,6 +172,103 @@ class WebsitePageCrudAndPreviewTest extends TestCase
     }
 
     #[Test]
+    public function website_pages_create_preselects_tenant_linked_module(): void
+    {
+        $tenant = Company::query()->create(['name' => 'Taxi Wizard Tenant', 'slug' => 'taxi-wizard-'.uniqid()]);
+        $module = \App\Models\Module::query()->firstOrCreate(
+            ['name' => 'taxi'],
+            [
+                'display_name' => 'Nexa Taxi',
+                'version' => '1.0.0',
+                'installed' => true,
+                'active' => true,
+            ]
+        );
+        $module->forceFill(['installed' => true, 'active' => true])->save();
+        $tenant->modules()->syncWithoutDetaching([$module->id]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $html = $this->actingAs($user)
+            ->get(route('admin.website-pages.create', [
+                'from_wizard' => 1,
+                'wizard_company' => $tenant->id,
+                'wizard_step' => 6,
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<option value="taxi"[^>]*\bselected\b/i',
+            $html
+        );
+        $this->assertStringContainsString('id="module_name_hidden" value="taxi"', $html);
+    }
+
+    #[Test]
+    public function website_page_store_allows_same_module_slug_for_another_tenant(): void
+    {
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+        $module = \App\Models\Module::query()->firstOrCreate(
+            ['name' => 'taxi'],
+            [
+                'display_name' => 'Nexa Taxi',
+                'version' => '1.0.0',
+                'installed' => true,
+                'active' => true,
+            ]
+        );
+        $module->forceFill(['installed' => true, 'active' => true])->save();
+
+        $companyA = Company::query()->create(['name' => 'Slug Tenant A', 'slug' => 'slug-a-'.uniqid(), 'is_active' => true]);
+        $companyB = Company::query()->create(['name' => 'Slug Tenant B', 'slug' => 'slug-b-'.uniqid(), 'is_active' => true]);
+        $companyA->modules()->syncWithoutDetaching([$module->id]);
+        $companyB->modules()->syncWithoutDetaching([$module->id]);
+
+        WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home A',
+            'page_type' => 'home',
+            'module_name' => 'taxi',
+            'company_id' => $companyA->id,
+            'frontend_theme_id' => $theme->id,
+            'is_active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.website-pages.store'), [
+                'slug' => 'home',
+                'title' => 'Home B',
+                'page_type' => 'home',
+                'module_name' => 'taxi',
+                'company_id' => (string) $companyB->id,
+                'from_wizard' => '1',
+                'wizard_company' => (string) $companyB->id,
+                'wizard_step' => '6',
+                'frontend_theme_id' => (string) $theme->id,
+                'is_active' => '1',
+                'sort_order' => '0',
+            ])
+            ->assertSessionDoesntHaveErrors('slug')
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('website_pages', [
+            'slug' => 'home',
+            'module_name' => 'taxi',
+            'company_id' => $companyB->id,
+            'title' => 'Home B',
+        ]);
+    }
+
+    #[Test]
     public function website_page_preview_returns_200_for_existing_page(): void
     {
         $theme = FrontendTheme::firstOrCreate(

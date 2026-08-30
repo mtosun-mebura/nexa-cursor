@@ -320,7 +320,7 @@
                                 @php
                                     $themeSlug = $page->theme?->slug ?? 'modern';
                                     $sectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug);
-                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null);
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null, $tenantThemeSlug ?? null);
                                 @endphp
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $sectionTypes, 'availableComponents' => $availableComponents])
                             </div>

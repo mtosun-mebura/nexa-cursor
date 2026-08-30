@@ -40,9 +40,15 @@ class TaxiContractHandleidingTest extends TestCase
             ->assertSee('Handleiding contract', false)
             ->assertSee('1. App op je telefoon', false)
             ->assertSee('Inloggen', false)
+            ->assertSee('Inlogcode aanvragen', false)
             ->assertSee('Vandaag', false)
             ->assertSee('Planning', false)
             ->assertSee('Afmelden', false)
+            ->assertSee('Navigatie', false)
+            ->assertSee('Start navigatie', false)
+            ->assertSee('tussenstops', false)
+            ->assertSee('Google Maps', false)
+            ->assertSee('vijf tabbladen', false)
             ->assertSee('Tabbladen onderin', false)
             ->assertSee('feature-contract-vandaag.png', false)
             ->assertSee('feature-contract-vandaag-ouder.png', false)
@@ -51,6 +57,8 @@ class TaxiContractHandleidingTest extends TestCase
             ->assertSee('Ouder: één reiziger', false)
             ->assertSee('bestemming bereikt', false)
             ->assertSee('feature-contract-planning.png', false)
+            ->assertSee('eerst de naam, daaronder Ophalen', false)
+            ->assertSee('feature-contract-navigatie-map.png', false)
             ->assertSee('class="guide-zoom"', false)
             ->assertSee('Tik om te vergroten', false)
             ->assertSee('Terug naar de contract-app', false);
@@ -68,6 +76,9 @@ class TaxiContractHandleidingTest extends TestCase
             'faviconType' => 'image/x-icon',
         ])->render();
 
+        $this->assertStringContainsString('data-main-tab="navigation"', $html);
+        $this->assertStringContainsString('id="btn-start-navigation"', $html);
+        $this->assertStringContainsString('Inlogcode aanvragen', $html);
         $this->assertStringContainsString('id="guide-hint"', $html);
         $this->assertStringContainsString('Na wegklikken vind je die altijd terug onder', $html);
         $this->assertStringContainsString('profile-guide-link', $html);

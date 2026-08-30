@@ -41,7 +41,7 @@
 
             @php
                 $s = $frontend_theme->settings ?? [];
-                $isNewTheme = in_array($frontend_theme->slug, ['atom-v2', 'nextly-template', 'next-landing-vpn'], true);
+                $isNewTheme = in_array($frontend_theme->slug, \App\Models\FrontendTheme::PACKAGED_SOURCE_SLUGS, true);
             @endphp
 
             @if($isNewTheme)

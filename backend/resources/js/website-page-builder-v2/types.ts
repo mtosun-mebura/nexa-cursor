@@ -9,6 +9,8 @@ export type ComponentCatalogItem = {
   description: string
   moduleName: string
   sectionKey: string
+  themeName?: string
+  themeSlug?: string
 }
 
 export type PaletteDragPayload =
@@ -19,6 +21,12 @@ export type EmailTemplateOption = {
   id: number
   name: string
   type: string
+}
+
+export type HeroiconOption = {
+  id: string
+  label: string
+  svg: string
 }
 
 export type PageMetaForm = {
@@ -106,6 +114,7 @@ export type BuilderBootstrap = {
   siteBrandingLogoUrl: string
   wizardBackUrl: string | null
   emailTemplates: EmailTemplateOption[]
+  heroicons: HeroiconOption[]
 }
 
 export type CanvasBlock = {

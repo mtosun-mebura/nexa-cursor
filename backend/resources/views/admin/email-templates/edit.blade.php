@@ -222,6 +222,12 @@
                             <p class="mb-0">Verstuurd na boeking met &quot;Account aanmaken&quot; of wanneer een klant op de loginpagina een nieuwe code aanvraagt. Belangrijkste variabelen: {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }} (6 cijfers), {{ '{' }}{{ '{' }} LOGIN_URL {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} CODE_EXPIRES_MINUTES {{ '}' }}{{ '}' }} (ingevuld vanuit <a href="{{ route('admin.taxi.dispatch_settings.edit') }}" class="text-primary underline">Chauffeur dispatch → Mijn Taxi – klant inlogcode</a>), {{ '{' }}{{ '{' }} USER_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }} (bij algemeen template: logo van de tenant waarvoor de mail wordt verstuurd). Maak per tenant een eigen versie door een template met uw bedrijf te koppelen; die heeft voorrang op het algemene template.</p>
                         </div>
                         @endif
+                        @if($emailTemplate->type === 'tenant_welcome')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-2 text-foreground font-medium">Welkomstmail tenant</p>
+                            <p class="mb-0">Plaats {{ '{' }}{{ '{' }} NEXA_LOGO {{ '}' }}{{ '}' }} linksboven in de kop voor het Nexa-logo. {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }} is het logo van de tenant. Knoptekst (zoals &quot;Open de admin&quot;) het beste in een &lt;span style=&quot;color:#ffffff&quot;&gt; zetten, zodat die in de preview en in e-mailclients leesbaar blijft.</p>
+                        </div>
+                        @endif
                         @if($emailTemplate->type === 'invoice')
                         <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
                             <p class="mb-2 text-foreground font-medium">Factuur: <code>{{ '{' }}{{ '{' }} INVOICE_AMOUNTS_HTML {{ '}' }}{{ '}' }}</code></p>

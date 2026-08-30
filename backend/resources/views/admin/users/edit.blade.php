@@ -15,7 +15,7 @@
         </a>
     </div>
 
-    <form action="{{ route('admin.users.update', $user) }}" method="POST"  data-validate="true" novalidate>
+    <form id="admin-user-form" action="{{ route('admin.users.update', $user) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -30,13 +30,13 @@
                     </h3>
                 </div>
                 <div class="kt-card-content p-0 sm:p-0">
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3 px-3 sm:px-5">
+                    <div class="kt-card-table pb-3 px-3 sm:px-5">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
+                            <td class="min-w-40 text-secondary-foreground font-normal">
                                 Voornaam *
                             </td>
-                            <td class="min-w-48 w-full">
+                            <td>
                                 <input type="text" 
                                        class="kt-input @error('first_name') border-destructive @enderror" 
                                        name="first_name" 
@@ -62,7 +62,7 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr id="user-function-row" @class(['hidden' => ! ($showFunctionField ?? false)])>
                             <td class="text-secondary-foreground font-normal">
                                 Functie
                             </td>
@@ -74,7 +74,8 @@
                                            name="function" 
                                            value="{{ old('function', $user->function) }}"
                                            autocomplete="off"
-                                           placeholder="Type om te zoeken...">
+                                           placeholder="Type om te zoeken..."
+                                           @disabled(! $showFunctionField)>
                                     <div id="function-suggestions" class="hidden absolute left-0 top-full z-[9999] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto w-full mt-1" style="min-width: 100%;"></div>
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">Type om te zoeken of voer een eigen functie in</div>
@@ -200,13 +201,13 @@
                     </h3>
                 </div>
                 <div class="kt-card-content p-0 sm:p-0">
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3 px-3 sm:px-5">
+                    <div class="kt-card-table pb-3 px-3 sm:px-5">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
+                            <td class="min-w-40 text-secondary-foreground font-normal align-top pt-4">
                                 Rollen *
                             </td>
-                            <td class="min-w-48 w-full pt-4">
+                            <td class="pt-4">
                                 @include('admin.users.partials.role-checkboxes', [
                                     'roles' => $roles,
                                     'selectedRoles' => old('roles', $user->webRoleNames()),
@@ -223,7 +224,7 @@
                                             name="company_id">
                                         <option value="">-- Geen bedrijf --</option>
                                         @foreach($companies as $company)
-                                            <option value="{{ $company->id }}" {{ old('company_id', $user->company_id) == $company->id ? 'selected' : '' }}>
+                                            <option value="{{ $company->id }}" {{ old('company_id', $user->company_id) == $company->id ? 'selected' : '' }} data-skillmatching="{{ in_array((int) $company->id, array_map('intval', $skillmatchingCompanyIds ?? []), true) ? '1' : '0' }}">
                                                 {{ $company->name }}
                                             </option>
                                         @endforeach
@@ -258,11 +259,63 @@
 
 @endsection
 
+@push('styles')
+<style>
+    #admin-user-form .kt-card-table {
+        overflow-x: visible;
+    }
+    #admin-user-form .wizard-onboarding-form-table input.kt-input:not(#user-create-password),
+    #admin-user-form .wizard-onboarding-form-table input[type="text"]:not([data-kt-date-picker]),
+    #admin-user-form .wizard-onboarding-form-table input[type="email"],
+    #admin-user-form .wizard-onboarding-form-table input[type="password"],
+    #admin-user-form .wizard-onboarding-form-table input[type="tel"],
+    #admin-user-form .wizard-onboarding-form-table select.kt-input,
+    #admin-user-form #user-function-row .relative,
+    #admin-user-form .wizard-onboarding-form-table .kt-select,
+    #admin-user-form .wizard-onboarding-form-table [data-kt-select],
+    #admin-user-form .wizard-onboarding-form-table [data-kt-select-display],
+    #admin-user-form .wizard-onboarding-form-table td > .relative {
+        width: 100%;
+        max-width: 28rem;
+    }
+    #admin-user-form [data-required-checkbox-group="roles"] {
+        max-width: 36rem;
+        row-gap: 0.5rem;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const skillmatchingCompanyIds = @json($skillmatchingCompanyIds ?? []);
+    const functionRow = document.getElementById('user-function-row');
     const functionInput = document.getElementById('function-input');
+    const companySelect = document.querySelector('select[name="company_id"]');
+    const companyHidden = document.querySelector('input[type="hidden"][name="company_id"]');
+
+    function selectedCompanyId() {
+        if (companySelect) {
+            return companySelect.value;
+        }
+        return companyHidden ? companyHidden.value : '';
+    }
+
+    function syncFunctionRow() {
+        if (!functionRow || !functionInput) {
+            return;
+        }
+        const show = skillmatchingCompanyIds.map(String).includes(String(selectedCompanyId()));
+        functionRow.classList.toggle('hidden', !show);
+        functionInput.disabled = !show;
+    }
+
+    if (companySelect) {
+        companySelect.addEventListener('change', syncFunctionRow);
+    }
+    syncFunctionRow();
+
     const suggestionsDiv = document.getElementById('function-suggestions');
     let debounceTimer;
     let selectedIndex = -1;

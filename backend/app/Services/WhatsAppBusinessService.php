@@ -253,10 +253,27 @@ class WhatsAppBusinessService
     }
 
     /**
+     * Meta Graph API: messages[0].id (wamid) van een succesvol verzonden bericht.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    public function extractOutboundMessageId(array $json): ?string
+    {
+        $id = data_get($json, 'messages.0.id');
+        if (! is_string($id)) {
+            return null;
+        }
+
+        $id = trim($id);
+
+        return $id !== '' ? $id : null;
+    }
+
+    /**
      * Goedgekeurd Meta-template (aanbevolen voor proactieve klantberichten).
      *
      * @param  list<string>  $bodyParameters  Volgorde moet overeenkomen met template in Meta Business Manager.
-     * @return array{ok: bool, error?: string, meta?: array<string, mixed>}
+     * @return array{ok: bool, wamid?: string|null, error?: string, meta?: array<string, mixed>}
      */
     public function sendTemplate(
         string $recipientE164,
@@ -319,7 +336,14 @@ class WhatsAppBusinessService
             ]);
 
         if ($response->successful()) {
-            return ['ok' => true, 'meta' => ['company_id' => $companyId, 'to' => $to, 'template' => $templateName]];
+            $json = $response->json();
+            $wamid = is_array($json) ? $this->extractOutboundMessageId($json) : null;
+
+            return [
+                'ok' => true,
+                'wamid' => $wamid,
+                'meta' => ['company_id' => $companyId, 'to' => $to, 'template' => $templateName],
+            ];
         }
 
         $error = $this->extractApiError($response);

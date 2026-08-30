@@ -442,42 +442,45 @@
         }
     }
 
-    #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--block:not(.is-in-view) {
+    #prijzen-pakketten .nexa-pricing-reveal--block {
         opacity: 0;
-        transform: translateY(12px);
-        transition: none;
+        transform: translateY(20px);
+        transition: opacity 0.65s ease, transform 0.65s ease;
+        will-change: opacity, transform;
     }
     #prijzen-pakketten .nexa-pricing-reveal--block.is-in-view {
         opacity: 1;
         transform: none;
-        transition: opacity 0.55s ease, transform 0.55s ease;
+        will-change: auto;
     }
-    #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--intro:not(.is-in-view) .nexa-pricing-reveal__item,
-    #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--addons:not(.is-in-view) .nexa-pricing-reveal__card {
+    #prijzen-pakketten .nexa-pricing-reveal--intro .nexa-pricing-reveal__item,
+    #prijzen-pakketten .nexa-pricing-reveal--addons .nexa-pricing-reveal__card {
         opacity: 0;
-        transform: translateY(10px);
-        transition: none;
+        transform: translateY(16px);
+        transition: opacity 0.55s ease, transform 0.55s ease;
+        transition-delay: var(--nexa-pricing-reveal-delay, 0ms);
+        will-change: opacity, transform;
     }
-    #prijzen-pakketten .nexa-pricing-reveal.is-in-view .nexa-pricing-reveal__item,
+    #prijzen-pakketten .nexa-pricing-reveal--intro.is-in-view .nexa-pricing-reveal__item,
     #prijzen-pakketten .nexa-pricing-reveal--addons.is-in-view .nexa-pricing-reveal__card {
         opacity: 1;
         transform: none;
-        transition: opacity 0.5s ease, transform 0.5s ease;
-        transition-delay: var(--nexa-pricing-reveal-delay, 0ms);
+        will-change: auto;
     }
     #prijzen-pakketten .nexa-pricing-reveal--addons.is-in-view .nexa-pricing-reveal__card:nth-child(2) {
-        transition-delay: 80ms;
+        transition-delay: 90ms;
     }
     #prijzen-pakketten .nexa-pricing-reveal--addons.is-in-view .nexa-pricing-reveal__card:nth-child(3) {
-        transition-delay: 160ms;
+        transition-delay: 180ms;
     }
     @media (prefers-reduced-motion: reduce) {
-        #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--block,
-        #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal__item,
-        #prijzen-pakketten.nexa-pricing-reveal-ready .nexa-pricing-reveal--addons .nexa-pricing-reveal__card {
+        #prijzen-pakketten .nexa-pricing-reveal--block,
+        #prijzen-pakketten .nexa-pricing-reveal--intro .nexa-pricing-reveal__item,
+        #prijzen-pakketten .nexa-pricing-reveal--addons .nexa-pricing-reveal__card {
             opacity: 1;
             transform: none;
             transition: none;
+            will-change: auto;
         }
     }
 </style>
@@ -736,6 +739,16 @@
     </div>
     </div>
 </section>
+<noscript>
+    <style>
+        #prijzen-pakketten .nexa-pricing-reveal--block,
+        #prijzen-pakketten .nexa-pricing-reveal--intro .nexa-pricing-reveal__item,
+        #prijzen-pakketten .nexa-pricing-reveal--addons .nexa-pricing-reveal__card {
+            opacity: 1 !important;
+            transform: none !important;
+        }
+    </style>
+</noscript>
 @once
 @push('scripts')
 <script>
@@ -743,18 +756,19 @@
     var root = document.getElementById('prijzen-pakketten');
     if (!root || root.getAttribute('data-nexa-pricing-reveal-init') === '1') return;
     root.setAttribute('data-nexa-pricing-reveal-init', '1');
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        return;
-    }
     var blocks = root.querySelectorAll('.nexa-pricing-reveal');
     if (!blocks.length) return;
     function show(el) {
         el.classList.add('is-in-view');
     }
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        Array.prototype.forEach.call(blocks, show);
+        return;
+    }
     function isVisibleEnough(el) {
         var rect = el.getBoundingClientRect();
         var vh = window.innerHeight || document.documentElement.clientHeight || 0;
-        return rect.bottom > 48 && rect.top < vh * 0.92;
+        return rect.bottom > 40 && rect.top < vh * 0.88;
     }
     function revealVisible() {
         Array.prototype.forEach.call(blocks, function (el) {
@@ -763,24 +777,28 @@
             }
         });
     }
-    revealVisible();
-    root.classList.add('nexa-pricing-reveal-ready');
-    var opts = { threshold: 0.01, rootMargin: '0px 0px -8% 0px', once: true };
-    if (typeof window.nexaObserveWhenVisible === 'function') {
-        window.nexaObserveWhenVisible(blocks, show, opts);
-    } else if ('IntersectionObserver' in window) {
-        var observer = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-                if (entry.isIntersecting) {
-                    show(entry.target);
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, opts);
-        Array.prototype.forEach.call(blocks, function (el) { observer.observe(el); });
+    var opts = { threshold: 0.12, rootMargin: '0px 0px -12% 0px', once: true };
+    function start() {
+        if (typeof window.nexaObserveWhenVisible === 'function') {
+            window.nexaObserveWhenVisible(blocks, show, opts);
+        } else if ('IntersectionObserver' in window) {
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        show(entry.target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, opts);
+            Array.prototype.forEach.call(blocks, function (el) { observer.observe(el); });
+        }
+        revealVisible();
+        window.addEventListener('scroll', revealVisible, { passive: true });
+        window.addEventListener('resize', revealVisible);
     }
-    window.addEventListener('scroll', revealVisible, { passive: true });
-    window.addEventListener('resize', revealVisible);
+    requestAnimationFrame(function () {
+        requestAnimationFrame(start);
+    });
 })();
 </script>
 @endpush

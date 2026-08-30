@@ -18,6 +18,7 @@
            value="{{ $value ?? '' }}"
            class="kt-input w-full @error($name) border-destructive @enderror"
            @if(!empty($required)) required @endif
+           @if(!empty($disabled)) disabled @endif
            maxlength="{{ $maxlength ?? 500 }}"
            placeholder="{{ $placeholder ?? 'Zoek adres...' }}"
            autocomplete="off"

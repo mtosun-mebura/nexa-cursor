@@ -134,17 +134,196 @@ class FrontendComponentService
         return null;
     }
 
+    public function componentThemeSlug(object $c): ?string
+    {
+        $slug = strtolower(trim((string) ($c->theme_slug ?? '')));
+
+        return $slug !== '' ? $slug : null;
+    }
+
+    public function catalogGroupKey(object $c): string
+    {
+        $themeName = trim((string) ($c->theme_name ?? ''));
+        if ($themeName !== '') {
+            return 'Thema: '.$themeName;
+        }
+        $moduleName = trim((string) ($c->module_name ?? ''));
+
+        return $moduleName !== '' ? $moduleName : 'Algemeen';
+    }
+
+    /**
+     * Standaard inhoud voor thema-componenten (editor, demo en frontend-fallback).
+     *
+     * @return array<string, mixed>
+     */
+    public function defaultSectionData(string $componentId): array
+    {
+        return match (strtolower(trim($componentId))) {
+            'landwind.faq' => [
+                'eyebrow' => 'FAQ',
+                'title' => 'Veelgestelde vragen',
+                'subtitle' => 'Antwoorden op de vragen die ondernemers het vaakst stellen.',
+                'items' => [
+                    ['question' => 'Hoe snel is de website live?', 'answer' => 'Na koppeling van het Landwind-thema vult u de teksten in de pagina-editor. De FAQ, logo’s en overige blokken staan direct klaar.'],
+                    ['question' => 'Kan ik teksten zelf aanpassen?', 'answer' => 'Ja. Elke vraag en elk antwoord is bewerkbaar in de sectie-editor, zonder code te wijzigen.'],
+                    ['question' => 'Werkt dit op mobiel?', 'answer' => 'De accordion is opgebouwd met Tailwind en Flowbite-patronen: één kolom, grote tikvlakken en donkere modus.'],
+                    ['question' => 'Voor welk thema is dit blok?', 'answer' => 'Dit FAQ-blok komt uit Landwind, maar u sleept het op elke websitepagina — ook als de tenant een ander thema heeft.'],
+                ],
+            ],
+            'landwind.trusted_by' => [
+                'eyebrow' => 'Used by',
+                'title' => 'Vertrouwd door groeibedrijven',
+                'subtitle' => 'Merken die hun boekingen en klanten via het platform laten lopen.',
+                'items' => [
+                    ['name' => 'Northline'],
+                    ['name' => 'Riviera Cars'],
+                    ['name' => 'Stadstaxi Groep'],
+                    ['name' => 'Aether Mobility'],
+                    ['name' => 'Volt Transfer'],
+                ],
+            ],
+            'play.team' => [
+                'eyebrow' => 'Ons team',
+                'title' => 'Mensen achter de rit',
+                'subtitle' => 'Dispatch, chauffeur-begeleiding en klantenservice — in één overzicht.',
+                'items' => [
+                    ['name' => 'Lara Vermeer', 'role' => 'Operations lead', 'initials' => 'LV', 'image_url' => '/frontend-themes/play-tailwind/assets/images/team/team-01.png'],
+                    ['name' => 'Jamal El Idrissi', 'role' => 'Chauffeur coach', 'initials' => 'JE', 'image_url' => '/frontend-themes/play-tailwind/assets/images/team/team-02.png'],
+                    ['name' => 'Sofie Bakker', 'role' => 'Klantenservice', 'initials' => 'SB', 'image_url' => '/frontend-themes/play-tailwind/assets/images/team/team-03.png'],
+                ],
+            ],
+            'play.video_spotlight' => [
+                'eyebrow' => 'In beeld',
+                'title' => 'Zie hoe een rit binnenkomt',
+                'subtitle' => 'Korte uitleg van boeking tot chauffeur-acceptatie.',
+                'image_url' => '/frontend-themes/play-tailwind/assets/images/hero/hero-image.jpg',
+                'video_url' => '',
+                'cta_label' => 'Bekijk de demo',
+            ],
+            'vue_material.elevated_cards' => [
+                'eyebrow' => 'Material cards',
+                'title' => 'Drie stappen naar een live site',
+                'subtitle' => 'Verhoogde kaarten met icoon — het signatuurblok van Vue Material Kit.',
+                'items' => [
+                    ['title' => 'Blok plaatsen', 'text' => 'Sleep de kaarten op elke pagina. Het blijft een Vue Material Kit-blok, ook bij een ander thema.', 'accent' => '#e91e63'],
+                    ['title' => 'Inhoud vullen', 'text' => 'Pas titel, tekst en accentkleur per kaart aan. Elevatie en ronde iconen blijven staan.', 'accent' => '#7c4dff'],
+                    ['title' => 'Publiceren', 'text' => 'De kaarten volgen uw merkkleur en werken in light én dark mode.', 'accent' => '#00bcd4'],
+                ],
+            ],
+            'vue_material.quote_cards' => [
+                'eyebrow' => 'Quotes',
+                'title' => 'Wat klanten teruggeven',
+                'subtitle' => 'Material quote-kaarten met grote aanhalingstekens — geen Google-reviews-carousel.',
+                'items' => [
+                    ['quote' => 'De site voelt als een product, niet als een template.', 'author' => 'Eva Hendriks', 'role' => 'Directeur, Hendriks Vervoer', 'image_url' => '/frontend-themes/vue-material-kit/src/assets/img/ivana.jpg'],
+                    ['quote' => 'Boeken gaat nu via de website; de telefoon blijft vrij voor uitzonderingen.', 'author' => 'Thomas de Wit', 'role' => 'Eigenaar, De Wit Taxi', 'image_url' => '/frontend-themes/vue-material-kit/src/assets/img/team-2.jpg'],
+                    ['quote' => 'We wisselden van thema zonder de pagina’s opnieuw te bouwen.', 'author' => 'Nadia Karimi', 'role' => 'Office manager', 'image_url' => '/frontend-themes/vue-material-kit/src/assets/img/marie.jpg'],
+                ],
+            ],
+            'landwind.feature_checklist' => [
+                'eyebrow' => 'Werkwijze',
+                'title' => 'Van boeking tot chauffeur in één scherm',
+                'subtitle' => 'Het Landwind-blok met productshot en vinklijst — geen Features-grid.',
+                'image_url' => '/frontend-themes/landwind/images/feature-1.png',
+                'items' => [
+                    ['text' => 'Klant vult ophaal- en bestemming in op de site'],
+                    ['text' => 'Dispatch ziet de rit direct in het overzicht'],
+                    ['text' => 'Chauffeur accepteert vanaf de telefoon'],
+                    ['text' => 'Status terug naar de klant, zonder nabelen'],
+                ],
+            ],
+            'landwind.stats_strip' => [
+                'eyebrow' => 'In cijfers',
+                'title' => 'Groei die je kunt meten',
+                'subtitle' => 'Vier kerngetallen op een rij, met count-up bij scroll.',
+                'items' => [
+                    ['value' => '500', 'suffix' => '+', 'label' => 'Actieve ritten per week'],
+                    ['value' => '12', 'suffix' => 'k', 'label' => 'Boekingen dit jaar'],
+                    ['value' => '98', 'suffix' => '%', 'label' => 'Op tijd aangekomen'],
+                    ['value' => '24', 'suffix' => '/7', 'label' => 'Online boekbaar'],
+                ],
+            ],
+            'play.about_overlap' => [
+                'eyebrow' => 'Over ons',
+                'title' => 'Een dispatch die rustig blijft bij drukte',
+                'subtitle' => 'Twee foto’s over elkaar — het Play Tailwind about-blok.',
+                'body' => 'Chauffeurs, planning en klantenservice werken vanuit hetzelfde ritoverzicht. De website is het voorportaal; de app is de werkvloer.',
+                'image_url' => '/frontend-themes/play-tailwind/assets/images/about/about-image-01.jpg',
+                'image_url_2' => '/frontend-themes/play-tailwind/assets/images/about/about-image-02.jpg',
+                'cta_label' => 'Meer over het team',
+                'cta_url' => '#',
+            ],
+            'play.blog_preview' => [
+                'eyebrow' => 'Inzichten',
+                'title' => 'Uit de praktijk',
+                'subtitle' => 'Korte stukken over boekingen, chauffeurs en groei.',
+                'items' => [
+                    ['title' => 'Minder telefoon, meer ritten via de site', 'excerpt' => 'Hoe een taxi-ondernemer de avonddrukte naar online boekingen verschuift.', 'date' => '12 mei 2026', 'image_url' => '/frontend-themes/play-tailwind/assets/images/blog/blog-01.jpg', 'url' => '#'],
+                    ['title' => 'Dispatch in één overzicht', 'excerpt' => 'Wat verandert er als chauffeurs ritten zelf claimen vanaf de telefoon.', 'date' => '28 apr 2026', 'image_url' => '/frontend-themes/play-tailwind/assets/images/blog/blog-02.jpg', 'url' => '#'],
+                    ['title' => 'Thema wisselen zonder opnieuw bouwen', 'excerpt' => 'Pagina’s blijven staan; alleen het jasje van de site verandert.', 'date' => '9 mrt 2026', 'image_url' => '/frontend-themes/play-tailwind/assets/images/blog/blog-03.jpg', 'url' => '#'],
+                ],
+            ],
+            'play.contact_split' => [
+                'eyebrow' => 'Contact',
+                'title' => 'Plan een kennismaking',
+                'subtitle' => 'Vragen over onboarding, thema’s of een ritproef? Stuur een bericht.',
+                'image_url' => '',
+                'address' => 'Weena 505, Rotterdam',
+                'phone' => '010 123 4567',
+                'email' => 'hallo@nexataxi.nl',
+                'hours' => 'Ma–vr 08:00–18:00',
+                'cta_label' => 'Verstuur bericht',
+            ],
+            'vue_material.stats_counters' => [
+                'eyebrow' => 'Impact',
+                'title' => 'Cijfers die meetellen',
+                'subtitle' => 'Material-tegels met count-up — anders dan de Landwind-cijferstrip.',
+                'items' => [
+                    ['value' => '4.9', 'decimals' => '1', 'suffix' => '', 'label' => 'Klantbeoordeling'],
+                    ['value' => '180', 'decimals' => '0', 'suffix' => '+', 'label' => 'Chauffeurs live'],
+                    ['value' => '32', 'decimals' => '0', 'suffix' => 'k', 'label' => 'Ritten dit kwartaal'],
+                    ['value' => '11', 'decimals' => '0', 'suffix' => ' min', 'label' => 'Gem. aannametijd'],
+                ],
+            ],
+            'vue_material.info_pills' => [
+                'eyebrow' => 'Ontdek',
+                'title' => 'Kies wat je wilt uitleggen',
+                'subtitle' => 'Filled pills wisselen het paneel — geen FAQ-accordion.',
+                'items' => [
+                    ['label' => 'Boeken', 'title' => 'De klant start op de website', 'text' => 'Ophaaladres, bestemming en tijdstip gaan in één flow. Geen terugbellen voor de standaardrit.'],
+                    ['label' => 'Dispatch', 'title' => 'De rit landt bij de juiste chauffeur', 'text' => 'Aanbiedingen gaan naar beschikbare chauffeurs. Wie accepteert, krijgt navigatie en klantgegevens.'],
+                    ['label' => 'Opvolging', 'title' => 'Status blijft zichtbaar', 'text' => 'Van onderweg tot aankomst: de klant ziet waar de rit staat, zonder de centrale te belasten.'],
+                ],
+            ],
+            'vue_material.author_header' => [
+                'eyebrow' => 'Auteur',
+                'title' => 'Lara Vermeer',
+                'subtitle' => 'Operations lead',
+                'bio' => 'Bouwt de dagelijkse ritstroom: van websiteboeking tot chauffeur in de app. Dit blok hoort bij Vue Material Kit — geen teamgrid.',
+                'image_url' => '/frontend-themes/vue-material-kit/src/assets/img/team-2.jpg',
+                'items' => [
+                    ['label' => 'LinkedIn', 'url' => '#'],
+                    ['label' => 'E-mail', 'url' => 'mailto:lara@nexataxi.nl'],
+                    ['label' => 'Website', 'url' => '#'],
+                ],
+            ],
+            default => [],
+        };
+    }
+
     /**
      * Componenten die op een pagina toegevoegd kunnen worden.
      * Geef de module-key van de pagina (canoniek zoals in modules.name, bijv. taxi).
-     * Alleen componenten van die module plus available_on_all_pages. Leeg/null = geen filter (alle componenten).
+     * Alleen componenten van die module plus available_on_all_pages. Leeg/null = geen modulefilter.
+     * Thema-componenten (Landwind, Play, Vue Material) zijn op elk thema sleepbaar; $tenantThemeSlug sorteert het eigen thema vooraan.
      */
-    public function availableForPage(?string $pageModuleName = null): Collection
+    public function availableForPage(?string $pageModuleName = null, ?string $tenantThemeSlug = null): Collection
     {
         $all = $this->all();
         $effective = trim((string) ($pageModuleName ?? ''));
         if ($effective === '') {
-            return $all;
+            return $this->sortForPagePalette($all, $tenantThemeSlug);
         }
         $module = Module::where('installed', true)
             ->whereRaw('LOWER(name) = ?', [strtolower($effective)])
@@ -171,7 +350,33 @@ class FrontendComponentService
         });
         $global = $all->filter(fn ($c) => ! empty($c->available_on_all_pages));
 
-        return $forModule->merge($global)->unique('id')->values();
+        return $this->sortForPagePalette($forModule->merge($global)->unique('id')->values(), $tenantThemeSlug);
+    }
+
+    /**
+     * @param  Collection<int, object>  $items
+     * @return Collection<int, object>
+     */
+    private function sortForPagePalette(Collection $items, ?string $tenantThemeSlug): Collection
+    {
+        $prefer = strtolower(trim((string) $tenantThemeSlug));
+        $themeRank = [
+            'landwind' => 1,
+            'play-tailwind' => 2,
+            'vue-material-kit' => 3,
+        ];
+
+        return $items->sortBy(function ($c) use ($prefer, $themeRank) {
+            $theme = strtolower(trim((string) ($c->theme_slug ?? '')));
+            $name = strtolower(trim((string) ($c->name ?? '')));
+            if ($theme === '') {
+                return '0-'.$name;
+            }
+            $preferred = ($prefer !== '' && $theme === $prefer) ? 0 : 1;
+            $order = $themeRank[$theme] ?? 9;
+
+            return sprintf('1-%d-%02d-%s-%s', $preferred, $order, $theme, $name);
+        })->values();
     }
 
     private const COMPONENT_KEY_PREFIX = 'component:';

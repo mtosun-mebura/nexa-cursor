@@ -57,6 +57,8 @@ class CompanyEmailLogoService
      */
     public function embedInHtml(string $html, Message $message, ?int $companyId, ?string $fallbackName = null): string
     {
+        $html = \App\Support\NexaBranding::embedInMessage($html, $message);
+
         if (! str_contains($html, self::HTML_PLACEHOLDER)) {
             return $html;
         }
@@ -138,6 +140,8 @@ class CompanyEmailLogoService
         if ($html === '') {
             return $html;
         }
+
+        $html = \App\Support\NexaBranding::injectPreviewLogo($html);
 
         $hasPlaceholder = str_contains($html, 'COMPANY_LOGO')
             || str_contains($html, self::HTML_PLACEHOLDER);

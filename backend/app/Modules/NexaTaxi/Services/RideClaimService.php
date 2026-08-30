@@ -8,9 +8,9 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
-use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +21,7 @@ class RideClaimService
         protected RideDispatchService $dispatch,
         protected ContractRideStopService $contractStops,
     ) {}
+
     public function acceptOffer(string $conn, User $driver, int $offerId, ?string $pickupAt = null): array
     {
         $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, $pickupAt) {
@@ -229,6 +230,7 @@ class RideClaimService
 
     public function releaseAcceptedRide(string $conn, User $driver, int $rideId): RideRequest
     {
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
         $companyId = 0;
 
         $released = DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId, &$companyId) {
@@ -271,10 +273,10 @@ class RideClaimService
                     'responded_at' => $now,
                 ]);
 
-            $ride->update([
+            $ride->update(array_merge([
                 'driver_id' => null,
                 'status' => RideRequest::STATUS_PENDING_DISPATCH,
-            ]);
+            ], $this->clearedPickupProposalAttributes()));
 
             return $ride->fresh();
         });
@@ -542,6 +544,203 @@ class RideClaimService
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Klant weigerde het nieuwe ophaalmoment: verberg de rit voor deze chauffeur
+     * en zet hem terug in dispatch voor anderen.
+     */
+    public function archiveCustomerDeclinedPickupProposal(string $conn, User $driver, int $offerId): RideDispatchOffer
+    {
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+        $companyId = 0;
+
+        $archived = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, &$companyId) {
+            $offer = RideDispatchOffer::on($conn)->whereKey($offerId)->lockForUpdate()->first();
+            if (! $offer || (int) $offer->driver_id !== (int) $driver->id) {
+                throw ValidationException::withMessages([
+                    'offer' => ['Aanbod niet gevonden.'],
+                ]);
+            }
+
+            $ride = RideRequest::on($conn)->whereKey($offer->ride_request_id)->lockForUpdate()->first();
+            if (
+                ! $ride
+                || (int) $ride->driver_id !== (int) $driver->id
+                || $ride->status !== RideRequest::STATUS_ACCEPTED
+                || $offer->status !== RideDispatchOffer::STATUS_ACCEPTED
+                || $ride->pickup_proposal_status !== RideRequest::PICKUP_PROPOSAL_DECLINED
+            ) {
+                throw ValidationException::withMessages([
+                    'offer' => ['Alleen door de klant afgewezen ophaalvoorstellen kunnen hier worden gearchiveerd.'],
+                ]);
+            }
+
+            $companyId = (int) ($ride->company_id ?: $offer->company_id);
+            $now = now();
+
+            $offer->update([
+                'status' => RideDispatchOffer::STATUS_DECLINED,
+                'responded_at' => $now,
+                'archived_at' => $now,
+            ]);
+
+            $ride->update(array_merge([
+                'driver_id' => null,
+                'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            ], $this->clearedPickupProposalAttributes()));
+
+            return $offer->fresh(['rideRequest']) ?? $offer;
+        });
+
+        $released = $archived->rideRequest;
+        if ($companyId > 0 && $released) {
+            $this->dispatch->startDispatch($conn, $released, $companyId, [(int) $driver->id]);
+        }
+
+        return $archived;
+    }
+
+    /**
+     * Chauffeur zet een rit weg die nog wacht op WhatsApp van de klant.
+     * Het voorstel blijft open: bij een late reactie komt de rit terug als nieuwe aanvraag.
+     */
+    public function archivePendingPickupProposal(string $conn, User $driver, int $offerId): RideDispatchOffer
+    {
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+
+        return DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId) {
+            $offer = RideDispatchOffer::on($conn)->whereKey($offerId)->lockForUpdate()->first();
+            if (! $offer || (int) $offer->driver_id !== (int) $driver->id) {
+                throw ValidationException::withMessages([
+                    'offer' => ['Aanbod niet gevonden.'],
+                ]);
+            }
+
+            $ride = RideRequest::on($conn)->whereKey($offer->ride_request_id)->lockForUpdate()->first();
+            if (
+                ! $ride
+                || (int) $ride->driver_id !== (int) $driver->id
+                || $ride->status !== RideRequest::STATUS_ACCEPTED
+                || $offer->status !== RideDispatchOffer::STATUS_ACCEPTED
+                || $ride->pickup_proposal_status !== RideRequest::PICKUP_PROPOSAL_PENDING
+            ) {
+                throw ValidationException::withMessages([
+                    'offer' => ['Alleen ritten die wachten op de klant kunnen hier worden gearchiveerd.'],
+                ]);
+            }
+
+            $now = now();
+            $offer->update([
+                'status' => RideDispatchOffer::STATUS_EXPIRED,
+                'responded_at' => $now,
+                'archived_at' => $now,
+            ]);
+
+            $ride->update([
+                'driver_id' => null,
+                'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            ]);
+
+            return $offer->fresh(['rideRequest']) ?? $offer;
+        });
+    }
+
+    /**
+     * Late WhatsApp-reactie nadat de chauffeur het wachtende voorstel heeft gearchiveerd:
+     * rit terug als nieuwe aanvraag (accepteren) of naar Afgewezen/Verlopen (weigeren).
+     */
+    public function reopenAfterArchivedPickupProposal(string $conn, RideRequest $ride, bool $customerAccepted): RideRequest
+    {
+        TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+        $companyId = 0;
+        $previousDriverId = 0;
+
+        $fresh = DB::connection($conn)->transaction(function () use ($conn, $ride, $customerAccepted, &$companyId, &$previousDriverId) {
+            $locked = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->first() ?? $ride;
+            if ($locked->driver_id) {
+                return $locked;
+            }
+
+            $previous = RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $locked->id)
+                ->whereNotNull('archived_at')
+                ->orderByDesc('archived_at')
+                ->lockForUpdate()
+                ->first();
+
+            $previousDriverId = (int) ($previous?->driver_id ?? 0);
+            $companyId = (int) ($locked->company_id ?? $previous?->company_id ?? 0);
+            $now = now();
+            $ttl = (int) config('taxi-dispatch.offer_ttl_seconds', 300);
+
+            $locked->update(array_merge([
+                'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            ], $this->clearedPickupProposalAttributes()));
+
+            if ($previous && $previousDriverId > 0) {
+                if ($customerAccepted) {
+                    $previous->update([
+                        'status' => RideDispatchOffer::STATUS_PENDING,
+                        'archived_at' => null,
+                        'responded_at' => null,
+                        'offered_at' => $now,
+                        'expires_at' => $now->copy()->addSeconds(max(15, $ttl)),
+                    ]);
+                    $locked->update(['status' => RideRequest::STATUS_OFFERED]);
+                } else {
+                    $previous->update([
+                        'status' => RideDispatchOffer::STATUS_DECLINED,
+                        'archived_at' => null,
+                        'responded_at' => $now,
+                    ]);
+                }
+            }
+
+            return $locked->fresh() ?? $locked;
+        });
+
+        if ($companyId > 0) {
+            $exclude = (! $customerAccepted && $previousDriverId > 0) ? [$previousDriverId] : [];
+            $this->dispatch->startDispatch($conn, $fresh, $companyId, $exclude);
+        }
+
+        if ($previousDriverId > 0) {
+            app(TaxiDriverInboxPushService::class)->notifyDriver($previousDriverId, (int) $fresh->id);
+            Cache::put(
+                'taxi_driver_pickup_proposal_alert:'.$previousDriverId,
+                [
+                    'ride_id' => (int) $fresh->id,
+                    'decision' => $customerAccepted ? 'reopened_offer' : 'declined',
+                    'message' => $customerAccepted
+                        ? 'Klant heeft het nieuwe ophaalmoment geaccepteerd. De rit staat weer bij Aanvragen.'
+                        : 'Klant heeft het nieuwe ophaalmoment geweigerd. De rit staat bij Afgewezen.',
+                    'proposal_status' => null,
+                    'remark' => null,
+                ],
+                now()->addMinutes(30)
+            );
+        }
+
+        return $fresh->fresh() ?? $fresh;
+    }
+
+    /**
+     * @return array<string, null>
+     */
+    private function clearedPickupProposalAttributes(): array
+    {
+        return [
+            'pickup_proposal_at' => null,
+            'pickup_proposal_status' => null,
+            'pickup_proposal_customer_remark' => null,
+            'pickup_proposal_sent_at' => null,
+            'pickup_proposal_responded_at' => null,
+            'pickup_proposal_whatsapp_wamid' => null,
+        ];
     }
 
     private function driverHasBlockingAssignedRide(string $conn, int $driverId, ?int $exceptRideId = null): bool

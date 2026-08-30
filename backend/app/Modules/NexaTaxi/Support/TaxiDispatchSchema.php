@@ -65,6 +65,11 @@ final class TaxiDispatchSchema
                 $table->timestamp('pickup_proposal_responded_at')->nullable();
             });
         }
+        if (! $schema->hasColumn('ride_requests', 'pickup_proposal_whatsapp_wamid')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->string('pickup_proposal_whatsapp_wamid', 191)->nullable();
+            });
+        }
     }
 
     public static function ensureOfferArchiveColumn(string $connection): void

@@ -118,8 +118,9 @@
                                         class="kt-input"
                                         required
                                         data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
+                                    @php $selectedModuleName = old('module_name', $defaultModuleName ?? ''); @endphp
                                     <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
-                                        {{ !old('module_name') ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
+                                        {{ $selectedModuleName === '' || $selectedModuleName === null ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
                                     @foreach($installedModules as $module)
                                         @php
                                             $moduleName = $module->getName();
@@ -129,11 +130,11 @@
                                         @endphp
                                         <option value="{{ $moduleName }}"
                                             data-theme-id="{{ $themeId }}"
-                                            {{ old('module_name') === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
+                                            {{ (string) $selectedModuleName === (string) $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
                                     @endforeach
                                 </select>
                                 <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
-                                <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name') }}">
+                                <input type="hidden" name="module_name" id="module_name_hidden" value="{{ $selectedModuleName }}">
                             </td>
                         </tr>
                         @include('admin.website-pages.partials.tenant-context-row')
@@ -279,7 +280,7 @@
                                 @php
                                     $createThemeSlug = $defaultTheme->slug ?? 'modern';
                                     $createSectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($createThemeSlug);
-                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null);
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null, $tenantThemeSlug ?? null);
                                 @endphp
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $createSectionTypes, 'availableComponents' => $availableComponents])
                             </div>

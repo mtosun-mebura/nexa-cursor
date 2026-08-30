@@ -106,4 +106,27 @@ final class AdminTenantScope
     {
         return (string) config('admin_tenant_scope.default_notice');
     }
+
+    /**
+     * Optionele tenantfilter voor platform-pagina's: queryparam wint van de zijbalkkeuze.
+     * Lege queryparam = alle tenants, ook als er in de zijbalk een tenant staat.
+     */
+    public function optionalFilterTenantId(?Request $request = null, string $input = 'company_id'): ?int
+    {
+        $request ??= request();
+        if ($request === null) {
+            return $this->selectedTenantId();
+        }
+
+        if ($request->exists($input)) {
+            $raw = $request->input($input);
+            if ($raw === null || $raw === '') {
+                return null;
+            }
+
+            return is_numeric($raw) ? (int) $raw : null;
+        }
+
+        return $this->selectedTenantId();
+    }
 }

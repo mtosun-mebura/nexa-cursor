@@ -62,6 +62,16 @@ class Company extends Model
         return $this->hasMany(User::class);
     }
 
+    public function billingProfile()
+    {
+        return $this->hasOne(CompanyBillingProfile::class);
+    }
+
+    public function customerEmails()
+    {
+        return $this->hasMany(TenantCustomerEmail::class);
+    }
+
     /**
      * Generate a secure token to view a candidate's photo
      */
@@ -181,6 +191,12 @@ class Company extends Model
         $needle = strtolower(trim($name));
         if ($needle === '') {
             return false;
+        }
+
+        if ($this->relationLoaded('modules')) {
+            return $this->modules->contains(
+                static fn ($module) => strtolower((string) $module->name) === $needle
+            );
         }
 
         return $this->modules()->whereRaw('LOWER(name) = ?', [$needle])->exists();

@@ -12,6 +12,17 @@
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                 <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Pakket</td>
+                    <td class="min-w-48 w-full font-medium text-mono">{{ $packageLabel ?: '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Company-admin</td>
+                    <td class="min-w-48 w-full">
+                        {{ trim(($company->contact_first_name ?? '').' '.($company->contact_last_name ?? '')) ?: '—' }}
+                        &lt;{{ $company->email }}&gt;
+                    </td>
+                </tr>
+                <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top">Bedrijf</td>
                     <td class="min-w-48 w-full font-medium text-mono">{{ $company->name }}</td>
                 </tr>
@@ -30,7 +41,8 @@
             </table>
         </div>
         <p class="text-sm text-secondary-foreground px-6 pt-2 pb-4 mb-0">
-            Na afronden kun je dit bedrijf verder beheren vanuit het bedrijfsdetail (domeinen, modules, gebruikers, enz.).
+            Na afronden wordt de company-admin aangemaakt en ontvangt {{ $company->email }} de welkomstmail
+            met inloggegevens en een tijdelijk wachtwoord. Daarna kun je dit bedrijf verder beheren vanuit het bedrijfsdetail.
         </p>
     </div>
 

@@ -58,11 +58,7 @@ function callIframeRestart(): boolean {
 }
 
 function restartAnimation() {
-  // Prefer in-iframe restart API (resets CSS transitions properly).
-  if (callIframeRestart()) {
-    return
-  }
-  // Fallback: full reload of the preview frame.
+  // Always reload the iframe so JS, media and CSS animations start from scratch.
   refreshPreview()
 }
 
@@ -128,8 +124,8 @@ onUnmounted(() => {
             <button
               type="button"
               class="builder-block-preview-modal__icon-btn"
-              title="Animatie opnieuw starten"
-              aria-label="Animatie opnieuw starten"
+              title="Voorbeeld opnieuw laden"
+              aria-label="Voorbeeld opnieuw laden"
               @click="restartAnimation"
             >
               <i class="ki-filled ki-arrows-circle" aria-hidden="true" />

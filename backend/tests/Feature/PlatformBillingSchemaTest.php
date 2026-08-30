@@ -41,4 +41,15 @@ class PlatformBillingSchemaTest extends TestCase
         $this->assertTrue(Schema::hasColumn('platform_billing_settings', 'mollie_api_key'));
         $this->assertTrue(Schema::hasColumn('platform_billing_settings', 'mollie_webhook_url'));
     }
+
+    public function test_dunning_and_access_restriction_columns_exist(): void
+    {
+        $this->assertTrue(Schema::hasColumn('company_billing_profiles', 'overdue_block_mode'));
+        $this->assertTrue(Schema::hasColumn('company_billing_profiles', 'access_restriction'));
+        $this->assertTrue(Schema::hasColumn('platform_invoices', 'first_reminder_sent_at'));
+        $this->assertTrue(Schema::hasColumn('platform_invoices', 'second_reminder_sent_at'));
+        $this->assertTrue(Schema::hasColumn('platform_invoices', 'blocked_at'));
+        $this->assertTrue(Schema::hasColumn('platform_billing_settings', 'dunning_interval_days'));
+        $this->assertTrue(Schema::hasColumn('platform_billing_settings', 'dunning_first_interval_days'));
+    }
 }

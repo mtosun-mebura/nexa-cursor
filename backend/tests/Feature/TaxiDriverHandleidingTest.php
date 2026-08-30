@@ -40,6 +40,7 @@ class TaxiDriverHandleidingTest extends TestCase
             ->assertSee('Handleiding chauffeur', false)
             ->assertSee('1. App op je telefoon', false)
             ->assertSee('Inloggen', false)
+            ->assertSee('Inlogcode aanvragen', false)
             ->assertSee('Online zetten', false)
             ->assertSee('Iconen bovenin', false)
             ->assertSee('Auto — actieve rit', false)
@@ -48,9 +49,17 @@ class TaxiDriverHandleidingTest extends TestCase
             ->assertSee('Doos — archief', false)
             ->assertSee('Nieuwe ritaanvraag', false)
             ->assertSee('Betalen en factuur', false)
-            ->assertSee('Profiel', false)
+            ->assertSee('8. Navigatie', false)
+            ->assertSee('Tabbladen onderin', false)
+            ->assertSee('Start navigatie', false)
+            ->assertSee('van je actieve rit', false)
+            ->assertSee('naam van de klant boven Ophalen', false)
+            ->assertSee('Dag of week', false)
             ->assertSee('feature-chauffeur-inbox.png', false)
             ->assertSee('feature-chauffeur-active.png', false)
+            ->assertSee('feature-chauffeur-navigatie-map.png', false)
+            ->assertSee('Kerkstraat 1, Enschede', false)
+            ->assertSee('Station, Enschede', false)
             ->assertSee('class="guide-zoom"', false)
             ->assertSee('id="guide-lightbox"', false)
             ->assertSee('Tik om te vergroten', false)
@@ -76,5 +85,14 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('profile-guide-link', $html);
         $this->assertStringContainsString('Openen →', $html);
         $this->assertStringContainsString('/taxi/chauffeur/handleiding', $html);
+        $this->assertStringContainsString('data-main-tab="planning"', $html);
+        $this->assertStringContainsString('data-main-tab-panel="planning"', $html);
+        $this->assertStringContainsString('data-main-tab="navigation"', $html);
+        $this->assertStringContainsString('data-main-tab-panel="navigation"', $html);
+        $this->assertStringContainsString('id="btn-start-navigation"', $html);
+        $this->assertStringContainsString('Inlogcode aanvragen', $html);
+        $this->assertStringContainsString('data-planning-view="day"', $html);
+        $this->assertStringContainsString('data-planning-view="week"', $html);
+        $this->assertStringNotContainsString('data-planning-view="month"', $html);
     }
 }

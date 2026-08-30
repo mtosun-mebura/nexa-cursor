@@ -16,6 +16,26 @@
         {{ session('error') }}
     </div>
 @endif
+@if(! empty($needsCompanyAdminWelcome))
+    <div class="kt-alert company-welcome-alert mb-5" role="alert">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <div class="font-medium">Company-admin ontbreekt — welkomstmail is nog niet verstuurd.</div>
+                <p class="text-sm mb-0 mt-1 opacity-90">
+                    De wizard is niet tot de laatste stap afgerond. {{ $company->email }} heeft nog geen account
+                    en dus ook geen tijdelijk wachtwoord ontvangen.
+                </p>
+            </div>
+            <form method="POST" action="{{ route('admin.companies.send-welcome', $company) }}" class="shrink-0" id="company-welcome-mail-form">
+                @csrf
+                <button type="submit" class="kt-btn company-welcome-alert__btn" id="company-welcome-mail-btn">
+                    <i class="ki-filled ki-loader-2 company-welcome-alert__spinner" aria-hidden="true"></i>
+                    <span class="company-welcome-alert__btn-label">Welkomstmail nu versturen</span>
+                </button>
+            </form>
+        </div>
+    </div>
+@endif
 
 <style>
     .hero-bg {
@@ -23,6 +43,45 @@
     }
     .dark .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
+    }
+    .company-welcome-alert {
+        background-color: #f4b183 !important;
+        border: 1px solid #e89a5c !important;
+        color: #5c2e12 !important;
+    }
+    html.dark .company-welcome-alert {
+        background-color: #e07b3a !important;
+        border-color: #ef9348 !important;
+        color: #2c1408 !important;
+    }
+    .company-welcome-alert__btn {
+        background-color: #9a3412 !important;
+        border: 1px solid #9a3412 !important;
+        color: #fff7ed !important;
+    }
+    .company-welcome-alert__btn:hover,
+    .company-welcome-alert__btn:focus-visible {
+        background-color: #7c2d12 !important;
+        border-color: #7c2d12 !important;
+        color: #fff7ed !important;
+    }
+    .company-welcome-alert__spinner {
+        display: none;
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+        animation: company-welcome-spin 0.7s linear infinite;
+    }
+    .company-welcome-alert__btn.is-loading {
+        opacity: 0.9;
+        cursor: wait;
+        pointer-events: none;
+    }
+    .company-welcome-alert__btn.is-loading .company-welcome-alert__spinner {
+        display: inline-block;
+    }
+    @keyframes company-welcome-spin {
+        to { transform: rotate(360deg); }
     }
 </style>
 
@@ -1246,6 +1305,30 @@
     });
 </script>
 @endcan
+
+@if(! empty($needsCompanyAdminWelcome))
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('company-welcome-mail-form');
+        const btn = document.getElementById('company-welcome-mail-btn');
+        if (!form || !btn) {
+            return;
+        }
+        form.addEventListener('submit', function () {
+            if (btn.classList.contains('is-loading')) {
+                return;
+            }
+            btn.classList.add('is-loading');
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            const label = btn.querySelector('.company-welcome-alert__btn-label');
+            if (label) {
+                label.textContent = 'Versturen…';
+            }
+        });
+    });
+</script>
+@endif
 
 @endpush
 

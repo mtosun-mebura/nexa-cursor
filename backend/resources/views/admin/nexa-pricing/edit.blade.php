@@ -39,11 +39,31 @@
         border-color: color-mix(in oklab, rgb(34 197 94) 45%, var(--nexa-pricing-toggle-border));
         background: color-mix(in oklab, rgb(34 197 94) 12%, transparent);
     }
+    #nexa-pricing-summary .nexa-pricing-summary-table-wrap {
+        overflow: hidden;
+        width: 22.875rem;
+        max-width: 100%;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) + 4px);
+    }
+    #nexa-pricing-summary .kt-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+    #nexa-pricing-summary .kt-table :is(th, td) {
+        border-bottom: 1px solid var(--border);
+        padding-inline: 0.75rem;
+        white-space: nowrap;
+    }
+    #nexa-pricing-summary .kt-table tbody tr:last-child td {
+        border-bottom: none;
+    }
 </style>
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Paketten</h1>
-        <p class="text-sm text-muted-foreground">Maandpakketten voor nexasuite.nl, inclusief de functies die de software afdwingt en aanvullende modules (GPS, extra contractklanten, Vloot). Alleen zichtbaar voor super-admins.</p>
+        <p class="text-sm text-muted-foreground">Maandpakketten voor nexasuite.nl én NEXA-facturatie, inclusief de functies die de software afdwingt en aanvullende modules (GPS, extra contractklanten, Vloot). Alleen zichtbaar voor super-admins.</p>
         <div class="pt-3 flex flex-wrap gap-2">
             <a href="{{ $websitePageUrl }}" class="kt-btn kt-btn-outline" target="_blank" rel="noopener">
                 <i class="ki-filled ki-exit-right-corner me-2"></i>
@@ -96,6 +116,27 @@
             </div>
 
             <div class="space-y-5">
+                <div class="kt-card w-full min-w-0" id="nexa-pricing-summary">
+                    <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                        <h3 class="kt-card-title mb-0">Overzicht prijzen</h3>
+                    </div>
+                    <div class="kt-card-content p-5">
+                        <p class="text-sm text-muted-foreground mb-3">Deze prijzen gelden voor NEXA-facturatie. Wijzigingen in de pakketten hieronder verschijnen direct in deze tabel.</p>
+                        <div class="nexa-pricing-summary-table-wrap">
+                            <div class="kt-scrollable-x-auto">
+                                <table class="kt-table kt-table-border-dashed admin-keep-table-layout align-middle text-sm">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-secondary-foreground font-normal">Pakket</th>
+                                            <th class="text-secondary-foreground font-normal text-end">Maandprijs</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="nexa-pricing-summary-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="space-y-5" id="nexa-pricing-packages">
                     @foreach($packages as $i => $package)
                     @include('admin.nexa-pricing.partials.package-card', ['i' => $i, 'package' => $package, 'featureCatalog' => $featureCatalog])
@@ -360,6 +401,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const newList = node.querySelector('.nexa-pricing-feature-list');
         copyCatalogToPackageList(newList);
         bindDriverLimit(node);
+        refreshPricingSummary();
     });
 
     packagesRoot?.addEventListener('click', function (e) {
@@ -368,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const card = removePackage.closest('.nexa-pricing-package');
             if (card && packagesRoot.querySelectorAll('.nexa-pricing-package').length > 1) {
                 card.remove();
+                refreshPricingSummary();
             }
         }
     });
@@ -398,7 +441,61 @@ document.addEventListener('DOMContentLoaded', function () {
             .slice(0, 80);
     }
 
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (char) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+        });
+    }
+
+    function parseMonthlyAmount(value) {
+        var stripped = String(value || '').trim().replace(/^€\s*/u, '').replace(/,-$/, '').replace(/\s+/g, '');
+        if (/^\d+,\d{1,2}$/.test(stripped)) {
+            stripped = stripped.replace(',', '.');
+        } else if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(stripped)) {
+            stripped = stripped.replace(/\./g, '').replace(',', '.');
+        }
+        var amount = parseFloat(stripped);
+        return isFinite(amount) ? Math.max(0, amount) : NaN;
+    }
+
+    function formatMonthlyAmount(value) {
+        var raw = String(value || '').trim();
+        if (raw === '') {
+            return '—';
+        }
+        var amount = parseMonthlyAmount(raw);
+        if (!isFinite(amount)) {
+            return '—';
+        }
+        if (Math.abs(amount - Math.round(amount)) < 0.001) {
+            return '€ ' + Math.round(amount) + ',-';
+        }
+        return '€ ' + amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function refreshPricingSummary() {
+        var body = document.getElementById('nexa-pricing-summary-body');
+        if (!body || !packagesRoot) {
+            return;
+        }
+        var rows = [];
+        packagesRoot.querySelectorAll('.nexa-pricing-package').forEach(function (card) {
+            var name = (card.querySelector('[data-package-name]')?.value || '').trim() || 'Naamloos pakket';
+            var price = card.querySelector('[data-package-price]')?.value || '';
+            rows.push(
+                '<tr>' +
+                    '<td class="text-foreground">' + escapeHtml(name) + '</td>' +
+                    '<td class="text-end tabular-nums text-foreground">' + escapeHtml(formatMonthlyAmount(price)) + '</td>' +
+                '</tr>'
+            );
+        });
+        body.innerHTML = rows.join('') || '<tr><td colspan="2" class="p-5 text-muted-foreground">Nog geen pakketten</td></tr>';
+    }
+
     packagesRoot?.addEventListener('input', function (e) {
+        if (e.target.matches('[data-package-name], [data-package-price]')) {
+            refreshPricingSummary();
+        }
         if (!e.target.matches('[data-package-name]')) return;
         const card = e.target.closest('.nexa-pricing-package');
         const keyInput = card ? card.querySelector('[data-package-key]') : null;
@@ -422,6 +519,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     bindDriverLimit(packagesRoot);
+    refreshPricingSummary();
 
     document.getElementById('nexa-pricing-addon-add')?.addEventListener('click', function () {
         if (!addonsRoot || !addonTpl) return;

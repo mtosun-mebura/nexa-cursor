@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\NexaPricingService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -91,11 +92,12 @@ class AdminNexaPricingController extends Controller
             'website.price_label.required' => 'Vul de eenmalige websiteprijs in.',
         ]);
 
-        $this->pricing->save($valid);
+        $pricing = $this->pricing->save($valid);
+        app(TenantSubscriptionService::class)->syncPlatformPackagesFromPricing($pricing);
 
         return redirect()
             ->route('admin.nexa-pricing.edit')
-            ->with('success', 'Paketten opgeslagen. De websitepagina /prijzen is bijgewerkt.');
+            ->with('success', 'Paketten opgeslagen. NEXA-facturatie gebruikt deze prijzen; /prijzen is bijgewerkt.');
     }
 
     private function ensureSuperAdmin(): void

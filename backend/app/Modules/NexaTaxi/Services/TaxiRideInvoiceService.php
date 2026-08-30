@@ -7,6 +7,7 @@ use App\Models\CompanyLocation;
 use App\Models\EmailTemplate;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
+use App\Models\TenantCustomerEmail;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
@@ -14,8 +15,8 @@ use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
+use App\Services\TenantCustomerMailService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class TaxiRideInvoiceService
@@ -676,75 +677,42 @@ class TaxiRideInvoiceService
 
         $toEmail = $invoice->customer_email;
         $toName = $invoice->customer_name ?? $toEmail;
-
-        $this->env->applyMailConfigToRuntime();
-        $from = $this->env->resolveMailFromHeaders();
         $companyReplyTo = trim((string) ($details['email'] ?? ''));
 
+        $attachments = [[
+            'bytes' => $pdfBytes,
+            'filename' => 'factuur-'.$invoice->invoice_number.'.pdf',
+            'mime' => 'application/pdf',
+        ]];
+        foreach ($extraAttachments as $attachment) {
+            $attachments[] = [
+                'bytes' => $attachment['bytes'],
+                'filename' => $attachment['filename'],
+                'mime' => 'application/pdf',
+            ];
+        }
+
         try {
-            Mail::send([], [], function ($message) use (
-                $toEmail,
-                $toName,
-                $subject,
-                $htmlContent,
-                $textContent,
-                $invoice,
-                $pdfBytes,
-                $extraAttachments,
-                $from,
-                $companyReplyTo,
-                $details,
-                $companyId,
-                $companyName
-            ) {
-                $message->to($toEmail, $toName)
-                    ->subject($subject)
-                    ->from($from['from_address'], $from['from_name']);
-
-                if ($companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL)) {
-                    $message->replyTo($companyReplyTo, (string) ($details['name'] ?? ''));
-                }
-
-                if ($from['smtp_username'] !== '') {
-                    try {
-                        $symfonyMessage = $message->getSymfonyMessage();
-                        $symfonyMessage->getHeaders()->remove('Sender');
-                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $from['smtp_username']);
-                    } catch (\Throwable) {
-                        // Sender header is optioneel
-                    }
-                }
-
-                if ($htmlContent) {
-                    $htmlBody = $this->companyLogos->embedInHtml(
-                        $htmlContent,
-                        $message,
-                        $companyId,
-                        $companyName
-                    );
-                    $message->html($htmlBody);
-                }
-                if ($textContent) {
-                    $message->text($textContent);
-                }
-                $message->attachData(
-                    $pdfBytes,
-                    'factuur-'.$invoice->invoice_number.'.pdf',
-                    ['mime' => 'application/pdf']
-                );
-                foreach ($extraAttachments as $attachment) {
-                    $message->attachData(
-                        $attachment['bytes'],
-                        $attachment['filename'],
-                        ['mime' => 'application/pdf']
-                    );
-                }
-            });
+            app(TenantCustomerMailService::class)->send([
+                'company_id' => $companyId,
+                'type' => TenantCustomerEmail::TYPE_INVOICE,
+                'to_email' => $toEmail,
+                'to_name' => $toName,
+                'subject' => $subject,
+                'html' => $htmlContent,
+                'text' => $textContent,
+                'related_type' => 'invoice',
+                'related_id' => $invoice->id,
+                'reply_to' => $companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL) ? $companyReplyTo : null,
+                'reply_to_name' => (string) ($details['name'] ?? ''),
+                'attachments' => $attachments,
+                'throw' => true,
+            ]);
         } catch (\Throwable $e) {
             if ($this->isSmtpNotAuthorizedError($e)) {
                 throw ValidationException::withMessages([
                     'invoice' => [
-                        'De mailserver weigert verzending: SMTP-gebruiker ('.$from['smtp_username'].') mag niet verzenden namens '
+                        'De mailserver weigert verzending: SMTP-gebruiker ('.$this->env->resolveMailFromHeaders()['smtp_username'].') mag niet verzenden namens '
                         .$this->env->get('MAIL_FROM_ADDRESS', config('mail.from.address')).'. Pas Mail Server Instellingen aan (From-adres of SMTP-gebruiker).',
                     ],
                 ]);

@@ -125,17 +125,7 @@ class TaxiCustomerAcceptEmailTemplateService
      */
     public function resolveActiveTemplate(?int $companyId): ?EmailTemplate
     {
-        return EmailTemplate::query()
-            ->where('type', self::TYPE)
-            ->where('is_active', true)
-            ->where(function ($q) use ($companyId) {
-                $q->whereNull('company_id');
-                if ($companyId !== null && $companyId > 0) {
-                    $q->orWhere('company_id', $companyId);
-                }
-            })
-            ->orderByDesc('company_id')
-            ->first();
+        return $this->resolveActiveScopedEmailTemplate(self::TYPE, $companyId);
     }
 
     /**

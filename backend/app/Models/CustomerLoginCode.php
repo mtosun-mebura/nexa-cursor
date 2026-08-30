@@ -9,8 +9,15 @@ class CustomerLoginCode extends Model
 {
     protected $table = 'customer_login_codes';
 
+    public const PURPOSE_CUSTOMER = 'customer';
+
+    public const PURPOSE_DRIVER = 'driver';
+
+    public const PURPOSE_CONTRACT = 'contract';
+
     protected $fillable = [
         'user_id',
+        'purpose',
         'code_hash',
         'expires_at',
         'consumed_at',

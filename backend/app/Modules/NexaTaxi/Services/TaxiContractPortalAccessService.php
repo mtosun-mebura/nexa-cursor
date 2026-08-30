@@ -3,10 +3,13 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\User;
+use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Models\TransportCustomerPortalUser;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerGuardian;
+use App\Services\ModuleDatabaseService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\PermissionRegistrar;
 
 class TaxiContractPortalAccessService
@@ -33,32 +36,45 @@ class TaxiContractPortalAccessService
             ->orderByDesc('id')
             ->first();
 
-        if (! $link) {
+        if ($link && $this->isValidPortalRole((string) $link->portal_role)) {
+            return $this->contextFromLink($link);
+        }
+
+        if (TransportCustomerPortalUser::on($conn)->where('user_id', $user->id)->exists()) {
             return null;
         }
 
-        if (! in_array($link->portal_role, [
-            TransportCustomerPortalUser::ROLE_CONTRACTANT,
-            TransportCustomerPortalUser::ROLE_CONTRACTOUDER,
-        ], true)) {
+        $portalRole = $this->spatiePortalRole($user);
+        if ($portalRole === null) {
             return null;
         }
 
-        if (! $this->hasPortalSpatieRole($user, (int) $link->company_id, (string) $link->portal_role)) {
-            return null;
-        }
+        $link = $this->provisionPortalLink($conn, $user, $portalRole);
 
-        return [
-            'company_id' => (int) $link->company_id,
-            'transport_customer_id' => (int) $link->transport_customer_id,
-            'portal_role' => (string) $link->portal_role,
-            'portal_link' => $link,
-        ];
+        return $link ? $this->contextFromLink($link) : null;
     }
 
     public function isContractant(array $context): bool
     {
         return ($context['portal_role'] ?? '') === TransportCustomerPortalUser::ROLE_CONTRACTANT;
+    }
+
+    public function userMayAccessPortal(User $user, ?string $conn = null): bool
+    {
+        if ($this->spatiePortalRole($user) !== null) {
+            return true;
+        }
+
+        if ($conn === null || $conn === '') {
+            $conn = app(ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+        }
+
+        app(TaxiContractvervoerSchemaService::class)->ensureContractPortalTables($conn);
+
+        return TransportCustomerPortalUser::on($conn)
+            ->where('user_id', $user->id)
+            ->where('active', true)
+            ->exists();
     }
 
     /**
@@ -121,22 +137,85 @@ class TaxiContractPortalAccessService
         }
     }
 
-    private function hasPortalSpatieRole(User $user, int $companyId, string $portalRole): bool
+    /**
+     * @return array{
+     *     company_id: int,
+     *     transport_customer_id: int,
+     *     portal_role: string,
+     *     portal_link: TransportCustomerPortalUser
+     * }
+     */
+    private function contextFromLink(TransportCustomerPortalUser $link): array
     {
-        $expected = $portalRole === TransportCustomerPortalUser::ROLE_CONTRACTANT
-            ? self::SPATIE_CONTRACTANT
-            : self::SPATIE_CONTRACTOUDER;
+        return [
+            'company_id' => (int) $link->company_id,
+            'transport_customer_id' => (int) $link->transport_customer_id,
+            'portal_role' => (string) $link->portal_role,
+            'portal_link' => $link,
+        ];
+    }
 
-        $registrar = app(PermissionRegistrar::class);
-        $previousTeamId = $registrar->getPermissionsTeamId();
-        $registrar->setPermissionsTeamId($companyId > 0 ? $companyId : null);
+    private function isValidPortalRole(string $role): bool
+    {
+        return in_array($role, [
+            TransportCustomerPortalUser::ROLE_CONTRACTANT,
+            TransportCustomerPortalUser::ROLE_CONTRACTOUDER,
+        ], true);
+    }
 
-        try {
-            return $user->hasRole($expected)
-                || $user->hasRole($expected, 'api')
-                || $user->hasRole([self::SPATIE_CONTRACTANT, self::SPATIE_CONTRACTOUDER]);
-        } finally {
-            $registrar->setPermissionsTeamId($previousTeamId);
+    /**
+     * Team-agnostisch, zelfde bron als het gebruikersscherm (web-rollen).
+     */
+    private function spatiePortalRole(User $user): ?string
+    {
+        $names = array_map(
+            static fn ($name) => strtolower(trim((string) $name)),
+            $user->webRoleNames()
+        );
+
+        if (in_array(self::SPATIE_CONTRACTANT, $names, true)) {
+            return TransportCustomerPortalUser::ROLE_CONTRACTANT;
         }
+
+        if (in_array(self::SPATIE_CONTRACTOUDER, $names, true)) {
+            return TransportCustomerPortalUser::ROLE_CONTRACTOUDER;
+        }
+
+        return null;
+    }
+
+    private function provisionPortalLink(string $conn, User $user, string $portalRole): ?TransportCustomerPortalUser
+    {
+        $companyId = (int) $user->company_id;
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        $query = TransportCustomer::on($conn)
+            ->where('company_id', $companyId)
+            ->orderBy('id');
+
+        if (Schema::connection($conn)->hasColumn('transport_customers', 'active')) {
+            $query->where(function ($q) {
+                $q->where('active', true)->orWhereNull('active');
+            });
+        }
+
+        $customer = $query->first();
+        if (! $customer) {
+            return null;
+        }
+
+        return TransportCustomerPortalUser::on($conn)->updateOrCreate(
+            [
+                'transport_customer_id' => $customer->id,
+                'user_id' => $user->id,
+            ],
+            [
+                'company_id' => $companyId,
+                'portal_role' => $portalRole,
+                'active' => true,
+            ]
+        );
     }
 }

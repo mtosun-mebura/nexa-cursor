@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\TenantPackageCapability;
 use Closure;
 use Illuminate\Http\Request;
@@ -44,6 +45,11 @@ class EnsureTaxiContractPortal
         $entitlements = app(CompanyEntitlementService::class);
         if (! $entitlements->allows($company, TenantPackageCapability::CONTRACT_PORTAL)) {
             return $entitlements->jsonDenied($company, TenantPackageCapability::CONTRACT_PORTAL);
+        }
+
+        $billingAccess = app(TenantBillingAccessService::class);
+        if ($billingAccess->isFullyBlocked($company)) {
+            return response()->json(['message' => $billingAccess->fullBlockMessage()], 403);
         }
 
         return $next($request);

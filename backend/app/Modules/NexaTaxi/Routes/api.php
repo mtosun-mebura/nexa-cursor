@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverAvailabilityController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchStreamController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverEarningsController;
+use App\Modules\NexaTaxi\Controllers\Api\DriverPlanningController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideInvoiceController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRidePaymentController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideStopController;
@@ -17,6 +18,8 @@ Route::prefix('v1/contract')
     ->group(function () {
         Route::post('logout', [ContractPortalAuthController::class, 'logout']);
         Route::get('me', [ContractPortalAuthController::class, 'me']);
+        Route::put('accent', [ContractPortalAuthController::class, 'updateAccent'])
+            ->middleware('throttle:60,1');
         Route::get('passengers', [ContractPortalController::class, 'passengers'])
             ->middleware('throttle:60,1');
         Route::get('today', [ContractPortalController::class, 'today'])
@@ -40,8 +43,13 @@ Route::prefix('v1/driver')
     ->group(function () {
         Route::post('logout', [DriverAuthController::class, 'logout']);
         Route::get('me', [DriverAuthController::class, 'me']);
+        Route::put('accent', [DriverAuthController::class, 'updateAccent'])
+            ->middleware('throttle:60,1');
 
         Route::get('earnings', [DriverEarningsController::class, 'show'])
+            ->middleware('throttle:60,1');
+
+        Route::get('planning', [DriverPlanningController::class, 'week'])
             ->middleware('throttle:60,1');
 
         Route::put('availability', [DriverAvailabilityController::class, 'update'])

@@ -12,7 +12,6 @@ use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 
 class TaxiDispatchOfferResource
 {
@@ -113,6 +112,22 @@ class TaxiDispatchOfferResource
             }
         }
 
+        $onReturnLeg = $ride->isReturnTrip() && $ride->hasOutboundCompleted();
+        $returnLegCoords = [
+            'pickup_lat' => $onReturnLeg
+                ? ($ride->dropoff_lat !== null ? (float) $ride->dropoff_lat : null)
+                : ($ride->pickup_lat !== null ? (float) $ride->pickup_lat : null),
+            'pickup_lng' => $onReturnLeg
+                ? ($ride->dropoff_lng !== null ? (float) $ride->dropoff_lng : null)
+                : ($ride->pickup_lng !== null ? (float) $ride->pickup_lng : null),
+            'dropoff_lat' => $onReturnLeg
+                ? ($ride->pickup_lat !== null ? (float) $ride->pickup_lat : null)
+                : ($ride->dropoff_lat !== null ? (float) $ride->dropoff_lat : null),
+            'dropoff_lng' => $onReturnLeg
+                ? ($ride->pickup_lng !== null ? (float) $ride->pickup_lng : null)
+                : ($ride->dropoff_lng !== null ? (float) $ride->dropoff_lng : null),
+        ];
+
         return [
             'id' => $ride->id,
             'status' => $ride->status,
@@ -146,6 +161,10 @@ class TaxiDispatchOfferResource
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
             'pickup_address' => $ride->driverLegPickupAddress(),
             'dropoff_address' => $ride->driverLegDropoffAddress(),
+            'pickup_lat' => $returnLegCoords['pickup_lat'],
+            'pickup_lng' => $returnLegCoords['pickup_lng'],
+            'dropoff_lat' => $returnLegCoords['dropoff_lat'],
+            'dropoff_lng' => $returnLegCoords['dropoff_lng'],
             'pickup_at' => $schedule['departure_at'] ?? ContractTransportTimezone::toDriverIso8601($ride->effectivePickupAt()),
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
@@ -167,6 +186,35 @@ class TaxiDispatchOfferResource
                 'complete' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/complete"),
                 'stops' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/stops"),
             ],
+        ];
+    }
+
+    /**
+     * Compacte ritkaart voor de chauffeur-planning (geen betaling/factuur).
+     *
+     * @return array<string, mixed>
+     */
+    public static function planningRide(RideRequest $ride): array
+    {
+        $pickupAt = $ride->pickup_at;
+        $status = (string) $ride->status;
+
+        return [
+            'id' => $ride->id,
+            'status' => $status,
+            'status_label' => RideRequest::statusLabels()[$status] ?? $status,
+            'is_contract' => $ride->isContractRide(),
+            'pickup_address' => (string) $ride->pickup_address,
+            'dropoff_address' => (string) $ride->dropoff_address,
+            'pickup_lat' => $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null,
+            'pickup_lng' => $ride->pickup_lng !== null ? (float) $ride->pickup_lng : null,
+            'dropoff_lat' => $ride->dropoff_lat !== null ? (float) $ride->dropoff_lat : null,
+            'dropoff_lng' => $ride->dropoff_lng !== null ? (float) $ride->dropoff_lng : null,
+            'pickup_at' => ContractTransportTimezone::toDriverIso8601($pickupAt),
+            'planning_date' => ContractTransportTimezone::asAmsterdamWall($pickupAt)?->toDateString(),
+            'customer_name' => $ride->customer_name,
+            'passengers' => (int) $ride->passengers,
+            'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
         ];
     }
 }

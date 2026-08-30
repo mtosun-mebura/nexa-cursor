@@ -3,18 +3,18 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\Company;
-use App\Models\EmailTemplate;
 use App\Models\InvoiceSetting;
+use App\Models\TenantCustomerEmail;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
+use App\Services\TenantCustomerMailService;
 use App\Services\WhatsAppBookingMessageComposer;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class TaxiCustomerRideAcceptedNotificationService
 {
@@ -247,17 +247,8 @@ class TaxiCustomerRideAcceptedNotificationService
             return;
         }
 
-        $template = EmailTemplate::query()
-            ->where('type', self::EMAIL_TEMPLATE_TYPE)
-            ->where('is_active', true)
-            ->where(function ($q) use ($companyId) {
-                $q->whereNull('company_id');
-                if ($companyId > 0) {
-                    $q->orWhere('company_id', $companyId);
-                }
-            })
-            ->orderByDesc('company_id')
-            ->first();
+        $template = app(TaxiCustomerAcceptEmailTemplateService::class)
+            ->resolveActiveTemplate($companyId > 0 ? $companyId : null);
 
         $vars = array_merge(
             $variables,
@@ -284,49 +275,23 @@ class TaxiCustomerRideAcceptedNotificationService
             $textContent = $this->renderPlainMessage($companyId, $variables);
         }
 
-        $this->env->applyMailConfigToRuntime();
-        $from = $this->env->resolveMailFromHeaders();
         $replyTo = trim($variables['COMPANY_EMAIL']);
 
-        try {
-            Mail::send([], [], function ($message) use (
-                $email,
-                $variables,
-                $subject,
-                $htmlContent,
-                $textContent,
-                $from,
-                $replyTo,
-                $companyId
-            ) {
-                $htmlBody = $this->companyLogos->embedInHtml(
-                    $htmlContent,
-                    $message,
-                    $companyId > 0 ? $companyId : null,
-                    $variables['COMPANY_NAME'] ?? null
-                );
+        $record = app(TenantCustomerMailService::class)->send([
+            'company_id' => $companyId > 0 ? $companyId : null,
+            'type' => TenantCustomerEmail::TYPE_RIDE_ACCEPTED,
+            'to_email' => $email,
+            'to_name' => $variables['CUSTOMER_NAME'] ?? null,
+            'subject' => $subject,
+            'html' => $htmlContent,
+            'text' => $textContent,
+            'related_type' => 'ride_request',
+            'related_id' => $rideId,
+            'reply_to' => $replyTo !== '' ? $replyTo : null,
+            'reply_to_name' => $variables['COMPANY_NAME'] ?? null,
+        ]);
 
-                $message->to($email, $variables['CUSTOMER_NAME'])
-                    ->subject($subject)
-                    ->from($from['from_address'], $from['from_name'])
-                    ->html($htmlBody)
-                    ->text($textContent);
-
-                if ($replyTo !== '') {
-                    $message->replyTo($replyTo, $variables['COMPANY_NAME']);
-                }
-
-                if ($from['smtp_username'] !== '') {
-                    try {
-                        $symfonyMessage = $message->getSymfonyMessage();
-                        $symfonyMessage->getHeaders()->remove('Sender');
-                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $from['smtp_username']);
-                    } catch (\Throwable) {
-                        // optioneel
-                    }
-                }
-            });
-
+        if ($record->status === TenantCustomerEmail::STATUS_SENT) {
             $this->logCustomer(
                 $conn,
                 $rideId,
@@ -336,22 +301,24 @@ class TaxiCustomerRideAcceptedNotificationService
                 $email,
                 (int) $ride->driver_id
             );
-        } catch (\Throwable $e) {
-            $this->logCustomer(
-                $conn,
-                $rideId,
-                RideRequestNotificationLog::CHANNEL_EMAIL,
-                RideRequestNotificationLog::STATUS_FAILED,
-                $variables['CUSTOMER_NAME'],
-                $email,
-                (int) $ride->driver_id,
-                $e->getMessage()
-            );
-            Log::warning('Klant-e-mail rit geaccepteerd mislukt.', [
-                'ride_request_id' => $rideId,
-                'error' => $e->getMessage(),
-            ]);
+
+            return;
         }
+
+        $this->logCustomer(
+            $conn,
+            $rideId,
+            RideRequestNotificationLog::CHANNEL_EMAIL,
+            RideRequestNotificationLog::STATUS_FAILED,
+            $variables['CUSTOMER_NAME'],
+            $email,
+            (int) $ride->driver_id,
+            $record->error_message
+        );
+        Log::warning('Klant-e-mail rit geaccepteerd mislukt.', [
+            'ride_request_id' => $rideId,
+            'error' => $record->error_message,
+        ]);
     }
 
     /**
@@ -363,8 +330,7 @@ class TaxiCustomerRideAcceptedNotificationService
         int $companyId,
         array $variables,
         bool $force = false
-    ): void
-    {
+    ): void {
         $rideId = (int) $ride->id;
         $phone = trim((string) ($ride->customer_phone ?? ''));
         if ($phone === '') {

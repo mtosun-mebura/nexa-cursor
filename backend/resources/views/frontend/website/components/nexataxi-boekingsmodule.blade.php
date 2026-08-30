@@ -42,6 +42,12 @@
             $bookingTenantCompanyId = (int) $rtid;
         }
     }
+    $bookingAccessBlocked = false;
+    if ($bookingTenantCompanyId) {
+        $bookingAccessCompany = \App\Models\Company::query()->find($bookingTenantCompanyId);
+        $bookingAccessBlocked = app(\App\Services\PlatformBilling\TenantBillingAccessService::class)
+            ->isBookingBlocked($bookingAccessCompany);
+    }
     $whatsappClickToChatNumber = '';
     $whatsappServerAutoSend = false;
     $whatsappClientClickToChat = false;
@@ -116,6 +122,12 @@
         ? (! empty($previewDark) ? 'dark' : 'light')
         : 'dark';
 @endphp
+
+@if(! empty($bookingAccessBlocked))
+<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" style="{{ $bookingSectionStyle ?? '' }}">
+    @include('frontend.website.components.partials.nexataxi-boekingsmodule-blocked')
+</section>
+@else
 
 <section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-skin="{{ $bookingSkinInitial }}" data-scroll-reveal data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
     {{-- Direct sync met website-theme om flits van verkeerde skin te voorkomen --}}
@@ -7822,4 +7834,5 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
 })();
 </script>
 @endpush
+@endif
 

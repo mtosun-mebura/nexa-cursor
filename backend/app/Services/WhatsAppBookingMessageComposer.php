@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiBookingSummaryText;
-use App\Models\GeneralSetting;
 
 class WhatsAppBookingMessageComposer
 {
@@ -63,7 +63,7 @@ TXT;
 
     /**
      * Ophaalvoorstel (klant) — Meta-template met Quick Reply-knoppen Accepteren / Weigeren.
-     * Knop-payloads in Meta: pickup_accept en pickup_decline (of knoptekst Accepteren/Weigeren).
+     * In Meta hoeft geen payload of webhook op de knop: de knoptekst komt via de app-webhook binnen.
      * Elke body-parameter komt maximaal 1× voor (Meta-eis), in leesvolgorde:
      * {{1}} klant, {{2}} bedrijf, {{3}} telefoon tenant, {{4}} huidig ophaalmoment,
      * {{5}} voorgesteld moment, {{6}} ophaaladres, {{7}} afleveradres, {{8}} chauffeur.
@@ -733,5 +733,13 @@ TXT;
             'preview' => $this->renderPreview(self::META_BODY_PICKUP_PROPOSAL, $params),
             'params' => $params,
         ];
+    }
+
+    public function pickupProposalPreviewForRide(RideRequest $ride, ?\App\Models\User $driver = null): string
+    {
+        return $this->renderPreview(
+            self::META_BODY_PICKUP_PROPOSAL,
+            $this->pickupProposalBodyParameters($ride, $driver)
+        );
     }
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl" class="h-full" data-theme="dark">
+<html lang="nl" class="h-full" data-theme="dark" data-accent="orange">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -9,12 +9,14 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
+    @include('taxi::partials.pwa-accent', ['section' => 'boot'])
     <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.contract.manifest') ? route('taxi.contract.manifest') : url('/taxi/contract/manifest.webmanifest') }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
     <title>Contract – Nexa Taxi</title>
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
+    @include('taxi::partials.pwa-accent', ['section' => 'styles'])
     <style>
         :root {
             --bg: #121214;
@@ -75,7 +77,14 @@
             color: var(--text);
             overscroll-behavior: none;
         }
-        #app { min-height: 100%; display: flex; flex-direction: column; }
+        #app { height: 100%; min-height: 100%; display: flex; flex-direction: column; }
+        .app-top-chrome {
+            flex-shrink: 0;
+            background: var(--chrome);
+        }
+        .app-top-chrome:not(:has(#guide-hint:not([hidden]))) {
+            display: none;
+        }
         .screen {
             display: none;
             flex: 1;
@@ -89,8 +98,8 @@
         #screen-home.is-active {
             display: flex;
             flex-direction: column;
-            height: 100dvh;
-            max-height: 100dvh;
+            flex: 1 1 auto;
+            min-height: 0;
             overflow: hidden;
             padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
         }
@@ -103,8 +112,10 @@
         .home-top__row {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
             min-height: 2.25rem;
-            height: 2.25rem;
+            height: auto;
             padding-right: 2.75rem;
         }
         .home-top__row h1 {
@@ -172,7 +183,128 @@
             color: var(--orange);
         }
         .contract-bottom-nav__btn:active {
-            background: rgba(249, 115, 22, 0.08);
+            background: rgba(var(--accent-rgb), 0.08);
+        }
+        @media (max-width: 420px) {
+            .contract-bottom-nav__btn {
+                font-size: 0.62rem;
+                padding: 0.3rem 0.1rem;
+            }
+        }
+        #screen-home.is-nav-tab .home-scroll {
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #tab-panel-navigation:not([hidden]) {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            height: 100%;
+        }
+        .navigation-map {
+            flex: 1 1 auto;
+            min-height: 8rem;
+            width: 100%;
+            background: #1a1a1c;
+        }
+        .navigation-sheet {
+            flex: 0 0 auto;
+            padding: 0.75rem 1rem 0.85rem;
+            background: var(--chrome);
+            border-top: 1px solid var(--line);
+            overflow: visible;
+        }
+        .navigation-status {
+            margin: 0 0 0.55rem;
+            font-size: 0.8125rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+        .navigation-stops {
+            margin: 0 0 0.7rem;
+            padding: 0;
+            list-style: none;
+            max-height: min(40vh, 16rem);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .navigation-stops li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.45rem;
+            padding: 0;
+            font-size: 0.88rem;
+            line-height: 1.35;
+            color: var(--text);
+            border-bottom: 1px solid var(--line);
+        }
+        .navigation-stops li:last-child {
+            border-bottom: 0;
+        }
+        .navigation-stop-btn {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.45rem;
+            width: 100%;
+            padding: 0.55rem 0;
+            border: none;
+            background: transparent;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+        }
+        .navigation-stop-btn:active {
+            opacity: 0.75;
+        }
+        .navigation-route__name {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .navigation-route__kind {
+            display: block;
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 650;
+            margin-top: 0.12rem;
+        }
+        strong.navigation-route__kind {
+            color: var(--text);
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-top: 0;
+        }
+        .navigation-route__stop {
+            display: block;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 0.12rem;
+        }
+        .navigation-stops__num {
+            flex-shrink: 0;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 999px;
+            background: rgba(var(--accent-rgb), 0.2);
+            color: var(--orange);
+            font-size: 0.68rem;
+            font-weight: 750;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #tab-panel-navigation #btn-start-navigation {
+            width: 100%;
+            margin: 0;
+        }
+        #tab-panel-navigation #btn-start-navigation:disabled {
+            opacity: 0.45;
         }
         .driver-section-head {
             display: flex;
@@ -267,6 +399,39 @@
             transform: translateY(-50%);
             margin: 0;
             color: #9ca3af;
+        }
+        #login-form .login-first-login {
+            margin: 0.85rem 0 0;
+            text-align: center;
+        }
+        #login-form .login-first-login button {
+            background: none;
+            border: none;
+            color: var(--orange);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+        }
+        #first-login-panel {
+            margin-top: 0.85rem;
+        }
+        #first-login-panel.is-code-sent {
+            margin-top: 0;
+        }
+        #first-login-panel .login-first-note {
+            color: var(--muted);
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            margin: 0.75rem 0 0;
+        }
+        #first-login-panel.is-code-sent .login-first-note {
+            color: var(--orange);
+            margin: 0 0 1.5rem;
+        }
+        #first-login-panel .btn-ghost {
+            margin-top: 0.5rem;
         }
         textarea {
             resize: vertical;
@@ -379,8 +544,8 @@
             margin-top: 0.75rem;
         }
         .btn:disabled { opacity: 0.55; cursor: not-allowed; }
-        .btn-primary { background: var(--orange); color: #fff; }
-        .btn-primary:hover { background: var(--orange-hover); }
+        .btn-primary { background: var(--orange); color: var(--accent-on, #fff); }
+        .btn-primary:hover { background: var(--orange-hover); color: var(--accent-on, #fff); }
         .btn-danger { background: var(--red); color: #fff; }
         .btn-ghost {
             background: transparent;
@@ -453,7 +618,7 @@
         .status-picked_up { background: rgba(37, 99, 235, 0.22); color: #93c5fd; }
         .status-completed { background: rgba(22, 163, 74, 0.2); color: #86efac; }
         .status-absent { background: rgba(220, 38, 38, 0.2); color: #fca5a5; }
-        .status-none { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+        .status-none, .status-expired { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
         .status-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
         #home-destination { font-weight: 600; color: var(--text); }
         html[data-theme="light"] .status-planned,
@@ -462,31 +627,29 @@
         html[data-theme="light"] .status-arrived { background: rgba(217, 119, 6, 0.14); color: #b45309; }
         html[data-theme="light"] .status-completed { background: rgba(22, 163, 74, 0.14); color: #15803d; }
         html[data-theme="light"] .status-absent { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
-        html[data-theme="light"] .status-none { background: rgba(100, 116, 139, 0.12); color: #475569; }
+        html[data-theme="light"] .status-none,
+        html[data-theme="light"] .status-expired { background: rgba(100, 116, 139, 0.12); color: #475569; }
         .card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
         .banner-guide-hint {
             position: relative;
             display: flex;
             align-items: center;
-            background: rgba(249, 115, 22, 0.14);
-            border: 1px solid rgba(249, 115, 22, 0.4);
-            color: #fed7aa;
+            background: rgba(var(--accent-rgb), 0.14);
+            border: 1px solid rgba(var(--accent-rgb), 0.4);
+            color: var(--accent-muted);
             border-radius: 0.75rem;
             padding: 0.65rem 2.75rem 0.65rem 1rem;
             font-size: 0.8125rem;
             line-height: 1.4;
         }
-        #guide-hint {
-            margin: 0 0 1rem;
-            flex-shrink: 0;
-        }
-        #screen-home #guide-hint {
-            margin: 0 0 0.75rem;
-        }
         html[data-theme="light"] .banner-guide-hint {
-            background: #fff7ed;
-            border-color: #fdba74;
-            color: #9a3412;
+            background: var(--accent-light-bg);
+            border-color: var(--accent-light-border);
+            color: var(--accent-light-ink);
+        }
+        #guide-hint {
+            margin: 1rem 1rem 0.85rem;
+            flex-shrink: 0;
         }
         .banner-guide-hint__body {
             display: flex;
@@ -509,7 +672,7 @@
             border-radius: 0.45rem;
             border: none;
             background: var(--orange);
-            color: #fff;
+            color: var(--accent-on, #fff);
             font-size: 0.75rem;
             font-weight: 600;
             line-height: 1.2;
@@ -707,8 +870,372 @@
         }
         .week-day .wd-name { display: block; opacity: 0.8; }
         .week-day .wd-num { display: block; font-size: 0.95rem; color: var(--text); margin-top: 0.1rem; }
-        .week-day.is-active { background: rgba(249, 115, 22, 0.2); border-color: var(--orange); color: var(--orange); }
+        .week-day.is-active { background: rgba(var(--accent-rgb), 0.2); border-color: var(--orange); color: var(--orange); }
         .week-day.is-active .wd-num { color: var(--text); }
+        .planning-view-toggle {
+            display: inline-flex;
+            align-items: stretch;
+            flex-shrink: 0;
+            border: 1px solid var(--line);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: var(--card-elevated);
+        }
+        .planning-view-toggle__btn {
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 650;
+            padding: 0.38rem 0.7rem;
+            cursor: pointer;
+            min-height: 2rem;
+        }
+        .planning-view-toggle__btn.is-active {
+            background: rgba(var(--accent-rgb), 0.18);
+            color: var(--orange);
+        }
+        .planning-week-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 0.55rem;
+            min-width: 0;
+        }
+        .planning-week-nav__spacer {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .planning-heading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 0.25rem;
+            width: 100%;
+            margin: 0 0 0.75rem;
+        }
+        .planning-heading .planning-week-label {
+            font-weight: 650;
+            font-size: 0.9rem;
+            text-align: center;
+            color: var(--text);
+            line-height: 1.3;
+            max-width: 100%;
+        }
+        .planning-heading.is-day .planning-week-label {
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        .planning-day-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .planning-day-stack .planning-heading {
+            margin-bottom: 0.35rem;
+        }
+        .planning-day-stack .planning-empty,
+        .planning-day-stack .planning-ride-card {
+            width: 100%;
+        }
+        .planning-week-nav__btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            flex: 0 0 2.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--line);
+            background: var(--card-elevated);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+        .planning-week-nav__btn:active {
+            opacity: 0.85;
+        }
+        .planning-week-nav__today {
+            flex: 0 0 auto;
+            height: 2.5rem;
+            padding: 0 0.7rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--line);
+            background: var(--card-elevated);
+            color: var(--text);
+            font-size: 0.8rem;
+            font-weight: 650;
+            cursor: pointer;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .planning-week-nav__today:active:not(:disabled) {
+            opacity: 0.85;
+        }
+        .planning-week-nav__today:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        .planning-week-nav__count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.28rem;
+            color: var(--orange);
+            font-size: 0.875rem;
+            font-weight: 650;
+            line-height: 1.2;
+        }
+        .planning-week-nav__count svg {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+        }
+        .planning-week-days {
+            display: flex;
+            gap: 0.35rem;
+            margin-bottom: 0.85rem;
+        }
+        .planning-week-day {
+            flex: 1 1 0;
+            min-width: 0;
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--muted);
+            border-radius: 0.625rem;
+            padding: 0.4rem 0.15rem 0.35rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+        }
+        .planning-week-day .wd-name {
+            display: block;
+            opacity: 0.8;
+            text-transform: lowercase;
+            font-size: 0.78rem;
+        }
+        .planning-week-day .wd-num {
+            display: block;
+            font-size: 1.05rem;
+            color: var(--text);
+            margin-top: 0.08rem;
+        }
+        .planning-week-day .wd-rides {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.15rem;
+            margin-top: 0.18rem;
+            color: var(--orange);
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .planning-week-day .wd-rides svg {
+            width: 0.85rem;
+            height: 0.85rem;
+        }
+        .planning-week-day:not(.has-rides) .wd-rides {
+            color: var(--muted);
+            opacity: 0.55;
+        }
+        .planning-week-day.is-today {
+            box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.45);
+        }
+        .planning-week-day.is-active {
+            background: rgba(var(--accent-rgb), 0.2);
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+        .planning-week-day.is-active .wd-num {
+            color: var(--text);
+        }
+        .planning-day-section {
+            margin-bottom: 1rem;
+        }
+        .planning-day-section__title {
+            margin: 0 0 0.5rem;
+            font-size: 0.8125rem;
+            font-weight: 650;
+            color: var(--muted);
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .planning-day-section__count {
+            font-weight: 650;
+            font-size: 0.8rem;
+            color: var(--orange);
+        }
+        .planning-ride-card {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: 1px solid rgba(var(--accent-rgb), 0.32);
+            background: var(--card-elevated);
+            box-shadow: inset 3px 0 0 var(--orange);
+            color: inherit;
+            border-radius: 0.85rem;
+            padding: 0.75rem 0.85rem 0.75rem 1rem;
+            margin: 0 0 0.5rem;
+        }
+        .planning-ride-card.is-assigned {
+            border-color: rgba(34, 197, 94, 0.38);
+            background: var(--card-elevated);
+            box-shadow: inset 3px 0 0 #4ade80;
+        }
+        .planning-ride-card.is-completed {
+            border-color: rgba(148, 163, 184, 0.4);
+            background: var(--card-elevated);
+            box-shadow: inset 3px 0 0 #94a3b8;
+        }
+        .planning-ride-card.is-absent {
+            border-color: rgba(239, 68, 68, 0.38);
+            background: var(--card-elevated);
+            box-shadow: inset 3px 0 0 #f87171;
+        }
+        .planning-ride-card.is-expired {
+            border-color: rgba(148, 163, 184, 0.4);
+            background: var(--card-elevated);
+            box-shadow: inset 3px 0 0 #94a3b8;
+        }
+        .planning-ride-card__hit {
+            display: block;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .planning-ride-card__hit:active {
+            opacity: 0.88;
+        }
+        .planning-ride-card__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.32rem;
+        }
+        .planning-ride-card__time {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--orange);
+        }
+        .planning-ride-card.is-assigned .planning-ride-card__time {
+            color: #4ade80;
+        }
+        .planning-ride-card.is-completed .planning-ride-card__time {
+            color: #94a3b8;
+        }
+        .planning-ride-card.is-absent .planning-ride-card__time {
+            color: #f87171;
+        }
+        .planning-ride-card.is-expired .planning-ride-card__time {
+            color: #94a3b8;
+        }
+        .planning-ride-card__status {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.18rem 0.5rem;
+            border-radius: 999px;
+            background: rgba(var(--accent-rgb), 0.2);
+            color: var(--orange);
+            font-size: 0.68rem;
+            font-weight: 750;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .planning-ride-card.is-assigned .planning-ride-card__status {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+        .planning-ride-card.is-completed .planning-ride-card__status {
+            background: rgba(148, 163, 184, 0.2);
+            color: #cbd5e1;
+        }
+        .planning-ride-card.is-absent .planning-ride-card__status {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+        .planning-ride-card.is-expired .planning-ride-card__status {
+            background: rgba(148, 163, 184, 0.2);
+            color: #cbd5e1;
+        }
+        .planning-ride-card__route {
+            margin: 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.35;
+        }
+        .planning-ride-card__arrow {
+            color: var(--orange);
+            font-weight: 800;
+        }
+        .planning-ride-card.is-assigned .planning-ride-card__arrow {
+            color: #4ade80;
+        }
+        .planning-ride-card.is-completed .planning-ride-card__arrow {
+            color: #94a3b8;
+        }
+        .planning-ride-card.is-absent .planning-ride-card__arrow {
+            color: #f87171;
+        }
+        .planning-ride-card.is-expired .planning-ride-card__arrow {
+            color: #94a3b8;
+        }
+        .planning-ride-card__meta {
+            margin: 0.2rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+        .planning-ride-card__detail {
+            margin-top: 0.65rem;
+            padding-top: 0.65rem;
+            border-top: 1px solid var(--line);
+        }
+        .planning-empty {
+            text-align: center;
+            color: var(--muted);
+            padding: 1.1rem 0.75rem;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        html[data-theme="light"] .planning-ride-card.is-assigned .planning-ride-card__time,
+        html[data-theme="light"] .planning-ride-card.is-assigned .planning-ride-card__status,
+        html[data-theme="light"] .planning-ride-card.is-assigned .planning-ride-card__arrow {
+            color: #15803d;
+        }
+        html[data-theme="light"] .planning-ride-card.is-completed .planning-ride-card__time,
+        html[data-theme="light"] .planning-ride-card.is-completed .planning-ride-card__status,
+        html[data-theme="light"] .planning-ride-card.is-completed .planning-ride-card__arrow {
+            color: #475569;
+        }
+        html[data-theme="light"] .planning-ride-card.is-absent .planning-ride-card__time,
+        html[data-theme="light"] .planning-ride-card.is-absent .planning-ride-card__status,
+        html[data-theme="light"] .planning-ride-card.is-absent .planning-ride-card__arrow {
+            color: #b91c1c;
+        }
+        html[data-theme="light"] .planning-ride-card.is-expired .planning-ride-card__time,
+        html[data-theme="light"] .planning-ride-card.is-expired .planning-ride-card__status,
+        html[data-theme="light"] .planning-ride-card.is-expired .planning-ride-card__arrow {
+            color: #475569;
+        }
         .guide-steps {
             margin: 0.75rem 0 0;
             padding-left: 1.2rem;
@@ -724,13 +1251,13 @@
             padding: 0.2rem 0.55rem;
             font-size: 0.75rem;
             font-weight: 600;
-            background: rgba(249, 115, 22, 0.18);
-            color: #fdba74;
+            background: rgba(var(--accent-rgb), 0.18);
+            color: var(--accent-muted);
             margin: 0 0 0.35rem;
         }
         html[data-theme="light"] .guide-platform {
-            background: rgba(249, 115, 22, 0.12);
-            color: #c2410c;
+            background: rgba(var(--accent-rgb), 0.12);
+            color: var(--accent-ink);
         }
         .empty {
             text-align: center;
@@ -808,6 +1335,57 @@
         }
         .dialog-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
         .dialog-actions .btn { flex: 1; }
+        .dialog.contract-notice .dialog-panel,
+        .dialog.contract-confirm .dialog-panel {
+            max-width: 22rem;
+            text-align: center;
+            padding: 1.5rem 1.25rem 1.25rem;
+        }
+        .contract-notice-icon {
+            width: 3.25rem;
+            height: 3.25rem;
+            margin: 0 auto 1rem;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        .contract-notice-icon.is-success {
+            background: rgba(22, 163, 74, 0.2);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            color: #86efac;
+        }
+        .contract-notice-icon.is-error {
+            background: rgba(220, 38, 38, 0.18);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            color: #fecaca;
+        }
+        .contract-notice-icon.is-warn {
+            background: rgba(245, 158, 11, 0.18);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            color: #fcd34d;
+        }
+        .contract-notice-title {
+            margin: 0 0 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .contract-notice-text {
+            margin: 0 0 1.25rem;
+            font-size: 0.9375rem;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+        .dialog.contract-notice .dialog-actions,
+        .dialog.contract-confirm .dialog-actions {
+            flex-direction: column;
+        }
+        .dialog.contract-notice .dialog-actions .btn,
+        .dialog.contract-confirm .dialog-actions .btn {
+            min-height: 3rem;
+        }
         html[data-theme="light"] .card {
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
         }
@@ -816,7 +1394,7 @@
 <body>
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
-    <section id="screen-login" class="screen is-active" aria-label="Inloggen">
+    <div class="app-top-chrome">
         <div id="guide-hint" class="banner-guide-hint" hidden role="note">
             <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
             <div class="banner-guide-hint__body">
@@ -828,17 +1406,44 @@
                 <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">Handleiding openen</a>
             </div>
         </div>
+    </div>
+    <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Contract inloggen</h1>
         <div class="card">
             <form id="login-form" autocomplete="on" novalidate>
-                <label for="email">E-mail</label>
-                <input id="email" name="email" type="email" inputmode="email" autocomplete="username" required aria-describedby="email-error">
-                <p id="email-error" class="field-error" hidden role="alert"></p>
-                <label for="password">Wachtwoord</label>
-                <input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="password-error">
-                <p id="password-error" class="field-error" hidden role="alert"></p>
+                <div id="login-email-block">
+                    <label for="email">E-mail</label>
+                    <input id="email" name="email" type="email" inputmode="email" autocomplete="username" required aria-describedby="email-error">
+                    <p id="email-error" class="field-error" hidden role="alert"></p>
+                </div>
+                <div id="login-password-block">
+                    <label for="password">Wachtwoord</label>
+                    <input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="password-error">
+                    <p id="password-error" class="field-error" hidden role="alert"></p>
+                </div>
                 <p id="login-error" class="error" hidden role="alert" aria-live="assertive"></p>
                 <button type="submit" class="btn btn-primary" id="login-btn">Inloggen</button>
+                <p class="login-first-login" id="login-first-open-wrap">
+                    <button type="button" id="btn-open-first-login">Eerste keer inloggen? Inlogcode aanvragen</button>
+                </p>
+                <div id="first-login-panel" hidden>
+                    <input type="hidden" id="first-login-email" value="" autocomplete="off">
+                    <button type="button" class="btn btn-primary" id="btn-send-login-code">Code versturen</button>
+                    <p class="login-first-note"
+                        data-note-idle="We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna kies je zelf een wachtwoord."
+                        data-note-sent="We hebben een eenmalige code naar je e-mailadres gestuurd. Deze is beperkt geldig, voer deze hieronder in en stel een eigen wachtwoord in."
+                    >We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna kies je zelf een wachtwoord.</p>
+                    <div id="first-login-verify" hidden>
+                        <label for="login-code">Code uit e-mail</label>
+                        <input id="login-code" name="login_code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">
+                        <label for="new-password">Nieuw wachtwoord</label>
+                        <input id="new-password" name="new_password" type="password" autocomplete="new-password">
+                        <label for="new-password-confirm">Wachtwoord bevestigen</label>
+                        <input id="new-password-confirm" name="new_password_confirm" type="password" autocomplete="new-password">
+                        <button type="button" class="btn btn-primary" id="btn-verify-login-code">Wachtwoord opslaan en inloggen</button>
+                    </div>
+                    <button type="button" class="btn btn-ghost" id="btn-cancel-first-login">Terug naar inloggen</button>
+                </div>
             </form>
         </div>
     </section>
@@ -847,6 +1452,10 @@
         <div class="home-top">
             <div class="home-top__row">
                 <h1 id="home-title">Vandaag</h1>
+                <div id="planning-view-toggle" class="planning-view-toggle" role="tablist" aria-label="Planningweergave" hidden>
+                    <button type="button" class="planning-view-toggle__btn is-active" data-planning-view="day" aria-selected="true">Dag</button>
+                    <button type="button" class="planning-view-toggle__btn" data-planning-view="week" aria-selected="false">Week</button>
+                </div>
             </div>
             <div class="home-banners">
                 <div id="announcement-banners" class="banner-announcements" hidden></div>
@@ -859,6 +1468,14 @@
                 <div id="panel-today"></div>
             </div>
             <div id="panel-week" data-main-tab-panel="week" hidden></div>
+            <div id="tab-panel-navigation" class="navigation-panel" data-main-tab-panel="navigation" hidden>
+                <div id="navigation-map" class="navigation-map" role="region" aria-label="Routekaart"></div>
+                <div class="navigation-sheet">
+                    <p id="navigation-status" class="navigation-status">Geen ophaalroute voor vandaag.</p>
+                    <ol id="navigation-stops" class="navigation-stops" hidden></ol>
+                    <button type="button" class="btn btn-primary" id="btn-start-navigation" disabled>Start navigatie</button>
+                </div>
+            </div>
             <div id="panel-absences" data-main-tab-panel="absences" hidden></div>
             <div id="panel-profile" class="profile-panel" data-main-tab-panel="profile" hidden>
                 <div class="card">
@@ -883,6 +1500,7 @@
                             </div>
                         </dl>
                     </div>
+                    @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                     <p class="muted profile-session-note">Gegevens zijn alleen ter inzage.</p>
                     <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">
                         <strong>Handleiding</strong>
@@ -900,6 +1518,10 @@
             <button type="button" class="contract-bottom-nav__btn" data-main-tab="week">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 7h8M8 12h8M8 17h5"/><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/></svg>
                 <span>Planning</span>
+            </button>
+            <button type="button" class="contract-bottom-nav__btn" data-main-tab="navigation">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 20.5 12 16.5l7.5 4L12 3Z"/></svg>
+                <span>Navigatie</span>
             </button>
             <button type="button" class="contract-bottom-nav__btn" data-main-tab="absences">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m15 9-6 6M9 9l6 6"/></svg>
@@ -932,16 +1554,46 @@
     </div>
 </div>
 
+<div id="contract-notice-dialog" class="dialog contract-notice" hidden>
+    <div class="dialog-panel" role="alertdialog" aria-modal="true" aria-labelledby="contract-notice-title" aria-describedby="contract-notice-text">
+        <div id="contract-notice-icon" class="contract-notice-icon is-success" aria-hidden="true">✓</div>
+        <h2 id="contract-notice-title" class="contract-notice-title">Gelukt</h2>
+        <p id="contract-notice-text" class="contract-notice-text"></p>
+        <div class="dialog-actions">
+            <button type="button" class="btn btn-primary" id="contract-notice-ok">Oké</button>
+        </div>
+    </div>
+</div>
+
+<div id="contract-confirm-dialog" class="dialog contract-confirm" hidden>
+    <div class="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="contract-confirm-title" aria-describedby="contract-confirm-text">
+        <div id="contract-confirm-icon" class="contract-notice-icon is-warn" aria-hidden="true">?</div>
+        <h2 id="contract-confirm-title" class="contract-notice-title">Weet je het zeker?</h2>
+        <p id="contract-confirm-text" class="contract-notice-text"></p>
+        <div class="dialog-actions">
+            <button type="button" class="btn btn-primary" id="contract-confirm-ok">Bevestigen</button>
+            <button type="button" class="btn btn-ghost" id="contract-confirm-cancel">Annuleren</button>
+        </div>
+    </div>
+</div>
+
 <script>
 window.NEXA_TAXI_CONTRACT = {
     apiBase: @json($apiBase),
     loginUrl: @json(url('/api/taxi/v1/contract/login')),
+    loginCodeRequestUrl: @json(url('/api/taxi/v1/contract/login-code/request')),
+    loginCodeVerifyUrl: @json(url('/api/taxi/v1/contract/login-code/verify')),
     appUrl: @json($appUrl ?? url('/taxi/contract')),
     guideUrl: @json($guideUrl ?? url('/taxi/contract/handleiding')),
     pollMs: {{ (int) ($pollMs ?? 15000) }},
+    googleMapsApiKey: @json($googleMapsApiKey ?? ''),
+    googleMapsMapId: @json($googleMapsMapId ?? ''),
+    googleMapsCenterLat: @json($googleMapsCenterLat ?? '52.3676'),
+    googleMapsCenterLng: @json($googleMapsCenterLng ?? '4.9041'),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=21" defer></script>
+<script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
+<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=43" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

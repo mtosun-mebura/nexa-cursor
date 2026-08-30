@@ -254,6 +254,50 @@ class NexaPricingService
         return null;
     }
 
+    public function packageRank(string $key, ?array $pricing = null): ?int
+    {
+        $key = trim($key);
+        if ($key === '') {
+            return null;
+        }
+        $pricing = $pricing ?? $this->get();
+        foreach (array_values($pricing['packages'] ?? []) as $index => $package) {
+            if (! is_array($package)) {
+                continue;
+            }
+            if (strcasecmp((string) ($package['key'] ?? ''), $key) === 0) {
+                return (int) $index;
+            }
+        }
+
+        return null;
+    }
+
+    public function monthlyAmountForKey(string $key, ?array $pricing = null): ?float
+    {
+        $package = $this->packageByKey($key, $pricing);
+        if ($package === null) {
+            return null;
+        }
+
+        return $this->parseMonthlyAmount((string) ($package['price'] ?? ''));
+    }
+
+    public function parseMonthlyAmount(string $value): float
+    {
+        $stripped = trim((string) preg_replace('/^€\s*/u', '', trim($value)));
+        $stripped = (string) preg_replace('/,-$/', '', $stripped);
+        $stripped = str_replace(' ', '', $stripped);
+        if (preg_match('/^\d+,\d{1,2}$/', $stripped) === 1) {
+            $stripped = str_replace(',', '.', $stripped);
+        } elseif (preg_match('/^\d{1,3}(\.\d{3})+,\d{1,2}$/', $stripped) === 1) {
+            $stripped = str_replace('.', '', $stripped);
+            $stripped = str_replace(',', '.', $stripped);
+        }
+
+        return round(max(0, (float) $stripped), 2);
+    }
+
     public function matchPackageName(?string $value, ?array $pricing = null): ?string
     {
         $value = trim((string) $value);

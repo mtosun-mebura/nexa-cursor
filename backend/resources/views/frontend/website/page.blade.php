@@ -9,6 +9,9 @@
     $isAtomV2 = ($themeSlug ?? '') === 'atom-v2';
     $isNextlyTemplate = ($themeSlug ?? '') === 'nextly-template';
     $isNextLandingVpn = ($themeSlug ?? '') === 'next-landing-vpn';
+    $isLandwind = ($themeSlug ?? '') === 'landwind';
+    $isPlayTailwind = ($themeSlug ?? '') === 'play-tailwind';
+    $isVueMaterialKit = ($themeSlug ?? '') === 'vue-material-kit';
 @endphp
 @if($useSectionLayout)
     @if($isAtomV2)
@@ -17,6 +20,12 @@
         @include('frontend.website.partials.nextly-home')
     @elseif($isNextLandingVpn)
         @include('frontend.website.partials.next-landing-vpn-home')
+    @elseif($isLandwind)
+        @include('frontend.website.partials.landwind-home')
+    @elseif($isPlayTailwind)
+        @include('frontend.website.partials.play-tailwind-home')
+    @elseif($isVueMaterialKit)
+        @include('frontend.website.partials.vue-material-kit-home')
     @else
         {{-- Metronic thema: hero, stats, Waarom Nexa, Wat Wij Bieden, vacatures, CTA (of alleen hero+footer voor niet-home) --}}
         @include('frontend.website.partials.modern-home')

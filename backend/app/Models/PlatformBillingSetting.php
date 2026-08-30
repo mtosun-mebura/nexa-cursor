@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Schema;
 
 class PlatformBillingSetting extends Model
 {
@@ -16,6 +17,8 @@ class PlatformBillingSetting extends Model
         'sender_email',
         'tax_rate_percent',
         'payment_terms_days',
+        'dunning_first_interval_days',
+        'dunning_interval_days',
         'invoice_footer',
         'invoice_number_prefix',
         'invoice_number_format',
@@ -45,13 +48,15 @@ class PlatformBillingSetting extends Model
         'billing_day' => 'integer',
         'tax_rate_percent' => 'decimal:2',
         'payment_terms_days' => 'integer',
+        'dunning_first_interval_days' => 'integer',
+        'dunning_interval_days' => 'integer',
         'next_invoice_number' => 'integer',
         'current_year' => 'integer',
     ];
 
     public static function current(): self
     {
-        return static::query()->firstOrCreate([], [
+        $defaults = [
             'billing_day' => 1,
             'billing_time' => '05:00',
             'tax_rate_percent' => 21,
@@ -61,7 +66,16 @@ class PlatformBillingSetting extends Model
             'next_invoice_number' => 1,
             'current_year' => (int) date('Y'),
             'invoice_title' => 'SaaS-factuur',
-        ]);
+        ];
+
+        if (self::hasSettingsColumn('dunning_first_interval_days')) {
+            $defaults['dunning_first_interval_days'] = 1;
+        }
+        if (self::hasSettingsColumn('dunning_interval_days')) {
+            $defaults['dunning_interval_days'] = 14;
+        }
+
+        return static::query()->firstOrCreate([], $defaults);
     }
 
     public function suggestedCurrentYear(): int
@@ -161,6 +175,59 @@ class PlatformBillingSetting extends Model
         }
 
         return 14;
+    }
+
+    /**
+     * Aantal dagen na de vervaldatum tot de 1e aanmaning.
+     */
+    public static function dunningFirstIntervalDays(): int
+    {
+        $settings = static::current();
+
+        if (self::hasSettingsColumn('dunning_first_interval_days')) {
+            $days = (int) ($settings->dunning_first_interval_days ?? 0);
+            if ($days >= 1) {
+                return min(365, $days);
+            }
+        }
+
+        return 1;
+    }
+
+    /**
+     * Aantal dagen na de 1e aanmaning tot de 2e aanmaning, en na de 2e tot blokkade.
+     */
+    public static function dunningSecondIntervalDays(): int
+    {
+        $settings = static::current();
+
+        if (self::hasSettingsColumn('dunning_interval_days')) {
+            $days = (int) ($settings->dunning_interval_days ?? 0);
+            if ($days >= 1) {
+                return min(365, $days);
+            }
+        }
+
+        $fromTerms = (int) ($settings->payment_terms_days ?? 0);
+
+        return $fromTerms >= 1 ? min(365, $fromTerms) : 14;
+    }
+
+    public static function dunningIntervalDays(): int
+    {
+        return static::dunningSecondIntervalDays();
+    }
+
+    private static function hasSettingsColumn(string $column): bool
+    {
+        static $cache = [];
+
+        if (! array_key_exists($column, $cache)) {
+            $cache[$column] = Schema::hasTable('platform_billing_settings')
+                && Schema::hasColumn('platform_billing_settings', $column);
+        }
+
+        return $cache[$column];
     }
 
     public static function invoicePaymentTermsTextForInvoice(PlatformInvoice $invoice): string

@@ -12,6 +12,10 @@
 (function() {
     'use strict';
 
+    if (window.FormValidator) {
+        return;
+    }
+
     /**
      * Validatie configuratie per veldtype
      */
@@ -139,9 +143,7 @@
                     if (value) {
                         // Mark as interacted and validate
                         input.dataset.userInteracted = 'true';
-                        const feedbackElement = input.parentElement?.querySelector('.field-feedback') ||
-                                              input.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
-                                              input.closest('td')?.querySelector('.field-feedback');
+                        const feedbackElement = this.findFeedbackElement(input);
                         if (feedbackElement || input.hasAttribute('required')) {
                             // Small delay to ensure DOM is ready
                             setTimeout(() => {
@@ -276,10 +278,12 @@
                     input.addEventListener('input', () => {
                         this.clearServerFieldError(input);
                         this.validateField(input, feedbackElement);
+                        this.revalidatePasswordConfirmation(input);
                     });
                     input.addEventListener('keyup', () => {
                         this.clearServerFieldError(input);
                         this.validateField(input, feedbackElement);
+                        this.revalidatePasswordConfirmation(input);
                     });
                 }
             }
@@ -332,10 +336,7 @@
 
             // Find feedback element if not provided
             if (!feedbackElement) {
-                feedbackElement = input.parentElement?.querySelector('.field-feedback') ||
-                                input.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
-                                input.closest('td')?.querySelector('.field-feedback') ||
-                                this.createFeedbackElement(input);
+                feedbackElement = this.findFeedbackElement(input) || this.createFeedbackElement(input);
             }
 
             // Clear previous validation state
@@ -383,7 +384,9 @@
             // For non-select fields, check if field is empty
             if (!value) {
                 if (isRequired) {
-                    this.setInvalid(input, feedbackElement, 'Dit veld is verplicht.', forceShow);
+                    const requiredMessage = input.getAttribute('data-required-message')
+                        || (fieldType === 'password' ? 'Wachtwoord is verplicht.' : 'Dit veld is verplicht.');
+                    this.setInvalid(input, feedbackElement, requiredMessage, forceShow);
                     return false;
                 }
                 // Optional field is valid when empty
@@ -394,7 +397,10 @@
             if (!isSelect) {
                 const minLength = this.getMinLength(input, fieldType);
                 if (minLength && value.length < minLength) {
-                    this.setInvalid(input, feedbackElement, `Dit veld moet minimaal ${minLength} karakters bevatten.`, forceShow);
+                    const minMessage = fieldType === 'password'
+                        ? `Wachtwoord moet minimaal ${minLength} karakters lang zijn.`
+                        : `Dit veld moet minimaal ${minLength} karakters bevatten.`;
+                    this.setInvalid(input, feedbackElement, minMessage, forceShow);
                     return false;
                 }
             }
@@ -432,9 +438,128 @@
                 }
             }
 
+            if (this.isPasswordConfirmationField(input)) {
+                const passwordInput = this.findPairedPasswordInput(input);
+                if (passwordInput && passwordInput.value !== input.value) {
+                    this.setInvalid(input, feedbackElement, 'De wachtwoorden komen niet overeen.', forceShow);
+                    return false;
+                }
+            }
+
             // Field is valid
             this.setValid(input, feedbackElement, fieldType, forceShow);
             return true;
+        }
+
+        findFeedbackElement(input) {
+            if (!input) {
+                return null;
+            }
+
+            const laravel = this.findLaravelFeedbackForInput(input);
+            if (laravel) {
+                return laravel;
+            }
+
+            const name = input.getAttribute('name');
+            const namedIn = (root, exclude) => {
+                if (!root) {
+                    return null;
+                }
+                if (name) {
+                    const escapedName = (window.CSS && typeof CSS.escape === 'function')
+                        ? CSS.escape(name)
+                        : String(name).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                    const byName = root.querySelector('.field-feedback[data-field="' + escapedName + '"]');
+                    if (byName && (!exclude || !exclude.contains(byName))) {
+                        return byName;
+                    }
+                }
+                const direct = root.querySelector(':scope > .field-feedback');
+                if (direct && (!exclude || !exclude.contains(direct))) {
+                    return direct;
+                }
+                return null;
+            };
+
+            const wrap = input.closest('.js-pw-toggle-wrap');
+            if (wrap?.parentElement) {
+                const fromWrap = namedIn(wrap.parentElement, wrap);
+                if (fromWrap) {
+                    return fromWrap;
+                }
+            }
+
+            const relative = input.closest('.relative');
+            if (relative?.parentElement) {
+                const fromRelative = namedIn(relative.parentElement, relative);
+                if (fromRelative) {
+                    return fromRelative;
+                }
+            }
+
+            const fromParent = input.parentElement?.querySelector('.field-feedback');
+            if (fromParent) {
+                return fromParent;
+            }
+
+            return input.closest('td')?.querySelector('.field-feedback') || null;
+        }
+
+        isPasswordConfirmationField(input) {
+            const name = (input.name || '').toLowerCase();
+            return name === 'password_confirmation'
+                || name.endsWith('[password_confirmation]')
+                || name.includes('password_confirmation');
+        }
+
+        findPairedPasswordInput(confirmationInput) {
+            const form = confirmationInput.form || this.form;
+            if (!form) {
+                return null;
+            }
+
+            return form.querySelector('input[name="password"]');
+        }
+
+        revalidatePasswordConfirmation(input) {
+            if (this.isPasswordConfirmationField(input)) {
+                return;
+            }
+
+            const name = (input.name || '').toLowerCase();
+            const type = (input.type || '').toLowerCase();
+            if (type !== 'password' && !name.includes('password') && !name.includes('wachtwoord')) {
+                return;
+            }
+
+            const form = input.form || this.form;
+            if (!form) {
+                return;
+            }
+
+            const confirmation = form.querySelector('input[name="password_confirmation"]');
+            if (!confirmation || confirmation === input) {
+                return;
+            }
+            if (confirmation.dataset.userInteracted !== 'true' && !String(confirmation.value || '').trim()) {
+                return;
+            }
+
+            this.validateField(confirmation, this.findFeedbackElement(confirmation));
+        }
+
+        syncInputIconPadding(input, iconVisible) {
+            if (!input) {
+                return;
+            }
+            const wrap = input.closest('.js-pw-toggle-wrap') || input.parentElement;
+            const hasToggle = !!(wrap && wrap.querySelector && wrap.querySelector('.js-pw-toggle-btn'));
+            if (hasToggle) {
+                input.style.paddingRight = iconVisible ? '4.25rem' : '2.6rem';
+                return;
+            }
+            input.style.paddingRight = iconVisible ? '2.25rem' : '';
         }
 
         /**
@@ -575,8 +700,7 @@
                     iconWrapper.style.transform = 'translateY(-50%)';
                     iconWrapper.style.width = '1.25rem';
                     iconWrapper.style.height = '1.25rem';
-                    // Add padding to input to make room for icon (0.5rem right + 1.25rem icon + 0.5rem spacing = 2.25rem)
-                    input.style.paddingRight = '2.25rem';
+                    this.syncInputIconPadding(input, true);
                 }
                 
                 // Show error message below input
@@ -595,8 +719,7 @@
                 if (iconWrapper) {
                     iconWrapper.classList.add('hidden');
                     iconWrapper.style.display = 'none';
-                    // Remove padding when icon is hidden
-                    input.style.paddingRight = '';
+                    this.syncInputIconPadding(input, false);
                 }
                 if (feedbackElement) {
                     feedbackElement.classList.add('hidden');
@@ -662,8 +785,7 @@
                     iconWrapper.style.transform = 'translateY(-50%)';
                     iconWrapper.style.width = '1.25rem';
                     iconWrapper.style.height = '1.25rem';
-                    // Add padding to input to make room for icon (0.5rem right + 1.25rem icon + 0.5rem spacing = 2.25rem)
-                    input.style.paddingRight = '2.25rem';
+                    this.syncInputIconPadding(input, true);
                 }
                 
             } else {
@@ -671,8 +793,7 @@
                 if (iconWrapper) {
                     iconWrapper.classList.add('hidden');
                     iconWrapper.style.display = 'none';
-                    // Remove padding when icon is hidden
-                    input.style.paddingRight = '';
+                    this.syncInputIconPadding(input, false);
                 }
             }
 
@@ -707,8 +828,7 @@
                 iconWrapper.classList.add('hidden');
                 iconWrapper.style.display = 'none';
                 iconWrapper.innerHTML = '';
-                // Remove padding when icon is hidden
-                input.style.paddingRight = '';
+                this.syncInputIconPadding(input, false);
             }
             
             // For optional selects, ensure no validation styling is applied
@@ -731,11 +851,7 @@
          * Create feedback element voor een input
          */
         createFeedbackElement(input) {
-            // Check if feedback element already exists - look in parent or td
-            const existing = this.findLaravelFeedbackForInput(input) ||
-                            input.parentElement?.querySelector('.field-feedback') ||
-                            input.closest('td')?.querySelector('.field-feedback') ||
-                            input.closest('.relative')?.parentElement?.querySelector('.field-feedback');
+            const existing = this.findFeedbackElement(input);
             if (existing) {
                 return existing;
             }
@@ -745,11 +861,14 @@
             feedback.className = 'field-feedback text-xs mt-1 hidden';
             feedback.setAttribute('data-field', input.name || input.id);
             
-            // Insert after the relative wrapper or in td (not inside the relative div with the input)
+            // Insert after the input wrapper (not inside the relative/toggle wrap)
+            const wrap = input.closest('.js-pw-toggle-wrap');
             const relativeWrapper = input.closest('.relative');
             const tdWrapper = input.closest('td');
             
-            if (relativeWrapper && relativeWrapper.parentElement) {
+            if (wrap && wrap.parentElement) {
+                wrap.parentElement.insertBefore(feedback, wrap.nextSibling);
+            } else if (relativeWrapper && relativeWrapper.parentElement) {
                 // Insert after the relative wrapper (so it's outside the input container)
                 relativeWrapper.parentElement.insertBefore(feedback, relativeWrapper.nextSibling);
             } else if (tdWrapper) {
@@ -895,7 +1014,7 @@
             let isValid = true;
 
             inputs.forEach(input => {
-                const feedbackElement = input.parentElement?.querySelector('.field-feedback');
+                const feedbackElement = this.findFeedbackElement(input);
                 // Force show bij form submit - toon alle validaties
                 if (!this.validateField(input, feedbackElement, true)) {
                     isValid = false;
@@ -1099,14 +1218,23 @@
     }
 
     // Auto-initialize op alle formulieren met data-validate attribute
-    document.addEventListener('DOMContentLoaded', function() {
+    function initValidatedForms() {
         const forms = document.querySelectorAll('form[data-validate="true"]');
         forms.forEach(form => {
+            if (form._formValidator) {
+                return;
+            }
             // Geen browser-popup (constraint validation); inline feedback via FormValidator
             form.setAttribute('novalidate', 'novalidate');
             new FormValidator(form);
         });
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initValidatedForms);
+    } else {
+        initValidatedForms();
+    }
 
     // Export voor gebruik in andere scripts
     window.FormValidator = FormValidator;

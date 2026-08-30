@@ -22,7 +22,7 @@ class PlatformMollieService
 
         if ($key === '' || ! PaymentProviderService::isValidMollieApiKeyFormat($key)) {
             throw new RuntimeException(
-                'Mollie API-sleutel voor SaaS-facturatie ontbreekt. Stel deze in via Admin → SaaS-facturatie → Instellingen.'
+                'Mollie API-sleutel voor NEXA-facturatie ontbreekt. Stel deze in via Admin → NEXA-facturatie → Instellingen.'
             );
         }
 
@@ -167,6 +167,50 @@ class PlatformMollieService
         }
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listCustomerPayments(string $customerId, int $limit = 50): array
+    {
+        try {
+            $limit = min(250, max(1, $limit));
+            $body = $this->request('GET', 'customers/'.urlencode($customerId).'/payments?limit='.$limit);
+
+            return is_array($body['_embedded']['payments'] ?? null) ? $body['_embedded']['payments'] : [];
+        } catch (\Throwable $e) {
+            Log::warning('Platform Mollie klantbetalingen ophalen mislukt', [
+                'customer_id' => $customerId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listSubscriptionPayments(string $customerId, string $subscriptionId, int $limit = 50): array
+    {
+        try {
+            $limit = min(250, max(1, $limit));
+            $body = $this->request(
+                'GET',
+                'customers/'.urlencode($customerId).'/subscriptions/'.urlencode($subscriptionId).'/payments?limit='.$limit
+            );
+
+            return is_array($body['_embedded']['payments'] ?? null) ? $body['_embedded']['payments'] : [];
+        } catch (\Throwable $e) {
+            Log::warning('Platform Mollie subscription-betalingen ophalen mislukt', [
+                'customer_id' => $customerId,
+                'subscription_id' => $subscriptionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
     public function fetchCustomerMandates(string $customerId): array
     {
         $body = $this->request('GET', 'customers/'.urlencode($customerId).'/mandates');
@@ -181,6 +225,19 @@ class PlatformMollieService
         }
 
         return $this->request('POST', 'customers/'.urlencode($customerId).'/subscriptions', $payload);
+    }
+
+    public function updateSubscription(string $customerId, string $subscriptionId, array $payload): array
+    {
+        if (empty($payload['webhookUrl'])) {
+            unset($payload['webhookUrl']);
+        }
+
+        return $this->request(
+            'PATCH',
+            'customers/'.urlencode($customerId).'/subscriptions/'.urlencode($subscriptionId),
+            $payload
+        );
     }
 
     public function cancelSubscription(string $customerId, string $subscriptionId): array

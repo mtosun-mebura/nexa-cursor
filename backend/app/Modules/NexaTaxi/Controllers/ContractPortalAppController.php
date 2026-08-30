@@ -3,13 +3,14 @@
 namespace App\Modules\NexaTaxi\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\EnvService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
 class ContractPortalAppController extends Controller
 {
-    public function index(): View
+    public function index(EnvService $env): View
     {
         $favicon = $this->faviconMeta();
 
@@ -20,6 +21,10 @@ class ContractPortalAppController extends Controller
             'faviconUrl' => $favicon['url'],
             'faviconType' => $favicon['type'],
             'pollMs' => 15000,
+            'googleMapsApiKey' => $env->getGoogleMapsApiKey(),
+            'googleMapsMapId' => (string) $env->get('GOOGLE_MAPS_MAP_ID', ''),
+            'googleMapsCenterLat' => (string) $env->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
+            'googleMapsCenterLng' => (string) $env->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
         ]);
     }
 

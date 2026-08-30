@@ -11,6 +11,8 @@ class PlatformPayment extends Model
 
     public const TYPE_MANDATE_VERIFICATION = 'mandate_verification';
 
+    public const TYPE_PRORATION = 'proration';
+
     protected $fillable = [
         'company_id',
         'platform_invoice_id',

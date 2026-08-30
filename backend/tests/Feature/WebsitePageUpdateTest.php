@@ -515,6 +515,68 @@ class WebsitePageUpdateTest extends TestCase
 
     #[Test]
     #[Group('website-pages')]
+    public function builder_v2_json_update_persists_nexa_modules_overview_width_percent(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $componentKey = 'component:website.nexa_modules_overview';
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'modules-breedte',
+            'title' => 'Modules',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => [$componentKey],
+                'visibility' => [$componentKey => true, 'footer' => true],
+                $componentKey => ['title' => 'Modules', 'width_percent' => 100],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => [$componentKey],
+                'visibility' => [$componentKey => true, 'footer' => true],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                $componentKey => [
+                    'title' => 'Modules',
+                    'width_percent' => '70',
+                    'items' => [
+                        [
+                            'name' => 'NEXA Taxi',
+                            'description' => 'Ritbeheer',
+                            'badge' => 'Beschikbaar',
+                            'icon' => 'truck',
+                            'url' => '/taxi',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $section = $page->getHomeSections()[$componentKey] ?? [];
+        $this->assertSame(70, $section['width_percent'] ?? null);
+        $this->assertSame('/taxi', $section['items'][0]['url'] ?? null);
+
+        $preview = $this->actingAs($user)->get(route('admin.website-pages.preview', $page));
+        $preview->assertOk();
+        $preview->assertSee('--nexa-modules-width: 70%', false);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
     public function update_removes_component_from_section_order_when_not_in_section_order()
     {
         ['company_id' => $companyId] = $this->websitePageCompanyForTests();

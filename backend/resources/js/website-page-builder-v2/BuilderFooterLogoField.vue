@@ -141,9 +141,9 @@ function removeLogo() {
           <i class="ki-filled ki-trash" aria-hidden="true" />
         </button>
       </div>
-      <div v-else-if="!displayPreviewSrc || previewLoadFailed" class="builder-footer-logo__placeholder" aria-hidden="true">
+      <div v-else-if="previewLoadFailed" class="builder-footer-logo__placeholder" aria-hidden="true">
         <i class="ki-filled ki-picture" />
-        <span>{{ previewLoadFailed ? 'Logo laden mislukt' : 'Geen logo' }}</span>
+        <span>Logo laden mislukt</span>
       </div>
       <label
         class="builder-footer-logo__upload"
@@ -177,9 +177,9 @@ function removeLogo() {
 
 .builder-footer-logo {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.75rem;
-  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -264,9 +264,9 @@ function removeLogo() {
   align-items: center;
   justify-content: center;
   gap: 0.2rem;
-  flex: 1 1 12rem;
-  min-width: min(100%, 12rem);
-  max-width: 20rem;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
   min-height: 4.5rem;
   padding: 0.65rem;
   border: 1px dashed var(--border);
@@ -274,6 +274,7 @@ function removeLogo() {
   background: color-mix(in srgb, var(--muted) 30%, transparent);
   cursor: pointer;
   text-align: center;
+  box-sizing: border-box;
   transition: border-color 0.15s, background 0.15s;
 }
 

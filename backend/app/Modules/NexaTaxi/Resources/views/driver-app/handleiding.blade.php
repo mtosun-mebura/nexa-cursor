@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl" class="h-full" data-theme="dark">
+<html lang="nl" class="h-full" data-theme="dark" data-accent="orange">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,7 +8,9 @@
     <title>Handleiding chauffeur – Nexa Taxi</title>
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
+    @include('taxi::partials.pwa-accent', ['section' => 'boot'])
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
+    @include('taxi::partials.pwa-accent', ['section' => 'styles'])
     <style>
         :root {
             --bg: #121214;
@@ -139,7 +141,7 @@
             width: 1.4rem;
             height: 1.4rem;
             border-radius: 999px;
-            background: rgba(249, 115, 22, 0.18);
+            background: rgba(var(--accent-rgb), 0.18);
             color: var(--orange);
             font-size: 0.75rem;
             font-weight: 800;
@@ -277,7 +279,63 @@
         .mock-field { margin-bottom: 0.55rem; }
         .mock-field span { display: block; color: #9ca3af; font-size: 0.7rem; margin-bottom: 0.2rem; }
         .mock-input { height: 2.1rem; border-radius: 0.55rem; background: #252528; border: 1px solid rgba(255,255,255,0.1); }
-        .mock-btn { height: 2.3rem; border-radius: 0.55rem; background: #f97316; margin-top: 0.45rem; }
+        .mock-btn { height: 2.3rem; border-radius: 0.55rem; background: var(--orange); margin-top: 0.45rem; }
+        .mock-map {
+            height: 7.2rem;
+            border-radius: 0.65rem;
+            background: #1a1a1c;
+            border: 1px solid rgba(255,255,255,0.08);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 0.55rem;
+        }
+        .phone-frame .mock-map img,
+        .mock-map img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            border-radius: 0;
+            background: #1a1a1c;
+        }
+        .mock-stop {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            padding: 0.38rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            color: #e5e7eb;
+            line-height: 1.25;
+            font-size: 0.78rem;
+        }
+        .mock-stop:last-of-type { border-bottom: 0; }
+        .mock-stop b {
+            flex-shrink: 0;
+            width: 1.15rem;
+            height: 1.15rem;
+            margin-top: 0.12rem;
+            border-radius: 999px;
+            background: var(--orange);
+            color: #fff;
+            font-size: 0.62rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mock-stop-name {
+            display: block;
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .mock-stop-kind {
+            display: block;
+            font-size: 0.72rem;
+            color: #d1d5db;
+            margin-top: 0.08rem;
+        }
+        .mock-stop-addr { display: block; color: #9ca3af; font-size: 0.68rem; margin-top: 0.08rem; }
         .mock-row {
             display: flex;
             align-items: center;
@@ -305,20 +363,38 @@
             right: 0.15rem;
         }
         .mock-nav {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            column-gap: 0.5rem;
             margin-top: 0.7rem;
-            padding-top: 0.55rem;
+            padding-top: 0.5rem;
             border-top: 1px solid rgba(255,255,255,0.08);
             text-align: center;
             color: #9ca3af;
-            font-size: 0.65rem;
+            font-size: 0.5rem;
+            font-weight: 600;
+            line-height: 1.15;
         }
-        .mock-nav b { color: #f97316; display: block; font-weight: 700; }
+        .mock-nav > * {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.18rem;
+            min-width: 0;
+            flex: 0 0 auto;
+            overflow: visible;
+            white-space: nowrap;
+        }
+        .mock-nav svg {
+            width: 1.15rem;
+            height: 1.15rem;
+            flex-shrink: 0;
+        }
+        .mock-nav b { color: var(--orange); font-weight: 700; }
         .guide-tip {
-            background: rgba(249, 115, 22, 0.12);
-            border: 1px solid rgba(249, 115, 22, 0.35);
+            background: rgba(var(--accent-rgb), 0.12);
+            border: 1px solid rgba(var(--accent-rgb), 0.35);
             color: var(--text);
             border-radius: 0.85rem;
             padding: 0.8rem 0.95rem;
@@ -404,6 +480,11 @@
             font-size: 0.875rem;
             line-height: 1.45;
         }
+        .guide-icons a {
+            color: var(--orange);
+            font-weight: 650;
+            text-decoration: none;
+        }
         .guide-footer {
             margin-top: 1.5rem;
             text-align: center;
@@ -442,7 +523,8 @@
         <a href="#aanvragen"><span class="num">5</span> Nieuwe ritaanvraag</a>
         <a href="#rit"><span class="num">6</span> Rit rijden</a>
         <a href="#betalen"><span class="num">7</span> Betalen en factuur</a>
-        <a href="#tabs"><span class="num">8</span> Ritten, inkomsten, profiel</a>
+        <a href="#navigatie"><span class="num">8</span> Navigatie</a>
+        <a href="#tabs"><span class="num">9</span> Tabbladen onderin</a>
     </nav>
 
     <section class="guide-section" id="telefoon">
@@ -458,11 +540,11 @@
 
     <section class="guide-section" id="inloggen">
         <h2>2. Inloggen</h2>
-        <p>Open de chauffeur-app. Vul het e-mailadres en wachtwoord in dat je van je werkgever hebt gekregen.</p>
+        <p>Open de chauffeur-app. Vul je e-mailadres in. De eerste keer kies je <strong>Inlogcode aanvragen</strong>: je krijgt een eenmalige code per e-mail en kiest daarna zelf een wachtwoord. Daarna log je in met e-mail en wachtwoord.</p>
         <ol class="guide-steps">
-            <li data-step="1"><strong>E-mail</strong> Gebruik een volledig adres, met een @ en een punt (bijvoorbeeld naam@bedrijf.nl).</li>
-            <li data-step="2"><strong>Wachtwoord</strong> Tik op het oogje om te controleren wat je typt.</li>
-            <li data-step="3"><strong>Inloggen</strong> Klopt iets niet, dan zie je een rode melding onder het veld of onder het formulier.</li>
+            <li data-step="1"><strong>E-mail</strong> Gebruik het adres waarop je de welkomstmail hebt gekregen.</li>
+            <li data-step="2"><strong>Eerste keer</strong> Tik op Inlogcode aanvragen. Vul de 6-cijferige code in en kies een wachtwoord.</li>
+            <li data-step="3"><strong>Daarna</strong> Log je in met e-mail en wachtwoord. Klopt iets niet, dan zie je een rode melding.</li>
         </ol>
         <figure class="guide-shot">
             <div class="phone-frame">
@@ -473,7 +555,7 @@
                     <div class="mock-btn"></div>
                 </div>
             </div>
-            <figcaption>Inlogscherm: e-mail, wachtwoord en de oranje knop Inloggen.</figcaption>
+            <figcaption>Inlogscherm: e-mail, wachtwoord of inlogcode, en de oranje knop Inloggen.</figcaption>
         </figure>
     </section>
 
@@ -490,7 +572,28 @@
                 <div class="mock" aria-hidden="true">
                     <div class="mock-row"><span>Online</span><span class="mock-switch"></span></div>
                     <p style="margin:0.4rem 0 0;color:#9ca3af;">Aanvragen</p>
-                    <div class="mock-nav"><b>Aanvragen</b><span>Ritten</span><span>Inkomsten</span><span>Profiel</span></div>
+                    <div class="mock-nav" aria-hidden="true">
+                        <b>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                            Aanvragen
+                        </b>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
+                            Ritten
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
+                            Planning
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 20.5 12 16.5l7.5 4L12 3Z"/></svg>
+                            Navigatie
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>
+                            Profiel
+                        </span>
+                    </div>
                 </div>
             </div>
             <figcaption>De groene schakelaar rechtsboven betekent: je bent online voor ritten.</figcaption>
@@ -577,6 +680,7 @@
             <li data-step="1"><strong>Bekijk de rit</strong> Controleer adres, tijd en of het voertuig klopt.</li>
             <li data-step="2"><strong>Accepteren</strong> De rit wordt van jou. Je gaat naar het rit-scherm.</li>
             <li data-step="3"><strong>Afwijzen</strong> Optioneel een korte reden. De rit kan naar een andere chauffeur.</li>
+            <li data-step="4"><strong>Verlopen rit alsnog oppakken</strong> Kies een nieuw ophaalmoment. De rit blijft onder Aanvragen tot de klant via WhatsApp accepteert (dan staat hij bij Ritten) of weigert (dan bij Afgewezen, waar je hem kunt archiveren). Reageert de klant niet, dan kun je de rit archiveren; een late reactie komt terug als nieuwe aanvraag.</li>
             <li data-step="4"><strong>Meerdere ritten</strong> Met Vorige / Volgende blader je door openstaande aanvragen.</li>
         </ol>
         <figure class="guide-shot">
@@ -626,15 +730,113 @@
         <p class="guide-tip"><strong>Let op:</strong> niet elk bedrijf gebruikt in-app betaling. Zie je geen QR, dan regelt de centrale de betaling.</p>
     </section>
 
-    <section class="guide-section" id="tabs">
-        <h2>8. Ritten, inkomsten en profiel</h2>
-        <p>Onderin de app staan de tabbladen. Tik erop om te wisselen — ook tijdens een rit kun je naar Ritten.</p>
+    <section class="guide-section" id="navigatie">
+        <h2>8. Navigatie</h2>
+        <p>Onder <strong style="color:var(--text)">Navigatie</strong> zie je de route van je actieve rit op de kaart: eerst ophalen, daarna afzetten. De naam van de klant staat boven Ophalen; Afzetten heeft geen naam erachter. Tik op het navigatie-icoon bij de rit, of op Navigatie onderin.</p>
         <ol class="guide-steps">
-            <li data-step="1"><strong>Aanvragen</strong> Nieuwe ritten die op jou wachten.</li>
-            <li data-step="2"><strong>Ritten</strong> Gepland, actief, verlopen en archief.</li>
-            <li data-step="3"><strong>Inkomsten</strong> (als je daarvoor recht hebt) afgeronde ritten per dag.</li>
-            <li data-step="4"><strong>Profiel</strong> Jouw gegevens, uitloggen, en de link naar deze handleiding.</li>
+            <li data-step="1"><strong>Kaart</strong> De oranje lijn loopt langs de weg, van stop 1 naar 2. Zoom en sleep als je wilt.</li>
+            <li data-step="2"><strong>Lijst</strong> Onder de kaart staan dezelfde stops: eerst de naam, daaronder Ophalen of Afzetten, met adres en stad.</li>
+            <li data-step="3"><strong>Start navigatie</strong> Opent Google Maps met de hele rit: ophalen én afzetten, in dezelfde volgorde. Zo kun je de route narijden.</li>
+            <li data-step="4"><strong>Actieve rit</strong> Zonder rit onderweg is er geen route. Start eerst een rit onder Ritten. Was je al onderweg, dan ga je verder tot aankomst — daarna stopt de navigatie vanzelf.</li>
         </ol>
+        <figure class="guide-shot">
+            <div class="phone-frame">
+                <div class="mock" aria-hidden="true">
+                    <h3>Navigatie</h3>
+                    <div class="mock-map">
+                        <img src="{{ asset('assets/marketing/images/feature-chauffeur-navigatie-map.png') }}?v=1" alt="" width="640" height="320">
+                    </div>
+                    <div class="mock-stop"><b>1</b><div><span class="mock-stop-name">Jan Jansen</span><span class="mock-stop-kind">Ophalen</span><span class="mock-stop-addr">Kerkstraat 1, Enschede</span></div></div>
+                    <div class="mock-stop"><b>2</b><div><span class="mock-stop-kind">Afzetten</span><span class="mock-stop-addr">Station, Enschede</span></div></div>
+                    <div class="mock-btn" style="display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.78rem;">Start navigatie</div>
+                    <div class="mock-nav" aria-hidden="true">
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                            Aanvragen
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
+                            Ritten
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
+                            Planning
+                        </span>
+                        <b>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 20.5 12 16.5l7.5 4L12 3Z"/></svg>
+                            Navigatie
+                        </b>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>
+                            Profiel
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <figcaption>Navigatie: kaart met twee stops. De naam staat boven Ophalen, daarna het adres.</figcaption>
+        </figure>
+        <p class="guide-tip"><strong>Tip:</strong> Google Maps opent de rit ook zonder je locatie; sta je in de buurt, dan start de navigatie vanaf waar je bent.</p>
+    </section>
+
+    <section class="guide-section" id="tabs">
+        <h2>9. Tabbladen onderin</h2>
+        <p>Onderin de app staan de tabbladen. Tik erop om te wisselen — ook tijdens een rit kun je naar Ritten of Planning.</p>
+        <ul class="guide-icons">
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                </span>
+                <div>
+                    <strong>Auto — Aanvragen</strong>
+                    <p>Nieuwe ritten die op jou wachten.</p>
+                </div>
+            </li>
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
+                </span>
+                <div>
+                    <strong>Kalender — Ritten</strong>
+                    <p>Gepland, actief, verlopen en archief — om een rit te starten of af te ronden.</p>
+                </div>
+            </li>
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
+                </span>
+                <div>
+                    <strong>Lijst — Planning</strong>
+                    <p>Dag of week, tik een dag aan, tik een rit open.</p>
+                </div>
+            </li>
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 20.5 12 16.5l7.5 4L12 3Z"/></svg>
+                </span>
+                <div>
+                    <strong>Pijl — Navigatie</strong>
+                    <p>Route van je actieve rit op de kaart. Uitleg staat onder <a href="#navigatie">8. Navigatie</a>.</p>
+                </div>
+            </li>
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 10h16M6 10l2-5h8l2 5M6 10v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 14h6"/></svg>
+                </span>
+                <div>
+                    <strong>Inkomsten</strong>
+                    <p>Als je daarvoor recht hebt: afgeronde ritten per dag.</p>
+                </div>
+            </li>
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>
+                </span>
+                <div>
+                    <strong>Persoon — Profiel</strong>
+                    <p>Jouw gegevens (alleen ter inzage), uitloggen, en de link naar deze handleiding.</p>
+                </div>
+            </li>
+        </ul>
         <figure class="guide-shot">
             <div class="phone-frame">
                 <div class="mock" aria-hidden="true">
@@ -643,7 +845,28 @@
                     <p style="margin:0 0 0.85rem;color:#9ca3af;">naam@bedrijf.nl</p>
                     <div class="mock-row" style="justify-content:flex-start;gap:0.5rem;"><span>Handleiding</span></div>
                     <div class="mock-input" style="height:2.2rem;margin-top:0.45rem;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Uitloggen</div>
-                    <div class="mock-nav"><span>Aanvragen</span><span>Ritten</span><span>Inkomsten</span><b>Profiel</b></div>
+                    <div class="mock-nav" aria-hidden="true">
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                            Aanvragen
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
+                            Ritten
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
+                            Planning
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 20.5 12 16.5l7.5 4L12 3Z"/></svg>
+                            Navigatie
+                        </span>
+                        <b>
+                            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>
+                            Profiel
+                        </b>
+                    </div>
                 </div>
             </div>
             <figcaption>Onder Profiel staat Handleiding — ook nadat je de banner hebt gesloten.</figcaption>
