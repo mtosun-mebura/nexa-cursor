@@ -1,8 +1,6 @@
-# Na groene Test and Build op PR naar release/test: direct mergen.
-# Deploy TEST (deploy-saas.yml) start daarna via PR-closed + expliciete workflow_dispatch.
-#
-# Let op: workflow_run luistert alleen op de default branch; daarom pull_request
-# + wachten tot check "test" bestaat en klaar is (geen lewagon race).
+# Na groene Test and Build op PR naar release/test: mergen.
+# Deploy TEST start één keer via Open PR to release/test (workflow_dispatch),
+# niet hier — anders krijg je twee Deploy TEST-runs waarvan er één gecanceld wordt.
 
 name: Auto-merge naar release/test
 
@@ -22,7 +20,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 concurrency:
   group: automerge-pr-${{ github.event.pull_request.number }}
@@ -37,31 +34,6 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            async function triggerTestDeploy() {
-              const maxAttempts = 5;
-              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                try {
-                  await github.rest.actions.createWorkflowDispatch({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    workflow_id: 'deploy-saas.yml',
-                    ref: 'release/test',
-                  });
-                  core.info(`Deploy TEST (Proxmox) gestart via workflow_dispatch op release/test (poging ${attempt}).`);
-                  return;
-                } catch (error) {
-                  const status = error?.status || error?.response?.status;
-                  const retryable = status === 500 || status === 502 || status === 503 || status === 504
-                    || /Failed to run workflow dispatch|server error/i.test(error.message || '');
-                  core.warning(`Deploy TEST dispatch poging ${attempt}/${maxAttempts} mislukt: ${error.message}`);
-                  if (!retryable || attempt === maxAttempts) {
-                    return;
-                  }
-                  await new Promise((r) => setTimeout(r, 10000 * attempt));
-                }
-              }
-            }
-
             const pr = context.payload.pull_request;
             const headSha = pr.head.sha;
             const waitMs = 20000;
@@ -134,7 +106,6 @@ jobs:
 
               if (freshPr.merged) {
                 core.info(`PR #${pr.number} was al gemerged.`);
-                await triggerTestDeploy();
                 return;
               }
 
@@ -156,14 +127,12 @@ jobs:
                   pull_number: pr.number,
                   merge_method: 'merge',
                 });
-                core.info(`PR #${pr.number} gemerged naar ${pr.base.ref}`);
-                await triggerTestDeploy();
+                core.info(`PR #${pr.number} gemerged naar ${pr.base.ref}. Deploy TEST start via Open PR.`);
                 return;
               } catch (error) {
                 const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
                 if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
                   core.info(`Merge overgeslagen: ${msg}`);
-                  await triggerTestDeploy();
                   return;
                 }
                 if (/merge already in progress/i.test(msg) && attempt < 12) {

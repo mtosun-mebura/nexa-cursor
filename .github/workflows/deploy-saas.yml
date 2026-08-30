@@ -1,17 +1,14 @@
 # TEST (Proxmox Ubuntu): deploy bij push naar release/test (self-hosted runner).
 # Gebruikt docker-compose v1 op de VM is OK — docker-compose.deploy.yml heeft geen `include:`.
 # PROD (Hostinger VPS): alleen via git-tag — deploy-prod.yml + create-prod-tag.yml
+#
+# Auto-merge via GITHUB_TOKEN triggert geen on:push; Open PR start daarom
+# één workflow_dispatch. Geen pull_request-closed: dat zou een tweede run geven.
 
 name: Deploy TEST (Proxmox)
 
 on:
   push:
-    branches:
-      - release/test
-  # Betrouwbaarder dan push alleen: start direct na merge van een PR naar release/test.
-  pull_request:
-    types:
-      - closed
     branches:
       - release/test
   workflow_dispatch:
@@ -25,10 +22,7 @@ concurrency:
 # niet als mtosun draait ("Access to the path /home is denied").
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: self-hosted
     timeout-minutes: 90
     env:
