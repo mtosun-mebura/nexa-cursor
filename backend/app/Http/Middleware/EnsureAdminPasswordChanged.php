@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\WebGuardUser;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,8 +12,8 @@ class EnsureAdminPasswordChanged
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-        if (! $user) {
+        $user = WebGuardUser::fromRequest($request);
+        if (! $user instanceof User) {
             return $next($request);
         }
 

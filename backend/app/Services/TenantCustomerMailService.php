@@ -332,7 +332,24 @@ class TenantCustomerMailService
         $attributes['error_message'] = $error;
         $attributes['sent_at'] = $status === TenantCustomerEmail::STATUS_SENT ? now() : null;
 
-        return TenantCustomerEmail::query()->create($attributes);
+        $companyId = isset($attributes['company_id']) ? (int) $attributes['company_id'] : 0;
+        if ($companyId > 0 && ! Company::query()->whereKey($companyId)->exists()) {
+            $attributes['company_id'] = null;
+        }
+
+        try {
+            return TenantCustomerEmail::query()->create($attributes);
+        } catch (\Throwable $e) {
+            Log::warning('Kon klantmail niet vastleggen; verzenden is niet teruggedraaid.', [
+                'error' => $e->getMessage(),
+                'type' => $attributes['type'] ?? null,
+                'recipient_email' => $attributes['recipient_email'] ?? null,
+            ]);
+
+            return tap(new TenantCustomerEmail($attributes), function (TenantCustomerEmail $record): void {
+                $record->exists = false;
+            });
+        }
     }
 
     protected function markResent(TenantCustomerEmail $original): void

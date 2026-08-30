@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\User;
 use App\Services\PlatformBilling\TenantBillingAccessService;
+use App\Support\WebGuardUser;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,8 +24,8 @@ class EnforceTenantBillingRestriction
             return $next($request);
         }
 
-        $user = Auth::guard('web')->user();
-        if ($user && $user->hasRole('super-admin')) {
+        $user = WebGuardUser::fromGuard('web');
+        if ($user instanceof User && $user->hasRole('super-admin')) {
             return $next($request);
         }
 
@@ -68,8 +70,8 @@ class EnforceTenantBillingRestriction
         }
 
         if ($request->is('admin') || $request->is('admin/*')) {
-            $user = $request->user('web');
-            if ($user && $user->company_id) {
+            $user = WebGuardUser::fromRequest($request, 'web');
+            if ($user instanceof User && $user->company_id) {
                 return Company::query()->find((int) $user->company_id);
             }
         }

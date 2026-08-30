@@ -58,4 +58,15 @@ class EnvServiceMailFallbackTest extends TestCase
 
         $this->assertSame('smtp.nexa.test', $mail['MAIL_HOST']);
     }
+
+    #[Test]
+    public function apply_mail_config_keeps_phpunit_array_mailer(): void
+    {
+        GeneralSetting::set('MAIL_MAILER', 'smtp', null);
+        GeneralSetting::set('MAIL_HOST', 'smtp.nexa.test', null);
+
+        app(EnvService::class)->applyMailConfigToRuntime();
+
+        $this->assertSame('array', config('mail.default'));
+    }
 }

@@ -22,7 +22,7 @@ class OverlayGeneralSettingConfig
                 $port = $mail['MAIL_PORT'] ?? config('mail.mailers.smtp.port');
 
                 config([
-                    'mail.default' => $mail['MAIL_MAILER'] ?? config('mail.default'),
+                    'mail.default' => $env->resolveRuntimeMailer($mail['MAIL_MAILER'] ?? null),
                     'mail.from.address' => $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address'),
                     'mail.from.name' => $mail['MAIL_FROM_NAME'] ?? config('mail.from.name'),
                     'mail.mailers.smtp.host' => $mail['MAIL_HOST'] ?? config('mail.mailers.smtp.host'),

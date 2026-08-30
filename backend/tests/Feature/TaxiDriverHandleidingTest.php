@@ -53,7 +53,7 @@ class TaxiDriverHandleidingTest extends TestCase
             ->assertSee('Tabbladen onderin', false)
             ->assertSee('Start navigatie', false)
             ->assertSee('van je actieve rit', false)
-            ->assertSee('naam van de klant boven Ophalen', false)
+            ->assertSee('naam van de klant staat boven Ophalen', false)
             ->assertSee('Dag of week', false)
             ->assertSee('feature-chauffeur-inbox.png', false)
             ->assertSee('feature-chauffeur-active.png', false)

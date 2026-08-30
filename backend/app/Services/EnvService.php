@@ -192,7 +192,7 @@ class EnvService
     public function applyMailConfigToRuntime(?int $forCompanyId = null, bool $platformOnly = false): void
     {
         $mail = $this->getMailOverlayValues($forCompanyId, $platformOnly);
-        $mailer = $mail['MAIL_MAILER'] ?? 'log';
+        $mailer = $this->resolveRuntimeMailer($mail['MAIL_MAILER'] ?? null);
         $encryption = $mail['MAIL_ENCRYPTION'] ?? 'tls';
         $fromAddress = $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address', 'noreply@example.com');
         $fromName = $mail['MAIL_FROM_NAME'] ?? config('mail.from.name', config('app.name', 'NEXA'));
@@ -212,6 +212,23 @@ class EnvService
         }
 
         app()->forgetInstance('mail.manager');
+    }
+
+    /**
+     * PHPUnit vangt mail in de array-driver; een lege overlay mag dat niet overschrijven naar log/smtp.
+     */
+    public function resolveRuntimeMailer(?string $overlayMailer): string
+    {
+        if (app()->runningUnitTests() && strtolower((string) env('MAIL_MAILER', '')) === 'array') {
+            return 'array';
+        }
+
+        $overlay = strtolower(trim((string) $overlayMailer));
+        if ($overlay !== '') {
+            return $overlay;
+        }
+
+        return strtolower(trim((string) config('mail.default', 'log'))) ?: 'log';
     }
 
     /**
