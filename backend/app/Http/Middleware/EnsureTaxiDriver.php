@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Services\CompanyEntitlementService;
+use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\TenantPackageCapability;
 use Closure;
 use Illuminate\Http\Request;
@@ -37,6 +38,11 @@ class EnsureTaxiDriver
         $entitlements = app(CompanyEntitlementService::class);
         if (! $entitlements->allows($company, TenantPackageCapability::DRIVER_APP)) {
             return $entitlements->jsonDenied($company, TenantPackageCapability::DRIVER_APP);
+        }
+
+        $billingAccess = app(TenantBillingAccessService::class);
+        if ($billingAccess->isFullyBlocked($company)) {
+            return response()->json(['message' => $billingAccess->fullBlockMessage()], 403);
         }
 
         if (! TaxiDriverAccountStatus::isActive($user)) {

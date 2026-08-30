@@ -21,6 +21,7 @@ class ApplicationEssentialDataSeeder extends Seeder
             PaymentProviderSeeder::class,
             TaxiRideAcceptedEmailTemplateSeeder::class,
             NexaContactAanvraagEmailTemplateSeeder::class,
+            TenantWelcomeEmailTemplateSeeder::class,
         ]);
 
         app(\App\Services\NexaDemoAccountService::class)->ensure();

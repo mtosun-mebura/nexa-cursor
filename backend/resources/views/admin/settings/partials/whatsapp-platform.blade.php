@@ -450,9 +450,14 @@
                                                    aria-label="Taalcode ophaalvoorstel-template">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
-                                            Meta-template met <strong>twee Quick Reply-knoppen</strong>:
-                                            <code>Accepteren</code> (payload <code>pickup_accept</code>) en
-                                            <code>Weigeren</code> (payload <code>pickup_decline</code>).
+                                            In het Meta-sjabloon hoort <strong>geen webhook</strong>. Kies twee knoppen van het type
+                                            <strong>Snel antwoord</strong> met knoptekst <code>Accepteren</code> en <code>Weigeren</code>
+                                            (geen aparte payload nodig: WhatsApp stuurt die tekst terug).
+                                            Het antwoord komt binnen via de webhook van de WhatsApp-app
+                                            (Meta Developer → WhatsApp → Configuratie → Webhook), niet via het sjabloon.
+                                            Abonneer daar het veld <code>messages</code>. Callback-URL:
+                                            <code>https://nexasuite.nl/api/whatsapp/webhook</code>
+                                            (zelfde verify-token als hierboven).
                                             Variabelen (elk maximaal 1×, in leesvolgorde):
                                             <code>@{{1}}</code> klant,
                                             <code>@{{2}}</code> bedrijf,
@@ -464,6 +469,8 @@
                                             <code>@{{8}}</code> chauffeur.
                                             Bronnummer: bedrijfsveld <code>phone</code> van de tenant (internationaal +31…).
                                             Na Weigeren mag de klant een los tekstbericht sturen als opmerking.
+                                            Lokaal en op test: <a href="{{ route('admin.whatsapp-pickup-proposal-mock.index') }}" class="underline">WhatsApp voorstel-test</a>
+                                            (voorstellen uit de chauffeur-app + gemockt antwoord, zonder Meta).
                                         </p>
                                     </td>
                                 </tr>
@@ -471,10 +478,10 @@
                                     <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
-                                            Kopieer naar Meta als Utility-sjabloon en voeg de twee knoppen toe.
+                                            Kopieer naar Meta als Utility-sjabloon en voeg twee <strong>Snel antwoord</strong>-knoppen toe.
                                             Elke parameter <code>@{{1}}</code>–<code>@{{8}}</code> mag maar 1× in de body staan.
                                             Zet het telefoonnummer (<code>@{{3}}</code>) op een eigen regel zodat het in WhatsApp klikbaar is.
-                                            Geen Call-knop erbij: Quick Reply en Call-to-action mogen niet gemengd in één sjabloon.
+                                            Geen website- of bel-knop in hetzelfde sjabloon: Quick Reply en Call-to-action mogen niet gemengd.
                                         </p>
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['pickup_proposal'] ?? '' }}</pre>
                                     </td>

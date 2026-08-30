@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { componentMeta, sectionMeta } from './palette-meta'
-import type { PaletteDragPayload } from './types'
+import type { ComponentCatalogItem, PaletteDragPayload } from './types'
 import { writeDragPayload } from './builder-state'
 import BuilderBlockPreviewModal from './BuilderBlockPreviewModal.vue'
 
+const THEME_GROUP_ORDER = ['Landwind', 'Play Tailwind', 'Vue Material Kit']
+
 const props = defineProps<{
   sections: Array<{ type: string; label: string }>
-  components: Array<{ id: string; name: string; description: string; moduleName: string; sectionKey: string }>
+  components: ComponentCatalogItem[]
   query: string
   blockPreviewUrl: string
   themeSlug: string
@@ -58,6 +60,41 @@ function matches(text: string, query: string) {
   if (!query.trim()) return true
   return text.toLowerCase().includes(query.trim().toLowerCase())
 }
+
+const componentGroups = computed(() => {
+  const filtered = props.components.filter((c) =>
+    matches(`${c.name} ${c.description} ${c.themeName || ''} ${c.moduleName}`, props.query)
+  )
+  const general = filtered.filter((c) => !c.themeName)
+  const byTheme = new Map<string, ComponentCatalogItem[]>()
+  for (const component of filtered) {
+    const themeName = (component.themeName || '').trim()
+    if (themeName === '') {
+      continue
+    }
+    const list = byTheme.get(themeName) ?? []
+    list.push(component)
+    byTheme.set(themeName, list)
+  }
+  const groups: { title: string; items: ComponentCatalogItem[] }[] = []
+  if (general.length) {
+    groups.push({ title: 'Componenten', items: general })
+  }
+  const seen = new Set<string>()
+  for (const name of THEME_GROUP_ORDER) {
+    const items = byTheme.get(name)
+    if (items?.length) {
+      groups.push({ title: `Thema: ${name}`, items })
+      seen.add(name)
+    }
+  }
+  for (const [name, items] of byTheme) {
+    if (!seen.has(name) && items.length) {
+      groups.push({ title: `Thema: ${name}`, items })
+    }
+  }
+  return groups
+})
 
 function currentAdminIsDark(): boolean {
   return (
@@ -157,11 +194,11 @@ function closePreview() {
         </div>
       </section>
 
-      <section v-if="components.length" class="builder-palette-group">
-        <h3 class="builder-palette-group__title">Componenten</h3>
+      <section v-for="group in componentGroups" :key="group.title" class="builder-palette-group">
+        <h3 class="builder-palette-group__title">{{ group.title }}</h3>
         <div class="builder-palette-list">
           <div
-            v-for="component in components.filter((c) => matches(c.name + ' ' + c.description, query))"
+            v-for="component in group.items"
             :key="component.sectionKey"
             role="button"
             tabindex="0"
@@ -178,7 +215,7 @@ function closePreview() {
             </span>
             <span class="min-w-0 grow">
               <span class="block text-sm font-medium">{{ component.name }}</span>
-              <span class="block text-xs text-muted-foreground">{{ component.moduleName }}</span>
+              <span class="block text-xs text-muted-foreground">{{ component.themeName ? `Thema: ${component.themeName}` : component.moduleName }}</span>
             </span>
             <button
               type="button"

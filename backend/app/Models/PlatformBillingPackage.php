@@ -9,6 +9,7 @@ class PlatformBillingPackage extends Model
 {
     protected $fillable = [
         'name',
+        'package_key',
         'description',
         'monthly_amount',
         'currency',

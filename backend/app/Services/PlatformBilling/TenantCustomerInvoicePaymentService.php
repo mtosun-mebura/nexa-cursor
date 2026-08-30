@@ -3,11 +3,12 @@
 namespace App\Services\PlatformBilling;
 
 use App\Models\Invoice;
+use App\Models\TenantCustomerEmail;
 use App\Modules\NexaTaxi\Services\TaxiMolliePaymentService;
 use App\Services\InvoicePdfService;
 use App\Services\PaymentProviderService;
+use App\Services\TenantCustomerMailService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use RuntimeException;
 
 class TenantCustomerInvoicePaymentService
@@ -69,7 +70,15 @@ class TenantCustomerInvoicePaymentService
         if ($checkoutUrl) {
             $body .= "U kunt direct online betalen via:\n{$checkoutUrl}\n\n";
         }
-        $body .= "Met vriendelijke groet";
+        $body .= 'Met vriendelijke groet';
+
+        $html = '<p>Beste,</p>'
+            .'<p>Bij deze ontvangt u factuur <strong>'.e($invoice->invoice_number).'</strong>.</p>'
+            .'<p>Totaalbedrag: <strong>€'.e(number_format((float) $invoice->total_amount, 2, ',', '.')).'</strong></p>';
+        if ($checkoutUrl) {
+            $html .= '<p>U kunt direct online betalen via:<br><a href="'.e($checkoutUrl).'">'.e($checkoutUrl).'</a></p>';
+        }
+        $html .= '<p>Met vriendelijke groet</p>';
 
         try {
             $pdf = $this->pdf->generateAndStore($invoice->fresh());
@@ -81,13 +90,28 @@ class TenantCustomerInvoicePaymentService
             $pdf = null;
         }
 
-        Mail::raw($body, function ($message) use ($email, $invoice, $pdf) {
-            $message->to($email)->subject('Factuur '.$invoice->invoice_number);
-            if ($pdf && ! empty($pdf['bytes'])) {
-                $filename = 'factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
-                $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
-            }
-        });
+        $attachments = [];
+        if ($pdf && ! empty($pdf['bytes'])) {
+            $attachments[] = [
+                'bytes' => $pdf['bytes'],
+                'filename' => 'factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf',
+                'mime' => 'application/pdf',
+            ];
+        }
+
+        app(TenantCustomerMailService::class)->send([
+            'company_id' => $companyId,
+            'type' => TenantCustomerEmail::TYPE_PAYMENT_LINK,
+            'to_email' => $email,
+            'to_name' => $invoice->customer_name,
+            'subject' => 'Factuur '.$invoice->invoice_number,
+            'html' => $html,
+            'text' => $body,
+            'related_type' => 'invoice',
+            'related_id' => $invoice->id,
+            'attachments' => $attachments,
+            'throw' => true,
+        ]);
 
         return $invoice->fresh();
     }

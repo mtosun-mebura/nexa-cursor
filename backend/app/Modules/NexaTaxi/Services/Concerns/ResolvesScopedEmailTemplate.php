@@ -26,6 +26,49 @@ trait ResolvesScopedEmailTemplate
     }
 
     /**
+     * Actieve template voor verzending: tenant-kopie eerst, anders globaal.
+     * Niet via ORDER BY company_id DESC: in PostgreSQL komen NULL-waarden dan eerst.
+     */
+    protected function resolveActiveScopedEmailTemplate(string $type, ?int $companyId): ?EmailTemplate
+    {
+        if ($companyId !== null && $companyId > 0) {
+            $tenant = EmailTemplate::query()
+                ->where('type', $type)
+                ->where('is_active', true)
+                ->where('company_id', $companyId)
+                ->orderBy('id')
+                ->first();
+            if ($tenant) {
+                return $tenant;
+            }
+        }
+
+        return EmailTemplate::query()
+            ->where('type', $type)
+            ->where('is_active', true)
+            ->whereNull('company_id')
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * Maak het template alleen aan als het nog niet bestaat; bestaande HTML blijft staan.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function firstOrCreateScopedEmailTemplate(string $type, ?int $companyId, array $attributes): EmailTemplate
+    {
+        $this->deduplicateScopedEmailTemplates($type, $companyId);
+
+        $existing = $this->findScopedEmailTemplate($type, $companyId);
+        if ($existing) {
+            return $existing;
+        }
+
+        return $this->upsertScopedEmailTemplate($type, $companyId, $attributes);
+    }
+
+    /**
      * Houd één rij per type + tenant (of globaal); verwijder oudere duplicaten.
      */
     protected function deduplicateScopedEmailTemplates(string $type, ?int $companyId): void

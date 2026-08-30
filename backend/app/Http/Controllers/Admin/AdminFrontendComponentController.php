@@ -6,30 +6,38 @@ use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
 use App\Services\EnvService;
 use App\Services\FrontendComponentService;
-use App\Services\WebsiteBuilderService;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
  * Overzicht van front-end componenten (alleen lezen; aanpassen alleen in code).
+ * Componenten zijn platformbreed en gelden voor alle tenants.
  */
 class AdminFrontendComponentController extends Controller
 {
     public function __construct(
         protected FrontendComponentService $componentService,
-        protected WebsiteBuilderService $websiteBuilder
     ) {}
 
     public function index(): View
     {
         $this->ensureSuperAdmin();
-        $activeModuleName = $this->websiteBuilder->getActiveModuleName();
         $components = $this->catalogItems();
         $grouped = $components->isEmpty()
             ? new Collection
-            : $components->groupBy('module_name');
+            : $components->groupBy(fn ($c) => $this->componentService->catalogGroupKey($c))
+                ->sortBy(function ($items, $key) {
+                    if ($key === 'Algemeen') {
+                        return '0';
+                    }
+                    if (str_starts_with((string) $key, 'Thema:')) {
+                        return '2'.$key;
+                    }
 
-        return view('admin.frontend-components.index', compact('grouped', 'activeModuleName'));
+                    return '1'.$key;
+                });
+
+        return view('admin.frontend-components.index', compact('grouped'));
     }
 
     public function demo(string $componentId): View

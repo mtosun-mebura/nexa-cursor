@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\FrontendTheme;
+use App\Models\PlatformBillingPackage;
 use App\Models\User;
 use App\Models\WebsitePage;
 use App\Services\NexaPricingService;
@@ -82,6 +83,7 @@ class AdminNexaPricingTest extends TestCase
             ->get(route('admin.nexa-pricing.edit'))
             ->assertOk()
             ->assertSee('Paketten', false)
+            ->assertSee('Overzicht prijzen', false)
             ->assertSee('Prijzen', false)
             ->assertSee('Maandprijs', false)
             ->assertSee('Aanbiedingsprijs', false)
@@ -156,6 +158,8 @@ class AdminNexaPricingTest extends TestCase
             ->assertOk()
             ->assertSee('nexaPricing', false)
             ->assertSee('nexaPricingEdit', false)
+            ->assertSee('heroicons', false)
+            ->assertSee('academic-cap', false)
             ->assertSee('Website met boekingsmodule', false)
             ->assertSee(route('admin.nexa-pricing.edit'), false);
     }
@@ -181,6 +185,10 @@ class AdminNexaPricingTest extends TestCase
         $this->assertSame(0, $saved['packages'][0]['free_months'] ?? null);
         $this->assertSame('800', $saved['website']['price_label'] ?? null);
         $this->assertSame('499', $saved['website']['offer'] ?? null);
+        $billingPackage = PlatformBillingPackage::query()->where('package_key', 'start')->first();
+        $this->assertNotNull($billingPackage);
+        $this->assertEquals(59.0, (float) $billingPackage->monthly_amount);
+        $this->assertTrue((bool) $billingPackage->is_active);
         $this->assertContains('Website met boekingsmodule', $saved['packages'][0]['features'] ?? []);
         $this->assertNotContains('Onbeperkt chauffeurs', $saved['packages'][0]['features'] ?? []);
         $this->assertContains('Onbeperkt chauffeurs', $saved['packages'][1]['features'] ?? []);

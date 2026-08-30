@@ -12,10 +12,12 @@ use App\Models\User;
 use App\Services\EnvService;
 use App\Services\ModuleManager;
 use App\Services\NexaPricingService;
+use App\Services\TenantOnboardingService;
 use App\Support\ModuleSchemaAvailability;
 use App\Support\TenantPackageAddon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 class AdminCompanyController extends Controller
 {
@@ -322,6 +324,13 @@ class AdminCompanyController extends Controller
             }
         }
 
+        $needsCompanyAdminWelcome = false;
+        if (auth()->user()?->isSuperAdmin()) {
+            $adminEmail = strtolower(trim((string) $company->email));
+            $needsCompanyAdminWelcome = $adminEmail !== ''
+                && ! $company->users->contains(fn (User $user) => strtolower((string) $user->email) === $adminEmail);
+        }
+
         return view('admin.companies.show', compact(
             'company',
             'googleMapsApiKey',
@@ -332,8 +341,42 @@ class AdminCompanyController extends Controller
             'companyWebsiteDevPreviewUrl',
             'companyWebsiteDevPreviewHost',
             'companyWebsiteHomeInactive',
-            'companyWebsiteInactivePages'
+            'companyWebsiteInactivePages',
+            'needsCompanyAdminWelcome'
         ));
+    }
+
+    public function sendWelcomeMail(Company $company, TenantOnboardingService $onboarding): \Illuminate\Http\RedirectResponse
+    {
+        if (! auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Alleen super-admin kan de welkomstmail van een tenant versturen.');
+        }
+
+        if (! $this->canAccessResource($company)) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+
+        try {
+            $result = $onboarding->provisionOrResendWelcome($company);
+        } catch (RuntimeException $e) {
+            return redirect()
+                ->route('admin.companies.show', $company)
+                ->with('error', $e->getMessage());
+        }
+
+        if ($result['mailed']) {
+            $message = $result['created']
+                ? 'Company-admin aangemaakt. Welkomstmail verstuurd naar '.$result['user']->email.'.'
+                : 'Welkomstmail opnieuw verstuurd naar '.$result['user']->email.'.';
+
+            return redirect()
+                ->route('admin.companies.show', $company)
+                ->with('success', $message);
+        }
+
+        return redirect()
+            ->route('admin.companies.show', $company)
+            ->with('error', $this->envService->explainMailSendException(new RuntimeException('De welkomstmail kon niet worden verstuurd. Controleer de mailserver.')));
     }
 
     public function edit(Company $company)
@@ -703,7 +746,7 @@ class AdminCompanyController extends Controller
     /**
      * @return array<string, string>
      */
-    private function nexaPackagesForSelect(): array
+    protected function nexaPackagesForSelect(): array
     {
         return app(NexaPricingService::class)->packagesForSelect();
     }
@@ -711,7 +754,7 @@ class AdminCompanyController extends Controller
     /**
      * @return list<mixed>
      */
-    private function packageKeyRules(): array
+    protected function packageKeyRules(): array
     {
         if (! auth()->user()?->isSuperAdmin()) {
             return ['prohibited'];
@@ -725,7 +768,7 @@ class AdminCompanyController extends Controller
     /**
      * @param  array<string, mixed>  $data
      */
-    private function applyPackageKeyFromRequest(Request $request, array &$data): void
+    protected function applyPackageKeyFromRequest(Request $request, array &$data): void
     {
         if (! auth()->user()?->isSuperAdmin()) {
             unset($data['package_key']);

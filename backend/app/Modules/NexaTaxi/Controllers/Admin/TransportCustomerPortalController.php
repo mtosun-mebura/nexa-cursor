@@ -11,6 +11,8 @@ use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Models\TransportCustomerPortalUser;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerGuardian;
+use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
+use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
@@ -74,7 +76,6 @@ class TransportCustomerPortalController extends Controller
             ],
             'last_name' => ['nullable', 'string', 'max:100'],
             'password' => [
-                Rule::requiredIf(fn () => $userMode === 'new'),
                 'nullable',
                 'string',
                 'min:8',
@@ -89,6 +90,7 @@ class TransportCustomerPortalController extends Controller
         ]);
 
         $existingUserId = $userMode === 'existing' ? (int) ($data['existing_user_id'] ?? 0) : 0;
+        $createdNewUser = false;
 
         if ($existingUserId > 0) {
             $user = User::query()
@@ -115,6 +117,7 @@ class TransportCustomerPortalController extends Controller
             }
 
             $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+            $createdNewUser = false;
 
             if ($user) {
                 if ((int) $user->company_id > 0 && (int) $user->company_id !== $companyId) {
@@ -135,21 +138,17 @@ class TransportCustomerPortalController extends Controller
                 }
                 $user->save();
             } else {
-                if (empty($data['password'])) {
-                    return back()->withErrors([
-                        'password' => 'Wachtwoord is verplicht voor een nieuw account.',
-                    ])->withInput();
-                }
+                $firstLogin = app(TaxiAppFirstLoginService::class);
                 try {
-                    $user = User::create([
+                    $user = User::create(array_merge([
                         'first_name' => $data['first_name'],
                         'last_name' => $data['last_name'] ?? '',
                         'email' => $email,
-                        'password' => Hash::make($data['password']),
+                        'password' => $firstLogin->unusablePasswordHash(),
                         'company_id' => $companyId,
-                        'email_verified_at' => now(),
                         'is_active' => true,
-                    ]);
+                    ], $firstLogin->provisionFlags()));
+                    $createdNewUser = true;
                 } catch (QueryException $e) {
                     if (str_contains(strtolower($e->getMessage()), 'users_email_unique')
                         || str_contains(strtolower($e->getMessage()), 'unique')) {
@@ -185,9 +184,18 @@ class TransportCustomerPortalController extends Controller
             $data['passenger_ids'] ?? []
         );
 
+        if (! empty($createdNewUser)) {
+            $welcomeRole = $data['portal_role'] === TransportCustomerPortalUser::ROLE_CONTRACTANT
+                ? TaxiAppFirstLoginService::ROLE_CONTRACTANT
+                : TaxiAppFirstLoginService::ROLE_CONTRACTOUDER;
+            app(TaxiAppUserWelcomeService::class)->send($user->fresh(), $welcomeRole);
+        }
+
         return redirect()
             ->route('admin.taxi.transport_customers.show', $customer->id)
-            ->with('success', 'Portaalgebruiker gekoppeld. App: /taxi/contract');
+            ->with('success', ! empty($createdNewUser)
+                ? 'Portaalgebruiker gekoppeld. Er is een welkomstmail verstuurd; eerste keer inloggen via een code in de app (/taxi/contract).'
+                : 'Portaalgebruiker gekoppeld. App: /taxi/contract');
     }
 
     public function update(

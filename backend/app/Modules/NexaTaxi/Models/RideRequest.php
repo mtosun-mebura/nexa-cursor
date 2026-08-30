@@ -38,6 +38,7 @@ class RideRequest extends Model
         'pickup_proposal_customer_remark',
         'pickup_proposal_sent_at',
         'pickup_proposal_responded_at',
+        'pickup_proposal_whatsapp_wamid',
         'return_at',
         'outbound_completed_at',
         'outbound_driver_id',
@@ -77,12 +78,19 @@ class RideRequest extends Model
     ];
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_QUOTED = 'quoted';
+
     public const STATUS_PENDING_DISPATCH = 'pending_dispatch';
+
     public const STATUS_OFFERED = 'offered';
+
     public const STATUS_ACCEPTED = 'accepted';
+
     public const STATUS_ASSIGNED = 'assigned';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     public const PICKUP_PROPOSAL_PENDING = 'pending';
@@ -90,6 +98,44 @@ class RideRequest extends Model
     public const PICKUP_PROPOSAL_ACCEPTED = 'accepted';
 
     public const PICKUP_PROPOSAL_DECLINED = 'declined';
+
+    /**
+     * @return array<string, string>
+     */
+    public static function pickupProposalStatusLabels(): array
+    {
+        return [
+            self::PICKUP_PROPOSAL_PENDING => 'Wacht op klant',
+            self::PICKUP_PROPOSAL_ACCEPTED => 'Geaccepteerd',
+            self::PICKUP_PROPOSAL_DECLINED => 'Geweigerd',
+        ];
+    }
+
+    public function hasPendingPickupProposal(): bool
+    {
+        return $this->pickup_proposal_status === self::PICKUP_PROPOSAL_PENDING;
+    }
+
+    public function hasDeclinedPickupProposal(): bool
+    {
+        return $this->pickup_proposal_status === self::PICKUP_PROPOSAL_DECLINED;
+    }
+
+    public function hasOpenPickupProposal(): bool
+    {
+        return $this->hasPendingPickupProposal() || $this->hasDeclinedPickupProposal();
+    }
+
+    /**
+     * Ritten die nog wachten op WhatsApp-antwoord van de klant (niet opnieuw aanbieden).
+     */
+    public function scopeWithoutPendingPickupProposal($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('pickup_proposal_status')
+                ->orWhere('pickup_proposal_status', '!=', self::PICKUP_PROPOSAL_PENDING);
+        });
+    }
 
     public const STATUS_PENDING_PAYMENT = 'pending_payment';
 

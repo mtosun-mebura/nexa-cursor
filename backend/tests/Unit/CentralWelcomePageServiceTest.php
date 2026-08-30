@@ -115,6 +115,15 @@ class CentralWelcomePageServiceTest extends TestCase
         $this->assertStringContainsString('hero-nexa-platform.png', (string) ($sections['hero']['background_image_url'] ?? ''));
         $this->assertContains('component:website.screenshot_gallery', $sections['section_order'] ?? []);
         $this->assertContains('component:website.comparison_table', $sections['section_order'] ?? []);
+        $this->assertContains('component:vue_material.elevated_cards', $sections['section_order'] ?? []);
+        $this->assertContains('component:landwind.stats_strip', $sections['section_order'] ?? []);
+        $this->assertContains('component:landwind.feature_checklist', $sections['section_order'] ?? []);
+        $this->assertContains('component:landwind.faq', $sections['section_order'] ?? []);
+        $this->assertNotContains('why_nexa', $sections['section_order'] ?? []);
+        $this->assertSame('Waarom ondernemers voor NEXA kiezen', $sections['component:vue_material.elevated_cards']['title'] ?? null);
+        $this->assertSame('24', $sections['component:landwind.stats_strip']['items'][0]['value'] ?? null);
+        $this->assertSame('/contact', $sections['cta']['cta_primary_url'] ?? null);
+        $this->assertSame('/prijzen', $sections['cta']['cta_secondary_url'] ?? null);
         $gallery = $sections['component:website.screenshot_gallery']['items'] ?? [];
         $this->assertNotEmpty($gallery);
         $this->assertStringContainsString('feature-taxi-booking.png', (string) ($gallery[0]['image_url'] ?? ''));
@@ -138,6 +147,7 @@ class CentralWelcomePageServiceTest extends TestCase
         $comparisonSections = $comparison->getHomeSections();
         $this->assertSame('Voor- en nadelen van Nexa.', $comparisonSections['hero']['title'] ?? null);
         $this->assertContains('component:website.comparison_table', $comparisonSections['section_order'] ?? []);
+        $this->assertContains('component:landwind.faq', $comparisonSections['section_order'] ?? []);
         $this->assertSame(
             'Pijnpunt versus NEXA-antwoord',
             $comparisonSections['component:website.comparison_table']['title'] ?? null

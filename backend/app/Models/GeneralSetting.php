@@ -76,6 +76,18 @@ class GeneralSetting extends Model
         'nexa_pricing',
     ];
 
+    /** Tenant-mailserver; leeg = Nexa SaaS-mailserver (`company_id` null) of `.env`. */
+    public const MAIL_SETTING_KEYS = [
+        'MAIL_MAILER',
+        'MAIL_HOST',
+        'MAIL_PORT',
+        'MAIL_USERNAME',
+        'MAIL_PASSWORD',
+        'MAIL_ENCRYPTION',
+        'MAIL_FROM_ADDRESS',
+        'MAIL_FROM_NAME',
+    ];
+
     protected $fillable = [
         'company_id',
         'key',
@@ -108,6 +120,11 @@ class GeneralSetting extends Model
 
         // AI-chat module webhooks op Algemene configuraties
         return str_starts_with($key, 'ai_chat_') && str_ends_with($key, '_webhook_url');
+    }
+
+    public static function isMailSettingKey(string $key): bool
+    {
+        return in_array($key, self::MAIL_SETTING_KEYS, true);
     }
 
     public function company(): BelongsTo
@@ -339,35 +356,15 @@ class GeneralSetting extends Model
             $companyId = null;
         } else {
             $companyId = $forCompanyId ?? self::resolveScopeCompanyId();
-            if ($companyId === null) {
+            if ($companyId === null && ! self::isMailSettingKey($key)) {
                 throw new RuntimeException(
                     'GeneralSetting::set vereist een tenant (company_id). Selecteer een tenant in de admin of gebruik een account met bedrijf.'
                 );
             }
         }
 
-        if (self::isGlobalPlatformKey($key)) {
-            $model = self::query()
-                ->where('key', $key)
-                ->whereNull('company_id')
-                ->orderByDesc('id')
-                ->first();
-
-            if ($model) {
-                $model->update(['value' => (string) $value]);
-                self::query()
-                    ->where('key', $key)
-                    ->whereNull('company_id')
-                    ->where('id', '!=', $model->id)
-                    ->delete();
-            } else {
-                $model = self::query()->create([
-                    'key' => $key,
-                    'company_id' => null,
-                    'value' => (string) $value,
-                ]);
-            }
-
+        if (self::isGlobalPlatformKey($key) || ($companyId === null && self::isMailSettingKey($key))) {
+            $model = self::upsertNullCompanySetting($key, (string) $value);
             self::clearRequestCache();
 
             return $model;
@@ -382,5 +379,31 @@ class GeneralSetting extends Model
         self::clearRequestCache();
 
         return $model;
+    }
+
+    private static function upsertNullCompanySetting(string $key, string $value): self
+    {
+        $model = self::query()
+            ->where('key', $key)
+            ->whereNull('company_id')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($model) {
+            $model->update(['value' => $value]);
+            self::query()
+                ->where('key', $key)
+                ->whereNull('company_id')
+                ->where('id', '!=', $model->id)
+                ->delete();
+
+            return $model;
+        }
+
+        return self::query()->create([
+            'key' => $key,
+            'company_id' => null,
+            'value' => $value,
+        ]);
     }
 }

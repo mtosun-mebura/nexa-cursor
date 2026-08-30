@@ -43,7 +43,7 @@
                     <td>
                         <div class="inline-flex items-stretch">
                             <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
-                            <input class="kt-input w-28 rounded-l-none tabular-nums" type="text" name="packages[{{ $i }}][price]" value="{{ $package['price'] ?? '' }}" inputmode="decimal" required>
+                            <input class="kt-input w-28 rounded-l-none tabular-nums" type="text" name="packages[{{ $i }}][price]" value="{{ $package['price'] ?? '' }}" inputmode="decimal" required data-package-price>
                         </div>
                     </td>
                 </tr>

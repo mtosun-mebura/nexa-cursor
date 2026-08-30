@@ -555,6 +555,42 @@ class WebsitePage extends Model
                 ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
                 ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
             ],
+            'landwind' => [
+                ['type' => 'hero', 'label' => 'Hero (banner)'],
+                ['type' => 'why_nexa', 'label' => 'Over ons'],
+                ['type' => 'features', 'label' => 'Features'],
+                ['type' => 'stats', 'label' => 'Stats (4 cijfers)'],
+                ['type' => 'cta', 'label' => 'CTA'],
+                ['type' => 'carousel', 'label' => 'Carousel'],
+                ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
+                ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
+                ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
+                ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
+            ],
+            'play-tailwind' => [
+                ['type' => 'hero', 'label' => 'Hero (banner)'],
+                ['type' => 'why_nexa', 'label' => 'Over ons'],
+                ['type' => 'features', 'label' => 'Diensten'],
+                ['type' => 'stats', 'label' => 'Stats (4 cijfers)'],
+                ['type' => 'cta', 'label' => 'CTA'],
+                ['type' => 'carousel', 'label' => 'Carousel'],
+                ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
+                ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
+                ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
+                ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
+            ],
+            'vue-material-kit' => [
+                ['type' => 'hero', 'label' => 'Hero (banner)'],
+                ['type' => 'why_nexa', 'label' => 'Over ons'],
+                ['type' => 'features', 'label' => 'Componenten / diensten'],
+                ['type' => 'stats', 'label' => 'Stats (4 cijfers)'],
+                ['type' => 'cta', 'label' => 'CTA'],
+                ['type' => 'carousel', 'label' => 'Carousel'],
+                ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
+                ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
+                ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
+                ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
+            ],
         ];
         if (isset($byTheme[$themeSlug])) {
             return $byTheme[$themeSlug];
@@ -612,6 +648,33 @@ class WebsitePage extends Model
                 $base['hero']['title_highlight'] = 'hier';
                 $base['hero']['subtitle'] = 'Match met de beste vacatures via ons AI-platform.';
                 $base['features']['section_title'] = 'Kenmerken';
+                break;
+            case 'landwind':
+                $base['section_order'] = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
+                $base['hero']['title'] = 'Boekingen, ritten en klanten in één platform';
+                $base['hero']['title_highlight'] = 'één platform';
+                $base['hero']['subtitle'] = 'Landwind: een SaaS-landing met hero, features, FAQ-stijl uitleg en een sterke CTA.';
+                $base['why_nexa']['title'] = 'Waarom dit thema';
+                $base['why_nexa']['subtitle'] = 'Gebouwd op Tailwind en Flowbite. Geschikt voor taxi- en dienstverleningssites.';
+                $base['features']['section_title'] = 'Onderdelen';
+                break;
+            case 'play-tailwind':
+                $base['section_order'] = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
+                $base['hero']['title'] = 'Start uw digitale taxi-onderneming';
+                $base['hero']['title_highlight'] = 'taxi-onderneming';
+                $base['hero']['subtitle'] = 'Play Tailwind: hero, diensten, cijfers en een duidelijke call-to-action.';
+                $base['why_nexa']['title'] = 'Over ons';
+                $base['why_nexa']['subtitle'] = 'Een complete landing voor startups en dienstverleners.';
+                $base['features']['section_title'] = 'Diensten';
+                break;
+            case 'vue-material-kit':
+                $base['section_order'] = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
+                $base['hero']['title'] = 'Material Design voor uw website';
+                $base['hero']['title_highlight'] = 'Material Design';
+                $base['hero']['subtitle'] = 'Vue Material Kit: kaarten, elevatie en een rijke set UI-blokken in Blade.';
+                $base['why_nexa']['title'] = 'Componenten';
+                $base['why_nexa']['subtitle'] = 'Hero, features, stats, CTA en extra CMS-blokken uit de website-bouwer.';
+                $base['features']['section_title'] = 'Wat u kunt tonen';
                 break;
             default:
                 break;

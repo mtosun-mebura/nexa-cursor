@@ -40,6 +40,20 @@
     #test-email-status[data-ok="0"] {
         color: #dc2626;
     }
+    #test-email-message[data-ok="1"] {
+        color: #166534;
+        background: #dcfce7;
+        border: 1px solid #86efac;
+        border-radius: 0.5rem;
+        padding: 0.65rem 0.85rem;
+    }
+    #test-email-message[data-ok="0"] {
+        color: #991b1b;
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        border-radius: 0.5rem;
+        padding: 0.65rem 0.85rem;
+    }
 </style>
 @endpush
 
@@ -98,11 +112,32 @@
     @endif
 
     <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
-    @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
-        <!-- Mail Server Instellingen -->
+        <!-- Mail Server Instellingen: Nexa SaaS (Alle Tenants) of per tenant -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => ($mailSettingsIsPlatform ?? false)
+                ? '<i class="ki-filled ki-sms me-2"></i> Nexa SaaS Mail Server'
+                : '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
             <div class="settings-collapsible-body">
+            <p class="text-sm text-muted-foreground mx-5 mt-4 mb-0">
+                @if($mailSettingsIsPlatform ?? false)
+                    Dit is de standaard mailserver van Nexa SaaS. Platformmails (welkomstmail, wachtwoordreset, testmail, facturen) gebruiken deze server. Een tenant zonder eigen mailserver valt hier automatisch op terug.
+                @else
+                    Optioneel per tenant. Als deze velden leeg zijn of niet zijn opgeslagen, wordt de Nexa SaaS-mailserver gebruikt (Configuraties bij “Alle Tenants”).
+                @endif
+            </p>
+            @if(!empty($mailUsingPlatformFallback) && empty($mailDeliveryHint))
+                <div class="kt-alert kt-alert-primary mx-5 mt-4 mb-0" role="status">
+                    <i class="ki-filled ki-information-2 me-2"></i>
+                    Deze tenant heeft geen eigen mailserver. Uitgaande mail gebruikt de Nexa SaaS-mailserver.
+                </div>
+            @endif
+            @if(!empty($mailDeliveryHint))
+                <div class="kt-alert kt-alert-warning mx-5 mt-4 mb-0" role="alert" id="mail-config-hint">
+                    <i class="ki-filled ki-information-2 me-2"></i>
+                    {{ $mailDeliveryHint }}
+                </div>
+            @endif
+            <div id="test-email-message" class="hidden mx-5 mt-4 mb-0 text-sm" role="status" aria-live="polite"></div>
             <div class="kt-card-table kt-scrollable-x-auto pb-0">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
@@ -176,7 +211,7 @@
                                         <option value="null" {{ old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION']) === 'null' || empty(old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION'])) ? 'selected' : '' }}>Geen</option>
                                     </select>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Encryptie type voor SMTP verbinding</div>
+                                <div class="text-xs text-muted-foreground mt-1">TLS (poort 587, STARTTLS) of SSL (poort 465). Laravel 12 gebruikt intern smtp/smtps, niet „tls” als scheme.</div>
                                 @error('MAIL_ENCRYPTION')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -286,6 +321,7 @@
             </div>
         </div>
 
+    @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
         <!-- Google SEO Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-abstract-26 me-2"></i> Google SEO &amp; Search Console'])
@@ -863,7 +899,7 @@
                 <div class="px-5 pb-3 text-xs text-muted-foreground" style="padding-top: 10px;">
                     Eigen Mollie-omgeving van <strong>deze tenant</strong>. Betalingen in de chauffeur-app (QR) en optioneel bij websiteboekingen gaan via deze API-sleutel.
                     Het geld komt op de Mollie-rekening van het taxibedrijf, niet op die van Nexa.
-                    Dit is niet de SaaS-facturatie van het platform.
+                    Dit is niet de NEXA-facturatie van het platform.
                 </div>
                 @if(isset($molliePackageAllowed) && ! $molliePackageAllowed)
                     <div class="px-5 pb-3">
@@ -1474,6 +1510,17 @@ document.addEventListener('DOMContentLoaded', function() {
         testEmailStatus.innerHTML = ok
             ? '<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
             : '<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+
+        var msg = document.getElementById('test-email-message');
+        if (msg) {
+            msg.classList.remove('hidden');
+            msg.dataset.ok = ok ? '1' : '0';
+            msg.textContent = message || label;
+        }
+        var hint = document.getElementById('mail-config-hint');
+        if (hint && !ok) {
+            hint.classList.add('hidden');
+        }
     }
 
     function clearTestEmailStatus() {
@@ -1486,6 +1533,12 @@ document.addEventListener('DOMContentLoaded', function() {
         testEmailStatus.removeAttribute('data-ok');
         testEmailStatus.style.color = '';
         testEmailStatus.innerHTML = '';
+        var msg = document.getElementById('test-email-message');
+        if (msg) {
+            msg.classList.add('hidden');
+            msg.textContent = '';
+            msg.removeAttribute('data-ok');
+        }
     }
     
     if (testEmailBtn && testEmailInput) {

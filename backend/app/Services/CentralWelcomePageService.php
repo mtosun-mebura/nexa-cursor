@@ -456,20 +456,26 @@ class CentralWelcomePageService
             ],
         ];
 
-        $sections['why_nexa']['title'] = 'Waarom ondernemers voor NEXA kiezen';
-        $sections['why_nexa']['subtitle'] = 'Minder telefoonchaos, meer boekingen. White-label en klaar om te groeien.';
-
-        $sections['cta']['title'] = 'Klaar voor meer online boekingen?';
-        $sections['cta']['subtitle'] = 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.';
-        $sections['cta']['cta_primary_text'] = 'Naar admin';
-        $sections['cta']['cta_primary_url'] = '/admin/login';
-        $sections['cta']['cta_secondary_text'] = 'Bekijk prijzen';
-        $sections['cta']['cta_secondary_url'] = '/prijzen';
-
         $galleryKey = 'component:website.screenshot_gallery';
         $tableKey = 'component:website.comparison_table';
         $modulesKey = 'component:website.nexa_modules_overview';
-        $packagesKey = NexaPricingService::PACKAGES_SECTION_KEY;
+        $whyCardsKey = 'component:vue_material.elevated_cards';
+        $statsKey = 'component:landwind.stats_strip';
+        $checklistKey = 'component:landwind.feature_checklist';
+        $faqKey = 'component:landwind.faq';
+
+        $sections[$whyCardsKey] = $this->whyNexaElevatedCards();
+        $sections[$statsKey] = $this->nexaProductStatsStrip();
+        $sections[$checklistKey] = $this->nexaBookingChecklist();
+        $sections[$faqKey] = $this->nexaMarketingFaq();
+
+        $sections['cta']['title'] = 'Klaar voor meer online boekingen?';
+        $sections['cta']['subtitle'] = 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.';
+        $sections['cta']['cta_primary_text'] = 'Neem contact op';
+        $sections['cta']['cta_primary_url'] = '/contact';
+        $sections['cta']['cta_secondary_text'] = 'Bekijk prijzen';
+        $sections['cta']['cta_secondary_url'] = '/prijzen';
+        $sections['cta']['background_image_url'] = $this->marketingImage('hero-nexa-platform.png');
 
         $sections[$tableKey] = $this->defaultComparisonTableData();
         $sections[$galleryKey] = [
@@ -541,13 +547,22 @@ class CentralWelcomePageService
             $tableKey,
             $galleryKey,
             $modulesKey,
-            'why_nexa',
+            $whyCardsKey,
+            $statsKey,
+            $checklistKey,
+            $faqKey,
             'cta',
         ];
         $sections['visibility'][$tableKey] = true;
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility'][$modulesKey] = true;
+        $sections['visibility'][$whyCardsKey] = true;
+        $sections['visibility'][$statsKey] = true;
+        $sections['visibility'][$checklistKey] = true;
+        $sections['visibility'][$faqKey] = true;
         $sections['visibility']['features'] = true;
+        $sections['visibility']['cta'] = true;
+        $sections['visibility']['why_nexa'] = false;
         $sections['visibility']['footer_map'] = false;
 
         return $sections;
@@ -597,8 +612,8 @@ class CentralWelcomePageService
                     'icon_align' => 'center',
                 ],
                 [
-                    'title' => 'Mijn Taxi',
-                    'description' => 'Klantportaal voor eigen ritten + AI-chat over de eigen boeking.',
+                    'title' => 'Klantportaal',
+                    'description' => 'Klanten zien eigen ritten en chat over hun boeking, zonder nabelen.',
                     'icon' => 'user-group',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
@@ -644,19 +659,29 @@ class CentralWelcomePageService
         $sections['cta'] = [
             'title' => 'Klaar voor meer online boekingen?',
             'subtitle' => 'We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.',
-            'cta_primary_text' => 'Naar admin',
-            'cta_primary_url' => '/admin/login',
+            'cta_primary_text' => 'Neem contact op',
+            'cta_primary_url' => '/contact',
             'cta_secondary_text' => 'Contractvervoer',
             'cta_secondary_url' => '/contractvervoer',
+            'background_image_url' => $this->marketingImage('hero-nexa-platform.png'),
         ];
+        $checklistKey = 'component:landwind.feature_checklist';
+        $faqKey = 'component:landwind.faq';
+        $sections[$checklistKey] = $this->nexaBookingChecklist();
+        $sections[$faqKey] = $this->nexaMarketingFaq([
+            'eyebrow' => 'Nexa Taxi',
+            'title' => 'Vragen over online boeking',
+            'subtitle' => 'Website, dispatch en chauffeur-app in één systeem.',
+        ]);
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
-        $sections['section_order'] = ['hero', 'text_block', 'features', $galleryKey, 'text_block_2', 'cta'];
+        $sections['section_order'] = ['hero', 'text_block', 'features', $galleryKey, $checklistKey, $faqKey, 'cta'];
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility']['features'] = true;
         $sections['visibility']['text_block'] = true;
-        $sections['visibility']['text_block_2'] = true;
+        $sections['visibility'][$checklistKey] = true;
+        $sections['visibility'][$faqKey] = true;
         $sections['visibility']['cta'] = true;
 
         return $sections;
@@ -787,17 +812,31 @@ class CentralWelcomePageService
             'subtitle' => 'Contractvervoer is de B2B-upsell op Nexa Taxi.',
             'cta_primary_text' => 'Bekijk Nexa Taxi',
             'cta_primary_url' => '/taxi',
-            'cta_secondary_text' => 'Naar admin',
-            'cta_secondary_url' => '/admin/login',
+            'cta_secondary_text' => 'Neem contact op',
+            'cta_secondary_url' => '/contact',
+            'background_image_url' => $this->marketingImage('hero-nexa-platform.png'),
         ];
+        $faqKey = 'component:landwind.faq';
+        $sections[$faqKey] = $this->nexaMarketingFaq([
+            'eyebrow' => 'Contractvervoer',
+            'title' => 'Vragen over vaste ritten',
+            'subtitle' => 'School, zorg, zakelijk en privé: dezelfde planning, dezelfde factuur.',
+            'items' => [
+                ['question' => 'Is contractvervoer een apart product?', 'answer' => 'Nee. Het is de B2B-upsell op Nexa Taxi: dezelfde tenant, dezelfde chauffeurs, extra contracten, groepen en ouderportaal.'],
+                ['question' => 'Kunnen ouders of de school zelf afmelden?', 'answer' => 'Ja. In het contractportaal meld je af van–tot. De chauffeur ziet skipped stops; geen loze kilometers.'],
+                ['question' => 'Welke contracttypes passen erin?', 'answer' => 'Leerlingenvervoer, zorg, ziekenhuisvervoer, zakelijk, privé en shuttles. Vaste routes en groepen, maandfacturatie naar de opdrachtgever.'],
+                ['question' => 'Hoe werkt de planning?', 'answer' => 'Passagiers, groepen, vaste chauffeur of voertuig. Planning tot 14 dagen vooruit, plus uitzonderingen en verstoringenbanners.'],
+            ],
+        ]);
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
-        $sections['section_order'] = ['hero', 'featured_services', $galleryKey, 'features', 'text_block', 'cta'];
+        $sections['section_order'] = ['hero', 'featured_services', $galleryKey, 'features', 'text_block', $faqKey, 'cta'];
         $sections['visibility']['featured_services'] = true;
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility']['features'] = true;
         $sections['visibility']['text_block'] = true;
+        $sections['visibility'][$faqKey] = true;
         $sections['visibility']['cta'] = true;
 
         return $sections;
@@ -864,17 +903,31 @@ class CentralWelcomePageService
         $sections['cta'] = [
             'title' => 'Klaar voor meer online boekingen?',
             'subtitle' => 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien.',
-            'cta_primary_text' => 'Naar admin',
-            'cta_primary_url' => '/admin/login',
+            'cta_primary_text' => 'Neem contact op',
+            'cta_primary_url' => '/contact',
             'cta_secondary_text' => 'Nexa Taxi',
             'cta_secondary_url' => '/taxi',
+            'background_image_url' => $this->marketingImage('hero-nexa-platform.png'),
         ];
+        $faqKey = 'component:landwind.faq';
+        $sections[$faqKey] = $this->nexaMarketingFaq([
+            'eyebrow' => 'Website builder',
+            'title' => 'Vragen over de tenant-site',
+            'subtitle' => 'De website is het voorportaal; boeking en reviews zitten op dezelfde site.',
+            'items' => [
+                ['question' => 'Hebben we nog een apart CMS nodig?', 'answer' => 'Nee. Elke tenant krijgt een eigen site met thema’s, secties en SEO. Pagina’s beheer je in de website builder.'],
+                ['question' => 'Kan de boeking op dezelfde site?', 'answer' => 'Ja. De boekingsmodule, reviews en vacatures zitten op dezelfde tenant-site — korte weg van bezoek naar rit.'],
+                ['question' => 'Ziet de site eruit als ons merk?', 'answer' => 'White-label: merkkleuren, logo en eigen domein. Jij levert het platform; de centrale houdt het gezicht naar de klant.'],
+                ['question' => 'Kunnen we later van thema wisselen?', 'answer' => 'Ja. Pagina’s en inhoud blijven staan; alleen het jasje van de site verandert.'],
+            ],
+        ]);
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
-        $sections['section_order'] = ['hero', $galleryKey, 'features', 'cta'];
+        $sections['section_order'] = ['hero', $galleryKey, 'features', $faqKey, 'cta'];
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility']['features'] = true;
+        $sections['visibility'][$faqKey] = true;
         $sections['visibility']['cta'] = true;
 
         return $sections;
@@ -939,13 +992,27 @@ class CentralWelcomePageService
             'cta_primary_url' => '/contact',
             'cta_secondary_text' => 'Nexa Taxi',
             'cta_secondary_url' => '/taxi',
+            'background_image_url' => $this->marketingImage('hero-nexa-platform.png'),
         ];
+        $faqKey = 'component:landwind.faq';
+        $sections[$faqKey] = $this->nexaMarketingFaq([
+            'eyebrow' => 'Prijzen',
+            'title' => 'Vragen over pakketten',
+            'subtitle' => 'Vast maandbedrag. Geen commissie per rit.',
+            'items' => [
+                ['question' => 'Betaal ik commissie per rit?', 'answer' => 'Nee. Je betaalt een vast maandbedrag. De ritomzet blijft van jou, niet van een marktplaats.'],
+                ['question' => 'Wat zit er in Start, Pro en Business?', 'answer' => 'De pakketten staan hierboven. Start is de instap; Pro voegt dispatch en chauffeur-app toe; Business is voor meerdere vestigingen en contractvervoer.'],
+                ['question' => 'Wat kost de website live zetten?', 'answer' => 'Live-zetten vanaf € '.$websitePrice.'. Daarna groei je met contractvervoer of extra vestigingen, zonder opnieuw te beginnen.'],
+                ['question' => 'Kan ik later upgraden?', 'answer' => 'Ja. Begin met taxi; voeg contractvervoer of extra modules toe wanneer je klaar bent.'],
+            ],
+        ]);
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
-        $sections['section_order'] = ['hero', $packagesKey, 'features', 'cta'];
+        $sections['section_order'] = ['hero', $packagesKey, 'features', $faqKey, 'cta'];
         $sections['visibility'][$packagesKey] = true;
         $sections['visibility']['features'] = true;
+        $sections['visibility'][$faqKey] = true;
         $sections['visibility']['cta'] = true;
 
         return $sections;
@@ -982,13 +1049,17 @@ class CentralWelcomePageService
             'cta_primary_url' => '/contact',
             'cta_secondary_text' => 'Nexa Taxi',
             'cta_secondary_url' => '/taxi',
+            'background_image_url' => $this->marketingImage('hero-nexa-platform.png'),
         ];
+        $faqKey = 'component:landwind.faq';
+        $sections[$faqKey] = $this->nexaMarketingFaq();
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
-        $sections['section_order'] = ['hero', $tableKey, 'cta'];
+        $sections['section_order'] = ['hero', $tableKey, $faqKey, 'cta'];
         $sections['visibility']['hero'] = true;
         $sections['visibility'][$tableKey] = true;
+        $sections['visibility'][$faqKey] = true;
         $sections['visibility']['cta'] = true;
 
         return $sections;
@@ -1075,6 +1146,97 @@ class CentralWelcomePageService
         $sections['visibility']['email_template'] = true;
 
         return $sections;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function whyNexaElevatedCards(): array
+    {
+        return [
+            'eyebrow' => 'Waarom NEXA',
+            'title' => 'Waarom ondernemers voor NEXA kiezen',
+            'subtitle' => 'Minder telefoonchaos, meer boekingen. White-label en klaar om te groeien.',
+            'items' => [
+                [
+                    'title' => 'Minder telefoonchaos',
+                    'text' => 'Klanten boeken zelf op de website. De telefoon blijft vrij voor uitzonderingen, niet voor elke standaardrit.',
+                    'accent' => '#2563eb',
+                ],
+                [
+                    'title' => 'White-label op jullie merk',
+                    'text' => 'Website, boeking en chauffeur-app in jullie kleuren en logo. De centrale ziet NEXA; de klant ziet jullie.',
+                    'accent' => '#7c4dff',
+                ],
+                [
+                    'title' => 'Klaar om te groeien',
+                    'text' => 'Start met taxi. Voeg contractvervoer of extra vestigingen toe zonder een nieuw systeem.',
+                    'accent' => '#0d9488',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Productfeiten — geen verzonnen rit- of boekingscijfers.
+     *
+     * @return array<string, mixed>
+     */
+    private function nexaProductStatsStrip(): array
+    {
+        return [
+            'eyebrow' => 'In het kort',
+            'title' => 'Wat je krijgt, zonder kleine lettertjes',
+            'subtitle' => 'Eén platform. Geen commissie per rit. Altijd boekbaar.',
+            'items' => [
+                ['value' => '24', 'suffix' => '/7', 'label' => 'Online boekbaar'],
+                ['value' => '1', 'suffix' => '', 'label' => 'Platform voor website, dispatch en app'],
+                ['value' => '0', 'suffix' => '', 'label' => 'Commissie per rit'],
+                ['value' => '100', 'suffix' => '%', 'label' => 'White-label per tenant'],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function nexaBookingChecklist(): array
+    {
+        return [
+            'eyebrow' => 'Van boeking tot rit',
+            'title' => 'Zo loopt een rit door NEXA',
+            'subtitle' => 'Website, dispatch en chauffeur-app in één keten — zonder nabelen.',
+            'image_url' => $this->marketingImage('feature-taxi-booking.png'),
+            'items' => [
+                ['text' => 'Klant vult ophaal- en bestemming in op jullie site'],
+                ['text' => 'Dispatch ziet de rit direct in het overzicht'],
+                ['text' => 'Chauffeur accepteert vanaf de telefoon'],
+                ['text' => 'Status terug naar de klant, zonder WhatsApp-ketting'],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function nexaMarketingFaq(array $overrides = []): array
+    {
+        $base = [
+            'eyebrow' => 'FAQ',
+            'title' => 'Veelgestelde vragen',
+            'subtitle' => 'Antwoorden voor taxiondernemers die online willen groeien.',
+            'items' => [
+                ['question' => 'Is NEXA white-label?', 'answer' => 'Ja. Website, boeking en chauffeur-app lopen in jullie merkkleuren en logo. Klanten zien jullie centrale, niet een marktplaats.'],
+                ['question' => 'Kunnen klanten 24/7 boeken?', 'answer' => 'Ja. De boekingsmodule staat op jullie website. Geen gemiste calls ’s avonds of in het weekend.'],
+                ['question' => 'Werkt de chauffeur-app op elke telefoon?', 'answer' => 'Het is een PWA: online/offline, inbox, rit starten en afronden. Geen aparte store-app verplicht.'],
+                ['question' => 'Rijden we ook school- of zorgvervoer?', 'answer' => 'Contractvervoer is de upsell op Nexa Taxi: vaste routes, groepen, ouderportaal en afmeldingen van–tot.'],
+                ['question' => 'Betaal ik commissie per rit?', 'answer' => 'Nee. Vast maandbedrag per pakket. De ritomzet blijft van jou.'],
+                ['question' => 'Hoe starten we?', 'answer' => 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien. Daarna onboarding met jullie merkkleuren.'],
+            ],
+        ];
+
+        return array_merge($base, $overrides);
     }
 
     /**

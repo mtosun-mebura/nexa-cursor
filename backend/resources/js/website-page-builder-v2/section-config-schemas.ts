@@ -15,9 +15,11 @@ export type ConfigField =
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
   | { type: 'color'; key: string; label: string; hint?: string; defaultValue?: string }
   | { type: 'image'; key: string; label: string; hint?: string }
+  | { type: 'video'; key: string; label: string; hint?: string }
   | { type: 'website-media-image'; key: string; label: string; hint?: string }
   | { type: 'checkbox'; key: string; label: string; hint?: string }
   | { type: 'star-rating'; key: string; label: string; min?: number; max?: number; hint?: string }
+  | { type: 'heroicon'; key: string; label: string; hint?: string }
   | { type: 'step-order'; key: string; label: string; options: SelectOption[] }
   | {
       type: 'group'
@@ -194,7 +196,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       fields: [
         { type: 'text', key: 'title', label: 'Titel' },
         { type: 'wysiwyg', key: 'description', label: 'Tekst', placeholder: 'Beschrijving…' },
-        { type: 'text', key: 'icon', label: 'Icoon (heroicon-id)' },
+        { type: 'heroicon', key: 'icon', label: 'Icoon' },
         { type: 'select', key: 'icon_size', label: 'Icoongrootte', options: [
           { value: 'small', label: 'Klein' },
           { value: 'medium', label: 'Normaal' },
@@ -300,7 +302,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       maxItems: 6,
       itemLabel: 'Dienst',
       fields: [
-        { type: 'text', key: 'icon', label: 'Icoon' },
+        { type: 'heroicon', key: 'icon', label: 'Icoon' },
         { type: 'text', key: 'title', label: 'Titel' },
         { type: 'wysiwyg', key: 'description', label: 'Beschrijving', placeholder: 'Beschrijving…' },
       ],

@@ -7,6 +7,7 @@ use App\Models\EmailTemplate;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\PaymentReminder;
+use App\Models\TenantCustomerEmail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
@@ -128,53 +129,80 @@ class InvoiceReminderService
         }
 
         $toName = $invoice->customer_name ?? $toEmail;
-        $this->env->applyMailConfigToRuntime();
-        $from = $this->env->resolveMailFromHeaders();
         $companyReplyTo = trim((string) ($details['email'] ?? ($company->email ?? '')));
+        $isTenantCustomer = in_array($invoice->module, [
+            Invoice::MODULE_CUSTOMER,
+            Invoice::MODULE_TAXI,
+            Invoice::MODULE_TAXI_CONTRACT,
+        ], true);
 
         try {
-            Mail::send([], [], function ($message) use (
-                $toEmail,
-                $toName,
-                $subject,
-                $htmlContent,
-                $textContent,
-                $invoice,
-                $pdfBytes,
-                $from,
-                $companyReplyTo,
-                $details
-            ) {
-                $message->to($toEmail, $toName)
-                    ->subject($subject)
-                    ->from($from['from_address'], $from['from_name']);
-
-                if ($companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL)) {
-                    $message->replyTo($companyReplyTo, (string) ($details['name'] ?? ''));
-                }
-
-                if ($from['smtp_username'] !== '') {
-                    try {
-                        $symfonyMessage = $message->getSymfonyMessage();
-                        $symfonyMessage->getHeaders()->remove('Sender');
-                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $from['smtp_username']);
-                    } catch (\Throwable) {
-                        // Sender header is optioneel
-                    }
-                }
-
-                if ($htmlContent) {
-                    $message->html($htmlContent);
-                }
-                if ($textContent) {
-                    $message->text($textContent);
-                }
-                $message->attachData(
+            if ($isTenantCustomer) {
+                app(\App\Services\TenantCustomerMailService::class)->send([
+                    'company_id' => $companyId > 0 ? $companyId : null,
+                    'type' => TenantCustomerEmail::TYPE_REMINDER,
+                    'to_email' => $toEmail,
+                    'to_name' => $toName,
+                    'subject' => $subject,
+                    'html' => $htmlContent,
+                    'text' => $textContent,
+                    'related_type' => 'invoice',
+                    'related_id' => $invoice->id,
+                    'reply_to' => $companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL) ? $companyReplyTo : null,
+                    'reply_to_name' => (string) ($details['name'] ?? ''),
+                    'attachments' => [[
+                        'bytes' => $pdfBytes,
+                        'filename' => 'factuur-'.$invoice->invoice_number.'.pdf',
+                        'mime' => 'application/pdf',
+                    ]],
+                    'throw' => true,
+                ]);
+            } else {
+                $this->env->applyMailConfigToRuntime();
+                $from = $this->env->resolveMailFromHeaders();
+                Mail::send([], [], function ($message) use (
+                    $toEmail,
+                    $toName,
+                    $subject,
+                    $htmlContent,
+                    $textContent,
+                    $invoice,
                     $pdfBytes,
-                    'factuur-'.$invoice->invoice_number.'.pdf',
-                    ['mime' => 'application/pdf']
-                );
-            });
+                    $from,
+                    $companyReplyTo,
+                    $details
+                ) {
+                    $message->to($toEmail, $toName)
+                        ->subject($subject)
+                        ->from($from['from_address'], $from['from_name']);
+
+                    if ($companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL)) {
+                        $message->replyTo($companyReplyTo, (string) ($details['name'] ?? ''));
+                    }
+
+                    if ($from['smtp_username'] !== '') {
+                        try {
+                            $symfonyMessage = $message->getSymfonyMessage();
+                            $symfonyMessage->getHeaders()->remove('Sender');
+                            $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $from['smtp_username']);
+                        } catch (\Throwable) {
+                            // Sender header is optioneel
+                        }
+                    }
+
+                    if ($htmlContent) {
+                        $message->html($htmlContent);
+                    }
+                    if ($textContent) {
+                        $message->text($textContent);
+                    }
+                    $message->attachData(
+                        $pdfBytes,
+                        'factuur-'.$invoice->invoice_number.'.pdf',
+                        ['mime' => 'application/pdf']
+                    );
+                });
+            }
         } catch (\Throwable $e) {
             if (str_contains($e->getMessage(), 'not authorized to send on behalf of')
                 || str_contains($e->getMessage(), '550 5.7.1')) {

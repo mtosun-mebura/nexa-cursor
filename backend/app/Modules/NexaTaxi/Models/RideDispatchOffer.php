@@ -33,9 +33,13 @@ class RideDispatchOffer extends Model
     ];
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_ACCEPTED = 'accepted';
+
     public const STATUS_DECLINED = 'declined';
+
     public const STATUS_EXPIRED = 'expired';
+
     public const STATUS_SUPERSEDED = 'superseded';
 
     public function rideRequest(): BelongsTo
@@ -122,6 +126,38 @@ class RideDispatchOffer extends Model
                 if ($pickupCutoff) {
                     $q->where('pickup_at', '<', $pickupCutoff);
                 }
+            });
+    }
+
+    /**
+     * Geaccepteerde ritten die wachten op klantgoedkeuring van een nieuw ophaalmoment.
+     */
+    public function scopeAwaitingCustomerApprovalForDriver($query, int $driverId)
+    {
+        return $query
+            ->where('driver_id', $driverId)
+            ->where('status', self::STATUS_ACCEPTED)
+            ->whereNull('archived_at')
+            ->whereHas('rideRequest', function ($q) use ($driverId) {
+                $q->where('driver_id', $driverId)
+                    ->where('status', RideRequest::STATUS_ACCEPTED)
+                    ->where('pickup_proposal_status', RideRequest::PICKUP_PROPOSAL_PENDING);
+            });
+    }
+
+    /**
+     * Geaccepteerde ritten waarvan de klant het ophaalvoorstel heeft afgewezen.
+     */
+    public function scopeCustomerDeclinedProposalForDriver($query, int $driverId)
+    {
+        return $query
+            ->where('driver_id', $driverId)
+            ->where('status', self::STATUS_ACCEPTED)
+            ->whereNull('archived_at')
+            ->whereHas('rideRequest', function ($q) use ($driverId) {
+                $q->where('driver_id', $driverId)
+                    ->where('status', RideRequest::STATUS_ACCEPTED)
+                    ->where('pickup_proposal_status', RideRequest::PICKUP_PROPOSAL_DECLINED);
             });
     }
 

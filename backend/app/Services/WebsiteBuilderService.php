@@ -7,7 +7,6 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
-use App\Services\EnvService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -1444,7 +1443,7 @@ class WebsiteBuilderService
 
         $theme = $this->getThemeForPage($homePage);
         $themeSlug = $theme ? $theme->slug : 'modern';
-        if (! in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true)) {
+        if (! \App\Models\FrontendTheme::usesHomeSections($themeSlug)) {
             return [];
         }
 

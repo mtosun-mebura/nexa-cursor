@@ -5,9 +5,8 @@
         ->sort()
         ->map(fn (int $day) => $weekdayLabels[$day] ?? $day)
         ->implode(', ');
-    $assignment = $routeTemplate->assignment;
-    $driver = $assignment?->driver;
-    $vehicle = $assignment?->vehicle;
+    $driver = $routeDisplayDriver ?? null;
+    $vehicle = $routeDisplayVehicle ?? null;
     $destinationTime = $routeDestinationStop
         ? substr((string) $routeDestinationStop->planned_at_time, 0, 5)
         : substr((string) $group->destination_arrival_time, 0, 5);
@@ -55,7 +54,7 @@
                 @if($driver)
                     {{ trim($driver->first_name.' '.$driver->last_name) }}
                 @else
-                    <span class="text-muted-foreground">Niet toegewezen</span>
+                    <span class="text-muted-foreground">Geen vaste chauffeur</span>
                 @endif
             </td>
         </tr>
@@ -65,7 +64,7 @@
                 @if($vehicle)
                     {{ $vehicle->name }}@if($vehicle->license_plate) — {{ $vehicle->license_plate }}@endif
                 @else
-                    <span class="text-muted-foreground">Niet toegewezen</span>
+                    <span class="text-muted-foreground">Geen vast voertuig</span>
                 @endif
             </td>
         </tr>
@@ -105,7 +104,7 @@
             </tr>
             @endforeach
             @if($routeDestinationStop)
-            <tr class="bg-muted/30">
+            <tr class="route-stop-destination-row">
                 <td class="text-muted-foreground">{{ $routePickupStops->count() + 1 }}</td>
                 <td><span class="kt-badge kt-badge-success kt-badge-sm">Bestemming</span></td>
                 <td class="text-muted-foreground">—</td>

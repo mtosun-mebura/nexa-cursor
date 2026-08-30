@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\User;
 use App\Services\EnvService;
+use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\AdminReturnUrl;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Database\QueryException;
@@ -108,6 +110,16 @@ class AdminAuthController extends Controller
             return back()->withErrors([
                 'email' => 'Kandidaten kunnen niet inloggen in het admin panel. Gebruik de frontend login.',
             ])->withInput($withInput);
+        }
+
+        if ($user->company_id) {
+            $company = Company::query()->find((int) $user->company_id);
+            $billingAccess = app(TenantBillingAccessService::class);
+            if ($billingAccess->isFullyBlocked($company) && ! $user->hasRole('super-admin')) {
+                return back()->withErrors([
+                    'email' => $billingAccess->fullBlockMessage(),
+                ])->withInput($withInput);
+            }
         }
 
         // Manual login

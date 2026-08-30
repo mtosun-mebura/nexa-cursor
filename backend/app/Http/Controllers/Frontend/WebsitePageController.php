@@ -140,7 +140,7 @@ class WebsitePageController extends Controller
             });
         }
 
-        $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
+        $themeHasHomeSections = \App\Models\FrontendTheme::usesHomeSections($themeSlug);
         $isRenderingHome = $this->websiteBuilder->isSiteHomePage($page);
         $useThemeHomeLayout = $themeHasHomeSections && (
             ! empty($page->home_sections) || $isRenderingHome

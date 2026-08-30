@@ -68,10 +68,11 @@
     if ($items === []) {
         $items = $defaultItems;
     }
+    $widthPercent = max(30, min(100, (int) ($sectionData['width_percent'] ?? 100)));
 @endphp
 
 <section id="modules-overview" class="pt-6 md:pt-8 pb-10 md:pb-14 bg-white dark:bg-gray-900 nexa-modules-overview-scroll-reveal">
-    <div class="website-section-inner">
+    <div class="website-section-inner nexa-modules-overview__inner" style="--nexa-modules-width: {{ $widthPercent }}%; width: var(--nexa-modules-width); max-width: var(--nexa-modules-width);">
         <div class="text-center mb-12">
             <p class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-300 mb-6 nexa-modules-animate-item nexa-modules-animate-eyebrow">{{ $sectionData['eyebrow'] ?? 'Onze modules' }}</p>
             <h3 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3 nexa-modules-animate-item nexa-modules-animate-title">{{ $sectionData['title'] ?? 'Alles wat uw bedrijf nodig heeft' }}</h3>

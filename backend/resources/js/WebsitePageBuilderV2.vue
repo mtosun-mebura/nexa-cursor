@@ -75,6 +75,7 @@ const toolbarTitleText = computed(() => {
 
 provide('nexaPricing', computed(() => props.bootstrap.nexaPricing ?? { packages: [] }))
 provide('nexaPricingEditUrl', computed(() => props.bootstrap.routes.nexaPricingEdit ?? ''))
+provide('builderHeroicons', computed(() => props.bootstrap.heroicons ?? []))
 
 const previewUrl = computed(() => {
   const base = bootstrap.routes.preview
@@ -1550,10 +1551,11 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
-.builder-config-modal__body :deep(.builder-media-upload-area) {
-  flex: none !important;
-  width: 16rem !important;
-  max-width: 16rem !important;
+.builder-config-modal__body :deep(.builder-media-upload-area),
+.builder-config-modal__body :deep(.builder-footer-logo__upload) {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: none !important;
   min-height: 4.5rem;
 }
 

@@ -8,11 +8,15 @@ use App\Models\Company;
 use App\Models\EmailTemplate;
 use App\Models\InfoRequestFormField;
 use App\Models\User;
+use App\Modules\NexaTaxi\Services\TaxiAppLoginCodeEmailTemplateService;
+use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
 use App\Services\InformatieaanvraagEmailHtmlNormalizer;
 use App\Services\MenuService;
+use App\Services\TenantWelcomeEmailTemplateService;
+use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\Request;
 
 class AdminEmailTemplateController extends Controller
@@ -71,6 +75,7 @@ class AdminEmailTemplateController extends Controller
     {
         return [
             'welcome' => null,
+            'tenant_welcome' => null,
             'password_reset' => null,
             'email_verification' => null,
             'informatieaanvraag' => null,
@@ -86,6 +91,10 @@ class AdminEmailTemplateController extends Controller
             'invoice' => 'taxi',
             'taxi_ride_accepted' => 'taxi',
             'taxi_customer_login_code' => 'taxi',
+            TaxiAppLoginCodeEmailTemplateService::TYPE => 'taxi',
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR => 'taxi',
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT => 'taxi',
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => 'taxi',
         ];
     }
 
@@ -103,6 +112,7 @@ class AdminEmailTemplateController extends Controller
     {
         return [
             'welcome' => 'Welkom',
+            'tenant_welcome' => 'Welkomstmail tenant (company-admin)',
             'password_reset' => 'Wachtwoord Reset',
             'email_verification' => 'E-mail Verificatie',
             'informatieaanvraag' => 'Informatieaanvraag',
@@ -118,6 +128,10 @@ class AdminEmailTemplateController extends Controller
             'invoice' => 'Factuur',
             'taxi_ride_accepted' => 'Taxi: rit geaccepteerd (klant)',
             'taxi_customer_login_code' => 'Taxi: eenmalige inlogcode (klant)',
+            TaxiAppLoginCodeEmailTemplateService::TYPE => 'Taxi: eenmalige inlogcode (chauffeur / contract)',
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR => 'Taxi: welkomstmail chauffeur',
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT => 'Taxi: welkomstmail contractant',
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => 'Taxi: welkomstmail contractouder',
         ];
     }
 
@@ -159,6 +173,7 @@ class AdminEmailTemplateController extends Controller
             'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
             'COMPANY_ADDRESS' => 'Bedrijfsadres',
             'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
+            'NEXA_LOGO' => 'Nexa-logo (HTML, linksboven)',
         ];
     }
 
@@ -172,6 +187,11 @@ class AdminEmailTemplateController extends Controller
         return match ($type) {
             TaxiCustomerLoginCodeEmailTemplateService::TYPE => TaxiCustomerLoginCodeEmailTemplateService::variableLabels(),
             TaxiCustomerAcceptEmailTemplateService::TYPE => TaxiCustomerAcceptEmailTemplateService::variableLabels(),
+            TenantWelcomeEmailTemplateService::TYPE => TenantWelcomeEmailTemplateService::variableLabels(),
+            TaxiAppLoginCodeEmailTemplateService::TYPE => TaxiAppLoginCodeEmailTemplateService::variableLabels(),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR,
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => TaxiAppUserWelcomeEmailTemplateService::variableLabels(),
             default => static::genericTemplateVariables(),
         };
     }
@@ -200,31 +220,45 @@ class AdminEmailTemplateController extends Controller
     }
 
     /**
-     * Lijst e-mailtemplates: tenant ziet eigen templates; super-admin met tenant ook globale defaults.
+     * Lijst e-mailtemplates: bij Alle tenants alle tenants (plus algemeen);
+     * bij een gekozen tenant in de zijbalk alleen die tenant.
+     * Super-admin kan op de pagina extra filteren via company_id.
      */
-    protected function applyEmailTemplateListFilter($query)
+    protected function applyEmailTemplateListFilter($query, ?Request $request = null)
     {
         $user = auth()->user();
+        $request ??= request();
 
-        if ($user->hasRole('super-admin') && ! session('selected_tenant')) {
+        if (! $user->hasRole('super-admin')) {
+            $tenantId = (int) ($user->company_id ?? 0);
+            if ($tenantId <= 0) {
+                return $query->whereNull('company_id');
+            }
+
+            return $query->where('company_id', $tenantId);
+        }
+
+        if ($request->exists('company_id')) {
+            $raw = $request->input('company_id');
+            if ($raw === null || $raw === '') {
+                return $query;
+            }
+            if ($raw === 'algemeen') {
+                return $query->whereNull('company_id');
+            }
+            if (is_numeric($raw)) {
+                return $query->where('company_id', (int) $raw);
+            }
+
             return $query;
         }
 
-        $tenantId = $user->hasRole('super-admin')
-            ? (int) session('selected_tenant')
-            : (int) ($user->company_id ?? 0);
-
-        if ($tenantId <= 0) {
-            return $query->whereNull('company_id');
+        $sidebarTenant = app(AdminTenantScope::class)->selectedTenantId();
+        if ($sidebarTenant === null) {
+            return $query;
         }
 
-        if ($user->hasRole('super-admin')) {
-            return $query->where(function ($q) use ($tenantId) {
-                $q->whereNull('company_id')->orWhere('company_id', $tenantId);
-            });
-        }
-
-        return $query->where('company_id', $tenantId);
+        return $query->where('company_id', $sidebarTenant);
     }
 
     protected function provisionTaxiEmailTemplatesIfNeeded(MenuService $menuService): void
@@ -235,6 +269,19 @@ class AdminEmailTemplateController extends Controller
 
         if (in_array(TaxiCustomerAcceptEmailTemplateService::TYPE, $allowed, true)) {
             app(TaxiCustomerAcceptEmailTemplateService::class)->ensureGlobalTemplateExists();
+        }
+
+        if (in_array(TaxiAppLoginCodeEmailTemplateService::TYPE, $allowed, true)
+            || collect(TaxiAppUserWelcomeEmailTemplateService::types())->intersect($allowed)->isNotEmpty()) {
+            app(TaxiAppLoginCodeEmailTemplateService::class)->ensureGlobalTemplateExists();
+            app(TaxiAppUserWelcomeEmailTemplateService::class)->ensureAllGlobalTemplatesExist();
+
+            if ($tenantId !== null) {
+                app(TaxiAppLoginCodeEmailTemplateService::class)->ensureTenantTemplateExists($tenantId);
+                foreach (TaxiAppUserWelcomeEmailTemplateService::types() as $welcomeType) {
+                    app(TaxiAppUserWelcomeEmailTemplateService::class)->ensureTenantTemplateExists($welcomeType, $tenantId);
+                }
+            }
         }
 
         if (! in_array(TaxiCustomerLoginCodeEmailTemplateService::TYPE, $allowed, true)) {
@@ -255,10 +302,11 @@ class AdminEmailTemplateController extends Controller
 
         $menuService = app(MenuService::class);
         $this->provisionTaxiEmailTemplatesIfNeeded($menuService);
+        app(TenantWelcomeEmailTemplateService::class)->ensureExists();
 
         $query = EmailTemplate::with('company');
 
-        $query = $this->applyEmailTemplateListFilter($query);
+        $query = $this->applyEmailTemplateListFilter($query, $request);
 
         // Filter op type
         if ($request->filled('type')) {
@@ -272,11 +320,6 @@ class AdminEmailTemplateController extends Controller
             } elseif ($request->status === 'inactive') {
                 $query->where('is_active', false);
             }
-        }
-
-        // Filter op bedrijf (alleen voor super-admin)
-        if ($request->filled('company') && auth()->user()->hasRole('super-admin')) {
-            $query->where('company_id', $request->company);
         }
 
         // Search functionality
@@ -332,7 +375,7 @@ class AdminEmailTemplateController extends Controller
 
         // Calculate statistics
         $statsQuery = EmailTemplate::query();
-        $statsQuery = $this->applyEmailTemplateListFilter($statsQuery);
+        $statsQuery = $this->applyEmailTemplateListFilter($statsQuery, $request);
 
         $stats = [
             'total_templates' => (clone $statsQuery)->count(),
@@ -341,13 +384,24 @@ class AdminEmailTemplateController extends Controller
             'unique_types' => (clone $statsQuery)->distinct('type')->count('type'),
         ];
 
-        // Get companies for filter (only for super-admin)
-        $companies = auth()->user()->hasRole('super-admin') ? Company::orderBy('name')->get() : collect();
-
         $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
         $typeLabels = static::emailTemplateTypeLabels();
+        $showTenantFilter = auth()->user()->hasRole('super-admin')
+            && app(AdminTenantScope::class)->isSuperAdminWithoutTenant();
+        $filterCompanies = $showTenantFilter
+            ? Company::query()->orderBy('name')->get(['id', 'name'])
+            : collect();
+        $filterCompanyId = $request->exists('company_id') ? $request->input('company_id') : '';
 
-        return view('admin.email-templates.index', compact('emailTemplates', 'stats', 'companies', 'allowedTypes', 'typeLabels'));
+        return view('admin.email-templates.index', compact(
+            'emailTemplates',
+            'stats',
+            'allowedTypes',
+            'typeLabels',
+            'showTenantFilter',
+            'filterCompanies',
+            'filterCompanyId',
+        ));
     }
 
     public function create()
@@ -552,7 +606,7 @@ class AdminEmailTemplateController extends Controller
                 } elseif ($formFields->isNotEmpty()) {
                     $toName = trim((string) $request->input('test_'.$formFields->first()->name, '')) ?: $toEmail;
                 }
-                app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables);
+                app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, usePlatformMail: true, asTemplateSample: true);
 
                 return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template aangemaakt en testmail verstuurd naar '.$toEmail);
             }
@@ -564,6 +618,13 @@ class AdminEmailTemplateController extends Controller
     public function show(EmailTemplate $emailTemplate)
     {
         $this->ensureSuperAdminEmailTemplates();
+
+        if ($emailTemplate->type === TenantWelcomeEmailTemplateService::TYPE && $emailTemplate->company_id === null) {
+            $synced = app(TenantWelcomeEmailTemplateService::class)->ensureExists();
+            if ($synced->id === $emailTemplate->id) {
+                $emailTemplate = $synced;
+            }
+        }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
@@ -585,8 +646,17 @@ class AdminEmailTemplateController extends Controller
             $previewHtml = $this->normalizeInformatieaanvraagPreviewHtml($previewHtml);
         }
         $previewHtml = $this->injectEmailTemplatePreviewLogo($emailTemplate, $previewHtml);
+        $previewSubject = (string) ($emailTemplate->subject ?? '');
+        if ($emailTemplate->type === TenantWelcomeEmailTemplateService::TYPE) {
+            $previewCompany = $emailTemplate->company
+                ?? ($tenantId ? Company::find((int) $tenantId) : null);
+            $previewVars = app(TenantWelcomeEmailTemplateService::class)->previewVariables($previewCompany);
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
 
-        return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables', 'users', 'formFields', 'previewHtml'));
+        return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables', 'users', 'formFields', 'previewHtml', 'previewSubject'));
     }
 
     public function edit(EmailTemplate $emailTemplate)
@@ -870,7 +940,7 @@ class AdminEmailTemplateController extends Controller
 
         $toEmail = $emailTemplate->getRecipientEmailAddress();
         if (! $toEmail) {
-            return redirect()->back()->with('error', 'Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).');
+            return $this->sendTestResult($request, false, 'Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).');
         }
 
         $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
@@ -890,11 +960,28 @@ class AdminEmailTemplateController extends Controller
         if ($toName === '') {
             $toName = $toEmail;
         }
-        $user = auth()->user();
-        $fromEmail = $user?->email;
-        $fromName = $user ? trim($user->first_name.' '.$user->last_name) : null;
-        app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, $fromEmail, $fromName ?: null);
+        try {
+            app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, usePlatformMail: true, asTemplateSample: true);
+        } catch (\Throwable $e) {
+            report($e);
 
-        return redirect()->back()->with('success', 'Testmail verstuurd naar '.$toEmail);
+            return $this->sendTestResult($request, false, 'Versturen mislukt. Probeer het opnieuw.', 500);
+        }
+
+        return $this->sendTestResult($request, true, 'Testmail verstuurd naar '.$toEmail);
+    }
+
+    private function sendTestResult(Request $request, bool $ok, string $message, int $errorStatus = 422)
+    {
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => $ok,
+                'message' => $message,
+            ], $ok ? 200 : $errorStatus);
+        }
+
+        return $ok
+            ? redirect()->back()->with('success', $message)
+            : redirect()->back()->with('error', $message);
     }
 }

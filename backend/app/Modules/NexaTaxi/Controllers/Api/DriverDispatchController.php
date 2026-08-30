@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Http\Resources\TaxiDispatchOfferResource;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
-use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RidePayment;
+use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -30,6 +30,7 @@ class DriverDispatchController extends Controller
         $user = $request->user();
         $conn = $moduleDb->getModuleConnectionName('taxi');
         TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
 
         $companyId = (int) $request->attributes->get('taxi_company_id');
 
@@ -118,11 +119,41 @@ class DriverDispatchController extends Controller
             }
         }
 
+        $pendingApprovalOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->awaitingCustomerApprovalForDriver((int) $user->id)
+            ->get()
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->rideRequest?->pickup_proposal_sent_at?->timestamp
+                    ?? $offer->responded_at?->timestamp
+                    ?? 0;
+            })
+            ->values();
+
+        $customerDeclinedProposalOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->customerDeclinedProposalForDriver((int) $user->id)
+            ->get()
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->rideRequest?->pickup_proposal_responded_at?->timestamp
+                    ?? $offer->responded_at?->timestamp
+                    ?? 0;
+            })
+            ->values();
+
+        $openProposalRideIds = $pendingApprovalOffers
+            ->concat($customerDeclinedProposalOffers)
+            ->map(fn (RideDispatchOffer $offer) => (int) $offer->ride_request_id)
+            ->unique()
+            ->all();
+
         $acceptedRides = RideRequest::on($conn)
             ->where('driver_id', $user->id)
             ->where('status', RideRequest::STATUS_ACCEPTED)
             ->orderBy('pickup_at')
-            ->get();
+            ->get()
+            ->reject(fn (RideRequest $ride) => in_array((int) $ride->id, $openProposalRideIds, true))
+            ->values();
 
         $scheduledRides = $acceptedRides
             ->filter(fn (RideRequest $ride) => ! $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
@@ -130,6 +161,7 @@ class DriverDispatchController extends Controller
 
         $overdueScheduledRides = $acceptedRides
             ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
+            ->sortByDesc(fn (RideRequest $ride) => $ride->pickup_at?->getTimestamp() ?? 0)
             ->values();
 
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
@@ -140,9 +172,13 @@ class DriverDispatchController extends Controller
                 'offers' => $offers->map(
                     fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest)
                 )->values(),
-                'declined_offers' => $declinedOffers->map(
-                    fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest)
+                'pending_approval_offers' => $pendingApprovalOffers->map(
+                    fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest, true)
                 )->values(),
+                'declined_offers' => $declinedOffers
+                    ->concat($customerDeclinedProposalOffers)
+                    ->map(fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest))
+                    ->values(),
                 'active_ride' => $activeRide
                     ? TaxiDispatchOfferResource::rideSummary($activeRide)
                     : null,
@@ -431,15 +467,17 @@ class DriverDispatchController extends Controller
         Request $request,
         int $offer,
         ModuleDatabaseService $moduleDb,
+        RideClaimService $claim,
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
         TaxiDispatchSchema::ensureOfferArchiveColumn($conn);
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
         $user = $request->user();
 
         $row = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
             ->whereKey($offer)
             ->where('driver_id', $user->id)
-            ->whereIn('status', [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED])
             ->first();
 
         if (! $row) {
@@ -453,6 +491,57 @@ class DriverDispatchController extends Controller
                     'offer' => TaxiDispatchOfferResource::fromOffer($row, $row->rideRequest, true),
                 ],
             ]);
+        }
+
+        $ride = $row->rideRequest;
+        $isPendingProposal = $row->status === RideDispatchOffer::STATUS_ACCEPTED
+            && $ride
+            && (int) $ride->driver_id === (int) $user->id
+            && $ride->pickup_proposal_status === RideRequest::PICKUP_PROPOSAL_PENDING;
+
+        if ($isPendingProposal) {
+            try {
+                $fresh = $claim->archivePendingPickupProposal($conn, $user, (int) $row->id);
+            } catch (ValidationException $e) {
+                return response()->json([
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet archiveren.',
+                    'errors' => $e->errors(),
+                ], 409);
+            }
+
+            return response()->json([
+                'message' => 'Rit gearchiveerd. Reageert de klant later, dan komt de rit terug als nieuwe aanvraag.',
+                'data' => [
+                    'offer' => TaxiDispatchOfferResource::fromOffer($fresh, $fresh->rideRequest, true),
+                ],
+            ]);
+        }
+
+        $isCustomerDeclinedProposal = $row->status === RideDispatchOffer::STATUS_ACCEPTED
+            && $ride
+            && (int) $ride->driver_id === (int) $user->id
+            && $ride->pickup_proposal_status === RideRequest::PICKUP_PROPOSAL_DECLINED;
+
+        if ($isCustomerDeclinedProposal) {
+            try {
+                $fresh = $claim->archiveCustomerDeclinedPickupProposal($conn, $user, (int) $row->id);
+            } catch (ValidationException $e) {
+                return response()->json([
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet archiveren.',
+                    'errors' => $e->errors(),
+                ], 409);
+            }
+
+            return response()->json([
+                'message' => 'Afgewezen rit gearchiveerd.',
+                'data' => [
+                    'offer' => TaxiDispatchOfferResource::fromOffer($fresh, $fresh->rideRequest, true),
+                ],
+            ]);
+        }
+
+        if (! in_array($row->status, [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED], true)) {
+            return response()->json(['message' => 'Verlopen rit niet gevonden.'], 404);
         }
 
         $row->update(['archived_at' => now()]);

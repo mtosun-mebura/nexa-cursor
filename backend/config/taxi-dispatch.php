@@ -31,6 +31,14 @@ return [
      */
     'customer_login_code_expires_minutes' => (int) env('TAXI_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES', 15),
 
+    /**
+     * Geldigheid eenmalige first-login code voor chauffeur-app en contractportaal (minuten).
+     */
+    'app_first_login_code_expires_minutes' => (int) env('TAXI_APP_FIRST_LOGIN_CODE_EXPIRES_MINUTES', 15),
+
+    /** Minimum seconden tussen twee code-aanvragen voor hetzelfde adres. */
+    'app_first_login_code_cooldown_seconds' => (int) env('TAXI_APP_FIRST_LOGIN_CODE_COOLDOWN_SECONDS', 60),
+
     /** Max chauffeurs per golf. */
     'offer_batch_size' => (int) env('TAXI_DISPATCH_BATCH_SIZE', 8),
 

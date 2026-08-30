@@ -3,12 +3,18 @@
 namespace App\Services;
 
 use App\Models\Candidate;
+use App\Models\Company;
 use App\Models\EmailTemplate;
 use App\Modules\Skillmatching\Models\Vacancy;
+use App\Support\NexaBranding;
 use Illuminate\Support\Facades\Mail;
 
 class EmailTemplateService
 {
+    public const TEMPLATE_SAMPLE_SUBJECT_PREFIX = '[Voorbeeld] ';
+
+    public const TEMPLATE_SAMPLE_NOTICE = 'Dit is een voorbeeld van de e-mailtemplate. Dit is geen echte e-mail.';
+
     /**
      * Send rejection email to candidate
      */
@@ -129,8 +135,10 @@ class EmailTemplateService
      *
      * @param  string|null  $fromEmail  Optioneel From-adres (bijv. ingelogde gebruiker); voorkomt SMTP 550 "not authorized to send on behalf of"
      * @param  string|null  $fromName  Optioneel From-naam
+     * @param  bool  $usePlatformMail  true = altijd Nexa SaaS-mailserver (admin-testmail)
+     * @param  bool  $asTemplateSample  true = banner “dit is een voorbeeld” (alleen admin-testmail)
      */
-    public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null): void
+    public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null, bool $usePlatformMail = false, bool $asTemplateSample = false): void
     {
         $logoCompanyId = $template->company_id
             ?? (function_exists('auth') && auth()->check() ? auth()->user()->company_id : null);
@@ -149,11 +157,34 @@ class EmailTemplateService
             'EMAIL_AANVRAAG' => $variables['EMAIL_AANVRAAG'] ?? $toEmail,
             'DATUM_AANVRAAG' => $variables['DATUM_AANVRAAG'] ?? now()->format('d-m-Y H:i'),
         ];
+        if ($template->type === TenantWelcomeEmailTemplateService::TYPE) {
+            $welcomeCompany = $template->company;
+            if (! $welcomeCompany && function_exists('auth') && auth()->check()) {
+                $authUser = auth()->user();
+                $tenantId = $authUser->hasRole('super-admin')
+                    ? session('selected_tenant')
+                    : $authUser->company_id;
+                if ($tenantId) {
+                    $welcomeCompany = Company::find((int) $tenantId);
+                }
+            }
+            $defaults = array_merge(
+                $defaults,
+                app(TenantWelcomeEmailTemplateService::class)->previewVariables($welcomeCompany),
+                [
+                    'USER_NAME' => $toName ?: $toEmail,
+                    'USER_EMAIL' => $toEmail,
+                ]
+            );
+        }
         if (! array_key_exists('COMPANY_LOGO', $variables)) {
             $defaults = array_merge(
                 $defaults,
                 app(CompanyEmailLogoService::class)->templateVariable($logoCompanyId, $defaultCompanyName)
             );
+        }
+        if (! array_key_exists('NEXA_LOGO', $variables)) {
+            $defaults = array_merge($defaults, NexaBranding::emailLogoTemplateVariable());
         }
         $merged = array_merge($defaults, $variables);
 
@@ -170,8 +201,22 @@ class EmailTemplateService
         $textContent = $template->text_content
             ? $this->parseTemplate($template->text_content, $merged)
             : strip_tags($htmlContent);
+        if ($asTemplateSample) {
+            [$subject, $htmlContent, $textContent] = $this->markAsTemplateSample($subject, $htmlContent, $textContent);
+        }
 
         $logoService = app(CompanyEmailLogoService::class);
+        $env = app(EnvService::class);
+        if ($usePlatformMail) {
+            $env->applyPlatformMailConfigToRuntime();
+            $from = $env->resolveMailFromHeaders(null, true);
+            $fromEmail = $from['from_address'];
+            $fromName = $from['from_name'];
+        } else {
+            $env->applyMailConfigToRuntime(
+                $template->company_id ? (int) $template->company_id : null
+            );
+        }
 
         $replyToEmail = trim((string) ($merged['EMAIL_AANVRAAG'] ?? ''));
         $replyToName = trim(trim((string) ($merged['VOORNAAM'] ?? '')).' '.trim((string) ($merged['ACHTERNAAM'] ?? '')));
@@ -230,6 +275,42 @@ class EmailTemplateService
     }
 
     /**
+     * @return array{0: string, 1: string, 2: string}
+     */
+    public function markAsTemplateSample(string $subject, string $html, string $text): array
+    {
+        if (! str_starts_with($subject, self::TEMPLATE_SAMPLE_SUBJECT_PREFIX)) {
+            $subject = self::TEMPLATE_SAMPLE_SUBJECT_PREFIX.$subject;
+        }
+
+        $banner = $this->templateSampleBannerHtml();
+        if (! str_contains($html, 'data-nexa-template-sample="1"')) {
+            if (preg_match('/<body[^>]*>/i', $html)) {
+                $html = preg_replace('/(<body[^>]*>)/i', '$1'.$banner, $html, 1) ?? ($banner.$html);
+            } else {
+                $html = $banner.$html;
+            }
+        }
+
+        if (! str_starts_with($text, self::TEMPLATE_SAMPLE_NOTICE)) {
+            $text = self::TEMPLATE_SAMPLE_NOTICE."\n\n".$text;
+        }
+
+        return [$subject, $html, $text];
+    }
+
+    private function templateSampleBannerHtml(): string
+    {
+        $notice = e(self::TEMPLATE_SAMPLE_NOTICE);
+
+        return '<table role="presentation" width="100%" data-nexa-template-sample="1" style="width:100%;border-collapse:collapse;margin:0 0 16px;">'
+            .'<tr><td style="background-color:#fef3c7;border:1px solid #d97706;padding:12px 16px;color:#92400e;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;text-align:center;">'
+            .'<strong>'.$notice.'</strong>'
+            .'<br>De inhoud is testdata ter illustratie van deze template.'
+            .'</td></tr></table>';
+    }
+
+    /**
      * @param  array<string, mixed>  $variables
      * @return array<string, string>
      */
@@ -272,6 +353,11 @@ class EmailTemplateService
 
     private function parseTemplate(string $template, array $variables): string
     {
+        if (! array_key_exists('NEXA_LOGO', $variables)
+            && (str_contains($template, 'NEXA_LOGO') || str_contains($template, NexaBranding::EMAIL_LOGO_PLACEHOLDER))) {
+            $variables['NEXA_LOGO'] = NexaBranding::EMAIL_LOGO_PLACEHOLDER;
+        }
+
         $result = $template;
 
         foreach ($variables as $key => $value) {

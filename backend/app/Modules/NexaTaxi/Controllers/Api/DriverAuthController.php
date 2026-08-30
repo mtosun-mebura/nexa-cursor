@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
-use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEarningsAccessService;
+use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Modules\NexaTaxi\Support\PwaAccent;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
-use App\Services\ModuleDatabaseService;
 use App\Services\CompanyEntitlementService;
+use App\Services\ModuleDatabaseService;
+use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\TenantPackageCapability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,12 +30,135 @@ class DriverAuthController extends Controller
         ]);
 
         $user = User::where('email', $data['email'])->first();
+        $firstLogin = app(TaxiAppFirstLoginService::class);
+        if ($user && $firstLogin->needsFirstLogin($user) && $firstLogin->userMayUseChannel($user, TaxiAppFirstLoginService::CHANNEL_DRIVER)) {
+            return response()->json([
+                'message' => 'Dit account is nog niet geactiveerd. Vraag een inlogcode aan om zelf een wachtwoord te kiezen.',
+                'error' => 'first_login_required',
+            ], 403);
+        }
+
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             return response()->json([
                 'message' => 'Onjuiste e-mail of wachtwoord.',
             ], 401);
         }
 
+        return $this->driverSessionResponse($user, $eligibility, $moduleDb, $earningsAccess);
+    }
+
+    public function requestLoginCode(Request $request, TaxiAppFirstLoginService $firstLogin): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Vul je e-mailadres in.',
+            'email.email' => 'Vul een geldig e-mailadres in.',
+        ]);
+
+        $result = $firstLogin->requestCode(
+            $data['email'],
+            TaxiAppFirstLoginService::CHANNEL_DRIVER,
+            (string) $request->ip()
+        );
+
+        return $this->firstLoginJson($result);
+    }
+
+    public function verifyLoginCode(
+        Request $request,
+        TaxiAppFirstLoginService $firstLogin,
+        TaxiDriverEligibilityService $eligibility,
+        ModuleDatabaseService $moduleDb,
+        TaxiDriverEarningsAccessService $earningsAccess
+    ): JsonResponse {
+        $data = $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string',
+            'password' => 'required|string|min:8|max:255',
+        ], [
+            'email.required' => 'Vul je e-mailadres in.',
+            'code.required' => 'Vul de code uit je e-mail in.',
+            'password.required' => 'Kies een wachtwoord.',
+            'password.min' => 'Kies een wachtwoord van minimaal 8 tekens.',
+        ]);
+
+        $result = $firstLogin->verifyAndSetPassword(
+            $data['email'],
+            $data['code'],
+            $data['password'],
+            TaxiAppFirstLoginService::CHANNEL_DRIVER,
+            (string) $request->ip()
+        );
+
+        if (! $result['ok'] || ! ($result['user'] ?? null) instanceof User) {
+            return $this->firstLoginJson($result);
+        }
+
+        return $this->driverSessionResponse($result['user'], $eligibility, $moduleDb, $earningsAccess);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $request->user()?->currentAccessToken()?->delete();
+
+        return response()->json(['message' => 'Uitgelogd.']);
+    }
+
+    public function me(Request $request, ModuleDatabaseService $moduleDb, TaxiDriverEarningsAccessService $earningsAccess): JsonResponse
+    {
+        $user = $request->user();
+        $companyId = (int) $request->attributes->get('taxi_company_id', $user->company_id);
+
+        $accountActive = TaxiDriverAccountStatus::isActive($user);
+
+        $isOnline = $this->driverIsOnline($moduleDb, (int) $user->id);
+        $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
+
+        return response()->json([
+            'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline),
+            'permissions' => [
+                'earnings_view' => $earningsPerms['view'],
+                'earnings_view_month' => $earningsPerms['view_month'],
+            ],
+            'meta' => [
+                'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
+            ],
+        ]);
+    }
+
+    public function updateAccent(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'accent' => ['required', 'string', 'in:'.implode(',', PwaAccent::KEYS)],
+        ]);
+
+        $accent = PwaAccent::saveFor($request->user(), $data['accent']);
+
+        return response()->json([
+            'pwa_accent' => $accent,
+        ]);
+    }
+
+    /**
+     * @param  array{ok: bool, status: int, message: string, retry_after?: int}  $result
+     */
+    private function firstLoginJson(array $result): JsonResponse
+    {
+        $payload = ['message' => $result['message']];
+        if (isset($result['retry_after'])) {
+            $payload['retry_after'] = $result['retry_after'];
+        }
+
+        return response()->json($payload, $result['status']);
+    }
+
+    private function driverSessionResponse(
+        User $user,
+        TaxiDriverEligibilityService $eligibility,
+        ModuleDatabaseService $moduleDb,
+        TaxiDriverEarningsAccessService $earningsAccess
+    ): JsonResponse {
         if (! $user->email_verified_at) {
             return response()->json([
                 'message' => 'E-mailadres is nog niet geverifieerd.',
@@ -50,6 +176,11 @@ class DriverAuthController extends Controller
         $entitlements = app(CompanyEntitlementService::class);
         if (! $entitlements->allows($company, TenantPackageCapability::DRIVER_APP)) {
             return $entitlements->jsonDenied($company, TenantPackageCapability::DRIVER_APP);
+        }
+
+        $billingAccess = app(TenantBillingAccessService::class);
+        if ($billingAccess->isFullyBlocked($company)) {
+            return response()->json(['message' => $billingAccess->fullBlockMessage()], 403);
         }
 
         if (! TaxiDriverAccountStatus::isActive($user)) {
@@ -73,35 +204,6 @@ class DriverAuthController extends Controller
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
             'user' => $this->driverUserPayload($user, $companyId, true, $isOnline),
-            'permissions' => [
-                'earnings_view' => $earningsPerms['view'],
-                'earnings_view_month' => $earningsPerms['view_month'],
-            ],
-            'meta' => [
-                'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
-            ],
-        ]);
-    }
-
-    public function logout(Request $request): JsonResponse
-    {
-        $request->user()?->currentAccessToken()?->delete();
-
-        return response()->json(['message' => 'Uitgelogd.']);
-    }
-
-    public function me(Request $request, ModuleDatabaseService $moduleDb, TaxiDriverEarningsAccessService $earningsAccess): JsonResponse
-    {
-        $user = $request->user();
-        $companyId = (int) $request->attributes->get('taxi_company_id', $user->company_id);
-
-        $accountActive = TaxiDriverAccountStatus::isActive($user);
-
-        $isOnline = $this->driverIsOnline($moduleDb, (int) $user->id);
-        $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
-
-        return response()->json([
-            'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline),
             'permissions' => [
                 'earnings_view' => $earningsPerms['view'],
                 'earnings_view_month' => $earningsPerms['view_month'],
@@ -143,6 +245,7 @@ class DriverAuthController extends Controller
             'company_name' => $companyName,
             'is_account_active' => $accountActive,
             'is_online' => $isOnline,
+            'pwa_accent' => PwaAccent::fromUser($user),
         ];
     }
 

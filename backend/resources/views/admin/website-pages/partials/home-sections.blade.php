@@ -229,17 +229,20 @@
             </div>
             @endif
             {{-- Hero-afbeeldingen: per thema andere velden --}}
-            @if(in_array($themeSlugForOrder ?? '', ['nextly-template', 'next-landing-vpn'], true))
+            @if(in_array($themeSlugForOrder ?? '', ['nextly-template', 'next-landing-vpn', 'landwind', 'play-tailwind', 'vue-material-kit'], true))
             @php
-                $defaultHeroImg = ($themeSlugForOrder ?? '') === 'next-landing-vpn'
-                    ? asset('frontend-themes/next-landing-vpn/public/assets/Illustration1.png')
-                    : (($themeSlugForOrder ?? '') === 'nextly-template' ? asset('frontend-themes/nextly-template/public/img/hero.png') : '');
+                $defaultHeroImg = match ($themeSlugForOrder ?? '') {
+                    'next-landing-vpn' => asset('frontend-themes/next-landing-vpn/public/assets/Illustration1.png'),
+                    'landwind' => asset('frontend-themes/landwind/images/hero.png'),
+                    'play-tailwind' => asset('frontend-themes/play-tailwind/assets/images/hero/hero-image.jpg'),
+                    'vue-material-kit' => asset('frontend-themes/vue-material-kit/src/assets/img/vue-mk-header.jpg'),
+                    default => asset('frontend-themes/nextly-template/public/img/hero.png'),
+                };
                 $heroPreviewSrc = !empty($sectionData['author_image_url']) ? $sectionData['author_image_url'] : $defaultHeroImg;
             @endphp
-            {{-- Nextly / Next Landing VPN: één hero-afbeelding (standaard of upload) --}}
             <div class="row-visibility-row">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Hero-afbeelding</label>
-                <p class="text-xs text-muted-foreground mb-2">Afbeelding naast de titel. @if(($themeSlugForOrder ?? '') === 'next-landing-vpn')Standaard: Illustration1.png.@else(Nextly thema)@endif</p>
+                <p class="text-xs text-muted-foreground mb-2">Afbeelding naast of achter de titel.</p>
                 <div class="flex flex-wrap items-stretch gap-3">
                     <div class="shrink-0 flex flex-col items-center">
                         <img alt="Hero afbeelding" id="hero-{{ $sectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $heroPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($heroPreviewSrc) }}" data-default-src="{{ $defaultHeroImg ?? '' }}">
@@ -2162,6 +2165,16 @@
                     <label class="text-sm text-muted-foreground">Subtitel</label>
                     <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $modulesData['subtitle'] ?? 'Elke module werkt standalone of in combinatie. Installeer alleen wat u nodig heeft.') }}">
                 </div>
+                <div>
+                    @php $modulesWidth = (int) old('home_sections.'.$sectionKey.'.width_percent', $modulesData['width_percent'] ?? 100); $modulesWidth = max(30, min(100, $modulesWidth)); @endphp
+                    <label class="text-sm text-muted-foreground" for="nexa-modules-{{ $sectionKey }}-width-percent">Blokbreedte</label>
+                    <select id="nexa-modules-{{ $sectionKey }}-width-percent" name="home_sections[{{ $sectionKey }}][width_percent]" class="kt-input mt-1 w-full text-sm">
+                        @foreach([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
+                            <option value="{{ $pct }}" {{ $modulesWidth === $pct ? 'selected' : '' }}>{{ $pct }}%</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1">Breedte van dit blok ten opzichte van de pagina.</p>
+                </div>
             </div>
 
             @foreach($modulesItems as $i => $item)
@@ -2294,8 +2307,13 @@
                 $compId = $rawCompId !== null ? trim(ltrim((string)$rawCompId, ':')) : '';
                 $comp = $compId !== '' ? $componentService->getById($compId) : null;
                 $displayName = ($comp && isset($comp->name) && trim((string)$comp->name) !== '') ? trim($comp->name) : 'Recente Vacatures';
-                $moduleLabel = ($comp && isset($comp->module_name) && trim((string)$comp->module_name) !== '') ? (trim(explode(' ', (string)$comp->module_name)[0] ?? '') ?: trim($comp->module_name)) : 'Nexa';
-                $componentTitle = $displayName . ' (' . $moduleLabel . ')';
+                $themeNameLabel = ($comp && isset($comp->theme_name) && trim((string) $comp->theme_name) !== '') ? trim((string) $comp->theme_name) : '';
+                if ($themeNameLabel !== '') {
+                    $componentTitle = $displayName.' (Thema: '.$themeNameLabel.')';
+                } else {
+                    $moduleLabel = ($comp && isset($comp->module_name) && trim((string)$comp->module_name) !== '') ? (trim(explode(' ', (string)$comp->module_name)[0] ?? '') ?: trim($comp->module_name)) : 'Nexa';
+                    $componentTitle = $displayName . ' (' . $moduleLabel . ')';
+                }
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--component flex items-center justify-between gap-2">
@@ -2314,6 +2332,9 @@
         <div class="home-section-card-body home-section-component-hint">
             <p class="text-sm text-muted-foreground leading-relaxed">{{ $comp->description }}</p>
         </div>
+        @endif
+        @if($comp && !empty($comp->theme_slug))
+            @include('admin.website-pages.partials.home-section-theme-component-fields', ['comp' => $comp, 'compId' => $compId, 'sectionKey' => $sectionKey, 'sectionData' => $sectionData])
         @endif
     </div>
     @else

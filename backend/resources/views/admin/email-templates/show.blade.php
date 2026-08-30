@@ -160,7 +160,7 @@
             <div class="kt-card-content">
                 <div class="mb-4">
                     <h6 class="text-sm font-semibold text-foreground mb-2">Onderwerp:</h6>
-                    <p class="text-sm text-muted-foreground">{{ $emailTemplate->subject }}</p>
+                    <p class="text-sm text-muted-foreground">{{ $previewSubject ?? $emailTemplate->subject }}</p>
                 </div>
                 
                 @if($emailTemplate->html_content)
@@ -169,7 +169,11 @@
                         <h6 class="text-sm font-semibold text-foreground mb-0">HTML Inhoud:</h6>
                         <p class="text-xs text-muted-foreground mb-0">Preview toont light mode — zoals in de meeste e-mailclients.</p>
                     </div>
-                    @if(!$emailTemplate->company_id)
+                    @if($emailTemplate->type === \App\Services\TenantWelcomeEmailTemplateService::TYPE)
+                    <p class="text-xs text-muted-foreground mb-3">
+                        De preview vult de variabelen met voorbeeldgegevens: beheerder <strong>Lisa Vermeer</strong> en standaard het <strong>Business</strong>-pakket, zodat u de pakketinhoud ziet.
+                    </p>
+                    @elseif(!$emailTemplate->company_id)
                     <p class="text-xs text-muted-foreground mb-3">
                         Dit is een <strong>algemeen</strong> template. In de preview en bij verzenden wordt het logo (en bedrijfsnaam) van de
                         <strong>ontvangende tenant</strong> gebruikt — bij een boeking of rit het bedrijf van die rit, in de admin-preview het geselecteerde of huidige tenant-domein.

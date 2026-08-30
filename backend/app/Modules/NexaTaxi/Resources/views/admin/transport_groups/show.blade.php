@@ -15,9 +15,16 @@
                 </a>
             </div>
         </div>
-        @can('rides.update')
-        <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.edit', [$customer->id, $contract->id, $group->id]), url()->full()) }}" class="kt-btn kt-btn-outline shrink-0">Bewerken</a>
-        @endcan
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+            @if($group->active)
+                <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+            @else
+                <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+            @endif
+            @can('rides.update')
+            <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.edit', [$customer->id, $contract->id, $group->id]), url()->full()) }}" class="kt-btn kt-btn-outline">Bewerken</a>
+            @endcan
+        </div>
     </div>
 
     @if(session('success'))
@@ -212,6 +219,13 @@
         text-align: center !important;
         vertical-align: middle !important;
         white-space: nowrap;
+    }
+
+    #transport-group-route-panel .route-stop-destination-row > td {
+        background-color: rgba(16, 185, 129, 0.12);
+    }
+    .dark #transport-group-route-panel .route-stop-destination-row > td {
+        background-color: rgba(16, 185, 129, 0.16);
     }
 </style>
 @endpush

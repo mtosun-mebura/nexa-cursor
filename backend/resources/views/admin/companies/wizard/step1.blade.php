@@ -106,21 +106,21 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">KVK</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">KVK *</td>
                     <td class="min-w-48 w-full">
-                        <input type="text" class="kt-input @error('kvk_number') border-destructive @enderror" name="kvk_number" value="{{ old('kvk_number', $company->kvk_number ?? '') }}" maxlength="8" pattern="[0-9]{8}" inputmode="numeric" @error('kvk_number') data-server-error="1" @enderror>
+                        <input type="text" class="kt-input @error('kvk_number') border-destructive @enderror" name="kvk_number" value="{{ old('kvk_number', $company->kvk_number ?? '') }}" maxlength="8" pattern="[0-9]{8}" inputmode="numeric" required @error('kvk_number') data-server-error="1" @enderror>
                         @error('kvk_number')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="kvk_number">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Branche</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Branche *</td>
                     <td class="min-w-48 w-full">
                         @php
                             $currentIndustry = old('industry', $company->industry ?? '');
                             $selectedBranch = $branches->firstWhere('name', $currentIndustry);
                             $isOther = $currentIndustry && !$selectedBranch;
                         @endphp
-                        <select class="kt-input" name="branch_select" id="branch_select">
+                        <select class="kt-input" name="branch_select" id="branch_select" required>
                             <option value="">-- Selecteer --</option>
                             @foreach($branches as $branch)
                                 <option value="{{ $branch->name }}" {{ $currentIndustry === $branch->name ? 'selected' : '' }}>{{ $branch->name }}</option>
@@ -264,21 +264,21 @@
             <h3 class="kt-card-title">Contactpersoon</h3>
         </div>
         <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Gegevens van de persoon die we voor dit bedrijf als eerste aanspreekpunt gebruiken (e-mail en telefoon).
+            Deze persoon wordt de company-admin. Het e-mailadres is de gebruikersnaam. Bij afronden van de wizard ontvangt deze persoon de welkomstmail met een tijdelijk wachtwoord.
         </p>
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voornaam</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voornaam *</td>
                     <td class="min-w-48 w-full">
-                        <input type="text" class="kt-input @error('contact_first_name') border-destructive @enderror" name="contact_first_name" value="{{ old('contact_first_name', $company->contact_first_name ?? '') }}" maxlength="255" autocomplete="given-name" @error('contact_first_name') data-server-error="1" @enderror>
+                        <input type="text" class="kt-input @error('contact_first_name') border-destructive @enderror" name="contact_first_name" value="{{ old('contact_first_name', $company->contact_first_name ?? '') }}" maxlength="255" autocomplete="given-name" required @error('contact_first_name') data-server-error="1" @enderror>
                         @error('contact_first_name')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="contact_first_name">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Achternaam</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Achternaam *</td>
                     <td class="min-w-48 w-full">
-                        <input type="text" class="kt-input @error('contact_last_name') border-destructive @enderror" name="contact_last_name" value="{{ old('contact_last_name', $company->contact_last_name ?? '') }}" maxlength="255" autocomplete="family-name" @error('contact_last_name') data-server-error="1" @enderror>
+                        <input type="text" class="kt-input @error('contact_last_name') border-destructive @enderror" name="contact_last_name" value="{{ old('contact_last_name', $company->contact_last_name ?? '') }}" maxlength="255" autocomplete="family-name" required @error('contact_last_name') data-server-error="1" @enderror>
                         @error('contact_last_name')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="contact_last_name">{{ $message }}</div>@enderror
                     </td>
                 </tr>
@@ -309,6 +309,35 @@
                             @error('phone') data-server-error="1" @enderror>
                         <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
                         @error('phone')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="phone">{{ $message }}</div>@enderror
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="kt-card min-w-full mb-6">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">Abonnement *</h3>
+        </div>
+        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
+            Kies het pakket dat deze klant afneemt. De handleiding en beschikbare functies volgen dit pakket.
+        </p>
+        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Pakket *</td>
+                    <td class="min-w-48 w-full">
+                        <select name="package_key" class="kt-input @error('package_key') border-destructive @enderror" required>
+                            <option value="">— Kies een pakket —</option>
+                            @foreach($nexaPackages ?? [] as $packageKey => $packageName)
+                                <option value="{{ $packageKey }}" {{ (string) old('package_key', $company->package_key ?? '') === (string) $packageKey ? 'selected' : '' }}>
+                                    {{ $packageName }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('package_key')
+                            <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="package_key">{{ $message }}</div>
+                        @enderror
                     </td>
                 </tr>
             </table>

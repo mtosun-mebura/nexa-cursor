@@ -1,0 +1,23 @@
+---
+description: Admin-modals altijd met geblurde achtergrond zodat de focus op de overlay blijft
+alwaysApply: true
+---
+
+# Admin: achtergrond blur bij modals
+
+Elke **modal / dialog / overlay** in de admin moet de pagina erachter **blurren**, zodat de aandacht op het venster blijft. Dit geldt voor nieuwe én bestaande modals.
+
+## Gewenst patroon
+
+- Overlay dekt het hele scherm (`fixed inset-0`).
+- Donkere sluier **plus** blur, bijvoorbeeld `bg-zinc-950/70 backdrop-blur-md` of CSS:
+  - `background: rgba(15, 23, 42, 0.55);`
+  - `backdrop-filter: blur(12px);`
+  - `-webkit-backdrop-filter: blur(12px);`
+- Het modal-paneel zelf niet blurren (alleen de laag achter het paneel).
+- Voorbeeld: `backend/resources/views/admin/partials/force-password-modal.blade.php`.
+
+## Niet doen
+
+- Geen overlay met alleen een donkere kleur zonder blur.
+- Geen `filter: blur()` op de hele pagina (dat blurt ook de modal).

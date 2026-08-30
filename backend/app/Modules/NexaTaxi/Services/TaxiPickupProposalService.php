@@ -4,10 +4,10 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
-use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\WhatsAppBookingMessageComposer;
 use App\Services\WhatsAppBusinessService;
 use Carbon\Carbon;
@@ -69,6 +69,7 @@ class TaxiPickupProposalService
                 'pickup_proposal_customer_remark' => null,
                 'pickup_proposal_sent_at' => now(),
                 'pickup_proposal_responded_at' => null,
+                'pickup_proposal_whatsapp_wamid' => null,
             ]);
 
             return $ride->fresh() ?? $ride;
@@ -86,6 +87,8 @@ class TaxiPickupProposalService
         $phone = trim((string) ($ride->customer_phone ?? ''));
         $template = $this->composer->pickupProposalTemplateName();
 
+        $ok = false;
+
         if ($phone === '' || $template === '') {
             $this->logProposal(
                 $conn,
@@ -97,11 +100,7 @@ class TaxiPickupProposalService
                     ? 'Geen ophaalvoorstel-template (WHATSAPP_PICKUP_PROPOSAL_TEMPLATE).'
                     : 'Geen klanttelefoon.'
             );
-
-            return false;
-        }
-
-        if (! $this->whatsapp->isConfigured($settingsCompanyId)) {
+        } elseif (! $this->whatsapp->isConfigured($settingsCompanyId)) {
             $this->logProposal(
                 $conn,
                 (int) $ride->id,
@@ -110,32 +109,41 @@ class TaxiPickupProposalService
                 $driver?->id,
                 'WhatsApp Business API niet geconfigureerd.'
             );
+        } else {
+            $params = $this->composer->pickupProposalBodyParameters($ride, $driver);
+            $result = $this->whatsapp->sendTemplate(
+                $phone,
+                $template,
+                $this->composer->pickupProposalTemplateLanguage(),
+                $params,
+                $settingsCompanyId
+            );
 
-            return false;
+            $ok = (bool) ($result['ok'] ?? false);
+            $wamid = is_string($result['wamid'] ?? null) ? trim((string) $result['wamid']) : '';
+            if ($ok && $wamid !== '') {
+                RideRequest::on($conn)->whereKey($ride->id)->update([
+                    'pickup_proposal_whatsapp_wamid' => $wamid,
+                ]);
+                $ride->pickup_proposal_whatsapp_wamid = $wamid;
+            }
+
+            $this->logProposal(
+                $conn,
+                (int) $ride->id,
+                $ok ? RideRequestNotificationLog::STATUS_SENT : RideRequestNotificationLog::STATUS_FAILED,
+                $phone,
+                $driver?->id,
+                $ok ? null : (string) ($result['error'] ?? 'Verzenden mislukt'),
+                [
+                    'mode' => 'template:'.$template,
+                    'proposal_at' => ContractTransportTimezone::toDriverIso8601($ride->pickup_proposal_at),
+                    'wamid' => $wamid !== '' ? $wamid : null,
+                ]
+            );
         }
 
-        $params = $this->composer->pickupProposalBodyParameters($ride, $driver);
-        $result = $this->whatsapp->sendTemplate(
-            $phone,
-            $template,
-            $this->composer->pickupProposalTemplateLanguage(),
-            $params,
-            $settingsCompanyId
-        );
-
-        $ok = (bool) ($result['ok'] ?? false);
-        $this->logProposal(
-            $conn,
-            (int) $ride->id,
-            $ok ? RideRequestNotificationLog::STATUS_SENT : RideRequestNotificationLog::STATUS_FAILED,
-            $phone,
-            $driver?->id,
-            $ok ? null : (string) ($result['error'] ?? 'Verzenden mislukt'),
-            [
-                'mode' => 'template:'.$template,
-                'proposal_at' => ContractTransportTimezone::toDriverIso8601($ride->pickup_proposal_at),
-            ]
-        );
+        app(WhatsAppPickupProposalMockService::class)->attachMockWamidIfMissing($conn, $ride);
 
         return $ok;
     }
@@ -154,23 +162,27 @@ class TaxiPickupProposalService
             return false;
         }
 
-        $ride = $this->findPendingProposalRideByPhone($conn, $from);
+        $ride = $this->findOpenProposalRide($conn, $message, $from);
         if (! $ride) {
+            Log::info('Pickup proposal WhatsApp-antwoord: geen openstaande rit voor dit bericht.', [
+                'from' => $from,
+                'type' => $message['type'] ?? null,
+                'context_id' => $this->extractContextWamid($message),
+            ]);
+
             return false;
         }
 
-        $button = $this->extractButtonPayload($message);
-        if ($button !== null) {
-            if ($this->isAcceptPayload($button)) {
-                $this->acceptProposal($conn, $ride);
+        $decision = $this->extractDecision($message);
+        if ($decision === 'accept') {
+            $this->acceptProposal($conn, $ride);
 
-                return true;
-            }
-            if ($this->isDeclinePayload($button)) {
-                $this->declineProposal($conn, $ride);
+            return true;
+        }
+        if ($decision === 'decline') {
+            $this->declineProposal($conn, $ride);
 
-                return true;
-            }
+            return true;
         }
 
         $text = trim((string) data_get($message, 'text.body', ''));
@@ -205,7 +217,7 @@ class TaxiPickupProposalService
 
         $this->alertDriver($fresh, 'accepted');
 
-        return $fresh;
+        return $this->reopenIfUnassignedAfterCustomerReply($conn, $fresh, true);
     }
 
     public function declineProposal(string $conn, RideRequest $ride, ?string $remark = null): RideRequest
@@ -234,7 +246,16 @@ class TaxiPickupProposalService
 
         $this->alertDriver($fresh, 'declined');
 
-        return $fresh;
+        return $this->reopenIfUnassignedAfterCustomerReply($conn, $fresh, false);
+    }
+
+    private function reopenIfUnassignedAfterCustomerReply(string $conn, RideRequest $ride, bool $customerAccepted): RideRequest
+    {
+        if ($ride->driver_id) {
+            return $ride;
+        }
+
+        return app(RideClaimService::class)->reopenAfterArchivedPickupProposal($conn, $ride, $customerAccepted);
     }
 
     public function attachCustomerRemark(string $conn, RideRequest $ride, string $remark): RideRequest
@@ -257,6 +278,85 @@ class TaxiPickupProposalService
         return $fresh;
     }
 
+    /**
+     * Eerst context.id (wamid van het voorstel), daarna telefoon als fallback.
+     *
+     * @param  array<string, mixed>  $message
+     */
+    private function findOpenProposalRide(string $conn, array $message, string $from): ?RideRequest
+    {
+        $wamid = $this->extractContextWamid($message);
+        if ($wamid === null) {
+            return $this->findPendingProposalRideByPhone($conn, $from);
+        }
+
+        $matched = $this->findRideByProposalWamid($conn, $wamid);
+        if ($matched === null) {
+            Log::info('Pickup proposal WhatsApp-antwoord: context.id onbekend, val terug op telefoon.', [
+                'from' => $from,
+                'context_id' => $wamid,
+            ]);
+
+            return $this->findPendingProposalRideByPhone($conn, $from);
+        }
+
+        if (! $this->isOpenForCustomerReply($matched)) {
+            Log::info('Pickup proposal WhatsApp-antwoord: context.id hoort bij een rit die niet meer openstaat.', [
+                'from' => $from,
+                'context_id' => $wamid,
+                'ride_id' => $matched->id,
+                'proposal_status' => $matched->pickup_proposal_status,
+            ]);
+
+            return null;
+        }
+
+        return $matched;
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     */
+    private function extractContextWamid(array $message): ?string
+    {
+        $id = data_get($message, 'context.id');
+        if (! is_string($id)) {
+            return null;
+        }
+
+        $id = trim($id);
+
+        return $id !== '' ? $id : null;
+    }
+
+    private function findRideByProposalWamid(string $conn, string $wamid): ?RideRequest
+    {
+        return RideRequest::on($conn)
+            ->where('pickup_proposal_whatsapp_wamid', $wamid)
+            ->first();
+    }
+
+    private function isOpenForCustomerReply(RideRequest $ride): bool
+    {
+        if ($ride->pickup_proposal_status === RideRequest::PICKUP_PROPOSAL_PENDING
+            && in_array($ride->status, [
+                RideRequest::STATUS_ACCEPTED,
+                RideRequest::STATUS_PENDING_DISPATCH,
+                RideRequest::STATUS_OFFERED,
+            ], true)) {
+            return true;
+        }
+
+        if ($ride->pickup_proposal_status === RideRequest::PICKUP_PROPOSAL_DECLINED
+            && $ride->status === RideRequest::STATUS_ACCEPTED
+            && $ride->pickup_proposal_responded_at
+            && $ride->pickup_proposal_responded_at->gte(now()->subHours(6))) {
+            return true;
+        }
+
+        return false;
+    }
+
     private function findPendingProposalRideByPhone(string $conn, string $waFrom): ?RideRequest
     {
         $digits = preg_replace('/\D+/', '', $waFrom) ?: '';
@@ -265,21 +365,19 @@ class TaxiPickupProposalService
         }
 
         $candidates = RideRequest::on($conn)
-            ->where('status', RideRequest::STATUS_ACCEPTED)
             ->where('pickup_proposal_status', RideRequest::PICKUP_PROPOSAL_PENDING)
+            ->whereIn('status', [
+                RideRequest::STATUS_ACCEPTED,
+                RideRequest::STATUS_PENDING_DISPATCH,
+                RideRequest::STATUS_OFFERED,
+            ])
             ->whereNotNull('customer_phone')
             ->orderByDesc('pickup_proposal_sent_at')
             ->limit(25)
             ->get();
 
         foreach ($candidates as $ride) {
-            $rideDigits = preg_replace('/\D+/', '', (string) $ride->customer_phone) ?: '';
-            if ($rideDigits === '') {
-                continue;
-            }
-            if ($rideDigits === $digits
-                || str_ends_with($digits, $rideDigits)
-                || str_ends_with($rideDigits, $digits)) {
+            if ($this->phonesMatch($waFrom, (string) $ride->customer_phone)) {
                 return $ride;
             }
         }
@@ -295,8 +393,7 @@ class TaxiPickupProposalService
             ->get();
 
         foreach ($declined as $ride) {
-            $rideDigits = preg_replace('/\D+/', '', (string) $ride->customer_phone) ?: '';
-            if ($rideDigits !== '' && ($rideDigits === $digits || str_ends_with($digits, $rideDigits) || str_ends_with($rideDigits, $digits))) {
+            if ($this->phonesMatch($waFrom, (string) $ride->customer_phone)) {
                 return $ride;
             }
         }
@@ -305,20 +402,135 @@ class TaxiPickupProposalService
     }
 
     /**
+     * WhatsApp stuurt 316…; in de rit staat vaak 06…. Zelfde normalisatie als bij verzenden.
+     */
+    private function phonesMatch(string $waFrom, string $stored): bool
+    {
+        $a = $this->whatsapp->normalizeRecipientForApi($waFrom);
+        $b = $this->whatsapp->normalizeRecipientForApi($stored);
+        if (is_string($a) && is_string($b) && $a !== '' && $a === $b) {
+            return true;
+        }
+
+        $aDigits = preg_replace('/\D+/', '', $a ?? $waFrom) ?: '';
+        $bDigits = preg_replace('/\D+/', '', $b ?? $stored) ?: '';
+        if ($aDigits === '' || $bDigits === '') {
+            return false;
+        }
+        if ($aDigits === $bDigits) {
+            return true;
+        }
+
+        $aTail = substr($aDigits, -8);
+        $bTail = substr($bDigits, -8);
+
+        return strlen($aDigits) >= 8 && strlen($bDigits) >= 8 && $aTail !== '' && $aTail === $bTail;
+    }
+
+    /**
+     * Quick Reply komt binnen als knop (interactive/button) of als gewone tekst "Accepteren".
+     * Meta vult vaak geen aparte payload in: dan is de knoptekst het antwoord.
+     *
      * @param  array<string, mixed>  $message
      */
-    private function extractButtonPayload(array $message): ?string
+    private function extractDecision(array $message): ?string
     {
-        $interactive = data_get($message, 'interactive.button_reply.id')
-            ?? data_get($message, 'interactive.button_reply.title')
-            ?? data_get($message, 'button.payload')
-            ?? data_get($message, 'button.text');
+        $numericFallback = null;
 
-        if (! is_string($interactive) || trim($interactive) === '') {
+        foreach ($this->decisionCandidateStrings($message) as $candidate) {
+            $decision = $this->payloadToDecision($candidate);
+            if ($decision === null) {
+                continue;
+            }
+            if (preg_match('/^\d+$/', $candidate) === 1) {
+                $numericFallback ??= $decision;
+
+                continue;
+            }
+
+            return $decision;
+        }
+
+        return $numericFallback;
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     * @return list<string>
+     */
+    private function decisionCandidateStrings(array $message): array
+    {
+        $raw = [
+            data_get($message, 'interactive.button_reply.id'),
+            data_get($message, 'interactive.button_reply.title'),
+            data_get($message, 'button.payload'),
+            data_get($message, 'button.text'),
+            data_get($message, 'text.body'),
+        ];
+
+        $out = [];
+        foreach ($raw as $candidate) {
+            if (is_int($candidate) || is_float($candidate)) {
+                $candidate = (string) $candidate;
+            }
+            if (! is_string($candidate)) {
+                continue;
+            }
+            $candidate = trim($candidate);
+            if ($candidate === '') {
+                continue;
+            }
+            $out[] = $candidate;
+        }
+
+        return $out;
+    }
+
+    private function payloadToDecision(string $payload): ?string
+    {
+        $p = mb_strtolower(trim($payload));
+        if ($p === '') {
             return null;
         }
 
-        return trim($interactive);
+        if ($this->isDeclinePayload($p)) {
+            return 'decline';
+        }
+        if ($this->isAcceptPayload($p)) {
+            return 'accept';
+        }
+        // Meta stuurt soms alleen de knopindex (eerste knop = Accepteren).
+        if ($p === '0') {
+            return 'accept';
+        }
+        if ($p === '1') {
+            return 'decline';
+        }
+
+        return $this->decisionFromFreeText($payload);
+    }
+
+    private function decisionFromFreeText(string $text): ?string
+    {
+        if ($text === '') {
+            return null;
+        }
+
+        $firstLine = trim(strtok(str_replace(["\r\n", "\r"], "\n", $text), "\n") ?: $text);
+        $normalized = mb_strtolower(preg_replace('/\s+/u', ' ', $firstLine) ?? $firstLine);
+        $normalized = trim($normalized, " \t\"'«»“”");
+
+        $decline = ['weigeren', 'decline', 'pickup_decline', 'nee'];
+        $accept = ['accepteren', 'accept', 'pickup_accept', 'ja', 'akkoord'];
+
+        if (in_array($normalized, $decline, true)) {
+            return 'decline';
+        }
+        if (in_array($normalized, $accept, true)) {
+            return 'accept';
+        }
+
+        return null;
     }
 
     private function isAcceptPayload(string $payload): bool

@@ -1,21 +1,133 @@
 <?php
 
 return [
-  /*
-  |--------------------------------------------------------------------------
-  | Admin handleiding – artikelen
-  |--------------------------------------------------------------------------
-  | Voeg hier nieuwe pagina's toe. Elke slug krijgt een route admin.handleiding.show
-  | en een blade onder resources/views/admin/handleiding/pages/.
-  */
+    /*
+    |--------------------------------------------------------------------------
+    | Admin handleiding – artikelen
+    |--------------------------------------------------------------------------
+    | packages: null = alle pakketten. capabilities: TenantPackageCapability keys.
+    */
     'pages' => [
         'aan-de-slag' => [
             'title' => 'Aan de slag',
-            'summary' => 'Leer in enkele minuten hoe u zich oriënteert in Nexa: dashboard, navigatie en tenant-keuze.',
+            'summary' => 'Inloggen, wachtwoord wijzigen, dashboard en navigatie.',
             'icon' => 'ki-rocket',
             'order' => 10,
             'view' => 'admin.handleiding.pages.aan-de-slag',
+            'estimated_minutes' => 6,
+        ],
+        'dashboard' => [
+            'title' => 'Dashboard',
+            'summary' => 'Cijfers, recente ritten en snelle links na het inloggen.',
+            'icon' => 'ki-element-11',
+            'order' => 20,
+            'view' => 'admin.handleiding.pages.dashboard',
+            'estimated_minutes' => 4,
+        ],
+        'ritten' => [
+            'title' => 'Ritten en boekingen',
+            'summary' => 'Ritaanvragen bekijken, status volgen en details openen.',
+            'icon' => 'ki-delivery',
+            'order' => 30,
+            'view' => 'admin.handleiding.pages.ritten',
+            'estimated_minutes' => 6,
+            'packages' => ['start', 'pro', 'business'],
+        ],
+        'voertuigen-en-tarieven' => [
+            'title' => 'Voertuigen en tarieven',
+            'summary' => 'Wagenpark en prijzen instellen voor boekingen.',
+            'icon' => 'ki-car',
+            'order' => 40,
+            'view' => 'admin.handleiding.pages.voertuigen-en-tarieven',
             'estimated_minutes' => 5,
+            'packages' => ['start', 'pro', 'business'],
+        ],
+        'gebruikers' => [
+            'title' => 'Gebruikers',
+            'summary' => 'Medewerkers en chauffeurs uitnodigen en rollen toewijzen.',
+            'icon' => 'ki-people',
+            'order' => 50,
+            'view' => 'admin.handleiding.pages.gebruikers',
+            'estimated_minutes' => 5,
+        ],
+        'website-en-boekingen' => [
+            'title' => 'Website en boekingsmodule',
+            'summary' => 'Uw website, merkkleuren en online ritaanvragen.',
+            'icon' => 'ki-screen',
+            'order' => 60,
+            'view' => 'admin.handleiding.pages.website-en-boekingen',
+            'estimated_minutes' => 7,
+            'capabilities' => ['website_booking'],
+        ],
+        'facturen' => [
+            'title' => 'Facturen',
+            'summary' => 'Facturen maken, als pdf versturen en betalingen volgen.',
+            'icon' => 'ki-bill',
+            'order' => 70,
+            'view' => 'admin.handleiding.pages.facturen',
+            'estimated_minutes' => 5,
+            'capabilities' => ['invoice_pdf'],
+        ],
+        'betalingen' => [
+            'title' => 'Betalingen via Mollie',
+            'summary' => 'Online betalen bij boekingen of via QR in de chauffeur-app.',
+            'icon' => 'ki-dollar',
+            'order' => 80,
+            'view' => 'admin.handleiding.pages.betalingen',
+            'estimated_minutes' => 5,
+            'capabilities' => ['mollie_payments'],
+        ],
+        'dispatch' => [
+            'title' => 'Dispatch',
+            'summary' => 'Ritten toewijzen aan chauffeurs en opnieuw uitzetten.',
+            'icon' => 'ki-abstract-26',
+            'order' => 90,
+            'view' => 'admin.handleiding.pages.dispatch',
+            'estimated_minutes' => 6,
+            'capabilities' => ['dispatch'],
+        ],
+        'chauffeur-app' => [
+            'title' => 'Chauffeur-app',
+            'summary' => 'Inbox, rit starten en afronden op telefoon of tablet.',
+            'icon' => 'ki-phone',
+            'order' => 100,
+            'view' => 'admin.handleiding.pages.chauffeur-app',
+            'estimated_minutes' => 5,
+            'capabilities' => ['driver_app'],
+        ],
+        'contractvervoer' => [
+            'title' => 'Contractvervoer',
+            'summary' => 'Vaste ritten voor school, zorg, zakelijk of privé.',
+            'icon' => 'ki-calendar',
+            'order' => 110,
+            'view' => 'admin.handleiding.pages.contractvervoer',
+            'estimated_minutes' => 7,
+            'capabilities' => ['contract_transport'],
+        ],
+        'contractportaal' => [
+            'title' => 'Contractportaal',
+            'summary' => 'Ouders en opdrachtgevers: ritten, afmelden en de ophaalroute op de kaart.',
+            'icon' => 'ki-profile-circle',
+            'order' => 120,
+            'view' => 'admin.handleiding.pages.contractportaal',
+            'estimated_minutes' => 5,
+            'capabilities' => ['contract_portal'],
+        ],
+        'abonnement' => [
+            'title' => 'Abonnement',
+            'summary' => 'Pakket bekijken, upgraden, downgraden of opzeggen.',
+            'icon' => 'ki-price-tag',
+            'order' => 130,
+            'view' => 'admin.handleiding.pages.abonnement',
+            'estimated_minutes' => 4,
+        ],
+        'email-communicatie' => [
+            'title' => 'E-mailcommunicatie',
+            'summary' => 'Verzonden klantmails inzien en opnieuw versturen.',
+            'icon' => 'ki-sms',
+            'order' => 140,
+            'view' => 'admin.handleiding.pages.email-communicatie',
+            'estimated_minutes' => 4,
         ],
     ],
 ];

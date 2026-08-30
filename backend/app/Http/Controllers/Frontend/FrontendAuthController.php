@@ -7,9 +7,9 @@ use App\Http\Middleware\ApplyDevSimulatedTenantHost;
 use App\Models\CompanyDomain;
 use App\Models\CustomerLoginCode;
 use App\Models\User;
-use App\Support\Tenancy\TenantFrontendUrl;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
 use App\Modules\NexaTaxi\Services\TaxiRideCustomerLinkService;
+use App\Support\Tenancy\TenantFrontendUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -110,6 +110,10 @@ class FrontendAuthController extends Controller
             ->where('user_id', $user->id)
             ->whereNull('consumed_at')
             ->where('expires_at', '>', now())
+            ->when(
+                \Illuminate\Support\Facades\Schema::hasColumn('customer_login_codes', 'purpose'),
+                fn ($q) => $q->where('purpose', CustomerLoginCode::PURPOSE_CUSTOMER)
+            )
             ->orderByDesc('id')
             ->first();
 
@@ -184,7 +188,11 @@ class FrontendAuthController extends Controller
             $codeSent = app(TaxiCustomerLoginCodeService::class)->issueAndSend(
                 $user,
                 $companyId,
-                $loginUrl
+                $loginUrl,
+                null,
+                $user->password_must_be_set
+                    ? \App\Models\TenantCustomerEmail::TYPE_WELCOME
+                    : \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE
             );
         }
 

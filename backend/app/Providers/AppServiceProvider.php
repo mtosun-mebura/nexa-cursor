@@ -131,6 +131,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip().'|'.(string) $request->input('email'));
         });
 
+        RateLimiter::for('taxi-app-login-code', function ($request) {
+            return [
+                Limit::perMinute(8)->by($request->ip()),
+                Limit::perHour(8)->by($request->ip().'|'.strtolower((string) $request->input('email'))),
+            ];
+        });
+
         RateLimiter::for('taxi-driver-poll', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 

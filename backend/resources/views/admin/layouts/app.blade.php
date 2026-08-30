@@ -94,7 +94,7 @@
             border-color: rgba(16, 185, 129, 0.4) !important;
         }
 
-        /* Warning badge - geel/oranje */
+        /* Warning badge - oranje */
         .kt-badge-warning {
             background-color: rgba(251, 146, 60, 0.1) !important;
             color: rgb(154, 52, 18) !important;
@@ -105,6 +105,19 @@
             background-color: rgba(251, 146, 60, 0.2) !important;
             color: rgb(251, 146, 60) !important;
             border-color: rgba(251, 146, 60, 0.4) !important;
+        }
+
+        /* Yellow badge */
+        .kt-badge-yellow {
+            background-color: rgba(234, 179, 8, 0.12) !important;
+            color: rgb(161, 98, 7) !important;
+            border-color: rgba(234, 179, 8, 0.35) !important;
+        }
+
+        .dark .kt-badge-yellow {
+            background-color: rgba(234, 179, 8, 0.22) !important;
+            color: rgb(250, 204, 21) !important;
+            border-color: rgba(234, 179, 8, 0.45) !important;
         }
 
         /* Danger badge - rood */
@@ -412,6 +425,57 @@
             color: rgb(167, 243, 208) !important;
         }
 
+        /* Flash danger: rode tekst, icoon naast de bovenste regel */
+        #content .kt-alert.kt-alert-danger {
+            display: flex !important;
+            align-items: flex-start !important;
+            gap: 0.625rem;
+            background-color: rgba(220, 38, 38, 0.12) !important;
+            border: 1px solid rgb(185, 28, 28) !important;
+            color: rgb(185, 28, 28) !important;
+        }
+        #content .kt-alert.kt-alert-danger.hidden {
+            display: none !important;
+        }
+        #content .kt-alert.kt-alert-danger > .ki-filled {
+            position: relative;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            align-self: flex-start;
+            width: 1.25rem;
+            height: 1.25rem;
+            font-size: 1.25rem;
+            line-height: 1 !important;
+            color: rgb(220, 38, 38) !important;
+        }
+        #content .kt-alert.kt-alert-danger > .ki-filled::before {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            line-height: 1;
+        }
+        #content .kt-alert.kt-alert-danger > .ki-filled::after {
+            line-height: 1;
+        }
+        #content .kt-alert.kt-alert-danger > span,
+        #content .kt-alert.kt-alert-danger > ul {
+            min-width: 0;
+            flex: 1 1 auto;
+            margin-bottom: 0;
+            color: inherit;
+        }
+        .dark #content .kt-alert.kt-alert-danger {
+            background-color: rgba(239, 68, 68, 0.16) !important;
+            border-color: rgb(239, 68, 68) !important;
+            color: rgb(248, 113, 113) !important;
+        }
+        .dark #content .kt-alert.kt-alert-danger > .ki-filled {
+            color: rgb(248, 113, 113) !important;
+        }
+
         /* Vaste meldingen rechtsboven: boven sticky header (z-index 9999) */
         .admin-fixed-toast {
             position: fixed;
@@ -509,6 +573,13 @@
     </div>
     <!-- End of Main -->
     <!-- End of Page -->
+
+    @php
+        $adminMustChangePassword = ($adminMustChangePassword ?? false) || (bool) (auth()->user()?->must_change_password);
+    @endphp
+    @if($adminMustChangePassword)
+        @include('admin.partials.force-password-modal')
+    @endif
 
     @include('layouts.partials.scripts')
 

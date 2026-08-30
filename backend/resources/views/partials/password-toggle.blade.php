@@ -57,6 +57,25 @@
         return null;
     }
 
+    function pinToggleToInput(btn, input, wrap) {
+        function sync() {
+            var wrapRect = wrap.getBoundingClientRect();
+            var inputRect = input.getBoundingClientRect();
+            if (!wrapRect.width || !inputRect.width) {
+                return;
+            }
+            var gap = Math.max(0, wrapRect.right - inputRect.right);
+            btn.style.right = (gap + 8) + 'px';
+        }
+        sync();
+        if (typeof ResizeObserver !== 'undefined') {
+            var ro = new ResizeObserver(sync);
+            ro.observe(wrap);
+            ro.observe(input);
+        }
+        window.addEventListener('resize', sync);
+    }
+
     function enhance(input) {
         if (shouldSkip(input)) return;
         var parent = input.parentNode;
@@ -94,6 +113,7 @@
         var validationIcon = wrap.querySelector && wrap.querySelector('.validation-icon-wrapper');
         input.style.paddingRight = validationIcon ? '4.25rem' : '2.6rem';
         wrap.appendChild(btn);
+        pinToggleToInput(btn, input, wrap);
 
         btn.addEventListener('click', function (e) {
             e.preventDefault();

@@ -46,7 +46,7 @@ class RideDispatchService
 
         DB::connection($conn)->transaction(function () use ($conn, $ride, $companyId, $driverIds, $ttl) {
             $locked = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->first();
-            if (! $locked || $locked->driver_id) {
+            if (! $locked || $locked->driver_id || $locked->hasPendingPickupProposal()) {
                 return;
             }
 
@@ -71,6 +71,7 @@ class RideDispatchService
                         'offered_at' => $now,
                         'expires_at' => $expires,
                         'responded_at' => null,
+                        'archived_at' => null,
                     ]
                 );
             }
@@ -178,6 +179,7 @@ class RideDispatchService
                     'offered_at' => $now,
                     'expires_at' => $expires,
                     'responded_at' => null,
+                    'archived_at' => null,
                 ]
             );
 
@@ -212,6 +214,7 @@ class RideDispatchService
             ->where('company_id', $companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
+            ->withoutPendingPickupProposal()
             ->dispatchPickupWithinQueueWindow($pickupCutoff)
             ->orderBy('pickup_at')
             ->limit(20)
@@ -245,6 +248,7 @@ class RideDispatchService
                     'offered_at' => $now,
                     'expires_at' => $expires,
                     'responded_at' => null,
+                    'archived_at' => null,
                 ]
             );
 
@@ -298,6 +302,7 @@ class RideDispatchService
             ->where('company_id', $companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
+            ->withoutPendingPickupProposal()
             ->dispatchPickupWithinQueueWindow($pickupCutoff)
             ->get();
 

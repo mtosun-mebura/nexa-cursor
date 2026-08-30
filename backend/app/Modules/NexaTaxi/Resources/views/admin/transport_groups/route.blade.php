@@ -28,8 +28,10 @@
             @else
                 <span class="kt-badge kt-badge-secondary kt-badge-sm">Route bewerkbaar</span>
             @endif
-            @if($template->active)
+            @if($group->active)
                 <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+            @else
+                <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
             @endif
         </div>
     </div>
@@ -68,17 +70,19 @@
         {{-- Instellingen --}}
         @can('rides.update')
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header"><h3 class="kt-card-title mb-0">Route-instellingen</h3></div>
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">Route-instellingen</h3>
+            </div>
             <div class="kt-card-content p-0">
                 <form method="POST" action="{{ route('admin.taxi.transport_groups.route.settings', [$customer->id, $contract->id, $group->id]) }}" class="px-3 sm:px-5 pb-5">
                     @csrf
                     @method('PUT')
-                    <fieldset @disabled($template->route_locked) class="min-w-0">
+                    <fieldset class="min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
                             <tr>
                                 <td class="min-w-56 text-secondary-foreground font-medium">Label</td>
                                 <td>
-                                    <input type="text" name="label" class="kt-input w-full max-w-md" value="{{ old('label', $template->label) }}" required>
+                                    <input type="text" name="label" class="kt-input w-full max-w-md" value="{{ old('label', $template->label) }}" required @disabled($template->route_locked)>
                                 </td>
                             </tr>
                             <tr>
@@ -94,12 +98,13 @@
                                             </label>
                                         @endforeach
                                     </div>
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Bij opslaan worden ritten in de contract-app meteen aangepast aan deze dagen.</p>
                                 </td>
                             </tr>
                             <tr>
                                 <td class="text-secondary-foreground font-medium">Startpunt chauffeur</td>
                                 <td>
-                                    <select name="driver_start_mode" id="driver_start_mode" class="kt-select w-full max-w-xs">
+                                    <select name="driver_start_mode" id="driver_start_mode" class="kt-select w-full max-w-xs" @disabled($template->route_locked)>
                                         <option value="depot" @selected(old('driver_start_mode', $template->driver_start_mode) === 'depot')>Depot</option>
                                         <option value="first_stop" @selected(old('driver_start_mode', $template->driver_start_mode) === 'first_stop')>Eerste stop</option>
                                     </select>
@@ -117,6 +122,7 @@
                                         'lngValue' => old('driver_start_lng', $template->driver_start_lng ?: $group->departure_lng),
                                         'placeholder' => 'Zoek depotadres...',
                                         'hint' => 'Je kunt het vertrekadres ook instellen via Groep bewerken.',
+                                        'disabled' => $template->route_locked,
                                     ])
                                 </td>
                             </tr>
@@ -125,7 +131,7 @@
                                 <td>
                                     <div class="flex items-center gap-2 max-w-xs">
                                         <input type="number" name="buffer_seconds" class="kt-input w-24" min="0" max="900" step="30"
-                                            value="{{ old('buffer_seconds', $template->buffer_seconds ?? 120) }}" required>
+                                            value="{{ old('buffer_seconds', $template->buffer_seconds ?? 120) }}" required @disabled($template->route_locked)>
                                         <span class="text-sm">seconden</span>
                                     </div>
                                 </td>
@@ -139,11 +145,9 @@
                                 <td>{{ $activeMembers->count() }} passagier(s)</td>
                             </tr>
                         </table>
-                        @unless($template->route_locked)
                         <div class="flex justify-end mt-4">
                             <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">Instellingen opslaan</button>
                         </div>
-                        @endunless
                     </fieldset>
                 </form>
             </div>
@@ -226,7 +230,7 @@
                                 </tr>
                                 @endforeach
                                 @if($destinationStop)
-                                <tr class="bg-muted/30">
+                                <tr class="route-stop-destination-row">
                                     <td class="text-muted-foreground">{{ $pickupStops->count() + 1 }}</td>
                                     <td><span class="kt-badge kt-badge-success kt-badge-sm">Bestemming</span></td>
                                     <td class="text-muted-foreground">—</td>
@@ -306,6 +310,12 @@
         max-width: 7.5rem;
         white-space: nowrap;
         vertical-align: middle;
+    }
+    #content .route-stop-destination-row > td {
+        background-color: rgba(16, 185, 129, 0.12);
+    }
+    .dark #content .route-stop-destination-row > td {
+        background-color: rgba(16, 185, 129, 0.16);
     }
 </style>
 @endpush

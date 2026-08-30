@@ -30,7 +30,7 @@
     @if(!empty($footerMapEarlyLoad))
     @include('frontend.layouts.partials.website-footer-map-scripts')
     @endif
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Georgia&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Georgia&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-cookieconsent@3.1.0/dist/cookieconsent.css">
     @if(!empty($loadAtomV2Styles))
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600&family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -891,7 +891,12 @@
     <script>
     (function() {
         function initScrollRevealSections() {
-            var sections = document.querySelectorAll('[data-scroll-reveal]');
+            var sections = Array.prototype.filter.call(
+                document.querySelectorAll('[data-scroll-reveal]'),
+                function (el) {
+                    return !el.closest('#prijzen-pakketten');
+                }
+            );
             if (!sections.length) return;
             var opts = { rootMargin: '0px 0px 22% 0px', threshold: 0.04 };
             function onSectionInView(el) {
