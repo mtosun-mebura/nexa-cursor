@@ -9,10 +9,13 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\Company;
 use App\Models\JobTitle;
 use App\Models\User;
-use App\Support\ModuleSchemaAvailability;
-use App\Support\WebRoleFormOptions;
+use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
+use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeService;
+use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
 use App\Services\UserRoleAssignmentService;
+use App\Support\ModuleSchemaAvailability;
+use App\Support\WebRoleFormOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -31,7 +34,7 @@ class AdminUserController extends Controller
             abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
         }
 
-        $query = User::with(['company', 'roles']);
+        $query = User::with(['company.modules', 'roles']);
         $this->applyTenantFilter($query);
 
         // Exclude de ingelogde gebruiker uit het overzicht
@@ -140,6 +143,21 @@ class AdminUserController extends Controller
 
         $roles = $this->assignableWebRolesForForms($user->hasRole('super-admin'));
 
+        $userCreateBackFallback = route('admin.users.index');
+        $wizardContextCompanyId = null;
+        $wizardContextStep = null;
+        $wizardCompany = $this->resolveWizardCompanyFromUserCreateRequest($request);
+        if ($wizardCompany !== null) {
+            $wizardStep = max(1, min(7, (int) ($request->input('wizard_step') ?: 5)));
+            $userCreateBackFallback = route('admin.companies.wizard.step', [$wizardCompany, $wizardStep]);
+            $wizardContextCompanyId = (int) $wizardCompany->id;
+            $wizardContextStep = $wizardStep;
+            if ($user->hasRole('super-admin')) {
+                session(['selected_tenant' => $wizardCompany->id]);
+            }
+        }
+        $userCreateBackUrl = old('wizard_back_url') ?: $userCreateBackFallback;
+
         $defaultRoleForForm = null;
         if ($user->hasRole('super-admin')) {
             $tenantId = session('selected_tenant');
@@ -148,22 +166,29 @@ class AdminUserController extends Controller
             }
         }
 
-        // Terug-link: vanuit company-wizard (hidden wizard_back_url + old() na validatiefout)
-        $userCreateBackFallback = route('admin.users.index');
-        $wizardContextCompanyId = null;
-        $wizardContextStep = null;
-        if ($request->boolean('from_wizard') && $request->filled('wizard_company')) {
-            $wizardCompany = Company::find((int) $request->query('wizard_company'));
-            $wizardStep = max(1, min(7, (int) ($request->query('wizard_step') ?: 5)));
-            if ($wizardCompany && $this->canAccessResource($wizardCompany)) {
-                $userCreateBackFallback = route('admin.companies.wizard.step', [$wizardCompany, $wizardStep]);
-                $wizardContextCompanyId = (int) $wizardCompany->id;
-                $wizardContextStep = $wizardStep;
-            }
+        $skillmatchingCompanyIds = $this->skillmatchingCompanyIds();
+        $appFirstLoginRoleNames = TaxiAppFirstLoginService::appRoleNames();
+        $preselectedCompanyId = old(
+            'company_id',
+            $wizardContextCompanyId ?? $request->query('company_id') ?? session('selected_tenant')
+        );
+        if (! $user->hasRole('super-admin')) {
+            $preselectedCompanyId = $user->company_id;
         }
-        $userCreateBackUrl = old('wizard_back_url') ?: $userCreateBackFallback;
+        $showFunctionField = $this->companyHasSkillmatchingModule($preselectedCompanyId !== null && $preselectedCompanyId !== '' ? (int) $preselectedCompanyId : null);
 
-        return view('admin.users.create', compact('companies', 'roles', 'defaultRoleForForm', 'userCreateBackUrl', 'wizardContextCompanyId', 'wizardContextStep'));
+        return view('admin.users.create', compact(
+            'companies',
+            'roles',
+            'defaultRoleForForm',
+            'userCreateBackUrl',
+            'wizardContextCompanyId',
+            'wizardContextStep',
+            'skillmatchingCompanyIds',
+            'appFirstLoginRoleNames',
+            'showFunctionField',
+            'preselectedCompanyId',
+        ));
     }
 
     public function store(StoreUserRequest $request)
@@ -174,10 +199,9 @@ class AdminUserController extends Controller
             'first_name' => $request->validated()['first_name'],
             'last_name' => $request->validated()['last_name'],
             'email' => $request->validated()['email'],
-            'password' => Hash::make($request->validated()['password']),
             'phone' => $request->validated()['phone'] ?? null,
             'date_of_birth' => $request->validated()['date_of_birth'] ?? null,
-            'function' => $request->validated()['function'] ?? null,
+            'must_change_password' => true,
         ];
 
         // Super-admin: wizard_company (hidden/session) wint altijd van het dropdown — onboarding moet vast aan stap-1-bedrijf hangen.
@@ -203,16 +227,42 @@ class AdminUserController extends Controller
             ? ['company-admin']
             : $request->validated()['roles'];
 
-        // Save or update job title if function is provided
-        if (! empty($userData['function'])) {
-            $jobTitle = JobTitle::firstOrCreate(['name' => $userData['function']]);
-            $jobTitle->increment('usage_count');
-            $userData['job_title_id'] = $jobTitle->id;
+        $firstLogin = app(TaxiAppFirstLoginService::class);
+        $welcomeRole = $willBeFirstUserForCompany ? null : $firstLogin->welcomeRoleForRoles($roleNames);
+        if ($welcomeRole !== null) {
+            $userData['password'] = $firstLogin->unusablePasswordHash();
+            $userData = array_merge($userData, $firstLogin->provisionFlags());
+        } else {
+            $userData['password'] = Hash::make($request->validated()['password']);
         }
+
+        if ($companyId && ! $willBeFirstUserForCompany) {
+            $company = Company::query()->find($companyId);
+            if ($company) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $entitlements->assertCanAssignChauffeurRoles($company, $roleNames);
+                $entitlements->assertCanAssignCompanyAdminRoles($company, $roleNames);
+            }
+        } elseif ($companyId) {
+            $company = Company::query()->find($companyId);
+            if ($company) {
+                app(CompanyEntitlementService::class)->assertCanAssignCompanyAdminRoles($company, $roleNames);
+            }
+        }
+
+        $userData = $this->applyJobFunctionForCompany(
+            $userData,
+            $companyId !== null ? (int) $companyId : null,
+            $request->validated()['function'] ?? null
+        );
 
         $user = User::create($userData);
 
         app(UserRoleAssignmentService::class)->syncWebRoles($user, $roleNames);
+
+        if ($welcomeRole !== null) {
+            app(TaxiAppUserWelcomeService::class)->sendIfNeeded($user->fresh(), $roleNames, true);
+        }
 
         $wizardBack = $request->validated()['wizard_back_url'] ?? null;
         if (is_string($wizardBack) && $wizardBack !== '') {
@@ -220,6 +270,39 @@ class AdminUserController extends Controller
         }
 
         return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol aangemaakt.');
+    }
+
+    /**
+     * Tenant uit de wizard-URL (wizard_company of company_id), als de gebruiker daarbij mag.
+     */
+    private function resolveWizardCompanyFromUserCreateRequest(Request $request): ?Company
+    {
+        if (! $request->boolean('from_wizard')) {
+            return null;
+        }
+
+        $rawId = $request->query('wizard_company') ?: $request->query('company_id');
+        if ($rawId === null || $rawId === '' || ! is_numeric($rawId)) {
+            return null;
+        }
+
+        $company = Company::query()->find((int) $rawId);
+        if ($company === null) {
+            return null;
+        }
+
+        $user = auth()->user();
+        if ($user === null) {
+            return null;
+        }
+        if ($user->hasRole('super-admin')) {
+            return $company;
+        }
+        if ((int) $user->company_id === (int) $company->id) {
+            return $company;
+        }
+
+        return null;
     }
 
     /**
@@ -241,6 +324,61 @@ class AdminUserController extends Controller
         ]);
     }
 
+    /**
+     * @return list<int>
+     */
+    private function skillmatchingCompanyIds(): array
+    {
+        return Company::query()
+            ->whereHas('modules', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['skillmatching']);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    private function companyHasSkillmatchingModule(?int $companyId): bool
+    {
+        if ($companyId === null || $companyId < 1) {
+            return false;
+        }
+
+        $company = Company::query()->find($companyId);
+
+        return $company?->hasSkillmatchingModule() ?? false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $userData
+     * @return array<string, mixed>
+     */
+    private function applyJobFunctionForCompany(array $userData, ?int $companyId, ?string $function): array
+    {
+        if (! \Schema::hasColumn('users', 'function')) {
+            return $userData;
+        }
+
+        $function = is_string($function) ? trim($function) : '';
+        if ($function === '' || ! $this->companyHasSkillmatchingModule($companyId)) {
+            $userData['function'] = null;
+            if (\Schema::hasColumn('users', 'job_title_id')) {
+                $userData['job_title_id'] = null;
+            }
+
+            return $userData;
+        }
+
+        $userData['function'] = $function;
+        if (\Schema::hasColumn('users', 'job_title_id')) {
+            $jobTitle = JobTitle::firstOrCreate(['name' => $function]);
+            $jobTitle->increment('usage_count');
+            $userData['job_title_id'] = $jobTitle->id;
+        }
+
+        return $userData;
+    }
+
     public function show(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-users')) {
@@ -251,6 +389,8 @@ class AdminUserController extends Controller
         if (! $this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
         }
+
+        $user->loadMissing('company.modules');
 
         return view('admin.users.show', compact('user'));
     }
@@ -276,8 +416,14 @@ class AdminUserController extends Controller
         }
 
         $roles = $this->assignableWebRolesForForms($currentUser->hasRole('super-admin'));
+        $skillmatchingCompanyIds = $this->skillmatchingCompanyIds();
+        $functionCompanyId = old('company_id', $user->company_id);
+        if (! $currentUser->hasRole('super-admin')) {
+            $functionCompanyId = $currentUser->company_id;
+        }
+        $showFunctionField = $this->companyHasSkillmatchingModule($functionCompanyId !== null && $functionCompanyId !== '' ? (int) $functionCompanyId : null);
 
-        return view('admin.users.edit', compact('user', 'companies', 'roles'));
+        return view('admin.users.edit', compact('user', 'companies', 'roles', 'skillmatchingCompanyIds', 'showFunctionField'));
     }
 
     public function update(UpdateUserRequest $request, User $user)
@@ -295,7 +441,6 @@ class AdminUserController extends Controller
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'date_of_birth' => $validated['date_of_birth'] ?? null,
-            'function' => $validated['function'] ?? null,
             'agenda_color' => isset($validated['agenda_color']) && $validated['agenda_color'] !== ''
                 ? strtolower((string) $validated['agenda_color'])
                 : null,
@@ -313,13 +458,27 @@ class AdminUserController extends Controller
             $userData['password'] = Hash::make($validated['password']);
         }
 
-        // Save or update job title if function is provided
-        if (! empty($userData['function'])) {
-            $jobTitle = JobTitle::firstOrCreate(['name' => $userData['function']]);
-            $jobTitle->increment('usage_count');
-            $userData['job_title_id'] = $jobTitle->id;
-        } else {
-            $userData['job_title_id'] = null;
+        $targetCompanyId = $userData['company_id'] ?? null;
+        $userData = $this->applyJobFunctionForCompany(
+            $userData,
+            $targetCompanyId !== null ? (int) $targetCompanyId : null,
+            $validated['function'] ?? null
+        );
+        if ($targetCompanyId) {
+            $targetCompany = Company::query()->find($targetCompanyId);
+            if ($targetCompany) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $entitlements->assertCanAssignChauffeurRoles(
+                    $targetCompany,
+                    $validated['roles'],
+                    (int) $user->company_id === (int) $targetCompanyId ? $user : null
+                );
+                $entitlements->assertCanAssignCompanyAdminRoles(
+                    $targetCompany,
+                    $validated['roles'],
+                    (int) $user->company_id === (int) $targetCompanyId ? $user : null
+                );
+            }
         }
 
         $user->update($userData);
@@ -363,6 +522,15 @@ class AdminUserController extends Controller
         $roles = $request->input('roles', []);
         if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
             return back()->withErrors(['roles' => 'Je mag geen super-admin rol toewijzen.']);
+        }
+
+        if ($user->company_id) {
+            $company = Company::query()->find($user->company_id);
+            if ($company) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $entitlements->assertCanAssignChauffeurRoles($company, $roles, $user);
+                $entitlements->assertCanAssignCompanyAdminRoles($company, $roles, $user);
+            }
         }
 
         app(UserRoleAssignmentService::class)->syncWebRoles($user, $roles);

@@ -30,6 +30,6 @@ if [[ $# -gt 0 ]]; then
 fi
 
 echo "==> nexa:reset-all --force ${install_args[*]}"
-php artisan nexa:reset-all --force "${install_args[@]}"
+NEXA_ALLOW_DESTRUCTIVE_DB=true php artisan nexa:reset-all --force "${install_args[@]}"
 
 echo "==> Klaar. Superadmin: zie App\\Services\\ModuleSchemaService (SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD)."

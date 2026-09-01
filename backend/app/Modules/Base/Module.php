@@ -80,7 +80,9 @@ abstract class Module
 
     /**
      * Module menu items registreren
-     * Return array van menu items
+     * Return array van menu items.
+     * Optioneel: 'package_capability' => TenantPackageCapability::* om het item te verbergen als het pakket die functie niet heeft.
+     * Optioneel: 'super_admin_only' => true om het item alleen voor super-admins te tonen.
      */
     public function registerMenuItems(): array
     {

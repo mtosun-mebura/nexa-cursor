@@ -163,6 +163,15 @@
                 $uuid = $item['uuid'] ?? $item['UUID'] ?? '';
                 $alt = $item['alt'] ?? '';
                 $imgSrc = $uuid ? url('/website-media/' . $uuid) : '';
+                if ($imgSrc === '') {
+                    $rawImage = trim((string) ($item['image_url'] ?? ''));
+                    if ($rawImage !== '') {
+                        $imgSrc = app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($rawImage);
+                    }
+                }
+                if ($alt === '' && isset($item['title'])) {
+                    $alt = trim((string) $item['title']);
+                }
                 $textColor = trim((string) ($item['text_color'] ?? ''));
                 $captionColor = ($textColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $textColor)) ? $textColor : '#ffffff';
                 $textBgColor = trim((string) ($item['text_bg_color'] ?? ''));
@@ -173,9 +182,9 @@
                 $textSizePx = isset($item['text_size_px']) ? (int) $item['text_size_px'] : 24;
                 $textSizePx = max(12, min(50, $textSizePx));
                 $textSizePx = (int) (round($textSizePx / 2) * 2);
-                $textPosition = $item['text_position'] ?? 'bottom';
+                $textPosition = $item['text_position'] ?? ($item['caption_position'] ?? 'bottom');
                 $textPosition = in_array($textPosition, ['top', 'center', 'bottom'], true) ? $textPosition : 'bottom';
-                $textAnimation = $item['text_animation'] ?? 'rise';
+                $textAnimation = $item['text_animation'] ?? ($item['caption_animation'] ?? 'rise');
                 $textAnimation = in_array($textAnimation, $allowedCaptionAnimations, true) ? $textAnimation : 'rise';
                 $positionClass = $captionPositionClasses[$textPosition];
                 $captionWords = $alt !== '' ? preg_split('/\s+/u', trim($alt), -1, PREG_SPLIT_NO_EMPTY) : [];
@@ -203,16 +212,18 @@
         @endforeach
     </div>
     @php
-        $itemsWithUuid = [];
+        $itemsWithSlides = [];
         foreach ($items as $idx => $item) {
-            if (!empty($item['uuid'] ?? $item['UUID'] ?? '')) {
-                $itemsWithUuid[] = ['index' => $idx, 'item' => $item];
+            $hasUuid = ! empty($item['uuid'] ?? $item['UUID'] ?? '');
+            $hasImageUrl = trim((string) ($item['image_url'] ?? '')) !== '';
+            if ($hasUuid || $hasImageUrl) {
+                $itemsWithSlides[] = ['index' => $idx, 'item' => $item];
             }
         }
     @endphp
-    @if(count($itemsWithUuid) > 1)
+    @if(count($itemsWithSlides) > 1)
     <div class="absolute z-40 flex flex-row items-center justify-center -translate-x-1/2 bottom-3 sm:bottom-5 left-1/2" style="gap: 0.5rem;">
-        @foreach($itemsWithUuid as $slideIndex => $entry)
+        @foreach($itemsWithSlides as $slideIndex => $entry)
             <button type="button" class="carousel-indicator rounded-full transition-colors flex-shrink-0" style="width: 10px; height: 10px; min-width: 10px; min-height: 10px; background: {{ $slideIndex === 0 ? '#ffffff' : '#9ca3af' }};" aria-current="{{ $slideIndex === 0 ? 'true' : 'false' }}" aria-label="Slide {{ $slideIndex + 1 }}" data-carousel-slide-to="{{ $slideIndex }}"></button>
         @endforeach
     </div>

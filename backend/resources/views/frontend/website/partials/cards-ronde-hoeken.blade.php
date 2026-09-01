@@ -140,7 +140,7 @@
     box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.25), 0 4px 8px -4px rgb(0 0 0 / 0.15);
   }
 </style>
-<section class="cards-ronde-hoeken-section py-12 md:py-16 bg-white dark:bg-gray-900" aria-label="Cards" data-cards-ronde-hoeken-reveal>
+<section class="cards-ronde-hoeken-section pt-6 md:pt-8 pb-10 md:pb-14 bg-white dark:bg-gray-900" aria-label="Cards" data-cards-ronde-hoeken-reveal>
     <div class="website-section-inner flex flex-col gap-5 lg:gap-7.5 items-center">
         @foreach($rows as $row)
             @if($row['type'] === 'normal')

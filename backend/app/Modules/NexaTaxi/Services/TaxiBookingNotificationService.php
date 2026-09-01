@@ -2,11 +2,13 @@
 
 namespace App\Modules\NexaTaxi\Services;
 
+use App\Models\TenantCustomerEmail;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\EnvService;
-use App\Services\WhatsAppBusinessService;
+use App\Services\TenantCustomerMailService;
 use App\Services\WhatsAppBookingMessageComposer;
+use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -30,6 +32,11 @@ class TaxiBookingNotificationService
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
         $companyId = (int) ($ride->company_id ?? 0);
+        if (app(\App\Services\NexaDemoAccountService::class)->isDemoCompanyId($companyId)) {
+            Log::info('Demo company: booking notifications skipped', ['ride_id' => $ride->id]);
+
+            return;
+        }
         $summary = $this->summaryText->build($ride, $context);
 
         $settingsCompanyId = $this->resolveSettingsCompanyId(
@@ -37,8 +44,8 @@ class TaxiBookingNotificationService
             isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
         );
 
-        $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary, $context);
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
+        $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, $settingsCompanyId, $context);
         $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
     }
@@ -94,22 +101,16 @@ class TaxiBookingNotificationService
     /**
      * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
      */
-    private function sendDispatchWhatsapp(
+    private function sendCompanyBookingWhatsapp(
         string $conn,
         RideRequest $ride,
-        ?int $companyId,
         string $summary,
+        ?int $companyId,
         array $context = []
     ): void {
         $rideId = (int) $ride->id;
 
-        if (! $this->dispatchSettings->bookingWhatsappEnabled($companyId)) {
-            $this->notificationLogs->recordWhatsappSkipped(
-                $conn,
-                $rideId,
-                'WhatsApp bij boeking staat uit in chauffeur-dispatch.'
-            );
-
+        if (! $this->dispatchSettings->companyBookingWhatsappNotifyEnabled($companyId)) {
             return;
         }
 
@@ -117,23 +118,19 @@ class TaxiBookingNotificationService
             $this->notificationLogs->recordWhatsappSkipped(
                 $conn,
                 $rideId,
-                'WhatsApp Business API is niet geconfigureerd voor deze tenant.'
+                'WhatsApp Business API is niet geconfigureerd voor bedrijfsboekingsmeldingen.'
             );
 
             return;
         }
 
-        $recipient = $this->dispatchSettings->bookingWhatsappNumber($companyId);
+        $recipient = $this->dispatchSettings->companyBookingWhatsappNotifyNumber($companyId);
         if ($recipient === '') {
             $this->notificationLogs->recordWhatsappSkipped(
                 $conn,
                 $rideId,
-                'Geen WhatsApp-ontvangernummer (dispatch) ingesteld.'
+                'Geen WhatsApp-nummer bedrijf ingesteld (Instellingen → WhatsApp tenant).'
             );
-            Log::warning('WhatsApp boeking: geen ontvangernummer geconfigureerd.', [
-                'company_id' => $companyId,
-                'ride_request_id' => $rideId,
-            ]);
 
             return;
         }
@@ -151,7 +148,7 @@ class TaxiBookingNotificationService
         } else {
             $error = (string) ($result['error'] ?? 'Onbekende fout');
             $this->notificationLogs->recordWhatsappFailed($conn, $rideId, $recipient, $error);
-            Log::warning('WhatsApp boeking: bericht niet verzonden.', [
+            Log::warning('WhatsApp boeking naar bedrijf niet verzonden.', [
                 'ride_request_id' => $rideId,
                 'company_id' => $companyId,
                 'error' => $error,
@@ -422,6 +419,31 @@ class TaxiBookingNotificationService
             : '—';
         $customerName = trim((string) ($ride->customer_name ?: ''));
 
+        $html = view('emails.taxi-ride-booking-customer', [
+            'customer_name' => $customerName,
+            'ride_id' => $ride->id,
+            'pickup_at' => $pickupAt,
+            'pickup_address' => $ride->pickup_address,
+            'dropoff_address' => $ride->dropoff_address,
+            'quoted_price' => $ride->quoted_price,
+            'summary_text' => $summary,
+            'portal_login_url' => route('login', [
+                'code_login' => 1,
+                'intended' => route('taxi.portal.dashboard'),
+            ]),
+        ])->render();
+
+        $payload = [
+            'company_id' => $settingsCompanyId,
+            'type' => TenantCustomerEmail::TYPE_BOOKING,
+            'to_email' => $email,
+            'to_name' => $customerName !== '' ? $customerName : null,
+            'subject' => $subject,
+            'html' => $html,
+            'related_type' => 'ride_request',
+            'related_id' => $rideId,
+        ];
+
         if (! $this->env->isMailDeliverableToInbox($settingsCompanyId)) {
             $this->notificationLogs->record(
                 $conn,
@@ -437,45 +459,18 @@ class TaxiBookingNotificationService
                 'ride_request_id' => $rideId,
                 'company_id' => $settingsCompanyId,
             ]);
+            app(TenantCustomerMailService::class)->record(
+                $payload,
+                TenantCustomerEmail::STATUS_FAILED,
+                'Geen bruikbare SMTP-configuratie voor deze tenant.'
+            );
 
             return;
         }
 
-        $this->env->applyMailConfigToRuntime($settingsCompanyId);
-        $from = $this->env->resolveMailFromHeaders($settingsCompanyId);
-        $fromAddress = $from['from_address'];
-        $fromName = $from['from_name'];
-        $smtpUsername = $from['smtp_username'];
+        $record = app(TenantCustomerMailService::class)->send($payload);
 
-        try {
-            Mail::send('emails.taxi-ride-booking-customer', [
-                'customer_name' => $customerName,
-                'ride_id' => $ride->id,
-                'pickup_at' => $pickupAt,
-                'pickup_address' => $ride->pickup_address,
-                'dropoff_address' => $ride->dropoff_address,
-                'quoted_price' => $ride->quoted_price,
-                'summary_text' => $summary,
-                'portal_login_url' => route('login', [
-                    'code_login' => 1,
-                    'intended' => route('taxi.portal.dashboard'),
-                ]),
-            ], function ($mailMessage) use ($email, $customerName, $subject, $fromAddress, $fromName, $smtpUsername) {
-                $mailMessage->to($email, $customerName !== '' ? $customerName : null)
-                    ->subject($subject)
-                    ->from($fromAddress, $fromName);
-
-                if ($smtpUsername !== '') {
-                    try {
-                        $symfonyMessage = $mailMessage->getSymfonyMessage();
-                        $symfonyMessage->getHeaders()->remove('Sender');
-                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $smtpUsername);
-                    } catch (\Throwable) {
-                        // Sender header is optioneel
-                    }
-                }
-            });
-
+        if ($record->status === TenantCustomerEmail::STATUS_SENT) {
             $this->notificationLogs->record(
                 $conn,
                 $rideId,
@@ -486,22 +481,23 @@ class TaxiBookingNotificationService
                 null,
                 self::LOG_CONTEXT_CUSTOMER_BOOKING
             );
-        } catch (\Throwable $e) {
-            $this->notificationLogs->record(
-                $conn,
-                $rideId,
-                RideRequestNotificationLog::CHANNEL_EMAIL,
-                RideRequestNotificationLog::STATUS_FAILED,
-                $customerName !== '' ? $customerName : 'Klant',
-                $email,
-                null,
-                self::LOG_CONTEXT_CUSTOMER_BOOKING.': '.$e->getMessage()
-            );
-            Log::warning('Klant-e-mail boeking niet verzonden.', [
-                'ride_request_id' => $rideId,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
 
+            return;
+        }
+
+        $this->notificationLogs->record(
+            $conn,
+            $rideId,
+            RideRequestNotificationLog::CHANNEL_EMAIL,
+            RideRequestNotificationLog::STATUS_FAILED,
+            $customerName !== '' ? $customerName : 'Klant',
+            $email,
+            null,
+            self::LOG_CONTEXT_CUSTOMER_BOOKING.': '.($record->error_message ?? 'verzending mislukt')
+        );
+        Log::warning('Klant-e-mail boeking niet verzonden.', [
+            'ride_request_id' => $rideId,
+            'error' => $record->error_message,
+        ]);
+    }
 }

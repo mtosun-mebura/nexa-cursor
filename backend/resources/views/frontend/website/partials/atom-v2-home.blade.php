@@ -108,14 +108,14 @@
                     @endphp
                     <div class="pt-3 font-body text-lg uppercase sm:pt-5 {{ $heroSubtitleColorStyle === '' ? 'text-white' : '' }}" @if($heroSubtitleColorStyle !== '') style="{{ $heroSubtitleColorStyle }}" @endif>{!! $sectionData['subtitle'] !!}</div>
                     @endif
-                    @if($v('_cta') && (!empty($sectionData['cta_primary_text']) || !empty($sectionData['cta_secondary_text'])))
+                    @if($v('_cta') && (($v('_cta_primary') && !empty($sectionData['cta_primary_text'])) || ($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))))
                     <div class="flex flex-col justify-center pt-6 sm:flex-row sm:pt-5 lg:justify-start gap-4">
-                        @if(!empty($sectionData['cta_primary_text']))
+                        @if($v('_cta_primary') && !empty($sectionData['cta_primary_text']))
                         <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex items-center justify-center rounded px-8 py-3 font-header font-bold uppercase text-white hover:opacity-90" style="background-color: {{ $primaryColor }};">
                             {{ $sectionData['cta_primary_text'] }}
                         </a>
                         @endif
-                        @if(!empty($sectionData['cta_secondary_text']))
+                        @if($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))
                         <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex items-center justify-center rounded border-2 border-white px-8 py-3 font-header font-bold uppercase text-white hover:bg-white/20 transition-colors">
                             {{ $sectionData['cta_secondary_text'] }}
                         </a>
@@ -129,11 +129,13 @@
     @endif
 
     @if($base === 'why_nexa' && $v(''))
-    <div class="bg-grey-50" id="about">
-        <div class="container flex flex-col items-center py-16 md:py-20 lg:flex-row">
+    @php $whyBg = \App\Models\WebsitePage::whyNexaBackgroundPresentation($sectionData); @endphp
+    <div class="{{ $whyBg['has_light_surface'] ? '' : 'bg-grey-50' }} {{ $whyBg['wrapper_class'] }}" id="about" @if($whyBg['color_style'] !== '') style="{{ $whyBg['color_style'] }}" @endif>
+        @include('frontend.website.partials.why-nexa-background-layers')
+        <div class="container flex flex-col items-center py-16 md:py-20 lg:flex-row relative z-10">
             <div class="w-full text-center sm:w-3/4 lg:w-3/5 lg:text-left">
                 @if($v('_title'))
-                <h2 class="font-header text-4xl font-semibold uppercase sm:text-5xl lg:text-6xl" style="color: {{ $primaryColor }};">
+                <h2 class="font-header text-4xl font-semibold uppercase sm:text-5xl lg:text-6xl" style="{{ $whyBg['title_color_style'] !== '' ? $whyBg['title_color_style'] : 'color: '.$primaryColor.';' }}">
                     {{ $sectionData['title'] ?? 'Over ons' }}
                 </h2>
                 @endif
@@ -158,7 +160,7 @@
         $featuresCount = count($featuresItems);
         $featuresCols = $featuresCount > 3 ? 2 : max(1, $featuresCount);
     @endphp
-    <div class="container py-16 md:py-20" id="services">
+    <div class="container pt-8 md:pt-10 pb-12 md:pb-16" id="services">
         @if($v('_section_title') && !empty($sectionData['section_title']))
         <h2 class="text-center font-header text-4xl font-semibold uppercase sm:text-5xl lg:text-6xl" style="color: {{ $primaryColor }};">
             {{ $sectionData['section_title'] }}
@@ -232,14 +234,14 @@
             @if($v('_subtitle') && !empty($sectionData['subtitle']))
             <div class="mt-4 text-center font-body text-white/90" style="color: rgba(255,255,255,0.9);">{!! $sectionData['subtitle'] !!}</div>
             @endif
-            @if($v('_cta') && (!empty($sectionData['cta_primary_text']) || !empty($sectionData['cta_secondary_text'])))
+            @if($v('_cta') && (($v('_cta_primary') && !empty($sectionData['cta_primary_text'])) || ($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))))
             <div class="mt-6 flex flex-col justify-center gap-4 sm:flex-row sm:gap-4">
-                @if(!empty($sectionData['cta_primary_text']))
+                @if($v('_cta_primary') && !empty($sectionData['cta_primary_text']))
                 <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex items-center justify-center rounded bg-yellow px-8 py-3 font-body font-bold uppercase transition-colors hover:opacity-90" style="color: {{ $primaryColor }};">
                     {{ $sectionData['cta_primary_text'] }}
                 </a>
                 @endif
-                @if(!empty($sectionData['cta_secondary_text']))
+                @if($v('_cta_secondary') && !empty($sectionData['cta_secondary_text']))
                 <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex items-center justify-center rounded border-2 border-white px-8 py-3 font-body font-bold uppercase text-white hover:bg-white/20 transition-colors">
                     {{ $sectionData['cta_secondary_text'] }}
                 </a>

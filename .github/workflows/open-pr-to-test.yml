@@ -1,5 +1,6 @@
 # Opent automatisch een PR naar release/test bij push op elke werkbranch.
-# Na merge triggert deploy-saas.yml via PR-closed + expliciete workflow_dispatch.
+# Na merge start Open PR één Deploy TEST via workflow_dispatch (GITHUB_TOKEN
+# triggert geen on:push naar release/test).
 
 name: Open PR to release/test
 
@@ -34,10 +35,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create or skip PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             async function triggerTestDeploy() {
+              const { data: existing } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'deploy-saas.yml',
+                per_page: 10,
+              });
+              const already = existing.workflow_runs.some((run) =>
+                run.head_branch === 'release/test'
+                && ['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(run.status)
+              );
+              if (already) {
+                core.info('Deploy TEST voor release/test loopt al; geen tweede run starten.');
+                return;
+              }
+
               const maxAttempts = 5;
               for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
@@ -113,7 +129,7 @@ jobs:
                     'Automatisch aangemaakt bij push op `' + head + '`.',
                     '',
                     'Na groene CI wordt deze PR automatisch gemerged.',
-                    'Pas daarna start de TEST-deploy (PR merge + workflow_dispatch).',
+                    'Daarna start één TEST-deploy (workflow_dispatch).',
                   ].join('\n'),
                 });
                 pr = response.data;
@@ -155,18 +171,19 @@ jobs:
             const maxWaitMs = 30 * 60 * 1000;
             const started = Date.now();
 
+            const ignorableConclusions = new Set(['cancelled', 'skipped', 'action_required', 'neutral', 'stale', 'startup_failure']);
+            const failedConclusions = new Set(['failure', 'timed_out']);
+
             core.info(`Wacht op check "test" voor ${headSha} (PR #${pr.number})`);
             while (Date.now() - started < maxWaitMs) {
               const { data } = await github.rest.checks.listForRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: headSha,
+                per_page: 100,
               });
 
-              // Alleen de nieuwste "test"-check telt; cancelled/skipped (outage/concurrency) negeren.
-              const testRuns = data.check_runs
-                .filter((c) => c.name === 'test')
-                .sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+              const testRuns = data.check_runs.filter((c) => c.name === 'test');
 
               if (testRuns.length === 0) {
                 core.info('Check "test" nog niet gestart, wacht...');
@@ -174,26 +191,35 @@ jobs:
                 continue;
               }
 
-              const latest = testRuns[0];
-              if (latest.status !== 'completed') {
-                core.info(`Check "test" nog bezig (${latest.status})`);
+              // Eén groene run op deze SHA is genoeg. action_required/cancelled van een
+              // dubbele PR-run mag een nog lopende push-test niet afbreken.
+              if (testRuns.some((c) => c.conclusion === 'success')) {
+                core.info('Check "test" geslaagd.');
+                break;
+              }
+
+              const running = testRuns.filter((c) => c.status !== 'completed');
+              if (running.length > 0) {
+                core.info(`Check "test" nog bezig (${running[0].status})`);
                 await new Promise((resolve) => setTimeout(resolve, waitMs));
                 continue;
               }
 
-              if (latest.conclusion === 'cancelled' || latest.conclusion === 'skipped') {
-                core.info(`Nieuwste check "test" is ${latest.conclusion}; wacht op een nieuwe run...`);
-                await new Promise((resolve) => setTimeout(resolve, waitMs));
-                continue;
-              }
-
-              if (latest.conclusion !== 'success') {
-                core.setFailed(`Check "test" niet geslaagd: ${latest.conclusion}`);
+              const failed = testRuns.filter((c) => failedConclusions.has(c.conclusion));
+              if (failed.length > 0) {
+                core.setFailed(`Check "test" niet geslaagd: ${failed[0].conclusion}`);
                 return;
               }
 
-              core.info('Check "test" geslaagd.');
-              break;
+              const latest = testRuns[0];
+              if (ignorableConclusions.has(latest.conclusion)) {
+                core.info(`Check "test" is ${latest.conclusion}; wacht op een nieuwe run...`);
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                continue;
+              }
+
+              core.setFailed(`Check "test" niet geslaagd: ${latest.conclusion || latest.status}`);
+              return;
             }
 
             if (Date.now() - started >= maxWaitMs) {

@@ -5,9 +5,42 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /** @property-read \App\Models\Module|null $activeModule */
-
 class FrontendTheme extends Model
 {
+    /**
+     * Thema's die de website-bouwer (home-secties) ondersteunen.
+     *
+     * @var list<string>
+     */
+    public const HOME_SECTION_SLUGS = [
+        'modern',
+        'atom-v2',
+        'nextly-template',
+        'next-landing-vpn',
+        'landwind',
+        'play-tailwind',
+        'vue-material-kit',
+    ];
+
+    /**
+     * Thema's waarvan de bronbestanden in backend/themas/ staan.
+     *
+     * @var list<string>
+     */
+    public const PACKAGED_SOURCE_SLUGS = [
+        'atom-v2',
+        'nextly-template',
+        'next-landing-vpn',
+        'landwind',
+        'play-tailwind',
+        'vue-material-kit',
+    ];
+
+    public static function usesHomeSections(?string $slug): bool
+    {
+        return in_array(strtolower(trim((string) $slug)), self::HOME_SECTION_SLUGS, true);
+    }
+
     protected $fillable = [
         'slug',
         'name',

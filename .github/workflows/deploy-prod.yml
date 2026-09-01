@@ -12,9 +12,8 @@
 #
 # Legacy (nog ondersteund): AWS_HOST, AWS_USER, AWS_SSH_KEY, AWS_SSH_PORT
 #
-# Netwerk: GitHub-hosted runners (ubuntu-latest) moeten TCP-poort 22 op de VPS bereiken.
-# Bij "dial tcp …:22: i/o timeout": UFW + Hostinger hPanel-firewall → SSH (22) openzetten
-# voor GitHub Actions IP-ranges (https://api.github.com/meta) of tijdelijk 0.0.0.0/0 testen.
+# Netwerk: draait op self-hosted runner (UbuntuVM / Proxmox), niet op ubuntu-latest.
+# GitHub-hosted runners krijgen vaak i/o timeout naar Hostinger SSH (IP niet in firewall).
 # Zie deploy/GITHUB-ACTIONS-PROD.md
 #
 # Environment "production" (Settings → Environments) voor goedkeuring/branch protection.
@@ -45,7 +44,8 @@ concurrency:
 
 jobs:
   deploy-prod:
-    runs-on: ubuntu-latest
+    # Self-hosted: zelfde runner als TEST. GitHub-hosted → Hostinger SSH time-out (firewall).
+    runs-on: self-hosted
     timeout-minutes: 90
     environment: production
 
@@ -109,10 +109,11 @@ jobs:
 
           echo "Tag ${ref} bevestigd op main (${tag_sha})."
 
-      - name: Checkout main (laatste deploy-tenant.sh)
+      - name: Checkout deploy-script (workflow-ref, niet alleen main)
         uses: actions/checkout@v5
         with:
-          ref: main
+          # Gebruik de ref waarop Deploy PROD draait, zodat hotfixes in deploy-tenant.sh
+          # direct meegaan. App-code op de server blijft GIT_REF (tag).
           fetch-depth: 1
           path: deploy-main
 
@@ -122,26 +123,29 @@ jobs:
           set -euo pipefail
           host="${{ secrets.HOSTINGER_HOST }}"
           [[ -z "$host" ]] && host="${{ secrets.AWS_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.DEPLOY_HOST }}"
           user="${{ secrets.HOSTINGER_USER }}"
           [[ -z "$user" ]] && user="${{ secrets.AWS_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.DEPLOY_USER }}"
           port="${{ secrets.HOSTINGER_SSH_PORT }}"
           [[ -z "$port" ]] && port="${{ secrets.AWS_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.DEPLOY_PORT }}"
           port="${port:-22}"
           key_set="nee"
-          if [[ -n "${{ secrets.HOSTINGER_SSH_KEY }}" || -n "${{ secrets.AWS_SSH_KEY }}" ]]; then
+          if [[ -n "${{ secrets.HOSTINGER_SSH_KEY }}" || -n "${{ secrets.AWS_SSH_KEY }}" || -n "${{ secrets.DEPLOY_KEY }}" ]]; then
             key_set="ja"
           fi
 
           if [[ -z "$host" ]]; then
-            echo "ERROR: Geen HOSTINGER_HOST (of legacy AWS_HOST) secret ingesteld." >&2
+            echo "ERROR: Geen HOSTINGER_HOST (of legacy AWS_HOST/DEPLOY_HOST) secret ingesteld." >&2
             exit 1
           fi
           if [[ -z "$user" ]]; then
-            echo "ERROR: Geen HOSTINGER_USER (of legacy AWS_USER) secret ingesteld." >&2
+            echo "ERROR: Geen HOSTINGER_USER (of legacy AWS_USER/DEPLOY_USER) secret ingesteld." >&2
             exit 1
           fi
           if [[ "$key_set" != "ja" ]]; then
-            echo "ERROR: Geen HOSTINGER_SSH_KEY (of legacy AWS_SSH_KEY) secret ingesteld." >&2
+            echo "ERROR: Geen HOSTINGER_SSH_KEY (of legacy AWS_SSH_KEY/DEPLOY_KEY) secret ingesteld." >&2
             exit 1
           fi
 
@@ -155,210 +159,98 @@ jobs:
         run: |
           set -euo pipefail
           ref="${{ steps.version.outputs.ref }}"
-          src="deploy-main/deploy/deploy-tenant.sh"
+          src="deploy-main/deploy/prod-coolify-or-tenant.sh"
+          tenant_src="deploy-main/deploy/deploy-tenant.sh"
           if [[ ! -f "$src" ]]; then
-            echo "ERROR: $src ontbreekt op main" >&2
+            echo "ERROR: $src ontbreekt op workflow-ref" >&2
             exit 1
           fi
-          echo "Deploy-script van main; app-code wordt op server uitgecheckt naar tag ${ref}."
-          # Relatief pad in workspace (scp-action vindt absolute /tmp-paden op de runner niet betrouwbaar).
-          upload_name="nexa-deploy-tenant-ci.sh"
-          cp "$src" "$upload_name"
-          sed -i 's/\r$//' "$upload_name"
-          chmod 755 "$upload_name"
-          echo "upload_source=$upload_name" >> "$GITHUB_OUTPUT"
-          echo "remote_path=/tmp/nexa-deploy-tenant-ci.sh" >> "$GITHUB_OUTPUT"
-          echo "Deploy-script klaar: $upload_name ($(wc -c < "$upload_name") bytes) → remote /tmp/nexa-deploy-tenant-ci.sh"
+          if [[ ! -f "$tenant_src" ]]; then
+            echo "ERROR: $tenant_src ontbreekt op workflow-ref" >&2
+            exit 1
+          fi
+          echo "Deploy-entry van workflow-ref; app-code op server → tag ${ref}."
+          cp "$src" nexa-prod-deploy-ci.sh
+          cp "$tenant_src" nexa-deploy-tenant-ci.sh
+          sed -i 's/\r$//' nexa-prod-deploy-ci.sh nexa-deploy-tenant-ci.sh
+          chmod 755 nexa-prod-deploy-ci.sh nexa-deploy-tenant-ci.sh
+          echo "upload_source=nexa-prod-deploy-ci.sh,nexa-deploy-tenant-ci.sh" >> "$GITHUB_OUTPUT"
+          echo "remote_entry=/tmp/nexa-prod-deploy-ci.sh" >> "$GITHUB_OUTPUT"
+          echo "remote_tenant=/tmp/nexa-deploy-tenant-ci.sh" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Coolify webhook (preferred)
+        id: coolify
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${COOLIFY_WEBHOOK:-}" || -z "${COOLIFY_TOKEN:-}" ]]; then
+            echo "Geen COOLIFY_WEBHOOK/COOLIFY_TOKEN secrets — val terug op SSH."
+            echo "used=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          url="$COOLIFY_WEBHOOK"
+          if [[ "$url" != *force=* ]]; then
+            if [[ "$url" == *\?* ]]; then url="${url}&force=true"; else url="${url}?force=true"; fi
+          fi
+          echo "Coolify deploy webhook…"
+          curl --fail --show-error --silent --request GET "$url" \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}"
+          echo
+          echo "used=true" >> "$GITHUB_OUTPUT"
 
       - name: Preflight SSH naar PROD (poort bereikbaar?)
+        if: steps.coolify.outputs.used != 'true'
         env:
           SSH_HOST: ${{ steps.ssh.outputs.host }}
           SSH_PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -euo pipefail
           port="${SSH_PORT:-22}"
-          echo "Test TCP ${SSH_HOST}:${port} (max 20s)…"
-          if timeout 20 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
-            echo "OK: poort ${port} bereikbaar vanaf GitHub runner."
+          echo "Runner: $(hostname) user=$(id -un)"
+          echo "Test TCP ${SSH_HOST}:${port} (max 25s)…"
+          if timeout 25 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
+            echo "OK: poort ${port} bereikbaar vanaf self-hosted runner."
           else
             echo "ERROR: Geen TCP-verbinding naar ${SSH_HOST}:${port} (i/o timeout)." >&2
-            echo "" >&2
-            echo "Dit is géén 'bestand niet gevonden' — het deploy-script staat klaar op de runner." >&2
-            echo "De runner kan de VPS niet bereiken op SSH." >&2
-            echo "" >&2
-            echo "Controleer:" >&2
-            echo "  1. VPS draait en is bereikbaar" >&2
-            echo "  2. HOSTINGER_HOST = publiek IP of hostnaam van de VPS" >&2
-            echo "  3. UFW + Hostinger hPanel-firewall → SSH (poort ${port}) toegestaan" >&2
-            echo "     (GitHub Actions gebruikt dynamische IP's; zie deploy/GITHUB-ACTIONS-PROD.md)" >&2
-            echo "  4. Eventueel HOSTINGER_SSH_PORT secret als SSH niet op 22 draait" >&2
+            echo "Zet COOLIFY_WEBHOOK + COOLIFY_TOKEN, of open SSH voor deze runner." >&2
             exit 1
           fi
 
-      - name: Upload deploy script to PROD
+      - name: Upload deploy scripts to PROD
+        if: steps.coolify.outputs.used != 'true'
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
           port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
-          source: ${{ steps.deploy_script.outputs.upload_source }}
+          source: nexa-prod-deploy-ci.sh,nexa-deploy-tenant-ci.sh
           target: /tmp/
           overwrite: true
 
-      - name: Verify deploy script on PROD
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ steps.ssh.outputs.host }}
-          username: ${{ steps.ssh.outputs.user }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
-          port: ${{ steps.ssh.outputs.port }}
-          timeout: 60s
-          script_stop: true
-          script: |
-            set -euo pipefail
-            path="/tmp/nexa-deploy-tenant-ci.sh"
-            if [[ ! -f "$path" ]]; then
-              echo "ERROR: Upload ontbreekt op server: $path" >&2
-              ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || ls -la /tmp >&2
-              exit 1
-            fi
-            echo "OK: $path ($(wc -c < "$path") bytes, uitvoerbaar: $([ -x "$path" ] && echo ja || echo nee))"
-
-      - name: Deploy to PROD (deploy-tenant.sh)
+      - name: Deploy to PROD (Coolify-aware or legacy tenant)
+        if: steps.coolify.outputs.used != 'true'
         uses: appleboy/ssh-action@v1.2.0
         env:
           GIT_REF: ${{ steps.version.outputs.ref }}
           APP_DIR: ${{ vars.APP_DIR }}
           SSH_DEPLOY_USER: ${{ steps.ssh.outputs.user }}
-          DEPLOY_SCRIPT: ${{ steps.deploy_script.outputs.remote_path }}
+          DEPLOY_SCRIPT: /tmp/nexa-deploy-tenant-ci.sh
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
           port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
-          # Hele deploy (npm ci, vite, docker build, migrate) duurt op een VPS vaak >10m.
           command_timeout: 90m
-          # script_stop=false: anders stopt drone-ssh bij eerste deploy-fout vóór log/tail hieronder.
           script_stop: false
-          envs: GIT_REF,APP_DIR,SSH_DEPLOY_USER,DEPLOY_SCRIPT
+          envs: GIT_REF,APP_DIR,SSH_DEPLOY_USER,DEPLOY_SCRIPT,COOLIFY_WEBHOOK,COOLIFY_TOKEN
           script: |
             set -euo pipefail
-            exec 2>&1
-            TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
-            DEPLOY_USER="${SSH_DEPLOY_USER:-ubuntu}"
-            GIT_REMOTE="origin"
-            export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER DEPLOY_SCRIPT
-            export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
-            export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
-            export REQUIRE_COMPOSE_V2=1
-            export DEPLOY_DEBUG="${DEPLOY_DEBUG:-1}"
-            export DEPLOY_NO_TEE=1
-
-            echo "=== PROD deploy ==="
-            echo "Host: $(hostname)"
-            echo "TENANT_DIR: $TENANT_DIR"
-            echo "GIT_REF: $GIT_REF"
-            echo "DEPLOY_USER: $DEPLOY_USER"
-            echo "DEPLOY_SCRIPT: ${DEPLOY_SCRIPT:-<unset>}"
-
-            if [[ ! -d "$TENANT_DIR/.git" ]]; then
-              echo "ERROR: Geen git-repo in TENANT_DIR ($TENANT_DIR)" >&2
-              exit 1
-            fi
-
-            if [[ -n "${DEPLOY_SCRIPT:-}" ]]; then
-              if [[ -f "$DEPLOY_SCRIPT" ]]; then
-                echo "==> CI-upload script aanwezig: $DEPLOY_SCRIPT ($(wc -c < "$DEPLOY_SCRIPT") bytes)"
-              else
-                echo "ERROR: CI-upload script ontbreekt op server: $DEPLOY_SCRIPT"
-                ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
-                exit 1
-              fi
-            fi
-
-            SCRIPT=""
-            if [[ -n "${DEPLOY_SCRIPT:-}" && -f "$DEPLOY_SCRIPT" ]]; then
-              SCRIPT="$DEPLOY_SCRIPT"
-            elif [[ -f "$TENANT_DIR/deploy/deploy-tenant.sh" ]]; then
-              SCRIPT="$TENANT_DIR/deploy/deploy-tenant.sh"
-            fi
-
-            if [[ -z "$SCRIPT" ]]; then
-              echo "ERROR: Geen deploy-script gevonden (DEPLOY_SCRIPT=${DEPLOY_SCRIPT:-})"
-              ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
-              echo "==> fallback: git show uit tag $GIT_REF"
-              TMP_SCRIPT="/tmp/nexa-deploy-tenant-${GIT_REF//[^a-zA-Z0-9_.-]/_}.sh"
-              if [[ "$(id -un)" != "$DEPLOY_USER" ]] && sudo -n -u "$DEPLOY_USER" true 2>/dev/null; then
-                if ! sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" "refs/tags/${GIT_REF}:refs/tags/${GIT_REF}" --force; then
-                  echo "ERROR: git fetch tag ${GIT_REF} mislukt in $TENANT_DIR" >&2
-                  exit 1
-                fi
-                if ! sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"; then
-                  echo "ERROR: git show ${GIT_REF}:deploy/deploy-tenant.sh mislukt" >&2
-                  sudo -n -u "$DEPLOY_USER" -H git -C "$TENANT_DIR" remote -v >&2 || true
-                  sudo -n -u "$DEPLOY_USER" -H git -C "$TENANT_DIR" tag -l "${GIT_REF}" >&2 || true
-                  exit 1
-                fi
-              else
-                if ! git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" "refs/tags/${GIT_REF}:refs/tags/${GIT_REF}" --force; then
-                  echo "ERROR: git fetch tag ${GIT_REF} mislukt in $TENANT_DIR" >&2
-                  exit 1
-                fi
-                if ! git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"; then
-                  echo "ERROR: git show ${GIT_REF}:deploy/deploy-tenant.sh mislukt" >&2
-                  git -C "$TENANT_DIR" remote -v >&2 || true
-                  git -C "$TENANT_DIR" tag -l "${GIT_REF}" >&2 || true
-                  exit 1
-                fi
-              fi
-              chmod 755 "$TMP_SCRIPT"
-              SCRIPT="$TMP_SCRIPT"
-            fi
-
-            echo "==> Gekozen deploy-script: $SCRIPT"
-
-            if ! bash -n "$SCRIPT"; then
-              echo "ERROR: deploy-script syntax check mislukt: $SCRIPT"
-              exit 1
-            fi
-            echo "==> Start deploy-tenant.sh (user=$(id -un), tag=$GIT_REF)"
-            TRACE_LOG="/tmp/nexa-deploy-trace-${GIT_REF//[^a-zA-Z0-9_.-]/_}.log"
-            DEPLOY_ENV=(
-              TENANT_DIR="$TENANT_DIR"
-              GIT_REF="$GIT_REF"
-              GIT_REMOTE="$GIT_REMOTE"
-              COMPOSE_FILE="$COMPOSE_FILE"
-              LARAVEL_SERVICE="$LARAVEL_SERVICE"
-              DEPLOY_USER="$DEPLOY_USER"
-              REQUIRE_COMPOSE_V2=1
-              DEPLOY_DEBUG=1
-              DEPLOY_NO_TEE=1
-            )
-
-            set +e
-            if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
-              echo "==> SSH-user is $(id -un); deploy als $DEPLOY_USER"
-              sudo -u "$DEPLOY_USER" -H env "${DEPLOY_ENV[@]}" bash -x "$SCRIPT" 2>&1 | tee "$TRACE_LOG"
-            else
-              env "${DEPLOY_ENV[@]}" bash -x "$SCRIPT" 2>&1 | tee "$TRACE_LOG"
-            fi
-            code="${PIPESTATUS[0]}"
-            set -e
-
-            if [[ "$code" != "0" ]]; then
-              echo "ERROR: deploy-tenant.sh exit ${code}"
-              echo "=== deploy trace (tail ${TRACE_LOG}) ==="
-              tail -n 120 "$TRACE_LOG" 2>/dev/null || true
-              for log in "$TENANT_DIR/backend/storage/logs/deploy-latest.log" "$TENANT_DIR/storage/logs/deploy-latest.log"; do
-                if [[ -f "$log" ]]; then
-                  echo "=== deploy-latest.log (tail ${log}) ==="
-                  tail -n 80 "$log" || true
-                fi
-              done
-              exit "$code"
-            fi
-
-            echo "=== PROD deploy afgerond ==="
+            chmod 755 /tmp/nexa-prod-deploy-ci.sh /tmp/nexa-deploy-tenant-ci.sh 2>/dev/null || true
+            bash /tmp/nexa-prod-deploy-ci.sh

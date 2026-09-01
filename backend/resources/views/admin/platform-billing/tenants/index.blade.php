@@ -29,11 +29,17 @@
     @endif
 
     <div class="kt-card kt-card-grid w-full min-w-0">
-        <div class="kt-card-header py-5 flex-wrap gap-3 justify-between items-center">
+        <div class="kt-card-header px-5 py-5 flex-wrap gap-3 justify-between items-center">
             <h3 class="kt-card-title text-sm mb-0">
                 Tenants
             </h3>
             <form method="GET" action="{{ route('admin.platform-billing.tenants.index') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
+                <select class="kt-select w-full sm:w-48" name="company_id" data-label="Tenant">
+                    <option value="">Alle tenants</option>
+                    @foreach($tenantOptions as $tenant)
+                        <option value="{{ $tenant->id }}" @selected((string) ($filterCompanyId ?? '') === (string) $tenant->id)>{{ $tenant->name }}</option>
+                    @endforeach
+                </select>
                 <label class="kt-input w-full sm:w-56 min-w-0">
                     <i class="ki-filled ki-magnifier"></i>
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Zoek tenant…" class="min-w-0" autocomplete="off">
@@ -58,17 +64,17 @@
                 <table id="platform-billing-tenants-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                     <colgroup>
                         <col>
-                        <col class="platform-billing-tenants-col-mode">
+                        <col class="platform-billing-tenants-col-package">
                         <col class="platform-billing-tenants-col-amount">
                         <col class="platform-billing-tenants-col-mandate">
                         <col class="admin-table__actions-col">
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="text-secondary-foreground font-normal text-left">Tenant</th>
-                            <th class="text-secondary-foreground font-normal text-left">Modus</th>
-                            <th class="text-secondary-foreground font-normal text-left">Bedrag/maand</th>
-                            <th class="text-secondary-foreground font-normal text-left">Mandaat</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="Tenant">Tenant</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="Pakket">Pakket</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="Bedrag/maand">Bedrag/maand</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="Mandaat">Mandaat</th>
                             <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
                         </tr>
                     </thead>
@@ -79,8 +85,15 @@
                             $mandate = $mandates->get($company->id);
                         @endphp
                         <tr data-row-href="{{ route('admin.platform-billing.tenants.edit', $company) }}">
-                            <td class="platform-billing-tenants__name font-medium">{{ $company->name }}</td>
-                            <td class="platform-billing-tenants__mode whitespace-nowrap">{{ $profile?->billing_mode ?? '—' }}</td>
+                            <td class="platform-billing-tenants__name font-medium">
+                                {{ $company->name }}
+                                @if(in_array($profile?->access_restriction, ['bookings', 'full'], true))
+                                    <span class="ms-1 text-xs font-normal text-destructive">
+                                        {{ $profile->access_restriction === 'full' ? 'volledig geblokkeerd' : 'boekingen geblokkeerd' }}
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="platform-billing-tenants__package whitespace-nowrap" @if($profile?->package?->name) title="{{ $profile->package->name }}" @endif>{{ $profile?->package?->name ?: '—' }}</td>
                             <td class="platform-billing-tenants__amount whitespace-nowrap tabular-nums">@if($profile) € {{ number_format($profile->resolveMonthlyAmount(), 2, ',', '.') }} @else — @endif</td>
                             <td class="platform-billing-tenants__mandate whitespace-nowrap">{{ $mandate?->status ?? 'geen' }}</td>
                             <td class="admin-table__actions-col" data-no-row-link>
@@ -117,8 +130,8 @@
 
 @push('styles')
 <style>
-    #content #platform-billing-tenants-table col.platform-billing-tenants-col-mode {
-        width: 7rem;
+    #content #platform-billing-tenants-table col.platform-billing-tenants-col-package {
+        width: 9rem;
     }
 
     #content #platform-billing-tenants-table col.platform-billing-tenants-col-amount {

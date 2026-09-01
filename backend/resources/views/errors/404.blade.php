@@ -1,88 +1,106 @@
 <!DOCTYPE html>
-<html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
+<html lang="nl">
 <head>
-    <base href="{{ url('/') }}">
-    <title>404 - Pagina Niet Gevonden | NEXA Skillmatching</title>
-    <meta charset="utf-8"/>
-    <meta content="follow, index" name="robots"/>
-    <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
-    <meta content="404 Error page for NEXA Skillmatching Platform" name="description"/>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="antialiased flex h-full text-base text-foreground bg-background demo1 kt-sidebar-fixed kt-header-fixed">
-    <!-- Theme Mode -->
-    <script>
-        const defaultThemeMode = 'light';
-        let themeMode;
-
-        if (document.documentElement) {
-            if (localStorage.getItem('kt-theme')) {
-                themeMode = localStorage.getItem('kt-theme');
-            } else if (document.documentElement.hasAttribute('data-kt-theme-mode')) {
-                themeMode = document.documentElement.getAttribute('data-kt-theme-mode');
-            } else {
-                themeMode = defaultThemeMode;
-            }
-
-            if (themeMode === 'system') {
-                themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            }
-
-            document.documentElement.classList.add(themeMode);
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>404 — Pagina niet gevonden | NEXA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Arvo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            height: 100%;
         }
-    </script>
-    <!-- End of Theme Mode -->
-    
-    <!-- Page -->
-    <!-- Main -->
-    <div class="flex grow">
-        <!-- Wrapper -->
-        <div class="kt-wrapper flex grow flex-col">
-            <!-- Content -->
-            <main class="grow pt-5" id="content" role="content">
-                <div class="flex flex-col items-center justify-center h-[95%]">
-                    <div class="mb-8">
-                        @include('partials.nexa-brand-logo', ['class' => 'h-12 w-auto mx-auto object-contain'])
-                    </div>
-                    <span class="kt-badge kt-badge-primary kt-badge-outline mb-3">
-                        404 Fout
-                    </span>
-                    <h3 class="text-2xl font-semibold text-mono text-center mb-2">
-                        Deze pagina is niet gevonden
-                    </h3>
-                    <div class="text-base text-center text-secondary-foreground mb-4">
-                        De gevraagde pagina ontbreekt of bestaat niet meer.
-                    </div>
-                    @php
-                        $title = 'Pagina niet gevonden';
-                        $message = 'U wordt binnen 5 seconden automatisch doorgestuurd. U kunt ook direct op de onderstaande link klikken.';
-                        $redirectUrl = auth()->check() ? route('admin.dashboard') : route('home');
-                        $redirectLabel = auth()->check() ? 'Naar dashboard' : 'Naar home';
-                    @endphp
-                    @include('partials.redirect-message')
-                    <div class="mt-4">
-                        <a href="{{ url()->previous() }}" class="kt-btn kt-btn-outline">
-                            <i class="ki-filled ki-arrow-left"></i>
-                            Terug
-                        </a>
-                    </div>
-                </div>
-            </main>
-            <!-- End of Content -->
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            font-family: 'Arvo', serif;
+            color: #333;
+        }
+        .page_404 {
+            width: 100%;
+            max-width: 720px;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .four_zero_four_bg {
+            background-image: url(https://cdn.dribbble.com/users/285475/screenshots/2083086/dribbble_1.gif);
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: contain;
+            height: min(400px, 55vh);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        .four_zero_four_bg h1 {
+            margin: 0;
+            font-size: clamp(64px, 12vw, 80px);
+            font-weight: 700;
+            line-height: 1;
+        }
+        .contant_box_404 {
+            margin-top: -40px;
+        }
+        .contant_box_404 h3 {
+            margin: 0 0 12px;
+            font-size: clamp(22px, 4vw, 28px);
+            font-weight: 700;
+        }
+        .contant_box_404 p {
+            margin: 0 0 24px;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #555;
+        }
+        .link_404 {
+            color: #fff !important;
+            padding: 12px 24px;
+            background: #39ac31;
+            margin: 8px 0 0;
+            display: inline-block;
+            text-decoration: none;
+            border-radius: 4px;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-weight: 600;
+            font-size: 15px;
+            transition: background 0.15s ease;
+        }
+        .link_404:hover {
+            background: #2f9229;
+        }
+        .page_404-brand {
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: center;
+        }
+        .page_404-brand img {
+            display: block;
+            height: 40px;
+            width: auto;
+            max-width: 180px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <section class="page_404" role="main" aria-labelledby="error-404-title">
+        <div class="page_404-brand">
+            @include('partials.nexa-brand-logo', ['class' => '', 'alt' => 'NEXA'])
         </div>
-        <!-- End of Wrapper -->
-    </div>
-    <!-- End of Main -->
-    <!-- End of Page -->
-    
-    <!-- Scripts -->
-    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
-    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
-    <!-- End of Scripts -->
+        <div class="four_zero_four_bg">
+            <h1 id="error-404-title">404</h1>
+        </div>
+        <div class="contant_box_404">
+            <h3>Het lijkt erop dat u verdwaald bent</h3>
+            <p>De pagina die u zoekt is niet beschikbaar.</p>
+            <a href="{{ url('/') }}" class="link_404">Naar home</a>
+        </div>
+    </section>
 </body>
 </html>

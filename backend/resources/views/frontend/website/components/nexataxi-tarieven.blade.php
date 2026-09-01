@@ -16,7 +16,10 @@
             $hasRates = $ratesData && ($ratesData['rates_1_4'] || $ratesData['rates_5_8']);
             $hasSectionItemsWithContent = !empty($sectionItems);
             $sectionTitle = $sectionData['title'] ?? 'Tarieven';
-            $sectionTitleAlignClass = 'text-' . (in_array($sectionData['title_align'] ?? 'left', ['left', 'center', 'right'], true) ? ($sectionData['title_align']) : 'left');
+            $sectionTitleAlign = in_array($sectionData['title_align'] ?? 'left', ['left', 'center', 'right'], true)
+                ? (string) ($sectionData['title_align'] ?? 'left')
+                : 'left';
+            $sectionTitleAlignClass = 'text-'.$sectionTitleAlign;
             $sectionTitleStyle = '';
             if (!empty($sectionData['title_font_size'])) {
                 $sectionTitleStyle .= ' font-size: ' . e($sectionData['title_font_size']) . ';';

@@ -75,6 +75,11 @@ class User extends Authenticatable
         return $this->isSuperAdminCache;
     }
 
+    public function canAccessAdminPanel(): bool
+    {
+        return \App\Support\AdminPanelRoles::canAccessPanel($this);
+    }
+
     /**
      * Spatie teams: als de super-admin-rol niet via de gefilterde relatie matcht, alsnog true
      * wanneer {@see isSuperAdmin()} dat aangeeft — gelijk aan {@see hasRole()} met rolnaam `super-admin`.
@@ -188,11 +193,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Mag bedrijven/tenants aanmaken (wizard of formulier).
+     * Mag bedrijven/tenants aanmaken (wizard of formulier). Alleen super-admin.
      */
     public function canCreateCompanies(): bool
     {
-        return $this->can('create-companies');
+        return $this->isSuperAdmin();
     }
 
     /**
@@ -284,6 +289,8 @@ class User extends Authenticatable
         'email',
         'password',
         'password_must_be_set',
+        'must_change_password',
+        'welcome_handleiding_pending',
         'date_of_birth',
         'email_verified_at',
         'phone_verified_at',
@@ -310,6 +317,7 @@ class User extends Authenticatable
         'function',
         'job_title_id',
         'agenda_color',
+        'pwa_accent',
     ];
 
     /**
@@ -334,6 +342,8 @@ class User extends Authenticatable
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'password_must_be_set' => 'boolean',
+            'must_change_password' => 'boolean',
+            'welcome_handleiding_pending' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

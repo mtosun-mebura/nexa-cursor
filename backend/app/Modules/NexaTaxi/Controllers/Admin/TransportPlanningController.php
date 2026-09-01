@@ -40,9 +40,12 @@ class TransportPlanningController extends Controller
             ->whereBetween('scheduled_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->with([
                 'rideRequest.driver',
+                'rideRequest.vehicle',
+                'rideRequest.rideStops',
                 'contract',
                 'routeTemplate.group',
                 'routeTemplate.assignment.driver',
+                'routeTemplate.assignment.vehicle',
                 'individualBooking.passenger',
             ])
             ->orderBy('scheduled_date')
@@ -61,12 +64,15 @@ class TransportPlanningController extends Controller
             ->orderBy('exception_date')
             ->get();
 
-        $days = collect(range(0, 6))->map(function (int $offset) use ($weekStart, $occurrences, $exceptions) {
+        $todayDate = now(ContractTransportTimezone::TIMEZONE)->toDateString();
+
+        $days = collect(range(0, 6))->map(function (int $offset) use ($weekStart, $occurrences, $exceptions, $todayDate) {
             $date = $weekStart->copy()->addDays($offset);
 
             return [
                 'date' => $date,
                 'label' => $date->locale('nl')->translatedFormat('D d-m'),
+                'isToday' => $date->toDateString() === $todayDate,
                 'occurrences' => $occurrences->filter(
                     fn (TransportOccurrence $item) => $item->scheduled_date?->toDateString() === $date->toDateString()
                 )->values(),
@@ -78,6 +84,8 @@ class TransportPlanningController extends Controller
 
         $prevWeek = $weekStart->copy()->subWeek()->format('Y-m-d');
         $nextWeek = $weekStart->copy()->addWeek()->format('Y-m-d');
+        $todayWeek = now(ContractTransportTimezone::TIMEZONE)->startOfWeek(Carbon::MONDAY)->format('Y-m-d');
+        $isCurrentWeek = $weekStart->toDateString() === $todayWeek;
 
         return view('taxi::admin.transport_planning.index', compact(
             'weekStart',
@@ -87,6 +95,8 @@ class TransportPlanningController extends Controller
             'contractFilter',
             'prevWeek',
             'nextWeek',
+            'todayWeek',
+            'isCurrentWeek',
         ));
     }
 
@@ -97,9 +107,9 @@ class TransportPlanningController extends Controller
         if ($parsed && preg_match('/^\d{4}-\d{2}-\d{2}$/', $parsed)) {
             $date = Carbon::createFromFormat('Y-m-d', $parsed, ContractTransportTimezone::TIMEZONE)->startOfDay();
         } else {
-            $date = now(ContractTransportTimezone::TIMEZONE)->startOfWeek(Carbon::MONDAY);
+            $date = now(ContractTransportTimezone::TIMEZONE)->startOfDay();
         }
 
-        return $date->startOfDay();
+        return $date->startOfWeek(Carbon::MONDAY)->startOfDay();
     }
 }

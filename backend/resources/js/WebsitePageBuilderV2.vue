@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import BuilderPalette from './website-page-builder-v2/BuilderPalette.vue'
 import BuilderCanvas from './website-page-builder-v2/BuilderCanvas.vue'
 import BuilderConfigPanel from './website-page-builder-v2/BuilderConfigPanel.vue'
@@ -49,9 +49,33 @@ const pageInfoModalOpen = ref(false)
 const pageMeta = ref<PageMetaForm>(JSON.parse(JSON.stringify(props.bootstrap.pageMeta)) as PageMetaForm)
 const pageHeader = ref({
   title: props.bootstrap.page.title,
+  menuTitle: props.bootstrap.pageMeta.menuTitle ?? '',
   slug: props.bootstrap.page.slug,
   themeName: props.bootstrap.themeName,
 })
+
+const toolbarMenuLabel = computed(() => {
+  const fromMeta = (pageMeta.value.menuTitle ?? '').trim()
+  if (fromMeta !== '') {
+    return fromMeta
+  }
+  return (pageHeader.value.menuTitle ?? '').trim()
+})
+
+const toolbarSeoTitle = computed(() => (pageHeader.value.title ?? '').trim())
+
+const toolbarTitleText = computed(() => {
+  const menu = toolbarMenuLabel.value
+  const seo = toolbarSeoTitle.value
+  if (menu !== '' && seo !== '' && menu !== seo) {
+    return `${menu} · ${seo}`
+  }
+  return menu || seo
+})
+
+provide('nexaPricing', computed(() => props.bootstrap.nexaPricing ?? { packages: [] }))
+provide('nexaPricingEditUrl', computed(() => props.bootstrap.routes.nexaPricingEdit ?? ''))
+provide('builderHeroicons', computed(() => props.bootstrap.heroicons ?? []))
 
 const previewUrl = computed(() => {
   const base = bootstrap.routes.preview
@@ -209,7 +233,7 @@ function onSaveShortcut(event: KeyboardEvent) {
     return
   }
   event.preventDefault()
-  if (saving.value) {
+  if (pageInfoModalOpen.value || saving.value) {
     return
   }
   void save()
@@ -232,11 +256,38 @@ function onPageInfoSaved(payload: {
   pageMeta.value = payload.pageMeta
   pageHeader.value = {
     title: payload.page.title,
+    menuTitle: payload.pageMeta.menuTitle ?? '',
     slug: payload.page.slug,
     themeName: payload.themeName,
   }
   saveMessage.value = 'Pagina-informatie opgeslagen.'
   previewRevision.value += 1
+}
+
+function onApplySeoHero(hero: Record<string, string>) {
+  const heroBlock = canvasBlocks.value.find((block) => block.baseType === 'hero')
+  if (!heroBlock) {
+    return
+  }
+  const currentTitle = String(sectionData(heroBlock.key).title ?? '').trim()
+  const incomingTitle = String(hero.title ?? '').trim()
+  const incomingTruncated = incomingTitle.endsWith('…') || incomingTitle.endsWith('...')
+  const currentTruncated = currentTitle.endsWith('…') || currentTitle.endsWith('...')
+  const patch: Record<string, unknown> = {}
+  if (
+    incomingTitle
+    && !incomingTruncated
+    && (currentTitle === '' || currentTruncated || incomingTitle.length >= currentTitle.length)
+  ) {
+    patch.title = incomingTitle
+  }
+  if (hero.subtitle) patch.subtitle = hero.subtitle
+  if (hero.cta_primary_text) patch.cta_primary_text = hero.cta_primary_text
+  if (hero.cta_secondary_text) patch.cta_secondary_text = hero.cta_secondary_text
+  if (Object.keys(patch).length === 0) {
+    return
+  }
+  setSectionData(heroBlock.key, patch)
 }
 
 watch(pageInfoModalOpen, (open) => {
@@ -298,7 +349,15 @@ onUnmounted(() => {
         <div class="min-w-0 builder-toolbar__title-wrap">
           <p class="text-xs uppercase tracking-wide text-muted-foreground">Page Builder v2</p>
           <div class="builder-toolbar__title-row">
-            <h1 class="text-base font-semibold truncate">{{ pageHeader.title }}</h1>
+            <h1 class="text-base font-semibold truncate" :title="toolbarTitleText">
+              <template v-if="toolbarMenuLabel && toolbarSeoTitle && toolbarMenuLabel !== toolbarSeoTitle">
+                {{ toolbarMenuLabel }}
+                <span class="font-normal text-muted-foreground"> · {{ toolbarSeoTitle }}</span>
+              </template>
+              <template v-else>
+                {{ toolbarTitleText }}
+              </template>
+            </h1>
             <button
               type="button"
               class="builder-toolbar__edit-page-btn"
@@ -357,7 +416,6 @@ onUnmounted(() => {
         </div>
 
         <div class="builder-toolbar__actions">
-          <a :href="bootstrap.routes.classicEdit" class="kt-btn kt-btn-outline kt-btn-sm">Klassieke editor</a>
           <a :href="previewUrl" target="_blank" rel="noopener" class="kt-btn kt-btn-outline kt-btn-sm">
             <i class="ki-filled ki-eye me-1" /> Nieuw tabblad
           </a>
@@ -389,6 +447,8 @@ onUnmounted(() => {
         :sections="bootstrap.catalog.sections"
         :components="bootstrap.catalog.components"
         :query="paletteQuery"
+        :block-preview-url="bootstrap.routes.blockPreview"
+        :theme-slug="bootstrap.themeSlug"
         @update:query="paletteQuery = $event"
         @add="handlePaletteAdd"
         @drag-start="paletteDragging = true"
@@ -404,11 +464,11 @@ onUnmounted(() => {
         :mode="previewMode"
         :palette-dragging="paletteDragging"
         :copyright-preview="copyrightPreview"
-        :visible-for-block="sectionVisible"
+        :visibility="sectionVisibility"
         @select="selectBlock"
         @add="handleCanvasAdd"
         @reorder="handleCanvasReorder"
-        @remove="removeBlock"
+        @remove-block="removeBlock"
         @move="moveBlock"
         @toggle-visibility="(key) => setSectionVisible(key, !sectionVisible(key))"
       >
@@ -561,7 +621,9 @@ onUnmounted(() => {
       v-model:open="pageInfoModalOpen"
       v-model="pageMeta"
       :bootstrap="bootstrap"
+      :home-sections="homeSections"
       @saved="onPageInfoSaved"
+      @apply-seo-hero="onApplySeoHero"
     />
   </div>
 </template>
@@ -625,6 +687,10 @@ onUnmounted(() => {
 .builder-toolbar__actions .kt-btn {
   justify-content: center;
   white-space: nowrap;
+}
+
+.builder-toolbar__actions .builder-save-btn {
+  grid-column: 2;
 }
 
 .builder-save-btn__loading {
@@ -947,6 +1013,36 @@ onUnmounted(() => {
   text-align: left;
   color: var(--foreground);
   min-width: 0;
+  flex: 1;
+}
+
+:deep(.builder-palette-preview-btn) {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.45rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+:deep(.builder-palette-tile:hover .builder-palette-preview-btn),
+:deep(.builder-palette-row:hover .builder-palette-preview-btn),
+:deep(.builder-palette-preview-btn:focus-visible) {
+  opacity: 1;
+}
+
+:deep(.builder-palette-preview-btn:hover),
+:deep(.builder-palette-preview-btn:focus-visible) {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 :deep(.builder-palette-list) {
@@ -1174,6 +1270,13 @@ onUnmounted(() => {
   color: var(--foreground);
 }
 
+:deep(.builder-block__hidden-label) {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  letter-spacing: 0.01em;
+}
+
 :deep(.builder-block__actions) {
   display: flex;
   gap: 0.15rem;
@@ -1186,6 +1289,7 @@ onUnmounted(() => {
   border-radius: 0.45rem;
   background: transparent;
   color: var(--muted-foreground);
+  cursor: pointer;
 }
 
 :deep(.builder-icon-btn:hover) {
@@ -1447,10 +1551,11 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
-.builder-config-modal__body :deep(.builder-media-upload-area) {
-  flex: none !important;
-  width: 16rem !important;
-  max-width: 16rem !important;
+.builder-config-modal__body :deep(.builder-media-upload-area),
+.builder-config-modal__body :deep(.builder-footer-logo__upload) {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: none !important;
   min-height: 4.5rem;
 }
 

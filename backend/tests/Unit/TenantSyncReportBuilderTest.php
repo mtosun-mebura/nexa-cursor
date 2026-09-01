@@ -15,21 +15,32 @@ class TenantSyncReportBuilderTest extends TestCase
             $events[] = $event;
         });
 
+        $builder->setProgressTotal(3);
         $builder->addStep('Tenant-sync gestart');
         $builder->addRow('Hoofddatabase', 'users', 2, 1, 0);
         $builder->addNote('Testnotitie');
         $builder->setSummary(42, 3, 1, 0);
 
-        $this->assertSame('step', $events[0]['type']);
-        $this->assertSame('Tenant-sync gestart', $events[0]['label']);
+        $types = array_column($events, 'type');
+        $this->assertContains('progress', $types);
+        $this->assertContains('step', $types);
+        $this->assertContains('row', $types);
+        $this->assertContains('note', $types);
+        $this->assertContains('summary', $types);
 
-        $this->assertSame('row', $events[1]['type']);
-        $this->assertSame('users', $events[1]['row']['label']);
+        $step = collect($events)->firstWhere('type', 'step');
+        $this->assertSame('Tenant-sync gestart', $step['label'] ?? null);
 
-        $this->assertSame('note', $events[2]['type']);
-        $this->assertSame('Testnotitie', $events[2]['note']);
+        $row = collect($events)->firstWhere('type', 'row');
+        $this->assertSame('users', $row['row']['label'] ?? null);
 
-        $this->assertSame('summary', $events[3]['type']);
-        $this->assertSame(42, $events[3]['remote_company_id']);
+        $note = collect($events)->firstWhere('type', 'note');
+        $this->assertSame('Testnotitie', $note['note'] ?? null);
+
+        $summary = collect($events)->firstWhere('type', 'summary');
+        $this->assertSame(42, $summary['remote_company_id'] ?? null);
+
+        $finalProgress = collect($events)->reverse()->firstWhere('type', 'progress');
+        $this->assertSame(100, $finalProgress['percent'] ?? null);
     }
 }

@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Nexa Advise — Klantportaal voor hypotheken, verzekeringen en accountancy</title>
+<style>
+  @page { size: 1920px 1080px; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f4f6f8; color: #122033; }
+  body {
+    font-family: "Avenir Next", "Avenir", "Helvetica Neue", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .slide {
+    width: 1920px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+    background: #f4f6f8;
+    color: #122033;
+  }
+  @media screen {
+    html, body { background: #e8eef3; height: 100%; }
+    body { overflow: auto; scroll-snap-type: y mandatory; }
+    .slide {
+      margin: 0 auto;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+    }
+    .hint {
+      position: fixed; bottom: 18px; right: 22px; z-index: 50;
+      font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+      color: rgba(18,32,51,.4);
+    }
+  }
+  @media print { .hint { display: none; } }
+  html.shot, html.shot body {
+    background: #f4f6f8 !important;
+    width: 1920px; height: 1080px;
+    overflow: hidden !important;
+    margin: 0; padding: 0;
+    scroll-snap-type: none !important;
+  }
+  html.shot .slide { margin: 0; }
+  html.shot .hint { display: none !important; }
+  .serif { font-family: "New York", "Times New Roman", Georgia, serif; }
+  .orange { color: #c2410c; }
+  .blue { color: #0369a1; }
+
+  /* ===== shared chrome ===== */
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 72px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 64px; z-index: 3;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand img { height: 28px; background: transparent; padding: 0; border: 0; border-radius: 0; }
+  .brand-name { font-size: 13px; letter-spacing: .28em; font-weight: 700; color: #122033; }
+  .brand-sub { font-size: 11px; letter-spacing: .18em; color: #5b6e82; text-transform: uppercase; }
+  .slide-num { font-size: 12px; letter-spacing: .2em; color: #5b6e82; text-transform: uppercase; }
+  .footer {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 64px; color: #5b6e82; font-size: 12px; letter-spacing: .08em;
+    border-top: 1px solid #d5dee8;
+  }
+
+  /* ===== cover ===== */
+  .cover { background: #f4f6f8; }
+  .cover-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(18,32,51,.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(18,32,51,.05) 1px, transparent 1px);
+    background-size: 64px 64px; mask-image: radial-gradient(ellipse at 70% 40%, #000 20%, transparent 75%);
+  }
+  .cover-content { position: relative; z-index: 2; padding: 120px 72px 80px; height: 100%; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 12px; letter-spacing: .32em; text-transform: uppercase; color: #0369a1; font-weight: 600;
+  }
+  .eyebrow:before { content: ""; width: 28px; height: 1px; background: #ff6b1a; display: block; }
+  .cover h1 {
+    font-size: 64px; line-height: .98; font-weight: 600; color: #122033;
+    max-width: 700px; margin: 28px 0 28px; letter-spacing: -.03em;
+  }
+  .cover .lead { font-size: 22px; line-height: 1.45; color: #3d4f63; max-width: 620px; font-weight: 400; }
+  .pills { display: flex; gap: 10px; margin-top: 36px; }
+  .pill {
+    border: 1px solid #c5d0dc; background: #fff;
+    padding: 10px 18px; border-radius: 999px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #122033;
+  }
+  .cover-meta { position: absolute; bottom: 88px; left: 72px; color: #5b6e82; font-size: 14px; }
+  .cover-devices { position: absolute; right: 48px; top: 92px; width: 1040px; height: 900px; overflow: visible; }
+
+  /* ===== layout helpers ===== */
+  .pad { padding: 108px 72px 80px; }
+  .kicker { font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #c2410c; font-weight: 700; margin-bottom: 16px; }
+  h1, h2, h3 { border: 0; text-decoration: none; }
+  h2.serif { font-size: 48px; line-height: 1.08; color: #122033; font-weight: 600; letter-spacing: -.02em; max-width: 1100px; }
+  .sub { font-size: 21px; color: #3d4f63; margin-top: 14px; max-width: 920px; line-height: 1.45; }
+
+  .cols { display: grid; gap: 22px; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .card {
+    background: #fff;
+    border: 1px solid #d5dee8;
+    border-radius: 22px; padding: 24px 26px 22px;
+  }
+  .card h3 { font-size: 22px; color: #122033; margin: 0 0 10px; font-weight: 600; }
+  .card p { font-size: 21px; color: #3d4f63; line-height: 1.45; }
+  .card .n {
+    font-family: "New York", serif; font-size: 28px; color: #0369a1; line-height: 1;
+    display: block; margin: 0 0 10px; padding: 0; border: 0; position: static;
+  }
+  .card .n::after { content: none; display: none; }
+  .rule { height: 1px; background: #d5dee8; border: 0; margin: 0 0 14px; padding: 0; width: 100%; }
+  .switcher {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 16px;
+    box-shadow: none;
+  }
+  .switcher h3 { margin: 0 0 6px; }
+  .switcher p { margin: 0; max-width: 100%; font-size: 20px; line-height: 1.45; }
+  .switcher-tabs { display: flex; gap: 8px; flex-shrink: 0; }
+  .switcher-tabs .tab {
+    font-size: 16px; padding: 10px 20px; background: #e8eef5; color: #122033;
+    border: 1px solid #c5d0dc;
+  }
+  .switcher-tabs .tab.on { background: #ff6b1a; border-color: #ff6b1a; color: #fff; }
+
+  .bad { border-color: #fdba74; background: #fff7ed; }
+  .good { border-color: #7dd3fc; background: #f0f9ff; }
+
+  ul.clean { list-style: none; }
+  ul.clean li {
+    position: relative; padding-left: 26px; margin: 12px 0; font-size: 20px; color: #1e3348; line-height: 1.42;
+  }
+  ul.clean li:before { content: ""; position: absolute; left: 0; top: 9px; width: 9px; height: 9px; border-radius: 50%; background: #ff6b1a; }
+  ul.clean.blue li:before { background: #0284c7; }
+
+  .split { display: grid; grid-template-columns: 520px 1fr; gap: 40px; align-items: start; }
+
+  /* ===== device frames =====
+     Chrome print skips background-color:#fff (ink-saver). Paint white via
+     a 1×1 PNG + inset shadow so mockup padding never shows the slide gray. */
+  .browser, .browser-bar, .app, .main, .side, .ui, .card, .p-card, .chat {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .browser {
+    background-color: #fefefe;
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
+    background-repeat: repeat;
+    border: 1.5px solid #9aa8b6; border-radius: 16px;
+    overflow: hidden; box-shadow: inset 0 0 0 2000px #fefefe;
+  }
+  .browser-bar {
+    height: 36px; background-color: #fefefe;
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
+    display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: none;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .d-r { background: #ff5f57; } .d-y { background: #febc2e; } .d-g { background: #28c840; }
+  .url {
+    margin-left: 10px; flex: 1; height: 22px; border-radius: 7px; background: #f8fafc;
+    color: #64748b; font-size: 12px; display: flex; align-items: center; padding: 0 10px; letter-spacing: .02em;
+    border: 1px solid #e2e8f0;
+  }
+  .app {
+    position: relative;
+    background-color: #fefefe !important;
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC") !important;
+    background-repeat: repeat !important;
+    box-shadow: inset 0 0 0 2000px #fefefe;
+    color: #0f172a; display: flex; min-height: 0;
+  }
+  .app::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-color: #fefefe;
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
+    background-repeat: repeat;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .app > * { position: relative; z-index: 1; }
+  .main {
+    flex: 1; padding: 16px 18px; min-width: 0;
+    background-color: #fefefe;
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
+    background-repeat: repeat;
+    box-shadow: inset 0 0 0 2000px #fefefe;
+  }
+  .side {
+    width: 188px; background: #fff; color: #122033; padding: 16px 12px; flex-shrink: 0;
+    border-right: 1px solid #e6edf5;
+  }
+  .side .logo { font-size: 15px; letter-spacing: .16em; font-weight: 800; color: #122033; margin-bottom: 18px; }
+  .nav-i {
+    font-size: 14px; padding: 8px 10px; border-radius: 8px; margin-bottom: 3px; color: #3d4f63; display: flex; justify-content: space-between;
+  }
+  .nav-i.on { background: linear-gradient(90deg, #ff6b1a, #ff8a3d); color: #fff; font-weight: 600; }
+  .hello { font-family: "New York", serif; font-size: 22px; color: #0f172a; }
+  .muted { color: #64748b; font-size: 14px; }
+  .tabs { display: flex; gap: 6px; margin: 10px 0 12px; }
+  .tab {
+    font-size: 14px; padding: 6px 12px; border-radius: 999px; background: #e8eef5; color: #334155; font-weight: 600;
+  }
+  .tab.on { background: #0b1524; color: #fff; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .ui {
+    background: #fff; background-image: linear-gradient(#fff, #fff);
+    border-radius: 12px; padding: 12px; border: 1px solid #e6edf5;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .ui h4 { font-size: 16px; font-weight: 700; color: #0f172a; }
+  .st {
+    display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 999px;
+  }
+  .st-ok { background: #dcfce7; color: #166534; }
+  .st-wait { background: #ffedd5; color: #9a3412; }
+  .st-info { background: #e0f2fe; color: #075985; }
+  .st-alert { background: #fee2e2; color: #991b1b; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tiny { font-size: 14px; color: #64748b; line-height: 1.4; }
+  .bar { height: 5px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: 7px; }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #ff6b1a, #2eb8e6); }
+  .doc {
+    display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px;
+  }
+  .ico {
+    width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #ff6b1a; color: #fff; font-size: 13px; font-weight: 700;
+    border-radius: 8px; padding: 8px 12px; border: 0;
+  }
+  .btn-d { background: #0b1524; }
+  .btn-g { background: #e8eef5; color: #0f172a; }
+
+  .phone {
+    width: 296px; height: 590px; background: #5f6874; border-radius: 30px; padding: 10px;
+    box-shadow: 0 10px 28px rgba(18,32,51,.2); position: relative; flex-shrink: 0;
+    border: 2px solid #3a414a;
+  }
+  .phone-screen {
+    background: #e8edf3; border-radius: 22px; height: 100%; overflow: hidden; position: relative;
+    border: 1px solid #8b97a6;
+  }
+  .notch { display: none; }
+  .p-head { padding: 16px 16px 10px; }
+  .p-body { padding: 0 14px 70px; }
+  .p-tab {
+    position: absolute; left: 12px; right: 12px; bottom: 10px; height: 52px;
+    background: #e8eef5; border-radius: 18px; display: flex; align-items: center; justify-content: space-around;
+    color: #3d4f63; font-size: 13px; font-weight: 600;
+  }
+  .p-tab span.on { color: #ff6b1a; }
+  .p-card { background: #fff; border-radius: 14px; padding: 12px; margin-bottom: 8px; border: 1px solid #e8eef5; }
+  .p-card b { font-size: 15px; }
+
+  .chat {
+    background: #fff; border-radius: 14px; padding: 10px; font-size: 15px;
+  }
+  .bubble { max-width: 92%; padding: 8px 10px; border-radius: 12px; margin: 6px 0; line-height: 1.35; }
+  .me { background: #ff6b1a; color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .bot { background: #eef4fb; color: #0f172a; border-bottom-left-radius: 4px; }
+
+  .stat {
+    background: #fff; border: 1px solid #d5dee8;
+    border-radius: 18px; padding: 22px 24px;
+  }
+  .stat b { display: block; font-family: "New York", serif; font-size: 42px; color: #122033; letter-spacing: -.03em; }
+  .stat span { color: #5b6e82; font-size: 14px; }
+
+  .check { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .check i {
+    width: 26px; height: 26px; border-radius: 50%; background: #2eb8e6; color: #041018;
+    font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+  }
+  .check b { color: #122033; font-size: 19px; display: block; }
+  .check span { color: #3d4f63; font-size: 18px; }
+
+  .dark { background: #f4f6f8; }
+  .cream-slide { background: #f4f6f8; color: #122033; }
+  .cream-slide h2.serif { color: #122033; }
+  .cream-slide .sub { color: #4b5d70; }
+  .cream-slide .kicker { color: #c2410c; }
+  .cream-slide .footer { color: #6b7c8d; border-top-color: rgba(18,32,51,.08); }
+  .cream-card {
+    background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(18,32,51,.08);
+    box-shadow: none;
+  }
+  .cream-card p { font-size: 21px; color: #4b5d70; line-height: 1.45; }
+
+  .timeline { display: flex; gap: 0; margin-top: 16px; }
+  .tl {
+    flex: 1; text-align: center; font-size: 14px; color: #64748b; position: relative; padding-top: 18px;
+  }
+  .tl:before {
+    content: ""; position: absolute; top: 6px; left: 0; right: 0; height: 3px; background: #e2e8f0;
+  }
+  .tl:first-child:before { left: 50%; }
+  .tl:last-child:before { right: 50%; }
+  .tl.on { color: #0f172a; font-weight: 700; }
+  .tl.on:after, .tl.done:after {
+    content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+    width: 11px; height: 11px; border-radius: 50%; background: #ff6b1a; z-index: 1;
+  }
+  .tl.done:after { background: #16a34a; }
+  .tl:not(.on):not(.done):after {
+    content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+    width: 11px; height: 11px; border-radius: 50%; background: #cbd5e1; z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== 01 COVER ===================== -->
+<section class="slide cover">
+  <div class="cover-grid"></div>
+  <div class="topbar">
+    <div class="brand">
+      <img src="nexa-logo.png" alt="Nexa">
+      <div>
+        <div class="brand-name">NEXA ADVISE</div>
+        <div class="brand-sub">Klantportaal · AI · n8n</div>
+      </div>
+    </div>
+    <div class="slide-num">Vertrouwelijke presentatie · augustus 2026</div>
+  </div>
+  <div class="cover-content">
+    <div class="eyebrow">Voor het moderne advieskantoor</div>
+    <h1 class="serif">Eén portaal.<br>Alle dossiers.<br><span class="orange">AI die meewerkt.</span></h1>
+    <p class="lead">Hypotheken, verzekeringen, financiën en accountancy in één systeem. Klanten leveren stukken aan, volgen status live en stellen vragen aan een AI die hun eigen dossier kent — op desktop, tablet en telefoon.</p>
+    <div class="pills">
+      <span class="pill">Hypotheken</span>
+      <span class="pill">Verzekeringen</span>
+      <span class="pill">Accountancy</span>
+      <span class="pill">Financiën</span>
+    </div>
+  </div>
+  <div class="cover-devices">
+    <div class="browser" style="transform: scale(.88); transform-origin: top left; width: 1040px;">
+      <div class="browser-bar"><span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span><div class="url">portaal.helderadvies.nl/overzicht</div></div>
+      <div class="app" style="height: 560px;">
+        <aside class="side">
+          <div class="logo">HELDER</div>
+          <div class="nav-i on">Overzicht</div>
+          <div class="nav-i">Hypotheek</div>
+          <div class="nav-i">Verzekeringen</div>
+          <div class="nav-i">Accountancy</div>
+          <div class="nav-i">Berichten <span style="background:#ff6b1a;color:#fff;border-radius:99px;padding:1px 6px;font-size:9px;">2</span></div>
+          <div class="nav-i">Documenten</div>
+          <div class="nav-i" style="margin-top:18px;background:#e8f4fb;color:#0369a1;">AI-assistent</div>
+        </aside>
+        <div class="main">
+          <div class="row"><div><div class="hello">Goedemorgen, Lisa</div><div class="muted">Familie van den Berg · 3 producten actief</div></div><span class="st st-ok">Alles up-to-date</span></div>
+          <div class="tabs"><span class="tab on">Alles</span><span class="tab">Hypotheek</span><span class="tab">Verzekeringen</span><span class="tab">Accountancy</span></div>
+          <div class="g3">
+            <div class="ui"><div class="row"><h4>Hypotheek</h4><span class="st st-wait">Stukken</span></div><div class="tiny" style="margin-top:6px;">Aanvraag woning · Bergstraat 12</div><div class="bar"><i style="width:62%"></i></div><div class="tiny" style="margin-top:6px;">4 van 7 documenten · adviseur reageerde gisteren</div></div>
+            <div class="ui"><div class="row"><h4>Verzekeringen</h4><span class="st st-info">4 polissen</span></div><div class="tiny" style="margin-top:6px;">Opstal verloopt over 28 dagen</div><div class="bar"><i style="width:88%"></i></div><div class="tiny" style="margin-top:6px;">Geen openstaande schades</div></div>
+            <div class="ui"><div class="row"><h4>Accountancy</h4><span class="st st-alert">Q3 open</span></div><div class="tiny" style="margin-top:6px;">Aanleveren tot 12 okt</div><div class="bar"><i style="width:20%"></i></div><div class="tiny" style="margin-top:6px;">3 van 12 stukken ontvangen</div></div>
+          </div>
+          <div class="g2" style="margin-top:10px;">
+            <div class="ui">
+              <h4>Openstaande acties</h4>
+              <div class="doc"><span class="ico" style="background:#ff6b1a;">H</span> Werkgeversverklaring ontbreekt <span class="st st-wait">upload</span></div>
+              <div class="doc"><span class="ico" style="background:#2eb8e6;">A</span> Bankafschriften juli–sept <span class="st st-alert">Q3</span></div>
+              <div class="doc" style="border:0;"><span class="ico" style="background:#0b1524;">V</span> Opstal: verlenging bevestigen <span class="st st-info">28 dgn</span></div>
+            </div>
+            <div class="ui">
+              <h4>Laatste bericht</h4>
+              <div class="tiny" style="margin-top:8px;color:#0f172a;">“Lisa, de taxatie is binnengekomen. Mag ik de werkgeversverklaring nog van je?”</div>
+              <div class="tiny" style="margin-top:8px;">Marieke · Hypotheken · gisteren 16:42</div>
+              <div class="btn" style="margin-top:10px;">Antwoorden</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone" style="position:absolute; left: 12px; bottom: 28px; transform: scale(.88); transform-origin: bottom left;">
+      <div class="phone-screen">
+        <div class="notch"></div>
+        <div class="p-head">
+          <div class="tiny">HELDER PORTAAL</div>
+          <div class="hello" style="font-size:20px;">Hoi Lisa</div>
+        </div>
+        <div class="p-body">
+          <div class="p-card"><div class="row"><b>Hypotheek 62%</b><span class="st st-wait">actie</span></div><div class="bar"><i style="width:62%"></i></div></div>
+          <div class="p-card"><div class="row"><b>Q3 administratie</b><span class="st st-alert">3/12</span></div><div class="tiny">Foto maken van bonnen</div></div>
+          <div class="p-card"><div class="row"><b>4 polissen</b><span class="st st-ok">actief</span></div></div>
+        </div>
+        <div class="p-tab"><span class="on">Home</span><span>Dossiers</span><span>Upload</span><span>Chat</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 02 NU VS STRAKS ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Het gesprek dat u kent</div><div class="slide-num">02 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">De realiteit van het advieskantoor</div>
+    <h2 class="serif">Klanten willen rust. Kantoren willen overzicht.<br>Nu zit beide vast in mail en WhatsApp.</h2>
+    <div class="cols cols-2" style="margin-top:36px;">
+      <div class="card bad">
+        <div class="n">Nu</div>
+        <h3>Versnipperd en reactief</h3>
+        <ul class="clean">
+          <li>Stukken komen binnen via mail, WhatsApp, scan en de brievenbus</li>
+          <li>De klant belt: “hoever is mijn hypotheek?” — iemand moet gaan zoeken</li>
+          <li>Kwartaalstukken komen te laat, incompleet of dubbel</li>
+          <li>Polisbladen staan bij vier verzekeraars, nergens bij u</li>
+          <li>Berichten raken zoek; niemand ziet de hele klant in één oogopslag</li>
+          <li>Adviseurs zijn postbode, secretaresse én expert tegelijk</li>
+        </ul>
+      </div>
+      <div class="card good">
+        <div class="n">Straks</div>
+        <h3>Eén waarheid, overal beschikbaar</h3>
+        <ul class="clean blue">
+          <li>De klant levert aan in het portaal — browser, tablet of telefoon</li>
+          <li>Status is altijd zichtbaar: dossier, schade, kwartaal, aangifte</li>
+          <li>Berichten horen bij het dossier, niet bij een privé-app</li>
+          <li>AI herkent documenten en beantwoordt vragen over het eigen account</li>
+          <li>Het kantoor verwerkt direct, met een schone werkvoorraad</li>
+          <li>Eén inlog, ook als de klant hypotheek, verzekering én accountancy heeft</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Nexa Advise · klantportaal</span><span>Vertrouwelijk</span></div>
+</section>
+
+<!-- ===================== 03 EEN SYSTEEM ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Architectuur van de belofte</div><div class="slide-num">03 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Eén systeem</div>
+    <h2 class="serif">Drie afdelingen. Eén klant. Geen eilandjes.</h2>
+    <p class="sub">Wie hypotheek, verzekeringen én accountancy afneemt, schakelt in één tik. Gegevens worden niet opnieuw gevraagd. De adviseur ziet de hele relatie.</p>
+    <div class="cols cols-3" style="margin-top:32px;">
+      <div class="card">
+        <div class="n">01</div>
+        <div class="rule"></div>
+        <h3>Hypotheken & financiën</h3>
+        <p>Aanvraag, stukken, status tot passeren. Jaarlijkse check, rentevaste periode, overwaarde-scan en berichten met de hypotheekadviseur.</p>
+      </div>
+      <div class="card">
+        <div class="n">02</div>
+        <div class="rule"></div>
+        <h3>Verzekeringen</h3>
+        <p>Alle polissen, start- en einddatum, polisblad, schade melden, wijzigingen doorgeven en verlopen die om aandacht vragen.</p>
+      </div>
+      <div class="card">
+        <div class="n">03</div>
+        <div class="rule"></div>
+        <h3>Accountancy</h3>
+        <p>Kwartaalstukken met de telefoon, aangiften terugzien, openstaande acties en een lijn met de administratie — zonder schoenendoos.</p>
+      </div>
+    </div>
+    <div class="card switcher" style="margin-top:22px; border-top: 0;">
+      <div>
+        <h3>De schakelaar die het verschil maakt</h3>
+        <p>Bovenin het portaal: <b style="color:#122033;">Hypotheek · Verzekeringen · Accountancy · Financiën</b>. De klant blijft in dezelfde huisstijl, met dezelfde berichteninbox en dezelfde AI. White-label: úw naam, úw kleuren, úw domein.</p>
+      </div>
+      <div class="switcher-tabs">
+        <span class="tab on">Hypotheek</span>
+        <span class="tab">Verzekeringen</span>
+        <span class="tab">Accountancy</span>
+        <span class="tab">Financiën</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Nexa Advise · klantportaal</span><span>White-label in uw huisstijl</span></div>
+</section>
+
+<!-- ===================== 04 DESKTOP ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Browser · desktop & tablet</div><div class="slide-num">04 / 13</div></div>
+  <div class="pad" style="padding-top:96px;">
+    <div class="split">
+      <div>
+        <div class="kicker">Scherm 1 · desktop</div>
+        <h2 class="serif" style="font-size:40px;">Het eerste wat de klant ziet: wat er van haar gevraagd wordt.</h2>
+        <p class="sub">Geen zoektocht. Drie kaarten, openstaande acties, laatste bericht. Vanuit hier start upload, chat of een wissel naar een andere afdeling.</p>
+        <div class="check"><i>✓</i><div><b>Overzicht in 8 seconden</b><span>Status per product, zonder te navigeren.</span></div></div>
+        <div class="check"><i>✓</i><div><b>Acties in plaats van mappen</b><span>“Upload werkgeversverklaring” in plaats van “zie bijlage in de mail van maart”.</span></div></div>
+        <div class="check"><i>✓</i><div><b>Eén identiteit</b><span>Partner, gemachtigde of boekhouder krijgt eigen toegang, met rechten.</span></div></div>
+      </div>
+      <div class="browser">
+        <div class="browser-bar"><span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span><div class="url">https://portaal.helderadvies.nl &nbsp;·&nbsp; beveiligd · 2FA</div></div>
+        <div class="app" style="height: 720px; background:#fff;">
+          <aside class="side" style="width:200px;">
+            <div class="logo">HELDER ADVIES</div>
+            <div class="tiny" style="color:#0369a1;margin-bottom:14px;">Lisa van den Berg</div>
+            <div class="nav-i on">Overzicht</div>
+            <div class="nav-i">Hypotheek</div>
+            <div class="nav-i">Verzekeringen</div>
+            <div class="nav-i">Accountancy</div>
+            <div class="nav-i">Financiën</div>
+            <div class="nav-i">Berichten <span style="background:#ff6b1a;color:#fff;border-radius:99px;padding:1px 6px;font-size:9px;">2</span></div>
+            <div class="nav-i">Afspraken</div>
+            <div class="nav-i">Documenten</div>
+            <div class="nav-i" style="margin-top:20px;background:#e8f4fb;color:#0369a1;">Vraag het de AI</div>
+          </aside>
+          <div class="main">
+            <div class="row">
+              <div><div class="hello">Goedemorgen, Lisa</div><div class="muted">Laatst ingelogd vanaf iPhone · zojuist</div></div>
+              <div class="btn">+ Stukken aanleveren</div>
+            </div>
+            <div class="tabs">
+              <span class="tab on">Alles</span><span class="tab">Hypotheek</span><span class="tab">Verzekeringen</span><span class="tab">Accountancy</span><span class="tab">Financiën</span>
+            </div>
+            <div class="g3">
+              <div class="ui">
+                <div class="row"><h4>Hypotheekaanvraag</h4><span class="st st-wait">Wacht op stukken</span></div>
+                <div class="tiny" style="margin:6px 0 2px;color:#0f172a;">Bergstraat 12, Breda · € 485.000</div>
+                <div class="tiny">Rabobank · adviseur Marieke</div>
+                <div class="bar"><i style="width:62%"></i></div>
+                <div class="tiny" style="margin-top:6px;">Stap 4 van 6 · toetsing volgt na complete map</div>
+              </div>
+              <div class="ui">
+                <div class="row"><h4>Verzekeringen</h4><span class="st st-info">4 actief</span></div>
+                <div class="tiny" style="margin:6px 0;color:#0f172a;">Opstal · Auto · AVP · Overlijden</div>
+                <div class="tiny">Let op: opstal eindigt 23 sep 2026</div>
+                <div class="bar"><i style="width:90%"></i></div>
+                <div class="tiny" style="margin-top:6px;">Geen openstaande schades</div>
+              </div>
+              <div class="ui">
+                <div class="row"><h4>Accountancy Q3</h4><span class="st st-alert">Aanleveren</span></div>
+                <div class="tiny" style="margin:6px 0;color:#0f172a;">Van den Berg Design B.V.</div>
+                <div class="tiny">Deadline 12 oktober · 9 stukken open</div>
+                <div class="bar"><i style="width:25%"></i></div>
+                <div class="tiny" style="margin-top:6px;">IB 2025 is al zichtbaar in het archief</div>
+              </div>
+            </div>
+            <div class="g2" style="margin-top:10px;">
+              <div class="ui" style="min-height:250px;">
+                <h4>Wat we nog van u nodig hebben</h4>
+                <div class="doc"><span class="ico" style="background:#ff6b1a;">PDF</span><div style="flex:1;"><b>Werkgeversverklaring</b><div class="tiny">Hypotheek · verplicht</div></div><span class="btn">Upload</span></div>
+                <div class="doc"><span class="ico" style="background:#0b1524;">JPG</span><div style="flex:1;"><b>Identiteitsbewijs partner</b><div class="tiny">Hypotheek · achterkant ontbreekt</div></div><span class="btn btn-g">Aanvullen</span></div>
+                <div class="doc"><span class="ico" style="background:#2eb8e6;">CSV</span><div style="flex:1;"><b>Bankafschriften jul–sep</b><div class="tiny">Accountancy Q3</div></div><span class="btn">Upload</span></div>
+                <div class="doc" style="border:0;"><span class="ico" style="background:#64748b;">PDF</span><div style="flex:1;"><b>Polisblad opstal 2026</b><div class="tiny">Verzekeringen · ter bevestiging</div></div><span class="btn btn-d">Bekijken</span></div>
+              </div>
+              <div>
+                <div class="ui" style="margin-bottom:10px;">
+                  <h4>Berichten</h4>
+                  <div class="tiny" style="margin-top:8px;color:#0f172a;"><b>Marieke · Hypotheken</b> — Taxatierapport is binnen. Werkgeversverklaring nog nodig om te toetsen.</div>
+                  <div class="tiny" style="margin-top:8px;color:#0f172a;"><b>Sander · Accountancy</b> — Q2 is verwerkt. BTW-aangifte staat klaar ter inzage.</div>
+                </div>
+                <div class="ui" style="background:#e8f4fb;color:#0f172a;border:1px solid #cfe7f5;">
+                  <div class="tiny" style="color:#0369a1;">AI-ASSISTENT · via n8n</div>
+                  <div style="font-size:15px;margin-top:6px;line-height:1.4;">“Wanneer loopt mijn rentevaste periode af?”</div>
+                  <div class="tiny" style="color:#334155;margin-top:8px;">Antwoord uit uw dossier, niet van internet. 24/7, met bronvermelding naar het juiste scherm.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 05 MOBIEL ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Telefoon & tablet · PWA</div><div class="slide-num">05 / 13</div></div>
+  <div class="pad" style="padding-top:88px;">
+    <div class="kicker">Scherm 2 · mobiel</div>
+    <h2 class="serif" style="font-size:40px;">In de broekzak: foto van het bonnetje, status van de aanvraag, antwoord van de AI.</h2>
+    <p class="sub" style="margin-top:10px;">Geen aparte app-store-verplichting. Het portaal is een PWA: icoon op het beginscherm, pushberichten, camera-upload. Tablet krijgt hetzelfde, met meer ruimte.</p>
+    <div style="display:flex; gap:22px; justify-content:center; align-items:flex-start; margin-top:16px;">
+      <!-- phone 1 home -->
+      <div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="notch"></div>
+            <div class="p-head">
+              <div class="row"><div class="tiny">09:41</div><div class="tiny">5G  ●●●</div></div>
+              <div class="hello" style="font-size:22px;margin-top:8px;">Hoi Lisa</div>
+              <div class="tiny">3 acties open · tik om te doen</div>
+            </div>
+            <div class="p-body">
+              <div style="display:flex;gap:6px;margin-bottom:10px;font-size:12px;">
+                <span class="tab on">Alles</span><span class="tab">Hypo</span><span class="tab">Verz.</span><span class="tab">Acc.</span>
+              </div>
+              <div class="p-card">
+                <div class="row"><b>Hypotheek Bergstraat</b><span class="st st-wait">62%</span></div>
+                <div class="bar"><i style="width:62%"></i></div>
+                <div class="tiny" style="margin-top:6px;">Nog 1 document · Marieke wacht</div>
+              </div>
+              <div class="p-card">
+                <div class="row"><b>Q3 stukken</b><span class="st st-alert">deadline</span></div>
+                <div class="tiny">12 okt · 9 items open</div>
+                <div class="btn" style="margin-top:8px;width:100%;">Foto’s maken</div>
+              </div>
+              <div class="p-card">
+                <div class="row"><b>Opstalverzekering</b><span class="st st-info">28 dgn</span></div>
+                <div class="tiny">Verlengingsvoorstel klaar</div>
+              </div>
+            </div>
+            <div class="p-tab"><span class="on">Home</span><span>Dossiers</span><span>Upload</span><span>Chat</span></div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#5b6e82;font-size:17px;font-weight:600;">Home · acties</div>
+      </div>
+      <!-- phone 2 upload -->
+      <div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="notch"></div>
+            <div class="p-head">
+              <div class="tiny">ACCOUNTANCY · Q3</div>
+              <div class="hello" style="font-size:20px;">Stukken aanleveren</div>
+            </div>
+            <div class="p-body">
+              <div class="p-card" style="border:2px dashed #cbd5e1;text-align:center;padding:18px;">
+                <div style="font-size:28px;">⌃</div>
+                <b>Tik of fotografeer</b>
+                <div class="tiny">JPG, PNG, PDF · max. 25 MB<br>AI herkent het type document</div>
+              </div>
+              <div class="p-card">
+                <div class="row"><span class="ico" style="background:#16a34a;">✓</span><div><b>ING jul 2026.pdf</b><div class="tiny">Bankafschrift · herkend</div></div></div>
+              </div>
+              <div class="p-card">
+                <div class="row"><span class="ico" style="background:#16a34a;">✓</span><div><b>Bon Hema 12:04</b><div class="tiny">Inkoop · € 48,20 · kantoor</div></div></div>
+              </div>
+              <div class="p-card">
+                <div class="row"><span class="ico" style="background:#ff6b1a;">?</span><div><b>IMG_2041.jpg</b><div class="tiny">Niet herkend · kies categorie</div></div></div>
+              </div>
+            </div>
+            <div class="p-tab"><span>Home</span><span>Dossiers</span><span class="on">Upload</span><span>Chat</span></div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#5b6e82;font-size:17px;font-weight:600;">Camera-upload + AI-herkenning</div>
+      </div>
+      <!-- phone 3 chat -->
+      <div>
+        <div class="phone">
+          <div class="phone-screen" style="background:#eef2f7;">
+            <div class="notch"></div>
+            <div class="p-head" style="background:#e8f4fb;color:#0f172a;padding-bottom:14px;">
+              <div class="tiny" style="color:#0369a1;">AI-ASSISTENT</div>
+              <div class="hello" style="font-size:18px;color:#0f172a;">Vraag over uw dossier</div>
+            </div>
+            <div class="p-body">
+              <div class="bubble me">Wanneer loopt mijn rentevaste periode af?</div>
+              <div class="bubble bot"><b>Uit uw hypotheekdossier</b><br>Rentevast tot <b>1 november 2029</b> tegen 3,81%. Wilt u een reminder 12 maanden van tevoren?</div>
+              <div class="bubble me">En mijn opstalverzekering?</div>
+              <div class="bubble bot">Opstal bij Interpolis eindigt <b>23 september 2026</b>. Er staat al een verlengingsvoorstel klaar. Zal ik het openen?</div>
+            </div>
+            <div class="p-tab"><span>Home</span><span>Dossiers</span><span>Upload</span><span class="on">Chat</span></div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#5b6e82;font-size:17px;font-weight:600;">AI op eigen account · n8n</div>
+      </div>
+      <!-- phone 4 messages -->
+      <div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="notch"></div>
+            <div class="p-head">
+              <div class="tiny">BERICHTEN</div>
+              <div class="hello" style="font-size:20px;">Inbox</div>
+            </div>
+            <div class="p-body">
+              <div class="p-card">
+                <div class="row"><b>Marieke</b><span class="tiny">gisteren</span></div>
+                <div class="tiny" style="color:#0f172a;">Taxatie is binnen. Werkgeversverklaring nog nodig.</div>
+                <span class="st st-wait" style="margin-top:6px;">Hypotheek</span>
+              </div>
+              <div class="p-card">
+                <div class="row"><b>Sander</b><span class="tiny">di</span></div>
+                <div class="tiny" style="color:#0f172a;">BTW Q2 staat klaar ter inzage.</div>
+                <span class="st st-info" style="margin-top:6px;">Accountancy</span>
+              </div>
+              <div class="p-card">
+                <div class="row"><b>Helder Schades</b><span class="tiny">12 aug</span></div>
+                <div class="tiny" style="color:#0f172a;">Ruitschade dossier 4821 is afgehandeld.</div>
+                <span class="st st-ok" style="margin-top:6px;">Verzekeringen</span>
+              </div>
+            </div>
+            <div class="p-tab"><span>Home</span><span class="on">Dossiers</span><span>Upload</span><span>Chat</span></div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#5b6e82;font-size:17px;font-weight:600;">Berichten per afdeling</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 06 HYPOTHEKEN ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Module · Hypotheken & financiën</div><div class="slide-num">06 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Hypotheken</div>
+    <h2 class="serif">Van eerste gesprek tot passeren — zonder “stuur maar even in de mail”.</h2>
+    <div class="cols" style="grid-template-columns: 1.05fr .95fr; margin-top:28px; gap:28px;">
+      <div>
+        <div class="browser">
+          <div class="browser-bar"><span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span><div class="url">portaal.helderadvies.nl/hypotheek/bergstraat-12</div></div>
+          <div class="app" style="height:640px;display:block;padding:18px;background:#fff;">
+            <div class="row">
+              <div><div class="hello">Aanvraag Bergstraat 12</div><div class="muted">Lisa & Tom van den Berg · adviseur Marieke Vos</div></div>
+              <span class="st st-wait">Wacht op stukken</span>
+            </div>
+            <div class="timeline">
+              <div class="tl done">Intake</div>
+              <div class="tl done">Orientatie</div>
+              <div class="tl done">Taxatie</div>
+              <div class="tl on">Stukken</div>
+              <div class="tl">Toetsing</div>
+              <div class="tl">Passeren</div>
+            </div>
+            <div class="g2" style="margin-top:16px;">
+              <div class="ui">
+                <h4>Dossiercompleetheid</h4>
+                <div class="doc"><span style="color:#16a34a;">●</span> Identiteitsbewijs Lisa<div class="st st-ok">ok</div></div>
+                <div class="doc"><span style="color:#ea580c;">●</span> Identiteitsbewijs Tom<div class="st st-wait">achterkant</div></div>
+                <div class="doc"><span style="color:#16a34a;">●</span> Loonstroken 3 mnd<div class="st st-ok">ok</div></div>
+                <div class="doc"><span style="color:#16a34a;">●</span> Taxatierapport<div class="st st-ok">ok</div></div>
+                <div class="doc"><span style="color:#dc2626;">●</span> Werkgeversverklaring<div class="st st-alert">ontbreekt</div></div>
+                <div class="doc" style="border:0;"><span style="color:#16a34a;">●</span> Koopovereenkomst<div class="st st-ok">ok</div></div>
+              </div>
+              <div>
+                <div class="ui" style="margin-bottom:10px;">
+                  <h4>Financiering</h4>
+                  <div class="tiny" style="margin-top:8px;">Koopsom <b style="color:#0f172a;">€ 485.000</b></div>
+                  <div class="tiny">Hypotheek <b style="color:#0f172a;">€ 436.500</b> · NHG</div>
+                  <div class="tiny">Rente 3,81% vast tot 01-11-2029 · Rabobank</div>
+                </div>
+                <div class="ui">
+                  <h4>Gesprek in dit dossier</h4>
+                  <div class="tiny" style="margin-top:8px;color:#0f172a;">Marieke: taxatie akkoord. Zonder werkgeversverklaring kunnen we niet toetsen.</div>
+                  <div class="tiny" style="margin-top:6px;">Lisa: ik vraag hem vandaag bij HR op.</div>
+                  <div class="btn" style="margin-top:10px;">Bericht sturen</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <h3>Wat de klant kan</h3>
+          <ul class="clean">
+            <li>Status van de aanvraag live volgen</li>
+            <li>Stukken uploaden tegen een slimme checklist</li>
+            <li>Berichten met de hypotheekadviseur in het dossier</li>
+            <li>Offertes vergelijken en een keuze vastleggen</li>
+            <li>Afspraak inplannen, ook videogesprek</li>
+            <li>Na passeren: rentevaste periode, jaarlijkse check, overwaarde</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Wat wij extra bedachten</h3>
+          <ul class="clean blue">
+            <li><b style="color:#122033;">AI-documentcheck</b> — is de loonstrook leesbaar, recent, volledig?</li>
+            <li><b style="color:#122033;">Partnertoegang</b> — Tom uploadt zijn eigen ID, Lisa ziet de status</li>
+            <li><b style="color:#122033;">Deadline-motor</b> — ontbindende voorwaarden en passeerdatum in beeld</li>
+            <li><b style="color:#122033;">Financieringsopzet</b> — helder overzicht van eigen middelen, schenking, NHG</li>
+            <li><b style="color:#122033;">Nawerk</b> — verzekeringen van de woning alvast klaarzetten in de andere afdeling</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 07 ACCOUNTANCY ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Module · Accountancy</div><div class="slide-num">07 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Accountancy</div>
+    <h2 class="serif">Elk kwartaal dezelfde belofte: stukken in, administratie weg, aangifte terug.</h2>
+    <div class="cols" style="grid-template-columns: .9fr 1.1fr; margin-top:28px; gap:28px;">
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <h3>De kwartaalflow</h3>
+          <ul class="clean">
+            <li>Herinnering 3 weken, 1 week en 2 dagen voor deadline</li>
+            <li>Upload via camera, bestanden of sleep-zone</li>
+            <li>AI classificeert: bank, inkoop, verkoop, contract, overig</li>
+            <li>Kantoor verwerkt direct vanuit dezelfde map</li>
+            <li>Klant ziet BTW, IB, VPB en jaarrekening terug</li>
+            <li>Vragen over een boeking? Bericht op die regel</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Extra, omdat het leven rommelig is</h3>
+          <ul class="clean blue">
+            <li><b style="color:#122033;">Bonnetjes-inbox</b> — foto in de auto, categorie later</li>
+            <li><b style="color:#122033;">Openstaande lijst</b> — “we missen juli van de ING”</li>
+            <li><b style="color:#122033;">Machtigingen</b> — status Belastingdienst zichtbaar</li>
+            <li><b style="color:#122033;">Betaalkalender</b> — wanneer moet wat naar de fiscus</li>
+            <li><b style="color:#122033;">Cijferdashboard</b> — omzet, kosten, resultaat per kwartaal</li>
+            <li><b style="color:#122033;">Jaarovergang</b> — IB-aangifte start vanuit dezelfde stukken</li>
+          </ul>
+        </div>
+      </div>
+      <div class="browser">
+        <div class="browser-bar"><span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span><div class="url">portaal.helderadvies.nl/accountancy</div></div>
+        <div class="app" style="height:640px;display:block;padding:18px;background:#fff;">
+          <div class="row">
+            <div><div class="hello">Van den Berg Design B.V.</div><div class="muted">Boekjaar 2026 · adviseur Sander de Wit</div></div>
+            <div class="btn">+ Kwartaalstukken</div>
+          </div>
+          <div class="g3" style="margin-top:12px;">
+            <div class="ui"><div class="row"><h4>Q1 2026</h4><span class="st st-ok">Afgerond</span></div><div class="tiny" style="margin-top:6px;">BTW ingediend · 14 apr</div></div>
+            <div class="ui"><div class="row"><h4>Q2 2026</h4><span class="st st-ok">Afgerond</span></div><div class="tiny" style="margin-top:6px;">Aangifte ter inzage</div></div>
+            <div class="ui" style="outline:2px solid #ff6b1a;"><div class="row"><h4>Q3 2026</h4><span class="st st-alert">Open</span></div><div class="tiny" style="margin-top:6px;">3/12 stukken · tot 12 okt</div></div>
+          </div>
+          <div class="g2" style="margin-top:12px;">
+            <div class="ui">
+              <h4>Aan te leveren voor Q3</h4>
+              <div class="doc"><span class="ico" style="background:#16a34a;">✓</span> Bank ING juli<div class="st st-ok">ontvangen</div></div>
+              <div class="doc"><span class="ico" style="background:#16a34a;">✓</span> Bank ING augustus<div class="st st-ok">ontvangen</div></div>
+              <div class="doc"><span class="ico" style="background:#dc2626;">○</span> Bank ING september<div class="st st-alert">mist</div></div>
+              <div class="doc"><span class="ico" style="background:#dc2626;">○</span> Verkoopfacturen<div class="st st-alert">mist</div></div>
+              <div class="doc" style="border:0;"><span class="ico" style="background:#ea580c;">●</span> Kilometerregistratie<div class="st st-wait">deels</div></div>
+            </div>
+            <div class="ui">
+              <h4>Aangiften & rapporten</h4>
+              <div class="doc"><span class="ico" style="background:#0b1524;">PDF</span> BTW Q2 2026<div class="btn btn-g">Openen</div></div>
+              <div class="doc"><span class="ico" style="background:#0b1524;">PDF</span> BTW Q1 2026<div class="btn btn-g">Openen</div></div>
+              <div class="doc"><span class="ico" style="background:#2eb8e6;">PDF</span> IB 2025 — concept<div class="btn">Bekijken</div></div>
+              <div class="doc" style="border:0;"><span class="ico" style="background:#64748b;">PDF</span> Jaarcijfers 2025<div class="btn btn-d">Download</div></div>
+              <div class="tiny" style="margin-top:8px;">Elk document is ondertekend, gedateerd en alleen zichtbaar voor gemachtigden.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 08 VERZEKERINGEN ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Module · Verzekeringen</div><div class="slide-num">08 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Verzekeringen</div>
+    <h2 class="serif">Inloggen en alles zien: polissen, datums, blad — en schade in drie schermen.</h2>
+    <div class="cols" style="grid-template-columns: 1.15fr .85fr; margin-top:24px; gap:24px;">
+      <div class="browser">
+        <div class="browser-bar"><span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span><div class="url">portaal.helderadvies.nl/verzekeringen</div></div>
+        <div class="app" style="height:660px;display:block;padding:18px;background:#fff;">
+          <div class="row">
+            <div><div class="hello">Uw verzekeringen</div><div class="muted">4 polissen · 1 aandachtspunt</div></div>
+            <div style="display:flex;gap:8px;"><span class="btn btn-g">Wijziging doorgeven</span><span class="btn">Schade melden</span></div>
+          </div>
+          <div class="g2" style="margin-top:12px;">
+            <div class="ui">
+              <div class="row"><h4>Opstal · Interpolis</h4><span class="st st-info">28 dagen</span></div>
+              <div class="tiny" style="margin-top:6px;color:#0f172a;">Bergstraat 12, Breda</div>
+              <div class="tiny">23 sep 2025 → 23 sep 2026 · € 428 / jaar</div>
+              <div class="row" style="margin-top:8px;"><span class="btn btn-d">Polisblad</span><span class="tiny">Verlengingsvoorstel klaar</span></div>
+            </div>
+            <div class="ui">
+              <div class="row"><h4>Auto · Centraal Beheer</h4><span class="st st-ok">Actief</span></div>
+              <div class="tiny" style="margin-top:6px;color:#0f172a;">VW ID.4 · G-834-PX</div>
+              <div class="tiny">1 mrt 2026 → 1 mrt 2027 · WA+casco</div>
+              <div class="row" style="margin-top:8px;"><span class="btn btn-d">Polisblad</span><span class="tiny">Groene kaart</span></div>
+            </div>
+            <div class="ui">
+              <div class="row"><h4>Aansprakelijkheid · ANWB</h4><span class="st st-ok">Actief</span></div>
+              <div class="tiny" style="margin-top:6px;color:#0f172a;">Gezin · werelddekking</div>
+              <div class="tiny">1 jan 2026 → 1 jan 2027</div>
+              <div class="row" style="margin-top:8px;"><span class="btn btn-d">Polisblad</span></div>
+            </div>
+            <div class="ui">
+              <div class="row"><h4>Overlijden · ASR</h4><span class="st st-ok">Actief</span></div>
+              <div class="tiny" style="margin-top:6px;color:#0f172a;">Gekoppeld aan hypotheek</div>
+              <div class="tiny">Looptijd tot 01-11-2029</div>
+              <div class="row" style="margin-top:8px;"><span class="btn btn-d">Polisblad</span><span class="tiny">Past bij rentevast</span></div>
+            </div>
+          </div>
+          <div class="ui" style="margin-top:10px;">
+            <div class="row">
+              <h4>Schademelding 4821 · ruitschade auto</h4>
+              <span class="st st-ok">Afgehandeld</span>
+            </div>
+            <div class="tiny" style="margin-top:6px;">Gemeld 12 aug · glashersteller ingepland · geen eigen risico. Foto’s en correspondentie zitten in dit dossier.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="phone" style="margin: 0 auto 8px;">
+          <div class="phone-screen">
+            <div class="notch"></div>
+            <div class="p-head">
+              <div class="tiny">SCHADE MELDEN</div>
+              <div class="hello" style="font-size:20px;">Wat is er gebeurd?</div>
+            </div>
+            <div class="p-body">
+              <div class="p-card"><b>1. Kies de polis</b><div class="tiny">Auto · VW ID.4</div></div>
+              <div class="p-card"><b>2. Type schade</b><div class="tiny">Ruit · Parkeerschade · Diefstal · Anders</div></div>
+              <div class="p-card" style="border:2px dashed #cbd5e1;text-align:center;"><b>3. Foto’s</b><div class="tiny">Situatie, schade, overzicht</div></div>
+              <div class="btn" style="width:100%;">Melding versturen</div>
+              <div class="tiny" style="margin-top:8px;">U krijgt direct een dossiernummer. De schadebehandelaar reageert in het portaal, niet per losse mail.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 09 AI + BERICHTEN ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">AI-chatbot · n8n · berichten</div><div class="slide-num">09 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Altijd een antwoord, nooit een datalek</div>
+    <h2 class="serif">De chatbot kent het account. Niet het internet.</h2>
+    <p class="sub">Via n8n koppelt de assistent veilig aan het klantdossier. Vragen over status, polissen, deadlines en ontbrekende stukken worden beantwoord met bron in het portaal. Geen vrije speurtocht door andermans data.</p>
+    <div class="cols" style="grid-template-columns: 1fr 1fr 1fr; margin-top:28px;">
+      <div class="card">
+        <div class="n">Klant vraagt</div>
+        <div class="chat" style="margin-top:12px;background:#e8f4fb;color:#0f172a;">
+          <div class="bubble me" style="background:#ff6b1a;">Welke stukken mis ik voor mijn hypotheek?</div>
+          <div class="bubble bot" style="background:#fff;color:#0f172a;border:1px solid #d5dee8;">Nog 2: werkgeversverklaring en de achterkant van Toms ID. Zal ik de upload openen?</div>
+        </div>
+        <p style="margin-top:14px;">Hypotheek, Q3, einddatum polis, “heeft Sander mijn BTW al ingediend?” — allemaal uit het eigen dossier.</p>
+      </div>
+      <div class="card">
+        <div class="n">n8n orkestreert</div>
+        <p style="margin-top:12px;">Laravel levert een gecontroleerde payload: wie is de gebruiker, welk company_id, welke intents zijn toegestaan. n8n haalt alleen die feiten op. Geen vrije SQL, geen data van andere klanten.</p>
+        <ul class="clean blue" style="margin-top:10px;">
+          <li>Intent: status, documenten, polissen, aangiften</li>
+          <li>Bronvermelding naar het juiste scherm</li>
+          <li>Escalatie naar adviseur als het te gevoelig of te vaag is</li>
+          <li>Buiten kantooruren: antwoord + “Marieke ziet dit morgen”</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="n">Mens waar het moet</div>
+        <p style="margin-top:12px;">Berichten blijven van persoon tot persoon, gekoppeld aan het dossier. De AI vat samen, de adviseur beslist.</p>
+        <ul class="clean" style="margin-top:10px;">
+          <li>Conversatie per afdeling én per dossier</li>
+          <li>Bijlagen, read-receipts, interne notitie</li>
+          <li>WhatsApp-achtig gevoel, kantoor-archief</li>
+          <li>Push, e-mail of stil — de klant kiest</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Nexa Advise · AI via n8n</span><span>RBAC · HMAC · geen vrije database-toegang</span></div>
+</section>
+
+<!-- ===================== 10 EXTRAS ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Wat het leven nog makkelijker maakt</div><div class="slide-num">10 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Meer dan de briefing</div>
+    <h2 class="serif">Functies die we toevoegen omdat kantoren er écht rustiger van worden.</h2>
+    <div class="cols cols-4" style="margin-top:28px;">
+      <div class="card"><div class="n">01</div><h3>Slimme herinneringen</h3><p>Rentevast, kwartaal, polisverloop, ontbindende voorwaarden. Via push, mail of het portaal — nooit meer een verrassing in september.</p></div>
+      <div class="card"><div class="n">02</div><h3>Digitale handtekening</h3><p>Offerte, opdrachtbevestiging, machtiging Belastingdienst. Tekenen op telefoon, rechtsgeldig in het dossier.</p></div>
+      <div class="card"><div class="n">03</div><h3>Agenda & video</h3><p>Zelf een gat in de agenda van de adviseur kiezen. Gesprek start in het dossier, notulen erin.</p></div>
+      <div class="card"><div class="n">04</div><h3>Gezin & machtiging</h3><p>Partner, erfgenaam, boekhouder, gemachtigde. Elk met eigen login en een auditable rechtenset.</p></div>
+      <div class="card"><div class="n">05</div><h3>Jaarlijkse financiële foto</h3><p>Hypotheek, polissen, pensioenopbouw, buffer. Eén gesprek per jaar, voorbereid door het systeem.</p></div>
+      <div class="card"><div class="n">06</div><h3>Onderverzekering-alert</h3><p>Woningwaarde omhoog, inboedel geschat te laag. Het portaal signaleert, de adviseur adviseert.</p></div>
+      <div class="card"><div class="n">07</div><h3>Noodknop schade</h3><p>“Wat moet ik nu doen?” — stappenplan, hulpdiensten, foto’s, dossiernummer. Om 23:00 net zo duidelijk als om 10:00.</p></div>
+      <div class="card"><div class="n">08</div><h3>Kantoor-copiloot</h3><p>AI-samenvatting van het klantdossier vóór het gesprek. Werkvoorraad per afdeling. Bulk-herinneringen in één klik.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Nexa Advise · klantportaal</span><span>Gebouwd om te gebruiken, niet om te demonstreren</span></div>
+</section>
+
+<!-- ===================== 11 KANTOOR ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Voor het kantoor</div><div class="slide-num">11 / 13</div></div>
+  <div class="pad" style="padding-top:96px;">
+    <div class="split" style="grid-template-columns: 480px 1fr;">
+      <div>
+        <div class="kicker">Scherm · backoffice</div>
+        <h2 class="serif" style="font-size:40px;">De adviseur opent de dag met werk, niet met zoeken.</h2>
+        <p class="sub">Zelfde data, andere bril. Werkvoorraad per afdeling, SLA op berichten, complete dossiers groen, incomplete rood. Compliance: wie wat wanneer zag en tekende.</p>
+        <div class="check"><i>✓</i><div><b>Rollen</b><span>Hypotheekadviseur, schade, accountant, assistent, compliance.</span></div></div>
+        <div class="check"><i>✓</i><div><b>Audit trail</b><span>Elke upload, elk bericht, elke AI-vraag is herleidbaar.</span></div></div>
+        <div class="check"><i>✓</i><div><b>White-label</b><span>Uw logo, kleuren, domein. Nexa is de motor, niet het gezicht naar de klant.</span></div></div>
+      </div>
+      <div class="browser">
+        <div class="browser-bar"><span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span><div class="url">kantoor.helderadvies.nl/werkvoorraad</div></div>
+        <div class="app" style="height:700px;display:block;padding:16px;background:#fff;">
+          <div class="row">
+            <div class="hello" style="font-size:20px;">Goedemorgen, Marieke</div>
+            <div class="tiny">Dinsdag 26 augustus 2026 · 14 open dossiers</div>
+          </div>
+          <div class="g3" style="margin-top:12px;">
+            <div class="ui"><div class="tiny">HYPOTHEKEN</div><div class="hello">8</div><div class="tiny">3 wachten op stukken</div></div>
+            <div class="ui"><div class="tiny">VERZEKERINGEN</div><div class="hello">2</div><div class="tiny">1 schade in behandeling</div></div>
+            <div class="ui"><div class="tiny">ACCOUNTANCY</div><div class="hello">11</div><div class="tiny">Q3-uploads vanochtend</div></div>
+          </div>
+          <div class="ui" style="margin-top:12px;">
+            <h4>Prioriteit vandaag</h4>
+            <div class="doc"><b>Van den Berg · hypotheek</b><span class="tiny">werkgeversverklaring open · passeer 18 sep</span><span class="st st-alert">SLA 4u</span></div>
+            <div class="doc"><b>Jansen Holding · Q3</b><span class="tiny">24 bestanden · AI: 22 herkend</span><span class="st st-wait">verwerken</span></div>
+            <div class="doc"><b>de Groot · opstal</b><span class="tiny">verloopt 4 sep · voorstel niet geopend</span><span class="st st-info">bellen</span></div>
+            <div class="doc" style="border:0;"><b>Bakker · schade 4902</b><span class="tiny">wacht op foto’s klant</span><span class="st st-wait">herinnering</span></div>
+          </div>
+          <div class="ui" style="margin-top:10px;background:#e8f4fb;color:#0f172a;border:1px solid #cfe7f5;">
+            <div class="tiny" style="color:#0369a1;">AI-BRIEFING VOOR 11:00 — FAMILIE VAN DEN BERG</div>
+            <div class="tiny" style="color:#334155;margin-top:6px;line-height:1.45;">Hypotheek 62% compleet, taxatie akkoord, 1 document open. Opstal verloopt 23 sep. Q3 accountancy 25% binnen. Laatste klantbericht: “HR stuurt de verklaring vandaag.” Gespreksvoorstel: toetsing plannen, opstal meenemen, Q3-deadline noemen.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 12 WAARDE ===================== -->
+<section class="slide cream-slide">
+  <div class="topbar"><div class="brand-sub" style="color:#c2410c;">Waarom dit de opdracht waard is</div><div class="slide-num" style="color:#4b5d70;">12 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Resultaat</div>
+    <h2 class="serif">Minder bellen. Snellere dossiers. Een kantoor dat groter aanvoelt.</h2>
+    <div class="cols cols-4" style="margin-top:32px;">
+      <div class="cream-card"><div class="n" style="color:#c2410c;font-family:'New York',serif;font-size:42px;">−40%</div><h3 style="margin:10px 0 8px;font-size:20px;">minder “waar blijft mijn…?”</h3><p>Status is zichtbaar. De AI vangt de eerste lijn. De adviseur belt als het ertoe doet.</p></div>
+      <div class="cream-card"><div class="n" style="color:#c2410c;font-family:'New York',serif;font-size:42px;">dagen</div><h3 style="margin:10px 0 8px;font-size:20px;">kortere hypotheekdoorlooptijd</h3><p>Complete mappen, geen najaag-rondes. Ontbindende voorwaarden worden gehaald in plaats van gehaast.</p></div>
+      <div class="cream-card"><div class="n" style="color:#c2410c;font-family:'New York',serif;font-size:42px;">Q+</div><h3 style="margin:10px 0 8px;font-size:20px;">kwartaalstukken op tijd</h3><p>De klant fotografeert onderweg. Het kantoor verwerkt dezelfde dag. Aangifte staat klaar ter inzage.</p></div>
+      <div class="cream-card"><div class="n" style="color:#c2410c;font-family:'New York',serif;font-size:42px;">1</div><h3 style="margin:10px 0 8px;font-size:20px;">relatie, drie producten</h3><p>Cross-sell zonder gedoe: de woning is gekocht, de opstal staat al klaar, de IB volgt in hetzelfde portaal.</p></div>
+    </div>
+    <div class="cols cols-3" style="margin-top:22px;">
+      <div class="cream-card"><h3>Voor de klant</h3><p>Professioneel, 24/7, op de bank of in de bouwkeet. Geen schoenendoos, geen “welke bijlage?”.</p></div>
+      <div class="cream-card"><h3>Voor de adviseur</h3><p>Tijd terug voor advies. Dossiers die kloppen. Een briefing vóór elk gesprek.</p></div>
+      <div class="cream-card"><h3>Voor de eigenaar</h3><p>Schaal zonder evenredig meer mail. Vastgelegde kwaliteit. Een product dat u kunt laten zien bij intake.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Nexa Advise</span><span>Cijfers zijn doelstellingen op basis van vergelijkbare portalen — we meten vanaf dag één</span></div>
+</section>
+
+<!-- ===================== 13 AANPAK ===================== -->
+<section class="slide dark">
+  <div class="topbar"><div class="brand-sub">Aanpak & zekerheid</div><div class="slide-num">13 / 13</div></div>
+  <div class="pad">
+    <div class="kicker">Hoe we dit neerzetten</div>
+    <h2 class="serif">Niet een demo-film. Een werkend portaal, in fases die u voelt.</h2>
+    <div class="cols cols-4" style="margin-top:32px;">
+      <div class="card"><div class="n">Fase 1</div><h3>Fundering</h3><p>Identiteit, rollen, klantdossier, documenten, berichten, white-label. De ruggengraat waar alle afdelingen op landt.</p></div>
+      <div class="card"><div class="n">Fase 2</div><h3>Hypotheken eerst</h3><p>Checklist, status, upload, adviseurszijde. Direct pijn eruit bij de zwaarste documentenstroom.</p></div>
+      <div class="card"><div class="n">Fase 3</div><h3>Verzekering & accountancy</h3><p>Polissen, schade, kwartaalflow, aangifte-archief. Daarna de schakelaar tussen afdelingen.</p></div>
+      <div class="card"><div class="n">Fase 4</div><h3>AI & n8n</h3><p>Chatbot op eigen data, documentherkenning, herinneringen, kantoor-briefings. Automatisering die u vertrouwt.</p></div>
+    </div>
+    <div class="cols cols-3" style="margin-top:22px;">
+      <div class="card"><h3>Veiligheid</h3><p>2FA, versleuteling, rechten tot op dossier, logging, geen vrije AI-toegang tot de database. Hosting in de EU.</p></div>
+      <div class="card"><h3>Platform</h3><p>Gebouwd op de Nexa-stack: multi-tenant, PWA, n8n-automations, bewezen bij andere verticals. Geen greenfield-gok.</p></div>
+      <div class="card"><h3>Uw huisstijl</h3><p>De klant ziet Helder Advies — of hoe u ook heet. Nexa levert het systeem, u levert het vertrouwen.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Nexa Advise · klantportaal</span><span>Fases zijn bespreekbaar; de volgorde volgt uw pijn</span></div>
+</section>
+
+<div class="hint">← → of spatie om te bladeren · F voor fullscreen</div>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const shot = new URLSearchParams(location.search).get('shot');
+  if (shot !== null) {
+    document.documentElement.classList.add('shot');
+    const n = parseInt(shot, 10);
+    slides.forEach((el, idx) => { el.style.display = (idx + 1 === n) ? 'block' : 'none'; });
+  }
+  let i = 0;
+  const go = (n) => {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(i + 1); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(i - 1); }
+    if (e.key === 'Home') { e.preventDefault(); go(0); }
+    if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+    if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+</script>
+</body>
+</html>

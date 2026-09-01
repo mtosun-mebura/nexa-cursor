@@ -76,6 +76,51 @@ class FrontendThemeSeeder extends Seeder
                 ],
                 'default_blocks' => $this->blocksNextLandingVpn(),
             ],
+            [
+                'slug' => 'landwind',
+                'name' => 'Landwind',
+                'description' => 'MIT Tailwind/Flowbite-landing (Themesberg): hero, features, CTA. Super-admin activeert; tenants kiezen dit thema voor hun website.',
+                'preview_path' => 'frontend-themes/landwind/images/hero.png',
+                'is_active' => false,
+                'settings' => [
+                    'primary_color' => '#7e3af2',
+                    'font_heading' => 'Inter',
+                    'font_body' => 'Inter',
+                    'footer_text' => '',
+                    'dark_mode_available' => true,
+                ],
+                'default_blocks' => $this->blocksNextlyTemplate(),
+            ],
+            [
+                'slug' => 'play-tailwind',
+                'name' => 'Play Tailwind',
+                'description' => 'MIT Tailwind-template (TailGrids): overlay-hero, diensten, stats en CTA. Geschikt voor taxi- en dienstverleningssites.',
+                'preview_path' => 'frontend-themes/play-tailwind/assets/images/hero/hero-image.jpg',
+                'is_active' => false,
+                'settings' => [
+                    'primary_color' => '#4a6cf7',
+                    'font_heading' => 'Inter',
+                    'font_body' => 'Inter',
+                    'footer_text' => '',
+                    'dark_mode_available' => true,
+                ],
+                'default_blocks' => $this->blocksNextlyTemplate(),
+            ],
+            [
+                'slug' => 'vue-material-kit',
+                'name' => 'Vue Material Kit',
+                'description' => 'MIT Vue 3 Material Design-kit (Creative Tim), overgezet naar Blade: gradient-hero, verhoogde kaarten en veel CMS-blokken.',
+                'preview_path' => 'frontend-themes/vue-material-kit/src/assets/img/vue-mk-header.jpg',
+                'is_active' => false,
+                'settings' => [
+                    'primary_color' => '#e91e63',
+                    'font_heading' => 'Roboto',
+                    'font_body' => 'Roboto',
+                    'footer_text' => '',
+                    'dark_mode_available' => true,
+                ],
+                'default_blocks' => $this->blocksNextlyTemplate(),
+            ],
         ];
 
         foreach ($themes as $theme) {

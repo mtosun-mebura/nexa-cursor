@@ -7,9 +7,10 @@ return [
     | Google Maps
     |--------------------------------------------------------------------------
     |
-    | De API key wordt gelezen uit de root .env (projectroot, niet backend/.env).
-    | Gebruik EnvService::getGoogleMapsApiKey() om de waarde te krijgen.
-    | Admin → Instellingen → Maps toont en beheert de key (opslaan schrijft naar backend/.env).
+    | Platform-brede waarden uit Algemene configuraties (general_settings).
+    | Gebruik EnvService::getGoogleMapsApiKey() of mapsFormSettings().
+    | Bij opstarten worden deze keys gesynchroniseerd via EnvService::syncMapsConfig().
+    | .env is alleen fallback wanneer er nog niets in de admin is ingesteld.
     |
     */
 

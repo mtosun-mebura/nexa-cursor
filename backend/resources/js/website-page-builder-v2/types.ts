@@ -9,6 +9,8 @@ export type ComponentCatalogItem = {
   description: string
   moduleName: string
   sectionKey: string
+  themeName?: string
+  themeSlug?: string
 }
 
 export type PaletteDragPayload =
@@ -21,8 +23,15 @@ export type EmailTemplateOption = {
   type: string
 }
 
+export type HeroiconOption = {
+  id: string
+  label: string
+  svg: string
+}
+
 export type PageMetaForm = {
   title: string
+  menuTitle: string
   slug: string
   pageType: string
   moduleName: string | null
@@ -66,6 +75,7 @@ export type BuilderBootstrap = {
   page: {
     id: number
     title: string
+    menuTitle?: string
     slug: string
     pageType: string
     moduleName: string | null
@@ -95,12 +105,16 @@ export type BuilderBootstrap = {
     uploadWebsiteMedia: string
     websiteMediaServeBase: string
     postcodeLookup: string
+    nexaPricingEdit: string
+    blockPreview: string
   }
+  nexaPricing: Record<string, unknown>
   googleMapsApiKey: string
   googleMapsMapId: string
   siteBrandingLogoUrl: string
   wizardBackUrl: string | null
   emailTemplates: EmailTemplateOption[]
+  heroicons: HeroiconOption[]
 }
 
 export type CanvasBlock = {

@@ -8,8 +8,6 @@ use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerSmsService;
 use App\Services\PaymentProviderService;
-use App\Services\WhatsAppBusinessService;
-use App\Support\DutchPhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,7 +16,6 @@ class DispatchSettingsController extends Controller
 {
     public function __construct(
         protected TaxiDispatchSettingsService $dispatchSettings,
-        protected WhatsAppBusinessService $whatsapp,
         protected PaymentProviderService $paymentProviders,
         protected TaxiCustomerSmsService $customerSms,
         protected TaxiCustomerAcceptEmailTemplateService $customerAcceptEmailTemplate
@@ -31,14 +28,6 @@ class DispatchSettingsController extends Controller
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $ttlSeconds = $this->dispatchSettings->offerTtlSeconds($companyId);
         $envDefault = (int) config('taxi-dispatch.offer_ttl_seconds', 300);
-        $storedWhatsappNumber = trim((string) GeneralSetting::get(
-            TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_NUMBER,
-            null,
-            $companyId
-        ));
-        $displayWhatsappNumber = $storedWhatsappNumber !== ''
-            ? $storedWhatsappNumber
-            : $this->dispatchSettings->envFallbackWhatsappNumber();
 
         return view('taxi::admin.dispatch-settings.edit', [
             'noTenantSelected' => $companyId === null,
@@ -47,18 +36,12 @@ class DispatchSettingsController extends Controller
             'envDefaultSeconds' => $envDefault,
             'minMinutes' => (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60),
             'maxMinutes' => (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60),
-            'pastPickupGraceHours' => $this->dispatchSettings->pastPickupGraceHours($companyId),
-            'envDefaultPastPickupGraceHours' => (int) config('taxi-dispatch.past_pickup_grace_hours', 2),
-            'minPastPickupGraceHours' => TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_HOURS,
-            'maxPastPickupGraceHours' => TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_HOURS,
-            'bookingWhatsappEnabled' => $this->dispatchSettings->bookingWhatsappEnabled($companyId),
-            'bookingWhatsappClickToChat' => $this->dispatchSettings->bookingWhatsappClickToChatEnabled($companyId),
+            'pastPickupGraceMinutes' => $this->dispatchSettings->pastPickupGraceMinutes($companyId),
+            'envDefaultPastPickupGraceMinutes' => (int) config('taxi-dispatch.past_pickup_grace_minutes', 60),
+            'minPastPickupGraceMinutes' => TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES,
+            'maxPastPickupGraceMinutes' => TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES,
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
             'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
-            'bookingWhatsappNumber' => $displayWhatsappNumber,
-            'hasStoredWhatsappNumber' => $storedWhatsappNumber !== '',
-            'whatsappApiConfigured' => $this->whatsapp->isConfigured(),
-            'envFallbackWhatsappNumber' => $this->dispatchSettings->envFallbackWhatsappNumber(),
             'paymentBookingEnabled' => $this->dispatchSettings->paymentBookingEnabled($companyId),
             'paymentDriverEnabled' => $this->dispatchSettings->paymentDriverEnabled($companyId),
             'mollieSummary' => $this->paymentProviders->mollieSummaryForCompany($companyId),
@@ -71,9 +54,7 @@ class DispatchSettingsController extends Controller
             'customerAcceptWhatsappEnabled' => $this->dispatchSettings->customerAcceptWhatsappEnabled($companyId),
             'customerAcceptSmsEnabled' => $this->dispatchSettings->customerAcceptSmsEnabled($companyId),
             'customerAcceptSmsProvider' => $this->dispatchSettings->customerAcceptSmsProvider($companyId),
-            'customerAcceptPlainMessage' => $this->dispatchSettings->customerAcceptPlainMessage($companyId),
-            'customerAcceptWhatsappTemplate' => $this->dispatchSettings->customerAcceptWhatsappTemplateName($companyId),
-            'customerAcceptWhatsappTemplateLang' => $this->dispatchSettings->customerAcceptWhatsappTemplateLanguage($companyId),
+            'whatsappApiConfigured' => $this->dispatchSettings->whatsappApiConfigured($companyId),
             'smsProviderOptions' => TaxiDispatchSettingsService::smsProviderOptions(),
             'vonageConfigured' => $this->customerSms->isVonageConfigured(),
             'customerAcceptEmailEditUrl' => route('admin.taxi.dispatch_settings.customer_accept_email.edit'),
@@ -141,18 +122,15 @@ class DispatchSettingsController extends Controller
         $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
         $minLoginCodeMinutes = TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES;
         $maxLoginCodeMinutes = TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES;
-        $minGraceHours = TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_HOURS;
-        $maxGraceHours = TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_HOURS;
+        $minGraceMinutes = TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES;
+        $maxGraceMinutes = TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES;
 
         $validated = $request->validate([
             'offer_ttl_minutes' => ['required', 'integer', 'min:'.$minMinutes, 'max:'.$maxMinutes],
-            'past_pickup_grace_hours' => ['required', 'integer', 'min:'.$minGraceHours, 'max:'.$maxGraceHours],
+            'past_pickup_grace_minutes' => ['required', 'integer', 'min:'.$minGraceMinutes, 'max:'.$maxGraceMinutes],
             'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
-            'booking_whatsapp_enabled' => ['nullable', 'in:0,1'],
-            'booking_whatsapp_click_to_chat' => ['nullable', 'in:0,1'],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
             'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
-            'booking_whatsapp_number' => ['nullable', 'string', 'max:50'],
             'payment_booking_enabled' => ['nullable', 'in:0,1'],
             'payment_driver_enabled' => ['nullable', 'in:0,1'],
             'customer_accept_enabled' => ['nullable', 'in:0,1'],
@@ -160,17 +138,14 @@ class DispatchSettingsController extends Controller
             'customer_accept_whatsapp_enabled' => ['nullable', 'in:0,1'],
             'customer_accept_sms_enabled' => ['nullable', 'in:0,1'],
             'customer_accept_sms_provider' => ['nullable', 'string', 'in:off,demo,vonage'],
-            'customer_accept_plain_message' => ['nullable', 'string', 'max:4000'],
-            'customer_accept_whatsapp_template' => ['nullable', 'string', 'max:120'],
-            'customer_accept_whatsapp_template_lang' => ['nullable', 'string', 'max:12'],
         ], [
             'offer_ttl_minutes.required' => 'Vul de acceptatietijd in.',
             'offer_ttl_minutes.integer' => 'Acceptatietijd moet een heel getal zijn.',
             'offer_ttl_minutes.min' => 'Acceptatietijd moet minimaal '.$minMinutes.' minuut zijn.',
             'offer_ttl_minutes.max' => 'Acceptatietijd mag maximaal '.$maxMinutes.' minuten zijn.',
-            'past_pickup_grace_hours.required' => 'Vul het grace-interval na ophaalmoment in.',
-            'past_pickup_grace_hours.min' => 'Grace-interval moet minimaal '.$minGraceHours.' uur zijn.',
-            'past_pickup_grace_hours.max' => 'Grace-interval mag maximaal '.$maxGraceHours.' uur zijn.',
+            'past_pickup_grace_minutes.required' => 'Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.',
+            'past_pickup_grace_minutes.min' => 'Grace-interval moet minimaal '.$minGraceMinutes.' minuten zijn.',
+            'past_pickup_grace_minutes.max' => 'Grace-interval mag maximaal '.$maxGraceMinutes.' minuten zijn.',
             'customer_login_code_expires_minutes.required' => 'Vul de geldigheid van de inlogcode in.',
             'customer_login_code_expires_minutes.min' => 'Geldigheid moet minimaal '.$minLoginCodeMinutes.' minuten zijn.',
             'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
@@ -180,31 +155,19 @@ class DispatchSettingsController extends Controller
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
         }
-        $normalizedWhatsappNumber = DutchPhoneNumber::normalizeOptionalNlToInternational(
-            trim((string) ($validated['booking_whatsapp_number'] ?? ''))
-        );
-        if ($normalizedWhatsappNumber === null) {
-            return redirect()
-                ->route('admin.taxi.dispatch_settings.edit')
-                ->withErrors(['booking_whatsapp_number' => 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).'])
-                ->withInput();
-        }
 
         $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
         $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
-        $this->dispatchSettings->setPastPickupGraceHours(
-            (int) $validated['past_pickup_grace_hours'],
+        $this->dispatchSettings->setPastPickupGraceMinutes(
+            (int) $validated['past_pickup_grace_minutes'],
             $companyId
         );
         $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(
             (int) $validated['customer_login_code_expires_minutes'],
             $companyId
         );
-        $this->dispatchSettings->setBookingWhatsappEnabled($request->boolean('booking_whatsapp_enabled'), $companyId);
-        $this->dispatchSettings->setBookingWhatsappClickToChatEnabled($request->boolean('booking_whatsapp_click_to_chat'), $companyId);
         $this->dispatchSettings->setBookingDriverEmailEnabled($request->boolean('booking_driver_email_enabled'), $companyId);
         $this->dispatchSettings->setBookingCustomerEmailEnabled($request->boolean('booking_customer_email_enabled'), $companyId);
-        $this->dispatchSettings->setBookingWhatsappNumber((string) $normalizedWhatsappNumber, $companyId);
         $this->dispatchSettings->setPaymentBookingEnabled($request->boolean('payment_booking_enabled'), $companyId);
         $this->dispatchSettings->setPaymentDriverEnabled($request->boolean('payment_driver_enabled'), $companyId);
 
@@ -215,17 +178,6 @@ class DispatchSettingsController extends Controller
         $this->dispatchSettings->setCustomerAcceptSmsEnabled($acceptEnabled && $request->boolean('customer_accept_sms_enabled'), $companyId);
         $this->dispatchSettings->setCustomerAcceptSmsProvider(
             (string) ($validated['customer_accept_sms_provider'] ?? TaxiDispatchSettingsService::SMS_PROVIDER_OFF),
-            $companyId
-        );
-        if (array_key_exists('customer_accept_plain_message', $validated)) {
-            $this->dispatchSettings->setCustomerAcceptPlainMessage((string) $validated['customer_accept_plain_message'], $companyId);
-        }
-        $this->dispatchSettings->setCustomerAcceptWhatsappTemplateName(
-            (string) ($validated['customer_accept_whatsapp_template'] ?? ''),
-            $companyId
-        );
-        $this->dispatchSettings->setCustomerAcceptWhatsappTemplateLanguage(
-            (string) ($validated['customer_accept_whatsapp_template_lang'] ?? 'nl'),
             $companyId
         );
 

@@ -6,6 +6,8 @@ class InformatieaanvraagEmailHtmlNormalizer
 {
     public const FIELD_DIVIDER_COLOR = '#d1d5db';
 
+    public const FIELDS_COLGROUP_HTML = '<colgroup><col width="175" style="width: 175px;"><col width="*" style="width: auto;"></colgroup>';
+
     public function normalize(string $html): string
     {
         if ($html === '') {
@@ -19,22 +21,16 @@ class InformatieaanvraagEmailHtmlNormalizer
         $html = $this->ensureInfoRequestFieldsTableLayout($html);
         $html = $this->normalizeFieldLabelWidths($html);
         $html = $this->normalizeFieldValueWidths($html);
+        $html = $this->ensureFieldCellHtmlWidths($html);
         $html = $this->normalizeFieldLabelAlignment($html);
         $html = $this->normalizeFieldsTableSpacing($html);
         $html = $this->normalizeIntroToFieldsSpacing($html);
         $html = $this->removeFieldCellBorders($html);
-        $html = $this->insertFieldDividerRows($html);
+        $html = $this->removeFieldDividerRows($html);
         $html = $this->normalizeFieldRowPadding($html);
         $html = $this->ensurePresentationCellAttributes($html);
 
         return $html;
-    }
-
-    public static function fieldDividerRowHtml(): string
-    {
-        $color = self::FIELD_DIVIDER_COLOR;
-
-        return '<tr class="info-request-field-divider"><td colspan="2" height="1" bgcolor="'.$color.'" style="padding: 0; margin: 0; line-height: 1px; font-size: 1px; height: 1px; background-color: '.$color.'; border: none; mso-line-height-rule: exactly;">&#8203;</td></tr>';
     }
 
     protected function ensureColorSchemeMeta(string $html): string
@@ -122,13 +118,49 @@ class InformatieaanvraagEmailHtmlNormalizer
     {
         $html = preg_replace(
             '/(<table[^>]*\binfo-request-fields\b[^>]*>\s*<colgroup>\s*<col[^>]*>\s*<col[^>]*style="[^"]*)width:\s*1%\s*;?/i',
-            '$1',
+            '$1width: auto;',
             $html
         ) ?? $html;
 
         return preg_replace(
             '/(class="info-request-field-value(?:--multiline)?"[^>]*style="[^"]*)width:\s*1%\s*;?\s*/i',
-            '$1',
+            '$1width: 99%;',
+            $html
+        ) ?? $html;
+    }
+
+    protected function ensureFieldCellHtmlWidths(string $html): string
+    {
+        $html = preg_replace_callback(
+            '/<td([^>]*\binfo-request-field-label\b[^>]*)>/i',
+            static function (array $matches): string {
+                $attrs = $matches[1];
+                if (! preg_match('/\bwidth="/i', $attrs)) {
+                    $attrs .= ' width="175"';
+                }
+
+                return '<td'.$attrs.'>';
+            },
+            $html
+        ) ?? $html;
+
+        return preg_replace_callback(
+            '/<td([^>]*\binfo-request-field-value(?:--multiline)?\b[^>]*)>/i',
+            static function (array $matches): string {
+                $attrs = $matches[1];
+                if (! preg_match('/\bwidth="/i', $attrs)) {
+                    $attrs .= ' width="99%"';
+                }
+                if (preg_match('/\sstyle="/i', $attrs)) {
+                    if (! preg_match('/width\s*:/i', $attrs)) {
+                        $attrs = preg_replace('/\sstyle="/i', ' style="width: 99%; ', $attrs, 1) ?? $attrs;
+                    }
+                } else {
+                    $attrs .= ' style="width: 99%;"';
+                }
+
+                return '<td'.$attrs.'>';
+            },
             $html
         ) ?? $html;
     }
@@ -202,7 +234,7 @@ class InformatieaanvraagEmailHtmlNormalizer
         }
 
         $previous = libxml_use_internal_errors(true);
-        $doc = new \DOMDocument();
+        $doc = new \DOMDocument;
         $doc->loadHTML(
             '<?xml encoding="utf-8" ?>'.$html,
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
@@ -234,7 +266,7 @@ class InformatieaanvraagEmailHtmlNormalizer
         }
 
         $previous = libxml_use_internal_errors(true);
-        $doc = new \DOMDocument();
+        $doc = new \DOMDocument;
         $doc->loadHTML(
             '<?xml encoding="utf-8" ?>'.$html,
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
@@ -374,7 +406,7 @@ class InformatieaanvraagEmailHtmlNormalizer
 
     protected function findEmailBodyCell(\DOMElement $card): ?\DOMElement
     {
-        $xpath = new \DOMXPath($card->ownerDocument ?? new \DOMDocument());
+        $xpath = new \DOMXPath($card->ownerDocument ?? new \DOMDocument);
         $nodes = $xpath->query(".//td[contains(concat(' ', normalize-space(@class), ' '), ' info-request-email-body ')]", $card);
         if ($nodes !== false && $nodes->length > 0 && $nodes->item(0) instanceof \DOMElement) {
             return $nodes->item(0);
@@ -393,9 +425,13 @@ class InformatieaanvraagEmailHtmlNormalizer
 
         $colgroup = $doc->createElement('colgroup');
         $labelCol = $doc->createElement('col');
+        $labelCol->setAttribute('width', '175');
         $labelCol->setAttribute('style', 'width: 175px;');
+        $valueCol = $doc->createElement('col');
+        $valueCol->setAttribute('width', '*');
+        $valueCol->setAttribute('style', 'width: auto;');
         $colgroup->appendChild($labelCol);
-        $colgroup->appendChild($doc->createElement('col'));
+        $colgroup->appendChild($valueCol);
         $table->appendChild($colgroup);
 
         return $table;
@@ -420,9 +456,15 @@ class InformatieaanvraagEmailHtmlNormalizer
             $html
         ) ?? $html;
 
-        return preg_replace(
+        $html = preg_replace(
             '/(<table[^>]*\binfo-request-fields\b[^>]*>)(\s*(?!<colgroup))/i',
-            '$1<colgroup><col style="width: 175px;"><col></colgroup>',
+            '$1'.self::FIELDS_COLGROUP_HTML,
+            $html
+        ) ?? $html;
+
+        return preg_replace(
+            '/(<table[^>]*\binfo-request-fields\b[^>]*>\s*<colgroup>\s*<col[^>]*>\s*)<col(?:\s*\/?)>/i',
+            '$1<col width="*" style="width: auto;">',
             $html
         ) ?? $html;
     }
@@ -498,98 +540,19 @@ class InformatieaanvraagEmailHtmlNormalizer
         ) ?? $html;
     }
 
-    protected function insertFieldDividerRows(string $html): string
+    protected function removeFieldDividerRows(string $html): string
     {
-        if (! str_contains($html, 'info-request-field-row') && ! str_contains($html, 'info-request-fields')) {
+        if (! str_contains($html, 'info-request-field-divider')) {
             return $html;
         }
 
-        $previous = libxml_use_internal_errors(true);
-        $doc = new \DOMDocument();
-        $doc->loadHTML(
-            '<?xml encoding="utf-8" ?>'.$html,
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
-        );
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
+        $html = preg_replace(
+            '/<tr[^>]*class="[^"]*info-request-field-divider[^"]*"[^>]*>[\s\S]*?<\/tr>/i',
+            '',
+            $html
+        ) ?? $html;
 
-        $xpath = new \DOMXPath($doc);
-        $fieldTables = $xpath->query("//table[contains(concat(' ', normalize-space(@class), ' '), ' info-request-fields ')]");
-
-        foreach ($fieldTables as $table) {
-            if (! $table instanceof \DOMElement) {
-                continue;
-            }
-            $this->insertDividersInFieldsTable($doc, $table);
-        }
-
-        $result = $doc->saveHTML();
-
-        return preg_replace('/^<\?xml encoding="utf-8" \?>/', '', $result ?? $html) ?? $html;
-    }
-
-    protected function insertDividersInFieldsTable(\DOMDocument $doc, \DOMElement $table): void
-    {
-        $container = $table;
-        foreach ($table->childNodes as $child) {
-            if ($child instanceof \DOMElement && strtolower($child->nodeName) === 'tbody') {
-                $container = $child;
-                break;
-            }
-        }
-
-        $fieldRows = [];
-        foreach (iterator_to_array($container->childNodes) as $node) {
-            if (! $node instanceof \DOMElement || strtolower($node->nodeName) !== 'tr') {
-                continue;
-            }
-            $class = $node->getAttribute('class');
-            if (str_contains($class, 'info-request-field-divider')) {
-                continue;
-            }
-            if (str_contains($class, 'info-request-field-row') || $this->isLikelyFieldDataRow($node)) {
-                $fieldRows[] = $node;
-            }
-        }
-
-        if (count($fieldRows) < 2) {
-            return;
-        }
-
-        for ($i = count($fieldRows) - 2; $i >= 0; $i--) {
-            $row = $fieldRows[$i];
-            $next = $fieldRows[$i + 1] ?? null;
-            if ($next === null) {
-                continue;
-            }
-            $between = $row->nextSibling;
-            if ($between instanceof \DOMElement
-                && strtolower($between->nodeName) === 'tr'
-                && str_contains($between->getAttribute('class'), 'info-request-field-divider')) {
-                continue;
-            }
-
-            $divider = $this->createFieldDividerRowElement($doc);
-            if ($divider !== null) {
-                $container->insertBefore($divider, $next);
-            }
-        }
-    }
-
-    protected function createFieldDividerRowElement(\DOMDocument $doc): ?\DOMElement
-    {
-        $color = self::FIELD_DIVIDER_COLOR;
-        $tr = $doc->createElement('tr');
-        $tr->setAttribute('class', 'info-request-field-divider');
-        $td = $doc->createElement('td');
-        $td->setAttribute('colspan', '2');
-        $td->setAttribute('height', '1');
-        $td->setAttribute('bgcolor', $color);
-        $td->setAttribute('style', 'padding: 0; margin: 0; line-height: 1px; font-size: 1px; height: 1px; background-color: '.$color.'; border: none; mso-line-height-rule: exactly;');
-        $td->appendChild($doc->createTextNode("\xE2\x80\x8B"));
-        $tr->appendChild($td);
-
-        return $tr;
+        return preg_replace("/\n{3,}/", "\n\n", $html) ?? $html;
     }
 
     protected function isLikelyFieldDataRow(\DOMElement $row): bool

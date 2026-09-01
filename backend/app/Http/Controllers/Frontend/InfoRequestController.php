@@ -4,20 +4,23 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\EmailTemplate;
+use App\Models\GeneralSetting;
 use App\Models\InfoRequestFormField;
 use App\Services\EmailTemplateService;
-use App\Models\GeneralSetting;
 use App\Services\ModuleDatabaseService;
+use App\Services\PublicFormProtection;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 
 class InfoRequestController extends Controller
 {
     public function __construct(
         protected ModuleDatabaseService $moduleDb,
-        protected WebsiteBuilderService $websiteBuilder
+        protected WebsiteBuilderService $websiteBuilder,
+        protected PublicFormProtection $formProtection
     ) {}
 
     /**
@@ -25,7 +28,7 @@ class InfoRequestController extends Controller
      * Validatie en velden komen uit Formulier velden beheer (info_request_form_fields).
      */
     /** Minimale tijd dat het formulier zichtbaar moet zijn voordat verzenden is toegestaan (seconden). */
-    private const MIN_FORM_TIME_SECONDS = 0;
+    private const MIN_FORM_TIME_SECONDS = 2;
 
     /** Maximale geldigheid van het formulier-token (seconden). */
     private const MAX_FORM_TIME_SECONDS = 7200;
@@ -33,9 +36,9 @@ class InfoRequestController extends Controller
     /**
      * @return array{form_time: int, form_time_token: string}
      */
-    public static function formTimeFields(): array
+    public static function formTimeFields(?int $timestamp = null): array
     {
-        $time = time();
+        $time = $timestamp ?? time();
 
         return [
             'form_time' => $time,
@@ -46,8 +49,10 @@ class InfoRequestController extends Controller
     public function submit(Request $request)
     {
         try {
-            if (trim((string) $request->input('company_website', '')) !== '') {
-                return $this->respond($request, redirect: fn () => redirect()->back()->with('error', 'Er is iets misgegaan. Probeer het formulier opnieuw.')->withInput(), json: fn () => response()->json(['message' => 'Er is iets misgegaan. Probeer het formulier opnieuw.'], 422));
+            if ($this->formProtection->honeypotFilled($request)) {
+                Log::info('Info request: honeypot filled', ['ip' => $request->ip()]);
+
+                return $this->fakeSuccessResponse($request);
             }
 
             $submittedAt = $this->resolveFormTime($request);
@@ -65,7 +70,7 @@ class InfoRequestController extends Controller
             $request->validate(['template_id' => 'required|integer|min:1'], ['template_id.required' => 'Geen template gekozen.']);
 
             $template = $this->findTemplateForInfoRequest((int) $request->template_id);
-            if (!$template) {
+            if (! $template) {
                 return $this->respond($request, redirect: fn () => redirect()->back()->with('error', 'De gekozen template is niet beschikbaar.')->withInput(), json: fn () => response()->json(['message' => 'De gekozen template is niet beschikbaar.'], 400));
             }
 
@@ -95,12 +100,25 @@ class InfoRequestController extends Controller
                     };
                 }
                 $rules[$field->name] = $fieldRules;
-                $messages[$field->name . '.required'] = $field->label . ' is verplicht.';
+                $messages[$field->name.'.required'] = $field->label.' is verplicht.';
+                if ($field->isNexaPackageField()) {
+                    $messages[$field->name.'.in'] = 'Kies een geldig pakket.';
+                }
             }
             $request->validate($rules, $messages);
 
+            if ($this->requestContainsMaliciousContent($request, $formFields)) {
+                Log::warning('Info request: rejected unsafe input', ['ip' => $request->ip()]);
+
+                return $this->respond(
+                    $request,
+                    redirect: fn () => redirect()->back()->with('error', 'Ongeldige invoer gedetecteerd. Pas uw bericht aan en probeer opnieuw.')->withInput(),
+                    json: fn () => response()->json(['message' => 'Ongeldige invoer gedetecteerd. Pas uw bericht aan en probeer opnieuw.'], 422)
+                );
+            }
+
             $toEmail = $template->getRecipientEmailAddress() ?? config('mail.from.address') ?? 'noreply@example.com';
-            $companyName = (string) ($template->company?->name ?? config('app.name') ?? 'Ons bedrijf');
+            $companyName = (string) ($template->company?->name ?? 'NEXA Suite');
             $variables = $this->buildTemplateVariables($request, $formFields);
 
             app(EmailTemplateService::class)->sendTestEmail(
@@ -110,15 +128,62 @@ class InfoRequestController extends Controller
                 $variables
             );
             $successMessage = GeneralSetting::get('info_request_success_title', 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.');
+
             return $this->respond($request, redirect: fn () => redirect()->back()->with('info_request_sent', true)->with('success', $successMessage), json: fn () => response()->json(['success' => true, 'message' => $successMessage]));
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            \Log::error('Info request form error: ' . $e->getMessage(), ['exception' => $e]);
+            \Log::error('Info request form error: '.$e->getMessage(), ['exception' => $e]);
             $errorMessage = 'Er is een fout opgetreden bij het versturen. Probeer het later opnieuw.';
-            $jsonMessage = config('app.debug') ? $errorMessage . ' (' . $e->getMessage() . ')' : $errorMessage;
+            $jsonMessage = config('app.debug') ? $errorMessage.' ('.$e->getMessage().')' : $errorMessage;
+
             return $this->respond($request, redirect: fn () => redirect()->back()->with('error', $errorMessage)->withInput(), json: fn () => response()->json(['message' => $jsonMessage], 500));
         }
+    }
+
+    private function fakeSuccessResponse(Request $request)
+    {
+        $successMessage = GeneralSetting::get('info_request_success_title', 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.');
+
+        return $this->respond(
+            $request,
+            redirect: fn () => redirect()->back()->with('info_request_sent', true)->with('success', $successMessage),
+            json: fn () => response()->json(['success' => true, 'message' => $successMessage])
+        );
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, InfoRequestFormField>  $formFields
+     */
+    private function requestContainsMaliciousContent(Request $request, $formFields): bool
+    {
+        $fields = $formFields->isNotEmpty()
+            ? $formFields
+            : collect([
+                (object) ['name' => 'voornaam', 'isTextareaField' => false],
+                (object) ['name' => 'achternaam', 'isTextareaField' => false],
+                (object) ['name' => 'email', 'isTextareaField' => false],
+                (object) ['name' => 'telefoon', 'isTextareaField' => false],
+                (object) ['name' => 'omschrijving', 'isTextareaField' => true],
+            ]);
+
+        foreach ($fields as $field) {
+            $value = (string) $request->input($field->name, '');
+            if ($value === '') {
+                continue;
+            }
+            if ($this->formProtection->containsMaliciousMarkup($value)) {
+                return true;
+            }
+            $isTextarea = $field instanceof InfoRequestFormField
+                ? $field->isTextareaField()
+                : (bool) ($field->isTextareaField ?? false);
+            if (! $isTextarea && $this->formProtection->containsHeaderInjection($value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function respond(Request $request, callable $redirect, callable $json)
@@ -126,6 +191,7 @@ class InfoRequestController extends Controller
         if ($request->wantsJson()) {
             return $json();
         }
+
         return $redirect();
     }
 
@@ -163,6 +229,7 @@ class InfoRequestController extends Controller
         if (! filter_var($value, FILTER_VALIDATE_EMAIL)) {
             return 'Vul een geldig e-mailadres in. Controleer op spaties of ongeldige tekens.';
         }
+
         return null;
     }
 
@@ -187,6 +254,7 @@ class InfoRequestController extends Controller
                 return 'Het telefoonnummer moet 10 cijfers bevatten. Bijvoorbeeld: 0612345678';
             }
         }
+
         return null;
     }
 
@@ -200,17 +268,25 @@ class InfoRequestController extends Controller
         if ($formFields->isNotEmpty()) {
             foreach ($formFields as $field) {
                 $key = strtoupper(str_replace('-', '_', $field->name));
-                $val = $request->input($field->name, '');
-                $variables[$key] = trim((string) $val) !== '' ? $val : $emptyPlaceholder;
+                $val = $this->formProtection->sanitizePlainText((string) $request->input($field->name, ''), $field->isTextareaField());
+                $variables[$key] = $val !== '' ? $val : $emptyPlaceholder;
             }
         } else {
-            $variables['VOORNAAM'] = trim((string) ($request->voornaam ?? '')) !== '' ? ($request->voornaam ?? '') : $emptyPlaceholder;
-            $variables['ACHTERNAAM'] = trim((string) ($request->achternaam ?? '')) !== '' ? ($request->achternaam ?? '') : $emptyPlaceholder;
-            $variables['EMAIL_AANVRAAG'] = trim((string) ($request->email ?? '')) !== '' ? ($request->email ?? '') : $emptyPlaceholder;
-            $variables['TELEFOONNUMMER'] = trim((string) ($request->telefoon ?? '')) !== '' ? ($request->telefoon ?? '') : $emptyPlaceholder;
-            $variables['OMSCHRIJVING'] = trim((string) ($request->omschrijving ?? '')) !== '' ? ($request->omschrijving ?? '') : $emptyPlaceholder;
+            $variables['VOORNAAM'] = $this->sanitizedOrPlaceholder($request, 'voornaam');
+            $variables['ACHTERNAAM'] = $this->sanitizedOrPlaceholder($request, 'achternaam');
+            $variables['EMAIL_AANVRAAG'] = $this->sanitizedOrPlaceholder($request, 'email');
+            $variables['TELEFOONNUMMER'] = $this->sanitizedOrPlaceholder($request, 'telefoon');
+            $variables['OMSCHRIJVING'] = $this->sanitizedOrPlaceholder($request, 'omschrijving', true);
         }
+
         return $variables;
+    }
+
+    private function sanitizedOrPlaceholder(Request $request, string $name, bool $allowNewlines = false): string
+    {
+        $val = $this->formProtection->sanitizePlainText((string) ($request->input($name, '')), $allowNewlines);
+
+        return $val !== '' ? $val : '-';
     }
 
     /**
@@ -230,6 +306,7 @@ class InfoRequestController extends Controller
                 return EmailTemplate::on($connName)->where('id', $templateId)->where('is_active', true)->first();
             }
         }
+
         return null;
     }
 

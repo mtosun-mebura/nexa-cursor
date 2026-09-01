@@ -1,6 +1,8 @@
 @props([
     'caption' => null,
     'title' => 'Schermvoorbeeld',
+    'src' => null,
+    'alt' => null,
 ])
 <figure {{ $attributes->merge(['class' => 'handleiding-figure my-6']) }}>
     @if($caption)
@@ -13,8 +15,12 @@
             <span class="size-2.5 rounded-full bg-emerald-400/90"></span>
             <span class="ms-2 truncate text-xs text-muted-foreground">{{ $title }}</span>
         </div>
-        <div class="handleiding-screenshot-body bg-background p-3 sm:p-4">
-            {{ $slot }}
+        <div class="handleiding-screenshot-body bg-background {{ $src ? 'p-0' : 'p-3 sm:p-4' }}">
+            @if($src)
+                <img src="{{ $src }}" alt="{{ $alt ?? $caption ?? $title }}" class="block w-full h-auto">
+            @else
+                {{ $slot }}
+            @endif
         </div>
     </div>
 </figure>

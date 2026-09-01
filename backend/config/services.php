@@ -44,6 +44,11 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'web_search_model' => env('OPENAI_WEB_SEARCH_MODEL', 'gpt-4o-mini'),
+    ],
+
+    'hunter' => [
+        'api_key' => env('HUNTER_API_KEY'),
     ],
 
     'ai_chat' => [

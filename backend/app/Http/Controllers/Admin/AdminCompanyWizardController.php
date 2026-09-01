@@ -9,10 +9,14 @@ use App\Models\Module as ModuleModel;
 use App\Models\User;
 use App\Services\EnvService;
 use App\Services\ModuleManager;
+use App\Services\NexaPricingService;
+use App\Services\TenantOnboardingService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use RuntimeException;
 
 class AdminCompanyWizardController extends AdminCompanyController
 {
@@ -49,6 +53,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             'currentStep' => 1,
             'maxReachable' => 1,
             'branches' => $branches,
+            'nexaPackages' => $this->nexaPackagesForSelect(),
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsZoom' => $googleMapsZoom,
             'googleMapsCenterLat' => $googleMapsCenterLat,
@@ -105,6 +110,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             'currentStep' => $step,
             'maxReachable' => $maxReachable,
             'branches' => $branches,
+            'nexaPackages' => $this->nexaPackagesForSelect(),
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsZoom' => $googleMapsZoom,
             'googleMapsCenterLat' => $googleMapsCenterLat,
@@ -129,7 +135,10 @@ class AdminCompanyWizardController extends AdminCompanyController
                 'websitePages' => $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true),
                 'activeTheme' => $this->websiteBuilder->getActiveTheme((int) $company->id),
             ])),
-            7 => view('admin.companies.wizard.step7', $viewData),
+            7 => view('admin.companies.wizard.step7', array_merge($viewData, [
+                'packageLabel' => app(NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''))['name']
+                    ?? $company->package_key,
+            ])),
             default => abort(404),
         };
     }
@@ -172,31 +181,9 @@ class AdminCompanyWizardController extends AdminCompanyController
             'building_image' => $request->filled('building_image') ? (int) $request->input('building_image') : null,
         ]);
 
-        $request->validate([
-            'name' => 'required|string|max:255|min:2',
-            'kvk_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
-            'building_image' => 'nullable|integer|in:1,2,3',
-            'email' => 'required|email:rfc,dns|max:255',
-            'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
-            'website' => 'nullable|url:http,https|max:255',
-            'industry' => 'nullable|string|max:255',
-            'street' => 'required|string|max:255|min:2',
-            'house_number' => 'required|string|max:20|min:1',
-            'postal_code' => ['required', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
-            'city' => 'required|string|max:255|min:2',
-            'country' => 'nullable|string|max:255',
-            'latitude' => 'nullable|numeric|between:-90,90',
-            'longitude' => 'nullable|numeric|between:-180,180',
-            'description' => 'nullable|string|max:5000',
-            'is_intermediary' => 'nullable|boolean',
-            'is_main' => 'nullable|boolean',
-            'is_active' => 'nullable|boolean',
-            'contact_first_name' => 'nullable|string|max:255',
-            'contact_last_name' => 'nullable|string|max:255',
-            'company_logo_mode' => 'nullable|in:single,light_dark',
-            'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:2048',
-            'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:2048',
-        ], $this->validationMessagesForWizardStep1());
+        $this->mergeWizardIndustry($request);
+
+        $request->validate($this->wizardStep1Rules(), $this->validationMessagesForWizardStep1());
 
         $data = $request->only([
             'name', 'kvk_number', 'email', 'phone', 'website', 'industry',
@@ -204,7 +191,9 @@ class AdminCompanyWizardController extends AdminCompanyController
             'latitude', 'longitude', 'description',
             'contact_first_name', 'contact_last_name',
             'building_image',
+            'package_key',
         ]);
+        $this->applyPackageKeyFromRequest($request, $data);
         $data['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
         $data['is_main'] = $request->has('is_main') ? (bool) $request->input('is_main') : false;
         $data['is_active'] = $request->has('is_active') ? (bool) $request->input('is_active') : false;
@@ -410,12 +399,29 @@ class AdminCompanyWizardController extends AdminCompanyController
 
     private function submitStep7(Company $company): RedirectResponse
     {
+        try {
+            $result = app(TenantOnboardingService::class)->provisionCompanyAdmin($company);
+        } catch (RuntimeException $e) {
+            return redirect()
+                ->route('admin.companies.wizard.step', [$company, 7])
+                ->with('error', $e->getMessage());
+        }
+
         session()->forget($this->sessionKey($company));
         session()->forget(self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
 
+        $message = 'Tenant-onboarding afgerond.';
+        if ($result['created'] && $result['mailed']) {
+            $message .= ' De company-admin ('.$result['user']->email.') ontvangt de welkomstmail met een tijdelijk wachtwoord.';
+        } elseif ($result['created'] && ! $result['mailed']) {
+            $message .= ' De company-admin ('.$result['user']->email.') is aangemaakt, maar de welkomstmail kon niet worden verstuurd. Controleer de mailserver.';
+        } elseif (! $result['created']) {
+            $message .= ' Bestaande gebruiker '.$result['user']->email.' is als company-admin gekoppeld.';
+        }
+
         return redirect()
             ->route('admin.companies.show', $company)
-            ->with('success', 'Tenant-onboarding afgerond.');
+            ->with('success', $message);
     }
 
     private function createCompanyFromWizardRequest(Request $request): Company
@@ -426,31 +432,9 @@ class AdminCompanyWizardController extends AdminCompanyController
             'building_image' => $request->filled('building_image') ? (int) $request->input('building_image') : null,
         ]);
 
-        $request->validate([
-            'name' => 'required|string|max:255|min:2',
-            'kvk_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
-            'building_image' => 'nullable|integer|in:1,2,3',
-            'email' => 'required|email:rfc,dns|max:255',
-            'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
-            'website' => 'nullable|url:http,https|max:255',
-            'industry' => 'nullable|string|max:255',
-            'street' => 'required|string|max:255|min:2',
-            'house_number' => 'required|string|max:20|min:1',
-            'postal_code' => ['required', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
-            'city' => 'required|string|max:255|min:2',
-            'country' => 'nullable|string|max:255',
-            'latitude' => 'nullable|numeric|between:-90,90',
-            'longitude' => 'nullable|numeric|between:-180,180',
-            'description' => 'nullable|string|max:5000',
-            'is_intermediary' => 'nullable|boolean',
-            'is_main' => 'nullable|boolean',
-            'is_active' => 'nullable|boolean',
-            'contact_first_name' => 'nullable|string|max:255',
-            'contact_last_name' => 'nullable|string|max:255',
-            'company_logo_mode' => 'nullable|in:single,light_dark',
-            'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:2048',
-            'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:2048',
-        ], $this->validationMessagesForWizardStep1());
+        $this->mergeWizardIndustry($request);
+
+        $request->validate($this->wizardStep1Rules(), $this->validationMessagesForWizardStep1());
 
         $companyData = $request->only([
             'name', 'kvk_number', 'email', 'phone', 'website', 'industry',
@@ -458,7 +442,9 @@ class AdminCompanyWizardController extends AdminCompanyController
             'latitude', 'longitude', 'description',
             'contact_first_name', 'contact_last_name',
             'building_image',
+            'package_key',
         ]);
+        $this->applyPackageKeyFromRequest($request, $companyData);
         $companyData['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
         $companyData['is_main'] = $request->has('is_main') ? (bool) $request->input('is_main') : false;
         $companyData['is_active'] = $request->has('is_active') ? (bool) $request->input('is_active') : true;
@@ -496,6 +482,48 @@ class AdminCompanyWizardController extends AdminCompanyController
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function wizardStep1Rules(): array
+    {
+        $packageKeys = array_keys($this->nexaPackagesForSelect());
+
+        return [
+            'name' => 'required|string|max:255|min:2',
+            'kvk_number' => ['required', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
+            'building_image' => 'nullable|integer|in:1,2,3',
+            'email' => 'required|email:rfc,dns|max:255',
+            'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
+            'website' => 'nullable|url:http,https|max:255',
+            'industry' => 'required|string|max:255',
+            'street' => 'required|string|max:255|min:2',
+            'house_number' => 'required|string|max:20|min:1',
+            'postal_code' => ['required', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
+            'city' => 'required|string|max:255|min:2',
+            'country' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'description' => 'nullable|string|max:5000',
+            'is_intermediary' => 'nullable|boolean',
+            'is_main' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'contact_first_name' => 'required|string|max:255',
+            'contact_last_name' => 'required|string|max:255',
+            'package_key' => ['required', 'string', 'max:80', Rule::in($packageKeys)],
+            'company_logo_mode' => 'nullable|in:single,light_dark',
+            'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:2048',
+            'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:2048',
+        ];
+    }
+
+    private function mergeWizardIndustry(Request $request): void
+    {
+        if ($request->input('branch_select') && $request->input('branch_select') !== 'other') {
+            $request->merge(['industry' => $request->input('branch_select')]);
+        }
+    }
+
     /** Spaties en scheidingstekens uit telefoon halen vóór validatie (zelfde logica als client-hints). */
     private function normalizeWizardStep1Phone(Request $request): void
     {
@@ -530,7 +558,13 @@ class AdminCompanyWizardController extends AdminCompanyController
             'postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
             'city.required' => 'Plaats is verplicht.',
             'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
+            'kvk_number.required' => 'KVK-nummer is verplicht.',
             'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
+            'contact_first_name.required' => 'Voornaam van de contactpersoon is verplicht.',
+            'contact_last_name.required' => 'Achternaam van de contactpersoon is verplicht.',
+            'industry.required' => 'Branche is verplicht.',
+            'package_key.required' => 'Kies een abonnementspakket.',
+            'package_key.in' => 'Kies een bestaand pakket.',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
             'logo.max' => 'Het logo mag maximaal 2MB groot zijn.',
             'logo_dark.max' => 'Het logo voor donkere modus mag maximaal 2MB groot zijn.',

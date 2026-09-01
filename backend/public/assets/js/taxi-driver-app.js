@@ -8,6 +8,9 @@
     const NOTIFICATIONS_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_notifications_hint';
     const IOS_AWAKE_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_ios_awake_hint';
     const INSTALL_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_install_hint';
+    const GUIDE_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_guide_hint';
+    const UI_STATE_KEY = 'nexa_taxi_driver_ui';
+    const VALID_TABS = ['requests', 'trips', 'planning', 'navigation', 'earnings', 'profile'];
 
     let deferredInstallPrompt = null;
 
@@ -23,6 +26,7 @@
     });
 
     let token = sessionStorage.getItem(STORAGE_KEY) || '';
+    let profileUser = null;
     let pollTimer = null;
     let pushSource = null;
     let timerInterval = null;
@@ -32,12 +36,28 @@
     let mainInboxRideCount = 0;
     let scheduledRides = [];
     let scheduledRideExpanded = {};
+    let earningsRideExpanded = {};
+    let planningWeekFrom = null;
+    let planningSelectedDate = null;
+    let planningView = 'day';
+    let navigationMap = null;
+    let navigationRenderer = null;
+    let navigationMarkers = [];
+    let navigationPolyline = null;
+    let navigationStops = [];
+    let navigationOrigin = null;
+    let googleMapsLoadPromise = null;
+    let planningPayload = null;
+    let archivedRideExpanded = {};
+    let archivedSelectedIds = {};
     let activeRideStops = [];
     let activeRideStopsProgress = null;
-    let activeRideInboxCollapsed = false;
+    let activeRideInboxCollapsed = true;
     let parkedAssignedRides = [];
     let viewingActiveRideId = null;
     const STOP_ARRIVE_RADIUS_M = 120;
+    const NAV_SESSION_KEY = 'nexa_taxi_nav_session';
+    let navigationWatchId = null;
     let stopGeofenceWatchId = null;
     let stopGeofenceAutoArrivePending = {};
     let stopGeofenceAvailable = null;
@@ -58,12 +78,22 @@
     const waitingRideIds = new Set();
     let configuredOfferTtlSeconds = 300;
     let driverPaymentEnabled = false;
+    let firstLoginEmail = '';
     let declinedOffers = [];
+    let pendingApprovalOffers = [];
     let overdueScheduledRides = [];
     let overdueReleasedOffers = [];
+    let archivedOffers = [];
     let unclaimedRides = [];
     let inboxView = 'offers';
+    let inboxLoading = false;
+    let inboxHasLoaded = false;
+    let canViewEarnings = false;
+    let canViewMonthEarnings = false;
+    let earningsDate = null;
+    let earningsLoading = false;
     let paymentPollTimer = null;
+    let cachedOpenPayment = null;
     let audioCtx = null;
     let screenWakeLock = null;
     let wakeLockRetryTimer = null;
@@ -81,6 +111,345 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function showAbsenceAlert(alert) {
+        const banner = $('#absence-alert-banner');
+        const textEl = $('#absence-alert-text');
+        if (!banner || !textEl) {
+            return;
+        }
+        if (!alert || !alert.message) {
+            return;
+        }
+        textEl.textContent = alert.message;
+        banner.hidden = false;
+    }
+
+    let driverNoticeTimer = null;
+
+    function closeDriverNotice() {
+        const dialog = $('#driver-notice-dialog');
+        if (driverNoticeTimer) {
+            window.clearTimeout(driverNoticeTimer);
+            driverNoticeTimer = null;
+        }
+        if (dialog) {
+            dialog.classList.remove('is-open');
+            dialog.hidden = true;
+            dialog.setAttribute('aria-hidden', 'true');
+        }
+        if (!document.querySelector('.driver-dialog.is-open')) {
+            document.body.classList.remove('driver-dialog-open');
+        }
+    }
+
+    function showDriverNotice(message, options) {
+        const opts = options || {};
+        const dialog = $('#driver-notice-dialog');
+        const titleEl = $('#driver-notice-title');
+        const textEl = $('#driver-notice-text');
+        const iconEl = $('#driver-notice-icon');
+        const okBtn = $('#driver-notice-ok');
+        if (!dialog || !message) {
+            return;
+        }
+        const isError = opts.type === 'error';
+        if (titleEl) {
+            titleEl.textContent = opts.title || (isError ? 'Mislukt' : 'Gelukt');
+        }
+        if (textEl) {
+            textEl.textContent = message;
+        }
+        if (iconEl) {
+            iconEl.textContent = isError ? '!' : '✓';
+            iconEl.classList.toggle('is-success', !isError);
+            iconEl.classList.toggle('is-error', isError);
+        }
+        if (driverNoticeTimer) {
+            window.clearTimeout(driverNoticeTimer);
+            driverNoticeTimer = null;
+        }
+        dialog.hidden = false;
+        dialog.setAttribute('aria-hidden', 'false');
+        dialog.classList.add('driver-dialog--instant', 'is-open');
+        document.body.classList.add('driver-dialog-open');
+        requestAnimationFrame(function () {
+            dialog.classList.remove('driver-dialog--instant');
+        });
+        if (okBtn) {
+            okBtn.focus();
+        }
+        driverNoticeTimer = window.setTimeout(closeDriverNotice, isError ? 7000 : 4500);
+    }
+
+    let driverConfirmResolve = null;
+
+    function closeDriverConfirm(result) {
+        const dialog = $('#driver-confirm-dialog');
+        if (dialog) {
+            dialog.classList.add('driver-dialog--instant');
+            dialog.classList.remove('is-open');
+            dialog.hidden = true;
+            dialog.setAttribute('aria-hidden', 'true');
+            requestAnimationFrame(function () {
+                dialog.classList.remove('driver-dialog--instant');
+            });
+        }
+        if (!document.querySelector('.driver-dialog.is-open')) {
+            document.body.classList.remove('driver-dialog-open');
+        }
+        if (driverConfirmResolve) {
+            const resolve = driverConfirmResolve;
+            driverConfirmResolve = null;
+            resolve(!!result);
+        }
+    }
+
+    function showDriverConfirm(message, options) {
+        const opts = options || {};
+        const dialog = $('#driver-confirm-dialog');
+        const titleEl = $('#driver-confirm-title');
+        const textEl = $('#driver-confirm-text');
+        const iconEl = $('#driver-confirm-icon');
+        const okBtn = $('#driver-confirm-ok');
+        const cancelBtn = $('#driver-confirm-cancel');
+        if (!dialog || !message) {
+            return Promise.resolve(false);
+        }
+        closeDriverNotice();
+        if (driverConfirmResolve) {
+            const prev = driverConfirmResolve;
+            driverConfirmResolve = null;
+            prev(false);
+        }
+        if (titleEl) {
+            titleEl.textContent = opts.title || 'Weet je het zeker?';
+        }
+        if (textEl) {
+            textEl.textContent = message;
+        }
+        if (iconEl) {
+            iconEl.textContent = opts.icon || '?';
+            iconEl.classList.toggle('is-error', !!opts.danger);
+            iconEl.classList.toggle('is-warn', !opts.danger);
+            iconEl.classList.remove('is-success');
+        }
+        if (okBtn) {
+            okBtn.textContent = opts.confirmLabel || 'Bevestigen';
+            okBtn.classList.toggle('btn-danger', !!opts.danger);
+            okBtn.classList.toggle('btn-primary', !opts.danger);
+        }
+        if (cancelBtn) {
+            cancelBtn.textContent = opts.cancelLabel || 'Annuleren';
+        }
+        return new Promise(function (resolve) {
+            driverConfirmResolve = resolve;
+            dialog.hidden = false;
+            dialog.setAttribute('aria-hidden', 'false');
+            dialog.classList.add('driver-dialog--instant', 'is-open');
+            document.body.classList.add('driver-dialog-open');
+            requestAnimationFrame(function () {
+                dialog.classList.remove('driver-dialog--instant');
+            });
+            if (okBtn) {
+                okBtn.focus();
+            }
+        });
+    }
+
+    function initDriverConfirmDialog() {
+        const dialog = $('#driver-confirm-dialog');
+        if (!dialog || dialog.dataset.bound === '1') {
+            return;
+        }
+        dialog.dataset.bound = '1';
+        const okBtn = $('#driver-confirm-ok');
+        const cancelBtn = $('#driver-confirm-cancel');
+        const backdrop = dialog.querySelector('[data-driver-confirm-dismiss]');
+        if (okBtn) {
+            okBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeDriverConfirm(true);
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeDriverConfirm(false);
+            });
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', function () {
+                closeDriverConfirm(false);
+            });
+        }
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && dialog.classList.contains('is-open')) {
+                closeDriverConfirm(false);
+            }
+        });
+    }
+
+    function alert(message) {
+        showDriverNotice(String(message || 'Er ging iets mis.'), {
+            type: 'error',
+            title: 'Let op',
+        });
+    }
+
+    function initDriverNoticeDialog() {
+        const dialog = $('#driver-notice-dialog');
+        if (!dialog) {
+            return;
+        }
+        const okBtn = $('#driver-notice-ok');
+        const backdrop = dialog.querySelector('[data-driver-notice-dismiss]');
+        if (okBtn) {
+            okBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeDriverNotice();
+            });
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', function () {
+                closeDriverNotice();
+            });
+        }
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && dialog.classList.contains('is-open')) {
+                closeDriverNotice();
+            }
+        });
+    }
+
+    function showPickupProposalAlert(alert) {
+        if (!alert || !alert.message) {
+            return;
+        }
+        const banner = $('#absence-alert-banner');
+        const textEl = $('#absence-alert-text');
+        const rideId = parseInt(alert.ride_id, 10);
+        const hasRide = Number.isFinite(rideId) && rideId > 0;
+        if (banner && textEl) {
+            let html = '<span class="absence-alert-message">' + escapeHtml(alert.message) + '</span>';
+            if (hasRide) {
+                html +=
+                    ' <button type="button" class="banner-ride-link" data-open-ride-id="' +
+                    escapeHtml(String(rideId)) +
+                    '">Bekijk rit #' +
+                    escapeHtml(String(rideId)) +
+                    '</button>';
+            }
+            textEl.innerHTML = html;
+            banner.hidden = false;
+        }
+        try {
+            if (window.Notification && Notification.permission === 'granted') {
+                new Notification(hasRide ? 'Ophaalvoorstel · rit #' + rideId : 'Ophaalvoorstel', {
+                    body: alert.message,
+                });
+            }
+        } catch (e) {
+            /* ignore */
+        }
+        vibrate(120);
+    }
+
+    function pickupProposalExpandKey(prefix, offer, rideId) {
+        const offerId = offer && offer.id != null ? String(offer.id) : '';
+        return prefix + (offerId || String(rideId));
+    }
+
+    function revealRideCard(expandKey) {
+        const key = String(expandKey || '').replace(/"/g, '');
+        if (!key) {
+            return;
+        }
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+                const card = document.querySelector('.offer-card[data-ride-id="' + key + '"]');
+                if (!card) {
+                    return;
+                }
+                card.classList.add('is-pickup-alert-target');
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                window.setTimeout(function () {
+                    card.classList.remove('is-pickup-alert-target');
+                }, 2800);
+            });
+        });
+    }
+
+    function openRideFromPickupAlert(rideId) {
+        const id = String(rideId || '');
+        if (!id) {
+            return;
+        }
+
+        const pending = (pendingApprovalOffers || []).find(function (offer) {
+            return offer && offer.ride && String(offer.ride.id) === id;
+        });
+        if (pending) {
+            const expandKey = pickupProposalExpandKey('pending-approval-', pending, id);
+            scheduledRideExpanded[expandKey] = true;
+            setMainTab('requests');
+            setInboxView('offers');
+            revealRideCard(expandKey);
+            return;
+        }
+
+        const declinedProposal = (declinedOffers || []).find(function (offer) {
+            return isCustomerDeclinedProposalOffer(offer) && offer.ride && String(offer.ride.id) === id;
+        });
+        if (declinedProposal) {
+            const expandKey = pickupProposalExpandKey('declined-proposal-', declinedProposal, id);
+            scheduledRideExpanded[expandKey] = true;
+            setMainTab('requests');
+            setInboxView('declined');
+            revealRideCard(expandKey);
+            return;
+        }
+
+        if (
+            (currentActiveRide && String(currentActiveRide.id) === id) ||
+            (parkedAssignedRides || []).some(function (ride) {
+                return ride && String(ride.id) === id;
+            })
+        ) {
+            showActiveRideFullPanel(id);
+            return;
+        }
+
+        const inTrips =
+            (scheduledRides || []).some(function (ride) {
+                return ride && String(ride.id) === id;
+            }) ||
+            (overdueScheduledRides || []).some(function (ride) {
+                return ride && String(ride.id) === id;
+            });
+        if (inTrips) {
+            scheduledRideExpanded[id] = true;
+            setMainTab('trips');
+            revealRideCard(id);
+            return;
+        }
+
+        const released = (overdueReleasedOffers || []).find(function (offer) {
+            return offer && offer.ride && String(offer.ride.id) === id;
+        });
+        if (released) {
+            const expandKey = pickupProposalExpandKey('released-', released, id);
+            scheduledRideExpanded[expandKey] = true;
+            setMainTab('requests');
+            setInboxView('overdue');
+            revealRideCard(expandKey);
+            return;
+        }
+
+        scheduledRideExpanded[id] = true;
+        setMainTab('trips');
+        revealRideCard(id);
     }
 
     function setButtonLoading(btn, loading, loadingLabel) {
@@ -171,7 +540,6 @@
         accountActive = !inactive;
         const banner = $('#account-inactive-banner');
         const toggle = $('#online-toggle');
-        const offlineHint = $('#offline-hint');
         if (banner) {
             if (inactive) {
                 banner.hidden = false;
@@ -187,34 +555,27 @@
         }
         if (inactive) {
             isOnline = false;
+            inboxLoading = false;
+            inboxHasLoaded = false;
             localStorage.setItem(ONLINE_KEY, '0');
             setOnlineUi();
             stopInboxSync();
             renderOffer(null);
-            if (offlineHint) {
-                offlineHint.hidden = true;
-            }
             updateEmptyState();
             syncScreenWakeLock();
         }
     }
 
     function offersViewHasVisibleRides() {
+        // Alleen echte openstaande aanbiedingen op de Aanvragen-tab.
+        // Geplande/actieve ritten staan onder Ritten en mogen de leegmelding hier niet verbergen.
         if (currentOffer && currentOffer.ride) {
             return true;
         }
-        if (scheduledRides && scheduledRides.length > 0) {
-            if (activeRideInboxCollapsed || !isDriverInProgressRide(currentActiveRide)) {
-                return true;
-            }
+        if (pendingOffers && pendingOffers.length > 0) {
+            return true;
         }
-        const activeStrip = $('#active-ride-strip');
-        if (
-            currentActiveRide &&
-            !activeRideInboxCollapsed &&
-            activeStrip &&
-            !activeStrip.hidden
-        ) {
+        if (pendingApprovalOffers && pendingApprovalOffers.length > 0) {
             return true;
         }
         return false;
@@ -223,8 +584,9 @@
     const INBOX_EMPTY_ICONS = {
         'no-rides':
             '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14" /><path d="M6 11l1.2-3.6A1.5 1.5 0 0 1 8.62 6h6.76a1.5 1.5 0 0 1 1.42 1.04L18 11" /><path d="M6 11v5a1 1 0 0 0 1 1h1" /><path d="M16 17h1a1 1 0 0 0 1-1v-5" /><circle cx="8" cy="17" r="1.35" /><circle cx="16" cy="17" r="1.35" /><path d="M9 17h6" /></svg>',
+        loading: '<span class="inbox-empty-spinner" aria-hidden="true"></span>',
         offline:
-            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2" /><path d="M4.2 4.2l1.4 1.4" /><path d="M19.4 4.2l-1.4 1.4" /><path d="M3 12h2" /><path d="M19 12h2" /><path d="M4.2 19.8l1.4-1.4" /><path d="M19.4 19.8l-1.4-1.4" /><path d="M12 19v2" /><circle cx="12" cy="12" r="4.25" /></svg>',
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v10" /><path d="M18.4 6.6a8 8 0 1 1-12.8 0" /></svg>',
         inactive:
             '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>',
         error:
@@ -245,7 +607,28 @@
         const empty = $('#inbox-empty');
         const title = $('#inbox-empty-title');
         const hint = $('#inbox-empty-hint');
-        const offlineHint = $('#offline-hint');
+        const actions = $('#inbox-empty-actions');
+        const btnEmptyOverdue = $('#btn-empty-show-overdue');
+        const btnEmptyDeclined = $('#btn-empty-show-declined');
+        const btnEmptyArchivedInbox = $('#btn-empty-show-archived-inbox');
+        const requestsHead = $('#requests-section-head');
+        if (requestsHead) {
+            requestsHead.hidden = !isOnline || !accountActive;
+        }
+        function hideEmptyActions() {
+            if (actions) {
+                actions.hidden = true;
+            }
+            if (btnEmptyOverdue) {
+                btnEmptyOverdue.hidden = true;
+            }
+            if (btnEmptyDeclined) {
+                btnEmptyDeclined.hidden = true;
+            }
+            if (btnEmptyArchivedInbox) {
+                btnEmptyArchivedInbox.hidden = true;
+            }
+        }
         if (!empty || !title || !hint) {
             return;
         }
@@ -254,49 +637,70 @@
             setInboxEmptyIcon('inactive');
             title.textContent = 'Account niet actief';
             hint.textContent = 'Je kunt geen ritten ontvangen tot je account is geactiveerd.';
-            if (offlineHint) {
-                offlineHint.hidden = true;
-            }
+            hideEmptyActions();
             return;
         }
         if (!isOnline) {
-            if (offlineHint) {
-                offlineHint.hidden = false;
-            }
-            if (scheduledRides && scheduledRides.length) {
-                empty.hidden = true;
-                return;
-            }
             empty.hidden = false;
             setInboxEmptyIcon('offline');
             title.textContent = 'Je bent offline';
             hint.textContent = 'Zet je status op online om ritten te ontvangen.';
+            hideEmptyActions();
             return;
         }
-        if (offlineHint) {
-            offlineHint.hidden = true;
-        }
-        if (inboxView === 'declined' || inboxView === 'overdue') {
+        if (isSecondaryInboxView(inboxView)) {
             empty.hidden = true;
+            hideEmptyActions();
             return;
         }
         if (!offersViewHasVisibleRides()) {
             empty.hidden = false;
+            const overdueCount = overdueInboxCount();
+            const declinedCount = declinedOffers.length;
+            const archivedCount = archivedOffers.length;
+            if (inboxLoading || !inboxHasLoaded) {
+                setInboxEmptyIcon('loading');
+                title.textContent = 'Ritten inladen…';
+                hint.textContent = 'Even geduld, we laden je ritten.';
+                hideEmptyActions();
+                return;
+            }
             setInboxEmptyIcon('no-rides');
-            title.textContent = 'Geen openstaande ritten.';
-            const hints = [];
-            if (overdueInboxCount()) {
-                hints.push('bekijk verlopen geplande ritten via de knop hierboven');
+            title.textContent = 'Geen nieuwe ritten.';
+            if (overdueCount || declinedCount || archivedCount) {
+                hint.textContent = 'Nieuwe ritten verschijnen hier automatisch. Eerdere ritten staan onder Verlopen, Afgewezen of Archief.';
+            } else {
+                hint.textContent = 'Nieuwe ritten verschijnen hier automatisch.';
             }
-            if (declinedOffers.length) {
-                hints.push('bekijk afgewezen ritten via de knop hierboven');
+            if (btnEmptyOverdue) {
+                btnEmptyOverdue.hidden = overdueCount < 1;
+                btnEmptyOverdue.textContent =
+                    overdueCount === 1
+                        ? 'Bekijk 1 verlopen rit'
+                        : 'Bekijk ' + overdueCount + ' verlopen ritten';
             }
-            hint.textContent = hints.length
-                ? 'Nieuwe ritten verschijnen hier automatisch. Je kunt ook ' + hints.join(' of ') + '.'
-                : 'Nieuwe ritten verschijnen hier automatisch.';
+            if (btnEmptyDeclined) {
+                btnEmptyDeclined.hidden = declinedCount < 1;
+                btnEmptyDeclined.textContent =
+                    declinedCount === 1
+                        ? 'Bekijk 1 afgewezen rit'
+                        : 'Bekijk ' + declinedCount + ' afgewezen ritten';
+            }
+            const btnEmptyArchived = $('#btn-empty-show-archived-inbox');
+            if (btnEmptyArchived) {
+                btnEmptyArchived.hidden = archivedCount < 1;
+                btnEmptyArchived.textContent =
+                    archivedCount === 1
+                        ? 'Bekijk 1 gearchiveerde rit'
+                        : 'Bekijk ' + archivedCount + ' gearchiveerde ritten';
+            }
+            if (actions) {
+                actions.hidden = overdueCount < 1 && declinedCount < 1 && archivedCount < 1;
+            }
             return;
         }
         empty.hidden = true;
+        hideEmptyActions();
     }
 
     function inboxViewTitle(view) {
@@ -306,30 +710,43 @@
         if (view === 'overdue') {
             return 'Verlopen';
         }
-        return 'Ritten';
+        if (view === 'archived') {
+            return 'Archief';
+        }
+        return 'Aanvragen';
+    }
+
+    function isSecondaryInboxView(view) {
+        return view === 'declined' || view === 'overdue' || view === 'archived';
     }
 
     function overdueInboxCount() {
-        return overdueScheduledRides.length + overdueReleasedOffers.length;
+        return overdueReleasedOffers.length;
     }
 
     function updateSecondaryNavButtons() {
         const btnDeclined = $('#btn-show-declined');
         const btnOverdue = $('#btn-show-overdue');
         const btnOffers = $('#btn-show-offers');
+        const btnArchived = $('#btn-show-archived');
         const declinedCount = $('#declined-count');
         const overdueCount = $('#overdue-count');
         const offersCount = $('#offers-count');
+        const archivedCount = $('#archived-count');
 
-        if (offersCount) {
-            offersCount.textContent = '(' + mainInboxRideCount + ')';
+        function setToolbarBadge(el, count, btn, label) {
+            if (el) {
+                el.textContent = String(count);
+                el.hidden = count < 1;
+            }
+            if (btn) {
+                btn.setAttribute('aria-label', count > 0 ? label + ' (' + count + ')' : label);
+            }
         }
-        if (declinedCount) {
-            declinedCount.textContent = '(' + declinedOffers.length + ')';
-        }
-        if (overdueCount) {
-            overdueCount.textContent = '(' + overdueInboxCount() + ')';
-        }
+        setToolbarBadge(offersCount, mainInboxRideCount, btnOffers, 'Open');
+        setToolbarBadge(declinedCount, declinedOffers.length, btnDeclined, 'Afgewezen');
+        setToolbarBadge(overdueCount, overdueInboxCount(), btnOverdue, 'Verlopen');
+        setToolbarBadge(archivedCount, archivedOffers.length, btnArchived, 'Archief');
         if (btnOffers) {
             btnOffers.hidden = false;
             btnOffers.classList.toggle('is-active', inboxView === 'offers');
@@ -345,18 +762,55 @@
             btnOverdue.classList.toggle('is-active', inboxView === 'overdue');
             btnOverdue.setAttribute('aria-current', inboxView === 'overdue' ? 'page' : 'false');
         }
+        if (btnArchived) {
+            btnArchived.hidden = inboxView !== 'archived' && !archivedOffers.length;
+            btnArchived.classList.toggle('is-active', inboxView === 'archived');
+            btnArchived.setAttribute('aria-current', inboxView === 'archived' ? 'page' : 'false');
+        }
+    }
+
+    function syncRequestsSectionHead() {
+        const title = $('#requests-section-title');
+        const icon = $('#requests-section-icon');
+        if (!title || !icon) {
+            return;
+        }
+        if (inboxView === 'overdue') {
+            title.textContent = 'Verlopen ritten';
+            icon.innerHTML =
+                '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3.2 1.8"/></svg>';
+            return;
+        }
+        if (inboxView === 'archived') {
+            title.textContent = 'Archief';
+            icon.innerHTML =
+                '<svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M2 8h20M10 12h4"/></svg>';
+            return;
+        }
+        if (inboxView === 'declined') {
+            title.textContent = 'Afgewezen ritten';
+            icon.innerHTML =
+                '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m15 9-6 6M9 9l6 6"/></svg>';
+            return;
+        }
+        title.textContent = 'Nieuwe ritaanvraag';
+        icon.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0"/></svg>';
     }
 
     function setInboxView(view) {
-        inboxView = view === 'declined' || view === 'overdue' ? view : 'offers';
+        inboxView = isSecondaryInboxView(view) ? view : 'offers';
+        persistUiState();
         const offerStrip = $('#offer-strip');
         const declinedStrip = $('#declined-strip');
         const overdueStrip = $('#overdue-strip');
-        const scheduledStrip = $('#scheduled-rides-strip');
+        const archivedStrip = $('#archived-strip');
+        const pendingStrip = $('#pending-approval-strip');
         const title = $('#dispatch-toolbar-title');
         const empty = $('#inbox-empty');
 
         updateSecondaryNavButtons();
+        syncRequestsSectionHead();
         if (title) {
             title.textContent = inboxViewTitle(inboxView);
         }
@@ -364,8 +818,8 @@
         if (offerStrip) {
             offerStrip.hidden = inboxView !== 'offers';
         }
-        if (scheduledStrip) {
-            scheduledStrip.hidden = inboxView !== 'offers';
+        if (pendingStrip) {
+            pendingStrip.hidden = inboxView !== 'offers';
         }
         if (declinedStrip) {
             declinedStrip.hidden = inboxView !== 'declined';
@@ -373,23 +827,8 @@
         if (overdueStrip) {
             overdueStrip.hidden = inboxView !== 'overdue';
         }
-
-        const activeStrip = $('#active-ride-strip');
-        if (inboxView === 'declined' || inboxView === 'overdue') {
-            if (activeStrip) {
-                activeStrip.hidden = true;
-            }
-        } else if (currentActiveRide && activeStrip) {
-            activeStrip.hidden = !!activeRideInboxCollapsed;
-        }
-
-        const overviewStrip = $('#parked-assigned-rides-strip');
-        if (overviewStrip) {
-            overviewStrip.hidden = !(
-                inboxView === 'offers' &&
-                activeRideInboxCollapsed &&
-                currentActiveRide
-            );
+        if (archivedStrip) {
+            archivedStrip.hidden = inboxView !== 'archived';
         }
 
         if (inboxView === 'declined') {
@@ -408,11 +847,17 @@
             return;
         }
 
-        if (scheduledRides.length && !isDriverInProgressRide(currentActiveRide)) {
-            renderScheduledRides(scheduledRides);
-        } else if (scheduledStrip) {
-            scheduledStrip.hidden = true;
+        if (inboxView === 'archived') {
+            renderArchivedView();
+            if (empty) {
+                empty.hidden = true;
+            }
+            return;
         }
+
+        // Geplande ritten staan op de Ritten-tab; niet legen bij inbox-navigatie.
+        renderScheduledRides(scheduledRides);
+        renderPendingApprovalOffers();
         if (currentOffer) {
             setOfferUiVisible(true);
             if (empty) {
@@ -456,6 +901,13 @@
             '</ul>';
     }
 
+    function isCustomerDeclinedProposalOffer(offer) {
+        const ride = (offer && offer.ride) || {};
+        const proposal = ride.pickup_proposal || {};
+        return String(offer && offer.status ? offer.status : '') === 'accepted'
+            && String(proposal.status || '') === 'declined';
+    }
+
     function renderDeclinedOffers(offers) {
         const strip = $('#declined-strip');
         const list = $('#declined-rides-list');
@@ -476,22 +928,22 @@
         }
         list.innerHTML = items
             .map(function (offer) {
+                if (isCustomerDeclinedProposalOffer(offer)) {
+                    return renderCustomerDeclinedProposalCard(offer);
+                }
                 const ride = offer.ride || {};
                 const rideId = ride.id != null ? String(ride.id) : '—';
-                const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
                 return (
-                    '<div class="card declined-ride-card">' +
+                    '<div class="card offer-card declined-ride-card">' +
+                    '<div class="offer-card-top">' +
+                    '<span class="offer-badge is-muted">Afgewezen</span>' +
+                    '</div>' +
                     '<p class="offer-title">Rit #' +
                     escapeHtml(rideId) +
-                    '<span class="declined-badge">Afgewezen</span></p>' +
-                    '<p class="offer-meta offer-pickup-at">' +
-                    escapeHtml(formatPickupAt(ride.pickup_at)) +
                     '</p>' +
-                    addressLinkHtml(ride.pickup_address, '📍') +
-                    addressLinkHtml(ride.dropoff_address, '🏁') +
-                    customerHtml +
-                    ridePriceDisplayHtml(ride) +
-                    '<div class="declined-ride-actions">' +
+                    offerPickupAtLineHtml(ride) +
+                    rideDetailBodyHtml(ride) +
+                    '<div class="offer-actions declined-ride-actions">' +
                     '<button type="button" class="btn btn-accept btn-accept-declined" data-offer-id="' +
                     escapeHtml(String(offer.id)) +
                     '">Alsnog accepteren</button>' +
@@ -502,32 +954,288 @@
             .join('');
     }
 
+    function renderCustomerDeclinedProposalCard(offer) {
+        const ride = offer.ride || {};
+        const rideId = ride.id != null ? String(ride.id) : '—';
+        const offerId = offer.id != null ? String(offer.id) : '';
+        const proposal = ride.pickup_proposal || {};
+        const expandKey = 'declined-proposal-' + (offerId || rideId);
+        const expanded = !!scheduledRideExpanded[expandKey];
+        const bodyId = 'declined-proposal-body-' + expandKey;
+        const proposedLabel = proposal.proposed_at
+            ? formatPickupAt(proposal.proposed_at)
+            : formatPickupAt(ridePickupInstant(ride));
+        const routeSummary = [ride.pickup_address, ride.dropoff_address]
+            .map(function (addr) {
+                return addr ? shortAddress(addr) : '';
+            })
+            .filter(Boolean)
+            .join(' → ');
+        return (
+            '<div class="card offer-card scheduled-ride-card overdue-ride-card' +
+            (expanded ? ' is-expanded' : '') +
+            '" data-ride-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<button type="button" class="scheduled-ride-toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="' +
+            escapeHtml(bodyId) +
+            '" data-ride-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<span class="scheduled-ride-toggle-text">' +
+            '<span class="offer-badge is-danger">Afgewezen door klant</span>' +
+            '<span class="offer-title">Rit #' +
+            escapeHtml(rideId) +
+            '</span>' +
+            '<span class="offer-meta scheduled-pickup-at">' +
+            escapeHtml(proposedLabel) +
+            '</span>' +
+            (routeSummary
+                ? '<span class="offer-meta scheduled-route-summary">' +
+                  escapeHtml(routeSummary) +
+                  '</span>'
+                : '') +
+            '<span class="offer-meta scheduled-proposal-summary">Klant heeft het nieuwe tijdstip afgewezen</span>' +
+            '</span>' +
+            '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+            '</button>' +
+            '<div class="scheduled-ride-body" id="' +
+            escapeHtml(bodyId) +
+            '"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
+            pickupProposalBannerHtml(ride) +
+            rideDetailBodyHtml(ride) +
+            '</div>' +
+            '<div class="offer-actions overdue-ride-actions">' +
+            '<button type="button" class="btn btn-ghost btn-archive-offer" data-offer-id="' +
+            escapeHtml(offerId) +
+            '">Archiveren</button>' +
+            '<button type="button" class="btn btn-primary btn-propose-pickup" data-ride-id="' +
+            escapeHtml(rideId) +
+            '">Opnieuw voorstellen</button>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function renderPendingApprovalOffers() {
+        const strip = $('#pending-approval-strip');
+        const list = $('#pending-approval-list');
+        if (!strip || !list) {
+            return;
+        }
+        const items = Array.isArray(pendingApprovalOffers) ? pendingApprovalOffers : [];
+        if (inboxView !== 'offers' || !items.length) {
+            strip.hidden = true;
+            list.innerHTML = '';
+            return;
+        }
+        strip.hidden = false;
+        list.innerHTML = items.map(renderPendingApprovalOfferCard).join('');
+    }
+
+    function renderPendingApprovalOfferCard(offer) {
+        const ride = offer.ride || {};
+        const rideId = ride.id != null ? String(ride.id) : '—';
+        const offerId = offer.id != null ? String(offer.id) : '';
+        const proposal = ride.pickup_proposal || {};
+        const expandKey = 'pending-approval-' + (offerId || rideId);
+        const expanded = !!scheduledRideExpanded[expandKey];
+        const bodyId = 'pending-approval-body-' + expandKey;
+        const proposedLabel = proposal.proposed_at
+            ? formatPickupAt(proposal.proposed_at)
+            : formatPickupAt(ridePickupInstant(ride));
+        const routeSummary = [ride.pickup_address, ride.dropoff_address]
+            .map(function (addr) {
+                return addr ? shortAddress(addr) : '';
+            })
+            .filter(Boolean)
+            .join(' → ');
+        return (
+            '<div class="card offer-card scheduled-ride-card overdue-ride-card' +
+            (expanded ? ' is-expanded' : '') +
+            '" data-ride-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<button type="button" class="scheduled-ride-toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="' +
+            escapeHtml(bodyId) +
+            '" data-ride-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<span class="scheduled-ride-toggle-text">' +
+            '<span class="offer-badge is-warning">Wacht op klant</span>' +
+            '<span class="offer-title">Rit #' +
+            escapeHtml(rideId) +
+            '</span>' +
+            '<span class="offer-meta scheduled-pickup-at">' +
+            escapeHtml(proposedLabel) +
+            '</span>' +
+            (routeSummary
+                ? '<span class="offer-meta scheduled-route-summary">' +
+                  escapeHtml(routeSummary) +
+                  '</span>'
+                : '') +
+            '<span class="offer-meta scheduled-proposal-summary is-pending">In afwachting van goedkeuring van de klant</span>' +
+            '</span>' +
+            '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+            '</button>' +
+            '<div class="scheduled-ride-body" id="' +
+            escapeHtml(bodyId) +
+            '"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
+            pickupProposalBannerHtml(ride) +
+            rideDetailBodyHtml(ride) +
+            '</div>' +
+            '<div class="offer-actions overdue-ride-actions">' +
+            (offerId
+                ? '<button type="button" class="btn btn-ghost btn-archive-offer" data-offer-id="' +
+                  escapeHtml(offerId) +
+                  '">Archiveren</button>'
+                : '') +
+            '<button type="button" class="btn btn-ghost btn-propose-pickup" data-ride-id="' +
+            escapeHtml(rideId) +
+            '">Opnieuw voorstellen</button>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function ridePickupInstant(ride) {
+        if (!ride) {
+            return null;
+        }
+        if (ride.pickup_at) {
+            return ride.pickup_at;
+        }
+        const schedule = ride.schedule || {};
+        if (schedule.departure_at) {
+            return schedule.departure_at;
+        }
+        if (schedule.first_pickup_at) {
+            return schedule.first_pickup_at;
+        }
+        if (schedule.destination_arrival_at) {
+            return schedule.destination_arrival_at;
+        }
+        if (ride.return_at) {
+            return ride.return_at;
+        }
+        return null;
+    }
+
+    function ridePickupSortValue(ride) {
+        const instant = ridePickupInstant(ride);
+        if (!instant) {
+            return 0;
+        }
+        const value = Date.parse(instant);
+        return isNaN(value) ? 0 : value;
+    }
+
+    function sortRidesMostRecentPickupFirst(rides) {
+        return (Array.isArray(rides) ? rides.slice() : []).sort(function (a, b) {
+            const diff = ridePickupSortValue(b) - ridePickupSortValue(a);
+            if (diff !== 0) {
+                return diff;
+            }
+            return String(b && b.id != null ? b.id : '').localeCompare(
+                String(a && a.id != null ? a.id : ''),
+                undefined,
+                { numeric: true }
+            );
+        });
+    }
+
+    function offerPickupAtLineHtml(ride) {
+        return (
+            '<p class="offer-meta offer-pickup-at">' +
+            escapeHtml(formatPickupAt(ridePickupInstant(ride))) +
+            '</p>'
+        );
+    }
+
     function renderOverdueAcceptedRideCard(ride) {
         const rideId = ride.id != null ? String(ride.id) : '—';
-        const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
         const contract = isContractRide(ride);
+        const isGroup = contract && ride.ride_type === 'contract_group';
+        const expanded = !!scheduledRideExpanded[rideId];
+        const proposal = (ride && ride.pickup_proposal) || {};
+        const proposalStatus = String(proposal.status || '');
+        let collapsedStatus = '';
+        if (proposalStatus === 'pending') {
+            collapsedStatus = 'Voorstel verstuurd — wacht op klant';
+        } else if (proposalStatus === 'accepted') {
+            collapsedStatus = 'Klant heeft nieuw tijdstip geaccepteerd';
+        } else if (proposalStatus === 'declined') {
+            collapsedStatus = 'Klant heeft voorstel geweigerd';
+        }
+        const pickupLabel = contract
+            ? scheduledRidePickupLabel(ride)
+            : formatPickupAt(ridePickupInstant(ride));
+        const routeSummary = !isGroup
+            ? [
+                  ride.pickup_address ? String(ride.pickup_address) : '',
+                  ride.dropoff_address ? String(ride.dropoff_address) : '',
+              ]
+                  .filter(Boolean)
+                  .join(' → ')
+            : '';
+        const bodyId = 'scheduled-ride-body-' + rideId;
         return (
-            '<div class="card overdue-ride-card' +
+            '<div class="card offer-card scheduled-ride-card overdue-ride-card' +
+            (expanded ? ' is-expanded' : '') +
             (contract ? ' is-contract-ride' : '') +
+            '" data-ride-id="' +
+            escapeHtml(rideId) +
             '">' +
-            contractBadgeHtml(ride) +
+            '<button type="button" class="scheduled-ride-toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="' +
+            escapeHtml(bodyId) +
+            '" data-ride-id="' +
+            escapeHtml(rideId) +
+            '">' +
+            '<span class="scheduled-ride-toggle-text">' +
+            '<span class="offer-badge is-danger">Ophaalmoment verlopen</span>' +
+            (contract ? contractBadgeHtml(ride) : '') +
+            '<span class="offer-title">' +
+            escapeHtml(contract ? scheduledRideTitle(ride) : 'Rit #' + rideId) +
+            '</span>' +
+            '<span class="offer-meta scheduled-pickup-at">' +
+            escapeHtml(pickupLabel) +
+            '</span>' +
+            (routeSummary
+                ? '<span class="offer-meta scheduled-route-summary">' + escapeHtml(routeSummary) + '</span>'
+                : '') +
+            (collapsedStatus
+                ? '<span class="offer-meta scheduled-proposal-summary">' +
+                  escapeHtml(collapsedStatus) +
+                  '</span>'
+                : '') +
             returnTripBadgeHtml(ride) +
-            '<p class="offer-title">' +
-            (contract ? escapeHtml(scheduledRideTitle(ride)) : 'Rit #' + escapeHtml(rideId)) +
-            '<span class="overdue-badge">Verlopen</span></p>' +
-            (contract
-                ? contractRideScheduleHtml(ride)
-                : '<p class="offer-meta offer-pickup-at">' +
-                  escapeHtml(formatPickupAt(ride.pickup_at)) +
-                  '</p>') +
-            (contract && ride.ride_type === 'contract_group'
+            '</span>' +
+            '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+            '</button>' +
+            '<div class="scheduled-ride-body" id="' +
+            escapeHtml(bodyId) +
+            '"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
+            pickupProposalBannerHtml(ride) +
+            (isGroup
                 ? ''
-                : addressLinkHtml(ride.pickup_address, '📍')) +
-            (contract && ride.ride_type === 'contract_group'
-                ? ''
-                : addressLinkHtml(ride.dropoff_address, '🏁')) +
-            (contract ? '' : customerHtml) +
-            (contract ? '' : ridePriceDisplayHtml(ride)) +
+                : rideDetailBodyHtml(ride, {
+                      hideCustomer: contract,
+                      hidePrice: contract,
+                  })) +
+            (isReturnTripRide(ride) ? returnTripMetaHtml(ride) : '') +
+            '</div>' +
             overdueRideActionsHtml(ride, rideId) +
             '</div>'
         );
@@ -536,49 +1244,408 @@
     function renderOverdueReleasedOfferCard(offer) {
         const ride = offer.ride || {};
         const rideId = ride.id != null ? String(ride.id) : '—';
-        const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
+        const offerId = offer.id != null ? String(offer.id) : '';
+        const expandKey = 'released-' + (offerId || rideId);
+        const expanded = !!scheduledRideExpanded[expandKey];
+        const bodyId = 'overdue-released-body-' + expandKey;
+        const pickupLabel = formatPickupAt(ridePickupInstant(ride));
+        const routeSummary = [ride.pickup_address, ride.dropoff_address]
+            .map(function (addr) {
+                return addr ? shortAddress(addr) : '';
+            })
+            .filter(Boolean)
+            .join(' → ');
+        const priceLabel =
+            ride.quoted_price != null && ride.quoted_price !== ''
+                ? formatEuro(ride.quoted_price)
+                : '';
         return (
-            '<div class="card overdue-ride-card overdue-ride-card--released">' +
-            '<p class="offer-title">Rit #' +
+            '<div class="card offer-card scheduled-ride-card overdue-ride-card overdue-ride-card--released' +
+            (expanded ? ' is-expanded' : '') +
+            '" data-ride-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<button type="button" class="scheduled-ride-toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="' +
+            escapeHtml(bodyId) +
+            '" data-ride-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<span class="scheduled-ride-toggle-text">' +
+            '<span class="offer-badge is-danger">Ophaalmoment verlopen</span>' +
+            '<span class="offer-title">Rit #' +
             escapeHtml(rideId) +
-            '<span class="overdue-badge">Vrijgegeven</span></p>' +
-            '<p class="offer-meta offer-pickup-at">' +
-            escapeHtml(formatPickupAt(ride.pickup_at)) +
-            '</p>' +
-            addressLinkHtml(ride.pickup_address, '📍') +
-            addressLinkHtml(ride.dropoff_address, '🏁') +
-            customerHtml +
-            ridePriceDisplayHtml(ride) +
-            '<div class="overdue-ride-actions">' +
+            '</span>' +
+            '<span class="offer-meta scheduled-pickup-at">' +
+            escapeHtml(pickupLabel) +
+            '</span>' +
+            (routeSummary
+                ? '<span class="offer-meta scheduled-route-summary">' +
+                  escapeHtml(routeSummary) +
+                  '</span>'
+                : '') +
+            (priceLabel
+                ? '<span class="offer-meta earnings-ride-amount-summary">' +
+                  escapeHtml(priceLabel) +
+                  '</span>'
+                : '') +
+            '</span>' +
+            '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+            '</button>' +
+            '<div class="scheduled-ride-body" id="' +
+            escapeHtml(bodyId) +
+            '"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
+            rideDetailBodyHtml(ride) +
+            '</div>' +
+            '<div class="offer-actions overdue-ride-actions">' +
+            '<button type="button" class="btn btn-ghost btn-archive-offer" data-offer-id="' +
+            escapeHtml(offerId) +
+            '">Archiveren</button>' +
             '<button type="button" class="btn btn-accept btn-accept-overdue" data-offer-id="' +
-            escapeHtml(String(offer.id)) +
-            '">Accepteren</button>' +
+            escapeHtml(offerId) +
+            '">Nieuw tijdstip voorstellen</button>' +
             '</div>' +
             '</div>'
         );
+    }
+
+    function renderArchivedOfferCard(offer) {
+        const ride = offer.ride || {};
+        const rideId = ride.id != null ? String(ride.id) : '—';
+        const offerId = offer.id != null ? String(offer.id) : '';
+        const expandKey = offerId || rideId;
+        const expanded = !!archivedRideExpanded[expandKey];
+        const selected = !!archivedSelectedIds[offerId];
+        const bodyId = 'archived-ride-body-' + expandKey;
+        const pickupLabel = formatPickupAt(ridePickupInstant(ride));
+        const routeSummary = [ride.pickup_address, ride.dropoff_address]
+            .map(function (addr) {
+                return addr ? shortAddress(addr) : '';
+            })
+            .filter(Boolean)
+            .join(' → ');
+        const priceLabel =
+            ride.quoted_price != null && ride.quoted_price !== ''
+                ? formatEuro(ride.quoted_price)
+                : '';
+        return (
+            '<div class="card offer-card scheduled-ride-card overdue-ride-card overdue-ride-card--archived' +
+            (expanded ? ' is-expanded' : '') +
+            (selected ? ' is-selected' : '') +
+            '" data-archived-offer-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<div class="archived-ride-row">' +
+            '<label class="archived-ride-select">' +
+            '<input type="checkbox" class="archived-offer-check" data-offer-id="' +
+            escapeHtml(offerId) +
+            '"' +
+            (selected ? ' checked' : '') +
+            ' aria-label="Selecteer rit #' +
+            escapeHtml(rideId) +
+            '">' +
+            '</label>' +
+            '<button type="button" class="scheduled-ride-toggle archived-ride-toggle" aria-expanded="' +
+            (expanded ? 'true' : 'false') +
+            '" aria-controls="' +
+            escapeHtml(bodyId) +
+            '" data-archived-offer-id="' +
+            escapeHtml(expandKey) +
+            '">' +
+            '<span class="scheduled-ride-toggle-text">' +
+            '<span class="offer-badge is-muted">Gearchiveerd</span>' +
+            '<span class="offer-title">Rit #' +
+            escapeHtml(rideId) +
+            '</span>' +
+            '<span class="offer-meta scheduled-pickup-at">' +
+            escapeHtml(pickupLabel) +
+            '</span>' +
+            (routeSummary
+                ? '<span class="offer-meta scheduled-route-summary">' +
+                  escapeHtml(routeSummary) +
+                  '</span>'
+                : '') +
+            (priceLabel
+                ? '<span class="offer-meta earnings-ride-amount-summary">' +
+                  escapeHtml(priceLabel) +
+                  '</span>'
+                : '') +
+            '</span>' +
+            '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+            '</button>' +
+            '</div>' +
+            '<div class="scheduled-ride-body archived-ride-body" id="' +
+            escapeHtml(bodyId) +
+            '"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
+            rideDetailBodyHtml(ride) +
+            '</div>' +
+            '<div class="offer-actions overdue-ride-actions">' +
+            '<button type="button" class="btn btn-danger btn-delete-archived-offer" data-offer-id="' +
+            escapeHtml(offerId) +
+            '">Verwijderen</button>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function getArchivedSelectedIds() {
+        return Object.keys(archivedSelectedIds).filter(function (id) {
+            return archivedSelectedIds[id];
+        });
+    }
+
+    function pruneArchivedSelection() {
+        const valid = {};
+        (archivedOffers || []).forEach(function (offer) {
+            if (offer && offer.id != null && archivedSelectedIds[String(offer.id)]) {
+                valid[String(offer.id)] = true;
+            }
+        });
+        archivedSelectedIds = valid;
+    }
+
+    function syncArchivedBulkBar() {
+        const bulkBar = $('#archived-bulk-bar');
+        const selectAll = $('#archived-select-all');
+        const selectAllLabel = document.querySelector('.archived-bulk-bar__select-all span');
+        const deleteBtn = $('#btn-archived-delete-selected');
+        const selected = getArchivedSelectedIds();
+        const total = (archivedOffers || []).length;
+        if (bulkBar) {
+            bulkBar.hidden = total < 1;
+        }
+        if (selectAll) {
+            selectAll.checked = total > 0 && selected.length === total;
+            selectAll.indeterminate = selected.length > 0 && selected.length < total;
+        }
+        if (selectAllLabel) {
+            selectAllLabel.textContent =
+                total > 0 ? 'Alles selecteren (' + total + ')' : 'Alles selecteren';
+        }
+        if (deleteBtn) {
+            deleteBtn.disabled = selected.length < 1;
+            deleteBtn.textContent =
+                selected.length < 1
+                    ? 'Verwijderen'
+                    : selected.length === 1
+                      ? '1 verwijderen'
+                      : selected.length + ' verwijderen';
+        }
+    }
+
+    function setArchivedOfferSelected(offerId, selected) {
+        const key = String(offerId || '');
+        if (!key) {
+            return;
+        }
+        if (selected) {
+            archivedSelectedIds[key] = true;
+        } else {
+            delete archivedSelectedIds[key];
+        }
+        const card = document.querySelector(
+            '.overdue-ride-card--archived[data-archived-offer-id="' + CSS.escape(key) + '"]'
+        );
+        if (card) {
+            card.classList.toggle('is-selected', !!selected);
+            const check = card.querySelector('.archived-offer-check');
+            if (check) {
+                check.checked = !!selected;
+            }
+        }
+        syncArchivedBulkBar();
+    }
+
+    function confirmArchiveDelete(count) {
+        const n = Math.max(1, parseInt(count, 10) || 1);
+        const titleEl = $('#archive-delete-confirm-title');
+        const textEl = $('#archive-delete-confirm-text');
+        const okBtn = $('#archive-delete-confirm-ok');
+        if (titleEl) {
+            titleEl.textContent = n === 1 ? 'Weet u het zeker?' : n + ' ritten verwijderen?';
+        }
+        if (textEl) {
+            textEl.textContent =
+                n === 1
+                    ? 'U staat op het punt deze gearchiveerde rit permanent te verwijderen. Deze wijziging kan niet meer ongedaan worden gemaakt.'
+                    : 'U staat op het punt deze ' +
+                      n +
+                      ' gearchiveerde ritten permanent te verwijderen. Deze wijziging kan niet meer ongedaan worden gemaakt.';
+        }
+        if (okBtn) {
+            okBtn.textContent = n === 1 ? 'Definitief verwijderen' : n + ' definitief verwijderen';
+        }
+        return promptArchiveDeleteConfirm(n);
+    }
+
+    let archiveDeleteConfirmResolve = null;
+
+    function closeArchiveDeleteConfirmDialog(result) {
+        const dialog = $('#archive-delete-confirm-dialog');
+        if (dialog) {
+            dialog.classList.add('driver-dialog--instant');
+            dialog.classList.remove('is-open');
+            dialog.hidden = true;
+            dialog.setAttribute('aria-hidden', 'true');
+            requestAnimationFrame(function () {
+                dialog.classList.remove('driver-dialog--instant');
+            });
+        }
+        document.body.classList.remove('driver-dialog-open');
+        if (archiveDeleteConfirmResolve) {
+            const resolve = archiveDeleteConfirmResolve;
+            archiveDeleteConfirmResolve = null;
+            resolve(!!result);
+        }
+    }
+
+    function promptArchiveDeleteConfirm(count) {
+        const dialog = $('#archive-delete-confirm-dialog');
+        const n = Math.max(1, parseInt(count, 10) || 1);
+        if (!dialog) {
+            return showDriverConfirm(
+                (n === 1
+                    ? 'U staat op het punt deze gearchiveerde rit permanent te verwijderen.'
+                    : 'U staat op het punt deze ' +
+                      n +
+                      ' gearchiveerde ritten permanent te verwijderen.') +
+                    ' Deze wijziging kan niet meer ongedaan worden gemaakt.',
+                {
+                    title: 'Weet u het zeker?',
+                    confirmLabel: 'Definitief verwijderen',
+                    danger: true,
+                }
+            );
+        }
+        return new Promise(function (resolve) {
+            archiveDeleteConfirmResolve = resolve;
+            dialog.hidden = false;
+            dialog.setAttribute('aria-hidden', 'false');
+            dialog.classList.add('is-open');
+            document.body.classList.add('driver-dialog-open');
+            const okBtn = $('#archive-delete-confirm-ok');
+            if (okBtn) {
+                okBtn.focus();
+            }
+        });
+    }
+
+    function initArchiveDeleteConfirmDialog() {
+        const dialog = $('#archive-delete-confirm-dialog');
+        if (!dialog || dialog.dataset.bound === '1') {
+            return;
+        }
+        dialog.dataset.bound = '1';
+        const okBtn = $('#archive-delete-confirm-ok');
+        const cancelBtn = $('#archive-delete-confirm-cancel');
+        const backdrop = dialog.querySelector('[data-archive-delete-dismiss]');
+        if (okBtn) {
+            okBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeArchiveDeleteConfirmDialog(true);
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeArchiveDeleteConfirmDialog(false);
+            });
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeArchiveDeleteConfirmDialog(false);
+            });
+        }
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Escape' || !dialog.classList.contains('is-open')) {
+                return;
+            }
+            closeArchiveDeleteConfirmDialog(false);
+        });
+    }
+
+    function toggleArchivedRideCard(offerId) {
+        const key = String(offerId || '');
+        if (!key) {
+            return;
+        }
+        archivedRideExpanded[key] = !archivedRideExpanded[key];
+        const card = document.querySelector(
+            '.overdue-ride-card--archived[data-archived-offer-id="' + CSS.escape(key) + '"]'
+        );
+        if (!card) {
+            renderArchivedView();
+            return;
+        }
+        const expanded = !!archivedRideExpanded[key];
+        const toggle = card.querySelector('.archived-ride-toggle');
+        const body = card.querySelector('.archived-ride-body');
+        card.classList.toggle('is-expanded', expanded);
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        if (body) {
+            body.hidden = !expanded;
+        }
     }
 
     function renderOverdueView() {
         const strip = $('#overdue-strip');
         const list = $('#overdue-rides-list');
         const empty = $('#overdue-empty');
+        const btnArchived = $('#btn-empty-show-archived');
         if (!strip || !list) {
             return;
         }
-        const cards = overdueScheduledRides
-            .map(renderOverdueAcceptedRideCard)
-            .concat(overdueReleasedOffers.map(renderOverdueReleasedOfferCard));
+        const cards = overdueReleasedOffers.map(renderOverdueReleasedOfferCard);
         if (!cards.length) {
             list.innerHTML = '';
             if (empty) {
                 empty.hidden = false;
+            }
+            if (btnArchived) {
+                btnArchived.hidden = archivedOffers.length < 1;
             }
             return;
         }
         if (empty) {
             empty.hidden = true;
         }
+        if (btnArchived) {
+            btnArchived.hidden = true;
+        }
         list.innerHTML = cards.join('');
+    }
+
+    function renderArchivedView() {
+        const strip = $('#archived-strip');
+        const list = $('#archived-rides-list');
+        const empty = $('#archived-empty');
+        if (!strip || !list) {
+            return;
+        }
+        pruneArchivedSelection();
+        const cards = archivedOffers.map(renderArchivedOfferCard);
+        if (!cards.length) {
+            list.innerHTML = '';
+            archivedSelectedIds = {};
+            if (empty) {
+                empty.hidden = false;
+            }
+            syncArchivedBulkBar();
+            return;
+        }
+        if (empty) {
+            empty.hidden = true;
+        }
+        list.innerHTML = cards.join('');
+        syncArchivedBulkBar();
     }
 
     function renderOverdueScheduledRides(rides) {
@@ -589,7 +1656,13 @@
     function showScreen(name) {
         screenLogin.classList.toggle('is-active', name === 'login');
         screenDispatch.classList.toggle('is-active', name === 'dispatch');
+        if (name === 'dispatch') {
+            setMainTab(mainTab || 'requests', { keepInbox: true });
+        }
         syncScreenWakeLock();
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+        }
     }
 
     function shouldKeepScreenAwake() {
@@ -1094,6 +2167,32 @@
         updateInstallHint();
     }
 
+    function updateGuideHint() {
+        const hint = $('#guide-hint');
+        const profileLink = $('#profile-guide-link');
+        const guideUrl = cfg.guideUrl || '/taxi/chauffeur/handleiding';
+        if (profileLink) {
+            profileLink.setAttribute('href', guideUrl);
+            profileLink.hidden = false;
+        }
+        const openGuide = $('#btn-open-guide');
+        if (openGuide) {
+            openGuide.setAttribute('href', guideUrl);
+        }
+        if (!hint) {
+            return;
+        }
+        hint.hidden = localStorage.getItem(GUIDE_HINT_DISMISSED_KEY) === '1';
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+        }
+    }
+
+    function dismissGuideHint() {
+        localStorage.setItem(GUIDE_HINT_DISMISSED_KEY, '1');
+        updateGuideHint();
+    }
+
     function updateInstallHint() {
         const hint = $('#install-app-hint');
         const hintText = $('#install-app-hint-text');
@@ -1103,6 +2202,9 @@
         }
         if (isStandalonePwa() || isInstallHintDismissed()) {
             hint.hidden = true;
+            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+                window.nexaPwaSyncThemeToggleTop();
+            }
             return;
         }
         if (deferredInstallPrompt) {
@@ -1113,6 +2215,9 @@
             }
             if (btn) {
                 btn.hidden = false;
+            }
+            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+                window.nexaPwaSyncThemeToggleTop();
             }
             return;
         }
@@ -1125,9 +2230,15 @@
             if (btn) {
                 btn.hidden = true;
             }
+            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+                window.nexaPwaSyncThemeToggleTop();
+            }
             return;
         }
         hint.hidden = true;
+        if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
+            window.nexaPwaSyncThemeToggleTop();
+        }
     }
 
     async function handleInstallAppClick() {
@@ -1479,17 +2590,8 @@
         });
     }
 
-    function showNewRideAlert(show, waiting) {
-        const el = $('#new-ride-alert');
-        if (!el) {
-            return;
-        }
-        el.hidden = !show;
-        if (show) {
-            el.textContent = waiting
-                ? 'Rit wacht op chauffeur — reageer nu'
-                : 'Nieuwe rit beschikbaar — reageer snel.';
-        }
+    function showNewRideAlert() {
+        // Banner verwijderd; urgentie blijft via rode stip + alert-geluid.
     }
 
     function offerRideId(offer) {
@@ -1543,9 +2645,32 @@
         });
     }
 
+    function isOfferPickupOverdue(offer) {
+        if (!offer) {
+            return false;
+        }
+        if (offer.is_pickup_overdue) {
+            return true;
+        }
+        const ride = offer.ride || {};
+        if (ride.is_pickup_overdue || ride.is_scheduled_overdue) {
+            return true;
+        }
+        const pickupAt = ride.pickup_at || contractRideScheduleInstant(ride);
+        if (!pickupAt) {
+            return false;
+        }
+        const ms = parseIsoMs(pickupAt);
+        return Number.isFinite(ms) && ms < Date.now();
+    }
+
     function isOfferWaiting(offer) {
         if (!offer) {
             return false;
+        }
+        if (isOfferPickupOverdue(offer)) {
+            markRideAsWaiting(offer);
+            return true;
         }
         const rideId = offerRideId(offer);
         if (rideId && waitingRideIds.has(rideId)) {
@@ -1595,6 +2720,9 @@
                 if (!disabled) {
                     clearButtonLoading(el);
                     el.disabled = false;
+                    if (el.id === 'btn-accept') {
+                        syncOfferAcceptButton(currentOffer);
+                    }
                     return;
                 }
                 if (loadingBtn && el === loadingBtn) {
@@ -1702,15 +2830,1627 @@
 
     function setOnlineUi() {
         const toggle = $('#online-toggle');
+        const label = $('#online-label');
         if (toggle) {
             toggle.classList.toggle('is-on', isOnline);
             toggle.setAttribute('aria-pressed', isOnline ? 'true' : 'false');
             toggle.setAttribute('aria-label', isOnline ? 'Online' : 'Offline');
             toggle.disabled = !accountActive;
         }
+        if (label) {
+            label.textContent = isOnline ? 'Online' : 'Offline';
+        }
+        if (!isOnline && (isSecondaryInboxView(inboxView))) {
+            setInboxView('offers');
+        }
+        syncToolbarNavVisibility();
+        syncActiveRideJumpButton();
         updateEmptyState();
         updateNotificationsHint();
         updateIosAwakeHint();
+    }
+
+    let mainTab = 'requests';
+
+    function isIsoDate(value) {
+        return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    }
+
+    function persistUiState() {
+        try {
+            sessionStorage.setItem(
+                UI_STATE_KEY,
+                JSON.stringify({
+                    tab: mainTab,
+                    inboxView: inboxView,
+                    planningView: planningView,
+                    planningSelectedDate: planningSelectedDate,
+                    planningWeekFrom: planningWeekFrom,
+                })
+            );
+        } catch (e) {
+            /* ignore quota / private mode */
+        }
+    }
+
+    function restoreUiState() {
+        try {
+            const raw = sessionStorage.getItem(UI_STATE_KEY);
+            if (!raw) {
+                return;
+            }
+            const data = JSON.parse(raw);
+            if (!data || typeof data !== 'object') {
+                return;
+            }
+            if (VALID_TABS.indexOf(data.tab) >= 0) {
+                mainTab = data.tab;
+            }
+            if (data.inboxView === 'offers' || data.inboxView === 'declined' || data.inboxView === 'overdue' || data.inboxView === 'archived') {
+                inboxView = data.inboxView;
+            }
+            if (data.planningView === 'week' || data.planningView === 'day') {
+                planningView = data.planningView;
+            }
+            if (isIsoDate(data.planningSelectedDate)) {
+                planningSelectedDate = data.planningSelectedDate;
+            }
+            if (isIsoDate(data.planningWeekFrom)) {
+                planningWeekFrom = data.planningWeekFrom;
+            }
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function syncToolbarNavVisibility() {
+        const toolbarNav = $('#toolbar-nav');
+        if (toolbarNav) {
+            // Altijd zichtbaar op Aanvragen, Ritten, Planning, Inkomsten en Profiel (zolang online).
+            toolbarNav.hidden = !isOnline;
+        }
+    }
+    function setMainTab(tab, options) {
+        const opts = options || {};
+        let next = VALID_TABS.indexOf(tab) !== -1 ? tab : 'requests';
+        if (next === 'earnings' && !canViewEarnings) {
+            next = 'requests';
+        }
+        // Overlay-pagina's (betaling/factuur) sluiten bij tabwissel; header/footer blijven.
+        if (isPaymentPanelOpen() || isInvoicePanelOpen()) {
+            const payment = $('#payment-panel');
+            if (payment) {
+                payment.classList.remove('is-open');
+                payment.hidden = true;
+            }
+            const invoice = $('#invoice-panel');
+            if (invoice) {
+                invoice.classList.remove('is-open');
+                invoice.hidden = true;
+            }
+            stopPaymentPoll();
+            hidePaymentQr();
+            setDispatchOverlayOpen(false);
+        }
+        // Weg van de ritdetail: inklappen zodat polling/andere tabs niet terugtrekken.
+        if (
+            next !== 'trips' &&
+            currentActiveRide &&
+            isDriverInProgressRide(currentActiveRide) &&
+            !activeRideInboxCollapsed
+        ) {
+            activeRideInboxCollapsed = true;
+            viewingActiveRideId = null;
+            setActiveRideUiVisible(false);
+            renderAssignedRidesOverview(currentActiveRide, parkedAssignedRides);
+            renderScheduledRides(scheduledRides);
+        }
+        mainTab = next;
+        if (screenDispatch) {
+            screenDispatch.classList.toggle('is-nav-tab', next === 'navigation');
+        }
+        document.querySelectorAll('[data-main-tab-panel]').forEach(function (panel) {
+            const key = panel.getAttribute('data-main-tab-panel');
+            panel.hidden = key !== next;
+        });
+        document.querySelectorAll('[data-main-tab]').forEach(function (btn) {
+            const active = btn.getAttribute('data-main-tab') === next;
+            btn.classList.toggle('is-active', active);
+            if (active) {
+                btn.setAttribute('aria-current', 'page');
+            } else {
+                btn.removeAttribute('aria-current');
+            }
+        });
+        syncToolbarNavVisibility();
+        if (next === 'requests') {
+            if (!opts.keepInbox) {
+                // Onderbalk Aanvragen toont altijd nieuwe ritaanvragen, niet Verlopen/Archief/Afgewezen.
+                setInboxView('offers');
+            } else {
+                setInboxView(inboxView);
+            }
+            updateUnclaimedBanner(unclaimedRides);
+            updateEmptyState();
+        }
+        if (next === 'trips') {
+            // Altijd opnieuw tekenen vanuit state, zodat de tab nooit “leeg” blijft na navigatie.
+            if (currentActiveRide && isDriverInProgressRide(currentActiveRide) && activeRideInboxCollapsed) {
+                renderAssignedRidesOverview(currentActiveRide, parkedAssignedRides);
+            } else if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+                renderActiveRide(currentActiveRide);
+            } else {
+                renderAssignedRidesOverview(null, []);
+            }
+            renderScheduledRides(scheduledRides);
+        }
+        syncTripsEmptyState();
+        if (next === 'earnings') {
+            loadEarnings(earningsDate);
+        }
+        if (next === 'planning') {
+            loadPlanning();
+        }
+        if (next === 'navigation') {
+            showNavigationTab();
+        }
+        if (next === 'profile' && window.nexaPwaAccent) {
+            window.nexaPwaAccent.apply(window.nexaPwaAccent.current());
+        }
+        persistUiState();
+        syncActiveRideJumpButton();
+    }
+
+    function tripsListHasContent() {
+        const overdueOnly = (overdueScheduledRides || []).filter(function (ride) {
+            if (!ride || ride.id == null) {
+                return false;
+            }
+            if (isOpenPickupProposalRide(ride)) {
+                return false;
+            }
+            return !(scheduledRides || []).some(function (item) {
+                return String(item.id) === String(ride.id);
+            });
+        });
+        const scheduledCount = (scheduledRides || []).length + overdueOnly.length;
+        if (scheduledCount > 0) {
+            return true;
+        }
+        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+            return true;
+        }
+        if (Array.isArray(parkedAssignedRides) && parkedAssignedRides.length > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    function syncTripsEmptyState() {
+        const tripsEmpty = $('#trips-empty');
+        if (!tripsEmpty) {
+            return;
+        }
+        if (mainTab !== 'trips') {
+            tripsEmpty.hidden = true;
+            return;
+        }
+        tripsEmpty.hidden = tripsListHasContent();
+    }
+
+    function applyEarningsPermissions(permissions) {
+        const perms = permissions || {};
+        canViewEarnings = !!perms.earnings_view;
+        canViewMonthEarnings = !!perms.earnings_view_month;
+        const nav = $('#nav-tab-earnings');
+        if (nav) {
+            nav.hidden = !canViewEarnings;
+        }
+        if (!canViewEarnings && mainTab === 'earnings') {
+            setMainTab('requests');
+        }
+    }
+
+    function todayLocalIsoDate() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function shiftIsoDate(isoDate, deltaDays) {
+        const parts = String(isoDate || '').split('-');
+        if (parts.length !== 3) {
+            return todayLocalIsoDate();
+        }
+        const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        dt.setDate(dt.getDate() + deltaDays);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function planningMondayIso(iso) {
+        const key = iso || todayContractDateKey();
+        const parts = String(key).split('-');
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12);
+        if (isNaN(d.getTime())) {
+            return todayContractDateKey();
+        }
+        const day = d.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        d.setDate(d.getDate() + diff);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const da = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + da;
+    }
+
+    function formatPlanningRangeLabel(from, to) {
+        const a = new Date(from + 'T12:00:00');
+        const b = new Date(to + 'T12:00:00');
+        if (isNaN(a.getTime()) || isNaN(b.getTime())) {
+            return '';
+        }
+        const opts = { day: 'numeric', month: 'short' };
+        return a.toLocaleDateString('nl-NL', opts) + ' – ' + b.toLocaleDateString('nl-NL', opts);
+    }
+
+    function formatPlanningDayTitle(isoDate) {
+        const d = new Date(isoDate + 'T12:00:00');
+        if (isNaN(d.getTime())) {
+            return isoDate || '';
+        }
+        return d.toLocaleDateString('nl-NL', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+        });
+    }
+
+    function setPlanningView(view, options) {
+        planningView = view === 'week' ? 'week' : 'day';
+        document.querySelectorAll('[data-planning-view]').forEach(function (btn) {
+            const active = btn.getAttribute('data-planning-view') === planningView;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        persistUiState();
+        if (options && options.skipRender) {
+            return;
+        }
+        renderPlanning(planningPayload);
+        if (planningView === 'week') {
+            scrollPlanningToSelectedDay();
+        }
+    }
+
+    function planningRideCardHtml(ride) {
+        if (!ride || ride.id == null) {
+            return '';
+        }
+        const canOpen = ride.status === 'accepted' || ride.status === 'assigned';
+        const tag = canOpen ? 'button' : 'div';
+        const extra = canOpen
+            ? ' type="button" data-planning-ride-id="' +
+              escapeHtml(String(ride.id)) +
+              '" data-planning-ride-status="' +
+              escapeHtml(String(ride.status || '')) +
+              '"'
+            : '';
+        const name = ride.customer_name ? String(ride.customer_name).trim() : '';
+        const from = shortAddress(ride.pickup_address);
+        const to = shortAddress(ride.dropoff_address);
+        const meta = [];
+        if (name) {
+            meta.push(name);
+        }
+        if (ride.is_contract) {
+            meta.push('Contract');
+        }
+        const pax = Number(ride.passengers || 0);
+        if (pax > 0) {
+            meta.push(pax === 1 ? '1 passagier' : pax + ' passagiers');
+        }
+        const statusClass =
+            ride.status === 'assigned'
+                ? ' is-assigned'
+                : ride.status === 'completed'
+                  ? ' is-completed'
+                  : ride.status === 'accepted'
+                    ? ' is-accepted'
+                    : '';
+        const contractClass = ride.is_contract ? ' is-contract' : '';
+        return (
+            '<' +
+            tag +
+            ' class="planning-ride-card' +
+            statusClass +
+            contractClass +
+            '"' +
+            extra +
+            '>' +
+            '<div class="planning-ride-card__top">' +
+            '<span class="planning-ride-card__time">' +
+            escapeHtml(formatStopTime(ride.pickup_at)) +
+            '</span>' +
+            '<span class="planning-ride-card__status">' +
+            escapeHtml(ride.status_label || ride.status || '') +
+            '</span>' +
+            '</div>' +
+            '<p class="planning-ride-card__route">' +
+            escapeHtml(from) +
+            ' <span class="planning-ride-card__arrow">→</span> ' +
+            escapeHtml(to) +
+            '</p>' +
+            (meta.length
+                ? '<p class="planning-ride-card__meta">' + escapeHtml(meta.join(' · ')) + '</p>'
+                : '') +
+            '</' +
+            tag +
+            '>'
+        );
+    }
+
+    function planningDayRidesHtml(day) {
+        const rides = (day && day.rides) || [];
+        if (!rides.length) {
+            return '<p class="planning-empty">Geen ritten op deze dag.</p>';
+        }
+        return rides.map(planningRideCardHtml).join('');
+    }
+
+    function planningRideCountLabel(count) {
+        return Number(count) === 1 ? '1 rit' : Number(count || 0) + ' ritten';
+    }
+
+    function shiftPlanningDay(deltaDays) {
+        const current = planningSelectedDate || todayContractDateKey();
+        const next = shiftIsoDate(current, deltaDays);
+        planningSelectedDate = next;
+        const inPayload = ((planningPayload && planningPayload.days) || []).some(function (d) {
+            return d.date === next;
+        });
+        if (inPayload) {
+            renderPlanning(planningPayload);
+            return;
+        }
+        planningWeekFrom = planningMondayIso(next);
+        persistUiState();
+        loadPlanning();
+    }
+
+    function planningCarIconHtml() {
+        return (
+            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+            '<path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/>' +
+            '<circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/>' +
+            '<circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/>' +
+            '</svg>'
+        );
+    }
+
+    function planningNavHtml(selected) {
+        const isWeek = planningView === 'week';
+        const todayKey = todayContractDateKey();
+        const isToday = !!(selected && selected.date === todayKey);
+        const prevLabel = isWeek ? 'Vorige week' : 'Vorige dag';
+        const nextLabel = isWeek ? 'Volgende week' : 'Volgende dag';
+        return (
+            '<div class="planning-week-nav' +
+            (isWeek ? ' is-week' : ' is-day') +
+            '">' +
+            '<button type="button" class="planning-week-nav__btn" id="planning-week-prev" aria-label="' +
+            prevLabel +
+            '">←</button>' +
+            '<button type="button" class="planning-week-nav__today" id="planning-week-today"' +
+            (isToday ? ' disabled' : '') +
+            '>Vandaag</button>' +
+            '<div class="planning-week-nav__spacer"></div>' +
+            '<button type="button" class="planning-week-nav__btn" id="planning-week-next" aria-label="' +
+            nextLabel +
+            '">→</button>' +
+            '</div>'
+        );
+    }
+
+    function planningHeadingHtml(selected) {
+        const isWeek = planningView === 'week';
+        const count = selected
+            ? Number(selected.ride_count || (selected.rides || []).length || 0)
+            : 0;
+        const weekTotal = ((planningPayload && planningPayload.days) || []).reduce(function (sum, day) {
+            return sum + Number(day.ride_count || (day.rides || []).length || 0);
+        }, 0);
+        const label = isWeek
+            ? escapeHtml(formatPlanningRangeLabel(planningPayload.from, planningPayload.to))
+            : escapeHtml(formatPlanningDayTitle(selected && selected.date));
+        const shownCount = isWeek ? weekTotal : count;
+        return (
+            '<div class="planning-heading' +
+            (isWeek ? ' is-week' : ' is-day') +
+            '">' +
+            '<div class="planning-week-label">' +
+            label +
+            '</div>' +
+            '<div class="planning-week-nav__count">' +
+            planningCarIconHtml() +
+            '<span>' +
+            shownCount +
+            '</span></div>' +
+            '</div>'
+        );
+    }
+
+    function renderPlanning(payload) {
+        const body = $('#planning-body');
+        if (!body) {
+            return;
+        }
+        planningPayload = payload || planningPayload || {};
+        const days = planningPayload.days || [];
+        if (!days.length) {
+            body.innerHTML = '<p class="planning-empty">Geen planningsdata.</p>';
+            return;
+        }
+        if (
+            !planningSelectedDate ||
+            !days.some(function (d) {
+                return d.date === planningSelectedDate;
+            })
+        ) {
+            const todayDay = days.find(function (d) {
+                return d.is_today;
+            });
+            planningSelectedDate = (todayDay && todayDay.date) || days[0].date;
+        }
+        persistUiState();
+        const selected =
+            days.find(function (d) {
+                return d.date === planningSelectedDate;
+            }) || days[0];
+
+        let html = planningNavHtml(selected);
+
+        if (planningView === 'week') {
+            html += planningHeadingHtml(selected);
+            html += '<div class="planning-week-days">';
+            days.forEach(function (day) {
+                const d = new Date(day.date + 'T12:00:00');
+                const name = isNaN(d.getTime())
+                    ? ''
+                    : d.toLocaleDateString('nl-NL', { weekday: 'short' });
+                const count = Number(day.ride_count || (day.rides || []).length || 0);
+                html +=
+                    '<button type="button" class="planning-week-day' +
+                    (day.date === planningSelectedDate ? ' is-active' : '') +
+                    (day.is_today ? ' is-today' : '') +
+                    (count > 0 ? ' has-rides' : '') +
+                    '" data-planning-date="' +
+                    escapeHtml(day.date) +
+                    '"><span class="wd-name">' +
+                    escapeHtml(name) +
+                    '</span><span class="wd-num">' +
+                    (isNaN(d.getTime()) ? '' : d.getDate()) +
+                    '</span><span class="wd-rides">' +
+                    planningCarIconHtml() +
+                    '<span>' +
+                    count +
+                    '</span></span></button>';
+            });
+            html += '</div>';
+            const count = Number(selected.ride_count || (selected.rides || []).length || 0);
+            html +=
+                '<section class="planning-day-section" id="planning-day-' +
+                escapeHtml(selected.date) +
+                '">' +
+                '<h3 class="planning-day-section__title">' +
+                '<span>' +
+                escapeHtml(formatPlanningDayTitle(selected.date)) +
+                '</span> ' +
+                '<span class="planning-day-section__count">' +
+                escapeHtml(planningRideCountLabel(count)) +
+                '</span>' +
+                '</h3>' +
+                planningDayRidesHtml(selected) +
+                '</section>';
+        } else if (!selected) {
+            html +=
+                '<div class="planning-day-stack">' +
+                planningHeadingHtml(selected) +
+                '<p class="planning-empty">Geen planningsdata.</p>' +
+                '</div>';
+        } else {
+            html +=
+                '<div class="planning-day-stack">' +
+                planningHeadingHtml(selected) +
+                planningDayRidesHtml(selected) +
+                '</div>';
+        }
+
+        body.innerHTML = html;
+    }
+
+    function scrollPlanningToSelectedDay() {
+        if (planningView !== 'week' || !planningSelectedDate) {
+            return;
+        }
+        const btn = document.querySelector(
+            '.planning-week-day[data-planning-date="' + planningSelectedDate + '"]'
+        );
+        if (btn && typeof btn.scrollIntoView === 'function') {
+            btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function openPlanningRide(rideId) {
+        const id = String(rideId || '');
+        if (!id) {
+            return;
+        }
+        const isThisAssigned =
+            (currentActiveRide && String(currentActiveRide.id) === id) ||
+            (parkedAssignedRides || []).some(function (ride) {
+                return ride && String(ride.id) === id;
+            });
+        if (isThisAssigned) {
+            showActiveRideFullPanel(id);
+            return;
+        }
+        if (
+            currentActiveRide &&
+            isDriverInProgressRide(currentActiveRide) &&
+            !activeRideInboxCollapsed
+        ) {
+            activeRideInboxCollapsed = true;
+            viewingActiveRideId = null;
+            setActiveRideUiVisible(false);
+        }
+        openRideFromPickupAlert(id);
+    }
+
+    async function loadPlanning(silent) {
+        const errorEl = $('#planning-error');
+        const loadingEl = $('#planning-loading');
+        const body = $('#planning-body');
+        if (!planningWeekFrom) {
+            planningWeekFrom = planningMondayIso(todayContractDateKey());
+        }
+        if (errorEl && !silent) {
+            errorEl.hidden = true;
+            errorEl.textContent = '';
+        }
+        if (loadingEl && !silent && !planningPayload) {
+            loadingEl.hidden = false;
+        }
+        try {
+            const data = await api('/planning?from=' + encodeURIComponent(planningWeekFrom));
+            const payload = (data && data.data) || {};
+            planningWeekFrom = payload.from || planningWeekFrom;
+            if (loadingEl) {
+                loadingEl.hidden = true;
+            }
+            renderPlanning(payload);
+        } catch (e) {
+            if (loadingEl) {
+                loadingEl.hidden = true;
+            }
+            if (!silent) {
+                if (errorEl) {
+                    errorEl.textContent = (e && e.message) || 'Kon planning niet laden.';
+                    errorEl.hidden = false;
+                }
+                if (body && !planningPayload) {
+                    body.innerHTML = '';
+                }
+            }
+        }
+    }
+
+    function setNavigationStatus(text) {
+        const el = $('#navigation-status');
+        if (el) {
+            el.textContent = text || '';
+        }
+    }
+
+    function setNavigationStartEnabled(on) {
+        const btn = $('#btn-start-navigation');
+        if (btn) {
+            btn.disabled = !on;
+        }
+    }
+
+    function sameAddress(a, b) {
+        return String(a || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ') ===
+            String(b || '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, ' ');
+    }
+
+    function rideCoord(lat, lng) {
+        const y = lat == null || lat === '' ? NaN : Number(lat);
+        const x = lng == null || lng === '' ? NaN : Number(lng);
+        if (!Number.isFinite(y) || !Number.isFinite(x)) {
+            return null;
+        }
+        return { lat: y, lng: x };
+    }
+
+    function collectNavigationStops(rides) {
+        const stops = [];
+        (rides || []).forEach(function (ride) {
+            if (!ride || ride.status === 'completed') {
+                return;
+            }
+            const name = ride.customer_name ? String(ride.customer_name).trim() : '';
+            const pickup = ride.pickup_address ? String(ride.pickup_address).trim() : '';
+            const dropoff = ride.dropoff_address ? String(ride.dropoff_address).trim() : '';
+            if (pickup && (!stops.length || !sameAddress(stops[stops.length - 1].address, pickup))) {
+                const coord = rideCoord(ride.pickup_lat, ride.pickup_lng);
+                stops.push({
+                    address: pickup,
+                    label: 'Ophalen',
+                    name: name || null,
+                    kind: 'pickup',
+                    lat: coord ? coord.lat : null,
+                    lng: coord ? coord.lng : null,
+                });
+            }
+            if (dropoff && (!stops.length || !sameAddress(stops[stops.length - 1].address, dropoff))) {
+                const coord = rideCoord(ride.dropoff_lat, ride.dropoff_lng);
+                stops.push({
+                    address: dropoff,
+                    label: 'Afzetten',
+                    name: null,
+                    kind: 'dropoff',
+                    lat: coord ? coord.lat : null,
+                    lng: coord ? coord.lng : null,
+                });
+            }
+        });
+        return stops;
+    }
+
+    function navigationIconSvg() {
+        return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 20.5 12 16.5l7.5 4L12 3Z"/></svg>';
+    }
+
+    function emptyNavSession() {
+        return { rideId: null, started: false, arrived: false, legIndex: 0 };
+    }
+
+    function readNavSession() {
+        try {
+            const raw = sessionStorage.getItem(NAV_SESSION_KEY);
+            if (!raw) {
+                return emptyNavSession();
+            }
+            return Object.assign(emptyNavSession(), JSON.parse(raw) || {});
+        } catch (e) {
+            return emptyNavSession();
+        }
+    }
+
+    function writeNavSession(session) {
+        try {
+            sessionStorage.setItem(NAV_SESSION_KEY, JSON.stringify(session));
+        } catch (e) {
+            /* ignore quota */
+        }
+    }
+
+    function stopNavigationWatch() {
+        if (navigationWatchId != null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(navigationWatchId);
+        }
+        navigationWatchId = null;
+    }
+
+    function clearNavSession() {
+        stopNavigationWatch();
+        try {
+            sessionStorage.removeItem(NAV_SESSION_KEY);
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function stopActiveRideNavigation() {
+        clearNavSession();
+        navigationStops = [];
+        navigationOrigin = null;
+        const btn = $('#btn-start-navigation');
+        if (btn) {
+            btn.textContent = 'Start navigatie';
+            btn.disabled = true;
+        }
+    }
+
+    function navSessionForRide(ride) {
+        const session = readNavSession();
+        if (!ride || !ride.id) {
+            return emptyNavSession();
+        }
+        if (String(session.rideId) !== String(ride.id)) {
+            stopNavigationWatch();
+            const next = emptyNavSession();
+            next.rideId = ride.id;
+            writeNavSession(next);
+            return next;
+        }
+        return session;
+    }
+
+    function collectActiveRideNavigationStops(ride) {
+        if (!ride) {
+            return [];
+        }
+        if (ride.ride_type === 'contract_group' && (activeRideStops || []).length) {
+            return (activeRideStops || [])
+                .slice()
+                .sort(function (a, b) {
+                    return (a.sequence || 0) - (b.sequence || 0);
+                })
+                .filter(function (stop) {
+                    return stop && stop.status !== 'completed' && stop.status !== 'skipped';
+                })
+                .map(function (stop) {
+                    const coord = rideCoord(stop.lat, stop.lng);
+                    const kind = stop.stop_type === 'dropoff' ? 'dropoff' : 'pickup';
+                    const name = stop.passenger_name ? String(stop.passenger_name).trim() : '';
+                    return {
+                        address: String(stop.address || '').trim(),
+                        label: kind === 'dropoff' ? 'Afzetten' : 'Ophalen',
+                        name: kind === 'dropoff' ? null : name || null,
+                        kind: kind,
+                        lat: coord ? coord.lat : null,
+                        lng: coord ? coord.lng : null,
+                    };
+                })
+                .filter(function (stop) {
+                    return stop.address;
+                });
+        }
+        return collectNavigationStops([ride]);
+    }
+
+    function remainingNavigationStops(stops, session) {
+        const list = stops || [];
+        if (!list.length || (session && session.arrived)) {
+            return [];
+        }
+        const index = Math.max(0, Number(session && session.legIndex) || 0);
+        return list.slice(index);
+    }
+
+    function syncNavigationButton(session, hasRoute) {
+        const btn = $('#btn-start-navigation');
+        if (!btn) {
+            return;
+        }
+        if (!hasRoute) {
+            btn.textContent = 'Start navigatie';
+            btn.disabled = true;
+            return;
+        }
+        if (session && session.arrived) {
+            btn.textContent = 'Aangekomen';
+            btn.disabled = true;
+            return;
+        }
+        btn.disabled = false;
+        btn.textContent = session && session.started ? 'Hervat navigatie' : 'Start navigatie';
+    }
+
+    function navigationStopKind(stop) {
+        return stop && stop.kind === 'dropoff' ? 'Afzetten' : 'Ophalen';
+    }
+
+    function navigationStopBodyHtml(stop, extraStopText) {
+        const name = stop && stop.name ? String(stop.name).trim() : '';
+        const kind = navigationStopKind(stop);
+        const extra = extraStopText ? String(extraStopText) : '';
+        const addr = escapeHtml(shortAddress(stop && stop.address)) + extra;
+        if (name) {
+            return (
+                '<strong class="navigation-route__name">' +
+                escapeHtml(name) +
+                '</strong><span class="navigation-route__kind">' +
+                escapeHtml(kind) +
+                '</span><span class="navigation-route__stop">' +
+                addr +
+                '</span>'
+            );
+        }
+        return (
+            '<strong class="navigation-route__kind">' +
+            escapeHtml(kind) +
+            '</strong><span class="navigation-route__stop">' +
+            addr +
+            '</span>'
+        );
+    }
+
+    function renderNavigationStops(stops, session) {
+        const list = $('#navigation-stops');
+        if (!list) {
+            return;
+        }
+        if (!stops.length) {
+            list.innerHTML = '';
+            list.hidden = true;
+            return;
+        }
+        const legIndex = session && session.arrived ? stops.length : Math.max(0, Number(session && session.legIndex) || 0);
+        list.innerHTML = stops
+            .map(function (stop, i) {
+                const done = i < legIndex;
+                return (
+                    '<li class="navigation-route' +
+                    (done ? ' is-done' : '') +
+                    '"><span class="navigation-stops__num">' +
+                    (i + 1) +
+                    '</span><span>' +
+                    navigationStopBodyHtml(stop, done ? ' · aangekomen' : '') +
+                    '</span></li>'
+                );
+            })
+            .join('');
+        list.hidden = false;
+    }
+
+    function navigationDirUrl(origin, stops) {
+        if (!stops.length) {
+            return '';
+        }
+        const dest = stops[stops.length - 1].address;
+        const via = stops.slice(0, -1).slice(0, 9);
+        let url =
+            'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' +
+            encodeURIComponent(dest);
+        if (origin && origin.lat != null && origin.lng != null) {
+            url += '&origin=' + encodeURIComponent(origin.lat + ',' + origin.lng);
+        }
+        if (via.length) {
+            url +=
+                '&waypoints=' +
+                via.map(function (stop) {
+                    return encodeURIComponent(stop.address);
+                }).join('%7C');
+        }
+        return url;
+    }
+
+    function loadGoogleMapsSdk() {
+        if (window.google && window.google.maps && window.google.maps.Map) {
+            return Promise.resolve();
+        }
+        if (googleMapsLoadPromise) {
+            return googleMapsLoadPromise;
+        }
+        const key = cfg.googleMapsApiKey ? String(cfg.googleMapsApiKey).trim() : '';
+        if (!key) {
+            return Promise.reject(new Error('no-key'));
+        }
+        googleMapsLoadPromise = new Promise(function (resolve, reject) {
+            const existing = document.getElementById('nexa-google-maps-sdk');
+            if (existing) {
+                existing.addEventListener('load', function () {
+                    resolve();
+                });
+                existing.addEventListener('error', reject);
+                return;
+            }
+            window.__nexaGoogleMapsReady = function () {
+                resolve();
+            };
+            const script = document.createElement('script');
+            script.id = 'nexa-google-maps-sdk';
+            script.async = true;
+            script.defer = true;
+            script.src =
+                'https://maps.googleapis.com/maps/api/js?key=' +
+                encodeURIComponent(key) +
+                '&callback=__nexaGoogleMapsReady';
+            script.onerror = function () {
+                googleMapsLoadPromise = null;
+                reject(new Error('maps-load'));
+            };
+            document.head.appendChild(script);
+        });
+        return googleMapsLoadPromise;
+    }
+
+    function getDriverPosition() {
+        return new Promise(function (resolve) {
+            if (!navigator.geolocation) {
+                resolve(null);
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                function (pos) {
+                    resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                },
+                function () {
+                    resolve(null);
+                },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
+            );
+        });
+    }
+
+    function ensureNavigationMap() {
+        const el = $('#navigation-map');
+        if (!el || !window.google || !window.google.maps) {
+            return null;
+        }
+        const center = {
+            lat: Number(cfg.googleMapsCenterLat) || 52.3676,
+            lng: Number(cfg.googleMapsCenterLng) || 4.9041,
+        };
+        const mapOpts = {
+            center: center,
+            zoom: 11,
+            disableDefaultUI: true,
+            zoomControl: true,
+            gestureHandling: 'greedy',
+            backgroundColor: '#1a1a1c',
+        };
+        const mapId = cfg.googleMapsMapId ? String(cfg.googleMapsMapId).trim() : '';
+        if (mapId) {
+            mapOpts.mapId = mapId;
+        } else {
+            mapOpts.styles = [
+                { elementType: 'geometry', stylers: [{ color: '#1c1c1e' }] },
+                { elementType: 'labels.text.stroke', stylers: [{ color: '#1c1c1e' }] },
+                { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
+                { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a2a2e' }] },
+                { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a1c' }] },
+                { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#111113' }] },
+                { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+            ];
+        }
+        if (!navigationMap) {
+            navigationMap = new google.maps.Map(el, mapOpts);
+        }
+        if (!navigationRenderer) {
+            navigationRenderer = new google.maps.DirectionsRenderer({
+                suppressMarkers: false,
+                polylineOptions: { strokeColor: '#f97316', strokeWeight: 5, strokeOpacity: 0.95 },
+            });
+        }
+        return navigationMap;
+    }
+
+    function clearNavigationOverlays() {
+        navigationMarkers.forEach(function (marker) {
+            marker.setMap(null);
+        });
+        navigationMarkers = [];
+        if (navigationPolyline) {
+            navigationPolyline.setMap(null);
+            navigationPolyline = null;
+        }
+        if (navigationRenderer) {
+            navigationRenderer.setMap(null);
+        }
+    }
+
+    function geocodeAddress(address) {
+        return new Promise(function (resolve) {
+            if (!address || !window.google || !google.maps.Geocoder) {
+                resolve(null);
+                return;
+            }
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ address: address, region: 'nl' }, function (results, status) {
+                if (status === 'OK' && results && results[0] && results[0].geometry) {
+                    const loc = results[0].geometry.location;
+                    resolve({ lat: loc.lat(), lng: loc.lng() });
+                    return;
+                }
+                resolve(null);
+            });
+        });
+    }
+
+    async function resolveStopPosition(stop) {
+        if (stop && Number.isFinite(stop.lat) && Number.isFinite(stop.lng)) {
+            return { lat: stop.lat, lng: stop.lng };
+        }
+        return geocodeAddress(stop && stop.address);
+    }
+
+    async function fetchRoadPath(points) {
+        if (!points || points.length < 2) {
+            return null;
+        }
+        const coords = points
+            .map(function (point) {
+                return Number(point.lng) + ',' + Number(point.lat);
+            })
+            .join(';');
+        try {
+            const res = await fetch(
+                'https://router.project-osrm.org/route/v1/driving/' +
+                    coords +
+                    '?overview=full&geometries=geojson'
+            );
+            if (!res.ok) {
+                return null;
+            }
+            const data = await res.json();
+            const geometry = data && data.routes && data.routes[0] && data.routes[0].geometry;
+            if (!geometry || geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates)) {
+                return null;
+            }
+            return geometry.coordinates.map(function (pair) {
+                return { lat: pair[1], lng: pair[0] };
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function addNavigationMarker(position, opts) {
+        const marker = new google.maps.Marker({
+            position: position,
+            map: navigationMap,
+            title: opts.title || '',
+            label: opts.label || undefined,
+            icon: opts.icon || undefined,
+            zIndex: opts.zIndex || 1,
+        });
+        navigationMarkers.push(marker);
+        return marker;
+    }
+
+    async function drawNavigationMarkers(origin, stops) {
+        ensureNavigationMap();
+        if (!navigationMap) {
+            return false;
+        }
+        clearNavigationOverlays();
+        const path = [];
+        const bounds = new google.maps.LatLngBounds();
+        if (origin && origin.lat != null && origin.lng != null) {
+            const here = { lat: Number(origin.lat), lng: Number(origin.lng) };
+            path.push(here);
+            bounds.extend(here);
+            addNavigationMarker(here, {
+                title: 'Jouw locatie',
+                zIndex: 20,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 8,
+                    fillColor: '#38bdf8',
+                    fillOpacity: 1,
+                    strokeColor: '#0f172a',
+                    strokeWeight: 2,
+                },
+            });
+        }
+        for (let i = 0; i < stops.length; i++) {
+            const pos = await resolveStopPosition(stops[i]);
+            if (!pos) {
+                continue;
+            }
+            path.push(pos);
+            bounds.extend(pos);
+            addNavigationMarker(pos, {
+                title: stops[i].name || stops[i].label || stops[i].address || '',
+                zIndex: 10 + i,
+                label: {
+                    text: String(i + 1),
+                    color: '#ffffff',
+                    fontWeight: '700',
+                    fontSize: '11px',
+                },
+            });
+        }
+        if (path.length < 1) {
+            return false;
+        }
+        if (path.length > 1) {
+            const road = await fetchRoadPath(path);
+            navigationPolyline = new google.maps.Polyline({
+                map: navigationMap,
+                path: road && road.length > 1 ? road : path,
+                geodesic: !road,
+                strokeColor: '#f97316',
+                strokeOpacity: 0.95,
+                strokeWeight: 5,
+            });
+        }
+        if (path.length === 1) {
+            navigationMap.setCenter(path[0]);
+            navigationMap.setZoom(14);
+        } else {
+            navigationMap.fitBounds(bounds, 48);
+        }
+        return true;
+    }
+
+    function drawNavigationDirections(origin, stops) {
+        if (!navigationRenderer) {
+            return Promise.resolve(false);
+        }
+        const dest = stops[stops.length - 1].address;
+        const via = stops.slice(0, -1).slice(0, 25);
+        const request = {
+            destination: dest,
+            waypoints: via.map(function (stop) {
+                return { location: stop.address, stopover: true };
+            }),
+            travelMode: google.maps.TravelMode.DRIVING,
+            optimizeWaypoints: false,
+        };
+        if (origin && origin.lat != null) {
+            request.origin = origin;
+        } else {
+            request.origin = stops[0].address;
+        }
+        return new Promise(function (resolve) {
+            const service = new google.maps.DirectionsService();
+            service.route(request, function (result, status) {
+                if (status === google.maps.DirectionsStatus.OK && result) {
+                    clearNavigationOverlays();
+                    navigationRenderer.setMap(navigationMap);
+                    navigationRenderer.setDirections(result);
+                    resolve(true);
+                    return;
+                }
+                resolve(false);
+            });
+        });
+    }
+
+    async function drawNavigationRoute(origin, stops) {
+        if (!stops.length || !window.google || !window.google.maps) {
+            return false;
+        }
+        ensureNavigationMap();
+        const viaRoad = await drawNavigationDirections(origin, stops);
+        if (viaRoad) {
+            return true;
+        }
+        return drawNavigationMarkers(origin, stops);
+    }
+
+    function startNavigationWatch() {
+        if (navigationWatchId != null) {
+            return;
+        }
+        if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
+            return;
+        }
+        navigationWatchId = navigator.geolocation.watchPosition(
+            handleNavigationPosition,
+            function () {},
+            { enableHighAccuracy: true, maximumAge: 4000, timeout: 12000 }
+        );
+    }
+
+    async function ensureStopCoords(stop) {
+        if (!stop) {
+            return stop;
+        }
+        if (Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng))) {
+            return stop;
+        }
+        const pos = await geocodeAddress(stop.address);
+        if (pos) {
+            stop.lat = pos.lat;
+            stop.lng = pos.lng;
+        }
+        return stop;
+    }
+
+    function navigationStatusText(session, dest) {
+        if (session && session.arrived) {
+            return 'Je bent gearriveerd. Navigatie is gestopt.';
+        }
+        if (session && session.started && dest) {
+            return 'Navigatie bezig naar ' + shortAddress(dest.address) + '. Ga verder tot aankomst.';
+        }
+        return 'Route van je actieve rit: van ophalen naar afzetten.';
+    }
+
+    function handleNavigationPosition(position) {
+        if (!position || !position.coords) {
+            return;
+        }
+        const origin = { lat: position.coords.latitude, lng: position.coords.longitude };
+        navigationOrigin = origin;
+        const ride = currentActiveRide && isDriverInProgressRide(currentActiveRide) ? currentActiveRide : null;
+        if (!ride) {
+            return;
+        }
+        const session = navSessionForRide(ride);
+        if (!session.started || session.arrived) {
+            return;
+        }
+        const dest = remainingNavigationStops(navigationStops, session)[0];
+        if (!dest || !Number.isFinite(Number(dest.lat)) || !Number.isFinite(Number(dest.lng))) {
+            return;
+        }
+        const dist = haversineMeters(origin.lat, origin.lng, Number(dest.lat), Number(dest.lng));
+        if (dist > STOP_ARRIVE_RADIUS_M) {
+            return;
+        }
+        session.legIndex = Math.max(0, Number(session.legIndex) || 0) + 1;
+        if (session.legIndex >= navigationStops.length) {
+            session.arrived = true;
+            session.started = false;
+            writeNavSession(session);
+            stopNavigationWatch();
+            if (mainTab === 'navigation') {
+                renderNavigationStops(navigationStops, session);
+                syncNavigationButton(session, true);
+                setNavigationStatus('Je bent gearriveerd. Navigatie is gestopt.');
+            }
+            return;
+        }
+        writeNavSession(session);
+        const nextDest = remainingNavigationStops(navigationStops, session)[0];
+        if (mainTab === 'navigation') {
+            renderNavigationStops(navigationStops, session);
+            syncNavigationButton(session, true);
+            setNavigationStatus(navigationStatusText(session, nextDest));
+            drawNavigationRoute(origin, remainingNavigationStops(navigationStops, session)).catch(function () {});
+        }
+        if (nextDest && nextDest.address) {
+            const url = navigationDirUrl(origin, [nextDest]);
+            if (url) {
+                window.open(url, '_blank', 'noopener');
+            }
+        }
+    }
+
+    async function showNavigationTab() {
+        const ride = currentActiveRide && isDriverInProgressRide(currentActiveRide) ? currentActiveRide : null;
+        if (!ride) {
+            stopNavigationWatch();
+            navigationStops = [];
+            navigationOrigin = null;
+            renderNavigationStops([]);
+            syncNavigationButton(null, false);
+            setNavigationStatus('Geen actieve rit. Start een rit onder Ritten en tik op het navigatie-icoon.');
+            return;
+        }
+        const session = navSessionForRide(ride);
+        setNavigationStatus(session.started && !session.arrived ? 'Navigatie hervatten…' : 'Route van je rit laden…');
+        navigationStops = collectActiveRideNavigationStops(ride);
+        renderNavigationStops(navigationStops, session);
+        if (!navigationStops.length) {
+            syncNavigationButton(session, false);
+            setNavigationStatus('Deze rit heeft geen ophaal- of afzetadres.');
+            return;
+        }
+        if (session.arrived) {
+            syncNavigationButton(session, true);
+            setNavigationStatus('Je bent gearriveerd. Navigatie is gestopt.');
+        } else {
+            syncNavigationButton(session, true);
+        }
+        navigationOrigin = await getDriverPosition();
+        const remaining = remainingNavigationStops(navigationStops, session);
+        const dest = remaining[0];
+        if (!session.arrived) {
+            setNavigationStatus(navigationStatusText(session, dest));
+        }
+        try {
+            await loadGoogleMapsSdk();
+            for (let i = 0; i < navigationStops.length; i++) {
+                await ensureStopCoords(navigationStops[i]);
+            }
+            const drawn = await drawNavigationRoute(
+                navigationOrigin,
+                remaining.length ? remaining : navigationStops
+            );
+            if (!drawn && !session.arrived) {
+                setNavigationStatus(
+                    'Kaart kon de route niet tekenen. Je kunt navigatie wel starten.'
+                );
+            }
+            requestAnimationFrame(function () {
+                if (navigationMap && typeof google !== 'undefined' && google.maps.event) {
+                    google.maps.event.trigger(navigationMap, 'resize');
+                }
+            });
+        } catch (e) {
+            if (!session.arrived) {
+                setNavigationStatus(
+                    'Kaart is niet beschikbaar. Start navigatie opent Google Maps.'
+                );
+            }
+        }
+        if (session.started && !session.arrived) {
+            startNavigationWatch();
+        }
+    }
+
+    function startGoogleNavigation() {
+        const ride = currentActiveRide && isDriverInProgressRide(currentActiveRide) ? currentActiveRide : null;
+        if (!ride || !navigationStops.length) {
+            return;
+        }
+        const session = navSessionForRide(ride);
+        if (session.arrived) {
+            return;
+        }
+        session.started = true;
+        writeNavSession(session);
+        syncNavigationButton(session, true);
+        const remaining = remainingNavigationStops(navigationStops, session);
+        const url = navigationDirUrl(navigationOrigin, remaining.length ? remaining : navigationStops);
+        if (url) {
+            window.open(url, '_blank', 'noopener');
+        }
+        startNavigationWatch();
+        const dest = remaining[0];
+        setNavigationStatus(navigationStatusText(session, dest));
+    }
+
+    function shortAddress(value) {
+        const text = String(value || '').trim();
+        if (!text) {
+            return '—';
+        }
+        const first = text.split(',')[0].trim();
+        return first || text;
+    }
+
+    function renderEarnings(data) {
+        const summary = $('#earnings-summary');
+        const list = $('#earnings-rides-list');
+        const empty = $('#earnings-empty');
+        const error = $('#earnings-error');
+        const loading = $('#earnings-loading');
+        const dayLabel = $('#earnings-day-label');
+        const daySub = $('#earnings-day-sub');
+        const dayTotal = $('#earnings-day-total');
+        const dayCount = $('#earnings-day-count');
+        const monthCard = $('#earnings-month-card');
+        const prevBtn = $('#btn-earnings-prev');
+        const nextBtn = $('#btn-earnings-next');
+        const todayBtn = $('#btn-earnings-today');
+
+        if (loading) {
+            loading.hidden = true;
+        }
+        if (error) {
+            error.hidden = true;
+            error.textContent = '';
+        }
+
+        if (!data) {
+            if (summary) {
+                summary.hidden = true;
+            }
+            if (list) {
+                list.innerHTML = '';
+            }
+            if (empty) {
+                empty.hidden = true;
+            }
+            if (todayBtn) {
+                todayBtn.disabled = true;
+            }
+            return;
+        }
+
+        earningsDate = data.date || todayLocalIsoDate();
+        if (dayLabel) {
+            dayLabel.textContent = data.label || earningsDate;
+        }
+        if (daySub) {
+            daySub.textContent = earningsDate;
+        }
+        if (dayTotal) {
+            dayTotal.textContent = formatEuro(data.day_total || 0);
+        }
+        if (dayCount) {
+            const n = data.ride_count || 0;
+            dayCount.textContent = n === 1 ? '1 rit' : n + ' ritten';
+        }
+        if (summary) {
+            summary.hidden = false;
+        }
+        if (monthCard) {
+            if (canViewMonthEarnings && data.month) {
+                monthCard.hidden = false;
+                const monthLabel = $('#earnings-month-label');
+                const monthTotal = $('#earnings-month-total');
+                const monthCount = $('#earnings-month-count');
+                if (monthLabel) {
+                    monthLabel.textContent = 'Totaal ' + (data.month.label || 'deze maand');
+                }
+                if (monthTotal) {
+                    monthTotal.textContent = formatEuro(data.month.total || 0);
+                }
+                if (monthCount) {
+                    const mn = data.month.ride_count || 0;
+                    monthCount.textContent = mn === 1 ? '1 rit' : mn + ' ritten';
+                }
+            } else {
+                monthCard.hidden = true;
+            }
+        }
+        if (prevBtn) {
+            prevBtn.disabled = false;
+        }
+        if (nextBtn) {
+            nextBtn.disabled = !!data.is_today;
+        }
+        if (todayBtn) {
+            todayBtn.disabled = !!data.is_today;
+        }
+
+        const rides = Array.isArray(data.rides) ? data.rides : [];
+        if (list) {
+            list.innerHTML = rides
+                .map(function (ride) {
+                    const badges = [];
+                    if (ride.is_contract) {
+                        badges.push('<span class="offer-badge is-muted">Contract</span>');
+                    } else if (ride.payment_status === 'paid') {
+                        badges.push('<span class="offer-badge is-success">Betaald</span>');
+                    } else if (ride.payment_method === 'cash') {
+                        badges.push('<span class="offer-badge is-muted">Contant</span>');
+                    }
+                    if (ride.credited_as === 'outbound') {
+                        badges.push('<span class="offer-badge is-muted">Heenrit</span>');
+                    }
+                    const rideId = ride.id != null ? String(ride.id) : '';
+                    const expandKey = rideId || String(ride.completed_at || ride.completed_time || Math.random());
+                    const expanded = !!earningsRideExpanded[expandKey];
+                    const bodyId = 'earnings-ride-body-' + expandKey;
+                    const routeSummary = [ride.pickup_address, ride.dropoff_address]
+                        .map(function (addr) {
+                            return addr ? shortAddress(addr) : '';
+                        })
+                        .filter(Boolean)
+                        .join(' → ');
+                    const amountLabel = formatEuro(ride.amount || 0);
+                    return (
+                        '<article class="card offer-card earnings-ride-card scheduled-ride-card' +
+                        (expanded ? ' is-expanded' : '') +
+                        '" data-earnings-ride-id="' +
+                        escapeHtml(expandKey) +
+                        '">' +
+                        '<button type="button" class="scheduled-ride-toggle earnings-ride-toggle" aria-expanded="' +
+                        (expanded ? 'true' : 'false') +
+                        '" aria-controls="' +
+                        escapeHtml(bodyId) +
+                        '" data-earnings-ride-id="' +
+                        escapeHtml(expandKey) +
+                        '">' +
+                        '<span class="scheduled-ride-toggle-text">' +
+                        '<span class="earnings-ride-toggle-top">' +
+                        '<span class="offer-badge-row">' +
+                        badges.join('') +
+                        '</span>' +
+                        (ride.completed_time
+                            ? '<span class="offer-ago">' + escapeHtml(ride.completed_time) + '</span>'
+                            : '') +
+                        '</span>' +
+                        (rideId
+                            ? '<span class="offer-title">Rit #' + escapeHtml(rideId) + '</span>'
+                            : '') +
+                        (routeSummary
+                            ? '<span class="offer-meta scheduled-route-summary">' +
+                              escapeHtml(routeSummary) +
+                              '</span>'
+                            : '') +
+                        '<span class="offer-meta earnings-ride-amount-summary">' +
+                        escapeHtml(amountLabel) +
+                        '</span>' +
+                        '</span>' +
+                        '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+                        '</button>' +
+                        '<div class="scheduled-ride-body earnings-ride-body" id="' +
+                        escapeHtml(bodyId) +
+                        '"' +
+                        (expanded ? '' : ' hidden') +
+                        '>' +
+                        '<div class="offer-body-grid">' +
+                        routeTimelineHtml(ride.pickup_address, ride.dropoff_address) +
+                        '<div class="offer-meta-grid">' +
+                        '<div class="offer-customer-block"></div>' +
+                        '<div class="offer-stats">' +
+                        '<div class="offer-price-wrap">' +
+                        '<p class="offer-price">' +
+                        escapeHtml(amountLabel) +
+                        '</p>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</article>'
+                    );
+                })
+                .join('');
+        }
+        if (empty) {
+            empty.hidden = rides.length > 0;
+        }
+    }
+
+    function toggleEarningsRideCard(rideId) {
+        const key = String(rideId || '');
+        if (!key) {
+            return;
+        }
+        earningsRideExpanded[key] = !earningsRideExpanded[key];
+        const card = document.querySelector(
+            '.earnings-ride-card[data-earnings-ride-id="' + CSS.escape(key) + '"]'
+        );
+        if (!card) {
+            return;
+        }
+        const expanded = !!earningsRideExpanded[key];
+        const toggle = card.querySelector('.earnings-ride-toggle');
+        const body = card.querySelector('.earnings-ride-body');
+        card.classList.toggle('is-expanded', expanded);
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        if (body) {
+            body.hidden = !expanded;
+        }
+    }
+
+    async function loadEarnings(dateIso) {
+        if (!canViewEarnings || earningsLoading) {
+            return;
+        }
+        const date = dateIso || earningsDate || todayLocalIsoDate();
+        earningsLoading = true;
+        const loading = $('#earnings-loading');
+        const error = $('#earnings-error');
+        const empty = $('#earnings-empty');
+        const list = $('#earnings-rides-list');
+        if (loading) {
+            loading.hidden = false;
+        }
+        if (error) {
+            error.hidden = true;
+        }
+        if (empty) {
+            empty.hidden = true;
+        }
+        if (list) {
+            list.innerHTML = '';
+        }
+        try {
+            const res = await api('/earnings?date=' + encodeURIComponent(date));
+            if (res && res.permissions) {
+                applyEarningsPermissions(res.permissions);
+            }
+            renderEarnings(res && res.data ? res.data : null);
+        } catch (e) {
+            if (loading) {
+                loading.hidden = true;
+            }
+            if (error) {
+                error.hidden = false;
+                error.textContent = e.message || 'Inkomsten konden niet worden geladen.';
+            }
+            if (e.code === 'earnings_forbidden') {
+                applyEarningsPermissions({ earnings_view: false, earnings_view_month: false });
+            }
+        } finally {
+            earningsLoading = false;
+        }
     }
 
     async function setOnline(value) {
@@ -1721,6 +4461,7 @@
         isOnline = !!value;
         localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
         setOnlineUi();
+        updateProfileOnlineStatus();
         updateNotificationsHint();
         if (isOnline) {
             await prepareDriverAlerts();
@@ -1743,6 +4484,8 @@
         if (isOnline) {
             await refreshInbox();
         } else {
+            inboxLoading = false;
+            inboxHasLoaded = false;
             stopInboxSync();
             renderOffer(null);
             updateEmptyState();
@@ -1823,6 +4566,7 @@
         local.offered_at = remote.offered_at;
         local.waiting_since_at = remote.waiting_since_at;
         local.is_waiting = remote.is_waiting;
+        local.is_pickup_overdue = remote.is_pickup_overdue;
         local.urgency = remote.urgency;
         local.status = remote.status;
         local.seconds_remaining = remote.seconds_remaining;
@@ -1834,62 +4578,65 @@
     }
 
     function updateOfferUrgencyUi(offer) {
-        const timerWaitEl = $('#offer-timer-wait');
-        const timerAcceptEl = $('#offer-timer-accept');
         const banner = $('#offer-waiting-banner');
+        const waitingDot = $('#offer-waiting-dot');
         const card = $('#offer-card');
         const waiting = isOfferWaiting(offer);
-        const secRemaining = offerSecondsRemaining(offer);
-        const secWaiting = offerSecondsWaiting(offer);
+        const pickupOverdue = isOfferPickupOverdue(offer);
 
         if (card) {
-            card.classList.toggle('is-waiting', waiting);
+            card.classList.toggle('is-waiting', waiting && !pickupOverdue);
+            card.classList.toggle('is-pickup-overdue', pickupOverdue);
+        }
+        if (waitingDot) {
+            waitingDot.hidden = !waiting;
+            waitingDot.classList.toggle('is-overdue', pickupOverdue);
         }
         if (banner) {
-            if (waiting) {
-                banner.textContent = 'Rit wacht op een chauffeur — reageer nu';
-                banner.classList.add('is-visible');
+            if (pickupOverdue) {
                 banner.hidden = false;
-            } else {
-                banner.textContent = '';
-                banner.classList.remove('is-visible');
-                banner.hidden = true;
-            }
-        }
-
-        if (timerWaitEl) {
-            if (waiting) {
-                timerWaitEl.textContent = 'Wacht al ' + formatDuration(secWaiting);
-                timerWaitEl.hidden = false;
-            } else {
-                timerWaitEl.textContent = '';
-                timerWaitEl.hidden = true;
-            }
-        }
-
-        if (timerAcceptEl) {
-            timerAcceptEl.classList.remove('is-urgent');
-            if (secRemaining > 0) {
-                timerAcceptEl.textContent = 'Nog ' + secRemaining + ' s om te accepteren';
-                timerAcceptEl.hidden = false;
-                if (!waiting && secRemaining <= 60) {
-                    timerAcceptEl.classList.add('is-urgent');
-                }
+                banner.classList.add('is-visible', 'is-overdue');
+                banner.textContent = 'Ophaalmoment verlopen — stel een nieuw tijdstip voor of weiger';
             } else if (waiting) {
-                timerAcceptEl.textContent = 'Reactietijd verlopen — reageer nu';
-                timerAcceptEl.hidden = false;
-                timerAcceptEl.classList.add('is-urgent');
+                banner.hidden = false;
+                banner.classList.add('is-visible');
+                banner.classList.remove('is-overdue');
+                banner.textContent = 'Rit wacht op een chauffeur — reageer nu';
             } else {
-                timerAcceptEl.textContent = '';
-                timerAcceptEl.hidden = true;
+                banner.hidden = true;
+                banner.classList.remove('is-visible', 'is-overdue');
+                banner.textContent = '';
             }
         }
 
-        if (waiting) {
+        if (waiting || pickupOverdue) {
             showNewRideAlert(true, true);
         } else {
             showNewRideAlert(false);
         }
+        syncOfferAcceptButton(offer);
+    }
+
+    function offerAcceptButtonLabel(offer) {
+        return isOfferPickupOverdue(offer) ? 'Nieuw tijdstip voorstellen' : 'Accepteren';
+    }
+
+    function syncOfferAcceptButton(offer) {
+        const btn = $('#btn-accept');
+        const actions = $('#offer-actions-panel');
+        const overdue = isOfferPickupOverdue(offer);
+        if (actions) {
+            actions.classList.toggle('is-pickup-overdue', overdue);
+        }
+        if (!btn || btn.classList.contains('is-loading')) {
+            return;
+        }
+        if (overdue) {
+            btn.innerHTML = 'Nieuw tijdstip<br>voorstellen';
+        } else {
+            btn.textContent = 'Accepteren';
+        }
+        btn.setAttribute('aria-label', offerAcceptButtonLabel(offer));
     }
 
     function updateOfferTimerDisplay(offer) {
@@ -1901,27 +4648,21 @@
             clearInterval(timerInterval);
             timerInterval = null;
         }
-        const timerWaitEl = $('#offer-timer-wait');
-        const timerAcceptEl = $('#offer-timer-accept');
         const banner = $('#offer-waiting-banner');
+        const waitingDot = $('#offer-waiting-dot');
         const card = $('#offer-card');
-        if (timerWaitEl) {
-            timerWaitEl.textContent = '';
-            timerWaitEl.hidden = true;
-        }
-        if (timerAcceptEl) {
-            timerAcceptEl.textContent = '';
-            timerAcceptEl.hidden = true;
-            timerAcceptEl.classList.remove('is-urgent');
+        if (waitingDot) {
+            waitingDot.hidden = true;
         }
         if (banner) {
             banner.textContent = '';
-            banner.classList.remove('is-visible');
             banner.hidden = true;
+            banner.classList.remove('is-visible', 'is-overdue');
         }
         if (card) {
-            card.classList.remove('is-waiting');
+            card.classList.remove('is-waiting', 'is-pickup-overdue');
         }
+        syncOfferAcceptButton(null);
     }
 
     function startOfferTimer(offer) {
@@ -1956,6 +4697,18 @@
         if (!visible) {
             setCompleteRideButtonVisible(false);
         }
+        syncActiveRideJumpButton();
+        syncTripsEmptyState();
+    }
+
+    function syncActiveRideJumpButton() {
+        const btn = $('#btn-active-ride-jump');
+        if (!btn) {
+            return;
+        }
+        const hasActive = !!(currentActiveRide && isDriverInProgressRide(currentActiveRide));
+        const viewingFull = hasActive && !activeRideInboxCollapsed && mainTab === 'trips';
+        btn.hidden = !isOnline || !hasActive || viewingFull;
     }
 
     function isDriverAcceptedRide(ride) {
@@ -1986,6 +4739,7 @@
         }
         try {
             return date.toLocaleString('nl-NL', {
+                timeZone: CONTRACT_TZ,
                 weekday: 'short',
                 day: 'numeric',
                 month: 'short',
@@ -2081,16 +4835,6 @@
             setPayRideButtonVisible(false);
             setSendInvoiceButtonVisible(false);
         }
-        syncContractBackButton(ride);
-    }
-
-    function syncContractBackButton(ride) {
-        const btn = $('#btn-toolbar-inbox-back');
-        if (!btn) {
-            return;
-        }
-        const show = !!(ride && isDriverInProgressRide(ride) && !activeRideInboxCollapsed);
-        btn.hidden = !show;
     }
 
     function assignedRidesForOverview(primary, parked) {
@@ -2112,14 +4856,41 @@
         return out;
     }
 
+    function assignedRideIsCurrentlyActive(ride) {
+        return !!(
+            ride &&
+            ride.id &&
+            currentActiveRide &&
+            String(currentActiveRide.id) === String(ride.id) &&
+            isDriverInProgressRide(ride)
+        );
+    }
+
     function assignedRideOverviewCardHtml(ride) {
         const rideId = String(ride.id);
+        const isActive = assignedRideIsCurrentlyActive(ride);
+        const activeBadge = isActive
+            ? '<span class="offer-badge is-success">Actief</span>'
+            : '';
+        const navBtn = isActive
+            ? '<button type="button" class="active-ride-nav-btn btn-active-ride-navigate" aria-label="Navigatie">' +
+              navigationIconSvg() +
+              '</button>'
+            : '';
         return (
-            '<div class="card active-ride-collapsed-banner parked-assigned-ride-card" data-ride-id="' +
+            '<div class="card offer-card active-ride-collapsed-banner parked-assigned-ride-card' +
+            (isActive ? ' is-active-ride' : '') +
+            '" data-ride-id="' +
             escapeHtml(rideId) +
             '">' +
+            '<div class="offer-card-top">' +
+            '<div class="offer-badge-row">' +
+            activeBadge +
             contractBadgeHtml(ride) +
             returnTripBadgeHtml(ride) +
+            '</div>' +
+            navBtn +
+            '</div>' +
             '<p class="offer-title">' +
             escapeHtml(collapsedRideBannerTitle(ride)) +
             '</p>' +
@@ -2186,10 +4957,12 @@
         if (!rides.length || !activeRideInboxCollapsed) {
             strip.hidden = true;
             list.innerHTML = '';
+            syncTripsEmptyState();
             return;
         }
         strip.hidden = false;
         list.innerHTML = rides.map(assignedRideOverviewCardHtml).join('');
+        syncTripsEmptyState();
     }
 
     function renderParkedAssignedRides(rides) {
@@ -2197,20 +4970,23 @@
     }
 
     function showAllRidesInbox() {
-        if (!currentActiveRide || !isDriverInProgressRide(currentActiveRide)) {
-            return;
+        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+            activeRideInboxCollapsed = true;
+            viewingActiveRideId = null;
+            setActiveRideUiVisible(false);
+            renderAssignedRidesOverview(currentActiveRide, parkedAssignedRides);
+            if (scheduledRides.length) {
+                renderScheduledRides(scheduledRides);
+            }
+            setInboxView('offers');
+            refreshInbox();
         }
-        activeRideInboxCollapsed = true;
-        viewingActiveRideId = null;
-        setActiveRideUiVisible(false);
-        syncContractBackButton(null);
-        renderAssignedRidesOverview(currentActiveRide, parkedAssignedRides);
-        setInboxView('offers');
+        setMainTab('trips');
+        syncActiveRideJumpButton();
         const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
         if (scrollEl) {
             scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
         }
-        refreshInbox();
     }
 
     function showActiveRideFullPanel(rideId) {
@@ -2225,7 +5001,16 @@
                 });
             }
         }
-        if (!ride) {
+        if (!ride || !isDriverInProgressRide(ride)) {
+            currentActiveRide = null;
+            viewingActiveRideId = null;
+            parkedAssignedRides = [];
+            activeRideInboxCollapsed = true;
+            setActiveRideUiVisible(false);
+            renderAssignedRidesOverview(null, []);
+            syncActiveRideJumpButton();
+            setMainTab('trips');
+            refreshInbox();
             return;
         }
         currentActiveRide = ride;
@@ -2235,7 +5020,13 @@
         if (parkedStrip) {
             parkedStrip.hidden = true;
         }
+        setMainTab('trips');
         renderActiveRide(ride);
+        syncActiveRideJumpButton();
+        const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
+        if (scrollEl) {
+            scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     function isRidePaymentPaid(ride) {
@@ -2278,10 +5069,8 @@
             btn.removeAttribute('aria-disabled');
             btn.title = '';
             syncReturnLegButtons(null);
-            syncContractBackButton(ride);
             return;
         }
-        syncContractBackButton(ride);
         const leg = returnTripLeg(ride);
         if (ride && isReturnTripRide(ride) && leg === 'waiting') {
             setCompleteRideButtonVisible(false);
@@ -2420,19 +5209,23 @@
         const amountInput = $('#payment-amount');
         if (createBtn) {
             createBtn.hidden = qrVisible;
-            createBtn.disabled = false;
+            if (!qrVisible) {
+                clearButtonLoading(createBtn);
+                createBtn.disabled = false;
+            }
         }
         if (cashBtn) {
             cashBtn.hidden = qrVisible;
             cashBtn.disabled = qrVisible;
         }
-        if (amountInput && !qrVisible) {
-            amountInput.disabled = false;
+        if (amountInput) {
+            amountInput.disabled = qrVisible;
         }
         updatePaymentCloseButtonLabel(qrVisible);
     }
 
     function hidePaymentQr() {
+        stopPaymentPoll();
         const qrSection = $('#payment-qr-section');
         const qrImg = $('#payment-qr-img');
         const statusText = $('#payment-status-text');
@@ -2538,6 +5331,21 @@
         }
     }
 
+    function syncMainTabPanelsForOverlay() {
+        const paymentOpen = isPaymentPanelOpen();
+        const invoiceOpen = isInvoicePanelOpen();
+        const overlayOpen = paymentOpen || invoiceOpen;
+        document.querySelectorAll('[data-main-tab-panel]').forEach(function (panel) {
+            if (overlayOpen) {
+                panel.hidden = true;
+                return;
+            }
+            const key = panel.getAttribute('data-main-tab-panel');
+            panel.hidden = key !== mainTab;
+        });
+        setDispatchOverlayOpen(overlayOpen);
+    }
+
     function isPaymentPanelOpen() {
         const panel = $('#payment-panel');
         return !!(panel && panel.classList.contains('is-open') && !panel.hidden);
@@ -2548,25 +5356,46 @@
         return !!(panel && panel.classList.contains('is-open') && !panel.hidden);
     }
 
+    function isActiveOpenPayment(openPayment) {
+        return !!(
+            openPayment &&
+            openPayment.checkout_url &&
+            openPayment.status === 'open' &&
+            PAYMENT_FAILED_STATUSES.indexOf(openPayment.status) === -1
+        );
+    }
+
+    function openPaymentAmountsMatch(openPayment, amount) {
+        if (!openPayment || amount == null) {
+            return false;
+        }
+        const openAmount = parseFloat(openPayment.amount);
+        if (isNaN(openAmount)) {
+            return false;
+        }
+        return Math.abs(openAmount - amount) < 0.005;
+    }
+
     function closePaymentPanel() {
         const panel = $('#payment-panel');
         if (panel) {
             panel.classList.remove('is-open');
             panel.hidden = true;
         }
-        if (!isInvoicePanelOpen()) {
-            setDispatchOverlayOpen(false);
-        }
         stopPaymentPoll();
+        hidePaymentQr();
+        syncMainTabPanelsForOverlay();
     }
 
     function openPaymentPanel(ride) {
         const panel = $('#payment-panel');
         const amountInput = $('#payment-amount');
-        const qrSection = $('#payment-qr-section');
         if (!panel || !ride) {
             return;
         }
+        stopPaymentPoll();
+        hidePaymentQr();
+        closeInvoicePanel();
         const payment = ride.payment || {};
         const amount =
             payment.amount_due != null
@@ -2581,22 +5410,22 @@
                     : '';
             amountInput.disabled = false;
         }
-        if (qrSection) {
-            qrSection.hidden = true;
-        }
-        const statusText = $('#payment-status-text');
-        if (statusText) {
-            statusText.textContent = 'Wachten op betaling…';
-        }
         syncPaymentPanelUi({ qrVisible: false });
+        setMainTab('trips');
         panel.hidden = false;
         panel.classList.add('is-open');
-        setDispatchOverlayOpen(true);
+        syncMainTabPanelsForOverlay();
+        const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
+        if (scrollEl) {
+            scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     async function loadPaymentState(rideId) {
         const res = await api('/dispatch/rides/' + rideId + '/payment');
-        return res.data || null;
+        const data = res.data || null;
+        cachedOpenPayment = data && data.open_payment ? data.open_payment : null;
+        return data;
     }
 
     function showPaymentQr(openPayment) {
@@ -2678,14 +5507,33 @@
         const createBtn = $('#btn-payment-create');
         setButtonLoading(createBtn, true, 'QR laden…');
         try {
+            let data = null;
+            try {
+                data = await loadPaymentState(rideId);
+            } catch (e) {
+                data = null;
+            }
+            if (data && data.ride) {
+                currentActiveRide = data.ride;
+            }
+            const openPayment = data && data.open_payment ? data.open_payment : cachedOpenPayment;
+            if (
+                isActiveOpenPayment(openPayment) &&
+                openPaymentAmountsMatch(openPayment, amount)
+            ) {
+                showPaymentQr(openPayment);
+                startPaymentPoll(rideId);
+                return;
+            }
             const res = await api('/dispatch/rides/' + rideId + '/payment', {
                 method: 'POST',
                 body: { amount: amount },
             });
-            const data = res.data || {};
+            data = res.data || {};
             if (data.ride) {
                 currentActiveRide = data.ride;
             }
+            cachedOpenPayment = data.open_payment || null;
             if (data.open_payment) {
                 showPaymentQr(data.open_payment);
                 startPaymentPoll(rideId);
@@ -2724,13 +5572,20 @@
         const dialog = $('#cash-confirm-dialog');
         const amountEl = $('#cash-confirm-amount');
         if (!dialog) {
-            return window.confirm(
+            showDriverConfirm(
                 'Bevestig: klant heeft ' +
                     formatEuro(amount) +
-                    ' contant betaald? Dit bedrag wordt vastgelegd.'
-            )
-                ? executeRideCashPayment(amount)
-                : undefined;
+                    ' contant betaald? Dit bedrag wordt vastgelegd.',
+                {
+                    title: 'Contant betalen?',
+                    confirmLabel: 'Bevestigen',
+                }
+            ).then(function (ok) {
+                if (ok) {
+                    void executeRideCashPayment(amount);
+                }
+            });
+            return;
         }
         pendingCashConfirmAmount = amount;
         if (amountEl) {
@@ -2841,15 +5696,19 @@
         }
         const dialog = $('#cash-confirm-dialog');
         if (!dialog) {
-            if (
-                window.confirm(
-                    'Bevestig: klant heeft ' +
-                        formatEuro(amount) +
-                        ' contant betaald? Dit bedrag wordt vastgelegd.'
-                )
-            ) {
-                void executeRideCashPayment(amount);
-            }
+            showDriverConfirm(
+                'Bevestig: klant heeft ' +
+                    formatEuro(amount) +
+                    ' contant betaald? Dit bedrag wordt vastgelegd.',
+                {
+                    title: 'Contant betalen?',
+                    confirmLabel: 'Bevestigen',
+                }
+            ).then(function (ok) {
+                if (ok) {
+                    void executeRideCashPayment(amount);
+                }
+            });
             return;
         }
         showCashConfirmDialog(amount);
@@ -2861,25 +5720,24 @@
             panel.classList.remove('is-open');
             panel.hidden = true;
         }
-        if (!isPaymentPanelOpen()) {
-            setDispatchOverlayOpen(false);
-        }
         const status = $('#invoice-send-status');
         if (status) {
             status.hidden = true;
             status.textContent = '';
             status.classList.remove('is-error');
         }
+        syncMainTabPanelsForOverlay();
     }
 
     function openInvoicePanel(invoiceData) {
         const panel = $('#invoice-panel');
         const emailInput = $('#invoice-email');
         const numberInput = $('#invoice-number');
-        const panelTitle = panel ? panel.querySelector('h1') : null;
+        const panelTitle = panel ? panel.querySelector('.driver-section-head h2') : null;
         if (!panel) {
             return;
         }
+        closePaymentPanel();
         const data = invoiceData || {};
         if (panelTitle) {
             panelTitle.textContent = data.invoice_leg_label
@@ -2911,9 +5769,14 @@
             status.textContent = '';
             status.classList.remove('is-error');
         }
+        setMainTab('trips');
         panel.hidden = false;
         panel.classList.add('is-open');
-        setDispatchOverlayOpen(true);
+        syncMainTabPanelsForOverlay();
+        const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
+        if (scrollEl) {
+            scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     async function refreshActiveRideInvoiceState() {
@@ -3024,11 +5887,8 @@
                 currentActiveRide = data.ride;
             }
             syncRideActionButtons(currentActiveRide, data && data.open_payment);
+            // Altijd eerst de keuze-pagina (bedrag / QR / contant), nooit direct de QR.
             openPaymentPanel(currentActiveRide);
-            if (data && data.open_payment && data.open_payment.checkout_url) {
-                showPaymentQr(data.open_payment);
-                startPaymentPoll(rideId);
-            }
         } catch (e) {
             alert(e.message);
         } finally {
@@ -3092,6 +5952,31 @@
         setPickupAtLine($('#offer-pickup-at'), offer.ride.pickup_at);
         setCustomerLine($('#offer-customer'), offer.ride.customer_name, offer.ride.customer_phone);
         setRidePriceDisplay($('#offer-price'), offer.ride);
+
+        const badge = $('#offer-badge');
+        if (badge) {
+            const label = offerBadgeLabel(offer.ride, offer);
+            badge.textContent = label;
+            badge.classList.toggle('is-muted', label !== 'Nieuw' && label !== 'Groep' && label !== 'Verlopen');
+            badge.classList.toggle('is-success', label === 'Nieuw');
+            badge.classList.toggle('is-danger', label === 'Verlopen');
+        }
+        const vehicleBadge = $('#offer-vehicle-badge');
+        if (vehicleBadge) {
+            vehicleBadge.textContent = offerVehicleLabel(offer.ride);
+        }
+        const ago = $('#offer-ago');
+        if (ago) {
+            ago.textContent = formatOfferAgo(offer.offered_at || offer.ride.created_at || offer.ride.waiting_since_at);
+        }
+        const distEl = $('#offer-stats-distance');
+        if (distEl) {
+            distEl.textContent = rideDistanceLabel(offer.ride);
+        }
+        const durEl = $('#offer-stats-duration');
+        if (durEl) {
+            durEl.textContent = rideDurationLabel(offer.ride);
+        }
 
         startOfferTimer(offer);
     }
@@ -3251,9 +6136,18 @@
     }
 
     function scheduledRideActionsHtml(ride, rideId) {
+        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride)) {
+            return overdueRideActionsHtml(ride, rideId);
+        }
         const escapedRideId = escapeHtml(rideId);
         const canStartToday = !isContractRide(ride) || isContractRideToday(ride);
-        let html = '<div class="scheduled-ride-actions">';
+        let html = '<div class="offer-actions scheduled-ride-actions">';
+        if (!isContractRide(ride)) {
+            html +=
+                '<button type="button" class="btn btn-danger btn-release-ride" data-ride-id="' +
+                escapedRideId +
+                '">Vrijgeven</button>';
+        }
         if (canStartToday) {
             html +=
                 '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
@@ -3265,34 +6159,87 @@
                 escapeHtml(formatContractScheduleDateLabel(ride)) +
                 '</p>';
         }
-        if (!isContractRide(ride)) {
-            html +=
-                '<button type="button" class="btn btn-release-ride" data-ride-id="' +
-                escapedRideId +
-                '">Vrijgeven</button>';
-        }
         html += '</div>';
         return html;
+    }
+
+    function isOpenPickupProposalRide(ride) {
+        const status = String((ride && ride.pickup_proposal && ride.pickup_proposal.status) || '');
+        return status === 'pending' || status === 'declined';
+    }
+
+    function pickupProposalBannerHtml(ride) {
+        const proposal = (ride && ride.pickup_proposal) || {};
+        const status = String(proposal.status || '');
+        if (!status) {
+            return '';
+        }
+        let text = '';
+        let cls = 'offer-waiting-banner is-visible';
+        if (status === 'pending') {
+            text =
+                'Voorstel verstuurd — wacht op reactie van de klant' +
+                (proposal.proposed_at ? ' (' + formatPickupAt(proposal.proposed_at) + ')' : '');
+        } else if (status === 'accepted') {
+            cls += ' is-success-banner';
+            text =
+                'Klant heeft het nieuwe ophaalmoment geaccepteerd' +
+                (proposal.proposed_at ? ': ' + formatPickupAt(proposal.proposed_at) : '');
+        } else if (status === 'declined') {
+            cls += ' is-overdue';
+            text = 'Klant heeft het voorstel geweigerd';
+            if (proposal.customer_remark) {
+                text += '. Opmerking: ' + proposal.customer_remark;
+            }
+        } else {
+            return '';
+        }
+        if (status !== 'declined' && proposal.customer_remark) {
+            text += '. Opmerking: ' + proposal.customer_remark;
+        }
+        return (
+            '<p class="' +
+            cls +
+            '" role="status">' +
+            escapeHtml(text) +
+            '</p>'
+        );
     }
 
     function overdueRideActionsHtml(ride, rideId) {
         const escapedRideId = escapeHtml(rideId);
         const contract = isContractRide(ride);
-        const secondaryBtn = contract
-            ? '<button type="button" class="btn btn-release-ride btn-overdue-complete-ride" data-ride-id="' +
-              escapedRideId +
-              '">Rit afronden</button>'
-            : '<button type="button" class="btn btn-release-ride" data-ride-id="' +
-              escapedRideId +
-              '">Vrijgeven</button>';
-        let html = '<div class="overdue-ride-actions">';
-        if (!contract) {
+        const proposal = (ride && ride.pickup_proposal) || {};
+        const proposalStatus = String(proposal.status || '');
+        let html = '<div class="offer-actions overdue-ride-actions">';
+        if (contract) {
             html +=
-                '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
+                '<button type="button" class="btn btn-danger btn-release-ride btn-overdue-complete-ride" data-ride-id="' +
                 escapedRideId +
-                '">Rit starten</button>';
+                '">Rit afronden</button>';
+        } else {
+            html +=
+                '<button type="button" class="btn btn-danger btn-release-ride" data-ride-id="' +
+                escapedRideId +
+                '">Vrijgeven</button>';
+            if (proposalStatus === 'accepted') {
+                html +=
+                    '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
+                    escapedRideId +
+                    '">Rit starten</button>';
+            } else if (proposalStatus === 'pending') {
+                html +=
+                    '<button type="button" class="btn btn-ghost btn-propose-pickup" data-ride-id="' +
+                    escapedRideId +
+                    '">Opnieuw voorstellen</button>';
+            } else {
+                html +=
+                    '<button type="button" class="btn btn-primary btn-propose-pickup" data-ride-id="' +
+                    escapedRideId +
+                    '">Nieuw tijdstip voorstellen</button>';
+            }
         }
-        html += secondaryBtn + '</div>';
+        html += '</div>';
         return html;
     }
 
@@ -3339,22 +6286,19 @@
         if (!Array.isArray(rides)) {
             return [];
         }
-        return rides
-            .filter(function (ride) {
+        return sortRidesMostRecentPickupFirst(
+            rides.filter(function (ride) {
                 return isContractRideVisibleInScheduledInbox(ride);
             })
-            .sort(function (a, b) {
-                const aKey = contractRideCalendarDateKey(a) || '';
-                const bKey = contractRideCalendarDateKey(b) || '';
-                if (aKey !== bKey) {
-                    return aKey.localeCompare(bKey);
-                }
-                return String(a.id || '').localeCompare(String(b.id || ''));
-            });
+        );
     }
 
     function prepareScheduledRidesForInbox(scheduled) {
-        return filterScheduledRidesForInbox(Array.isArray(scheduled) ? scheduled : []);
+        return filterScheduledRidesForInbox(Array.isArray(scheduled) ? scheduled : []).filter(
+            function (ride) {
+                return !isOpenPickupProposalRide(ride);
+            }
+        );
     }
 
     function contractBadgeHtml(ride) {
@@ -3445,9 +6389,11 @@
 
         if (legLabel && legAmount != null) {
             let html =
-                '<p class="offer-price">' +
+                '<p class="offer-price-leg">' +
+                '<span class="offer-customer-label">' +
                 escapeHtml(legLabel) +
-                ': ' +
+                ':</span></p>' +
+                '<p class="offer-price">' +
                 formatEuro(legAmount) +
                 '</p>';
             html += '<p class="offer-price-total">Totaal ' + formatEuro(total) + '</p>';
@@ -3542,7 +6488,7 @@
         }
         if (schedule.departure_at || ride.pickup_at) {
             html +=
-                '<p class="offer-meta" style="font-size:0.8125rem;color:#94a3b8;margin-top:-0.35rem"><strong>Vertrek:</strong> ' +
+                '<p class="offer-meta" style="font-size:0.8125rem;margin-top:-0.35rem"><strong>Vertrek:</strong> ' +
                 escapeHtml(formatContractScheduleAt(schedule.departure_at || ride.pickup_at)) +
                 '</p>';
         }
@@ -4023,23 +6969,49 @@
     function renderScheduledRides(rides) {
         const strip = $('#scheduled-rides-strip');
         const list = $('#scheduled-rides-list');
-        scheduledRides = prepareScheduledRidesForInbox(rides);
+        if (Array.isArray(rides)) {
+            scheduledRides = prepareScheduledRidesForInbox(rides);
+        }
         if (!strip || !list) {
+            syncTripsEmptyState();
             return;
         }
-        if (!scheduledRides.length || (isDriverInProgressRide(currentActiveRide) && !activeRideInboxCollapsed)) {
+        const overdueOnly = (overdueScheduledRides || []).filter(function (ride) {
+            if (!ride || ride.id == null) {
+                return false;
+            }
+            if (isOpenPickupProposalRide(ride)) {
+                return false;
+            }
+            return !scheduledRides.some(function (item) {
+                return String(item.id) === String(ride.id);
+            });
+        });
+        const tripsRides = sortRidesMostRecentPickupFirst(scheduledRides.concat(overdueOnly));
+        const hideForActiveDetail =
+            isDriverInProgressRide(currentActiveRide) && !activeRideInboxCollapsed;
+        if (!tripsRides.length || hideForActiveDetail) {
             strip.hidden = true;
-            list.innerHTML = '';
+            // Lijst niet wissen bij tijdelijke hide (actieve rit open): state blijft voor tab-wissel.
+            if (!hideForActiveDetail) {
+                list.innerHTML = '';
+            }
+            syncTripsEmptyState();
             return;
         }
         strip.hidden = false;
-        list.innerHTML = scheduledRides
+        list.innerHTML = tripsRides
             .map(function (ride) {
                 const rideId = String(ride.id);
+                const isOverdueAccepted = overdueOnly.some(function (item) {
+                    return String(item.id) === rideId;
+                });
+                if (isOverdueAccepted) {
+                    return renderOverdueAcceptedRideCard(ride);
+                }
                 const expanded = !!scheduledRideExpanded[rideId];
-                const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
                 return (
-                    '<div class="card scheduled-ride-card' +
+                    '<div class="card offer-card scheduled-ride-card' +
                     (expanded ? ' is-expanded' : '') +
                     (isContractRide(ride) ? ' is-contract-ride' : '') +
                     '" data-ride-id="' +
@@ -4069,17 +7041,16 @@
                     '"' +
                     (expanded ? '' : ' hidden') +
                     '>' +
-                    addressLinkHtml(ride.pickup_address, '📍') +
-                    addressLinkHtml(ride.dropoff_address, '🏁') +
-                    customerHtml +
-                    (isContractRide(ride) ? '' : ridePriceDisplayHtml(ride)) +
+                    pickupProposalBannerHtml(ride) +
+                    rideDetailBodyHtml(ride, { hidePrice: isContractRide(ride) }) +
                     (isReturnTripRide(ride) ? returnTripMetaHtml(ride) : '') +
-                    scheduledRideActionsHtml(ride, rideId) +
                     '</div>' +
+                    scheduledRideActionsHtml(ride, rideId) +
                     '</div>'
                 );
             })
             .join('');
+        syncTripsEmptyState();
     }
 
     function toggleScheduledRideCard(rideId) {
@@ -4088,18 +7059,29 @@
             return;
         }
         scheduledRideExpanded[key] = !scheduledRideExpanded[key];
+        if (key.indexOf('released-') === 0 || inboxView === 'overdue') {
+            renderOverdueView();
+            return;
+        }
+        if (key.indexOf('pending-approval-') === 0) {
+            renderPendingApprovalOffers();
+            return;
+        }
+        if (key.indexOf('declined-proposal-') === 0) {
+            renderDeclinedOffers(declinedOffers);
+            return;
+        }
         renderScheduledRides(scheduledRides);
     }
 
     function renderActiveRide(ride) {
         const el = $('#active-ride');
-        const empty = $('#inbox-empty');
         const completeBtn = $('#btn-complete-ride');
         if (!ride) {
             currentActiveRide = null;
             activeRideStops = [];
             activeRideStopsProgress = null;
-            activeRideInboxCollapsed = false;
+            activeRideInboxCollapsed = true;
             viewingActiveRideId = null;
             parkedAssignedRides = [];
             renderAssignedRidesOverview(null, []);
@@ -4113,15 +7095,22 @@
             if (el) {
                 el.innerHTML = '';
             }
+            stopActiveRideNavigation();
+            if (mainTab === 'navigation') {
+                showNavigationTab();
+            }
             if (completeBtn) {
                 completeBtn.disabled = false;
                 delete completeBtn.dataset.rideId;
             }
             setCompleteRideButtonVisible(false);
+            syncTripsEmptyState();
             return;
         }
         currentActiveRide = ride;
-        if (inboxView === 'declined' || inboxView === 'overdue') {
+        // Op Aanvragen (Verlopen/Afgewezen/Archief) de actieve-rit-UI niet tonen.
+        // Op Ritten altijd wel tekenen — ook als je net van Verlopen komt via de jump-knop.
+        if (isSecondaryInboxView(inboxView) && mainTab === 'requests') {
             setOfferUiVisible(false);
             setActiveRideUiVisible(false);
             return;
@@ -4130,10 +7119,10 @@
             renderAssignedRidesOverview(ride, parkedAssignedRides);
             setActiveRideUiVisible(false);
             syncContractRideStripUi(ride);
-            syncContractBackButton(null);
             syncStopGeofenceWatch(ride);
             syncScreenWakeLock();
             updateEmptyState();
+            syncTripsEmptyState();
             return;
         }
         const parkedStripHidden = $('#parked-assigned-rides-strip');
@@ -4143,39 +7132,60 @@
         setOfferUiVisible(false);
         setActiveRideUiVisible(true);
         syncContractRideStripUi(ride);
-        if (empty) empty.hidden = true;
         showNewRideAlert(false);
         if (el) {
-            const acceptedText = activeRideAcceptedMessage || 'Rit gestart.';
-            const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
+            const acceptedText = String(activeRideAcceptedMessage || 'Rit gestart.')
+                .replace(/\.+$/, '')
+                .trim() || 'Rit gestart';
             const contractBadge = contractBadgeHtml(ride);
             const stopsHtml =
                 ride.ride_type === 'contract_group'
                     ? renderRideStopsHtml(activeRideStops, activeRideStopsProgress)
                     : '';
             const returnHint = activeReturnLegHint(ride);
-            const priceHtml = isContractRide(ride) ? '' : ridePriceDisplayHtml(ride);
-            el.innerHTML =
-                '<p class="banner-ride-accepted" role="status">' + escapeHtml(acceptedText) + '</p>' +
-                contractBadge +
-                returnTripBadgeHtml(ride) +
-                '<p class="offer-title">' +
-                (isReturnTripRide(ride) && returnTripLeg(ride) !== 'outbound'
+            const title =
+                isReturnTripRide(ride) && returnTripLeg(ride) !== 'outbound'
                     ? 'Retourrit'
-                    : 'Jouw rit') +
+                    : 'Jouw rit';
+            const hint =
+                returnHint ||
+                (ride.ride_type === 'contract_group'
+                    ? 'Werk alle ophaalstops af. Bij aankomst op de bestemming rondt de rit automatisch af.'
+                    : 'Rond de rit af wanneer de klant is afgezet. Daarna kun je weer nieuwe ritten ontvangen.');
+            const navBtn =
+                '<button type="button" class="active-ride-nav-btn" id="btn-active-ride-navigate" aria-label="Navigatie">' +
+                navigationIconSvg() +
+                '</button>';
+            el.innerHTML =
+                '<div class="offer-card-top">' +
+                '<div class="offer-badge-row">' +
+                '<span class="offer-badge">Actief</span>' +
+                '<span class="offer-badge is-success" role="status">' +
+                escapeHtml(acceptedText) +
+                '</span>' +
+                '</div>' +
+                '<div class="offer-card-meta-right">' +
+                navBtn +
+                (contractBadge || '') +
+                returnTripBadgeHtml(ride) +
+                '<span class="offer-vehicle-pill">' +
+                escapeHtml(offerVehicleLabel(ride)) +
+                '</span>' +
+                '</div>' +
+                '</div>' +
+                '<p class="offer-title">' +
+                escapeHtml(title) +
                 '</p>' +
                 returnTripMetaHtml(ride) +
                 contractRideScheduleHtml(ride) +
-                '<p class="offer-meta" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">' +
-                (returnHint ||
-                    (ride.ride_type === 'contract_group'
-                        ? 'Werk alle ophaalstops af. Bij aankomst op de bestemming rondt de rit automatisch af.'
-                        : 'Rond de rit af wanneer de klant is afgezet. Daarna kun je weer nieuwe ritten ontvangen.')) +
+                '<p class="offer-meta active-ride-hint">' +
+                escapeHtml(hint) +
                 '</p>' +
-                (ride.ride_type === 'contract_group' ? stopsHtml : addressLinkHtml(ride.pickup_address, '📍')) +
-                (ride.ride_type === 'contract_group' ? '' : addressLinkHtml(ride.dropoff_address, '🏁')) +
-                (ride.ride_type === 'contract_group' ? '' : customerHtml) +
-                priceHtml;
+                rideDetailBodyHtml(ride, {
+                    stopsHtml: ride.ride_type === 'contract_group' ? stopsHtml : '',
+                    hideCustomer: ride.ride_type === 'contract_group',
+                    hidePrice: isContractRide(ride),
+                });
             bindStopStatusAnimations(el);
             activeRideAcceptedMessage = null;
             if (ride.ride_type === 'contract_group' && isDriverInProgressRide(ride) && !activeRideStops.length) {
@@ -4195,6 +7205,15 @@
         }
         syncRideActionButtons(ride);
         syncScreenWakeLock();
+        updateEmptyState();
+        syncTripsEmptyState();
+        if (isDriverInProgressRide(ride)) {
+            const session = readNavSession();
+            if (String(session.rideId) === String(ride.id) && session.started && !session.arrived) {
+                navigationStops = collectActiveRideNavigationStops(ride);
+                startNavigationWatch();
+            }
+        }
     }
 
     function escapeHtml(s) {
@@ -4251,20 +7270,76 @@
     }
 
     function customerLineHtml(name, phone) {
-        const inner = customerLinePartsHtml(name, phone);
-        if (!inner) {
+        const nameStr = name != null ? String(name).trim() : '';
+        const phoneStr = phone != null ? String(phone).trim() : '';
+        if (!nameStr && !phoneStr) {
             return '';
         }
-        return '<p class="offer-meta offer-customer">' + inner + '</p>';
+        let html = '<div class="offer-customer-block">';
+        html +=
+            '<p class="offer-customer-row"><span class="offer-customer-label">Naam:</span> ' +
+            escapeHtml(nameStr || '—') +
+            '</p>';
+        if (phoneStr) {
+            const digits = phoneStr.replace(/[^\d+]/g, '');
+            const href = digits ? 'tel:' + digits : '';
+            html +=
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> ' +
+                (href
+                    ? '<a class="offer-phone" href="' +
+                      escapeHtml(href) +
+                      '" aria-label="Bel ' +
+                      escapeHtml(phoneStr) +
+                      '">' +
+                      escapeHtml(phoneStr) +
+                      '</a>'
+                    : escapeHtml(phoneStr)) +
+                '</p>';
+        } else {
+            html +=
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> —</p>';
+        }
+        html += '</div>';
+        return html;
     }
 
     function setCustomerLine(el, name, phone) {
         if (!el) {
             return;
         }
-        const inner = customerLinePartsHtml(name, phone);
-        el.innerHTML = inner;
-        el.hidden = !inner;
+        const nameStr = name != null ? String(name).trim() : '';
+        const phoneStr = phone != null ? String(phone).trim() : '';
+        if (!nameStr && !phoneStr) {
+            el.innerHTML = '';
+            el.hidden = true;
+            return;
+        }
+        el.hidden = false;
+        let html = '';
+        html +=
+            '<p class="offer-customer-row"><span class="offer-customer-label">Naam:</span> ' +
+            escapeHtml(nameStr || '—') +
+            '</p>';
+        if (phoneStr) {
+            const digits = phoneStr.replace(/[^\d+]/g, '');
+            const href = digits ? 'tel:' + digits : '';
+            html +=
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> ' +
+                (href
+                    ? '<a class="offer-phone" href="' +
+                      escapeHtml(href) +
+                      '" aria-label="Bel ' +
+                      escapeHtml(phoneStr) +
+                      '">' +
+                      escapeHtml(phoneStr) +
+                      '</a>'
+                    : escapeHtml(phoneStr)) +
+                '</p>';
+        } else {
+            html +=
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> —</p>';
+        }
+        el.innerHTML = html;
     }
 
     function setAddressLink(el, address) {
@@ -4272,7 +7347,18 @@
             return;
         }
         const text = address != null ? String(address).trim() : '';
-        el.textContent = text || '—';
+        const parts = splitAddressLines(text);
+        el.innerHTML = '';
+        const main = document.createElement('span');
+        main.className = 'offer-route-main';
+        main.textContent = parts.main || '—';
+        el.appendChild(main);
+        if (parts.sub) {
+            const sub = document.createElement('span');
+            sub.className = 'offer-route-sub';
+            sub.textContent = parts.sub;
+            el.appendChild(sub);
+        }
         if (text) {
             el.href = mapsSearchUrl(text);
             el.removeAttribute('aria-disabled');
@@ -4280,6 +7366,197 @@
             el.removeAttribute('href');
             el.setAttribute('aria-disabled', 'true');
         }
+    }
+
+    function splitAddressLines(address) {
+        const text = address != null ? String(address).trim() : '';
+        if (!text) {
+            return { main: '', sub: '' };
+        }
+        const comma = text.indexOf(',');
+        if (comma > 0 && comma < text.length - 1) {
+            return {
+                main: text.slice(0, comma).trim(),
+                sub: text.slice(comma + 1).trim(),
+            };
+        }
+        return { main: text, sub: '' };
+    }
+
+    function formatOfferAgo(iso) {
+        if (!iso) {
+            return '';
+        }
+        const ms = parseIsoMs(iso);
+        if (!Number.isFinite(ms)) {
+            return '';
+        }
+        const mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+        if (mins < 1) {
+            return 'Zojuist';
+        }
+        if (mins === 1) {
+            return '1 min. geleden';
+        }
+        if (mins < 60) {
+            return mins + ' min. geleden';
+        }
+        const hours = Math.round(mins / 60);
+        return hours + (hours === 1 ? ' uur geleden' : ' uur geleden');
+    }
+
+    function offerBadgeLabel(ride, offer) {
+        if (isOfferPickupOverdue(offer || { ride: ride })) {
+            return 'Verlopen';
+        }
+        if (!ride) {
+            return 'Nieuw';
+        }
+        if (ride.is_contract || ride.contract_label) {
+            return 'Contract';
+        }
+        if (ride.return_trip || ride.outbound_completed) {
+            return 'Retour';
+        }
+        if ((ride.passengers || 0) >= 5) {
+            return 'Groep';
+        }
+        return 'Nieuw';
+    }
+
+    function offerVehicleLabel(ride) {
+        if (!ride) {
+            return 'Sedan';
+        }
+        const pax = parseInt(ride.passengers || 1, 10) || 1;
+        if (pax >= 5) {
+            return 'Van · ' + pax + ' pers.';
+        }
+        return 'Sedan · ' + pax + ' pers.';
+    }
+
+    function routeAddressLinkInnerHtml(address) {
+        const text = address != null ? String(address).trim() : '';
+        const parts = splitAddressLines(text);
+        let html =
+            '<span class="offer-route-main">' + escapeHtml(parts.main || '—') + '</span>';
+        if (parts.sub) {
+            html += '<span class="offer-route-sub">' + escapeHtml(parts.sub) + '</span>';
+        }
+        return html;
+    }
+
+    function routeStopHtml(label, address, variant) {
+        const text = address != null ? String(address).trim() : '';
+        const href = text ? mapsSearchUrl(text) : '';
+        const linkAttrs = href
+            ? ' href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer"'
+            : ' href="#" aria-disabled="true"';
+        return (
+            '<div class="offer-route-stop">' +
+            '<div class="offer-route-head">' +
+            '<span class="offer-route-dot offer-route-dot--' +
+            escapeHtml(variant) +
+            '" aria-hidden="true"></span>' +
+            '<p class="offer-route-label">' +
+            escapeHtml(label) +
+            '</p>' +
+            '</div>' +
+            '<a class="offer-route-link"' +
+            linkAttrs +
+            '>' +
+            routeAddressLinkInnerHtml(address) +
+            '</a>' +
+            '</div>'
+        );
+    }
+
+    function routeTimelineHtml(pickupAddress, dropoffAddress) {
+        return (
+            '<div class="offer-route">' +
+            routeStopHtml('Ophalen', pickupAddress, 'pickup') +
+            routeStopHtml('Afzetten', dropoffAddress, 'dropoff') +
+            '</div>'
+        );
+    }
+
+    function rideDistanceLabel(ride) {
+        if (!ride || ride.distance_km == null) {
+            return '';
+        }
+        return 'Afstand: ' + String(ride.distance_km).replace('.', ',') + ' km';
+    }
+
+    function resolveRideDurationMinutes(ride) {
+        if (!ride) {
+            return null;
+        }
+        if (ride.duration_seconds != null && Number.isFinite(Number(ride.duration_seconds))) {
+            return Math.max(0, Math.round(Number(ride.duration_seconds) / 60));
+        }
+        if (ride.duration_minutes != null && Number.isFinite(Number(ride.duration_minutes))) {
+            return Math.max(0, Math.round(Number(ride.duration_minutes)));
+        }
+        return null;
+    }
+
+    function formatHoursAndMinutes(totalMinutes) {
+        const mins = Math.max(0, Math.round(Number(totalMinutes) || 0));
+        const hours = Math.floor(mins / 60);
+        const rest = mins % 60;
+        if (hours <= 0) {
+            return rest + ' min';
+        }
+        if (rest <= 0) {
+            return hours + ' u';
+        }
+        return hours + ' u ' + rest + ' min';
+    }
+
+    function rideDurationLabel(ride) {
+        const mins = resolveRideDurationMinutes(ride);
+        if (mins == null) {
+            return '';
+        }
+        return 'Tijd: ' + formatHoursAndMinutes(mins);
+    }
+
+    function rideStatsHtml(ride, options) {
+        const opts = options || {};
+        const hidePrice = !!opts.hidePrice || isContractRide(ride);
+        const dist = rideDistanceLabel(ride);
+        const dur = rideDurationLabel(ride);
+        return (
+            '<div class="offer-stats">' +
+            '<div class="offer-price-wrap">' +
+            (hidePrice ? '' : ridePriceDisplayHtml(ride)) +
+            '</div>' +
+            (dist ? '<p class="offer-stats-line">' + escapeHtml(dist) + '</p>' : '') +
+            (dur ? '<p class="offer-stats-line">' + escapeHtml(dur) + '</p>' : '') +
+            '</div>'
+        );
+    }
+
+    function rideDetailBodyHtml(ride, options) {
+        const opts = options || {};
+        if (!ride) {
+            return '';
+        }
+        if (opts.stopsHtml) {
+            return opts.stopsHtml;
+        }
+        const customerHtml = opts.hideCustomer
+            ? ''
+            : customerLineHtml(ride.customer_name, ride.customer_phone);
+        return (
+            '<div class="offer-body-grid">' +
+            routeTimelineHtml(ride.pickup_address, ride.dropoff_address) +
+            '<div class="offer-meta-grid">' +
+            (customerHtml || '<div class="offer-customer-block"></div>') +
+            rideStatsHtml(ride, opts) +
+            '</div>' +
+            '</div>'
+        );
     }
 
     function addressLinkHtml(address, icon) {
@@ -4312,14 +7589,17 @@
             const res = await api('/dispatch/inbox');
             const active = res.data && res.data.active_ride;
             const scheduled = (res.data && res.data.scheduled_rides) || [];
+            overdueScheduledRides = (res.data && res.data.overdue_scheduled_rides) || [];
+            pendingApprovalOffers = (res.data && res.data.pending_approval_offers) || [];
+            parkedAssignedRides = (res.data && res.data.parked_assigned_rides) || [];
             if (active) {
                 renderActiveRide(active);
-                renderScheduledRides([]);
             } else {
                 renderActiveRide(null);
-                renderScheduledRides(scheduled);
             }
+            renderScheduledRides(scheduled);
             updateEmptyState();
+            syncTripsEmptyState();
         } catch (e) {
             /* ignore — offline preview is best-effort */
         }
@@ -4331,16 +7611,24 @@
         }
         const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
         const savedScroll =
-            scrollEl && (inboxView === 'declined' || inboxView === 'overdue') ? scrollEl.scrollTop : null;
+            scrollEl && (isSecondaryInboxView(inboxView)) ? scrollEl.scrollTop : null;
         if (shouldKeepScreenAwake()) {
             syncScreenWakeLock();
         }
+        const showLoader = !inboxHasLoaded;
+        if (showLoader) {
+            inboxLoading = true;
+            updateEmptyState();
+        }
+        let proposalDecision = null;
         try {
             const res = await api('/dispatch/inbox');
             const offers = (res.data && res.data.offers) || [];
             declinedOffers = (res.data && res.data.declined_offers) || [];
+            pendingApprovalOffers = (res.data && res.data.pending_approval_offers) || [];
             overdueScheduledRides = (res.data && res.data.overdue_scheduled_rides) || [];
             overdueReleasedOffers = (res.data && res.data.overdue_released_offers) || [];
+            archivedOffers = (res.data && res.data.archived_offers) || [];
             if (res.meta) {
                 if (res.meta.offer_ttl_seconds) {
                     configuredOfferTtlSeconds = Math.max(15, parseInt(res.meta.offer_ttl_seconds, 10) || 300);
@@ -4350,25 +7638,47 @@
             }
             const active = res.data && res.data.active_ride;
             const scheduled = (res.data && res.data.scheduled_rides) || [];
-            const visibleScheduled = prepareScheduledRidesForInbox(scheduled);
-            mainInboxRideCount = offers.length + visibleScheduled.length;
+            const absenceAlert = res.data && res.data.absence_alert;
+            showAbsenceAlert(absenceAlert);
+            const pickupAlert = res.data && res.data.pickup_proposal_alert;
+            showPickupProposalAlert(pickupAlert);
+            proposalDecision = pickupAlert && pickupAlert.decision ? String(pickupAlert.decision) : null;
+            if (
+                absenceAlert &&
+                currentActiveRide &&
+                currentActiveRide.ride_type === 'contract_group' &&
+                isDriverInProgressRide(currentActiveRide)
+            ) {
+                try {
+                    await fetchRideStops(currentActiveRide.id);
+                    renderActiveRide(currentActiveRide);
+                    syncCompleteRideButton(currentActiveRide);
+                    syncStopGeofenceWatch(currentActiveRide);
+                } catch (e) {
+                    /* best-effort */
+                }
+            }
+            // Badge bij “Open” = openstaande aanbiedingen + wachtend op klantgoedkeuring.
+            mainInboxRideCount = offers.length + pendingApprovalOffers.length;
             updateDeclinedNavButton();
             updateOverdueNavButton();
+            inboxHasLoaded = true;
+            inboxLoading = false;
             if (active) {
                 parkedAssignedRides = (res.data && res.data.parked_assigned_rides) || [];
                 if (activeRideInboxCollapsed && isDriverInProgressRide(active)) {
                     currentActiveRide = active;
                     renderAssignedRidesOverview(active, parkedAssignedRides);
                     setActiveRideUiVisible(false);
-                    syncContractBackButton(null);
                     updateUnclaimedBanner(unclaimedRides);
                     syncWaitingRideIdsFromOffers(offers);
-                    if (inboxView === 'declined' || inboxView === 'overdue') {
+                    renderScheduledRides(scheduled);
+                    if (isSecondaryInboxView(inboxView)) {
                         setInboxView(inboxView);
+                        syncTripsEmptyState();
                         return;
                     }
                     setInboxView('offers');
-                    renderScheduledRides(scheduled);
                     pendingOffers = offers;
                     syncAllPendingOffersWaitingState();
                     detectNewOffersInInbox(offers);
@@ -4396,6 +7706,7 @@
                         renderOffer(null);
                     }
                     updateEmptyState();
+                    syncTripsEmptyState();
                     return;
                 }
                 let rideToShow = active;
@@ -4412,35 +7723,41 @@
                 }
                 currentActiveRide = rideToShow;
                 renderParkedAssignedRides([]);
-                renderScheduledRides([]);
+                renderScheduledRides(scheduled);
                 renderActiveRide(rideToShow);
                 currentOffer = null;
                 clearOfferTimer();
                 setOfferUiVisible(false);
-                $('#inbox-empty').hidden = true;
                 updateUnclaimedBanner(unclaimedRides);
                 syncWaitingRideIdsFromOffers(offers);
-                if (inboxView === 'declined' || inboxView === 'overdue') {
+                if (isSecondaryInboxView(inboxView)) {
                     setInboxView(inboxView);
                 } else {
                     setInboxView('offers');
                 }
+                updateEmptyState();
+                syncTripsEmptyState();
                 return;
             }
             updateUnclaimedBanner(unclaimedRides);
             syncWaitingRideIdsFromOffers(offers);
             renderActiveRide(null);
+            renderScheduledRides(scheduled);
             if (inboxView === 'declined') {
-                renderScheduledRides([]);
                 setInboxView('declined');
+                syncTripsEmptyState();
                 return;
             }
             if (inboxView === 'overdue') {
-                renderScheduledRides([]);
                 setInboxView('overdue');
+                syncTripsEmptyState();
                 return;
             }
-            renderScheduledRides(scheduled);
+            if (inboxView === 'archived') {
+                setInboxView('archived');
+                syncTripsEmptyState();
+                return;
+            }
             pendingOffers = offers;
             syncAllPendingOffersWaitingState();
             detectNewOffersInInbox(offers);
@@ -4471,9 +7788,12 @@
                 clearOfferNotificationState();
                 renderOffer(null);
             }
+            renderPendingApprovalOffers();
             updateEmptyState();
         } catch (e) {
             console.warn('inbox', e);
+            inboxLoading = false;
+            inboxHasLoaded = true;
             const empty = $('#inbox-empty');
             const title = $('#inbox-empty-title');
             const hint = $('#inbox-empty-hint');
@@ -4484,6 +7804,19 @@
                 hint.textContent = e.message || 'Probeer opnieuw of log opnieuw in.';
             }
         } finally {
+            if (inboxLoading) {
+                inboxLoading = false;
+                updateEmptyState();
+            }
+            if (proposalDecision === 'accepted') {
+                setMainTab('trips');
+            } else if (proposalDecision === 'reopened_offer') {
+                setMainTab('requests');
+                setInboxView('offers');
+            } else if (proposalDecision === 'declined') {
+                setMainTab('requests');
+                setInboxView('declined');
+            }
             if (savedScroll !== null && scrollEl) {
                 requestAnimationFrame(function () {
                     scrollEl.scrollTop = savedScroll;
@@ -4573,6 +7906,143 @@
         if (data.meta && data.meta.poll_interval_ms) {
             cfg.pollMs = data.meta.poll_interval_ms;
         }
+        applyEarningsPermissions(data.permissions || {});
+        renderProfileUser(data.user || null);
+        return data;
+    }
+
+    function getFirstLoginEmail() {
+        const live = ($('#email') && $('#email').value.trim()) || '';
+        if (live) {
+            return live;
+        }
+        if (firstLoginEmail) {
+            return firstLoginEmail;
+        }
+        const stash = $('#first-login-email');
+        return (stash && stash.value.trim()) || '';
+    }
+
+    function rememberFirstLoginEmail(email) {
+        firstLoginEmail = String(email || '').trim();
+        const stash = $('#first-login-email');
+        if (stash) {
+            stash.value = firstLoginEmail;
+        }
+        const emailInput = $('#email');
+        if (emailInput && firstLoginEmail) {
+            emailInput.value = firstLoginEmail;
+        }
+    }
+
+    function setFirstLoginMode(on) {
+        const panel = $('#first-login-panel');
+        const passwordBlock = $('#login-password-block');
+        const loginBtn = $('#login-btn');
+        const openWrap = $('#login-first-open-wrap');
+        const passwordInput = $('#password');
+        const remembered = on ? '' : getFirstLoginEmail();
+        if (panel) {
+            panel.hidden = !on;
+        }
+        if (passwordBlock) {
+            passwordBlock.hidden = !!on;
+        }
+        if (loginBtn) {
+            loginBtn.hidden = !!on;
+        }
+        if (openWrap) {
+            openWrap.hidden = !!on;
+        }
+        if (passwordInput) {
+            passwordInput.required = !on;
+        }
+        if (!on) {
+            setFirstLoginCodeSent(false);
+            const emailInput = $('#email');
+            if (emailInput && remembered) {
+                emailInput.value = remembered;
+            }
+            firstLoginEmail = '';
+            const stash = $('#first-login-email');
+            if (stash) {
+                stash.value = '';
+            }
+        }
+    }
+
+    function setFirstLoginCodeSent(on) {
+        const emailBlock = $('#login-email-block');
+        const emailInput = $('#email');
+        const sendBtn = $('#btn-send-login-code');
+        const verify = $('#first-login-verify');
+        const panel = $('#first-login-panel');
+        if (emailBlock) {
+            emailBlock.hidden = !!on;
+        }
+        if (emailInput) {
+            emailInput.required = !on;
+            if (on && firstLoginEmail) {
+                emailInput.value = firstLoginEmail;
+            }
+        }
+        if (sendBtn) {
+            sendBtn.hidden = !!on;
+        }
+        if (verify) {
+            verify.hidden = !on;
+        }
+        if (panel) {
+            panel.classList.toggle('is-code-sent', !!on);
+            const note = panel.querySelector('.login-first-note');
+            if (note) {
+                const sent = note.getAttribute('data-note-sent');
+                const idle = note.getAttribute('data-note-idle');
+                if (on && sent) {
+                    note.textContent = sent;
+                } else if (!on && idle) {
+                    note.textContent = idle;
+                }
+            }
+        }
+    }
+
+    async function requestLoginCode(email) {
+        const res = await fetch(cfg.loginCodeRequestUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+            throw new Error(data.message || 'Code aanvragen mislukt.');
+        }
+        return data;
+    }
+
+    async function verifyLoginCode(email, code, password) {
+        const res = await fetch(cfg.loginCodeVerifyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ email, code, password }),
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+            throw new Error(data.message || 'Activeren mislukt.');
+        }
+        token = data.token;
+        sessionStorage.setItem(STORAGE_KEY, token);
+        if (data.user && data.user.company_id) {
+            persistCompanyId(data.user.company_id);
+        }
+        if (data.user && typeof data.user.is_online === 'boolean') {
+            applyOnlineStateFromServer(data.user.is_online);
+        }
+        if (data.meta && data.meta.poll_interval_ms) {
+            cfg.pollMs = data.meta.poll_interval_ms;
+        }
+        applyEarningsPermissions(data.permissions || {});
+        renderProfileUser(data.user || null);
         return data;
     }
 
@@ -4589,16 +8059,26 @@
         companyId = null;
         sessionStorage.removeItem(STORAGE_KEY);
         sessionStorage.removeItem(COMPANY_KEY);
+        sessionStorage.removeItem(UI_STATE_KEY);
+        mainTab = 'requests';
+        inboxView = 'offers';
+        planningView = 'day';
+        planningSelectedDate = null;
+        planningWeekFrom = null;
+        renderProfileUser(null);
         releaseScreenWakeLock();
         showScreen('login');
     }
 
     function resolveOfferIdFromClick(ev) {
         const btn = ev && ev.target && ev.target.closest
-            ? ev.target.closest('[data-offer-id]')
+            ? ev.target.closest('[data-offer-id], #btn-accept, .btn-accept-declined, .btn-accept-overdue')
             : null;
-        if (btn && btn.dataset.offerId) {
-            return parseInt(btn.dataset.offerId, 10);
+        if (btn && btn.dataset && btn.dataset.offerId) {
+            const parsed = parseInt(btn.dataset.offerId, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+                return parsed;
+            }
         }
         return currentOffer && currentOffer.id ? currentOffer.id : null;
     }
@@ -4856,11 +8336,15 @@
         const askStep = $('#pickup-adjust-ask-step');
         const editStep = $('#pickup-adjust-edit-step');
         const dateInput = $('#pickup-adjust-date');
+        const confirmBtn = $('#pickup-adjust-confirm');
         if (askStep) {
             askStep.hidden = true;
         }
         if (editStep) {
             editStep.hidden = false;
+        }
+        if (confirmBtn) {
+            confirmBtn.textContent = 'Voorstellen';
         }
         const localValue = toDatetimeLocalValue(pickupAt);
         const isPast = localValue && !isLocalDatetimeInFuture(localValue);
@@ -4870,17 +8354,15 @@
         }
     }
 
-    function promptPickupAdjustment(pickupAt) {
+    function promptPickupAdjustment(pickupAt, options) {
+        const opts = options || {};
+        const requireNewTime = !!opts.requireNewTime;
         const dialog = $('#pickup-adjust-dialog');
         if (!dialog) {
-            if (
-                !window.confirm(
-                    'Het ophaalmoment is verstreken. Wil je een nieuw moment kiezen? Kies OK om aan te passen, of Annuleren om de oude tijd te behouden.'
-                )
-            ) {
-                return Promise.resolve(false);
-            }
-            const raw = window.prompt('Nieuw ophaalmoment (YYYY-MM-DDTHH:MM):', defaultFuturePickupLocalValue());
+            const raw = window.prompt(
+                'Nieuw ophaalmoment (YYYY-MM-DDTHH:MM):',
+                defaultFuturePickupLocalValue()
+            );
             if (raw === null) {
                 return Promise.resolve(undefined);
             }
@@ -4893,7 +8375,13 @@
         }
         return new Promise(function (resolve) {
             pickupAdjustResolver = resolve;
-            openPickupAdjustDialog(pickupAt);
+            try {
+                openPickupAdjustDialog(pickupAt, { requireNewTime: requireNewTime });
+            } catch (err) {
+                pickupAdjustResolver = null;
+                resolve(undefined);
+                console.warn('pickupAdjust', err);
+            }
         });
     }
 
@@ -4937,6 +8425,11 @@
             backBtn.addEventListener('click', function (ev) {
                 ev.preventDefault();
                 ev.stopPropagation();
+                const dialogEl = $('#pickup-adjust-dialog');
+                if (dialogEl && dialogEl.dataset.requireNewTime === '1') {
+                    closePickupAdjustDialog(undefined);
+                    return;
+                }
                 const askStep = $('#pickup-adjust-ask-step');
                 const editStep = $('#pickup-adjust-edit-step');
                 if (askStep) {
@@ -4985,11 +8478,15 @@
         });
     }
 
-    function openPickupAdjustDialog(pickupAt) {
+    function openPickupAdjustDialog(pickupAt, options) {
+        const opts = options || {};
+        const requireNewTime = !!opts.requireNewTime;
         const dialog = $('#pickup-adjust-dialog');
         const currentEl = $('#pickup-adjust-current');
         const askStep = $('#pickup-adjust-ask-step');
         const editStep = $('#pickup-adjust-edit-step');
+        const backBtn = $('#pickup-adjust-back');
+        const confirmBtn = $('#pickup-adjust-confirm');
         if (!dialog) {
             return;
         }
@@ -5006,64 +8503,138 @@
                 delete currentEl.dataset.pickupAt;
             }
         }
+        dialog.dataset.requireNewTime = requireNewTime ? '1' : '0';
+        if (backBtn) {
+            backBtn.textContent = requireNewTime ? 'Annuleren' : 'Terug';
+        }
+        if (confirmBtn) {
+            // Nieuw ophaalmoment → altijd WhatsApp rit_ophaal_voorstel (klant bevestigt).
+            confirmBtn.textContent = 'Voorstellen';
+        }
+        dialog.hidden = false;
+        dialog.setAttribute('aria-hidden', 'false');
+        dialog.classList.add('is-open');
+        document.body.classList.add('driver-dialog-open');
+        if (requireNewTime) {
+            if (askStep) {
+                askStep.hidden = true;
+            }
+            showPickupAdjustEditStep(pickupAt);
+            return;
+        }
         if (askStep) {
             askStep.hidden = false;
         }
         if (editStep) {
             editStep.hidden = true;
         }
-        dialog.hidden = false;
-        dialog.setAttribute('aria-hidden', 'false');
-        dialog.classList.add('is-open');
-        document.body.classList.add('driver-dialog-open');
     }
 
     async function acceptOffer(ev) {
         if (offerAcceptInFlight) {
-            return;
+            // Herstel vastzittende lock (geen open dialog / loading-knop).
+            const hasOpenDialog = !!document.querySelector('.driver-dialog.is-open');
+            const hasLoadingBtn = !!document.querySelector(
+                '#btn-accept.is-loading, .btn-accept-declined.is-loading, .btn-accept-overdue.is-loading'
+            );
+            if (hasOpenDialog || hasLoadingBtn) {
+                return;
+            }
+            offerAcceptInFlight = false;
+            document.body.classList.remove('driver-accept-in-flight');
         }
+        const btn =
+            ev && ev.target && ev.target.closest
+                ? ev.target.closest('#btn-accept, .btn-accept-declined, .btn-accept-overdue')
+                : null;
         const offerId = resolveOfferIdFromClick(ev);
         if (!offerId) {
+            alert('Aanbod niet gevonden. Vernieuw de lijst en probeer opnieuw.');
             return;
         }
         const offer = findOfferById(offerId);
-        const ride = offer && offer.ride;
-        const needsPickupPrompt = isRidePickupPast(ride);
-        const activeBtn =
-            (ev.target && ev.target.closest
-                ? ev.target.closest('#btn-accept, .btn-accept-declined, .btn-accept-overdue')
-                : null) || $('#btn-accept');
-        const fromOverdueView = !!(ev.target && ev.target.closest('.btn-accept-overdue'));
+        const ride = (offer && offer.ride) || null;
+        const activeBtn = btn || $('#btn-accept');
+        const fromOverdueView = !!(btn && btn.classList.contains('btn-accept-overdue'));
+        const fromDeclinedView = !!(btn && btn.classList.contains('btn-accept-declined'));
+        // Verlopen heracceptatie: altijd nieuw ophaalmoment kiezen.
+        // Overige aanbiedingen: popup als ophaaltijd al voorbij is.
+        const needsPickupPrompt = fromOverdueView || isRidePickupPast(ride);
+        const requireNewPickupTime = fromOverdueView || isRidePickupPast(ride);
         let acceptBody = {};
-        offerAcceptInFlight = true;
-        document.body.classList.add('driver-accept-in-flight');
+        let acceptErrorMessage = null;
+
+        if (
+            document.body.classList.contains('driver-dialog-open') &&
+            !document.querySelector('.driver-dialog.is-open')
+        ) {
+            document.body.classList.remove('driver-dialog-open');
+        }
+
         try {
             if (needsPickupPrompt) {
-                const pickupChoice = await promptPickupAdjustment(ride.pickup_at);
+                const pickupChoice = await promptPickupAdjustment(ridePickupInstant(ride), {
+                    requireNewTime: requireNewPickupTime,
+                });
                 if (pickupChoice === undefined) {
                     return;
                 }
                 if (pickupChoice !== false) {
                     acceptBody.pickup_at = pickupChoice;
+                } else if (requireNewPickupTime) {
+                    alert('Kies een nieuw ophaalmoment in de toekomst.');
+                    return;
                 }
             }
+
+            offerAcceptInFlight = true;
+            document.body.classList.add('driver-accept-in-flight');
             setOfferActionButtonsDisabled(true, activeBtn);
+            if (acceptBody.pickup_at) {
+                showDriverNotice('Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.', {
+                    title: 'Voorstel verstuurd',
+                });
+            }
+
             await api('/dispatch/offers/' + offerId + '/accept', {
                 method: 'POST',
                 body: acceptBody,
             });
             showNewRideAlert(false);
             vibrate(100);
-            inboxView = fromOverdueView ? 'overdue' : 'offers';
+            inboxView = 'offers';
             await refreshInbox();
+            if (acceptBody.pickup_at) {
+                setMainTab('requests');
+                setInboxView('offers');
+            } else if (fromDeclinedView || fromOverdueView) {
+                setMainTab('trips');
+                setInboxView('offers');
+            }
         } catch (e) {
-            alert(e.message);
-            await refreshInbox();
+            acceptErrorMessage = e.message || 'Accepteren mislukt.';
+            try {
+                await refreshInbox();
+                if (fromDeclinedView) {
+                    setInboxView('declined');
+                }
+            } catch (refreshErr) {
+                /* ignore */
+            }
         } finally {
             offerAcceptInFlight = false;
             document.body.classList.remove('driver-accept-in-flight');
-            document.body.classList.remove('driver-dialog-open');
+            const noticeOpen = !!document.querySelector('#driver-notice-dialog.is-open');
+            if (!noticeOpen) {
+                document.body.classList.remove('driver-dialog-open');
+            }
             setOfferActionButtonsDisabled(false);
+        }
+        if (acceptErrorMessage) {
+            showDriverNotice(acceptErrorMessage, {
+                type: 'error',
+                title: 'Accepteren mislukt',
+            });
         }
     }
 
@@ -5075,7 +8646,18 @@
         const activeBtn = ev.target.closest('#btn-decline') || $('#btn-decline');
         setOfferActionButtonsDisabled(true, activeBtn);
         try {
-            await api('/dispatch/offers/' + offerId + '/decline', { method: 'POST' });
+            const reason = await promptDeclineReason();
+            if (reason === null) {
+                return;
+            }
+            const body = {};
+            if (reason !== '') {
+                body.decline_reason = reason;
+            }
+            await api('/dispatch/offers/' + offerId + '/decline', {
+                method: 'POST',
+                body: body,
+            });
             vibrate(50);
             offerQueueIndex = 0;
             await refreshInbox();
@@ -5087,6 +8669,254 @@
             await refreshInbox();
         } finally {
             setOfferActionButtonsDisabled(false);
+        }
+    }
+
+    async function archiveReleasedOffer(ev) {
+        const btn = ev.target.closest('.btn-archive-offer');
+        const offerId = btn && btn.dataset.offerId ? parseInt(btn.dataset.offerId, 10) : NaN;
+        if (!Number.isFinite(offerId) || offerId <= 0) {
+            return;
+        }
+        setButtonLoading(btn, true, 'Archiveren…');
+        try {
+            const fromPending = !!(btn && btn.closest('#pending-approval-strip'));
+            const fromDeclined = inboxView === 'declined' || !!(btn && btn.closest('#declined-strip'));
+            await api('/dispatch/offers/' + offerId + '/archive', { method: 'POST' });
+            vibrate(40);
+            await refreshInbox();
+            setMainTab('requests');
+            if (fromPending) {
+                setInboxView('offers');
+            } else if (fromDeclined) {
+                setInboxView(declinedOffers.length ? 'declined' : 'offers');
+            } else {
+                setInboxView(overdueReleasedOffers.length ? 'overdue' : 'offers');
+            }
+        } catch (e) {
+            alert(e.message || 'Archiveren mislukt.');
+            try {
+                await refreshInbox();
+            } catch (refreshErr) {
+                /* ignore */
+            }
+        } finally {
+            clearButtonLoading(btn);
+        }
+    }
+
+    async function deleteArchivedOffer(ev) {
+        const btn = ev.target.closest('.btn-delete-archived-offer');
+        const offerId = btn && btn.dataset.offerId ? parseInt(btn.dataset.offerId, 10) : NaN;
+        if (!Number.isFinite(offerId) || offerId <= 0) {
+            return;
+        }
+        const confirmed = await confirmArchiveDelete(1);
+        if (!confirmed) {
+            return;
+        }
+        setButtonLoading(btn, true, 'Verwijderen…');
+        try {
+            const res = await api('/dispatch/offers/' + offerId + '/archive', { method: 'DELETE' });
+            delete archivedSelectedIds[String(offerId)];
+            vibrate(40);
+            showDriverNotice((res && res.message) || 'Rit verwijderd.', {
+                title: 'Verwijderd',
+            });
+            await refreshInbox();
+            setMainTab('requests');
+            setInboxView(archivedOffers.length ? 'archived' : 'overdue');
+        } catch (e) {
+            alert(e.message || 'Verwijderen mislukt.');
+            try {
+                await refreshInbox();
+            } catch (refreshErr) {
+                /* ignore */
+            }
+        } finally {
+            clearButtonLoading(btn);
+        }
+    }
+
+    async function deleteSelectedArchivedOffers() {
+        const selected = getArchivedSelectedIds()
+            .map(function (id) {
+                return parseInt(id, 10);
+            })
+            .filter(function (id) {
+                return Number.isFinite(id) && id > 0;
+            });
+        if (!selected.length) {
+            return;
+        }
+        const confirmed = await confirmArchiveDelete(selected.length);
+        if (!confirmed) {
+            return;
+        }
+        const deleteBtn = $('#btn-archived-delete-selected');
+        setButtonLoading(deleteBtn, true, 'Verwijderen…');
+        try {
+            const res = await api('/dispatch/archived-offers/delete', {
+                method: 'POST',
+                body: { offer_ids: selected },
+            });
+            selected.forEach(function (id) {
+                delete archivedSelectedIds[String(id)];
+            });
+            vibrate(40);
+            showDriverNotice((res && res.message) || 'Ritten verwijderd.', {
+                title: 'Verwijderd',
+            });
+            await refreshInbox();
+            setMainTab('requests');
+            setInboxView(archivedOffers.length ? 'archived' : 'overdue');
+        } catch (e) {
+            alert(e.message || 'Verwijderen mislukt.');
+            try {
+                await refreshInbox();
+            } catch (refreshErr) {
+                /* ignore */
+            }
+        } finally {
+            clearButtonLoading(deleteBtn);
+            syncArchivedBulkBar();
+        }
+    }
+
+    let declineReasonResolve = null;
+
+    function closeDeclineReasonDialog(result) {
+        const dialog = $('#decline-reason-dialog');
+        const input = $('#decline-reason-input');
+        if (dialog) {
+            dialog.classList.add('driver-dialog--instant');
+            dialog.classList.remove('is-open');
+            dialog.hidden = true;
+            dialog.setAttribute('aria-hidden', 'true');
+            requestAnimationFrame(function () {
+                dialog.classList.remove('driver-dialog--instant');
+            });
+        }
+        document.body.classList.remove('driver-dialog-open');
+        if (declineReasonResolve) {
+            const resolve = declineReasonResolve;
+            declineReasonResolve = null;
+            resolve(result);
+        }
+        if (input) {
+            input.value = '';
+        }
+    }
+
+    function promptDeclineReason() {
+        const dialog = $('#decline-reason-dialog');
+        const input = $('#decline-reason-input');
+        if (!dialog) {
+            return Promise.resolve('');
+        }
+        return new Promise(function (resolve) {
+            declineReasonResolve = resolve;
+            if (input) {
+                input.value = '';
+            }
+            dialog.hidden = false;
+            dialog.setAttribute('aria-hidden', 'false');
+            dialog.classList.add('is-open');
+            document.body.classList.add('driver-dialog-open');
+            if (input) {
+                input.focus();
+            }
+        });
+    }
+
+    function initDeclineReasonDialog() {
+        const dialog = $('#decline-reason-dialog');
+        if (!dialog) {
+            return;
+        }
+        const confirmBtn = $('#decline-reason-confirm');
+        const cancelBtn = $('#decline-reason-cancel');
+        const backdrop = dialog.querySelector('[data-decline-reason-dismiss]');
+        const input = $('#decline-reason-input');
+
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                const reason = input ? String(input.value || '').trim() : '';
+                closeDeclineReasonDialog(reason);
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function () {
+                closeDeclineReasonDialog(null);
+            });
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', function () {
+                closeDeclineReasonDialog(null);
+            });
+        }
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Escape' || !dialog.classList.contains('is-open')) {
+                return;
+            }
+            closeDeclineReasonDialog(null);
+        });
+    }
+
+    function findRideInProposalOffers(rideId) {
+        const match = (pendingApprovalOffers || [])
+            .concat(declinedOffers || [])
+            .find(function (offer) {
+                return offer && offer.ride && String(offer.ride.id) === String(rideId);
+            });
+        return match && match.ride ? match.ride : null;
+    }
+
+    async function proposePickupForRide(ev) {
+        const btn = ev.target.closest('.btn-propose-pickup');
+        const rideId = btn && btn.dataset.rideId ? parseInt(btn.dataset.rideId, 10) : NaN;
+        if (!Number.isFinite(rideId) || rideId <= 0) {
+            return;
+        }
+        const ride =
+            scheduledRides.find(function (item) {
+                return String(item.id) === String(rideId);
+            }) ||
+            overdueScheduledRides.find(function (item) {
+                return String(item.id) === String(rideId);
+            }) ||
+            findRideInProposalOffers(rideId);
+        const pickupChoice = await promptPickupAdjustment(ridePickupInstant(ride), {
+            requireNewTime: true,
+        });
+        if (pickupChoice === undefined || pickupChoice === false) {
+            return;
+        }
+        showDriverNotice('Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.', {
+            title: 'Voorstel verstuurd',
+        });
+        setButtonLoading(btn, true, 'Versturen…');
+        try {
+            await api('/dispatch/rides/' + rideId + '/propose-pickup', {
+                method: 'POST',
+                body: { pickup_at: pickupChoice },
+            });
+            vibrate(80);
+            setMainTab('requests');
+            await refreshInbox();
+            setInboxView('offers');
+        } catch (e) {
+            showDriverNotice(e.message || 'Voorstel versturen mislukt.', {
+                type: 'error',
+                title: 'Voorstel mislukt',
+            });
+            try {
+                await refreshInbox();
+            } catch (refreshErr) {
+                /* ignore */
+            }
+        } finally {
+            clearButtonLoading(btn);
         }
     }
 
@@ -5115,9 +8945,11 @@
             vibrate(100);
             inboxView = 'offers';
             if (res && res.data && res.data.ride) {
+                setMainTab('trips');
                 renderActiveRide(res.data.ride);
             }
             await refreshInbox();
+            syncActiveRideJumpButton();
         } catch (e) {
             alert(e.message);
             await refreshInbox();
@@ -5132,11 +8964,15 @@
         if (!Number.isFinite(rideId) || rideId <= 0) {
             return;
         }
-        if (
-            !window.confirm(
-                'Weet je zeker dat je deze contractrit wilt afronden? Openstaande stops worden als niet uitgevoerd gemarkeerd.'
-            )
-        ) {
+        const confirmed = await showDriverConfirm(
+            'Weet je zeker dat je deze contractrit wilt afronden? Openstaande stops worden als niet uitgevoerd gemarkeerd.',
+            {
+                title: 'Rit afronden?',
+                confirmLabel: 'Afronden',
+                danger: true,
+            }
+        );
+        if (!confirmed) {
             return;
         }
         setButtonLoading(btn, true);
@@ -5166,7 +9002,15 @@
         if (!Number.isFinite(rideId) || rideId <= 0) {
             return;
         }
-        if (!window.confirm('Weet je zeker dat je deze rit wilt vrijgeven? Een andere chauffeur kan hem dan overnemen.')) {
+        const confirmed = await showDriverConfirm(
+            'Weet je zeker dat je deze rit wilt vrijgeven? Een andere chauffeur kan hem dan overnemen.',
+            {
+                title: 'Rit vrijgeven?',
+                confirmLabel: 'Vrijgeven',
+                danger: true,
+            }
+        );
+        if (!confirmed) {
             return;
         }
         setButtonLoading(btn, true);
@@ -5216,11 +9060,15 @@
         if (!Number.isFinite(rideId) || rideId <= 0) {
             return;
         }
-        if (
-            !window.confirm(
-                'Retour vrijgeven? Een andere chauffeur kan de terugweg overnemen. De heenrit blijft geregistreerd.'
-            )
-        ) {
+        const confirmed = await showDriverConfirm(
+            'Retour vrijgeven? Een andere chauffeur kan de terugweg overnemen. De heenrit blijft geregistreerd.',
+            {
+                title: 'Retour vrijgeven?',
+                confirmLabel: 'Vrijgeven',
+                danger: true,
+            }
+        );
+        if (!confirmed) {
             return;
         }
         setButtonLoading(btn, true);
@@ -5313,7 +9161,111 @@
             isOnline = isOnlineOnServer;
         }
         localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
+        if (!isOnline) {
+            inboxLoading = false;
+            inboxHasLoaded = false;
+        }
         setOnlineUi();
+        updateProfileOnlineStatus();
+    }
+
+    function setProfileField(el, value) {
+        if (!el) {
+            return;
+        }
+        const text = value != null ? String(value).trim() : '';
+        if (text !== '') {
+            el.textContent = text;
+            el.classList.remove('is-empty');
+        } else {
+            el.textContent = 'Niet beschikbaar';
+            el.classList.add('is-empty');
+        }
+    }
+
+    function updateProfileOnlineStatus() {
+        const statusEl = $('#profile-account-status');
+        if (!statusEl || !statusEl.dataset.hasUser) {
+            return;
+        }
+        const parts = [];
+        if (statusEl.dataset.accountActive === '0') {
+            parts.push('Inactief');
+        } else {
+            parts.push('Actief');
+        }
+        parts.push(isOnline ? 'online' : 'offline');
+        statusEl.textContent = parts.join(' · ');
+        statusEl.classList.remove('is-empty');
+    }
+
+    function renderProfileUser(user) {
+        profileUser = user || null;
+        const nameEl = $('#profile-name');
+        const emailEl = $('#profile-email');
+        const phoneEl = $('#profile-phone');
+        const companyEl = $('#profile-company');
+        const statusEl = $('#profile-account-status');
+        if (!user) {
+            setProfileField(nameEl, '');
+            setProfileField(emailEl, '');
+            setProfileField(phoneEl, '');
+            setProfileField(companyEl, '');
+            if (statusEl) {
+                delete statusEl.dataset.hasUser;
+                delete statusEl.dataset.accountActive;
+            }
+            setProfileField(statusEl, '');
+            return;
+        }
+        const fullName =
+            (user.name && String(user.name).trim()) ||
+            [user.first_name, user.last_name].filter(Boolean).join(' ').trim() ||
+            '';
+        setProfileField(nameEl, fullName);
+        setProfileField(emailEl, user.email || '');
+        setProfileField(phoneEl, user.phone || '');
+        setProfileField(companyEl, user.company_name || '');
+        if (statusEl) {
+            statusEl.dataset.hasUser = '1';
+            statusEl.dataset.accountActive = user.is_account_active === false ? '0' : '1';
+        }
+        updateProfileOnlineStatus();
+        applyAccentFromUser(user);
+    }
+
+    function applyAccentFromUser(user) {
+        if (window.nexaPwaAccent && user && user.pwa_accent) {
+            window.nexaPwaAccent.apply(user.pwa_accent);
+        }
+    }
+
+    function persistAccent(accent) {
+        if (profileUser) {
+            profileUser.pwa_accent = accent;
+        }
+        if (!token) {
+            return;
+        }
+        api('/accent', { method: 'PUT', body: { accent: accent } })
+            .then(function (res) {
+                if (res && res.pwa_accent && profileUser) {
+                    profileUser.pwa_accent = res.pwa_accent;
+                }
+            })
+            .catch(function () {});
+    }
+
+    function bindAccentPicker() {
+        document.querySelectorAll('[data-pwa-accent]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const accent = btn.getAttribute('data-pwa-accent');
+                if (window.nexaPwaAccent) {
+                    window.nexaPwaAccent.apply(accent);
+                }
+                persistAccent(accent);
+            });
+        });
     }
 
     async function bootstrap() {
@@ -5322,12 +9274,16 @@
             showScreen('login');
             return;
         }
+        restoreUiState();
+        setPlanningView(planningView, { skipRender: true });
         showScreen('dispatch');
         try {
             const me = await api('/me');
             if (me.user && me.user.company_id) {
                 persistCompanyId(me.user.company_id);
             }
+            applyEarningsPermissions(me.permissions || {});
+            renderProfileUser(me.user || null);
             const active = me.user && me.user.is_account_active !== false;
             setAccountInactive(!active);
             applyOnlineStateFromServer(me.user && me.user.is_online);
@@ -5349,6 +9305,13 @@
             token = '';
             sessionStorage.removeItem(STORAGE_KEY);
             sessionStorage.removeItem(COMPANY_KEY);
+            sessionStorage.removeItem(UI_STATE_KEY);
+            mainTab = 'requests';
+            inboxView = 'offers';
+            planningView = 'day';
+            planningSelectedDate = null;
+            planningWeekFrom = null;
+            renderProfileUser(null);
             showScreen('login');
         }
         syncScreenWakeLock();
@@ -5361,6 +9324,19 @@
         const err = $('#login-error');
         const btn = $('#login-btn');
         err.hidden = true;
+        const firstPanel = $('#first-login-panel');
+        if (firstPanel && !firstPanel.hidden) {
+            const verifyBtn = document.getElementById('btn-verify-login-code');
+            if (verifyBtn && $('#first-login-verify') && !$('#first-login-verify').hidden) {
+                verifyBtn.click();
+            } else {
+                const sendBtn = document.getElementById('btn-send-login-code');
+                if (sendBtn) {
+                    sendBtn.click();
+                }
+            }
+            return;
+        }
         setButtonLoading(btn, true, 'Inloggen…');
         try {
             await login($('#email').value.trim(), $('#password').value);
@@ -5371,11 +9347,91 @@
             syncScreenWakeLock();
             startInboxSync();
         } catch (e) {
+            if (e && e.code === 'first_login_required') {
+                setFirstLoginMode(true);
+            }
             err.textContent = e.message;
             err.hidden = false;
         } finally {
             clearButtonLoading(btn);
         }
+        });
+    }
+
+    function showLoginError(message) {
+        const err = $('#login-error');
+        if (!err) {
+            return;
+        }
+        err.textContent = message || '';
+        err.hidden = !message;
+    }
+
+    const openFirstLoginBtn = document.getElementById('btn-open-first-login');
+    if (openFirstLoginBtn) {
+        openFirstLoginBtn.addEventListener('click', function () {
+            showLoginError('');
+            setFirstLoginMode(true);
+        });
+    }
+    const cancelFirstLoginBtn = document.getElementById('btn-cancel-first-login');
+    if (cancelFirstLoginBtn) {
+        cancelFirstLoginBtn.addEventListener('click', function () {
+            showLoginError('');
+            setFirstLoginMode(false);
+        });
+    }
+    const sendLoginCodeBtn = document.getElementById('btn-send-login-code');
+    if (sendLoginCodeBtn) {
+        sendLoginCodeBtn.addEventListener('click', async function () {
+            const email = ($('#email') && $('#email').value.trim()) || '';
+            showLoginError('');
+            if (!email) {
+                showLoginError('Vul eerst je e-mailadres in.');
+                return;
+            }
+            setButtonLoading(sendLoginCodeBtn, true, 'Versturen…');
+            try {
+                await requestLoginCode(email);
+                rememberFirstLoginEmail(email);
+                setFirstLoginCodeSent(true);
+            } catch (e) {
+                showLoginError(e.message || 'Code aanvragen mislukt.');
+            } finally {
+                clearButtonLoading(sendLoginCodeBtn);
+            }
+        });
+    }
+    const verifyLoginCodeBtn = document.getElementById('btn-verify-login-code');
+    if (verifyLoginCodeBtn) {
+        verifyLoginCodeBtn.addEventListener('click', async function () {
+            const email = getFirstLoginEmail();
+            const code = ($('#login-code') && $('#login-code').value.trim()) || '';
+            const password = ($('#new-password') && $('#new-password').value) || '';
+            const confirm = ($('#new-password-confirm') && $('#new-password-confirm').value) || '';
+            showLoginError('');
+            if (!email) {
+                showLoginError('Vul eerst je e-mailadres in.');
+                return;
+            }
+            if (password !== confirm) {
+                showLoginError('De wachtwoorden komen niet overeen.');
+                return;
+            }
+            setButtonLoading(verifyLoginCodeBtn, true, 'Activeren…');
+            try {
+                await verifyLoginCode(email, code, password);
+                unlockAudio();
+                showScreen('dispatch');
+                requestScreenWakeLockFromGesture();
+                await setOnline(true);
+                syncScreenWakeLock();
+                startInboxSync();
+            } catch (e) {
+                showLoginError(e.message || 'Activeren mislukt.');
+            } finally {
+                clearButtonLoading(verifyLoginCodeBtn);
+            }
         });
     }
 
@@ -5408,10 +9464,146 @@
     }
 
     if (screenDispatch) {
+        screenDispatch.addEventListener('change', function (ev) {
+            const check = ev.target.closest('.archived-offer-check');
+            if (check) {
+                setArchivedOfferSelected(check.dataset.offerId, !!check.checked);
+                return;
+            }
+            if (ev.target && ev.target.id === 'archived-select-all') {
+                const selectAll = !!ev.target.checked;
+                archivedSelectedIds = {};
+                (archivedOffers || []).forEach(function (offer) {
+                    if (offer && offer.id != null && selectAll) {
+                        archivedSelectedIds[String(offer.id)] = true;
+                    }
+                });
+                renderArchivedView();
+            }
+        });
         screenDispatch.addEventListener('click', function (ev) {
+            const tabBtn = ev.target.closest('[data-main-tab]');
+            if (tabBtn) {
+                ev.preventDefault();
+                const tab = tabBtn.getAttribute('data-main-tab');
+                if (tab === 'trips') {
+                    // Altijd rittenoverzicht, ook tijdens een open actieve rit.
+                    showAllRidesInbox();
+                    return;
+                }
+                if (tab === 'requests') {
+                    setMainTab('requests');
+                    setInboxView('offers');
+                    updateUnclaimedBanner(unclaimedRides);
+                    return;
+                }
+                setMainTab(tab);
+                return;
+            }
+            if (ev.target.closest('#btn-start-navigation')) {
+                ev.preventDefault();
+                startGoogleNavigation();
+                return;
+            }
+            if (ev.target.closest('#btn-active-ride-navigate') || ev.target.closest('.btn-active-ride-navigate')) {
+                ev.preventDefault();
+                setMainTab('navigation');
+                return;
+            }
+            if (ev.target.closest('#btn-earnings-prev')) {
+                ev.preventDefault();
+                loadEarnings(shiftIsoDate(earningsDate || todayLocalIsoDate(), -1));
+                return;
+            }
+            if (ev.target.closest('#btn-earnings-next')) {
+                ev.preventDefault();
+                if (earningsDate && earningsDate < todayLocalIsoDate()) {
+                    loadEarnings(shiftIsoDate(earningsDate, 1));
+                }
+                return;
+            }
+            if (ev.target.closest('#btn-earnings-today')) {
+                ev.preventDefault();
+                if (earningsDate !== todayLocalIsoDate()) {
+                    loadEarnings(todayLocalIsoDate());
+                }
+                return;
+            }
+            const planningViewBtn = ev.target.closest('[data-planning-view]');
+            if (planningViewBtn) {
+                ev.preventDefault();
+                setPlanningView(planningViewBtn.getAttribute('data-planning-view'));
+                return;
+            }
+            if (ev.target.closest('#planning-week-prev')) {
+                ev.preventDefault();
+                if (planningView === 'week') {
+                    planningWeekFrom = shiftIsoDate(planningWeekFrom || planningMondayIso(), -7);
+                    if (planningSelectedDate) {
+                        planningSelectedDate = shiftIsoDate(planningSelectedDate, -7);
+                    }
+                    persistUiState();
+                    loadPlanning();
+                } else {
+                    shiftPlanningDay(-1);
+                }
+                return;
+            }
+            if (ev.target.closest('#planning-week-next')) {
+                ev.preventDefault();
+                if (planningView === 'week') {
+                    planningWeekFrom = shiftIsoDate(planningWeekFrom || planningMondayIso(), 7);
+                    if (planningSelectedDate) {
+                        planningSelectedDate = shiftIsoDate(planningSelectedDate, 7);
+                    }
+                    persistUiState();
+                    loadPlanning();
+                } else {
+                    shiftPlanningDay(1);
+                }
+                return;
+            }
+            if (ev.target.closest('#planning-week-today')) {
+                ev.preventDefault();
+                planningSelectedDate = todayContractDateKey();
+                planningWeekFrom = planningMondayIso(planningSelectedDate);
+                persistUiState();
+                loadPlanning();
+                return;
+            }
+            const planningRideBtn = ev.target.closest('[data-planning-ride-id]');
+            if (planningRideBtn) {
+                ev.preventDefault();
+                openPlanningRide(planningRideBtn.getAttribute('data-planning-ride-id'));
+                return;
+            }
+            const planningDayBtn = ev.target.closest('[data-planning-date]');
+            if (planningDayBtn) {
+                ev.preventDefault();
+                planningSelectedDate = planningDayBtn.getAttribute('data-planning-date');
+                renderPlanning(planningPayload);
+                scrollPlanningToSelectedDay();
+                return;
+            }
+            const jump = ev.target.closest('[data-main-tab-jump]');
+            if (jump) {
+                ev.preventDefault();
+                setMainTab(jump.getAttribute('data-main-tab-jump'));
+                return;
+            }
             if (ev.target.closest('#btn-accept') || ev.target.closest('.btn-accept-declined') || ev.target.closest('.btn-accept-overdue')) {
                 ev.preventDefault();
-                acceptOffer(ev);
+                acceptOffer(ev).catch(function (err) {
+                    console.warn('acceptOffer', err);
+                    offerAcceptInFlight = false;
+                    document.body.classList.remove('driver-accept-in-flight');
+                    document.body.classList.remove('driver-dialog-open');
+                    setOfferActionButtonsDisabled(false);
+                    showDriverNotice((err && err.message) || 'Accepteren mislukt.', {
+                        type: 'error',
+                        title: 'Accepteren mislukt',
+                    });
+                });
                 return;
             }
             if (ev.target.closest('#btn-decline')) {
@@ -5419,20 +9611,47 @@
                 declineOffer(ev);
                 return;
             }
-            if (ev.target.closest('#btn-show-declined')) {
+            if (ev.target.closest('#btn-show-overdue') || ev.target.closest('#btn-empty-show-overdue')) {
                 ev.preventDefault();
-                setInboxView('declined');
-                return;
-            }
-            if (ev.target.closest('#btn-show-overdue')) {
-                ev.preventDefault();
+                setMainTab('requests');
                 setInboxView('overdue');
                 return;
             }
             if (ev.target.closest('#btn-show-offers')) {
                 ev.preventDefault();
+                setMainTab('requests');
                 setInboxView('offers');
                 updateUnclaimedBanner(unclaimedRides);
+                return;
+            }
+            if (ev.target.closest('#btn-show-declined') || ev.target.closest('#btn-empty-show-declined')) {
+                ev.preventDefault();
+                setMainTab('requests');
+                setInboxView('declined');
+                return;
+            }
+            if (
+                ev.target.closest('#btn-show-archived') ||
+                ev.target.closest('#btn-empty-show-archived') ||
+                ev.target.closest('#btn-empty-show-archived-inbox')
+            ) {
+                ev.preventDefault();
+                setMainTab('requests');
+                setInboxView('archived');
+                return;
+            }
+            if (ev.target.closest('.btn-archive-offer')) {
+                ev.preventDefault();
+                archiveReleasedOffer(ev).catch(function (err) {
+                    console.warn('archiveOffer', err);
+                });
+                return;
+            }
+            if (ev.target.closest('.btn-delete-archived-offer')) {
+                ev.preventDefault();
+                deleteArchivedOffer(ev).catch(function (err) {
+                    console.warn('deleteArchivedOffer', err);
+                });
                 return;
             }
             if (ev.target.closest('.btn-stop-arrive')) {
@@ -5459,6 +9678,13 @@
                 });
                 return;
             }
+            if (ev.target.closest('.btn-propose-pickup')) {
+                ev.preventDefault();
+                proposePickupForRide(ev).catch(function (err) {
+                    console.warn('proposePickup', err);
+                });
+                return;
+            }
             if (ev.target.closest('.btn-start-ride')) {
                 ev.preventDefault();
                 startScheduledRide(ev);
@@ -5472,6 +9698,31 @@
             if (ev.target.closest('.btn-release-ride')) {
                 ev.preventDefault();
                 releaseScheduledRide(ev);
+                return;
+            }
+            if (ev.target.closest('.archived-offer-check')) {
+                return;
+            }
+            if (ev.target.closest('#archived-select-all')) {
+                return;
+            }
+            if (ev.target.closest('#btn-archived-delete-selected')) {
+                ev.preventDefault();
+                deleteSelectedArchivedOffers().catch(function (err) {
+                    console.warn('deleteSelectedArchivedOffers', err);
+                });
+                return;
+            }
+            var toggleArchived = ev.target.closest('.archived-ride-toggle');
+            if (toggleArchived) {
+                ev.preventDefault();
+                toggleArchivedRideCard(toggleArchived.dataset.archivedOfferId);
+                return;
+            }
+            var toggleEarnings = ev.target.closest('.earnings-ride-toggle');
+            if (toggleEarnings) {
+                ev.preventDefault();
+                toggleEarningsRideCard(toggleEarnings.dataset.earningsRideId);
                 return;
             }
             var toggleScheduled = ev.target.closest('.scheduled-ride-toggle');
@@ -5490,9 +9741,11 @@
                 showOfferAtIndex(offerQueueIndex + 1);
                 return;
             }
-            if (ev.target.closest('#btn-toolbar-inbox-back')) {
+            if (ev.target.closest('#btn-active-ride-jump')) {
                 ev.preventDefault();
-                showAllRidesInbox();
+                showActiveRideFullPanel(
+                    currentActiveRide && currentActiveRide.id != null ? currentActiveRide.id : null
+                );
                 return;
             }
             if (ev.target.closest('.btn-open-parked-ride')) {
@@ -5640,12 +9893,46 @@
         });
     }
 
+    const btnDismissGuideHint = $('#btn-dismiss-guide-hint');
+    if (btnDismissGuideHint) {
+        btnDismissGuideHint.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            dismissGuideHint();
+        });
+    }
+
     const btnDismissNotificationsHint = $('#btn-dismiss-notifications-hint');
     if (btnDismissNotificationsHint) {
         btnDismissNotificationsHint.addEventListener('click', function (ev) {
             ev.preventDefault();
             ev.stopPropagation();
             dismissNotificationsHint();
+        });
+    }
+
+    const absenceAlertBanner = $('#absence-alert-banner');
+    if (absenceAlertBanner) {
+        absenceAlertBanner.addEventListener('click', function (ev) {
+            const rideLink = ev.target.closest('.banner-ride-link');
+            if (!rideLink) {
+                return;
+            }
+            ev.preventDefault();
+            ev.stopPropagation();
+            openRideFromPickupAlert(rideLink.getAttribute('data-open-ride-id'));
+        });
+    }
+
+    const btnDismissAbsenceAlert = $('#btn-dismiss-absence-alert');
+    if (btnDismissAbsenceAlert) {
+        btnDismissAbsenceAlert.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const banner = $('#absence-alert-banner');
+            if (banner) {
+                banner.hidden = true;
+            }
         });
     }
 
@@ -5685,10 +9972,17 @@
     ensureServiceWorkerReady().then(function () {
         updateNotificationsHint();
         updateInstallHint();
+        updateGuideHint();
     });
 
     initCashConfirmDialog();
+    initArchiveDeleteConfirmDialog();
+    initDeclineReasonDialog();
     initPickupAdjustDialog();
+    initDriverNoticeDialog();
+    initDriverConfirmDialog();
 
+    bindAccentPicker();
+    updateGuideHint();
     bootstrap();
 })();

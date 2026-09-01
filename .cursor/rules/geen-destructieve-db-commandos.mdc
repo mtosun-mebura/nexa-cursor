@@ -1,0 +1,27 @@
+# Geen destructieve database-commando's op lokale dev-DB
+
+## Probleem
+
+Artisan op de **host** (Mac) en in **Docker** delen vaak dezelfde PostgreSQL (`DB_HOST=127.0.0.1` of `db` → `127.0.0.1:5432`). Eén `migrate:fresh` vanaf de host wist alle data: super-admin, marketingpagina's, tenant-configuratie, enz.
+
+## Nooit doen (tenzij gebruiker expliciet vraagt én `NEXA_ALLOW_DESTRUCTIVE_DB=true`)
+
+- `php artisan migrate:fresh`
+- `php artisan migrate:refresh` / `migrate:reset`
+- `php artisan db:wipe`
+- `php artisan nexa:reset-all`
+- `Artisan::call('migrate:fresh', …)` zonder `APP_ENV=testing` en sqlite `:memory:`
+- Ad-hoc `php -r` scripts die `migrate:fresh` aanroepen tegen de project-database
+
+## Wel gebruiken
+
+- **Schema bijwerken:** `php artisan migrate`
+- **Basisdata herstellen zonder wissen:** `php artisan nexa:ensure-bootstrap`
+- **Volledige lokale dev-structuur (modules + Taxi Royaal):** `php artisan nexa:restore-local-dev`
+- **Tests:** `php artisan test` (phpunit gebruikt sqlite `:memory:`)
+- **Bewuste schone lei:** alleen na expliciete vraag van de gebruiker, met `NEXA_ALLOW_DESTRUCTIVE_DB=true`
+
+## .env
+
+- Schrijf nooit het `.env`-bestand leeg of overschrijf het zonder backup.
+- `EnvService::set()` maakt automatisch een `.env.backup.*` aan vóór schrijven.

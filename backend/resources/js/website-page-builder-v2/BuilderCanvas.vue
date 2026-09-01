@@ -11,14 +11,14 @@ const props = defineProps<{
   mode: 'build' | 'live'
   paletteDragging: boolean
   copyrightPreview?: string
-  visibleForBlock: (key: string) => boolean
+  visibility?: Record<string, unknown>
 }>()
 
 const emit = defineEmits<{
   select: [string | null]
   add: [import('./types').PaletteDragPayload, number]
   reorder: [string, number]
-  remove: [string]
+  'remove-block': [string]
   move: [string, -1 | 1]
   'toggle-visibility': [string]
 }>()
@@ -135,8 +135,13 @@ function fixedMeta(key: 'footer' | 'copyright') {
   return sectionMeta(key)
 }
 
+function visibleForBlock(key: string): boolean {
+  const value = props.visibility?.[key]
+  return value !== false && value !== '0' && value !== 0
+}
+
 function visibilityTitle(key: string): string {
-  return props.visibleForBlock(key) ? 'Verbergen op website' : 'Tonen op website'
+  return visibleForBlock(key) ? 'Verbergen op website' : 'Tonen op website'
 }
 
 function openPopout() {
@@ -264,6 +269,7 @@ onUnmounted(() => {
                     <i class="ki-filled ki-menu" />
                   </button>
                   <span class="builder-block__type">{{ block.label }}</span>
+                  <span v-if="!visibleForBlock(block.key)" class="builder-block__hidden-label">Verborgen</span>
                 </div>
                 <div class="builder-block__actions" @click.stop>
                   <button
@@ -272,7 +278,7 @@ onUnmounted(() => {
                     :class="{ 'builder-icon-btn--inactive': !visibleForBlock(block.key) }"
                     :title="visibilityTitle(block.key)"
                     :aria-label="visibilityTitle(block.key)"
-                    @click="emit('toggle-visibility', block.key)"
+                    @click.stop="emit('toggle-visibility', block.key)"
                   >
                     <i class="ki-filled" :class="visibleForBlock(block.key) ? 'ki-eye' : 'ki-eye-slash'" />
                   </button>
@@ -281,7 +287,7 @@ onUnmounted(() => {
                     type="button"
                     class="builder-icon-btn"
                     title="Omhoog"
-                    @click="emit('move', block.key, -1)"
+                    @click.stop="emit('move', block.key, -1)"
                   >
                     <i class="ki-filled ki-up" />
                   </button>
@@ -290,11 +296,17 @@ onUnmounted(() => {
                     type="button"
                     class="builder-icon-btn"
                     title="Omlaag"
-                    @click="emit('move', block.key, 1)"
+                    @click.stop="emit('move', block.key, 1)"
                   >
                     <i class="ki-filled ki-down" />
                   </button>
-                  <button type="button" class="builder-icon-btn builder-icon-btn--danger" title="Verwijderen" @click="emit('remove', block.key)">
+                  <button
+                    type="button"
+                    class="builder-icon-btn builder-icon-btn--danger"
+                    title="Verwijderen"
+                    aria-label="Verwijderen"
+                    @click.stop="emit('remove-block', block.key)"
+                  >
                     <i class="ki-filled ki-trash" />
                   </button>
                 </div>
@@ -329,6 +341,7 @@ onUnmounted(() => {
           <div class="builder-block__toolbar builder-block__toolbar--static">
             <div class="builder-block__toolbar-start">
               <span class="builder-block__type">Footer</span>
+              <span v-if="!visibleForBlock('footer')" class="builder-block__hidden-label">Verborgen</span>
             </div>
             <div class="builder-block__actions" @click.stop>
               <button
@@ -337,7 +350,7 @@ onUnmounted(() => {
                 :class="{ 'builder-icon-btn--inactive': !visibleForBlock('footer') }"
                 :title="visibilityTitle('footer')"
                 :aria-label="visibilityTitle('footer')"
-                @click="emit('toggle-visibility', 'footer')"
+                @click.stop="emit('toggle-visibility', 'footer')"
               >
                 <i class="ki-filled" :class="visibleForBlock('footer') ? 'ki-eye' : 'ki-eye-slash'" />
               </button>

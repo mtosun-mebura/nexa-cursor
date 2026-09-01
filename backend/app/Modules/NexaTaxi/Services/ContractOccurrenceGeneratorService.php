@@ -37,8 +37,20 @@ class ContractOccurrenceGeneratorService
             ->get();
 
         foreach ($templates as $template) {
-            $this->generateDatesForTemplate($conn, $template, $start, $end, $stats);
+            $this->generateDatesForTemplate($conn, $template, $start, $end, $stats, requireActiveGroup: true);
         }
+
+        return $stats;
+    }
+
+    /**
+     * @return array{created: int, skipped: int, cancelled: int, errors: int}
+     */
+    public function syncOccurrencesForRouteTemplate(string $conn, int $templateId, int $horizonDays = 14): array
+    {
+        $cancelled = $this->cancelOccurrencesOutsideRecurrence($conn, $templateId);
+        $stats = $this->generateForRouteTemplate($conn, $templateId, $horizonDays);
+        $stats['cancelled'] = $cancelled;
 
         return $stats;
     }
@@ -61,7 +73,7 @@ class ContractOccurrenceGeneratorService
 
         $start = now()->copy()->startOfDay();
         $end = $start->copy()->addDays($horizonDays - 1);
-        $this->generateDatesForTemplate($conn, $template, $start, $end, $stats);
+        $this->generateDatesForTemplate($conn, $template, $start, $end, $stats, requireActiveGroup: false);
 
         return $stats;
     }
@@ -203,6 +215,17 @@ class ContractOccurrenceGeneratorService
      */
     public function schedulePayloadForRide(string $conn, RideRequest $ride): array
     {
+        $hasSkippedPickup = RideStop::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
+            ->where('status', RideStop::STATUS_SKIPPED)
+            ->exists();
+
+        // Na afmelding: gebruik de herberekende rit-stops i.p.v. de vaste weektemplate.
+        if ($hasSkippedPickup) {
+            return $this->schedulePayloadFromRideStops($conn, $ride);
+        }
+
         $context = $this->resolveOccurrenceTemplateContext($conn, $ride);
 
         if (! $context) {
@@ -238,17 +261,22 @@ class ContractOccurrenceGeneratorService
 
     public function plannedAtForRideStop(string $conn, RideStop $stop): ?Carbon
     {
+        // RideStop.planned_at is de dag-instantie (incl. herberekende tijden na afmelding).
+        if ($stop->planned_at) {
+            return $stop->planned_at;
+        }
+
         $ride = RideRequest::on($conn)->find($stop->ride_request_id);
         $context = $this->resolveOccurrenceTemplateContext($conn, $ride);
 
         if (! $context) {
-            return $stop->planned_at;
+            return null;
         }
 
         $templateStop = $context['template']->stops->firstWhere('sequence', $stop->sequence);
 
         if (! $templateStop) {
-            return $stop->planned_at;
+            return null;
         }
 
         return ContractTransportTimezone::parseLocalDateTime(
@@ -277,7 +305,10 @@ class ContractOccurrenceGeneratorService
         }
 
         $destination = $stops->firstWhere('stop_type', TransportRouteStop::STOP_TYPE_DESTINATION);
-        $firstPickup = $stops->firstWhere('stop_type', TransportRouteStop::STOP_TYPE_PICKUP);
+        $firstPickup = $stops
+            ->where('stop_type', TransportRouteStop::STOP_TYPE_PICKUP)
+            ->first(fn (RideStop $stop) => $stop->status !== RideStop::STATUS_SKIPPED)
+            ?? $stops->firstWhere('stop_type', TransportRouteStop::STOP_TYPE_PICKUP);
 
         return [
             'departure_at' => ContractTransportTimezone::toDriverIso8601($ride->pickup_at),
@@ -399,6 +430,75 @@ class ContractOccurrenceGeneratorService
     }
 
     /**
+     * @return list<int>
+     */
+    private function recurrenceDayNumbers(TransportRouteTemplate $template): array
+    {
+        return array_values(array_unique(array_map(
+            'intval',
+            $template->recurrence_days ?: TransportRouteTemplate::defaultRecurrenceDays()
+        )));
+    }
+
+    private function cancelOccurrencesOutsideRecurrence(string $conn, int $templateId): int
+    {
+        $template = TransportRouteTemplate::on($conn)->find($templateId);
+        if (! $template) {
+            return 0;
+        }
+
+        $recurrenceDays = $this->recurrenceDayNumbers($template);
+        $occurrences = TransportOccurrence::on($conn)
+            ->where('transport_route_template_id', $templateId)
+            ->whereDate('scheduled_date', '>=', now()->toDateString())
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        $cancelled = 0;
+
+        foreach ($occurrences as $occurrence) {
+            $dateString = $occurrence->scheduled_date instanceof Carbon
+                ? $occurrence->scheduled_date->toDateString()
+                : (string) $occurrence->scheduled_date;
+            $isoDow = Carbon::parse($dateString, ContractTransportTimezone::TIMEZONE)->dayOfWeekIso;
+
+            if (in_array($isoDow, $recurrenceDays, true)) {
+                continue;
+            }
+
+            if ($this->cancelGroupOccurrenceAndRide($conn, $occurrence)) {
+                $cancelled++;
+            }
+        }
+
+        return $cancelled;
+    }
+
+    private function cancelGroupOccurrenceAndRide(string $conn, TransportOccurrence $occurrence): bool
+    {
+        if ($occurrence->ride_request_id) {
+            $ride = RideRequest::on($conn)->find($occurrence->ride_request_id);
+            if ($ride) {
+                if (in_array($ride->status, [
+                    RideRequest::STATUS_COMPLETED,
+                    RideRequest::STATUS_ASSIGNED,
+                ], true)) {
+                    return false;
+                }
+                if ($ride->status !== RideRequest::STATUS_CANCELLED) {
+                    $ride->update(['status' => RideRequest::STATUS_CANCELLED]);
+                }
+            }
+        }
+
+        if ($occurrence->status !== 'cancelled') {
+            $occurrence->update(['status' => 'cancelled']);
+        }
+
+        return true;
+    }
+
+    /**
      * @param  array{created: int, skipped: int, errors: int}  $stats
      */
     private function generateDatesForTemplate(
@@ -407,9 +507,13 @@ class ContractOccurrenceGeneratorService
         Carbon $start,
         Carbon $end,
         array &$stats,
+        bool $requireActiveGroup = true,
     ): void {
         $group = $template->group;
-        if (! $group || ! $group->active) {
+        if (! $group) {
+            return;
+        }
+        if ($requireActiveGroup && ! $group->active) {
             return;
         }
 
@@ -426,7 +530,7 @@ class ContractOccurrenceGeneratorService
         }
 
         $template->loadMissing(['stops.passenger', 'assignment']);
-        $recurrenceDays = $template->recurrence_days ?: TransportRouteTemplate::defaultRecurrenceDays();
+        $recurrenceDays = $this->recurrenceDayNumbers($template);
 
         for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
             if ($contract->start_date && $date->lt($contract->start_date)) {
@@ -454,6 +558,7 @@ class ContractOccurrenceGeneratorService
             $exists = TransportOccurrence::on($conn)
                 ->where('transport_route_template_id', $template->id)
                 ->whereDate('scheduled_date', $date->toDateString())
+                ->where('status', '!=', 'cancelled')
                 ->exists();
 
             if ($exists) {
@@ -711,6 +816,9 @@ class ContractOccurrenceGeneratorService
                 'status' => 'planned',
             ]);
         }
+
+        app(TransportPassengerAbsenceService::class)
+            ->applyAbsencesToNewGroupRide($conn, $ride->fresh(), $date->toDateString());
 
         return $occurrence;
     }

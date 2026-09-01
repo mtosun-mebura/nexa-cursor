@@ -91,9 +91,28 @@ _compose_bin_label() {
   fi
 }
 
+# Compose v2 weigert uppercase project names (bijv. COMPOSE_PROJECT_NAME=NEXA uit Coolify/.env).
+_normalize_compose_project_name() {
+  local raw="${COMPOSE_PROJECT_NAME:-}"
+  local normalized
+  if [[ -z "$raw" ]]; then
+    export COMPOSE_PROJECT_NAME=nexa
+    return
+  fi
+  normalized="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+  if [[ -z "$normalized" || ! "$normalized" =~ ^[a-z0-9] ]]; then
+    normalized=nexa
+  fi
+  if [[ "$normalized" != "$raw" ]]; then
+    echo "==> COMPOSE_PROJECT_NAME genormaliseerd: '$raw' → '$normalized'"
+  fi
+  export COMPOSE_PROJECT_NAME="$normalized"
+}
+
 _compose() {
+  _normalize_compose_project_name
   if docker compose version >/dev/null 2>&1; then
-    docker compose -f "$COMPOSE_FILE" "$@"
+    docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
     return
   fi
   if [[ "${REQUIRE_COMPOSE_V2:-}" == "1" || "${REQUIRE_COMPOSE_V2:-}" == "true" ]]; then
@@ -102,7 +121,7 @@ _compose() {
     exit 1
   fi
   if command -v docker-compose >/dev/null 2>&1; then
-    docker-compose -f "$COMPOSE_FILE" "$@"
+    docker-compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
     return
   fi
   echo "ERROR: Geen 'docker compose' (v2) of docker-compose (v1) in PATH." >&2
@@ -156,9 +175,30 @@ _docker_safe_prune() {
 
 # docker-compose 1.29.x faalt soms met KeyError 'ContainerConfig' bij `up -d` + recreate.
 # down + up (zonder --volumes) maakt nieuwe containers; named volumes (Postgres-data) blijven.
+# Let op: vroeger was COMPOSE_PROJECT_NAME vaak de mapnaam "current"; die stack kan 5432
+# nog vasthouden terwijl we nu als project "nexa" deployen.
 _compose_up_deploy() {
   echo "==> Compose down (remove-orphans, volumes blijven behouden)"
   _compose down --remove-orphans 2>/dev/null || true
+
+  if [[ "${COMPOSE_PROJECT_NAME:-nexa}" != "current" ]]; then
+    echo "==> Compose down legacy project 'current' (oude TENANT_DIR-naam / poort 5432)"
+    if docker compose version >/dev/null 2>&1; then
+      docker compose -p current -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+    elif command -v docker-compose >/dev/null 2>&1; then
+      docker-compose -p current -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+    fi
+  fi
+
+  # Laatste redmiddel: iets anders (ander compose-project) houdt 127.0.0.1:5432 bezet.
+  local busy
+  busy="$(docker ps -q --filter publish=5432 2>/dev/null || true)"
+  if [[ -n "$busy" ]]; then
+    echo "==> Poort 5432 nog bezet; stop containers: $busy"
+    # shellcheck disable=SC2086
+    docker stop $busy >/dev/null 2>&1 || true
+  fi
+
   echo "==> Compose up -d"
   _compose up -d
 }
@@ -448,6 +488,15 @@ _require_compose_file
 _stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
 _git_sync_code
+
+# Bash heeft dit bestand al geparsed vóór git reset. Herstart zodat helpers
+# (compose up, poortvrijgave, enz.) overeenkomen met origin/release/test.
+if [[ "${DEPLOY_POST_GIT_REEXEC:-}" != "1" ]]; then
+  export DEPLOY_POST_GIT_REEXEC=1
+  echo "==> Herstart deploy-tenant.sh na git sync (actuele deploy-helpers)"
+  exec bash "$TENANT_DIR/deploy/deploy-tenant.sh"
+fi
+
 _build_frontend_assets
 
 echo "==> Docker Compose pull/build/up"

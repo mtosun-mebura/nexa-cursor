@@ -1,46 +1,51 @@
 <?php
 
-use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
+use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
 use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminCompanyDomainController;
+use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
+use App\Http\Controllers\Admin\AdminForcePasswordController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
 use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
-use App\Http\Controllers\Admin\AdminPlatformBillingSettingsController;
-use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
-use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
-use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
-use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
-use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
-// AdminVacancyController moved to Skillmatching module
-// AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminModuleController;
+use App\Http\Controllers\Admin\AdminNewsletterController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentProviderController;
+// AdminVacancyController moved to Skillmatching module
+// AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminPermissionController;
+use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
+use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
+use App\Http\Controllers\Admin\AdminPlatformBillingSettingsController;
+use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
 use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
+use App\Http\Controllers\Admin\AdminTenantCustomerEmailController;
+use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminWebsitePageController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
 use App\Http\Controllers\Frontend\InfoRequestController;
 use App\Http\Controllers\Frontend\MatchController;
-use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
-use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\WebsitePageController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Models\Vacancy;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
 use App\Services\WebsiteBuilderService;
+use App\Support\AdminReturnUrl;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -365,13 +370,25 @@ Route::post('/admin/password/reset', [AdminAuthController::class, 'reset'])->mid
 Route::get('/admin/password/changed', [AdminAuthController::class, 'showPasswordChanged'])->name('admin.password.changed');
 
 // Admin Protected Routes
-Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('ai-chat/message', [App\Http\Controllers\Admin\AdminAiChatController::class, 'sendMessage'])
         ->middleware('throttle:60,1')
         ->name('ai-chat.message');
 
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
+    Route::post('wachtwoord-wijzigen', [AdminForcePasswordController::class, 'update'])->name('password.force.update');
+
+    Route::get('abonnementen', [AdminCompanySubscriptionController::class, 'show'])->name('subscriptions.show');
+    Route::post('abonnementen/upgrade', [AdminCompanySubscriptionController::class, 'upgrade'])->name('subscriptions.upgrade');
+    Route::post('abonnementen/downgrade', [AdminCompanySubscriptionController::class, 'downgrade'])->name('subscriptions.downgrade');
+    Route::post('abonnementen/opzeggen', [AdminCompanySubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+    Route::post('abonnementen/intrekken', [AdminCompanySubscriptionController::class, 'withdraw'])->name('subscriptions.withdraw');
+
+    Route::get('email-communicatie', [AdminTenantCustomerEmailController::class, 'index'])->name('customer-emails.index');
+    Route::get('email-communicatie/{customerEmail}/voorbeeld', [AdminTenantCustomerEmailController::class, 'preview'])->name('customer-emails.preview');
+    Route::get('email-communicatie/{customerEmail}', [AdminTenantCustomerEmailController::class, 'show'])->name('customer-emails.show');
+    Route::post('email-communicatie/{customerEmail}/opnieuw-versturen', [AdminTenantCustomerEmailController::class, 'resend'])->name('customer-emails.resend');
 
     Route::resource('tenant-customer-invoices', AdminTenantCustomerInvoiceController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('tenant-customer-invoices/{invoice}/send-payment-link', [AdminTenantCustomerInvoiceController::class, 'sendWithPaymentLink'])
@@ -405,6 +422,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
 
     Route::middleware('role:super-admin')->group(function () {
         Route::view('playground/metronic-demo1', 'admin.metronic-vue-demo1')->name('playground.metronic-demo1');
+        Route::post('companies/{company}/send-welcome', [AdminCompanyController::class, 'sendWelcomeMail'])->name('companies.send-welcome');
         Route::get('companies/{company}/website-bundle/export', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'export'])->name('companies.website-bundle.export');
         Route::post('companies/{company}/website-bundle/import', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'import'])->name('companies.website-bundle.import');
     });
@@ -599,6 +617,22 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::post('email-templates/{emailTemplate}/duplicate', [AdminEmailTemplateController::class, 'duplicate'])->name('email-templates.duplicate');
     Route::post('email-templates/{emailTemplate}/send-test', [AdminEmailTemplateController::class, 'sendTest'])->name('email-templates.send-test');
 
+    Route::middleware('role:super-admin')->prefix('newsletters')->name('newsletters.')->group(function () {
+        Route::get('/', [AdminNewsletterController::class, 'index'])->name('index');
+        Route::get('create', [AdminNewsletterController::class, 'create'])->name('create');
+        Route::post('/', [AdminNewsletterController::class, 'store'])->name('store');
+        Route::post('generate', [AdminNewsletterController::class, 'generate'])->name('generate');
+        Route::post('preview', [AdminNewsletterController::class, 'preview'])->name('preview');
+        Route::get('prospects', [AdminNewsletterController::class, 'prospects'])->name('prospects');
+        Route::post('prospects', [AdminNewsletterController::class, 'storeProspect'])->name('prospects.store');
+        Route::post('prospects/discover', [AdminNewsletterController::class, 'discover'])->name('discover');
+        Route::post('prospects/{prospect}/unsubscribe', [AdminNewsletterController::class, 'unsubscribeProspect'])->name('prospects.unsubscribe');
+        Route::get('versturen', [AdminNewsletterController::class, 'sendForm'])->name('send');
+        Route::post('versturen', [AdminNewsletterController::class, 'send'])->name('send.store');
+        Route::get('{campaign}/edit', [AdminNewsletterController::class, 'edit'])->name('edit');
+        Route::put('{campaign}', [AdminNewsletterController::class, 'update'])->name('update');
+    });
+
     // Candidates (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('candidates', AdminCandidateController::class);
@@ -662,6 +696,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
             Route::get('settings', [AdminPlatformBillingSettingsController::class, 'edit'])->name('settings.edit');
             Route::put('settings', [AdminPlatformBillingSettingsController::class, 'update'])->name('settings.update');
             Route::post('settings/import-invoice-settings', [AdminPlatformBillingSettingsController::class, 'importFromInvoiceSettings'])->name('settings.import-invoice-settings');
+            Route::delete('packages/bulk', [AdminPlatformBillingPackageController::class, 'bulkDestroy'])->name('packages.bulk-destroy');
             Route::resource('packages', AdminPlatformBillingPackageController::class);
             Route::post('packages/{package}/toggle-status', [AdminPlatformBillingPackageController::class, 'toggleStatus'])->name('packages.toggle-status');
             Route::resource('line-items', AdminPlatformBillingLineItemController::class)->except(['show']);
@@ -676,7 +711,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
             Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', 'Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.'))->name('mandates.return');
             Route::get('invoices', [AdminPlatformInvoiceController::class, 'index'])->name('invoices.index');
             Route::post('invoices/run-now', [AdminPlatformInvoiceController::class, 'runNow'])->name('invoices.run-now');
+            Route::post('invoices/run-dunning', [AdminPlatformInvoiceController::class, 'runDunningNow'])->name('invoices.run-dunning');
             Route::get('invoices/{invoice}/pdf', [AdminPlatformInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
+            Route::get('invoices/{invoice}/edit', [AdminPlatformInvoiceController::class, 'edit'])->name('invoices.edit');
             Route::put('invoices/{invoice}', [AdminPlatformInvoiceController::class, 'update'])->name('invoices.update');
             Route::get('invoices/{invoice}', [AdminPlatformInvoiceController::class, 'show'])->name('invoices.show');
         });
@@ -699,9 +736,18 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/seo/submit-sitemap', [App\Http\Controllers\Admin\AdminSettingsController::class, 'submitSeoSitemap'])->name('settings.seo.submit-sitemap');
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
         Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
+        Route::post('settings/mollie', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMollie'])->name('settings.mollie.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         Route::post('settings/whatsapp/platform', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsappPlatform'])->name('settings.whatsapp.platform.update');
         Route::post('settings/whatsapp/platform/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testWhatsappPlatform'])->name('settings.whatsapp.platform.test');
+        Route::middleware('role:super-admin')->group(function () {
+            Route::get('whatsapp-voorstel-test', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'index'])->name('whatsapp-pickup-proposal-mock.index');
+            Route::get('whatsapp-voorstel-test/feed', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'feed'])->name('whatsapp-pickup-proposal-mock.feed');
+            Route::post('whatsapp-voorstel-test/seed', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'seed'])->name('whatsapp-pickup-proposal-mock.seed');
+            Route::post('whatsapp-voorstel-test/simulate', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'simulate'])->name('whatsapp-pickup-proposal-mock.simulate');
+            Route::post('whatsapp-voorstel-test/delete', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'destroySelected'])->name('whatsapp-pickup-proposal-mock.destroy');
+            Route::post('whatsapp-voorstel-test/clear', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'clear'])->name('whatsapp-pickup-proposal-mock.clear');
+        });
         Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
         Route::post('settings/tenant-sync', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateTenantSync'])->name('settings.tenant-sync.update');
         Route::post('settings/tenant-sync/target/create', [App\Http\Controllers\Admin\AdminSettingsController::class, 'createTenantSyncTarget'])->name('settings.tenant-sync.target.create');
@@ -713,6 +759,13 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/tenant-storage-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantStorageBundle'])->name('settings.tenant-storage-bundle.import');
         Route::get('settings/tenant-website-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantWebsiteBundle'])->name('settings.tenant-website-bundle.export');
         Route::post('settings/tenant-website-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantWebsiteBundle'])->name('settings.tenant-website-bundle.import');
+        Route::post('settings/database-backups', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateDatabaseBackupSettings'])->name('settings.database-backups.update');
+        Route::post('settings/database-backups/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runDatabaseBackupNow'])->name('settings.database-backups.run');
+        Route::get('settings/database-backups/table', [App\Http\Controllers\Admin\AdminSettingsController::class, 'databaseBackupsTable'])->name('settings.database-backups.table');
+        Route::post('settings/database-backups/bulk-delete', [App\Http\Controllers\Admin\AdminSettingsController::class, 'bulkDestroyDatabaseBackups'])->name('settings.database-backups.bulk-delete');
+        Route::post('settings/database-backups/{databaseBackup}/restore', [App\Http\Controllers\Admin\AdminSettingsController::class, 'restoreDatabaseBackup'])->name('settings.database-backups.restore');
+        Route::get('settings/database-backups/{databaseBackup}/download', [App\Http\Controllers\Admin\AdminSettingsController::class, 'downloadDatabaseBackup'])->name('settings.database-backups.download');
+        Route::delete('settings/database-backups/{databaseBackup}', [App\Http\Controllers\Admin\AdminSettingsController::class, 'destroyDatabaseBackup'])->name('settings.database-backups.destroy');
 
         // General Settings (Super Admin only)
         Route::get('settings/frontend', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');
@@ -740,19 +793,27 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         // Welkom-pagina editor (Super Admin only)
         Route::get('welcome-page', [App\Http\Controllers\Admin\AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
 
+        Route::middleware('role:super-admin')->group(function () {
+            Route::get('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
+            Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
+        });
+
         // Website builder (Super Admin only)
-        Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
-        Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
-        Route::get('website-pages/component-section-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
-        Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
-        Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
-        Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
-        Route::post('website-pages/generate-seo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
-        Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
-        Route::get('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
-        Route::put('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
-        Route::patch('website-pages/{website_page}/builder-v2/meta', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
-        Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
+        Route::get('website-pages/theme-blocks', [AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
+        Route::get('website-pages/section-card-html', [AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
+        Route::get('website-pages/component-section-html', [AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
+        Route::get('website-pages/block-preview', [AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
+        Route::post('website-pages/upload-footer-logo', [AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
+        Route::post('website-pages/upload-hero-image', [AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
+        Route::post('website-pages/upload-wysiwyg-document', [AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
+        Route::post('website-pages/generate-seo', [AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
+        Route::post('website-pages/generate-seo-all', [AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
+        Route::get('website-pages/{website_page}/preview', [AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
+        Route::get('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
+        Route::put('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
+        Route::patch('website-pages/{website_page}/builder-v2/meta', [AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
+        Route::post('website-pages/{website_page}/reorder', [AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
+        Route::resource('website-pages', AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
         Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
         Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
@@ -761,6 +822,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('frontend-themes/publish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'publish'])->name('frontend-themes.publish');
         Route::post('frontend-themes/unpublish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'unpublish'])->name('frontend-themes.unpublish');
         Route::get('frontend-themes/setup', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'showSetup'])->name('frontend-themes.setup');
+        Route::post('frontend-themes/company-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateCompanyTheme'])->name('frontend-themes.update-company-theme');
         Route::post('frontend-themes/module-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateModuleTheme'])->name('frontend-themes.update-module-theme');
         Route::post('frontend-themes/{frontend_theme}/set-active', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'setActive'])->name('frontend-themes.set-active');
         Route::get('frontend-themes/{frontend_theme}/edit', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'edit'])->name('frontend-themes.edit');
@@ -804,6 +866,19 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
 })->name('home');
 
 Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
+
+// Interne marketing / sales preview (centraal host: localhost, nexasuite.nl)
+// Let op: geen public/marketing/ map — die botst met php artisan serve / static files.
+Route::get('/marketing', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'index'])
+    ->name('marketing.index');
+Route::get('/marketing/{page}', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'show'])
+    ->where('page', 'strategie|taxi|contractvervoer|website|prijzen|website-copy')
+    ->name('marketing.show');
+
+// Preview van de 404-pagina (geen echte 404-status, zodat je de UI kunt beoordelen)
+Route::get('/test-404', function () {
+    return response()->view('errors.404', [], 200);
+})->name('test-404');
 
 // Website media: encrypted afbeeldingen (decrypt on serve, publiek voor frontend)
 Route::get('website-media/{uuid}', [App\Http\Controllers\WebsiteMediaController::class, 'serve'])->name('website-media.serve')->where('uuid', '[\w\-]+');
@@ -870,7 +945,7 @@ Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController:
     ->name('frontend.ai-chat.message');
 
 Route::post('/info-request', [InfoRequestController::class, 'submit'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:public-forms')
     ->name('frontend.send-info-request');
 
 // Test routes voor error pagina's (alleen in development)
@@ -1013,6 +1088,13 @@ Route::get('/contact', function () {
     return redirect()->route('home');
 })->name('contact');
 Route::post('/contact', fn () => redirect()->route('home'))->name('contact.submit');
+
+Route::get('/nieuwsbrief/afmelden/{token}', [App\Http\Controllers\NewsletterUnsubscribeController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->name('newsletter.unsubscribe');
+Route::post('/nieuwsbrief/afmelden/{token}', [App\Http\Controllers\NewsletterUnsubscribeController::class, 'store'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->name('newsletter.unsubscribe.one-click');
 
 Route::get('/privacy', function () {
     return view('frontend.pages.privacy');

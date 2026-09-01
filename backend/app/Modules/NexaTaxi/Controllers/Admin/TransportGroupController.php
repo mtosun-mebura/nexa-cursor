@@ -9,6 +9,7 @@ use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportGroupMember;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
+use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Services\TransportRoutePlannerService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
@@ -21,6 +22,7 @@ class TransportGroupController extends Controller
 
     public function __construct(
         private readonly TransportGroupRouteSyncService $routeSync,
+        private readonly TaxiDriverEligibilityService $driverEligibility,
     ) {}
 
     public function index(Request $request, int $customerId, int $contractId)
@@ -149,7 +151,9 @@ class TransportGroupController extends Controller
             'routeTemplate',
             'routePickupStops',
             'routeDestinationStop',
-            'routeDepartureTime'
+            'routeDepartureTime',
+            'routeDisplayDriver',
+            'routeDisplayVehicle'
         ));
     }
 
@@ -511,7 +515,9 @@ class TransportGroupController extends Controller
      *   routeTemplate: TransportRouteTemplate|null,
      *   routePickupStops: \Illuminate\Support\Collection,
      *   routeDestinationStop: \App\Modules\NexaTaxi\Models\TransportRouteStop|null,
-     *   routeDepartureTime: string|null
+     *   routeDepartureTime: string|null,
+     *   routeDisplayDriver: \App\Models\User|null,
+     *   routeDisplayVehicle: \App\Modules\NexaTaxi\Models\Vehicle|null
      * }
      */
     private function loadRouteContext(?TransportRouteTemplate $routeTemplate): array
@@ -519,6 +525,8 @@ class TransportGroupController extends Controller
         $routePickupStops = collect();
         $routeDestinationStop = null;
         $routeDepartureTime = null;
+        $routeDisplayDriver = null;
+        $routeDisplayVehicle = $routeTemplate?->assignment?->vehicle;
 
         if ($routeTemplate) {
             $routePickupStops = $routeTemplate->stops->where('stop_type', 'pickup')->values();
@@ -531,9 +539,24 @@ class TransportGroupController extends Controller
                         $routePickupStops->first()
                     );
             }
+
+            $driver = $routeTemplate->assignment?->driver;
+            if ($driver && $this->driverEligibility->isChauffeurForCompany(
+                $driver,
+                (int) $routeTemplate->company_id
+            )) {
+                $routeDisplayDriver = $driver;
+            }
         }
 
-        return compact('routeTemplate', 'routePickupStops', 'routeDestinationStop', 'routeDepartureTime');
+        return compact(
+            'routeTemplate',
+            'routePickupStops',
+            'routeDestinationStop',
+            'routeDepartureTime',
+            'routeDisplayDriver',
+            'routeDisplayVehicle'
+        );
     }
 
     /** @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse */

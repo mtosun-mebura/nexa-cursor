@@ -10,7 +10,7 @@
                 {{ $lineItem->exists ? 'Factuurregel bewerken' : 'Nieuwe factuurregel' }}
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Generieke regel voor SaaS-facturen
+                Generieke regel voor NEXA-facturen
             </div>
         </div>
         <div class="flex items-center gap-2.5">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use Illuminate\Validation\Rule;
 
 /**
@@ -16,6 +17,14 @@ class StoreUserRequest extends BaseFormRequest
             auth()->user()->hasRole('super-admin') ||
             auth()->user()->can('create-users')
         );
+    }
+
+    protected function prepareForValidation(): void
+    {
+        parent::prepareForValidation();
+        if ($this->input('password') === '') {
+            $this->merge(['password' => null]);
+        }
     }
 
     public function rules(): array
@@ -42,7 +51,8 @@ class StoreUserRequest extends BaseFormRequest
                 'regex:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/',
             ],
             'password' => [
-                'required',
+                Rule::requiredIf(fn () => ! $this->usesAppFirstLogin()),
+                'nullable',
                 'string',
                 'min:8',
                 'max:255',
@@ -111,6 +121,16 @@ class StoreUserRequest extends BaseFormRequest
                 $validator->errors()->add('roles', 'Je mag geen super-admin rol toewijzen.');
             }
         });
+    }
+
+    private function usesAppFirstLogin(): bool
+    {
+        $roles = $this->input('roles', []);
+        if (! is_array($roles)) {
+            return false;
+        }
+
+        return app(TaxiAppFirstLoginService::class)->welcomeRoleForRoles($roles) !== null;
     }
 
     public function messages(): array

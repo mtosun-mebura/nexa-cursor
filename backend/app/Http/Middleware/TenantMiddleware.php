@@ -4,18 +4,30 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Spatie\Permission\PermissionRegistrar;
 
 class TenantMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
+        } catch (\Throwable $e) {
+            report($e);
+            $user = null;
+        }
+        $registrar = app(PermissionRegistrar::class);
         if ($user && $user->company_id) {
-            app()->instance('tenant_id', (int) $user->company_id);
+            $teamId = (int) $user->company_id;
+            app()->instance('tenant_id', $teamId);
+            $registrar->setPermissionsTeamId($teamId);
         } elseif (app()->bound('resolved_tenant_id') && app('resolved_tenant_id') !== null) {
-            app()->instance('tenant_id', (int) app('resolved_tenant_id'));
+            $teamId = (int) app('resolved_tenant_id');
+            app()->instance('tenant_id', $teamId);
+            $registrar->setPermissionsTeamId($teamId);
         } else {
             app()->forgetInstance('tenant_id');
+            $registrar->setPermissionsTeamId(null);
         }
 
         return $next($request);

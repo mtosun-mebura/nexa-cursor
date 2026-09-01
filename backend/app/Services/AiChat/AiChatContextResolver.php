@@ -6,6 +6,7 @@ use App\DTO\AiChat\AiChatRequestContext;
 use App\Enums\AiChat\AiChatChannel;
 use App\Models\GeneralSetting;
 use App\Models\User;
+use App\Support\Tenancy\CentralDomains;
 use RuntimeException;
 
 final class AiChatContextResolver
@@ -16,7 +17,19 @@ final class AiChatContextResolver
 
     public function forPublicRequest(?string $module = null, ?string $sessionId = null): AiChatRequestContext
     {
+        $module = strtolower(trim((string) ($module ?: '')));
         $companyId = GeneralSetting::resolveScopeCompanyId();
+
+        if ($this->isCentralNexaChat($module, $companyId)) {
+            return new AiChatRequestContext(
+                companyId: 0,
+                channel: AiChatChannel::Public,
+                sessionId: $sessionId,
+                module: 'nexa',
+                isCentralWebsite: true,
+            );
+        }
+
         if ($companyId === null) {
             throw new RuntimeException('Bedrijfscontext ontbreekt voor de AI-assistent.');
         }
@@ -25,8 +38,25 @@ final class AiChatContextResolver
             companyId: (int) $companyId,
             channel: AiChatChannel::Public,
             sessionId: $sessionId,
-            module: strtolower(trim((string) ($module ?: 'taxi'))),
+            module: $module !== '' ? $module : 'taxi',
         );
+    }
+
+    private function isCentralNexaChat(string $module, ?int $companyId): bool
+    {
+        if ($companyId !== null) {
+            return false;
+        }
+
+        if ($module === 'nexa') {
+            return true;
+        }
+
+        $host = strtolower(trim((string) (request()->getHost() ?? '')));
+
+        // Centrale marketing-site (localhost / APP_URL), ook als de frontend per ongeluk
+        // module=taxi meestuurt omdat de branding-module taxi is.
+        return $host !== '' && CentralDomains::isCentral($host);
     }
 
     public function forMijnTaxiRequest(User $user, ?string $module = null, ?string $sessionId = null): AiChatRequestContext

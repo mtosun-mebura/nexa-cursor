@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\EnvService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\Request;
 
@@ -19,10 +20,7 @@ class TaxiPortalController extends Controller
         $homeSections = $homePage?->getHomeSections() ?? [];
         $googleMapsApiKey = $homePage
             ? $websiteBuilder->resolveGoogleMapsApiKeyForPage($homePage)
-            : '';
-        if ($googleMapsApiKey === '') {
-            $googleMapsApiKey = trim((string) config('maps.api_key', ''));
-        }
+            : app(EnvService::class)->getGoogleMapsApiKey();
 
         return view('frontend.pages.taxi-portal', [
             'branding' => $websiteBuilder->getSiteBranding('taxi'),

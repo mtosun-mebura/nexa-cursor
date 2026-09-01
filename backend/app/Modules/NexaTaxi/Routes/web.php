@@ -8,6 +8,8 @@ use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
 use App\Modules\NexaTaxi\Controllers\Admin\AiChatbotSettingsController;
 use App\Modules\NexaTaxi\Controllers\Admin\KnowledgeDocumentController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportCustomerController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportCustomerPortalController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportAnnouncementController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportPassengerController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupRouteController;
@@ -70,6 +72,20 @@ Route::get('contractklanten/{id}', [TransportCustomerController::class, 'show'])
 Route::get('contractklanten/{id}/bewerken', [TransportCustomerController::class, 'edit'])->name('transport_customers.edit');
 Route::put('contractklanten/{id}', [TransportCustomerController::class, 'update'])->name('transport_customers.update');
 Route::delete('contractklanten/{id}', [TransportCustomerController::class, 'destroy'])->name('transport_customers.destroy');
+
+Route::post('contractklanten/{customerId}/portaal', [TransportCustomerPortalController::class, 'store'])
+    ->name('transport_customers.portal.store');
+Route::put('contractklanten/{customerId}/portaal/{portalUserId}', [TransportCustomerPortalController::class, 'update'])
+    ->name('transport_customers.portal.update');
+Route::delete('contractklanten/{customerId}/portaal/{portalUserId}', [TransportCustomerPortalController::class, 'destroy'])
+    ->name('transport_customers.portal.destroy');
+
+Route::post('contractklanten/{customerId}/meldingen', [TransportAnnouncementController::class, 'store'])
+    ->name('transport_customers.announcements.store');
+Route::put('contractklanten/{customerId}/meldingen/{announcementId}', [TransportAnnouncementController::class, 'update'])
+    ->name('transport_customers.announcements.update');
+Route::delete('contractklanten/{customerId}/meldingen/{announcementId}', [TransportAnnouncementController::class, 'destroy'])
+    ->name('transport_customers.announcements.destroy');
 
 // Abonnementen (sub-resource van klant)
 Route::get('contractklanten/{customerId}/abonnementen/nieuw', [TransportCustomerController::class, 'contractCreate'])

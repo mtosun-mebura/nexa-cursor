@@ -72,6 +72,7 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Prijzen komen uit <a href="{{ route('admin.nexa-pricing.edit') }}" class="underline underline-offset-2">Paketten</a>.</p>
                             </td>
                         </tr>
                         <tr data-billing-field-row="custom">
@@ -204,6 +205,60 @@
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">Notities</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <textarea name="notes" id="notes" class="kt-input w-full" rows="3" data-invoice-preview-trigger>{{ old('notes', $profile->notes) }}</textarea>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @php
+                $currentRestriction = old('access_restriction', $profile->access_restriction ?: 'none');
+                if (! in_array($currentRestriction, ['none', 'bookings', 'full'], true)) {
+                    $currentRestriction = 'none';
+                }
+            @endphp
+            <div class="kt-card w-full min-w-0 overflow-x-clip">
+                <div class="kt-card-header px-5 py-5">
+                    <h3 class="kt-card-title mb-0">Blokkade bij wanbetaling</h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tbody>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Na 2e aanmaning</td>
+                            <td class="min-w-48 w-full">
+                                <select name="overdue_block_mode" id="overdue_block_mode" class="kt-select w-full @error('overdue_block_mode') border-destructive @enderror">
+                                    <option value="bookings" @selected(old('overdue_block_mode', $profile->overdue_block_mode ?: 'bookings') === 'bookings')>Alleen boekingsmodule blokkeren</option>
+                                    <option value="full" @selected(old('overdue_block_mode', $profile->overdue_block_mode) === 'full')>Volledige blokkade (website, admin, apps)</option>
+                                </select>
+                                <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
+                                    De termijnen voor 1e en 2e aanmaning stel je in onder NEXA-facturatie-instellingen. Na de 2e aanmaning volgt deze blokkade. De boekingsmodule op de website gaat uit bij de eerste optie.
+                                </p>
+                                @error('overdue_block_mode')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Huidige toegang</td>
+                            <td class="min-w-48 w-full">
+                                <select name="access_restriction" id="access_restriction" class="kt-select w-full @error('access_restriction') border-destructive @enderror">
+                                    <option value="none" @selected($currentRestriction === 'none')>Geen blokkade</option>
+                                    <option value="bookings" @selected($currentRestriction === 'bookings')>Boekingsmodule geblokkeerd</option>
+                                    <option value="full" @selected($currentRestriction === 'full')>Volledig geblokkeerd</option>
+                                </select>
+                                @if($profile->access_restricted_at)
+                                    <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
+                                        Actief sinds {{ $profile->access_restricted_at->format('d-m-Y H:i') }}
+                                        @if($profile->access_restriction_source)
+                                            ({{ $profile->access_restriction_source === 'manual' ? 'handmatig' : 'automatisch na aanmaningen' }})
+                                        @endif
+                                    </p>
+                                @else
+                                    <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
+                                        Kies hier een blokkade om die nu te zetten, of “Geen blokkade” om een automatische blokkade op te heffen.
+                                    </p>
+                                @endif
+                                @error('access_restriction')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         </tbody>

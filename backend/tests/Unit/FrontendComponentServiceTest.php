@@ -48,4 +48,49 @@ class FrontendComponentServiceTest extends TestCase
             FrontendComponentService::normalizeComponentSectionKey('component:nexa.google_reviews')
         );
     }
+
+    public function test_screenshot_gallery_and_comparison_table_are_page_components(): void
+    {
+        $service = app(FrontendComponentService::class);
+
+        $this->assertNotNull($service->getById('website.screenshot_gallery'));
+        $this->assertNotNull($service->getById('website.comparison_table'));
+        $this->assertNotNull($service->getById('website.pricing_packages'));
+        $ids = $service->availableForPage(null)->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('website.screenshot_gallery', $ids);
+        $this->assertContains('website.comparison_table', $ids);
+        $this->assertContains('website.pricing_packages', $ids);
+    }
+
+    public function test_theme_components_are_available_on_any_page_theme(): void
+    {
+        $service = app(FrontendComponentService::class);
+
+        $this->assertNotNull($service->getById('landwind.faq'));
+        $this->assertNotNull($service->getById('play.team'));
+        $this->assertNotNull($service->getById('vue_material.quote_cards'));
+
+        $withoutTheme = $service->availableForPage(null)->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('landwind.faq', $withoutTheme);
+        $this->assertContains('play.video_spotlight', $withoutTheme);
+        $this->assertContains('vue_material.elevated_cards', $withoutTheme);
+        $this->assertContains('website.google_reviews', $withoutTheme);
+
+        $landwind = $service->availableForPage(null, 'landwind')->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('landwind.faq', $landwind);
+        $this->assertContains('landwind.trusted_by', $landwind);
+        $this->assertContains('play.team', $landwind);
+        $this->assertContains('vue_material.quote_cards', $landwind);
+        $this->assertTrue($landwind->search('landwind.faq') < $landwind->search('play.team'));
+
+        $play = $service->availableForPage(null, 'play-tailwind')->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('play.about_overlap', $play);
+        $this->assertContains('landwind.faq', $play);
+        $this->assertTrue($play->search('play.team') < $play->search('landwind.faq'));
+
+        $vue = $service->availableForPage(null, 'vue-material-kit')->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('vue_material.stats_counters', $vue);
+        $this->assertContains('play.blog_preview', $vue);
+        $this->assertTrue($vue->search('vue_material.author_header') < $vue->search('play.blog_preview'));
+    }
 }

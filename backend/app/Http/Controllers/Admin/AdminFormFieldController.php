@@ -12,8 +12,8 @@ class AdminFormFieldController extends Controller
 {
     private function authorizeFormFields(): void
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-email-templates')) {
-            abort(403, 'Je hebt geen rechten om formulier velden te beheren.');
+        if (! auth()->user()->hasRole('super-admin')) {
+            abort(403, 'Alleen een super-admin mag formulier velden beheren.');
         }
     }
 

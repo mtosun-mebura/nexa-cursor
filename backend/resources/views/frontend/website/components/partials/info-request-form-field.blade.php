@@ -9,13 +9,30 @@
         $required = (bool) $required;
     }
     $validationRule = $validationRule ?? ($field->validation_rule ?? null);
-    $isTextarea = (bool) ($isTextarea ?? (in_array($validationRule, [null, ''], true) && str_contains(strtolower((string) $fieldLabel), 'omschrijving')));
+    $isNexaPackage = $validationRule === 'nexa_package'
+        || $fieldName === 'pakket'
+        || (isset($field) && $field instanceof \App\Models\InfoRequestFormField && $field->isNexaPackageField());
+    $isTextarea = (bool) ($isTextarea ?? (! $isNexaPackage && in_array($validationRule, [null, ''], true) && str_contains(strtolower((string) $fieldLabel), 'omschrijving')));
     if ($isTextarea) {
         $validationRule = 'textarea';
     }
+    if ($isNexaPackage) {
+        $validationRule = 'nexa_package';
+    }
     $textareaMaxLength = \App\Models\InfoRequestFormField::TEXTAREA_MAX_LENGTH;
     $inputId = $inputId ?? ('email-template-' . $fieldName . '-' . $sectionKey);
+    $pricingService = app(\App\Services\NexaPricingService::class);
+    $packageOptions = $isNexaPackage ? $pricingService->packageNames() : [];
+    $selectedPackage = $isNexaPackage
+        ? $pricingService->matchPackageName(old($fieldName, request('pakket')))
+        : null;
     $oldValue = old($fieldName);
+    if ($oldValue === null && $isTextarea) {
+        $fromQuery = $pricingService->matchPackageName(request('pakket'));
+        if ($fromQuery !== null) {
+            $oldValue = $pricingService->interestMessage($fromQuery);
+        }
+    }
 @endphp
 <div class="info-request-field"
      data-field-name="{{ $fieldName }}"
@@ -23,8 +40,20 @@
      data-required="{{ $required ? '1' : '0' }}"
      data-validation-rule="{{ $validationRule ?: 'text' }}">
     <label for="{{ $inputId }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $fieldLabel }}{{ $required ? ' *' : '' }}</label>
-    <div class="info-request-input-wrap relative {{ $isTextarea ? 'info-request-input-wrap--textarea' : '' }}">
-        @if($isTextarea)
+    <div class="info-request-input-wrap relative {{ $isTextarea ? 'info-request-input-wrap--textarea' : '' }} {{ $isNexaPackage ? 'info-request-input-wrap--select' : '' }}">
+        @if($isNexaPackage)
+            <select id="{{ $inputId }}"
+                    name="{{ $fieldName }}"
+                    {{ $required ? 'required' : '' }}
+                    class="{{ $inputClass }} info-request-input @error($fieldName) border-red-500 dark:border-red-500 @enderror"
+                    data-info-request-input
+                    data-package-interest-select>
+                <option value="">{{ $required ? 'Kies een pakket' : 'Geen pakket geselecteerd' }}</option>
+                @foreach($packageOptions as $packageName)
+                    <option value="{{ $packageName }}" @selected($selectedPackage === $packageName)>{{ $packageName }}</option>
+                @endforeach
+            </select>
+        @elseif($isTextarea)
             <textarea id="{{ $inputId }}" name="{{ $fieldName }}" rows="5" maxlength="{{ $textareaMaxLength }}" {{ $required ? 'required' : '' }} class="{{ $inputClass }} info-request-input info-request-textarea pr-10 @error($fieldName) border-red-500 dark:border-red-500 @enderror" data-info-request-input data-max-length="{{ $textareaMaxLength }}">{{ $oldValue }}</textarea>
         @else
             <input type="{{ $validationRule === 'email' ? 'email' : 'text' }}"
@@ -36,6 +65,7 @@
                    data-info-request-input
                    autocomplete="{{ $validationRule === 'email' ? 'email' : ($validationRule === 'tel' ? 'tel' : 'off') }}">
         @endif
+        @unless($isNexaPackage)
         <span class="info-request-field-status pointer-events-none absolute right-3 hidden" aria-hidden="true">
             <svg class="info-request-icon-valid hidden h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"></path>
@@ -44,6 +74,7 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"></path>
             </svg>
         </span>
+        @endunless
     </div>
     @if($isTextarea)
         <p class="info-request-char-count mt-1 text-right text-[0.6875rem] leading-none text-gray-500 dark:text-gray-400 tabular-nums" aria-live="polite">{{ $textareaMaxLength }} tekens over · max. {{ $textareaMaxLength }}</p>

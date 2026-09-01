@@ -70,8 +70,8 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm pb-3 w-full">
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-3">
+                <h3 class="kt-card-title text-sm mb-0 w-full">
                     Toon 1 tot {{ $emailTemplates->count() }} van {{ $emailTemplates->count() }} templates
                 </h3>
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
@@ -84,8 +84,8 @@
                             @if(request('status'))
                                 <input type="hidden" name="status" value="{{ request('status') }}">
                             @endif
-                            @if(request('company'))
-                                <input type="hidden" name="company" value="{{ request('company') }}">
+                            @if(request()->exists('company_id'))
+                                <input type="hidden" name="company_id" value="{{ request('company_id') }}">
                             @endif
                             @if(request('sort'))
                                 <input type="hidden" name="sort" value="{{ request('sort') }}">
@@ -113,6 +113,22 @@
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
                             @endif
+
+                            @if($showTenantFilter ?? false)
+                            <select class="kt-select w-full sm:w-48"
+                                    name="company_id"
+                                    data-kt-select="true"
+                                    data-kt-select-placeholder="Tenant"
+                                    id="company-filter">
+                                <option value="">Alle tenants</option>
+                                <option value="algemeen" {{ (string) ($filterCompanyId ?? '') === 'algemeen' ? 'selected' : '' }}>Algemeen</option>
+                                @foreach($filterCompanies as $company)
+                                    <option value="{{ $company->id }}" {{ (string) ($filterCompanyId ?? '') === (string) $company->id ? 'selected' : '' }}>
+                                        {{ $company->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @endif
                             
                             <select class="kt-select w-full sm:w-36" 
                                     name="type" 
@@ -126,21 +142,6 @@
                                     </option>
                                 @endforeach
                             </select>
-                            
-                            @if(auth()->user()->hasRole('super-admin') && $companies->count() > 0)
-                            <select class="kt-select w-full sm:w-36" 
-                                    name="company" 
-                                    data-kt-select="true" 
-                                    data-kt-select-placeholder="Bedrijf"
-                                    id="company-filter">
-                                <option value="">Alle bedrijven</option>
-                                @foreach($companies as $company)
-                                    <option value="{{ $company->id }}" {{ request('company') == $company->id ? 'selected' : '' }}>
-                                        {{ $company->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @endif
                             
                             <select class="kt-select w-full sm:w-36" 
                                     name="status" 
@@ -163,7 +164,7 @@
                                 <option value="type" {{ request('sort') == 'type' ? 'selected' : '' }}>Type</option>
                             </select>
                         </form>
-                        @if(request('type') || request('company') || request('status') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
+                        @if(request('type') || request('status') || request()->filled('company_id') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
                         <a href="{{ route('admin.email-templates.index') }}" 
                            class="kt-btn kt-btn-outline kt-btn-icon" 
                            title="Filters resetten"
@@ -176,14 +177,14 @@
                 </div>
             </div>
             
-            <div class="kt-card-content">
+            <div class="kt-card-content p-0 min-w-0">
                 @if($emailTemplates->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="email_templates_table" data-admin-datatable-label="templates">
-                        <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border">
+                    <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="10" id="email_templates_table" data-admin-datatable-label="templates">
+                        <div class="kt-scrollable-x-auto admin-table-scroll-wrap admin-desktop-table-wrap email-templates-table-wrap min-w-0">
+                            <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full" id="email-templates-table">
                             <thead>
                                 <tr>
-                                    <th class="min-w-[300px]">
+                                    <th>
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Template & Details</span>
                                             <span class="kt-table-col-sort">
@@ -201,7 +202,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th>
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Type</span>
                                             <span class="kt-table-col-sort">
@@ -219,19 +220,19 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th>
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Bedrijf</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[120px]">
+                                    <th>
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Status</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th>
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Gemaakt op</span>
                                             <span class="kt-table-col-sort">
@@ -249,7 +250,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="text-center">Acties</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -295,7 +296,7 @@
                                                 <span class="text-sm">{{ $template->created_at->format('d-m-Y') }}</span>
                                             </a>
                                         </td>
-                                        <td class="w-[60px] email-templates-actions-col" onclick="event.stopPropagation();">
+                                        <td class="email-templates-actions-col" onclick="event.stopPropagation();">
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
@@ -380,7 +381,7 @@
                     </div>
                     </div>
                 @else
-                    <div class="flex flex-col items-center justify-center py-16">
+                    <div class="flex flex-col items-center justify-center py-16 px-5">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
                         <h4 class="text-lg font-semibold text-mono mb-2">Geen e-mail templates gevonden</h4>
                     </div>
@@ -425,9 +426,9 @@
         // Filter form submission (server-side filters)
         const filterForm = document.getElementById('filters-form');
         const typeFilter = document.getElementById('type-filter');
-        const companyFilter = document.getElementById('company-filter');
         const statusFilter = document.getElementById('status-filter');
         const sortFilter = document.getElementById('sort-filter');
+        const companyFilter = document.getElementById('company-filter');
         
         if (typeFilter && filterForm) {
             typeFilter.addEventListener('change', function() {
@@ -435,14 +436,14 @@
             });
         }
         
-        if (companyFilter && filterForm) {
-            companyFilter.addEventListener('change', function() {
+        if (statusFilter && filterForm) {
+            statusFilter.addEventListener('change', function() {
                 filterForm.submit();
             });
         }
-        
-        if (statusFilter && filterForm) {
-            statusFilter.addEventListener('change', function() {
+
+        if (companyFilter && filterForm) {
+            companyFilter.addEventListener('change', function() {
                 filterForm.submit();
             });
         }
@@ -528,6 +529,62 @@
         opacity: 1 !important;
     }
     
+    #content #email_templates_table .email-templates-table-wrap {
+        overflow-x: hidden !important;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    #content #email_templates_table .admin-fluid-table th:nth-child(1),
+    #content #email_templates_table .admin-fluid-table td:nth-child(1) {
+        width: 34%;
+    }
+
+    #content #email_templates_table .admin-fluid-table th:nth-child(2),
+    #content #email_templates_table .admin-fluid-table td:nth-child(2) {
+        width: 22%;
+    }
+
+    #content #email_templates_table .admin-fluid-table th:nth-child(3),
+    #content #email_templates_table .admin-fluid-table td:nth-child(3) {
+        width: 14%;
+    }
+
+    #content #email_templates_table .admin-fluid-table th:nth-child(4),
+    #content #email_templates_table .admin-fluid-table td:nth-child(4) {
+        width: 10%;
+        white-space: nowrap;
+    }
+
+    #content #email_templates_table .admin-fluid-table th:nth-child(5),
+    #content #email_templates_table .admin-fluid-table td:nth-child(5) {
+        width: 12%;
+        white-space: nowrap;
+    }
+
+    #content #email_templates_table .admin-fluid-table th:last-child,
+    #content #email_templates_table .admin-fluid-table td:last-child {
+        width: 3.5rem;
+        white-space: nowrap;
+    }
+
+    #content #email_templates_table .email-templates-actions-col {
+        overflow: visible !important;
+        vertical-align: middle !important;
+    }
+
+    #content #email_templates_table .email-templates-actions-col .kt-menu {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100%;
+    }
+
+    #content #email_templates_table .email-template-cell-link > a,
+    #content #email_templates_table .email-template-cell-link .flex {
+        min-width: 0;
+        max-width: 100%;
+    }
+
     /* Klikbare cellen: link vult hele cel */
     .email-template-cell-link a {
         cursor: pointer;

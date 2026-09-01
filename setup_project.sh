@@ -6,8 +6,8 @@
 # Vereisten: Docker met Compose-plugin; openssl; PostgreSQL bereikbaar vanaf de container.
 #
 # Gebruik:
-#   ./setup_project.sh           — build + migrate:fresh + UserRoleSeeder + up backend
-#   ./setup_project.sh --fresh   — zelfde, eerst containers van dit project stoppen
+#   ./setup_project.sh              — build + migrate + bootstrap (behoudt bestaande data)
+#   ./setup_project.sh --fresh      — bewuste schone lei: migrate:fresh + bootstrap (wist alle data)
 #
 # Backend: http://localhost:8085/admin
 # Super-admin: backend/app/Services/ModuleSchemaService.php (SUPERADMIN_*)
@@ -92,14 +92,16 @@ fi
 echo "→ Bouw backend-image"
 "${COMPOSE[@]}" build backend
 
-echo "→ Migraties (schone schema, geen seed)"
-"${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan migrate:fresh --force
+if [[ "$FRESH" == true ]]; then
+  echo "→ Migraties (schone schema — LET OP: wist alle data in de database)"
+  NEXA_ALLOW_DESTRUCTIVE_DB=true "${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan migrate:fresh --force
+else
+  echo "→ Migraties (behoudt bestaande data)"
+  "${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan migrate --force
+fi
 
-echo "→ UserRoleSeeder (alleen super-admin gebruiker + rol)"
-"${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan db:seed --class=UserRoleSeeder --force
-
-echo "→ RoleSeeder (alle standaard rollen toevoegen)"
-"${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan db:seed --class=RoleSeeder --force
+echo "→ Bootstrap (super-admin, rollen, centrale marketingpagina's)"
+"${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan nexa:ensure-bootstrap
 
 echo "→ Start backend (Laravel in container op :8000, host :8085)"
 "${COMPOSE[@]}" up -d backend

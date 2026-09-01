@@ -35,6 +35,9 @@ class DriverRidePaymentController extends Controller
         if ($openPayment) {
             $openPayment = $payments->syncRidePaymentFromMollie($conn, $openPayment);
             $rideModel = $rideModel->fresh();
+            if ($openPayment->status !== RidePayment::STATUS_OPEN) {
+                $openPayment = null;
+            }
         }
 
         return response()->json([

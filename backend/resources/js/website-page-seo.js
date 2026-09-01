@@ -25,7 +25,7 @@ function updateMetaDescriptionLength() {
     const ideal = 160;
     counter.textContent = `${len} / ${ideal}`;
     counter.classList.toggle('text-destructive', len > ideal);
-    counter.classList.toggle('text-success', len >= 120 && len <= ideal);
+    counter.classList.toggle('text-success', len >= 150 && len <= ideal);
 }
 
 function setInputValue(id, value) {
@@ -83,7 +83,18 @@ function applyHeroSections(sections) {
     if (!sectionKey) {
         return;
     }
-    setHeroField(sectionKey, 'title', hero.title);
+    const currentTitleInput = document.querySelector(`input[name="home_sections[${sectionKey}][title]"]`);
+    const currentTitle = String(currentTitleInput?.value ?? '').trim();
+    const incomingTitle = String(hero.title ?? '').trim();
+    const incomingTruncated = incomingTitle.endsWith('…') || incomingTitle.endsWith('...');
+    const currentTruncated = currentTitle.endsWith('…') || currentTitle.endsWith('...');
+    if (
+        incomingTitle
+        && !incomingTruncated
+        && (currentTitle === '' || currentTruncated || incomingTitle.length >= currentTitle.length)
+    ) {
+        setHeroField(sectionKey, 'title', incomingTitle);
+    }
     setHeroSubtitle(sectionKey, hero.subtitle);
     setHeroField(sectionKey, 'cta_primary_text', hero.cta_primary_text);
     setHeroField(sectionKey, 'cta_secondary_text', hero.cta_secondary_text);
@@ -104,6 +115,61 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+function stripHtml(str) {
+    return String(str || '')
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function collectPageContent() {
+    const parts = [];
+    const content = document.getElementById('content');
+    if (content?.value) {
+        parts.push(stripHtml(content.value));
+    }
+
+    const fields = document.querySelectorAll(
+        '#home-sections-sortable input, #home-sections-sortable textarea, .home-section-card input, .home-section-card textarea'
+    );
+    fields.forEach((el) => {
+        const name = el.getAttribute('name') || el.id || '';
+        if (!/(title|subtitle|content|description|text|heading|label|caption|section_title|cta_primary_text|cta_secondary_text)/i.test(name)) {
+            return;
+        }
+        if (/(url|color|image|font|uuid|align|width|height)/i.test(name)) {
+            return;
+        }
+        const value = stripHtml(el.value || '');
+        if (value.length >= 2) {
+            parts.push(value);
+        }
+    });
+
+    document.querySelectorAll('#home-sections-sortable .flowbite-wysiwyg-content, .home-section-card .flowbite-wysiwyg-content').forEach((el) => {
+        const value = stripHtml(el.textContent || '');
+        if (value.length >= 2) {
+            parts.push(value);
+        }
+    });
+
+    const unique = [];
+    const seen = new Set();
+    parts.forEach((part) => {
+        const key = part.toLowerCase();
+        if (seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        unique.push(part);
+    });
+
+    return unique.join('\n').slice(0, 8000);
+}
+
 function collectSeoPayload() {
     const form = document.getElementById('website-page-form');
     const moduleHidden = document.getElementById('module_name_hidden');
@@ -122,6 +188,7 @@ function collectSeoPayload() {
         slug: document.getElementById('slug')?.value?.trim() || '',
         company_id: companyId ? parseInt(companyId, 10) : null,
         include_sections: document.getElementById('website-page-seo-apply-sections')?.checked !== false,
+        page_content: collectPageContent(),
     };
 }
 

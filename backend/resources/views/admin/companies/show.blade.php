@@ -16,6 +16,26 @@
         {{ session('error') }}
     </div>
 @endif
+@if(! empty($needsCompanyAdminWelcome))
+    <div class="kt-alert company-welcome-alert mb-5" role="alert">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <div class="font-medium">Company-admin ontbreekt — welkomstmail is nog niet verstuurd.</div>
+                <p class="text-sm mb-0 mt-1 opacity-90">
+                    De wizard is niet tot de laatste stap afgerond. {{ $company->email }} heeft nog geen account
+                    en dus ook geen tijdelijk wachtwoord ontvangen.
+                </p>
+            </div>
+            <form method="POST" action="{{ route('admin.companies.send-welcome', $company) }}" class="shrink-0" id="company-welcome-mail-form">
+                @csrf
+                <button type="submit" class="kt-btn company-welcome-alert__btn" id="company-welcome-mail-btn">
+                    <i class="ki-filled ki-loader-2 company-welcome-alert__spinner" aria-hidden="true"></i>
+                    <span class="company-welcome-alert__btn-label">Welkomstmail nu versturen</span>
+                </button>
+            </form>
+        </div>
+    </div>
+@endif
 
 <style>
     .hero-bg {
@@ -23,6 +43,45 @@
     }
     .dark .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
+    }
+    .company-welcome-alert {
+        background-color: #f4b183 !important;
+        border: 1px solid #e89a5c !important;
+        color: #5c2e12 !important;
+    }
+    html.dark .company-welcome-alert {
+        background-color: #e07b3a !important;
+        border-color: #ef9348 !important;
+        color: #2c1408 !important;
+    }
+    .company-welcome-alert__btn {
+        background-color: #9a3412 !important;
+        border: 1px solid #9a3412 !important;
+        color: #fff7ed !important;
+    }
+    .company-welcome-alert__btn:hover,
+    .company-welcome-alert__btn:focus-visible {
+        background-color: #7c2d12 !important;
+        border-color: #7c2d12 !important;
+        color: #fff7ed !important;
+    }
+    .company-welcome-alert__spinner {
+        display: none;
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+        animation: company-welcome-spin 0.7s linear infinite;
+    }
+    .company-welcome-alert__btn.is-loading {
+        opacity: 0.9;
+        cursor: wait;
+        pointer-events: none;
+    }
+    .company-welcome-alert__btn.is-loading .company-welcome-alert__spinner {
+        display: inline-block;
+    }
+    @keyframes company-welcome-spin {
+        to { transform: rotate(360deg); }
     }
 </style>
 
@@ -160,6 +219,51 @@
                                 <x-heroicon-o-building-office-2 id="company-main-icon-table" class="w-5 h-5 font-bold text-gray-700 dark:text-white flex-shrink-0 {{ ($company->is_main || $company->mainLocation) ? '' : 'hidden' }}" />
                                 <span>{{ $company->name }}</span>
                             </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Pakket
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $packageLabel = app(\App\Services\NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''));
+                            @endphp
+                            @if($packageLabel)
+                                <span>{{ $packageLabel['name'] ?? $company->package_key }}</span>
+                                <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
+                            @else
+                                <span class="text-muted-foreground">Geen pakket gekoppeld</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @php
+                        $addonSelections = \App\Support\TenantPackageAddon::normalizeSelections(
+                            is_array($company->package_addons ?? null) ? $company->package_addons : []
+                        );
+                        $entitlements = app(\App\Services\CompanyEntitlementService::class);
+                        $moduleCatalog = collect(app(\App\Services\NexaPricingService::class)->modulesCatalog());
+                    @endphp
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
+                        <td class="text-foreground font-normal">
+                            <ul class="list-disc ps-5 mb-0 text-sm space-y-1">
+                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] > 0)
+                                    <li>{{ (int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] }}× extra contractklanten (+{{ (int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK }} klanten)</li>
+                                @endif
+                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 1)
+                                    <li>{{ $moduleCatalog->firstWhere('key', \App\Support\TenantPackageAddon::GPS_TRACKING)['name'] ?? 'GPS-trackers' }}</li>
+                                @endif
+                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::FLEET] === 1)
+                                    <li>{{ $moduleCatalog->firstWhere('key', \App\Support\TenantPackageAddon::FLEET)['name'] ?? 'Vloot' }}</li>
+                                @endif
+                            </ul>
+                            @if((int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] === 0
+                                && (int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 0
+                                && (int) $addonSelections[\App\Support\TenantPackageAddon::FLEET] === 0)
+                                <span class="text-muted-foreground">Geen aanvullende modules</span>
+                            @endif
+                            <p class="text-xs text-muted-foreground mt-2 mb-0">Contractklantenlimiet: {{ $entitlements->contractClientLimitLabel($company) }}</p>
                         </td>
                     </tr>
                     <tr>
@@ -1201,6 +1305,30 @@
     });
 </script>
 @endcan
+
+@if(! empty($needsCompanyAdminWelcome))
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('company-welcome-mail-form');
+        const btn = document.getElementById('company-welcome-mail-btn');
+        if (!form || !btn) {
+            return;
+        }
+        form.addEventListener('submit', function () {
+            if (btn.classList.contains('is-loading')) {
+                return;
+            }
+            btn.classList.add('is-loading');
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            const label = btn.querySelector('.company-welcome-alert__btn-label');
+            if (label) {
+                label.textContent = 'Versturen…';
+            }
+        });
+    });
+</script>
+@endif
 
 @endpush
 

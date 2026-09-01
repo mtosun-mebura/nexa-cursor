@@ -165,6 +165,7 @@
                             @endif
                         </td>
                     </tr>
+                    @if($user->company?->hasSkillmatchingModule())
                     <tr>
                         <td class="text-secondary-foreground font-normal">
                             Functie
@@ -177,6 +178,7 @@
                             @endif
                         </td>
                     </tr>
+                    @endif
                     @if($user->company)
                         <tr>
                             <td class="text-secondary-foreground font-normal">

@@ -15,7 +15,7 @@
         </a>
     </div>
 
-    <form action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate>
+    <form id="admin-user-form" action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
         <input type="hidden" name="wizard_back_url" value="{{ $userCreateBackUrl }}">
         @if(!empty($wizardContextCompanyId))
@@ -35,13 +35,13 @@
                     </h3>
                 </div>
                 <div class="kt-card-content p-0 sm:p-0">
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3 px-3 sm:px-5">
+                    <div class="kt-card-table pb-3 px-3 sm:px-5">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
+                            <td class="min-w-40 text-secondary-foreground font-normal">
                                 Voornaam *
                             </td>
-                            <td class="min-w-48 w-full">
+                            <td>
                                 <input type="text" 
                                        class="kt-input @error('first_name') border-destructive @enderror" 
                                        name="first_name" 
@@ -67,7 +67,7 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr id="user-function-row" @class(['hidden' => ! ($showFunctionField ?? false)])>
                             <td class="text-secondary-foreground font-normal">
                                 Functie
                             </td>
@@ -79,7 +79,8 @@
                                            name="function" 
                                            value="{{ old('function') }}"
                                            autocomplete="off"
-                                           placeholder="Type om te zoeken...">
+                                           placeholder="Type om te zoeken..."
+                                           @disabled(! $showFunctionField)>
                                     <div id="function-suggestions" class="hidden absolute left-0 top-full z-[9999] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto w-full mt-1" style="min-width: 100%;"></div>
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">Type om te zoeken of voer een eigen functie in</div>
@@ -104,19 +105,48 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        @php
+                            $appFirstLoginRoleNames = $appFirstLoginRoleNames ?? [];
+                            $selectedRolesForPassword = old('roles', $defaultRoleForForm ? [$defaultRoleForForm] : []);
+                            $selectedRolesForPassword = is_array($selectedRolesForPassword) ? $selectedRolesForPassword : [];
+                            $usesAppFirstLoginPassword = count(array_intersect(
+                                array_map('strtolower', $selectedRolesForPassword),
+                                array_map('strtolower', $appFirstLoginRoleNames)
+                            )) > 0;
+                            $passwordRequired = $selectedRolesForPassword !== [] && ! $usesAppFirstLoginPassword;
+                        @endphp
+                        <tr id="user-create-password-row">
                             <td class="text-secondary-foreground font-normal align-top">
-                                Wachtwoord *
+                                <span id="user-create-password-label">Wachtwoord</span><span id="user-create-password-required-mark" @unless($passwordRequired) hidden @endunless> *</span>
                             </td>
                             <td>
-                                <input type="password" 
-                                       class="kt-input @error('password') border-destructive @enderror" 
-                                       name="password" 
-                                       required>
-                                <div class="text-xs text-muted-foreground mt-1">Minimaal 8 tekens</div>
+                                <div class="user-create-password-fields">
+                                <div class="flex items-center gap-1.5">
+                                    <input type="password"
+                                           id="user-create-password"
+                                           class="kt-input min-w-0 flex-1 @error('password') border-destructive @enderror"
+                                           name="password"
+                                           @if($passwordRequired) required @endif
+                                           autocomplete="new-password">
+                                    <span class="relative shrink-0">
+                                        <button type="button"
+                                                id="user-create-password-generate"
+                                                class="user-create-password-generate kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost"
+                                                aria-label="Tijdelijk wachtwoord genereren"
+                                                aria-describedby="user-create-password-generate-tip">
+                                            <i class="ki-filled ki-key text-lg"></i>
+                                        </button>
+                                        <span id="user-create-password-generate-tip" role="tooltip" class="user-create-password-generate-tip">
+                                            Genereer een tijdelijk wachtwoord. Alleen bedoeld voor de eerste keer inloggen.
+                                        </span>
+                                    </span>
+                                </div>
+                                <div id="user-create-password-help-temp" class="text-xs text-muted-foreground mt-1" @if($usesAppFirstLoginPassword) hidden @endif>Optioneel bij chauffeur, contractant en contractouder (eerste login via een code in de app). Bij andere rollen: tijdelijk wachtwoord, minimaal 8 tekens, met een hoofdletter, kleine letter en cijfer.</div>
+                                <div id="user-create-password-help-app" class="text-xs text-muted-foreground mt-1" @unless($usesAppFirstLoginPassword) hidden @endunless>Niet nodig. Chauffeur, contractant en contractouder loggen de eerste keer in met een eenmalige code in de app en kiezen daarna zelf een wachtwoord.</div>
                                 @error('password')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
+                                </div>
                             </td>
                         </tr>
                         <tr>
@@ -176,13 +206,13 @@
                     </h3>
                 </div>
                 <div class="kt-card-content p-0 sm:p-0">
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3 px-3 sm:px-5">
+                    <div class="kt-card-table pb-3 px-3 sm:px-5">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
+                            <td class="min-w-40 text-secondary-foreground font-normal align-top pt-4">
                                 Rollen *
                             </td>
-                            <td class="min-w-48 w-full pt-4">
+                            <td class="pt-4">
                                 @include('admin.users.partials.role-checkboxes', [
                                     'roles' => $roles,
                                     'selectedRoles' => old('roles', $defaultRoleForForm ? [$defaultRoleForForm] : []),
@@ -190,20 +220,33 @@
                             </td>
                         </tr>
                         @if(auth()->user()->hasRole('super-admin'))
+                            @php
+                                $preselectedCompanyId = $preselectedCompanyId ?? old('company_id', $wizardContextCompanyId ?? request('company_id') ?? session('selected_tenant'));
+                                $lockedWizardCompany = ! empty($wizardContextCompanyId)
+                                    ? $companies->firstWhere('id', (int) $wizardContextCompanyId)
+                                    : null;
+                                $skillmatchingCompanyIds = $skillmatchingCompanyIds ?? [];
+                            @endphp
                             <tr>
                                 <td class="text-secondary-foreground font-normal">
                                     Bedrijf
                                 </td>
                                 <td>
+                                    @if($lockedWizardCompany)
+                                        <input type="hidden" name="company_id" value="{{ $lockedWizardCompany->id }}">
+                                        <div class="kt-input pointer-events-none bg-muted/40">{{ $lockedWizardCompany->name }}</div>
+                                        <div class="text-xs text-muted-foreground mt-1">Tenant uit de wizard; al geselecteerd.</div>
+                                    @else
                                     <select class="kt-input @error('company_id') border-destructive @enderror" 
                                             name="company_id">
                                         <option value="">-- Geen bedrijf --</option>
                                         @foreach($companies as $company)
-                                            <option value="{{ $company->id }}" {{ (string) old('company_id', $wizardContextCompanyId ?? session('selected_tenant')) === (string) $company->id ? 'selected' : '' }}>
+                                            <option value="{{ $company->id }}" {{ (string) $preselectedCompanyId === (string) $company->id ? 'selected' : '' }} data-skillmatching="{{ in_array((int) $company->id, array_map('intval', $skillmatchingCompanyIds), true) ? '1' : '0' }}">
                                                 {{ $company->name }}
                                             </option>
                                         @endforeach
                                     </select>
+                                    @endif
                                     @error('company_id')
                                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
@@ -234,11 +277,195 @@
 
 @endsection
 
+@push('styles')
+<style>
+    .user-create-password-generate-tip {
+        position: absolute;
+        right: 0;
+        bottom: calc(100% + 0.45rem);
+        z-index: 80;
+        display: none;
+        width: 16.5rem;
+        padding: 0.5rem 0.7rem;
+        border-radius: 0.5rem;
+        background: #18181b;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 400;
+        line-height: 1.35;
+        text-align: left;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+        pointer-events: none;
+    }
+    .user-create-password-generate:hover + .user-create-password-generate-tip,
+    .user-create-password-generate:focus-visible + .user-create-password-generate-tip {
+        display: block;
+    }
+    #admin-user-form .kt-card-table {
+        overflow-x: visible;
+    }
+    #admin-user-form .wizard-onboarding-form-table input.kt-input:not(#user-create-password),
+    #admin-user-form .wizard-onboarding-form-table input[type="text"]:not([data-kt-date-picker]),
+    #admin-user-form .wizard-onboarding-form-table input[type="email"],
+    #admin-user-form .wizard-onboarding-form-table input[type="tel"],
+    #admin-user-form .wizard-onboarding-form-table select.kt-input,
+    #admin-user-form #user-function-row .relative,
+    #admin-user-form .wizard-onboarding-form-table .kt-select,
+    #admin-user-form .wizard-onboarding-form-table [data-kt-select],
+    #admin-user-form .wizard-onboarding-form-table [data-kt-select-display],
+    #admin-user-form .wizard-onboarding-form-table td > .relative {
+        width: 100%;
+        max-width: 28rem;
+    }
+    #admin-user-form #user-create-password-row .user-create-password-fields,
+    #admin-user-form #user-create-password-row .flex.items-center {
+        width: 100%;
+        max-width: 28rem;
+    }
+    #admin-user-form #user-create-password {
+        width: auto;
+        max-width: none;
+        flex: 1 1 0%;
+        min-width: 0;
+    }
+    #admin-user-form [data-required-checkbox-group="roles"] {
+        max-width: 36rem;
+        row-gap: 0.5rem;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const skillmatchingCompanyIds = @json($skillmatchingCompanyIds ?? []);
+    const functionRow = document.getElementById('user-function-row');
     const functionInput = document.getElementById('function-input');
+    const companySelect = document.querySelector('select[name="company_id"]');
+    const companyHidden = document.querySelector('input[type="hidden"][name="company_id"]');
+
+    function selectedCompanyId() {
+        if (companySelect) {
+            return companySelect.value;
+        }
+        return companyHidden ? companyHidden.value : '';
+    }
+
+    function syncFunctionRow() {
+        if (!functionRow || !functionInput) {
+            return;
+        }
+        const show = skillmatchingCompanyIds.map(String).includes(String(selectedCompanyId()));
+        functionRow.classList.toggle('hidden', !show);
+        functionInput.disabled = !show;
+    }
+
+    if (companySelect) {
+        companySelect.addEventListener('change', syncFunctionRow);
+    }
+    syncFunctionRow();
+
+    const passwordInput = document.getElementById('user-create-password');
+    const generateBtn = document.getElementById('user-create-password-generate');
+    const appFirstLoginRoles = @json($appFirstLoginRoleNames ?? []);
+
+    function usesAppFirstLogin() {
+        const checked = Array.from(document.querySelectorAll('input[name="roles[]"]:checked')).map(function (el) {
+            return String(el.value || '').toLowerCase();
+        });
+        return appFirstLoginRoles.some(function (name) {
+            return checked.indexOf(String(name).toLowerCase()) !== -1;
+        });
+    }
+
+    function syncAppFirstLoginPassword() {
+        const appLogin = usesAppFirstLogin();
+        const checkedCount = document.querySelectorAll('input[name="roles[]"]:checked').length;
+        const passwordRequired = checkedCount > 0 && !appLogin;
+        const requiredMark = document.getElementById('user-create-password-required-mark');
+        const helpTemp = document.getElementById('user-create-password-help-temp');
+        const helpApp = document.getElementById('user-create-password-help-app');
+        if (requiredMark) {
+            requiredMark.hidden = !passwordRequired;
+        }
+        if (helpTemp) {
+            helpTemp.hidden = appLogin;
+        }
+        if (helpApp) {
+            helpApp.hidden = !appLogin;
+        }
+        if (passwordInput) {
+            if (passwordRequired) {
+                passwordInput.setAttribute('required', 'required');
+            } else {
+                passwordInput.removeAttribute('required');
+            }
+            if (appLogin) {
+                passwordInput.value = '';
+            }
+        }
+        if (generateBtn) {
+            generateBtn.hidden = appLogin;
+        }
+    }
+
+    const userCreateForm = passwordInput ? passwordInput.closest('form') : null;
+    if (userCreateForm) {
+        userCreateForm.addEventListener('change', function (ev) {
+            if (ev.target && ev.target.name === 'roles[]') {
+                syncAppFirstLoginPassword();
+            }
+        });
+    }
+    syncAppFirstLoginPassword();
+
+    function randomFrom(chars, count) {
+        const buf = new Uint32Array(count);
+        crypto.getRandomValues(buf);
+        let out = '';
+        for (let i = 0; i < count; i++) {
+            out += chars[buf[i] % chars.length];
+        }
+        return out;
+    }
+
+    function generateTemporaryPassword() {
+        const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const lower = 'abcdefghijkmnopqrstuvwxyz';
+        const digits = '23456789';
+        const all = upper + lower + digits;
+        let password;
+        do {
+            password = randomFrom(all, 12);
+        } while (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password));
+        return password;
+    }
+
+    function revealPassword(input) {
+        if (input.type !== 'password') {
+            return;
+        }
+        const wrap = input.parentNode;
+        const toggle = wrap && wrap.querySelector ? wrap.querySelector('.js-pw-toggle-btn') : null;
+        if (toggle) {
+            toggle.click();
+            return;
+        }
+        input.type = 'text';
+    }
+
+    if (generateBtn && passwordInput) {
+        generateBtn.addEventListener('click', function () {
+            passwordInput.value = generateTemporaryPassword();
+            revealPassword(passwordInput);
+            passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+            passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+            passwordInput.focus();
+            passwordInput.select();
+        });
+    }
+
     const suggestionsDiv = document.getElementById('function-suggestions');
     let debounceTimer;
     let selectedIndex = -1;

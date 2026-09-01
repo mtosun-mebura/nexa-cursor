@@ -78,7 +78,7 @@
             </a>
         </div>
     </div>
-    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per <strong>bedrijf</strong> kies je welk thema op de tenant-site wordt getoond (Bedrijf bewerken → Website-thema). Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
+    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per <strong>tenant</strong> kies je hieronder welk thema op die website komt. Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
 
     @if(session('success'))
         <div class="kt-alert kt-alert-success mb-5">
@@ -144,69 +144,61 @@
         @endforeach
     </div>
 
-    @if(count($activeModulesForThemes ?? []) > 0)
-        <div class="mt-8">
-            <h2 class="text-lg font-medium mb-3">Thema per module</h2>
-            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module (fallback). Per tenant bepaalt het <strong>website-thema op het bedrijf</strong> het uiterlijk. Alleen actieve modules worden getoond.</p>
+    <div class="mt-8">
+            <h2 class="text-lg font-medium mb-3">Thema per tenant</h2>
+            <p class="text-sm text-muted-foreground mb-4">Elke tenant kan een eigen website-thema hebben. Alleen geactiveerde thema's zijn kiesbaar. Je kunt dit ook wijzigen bij Bedrijf bewerken.</p>
             <div class="kt-card">
                 <div class="kt-card-table kt-scrollable-x-auto">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm">
                         <thead>
                             <tr>
-                                <th class="text-secondary-foreground font-normal text-left">Module</th>
-                                <th class="text-secondary-foreground font-normal text-left">Thema voor website-pagina's</th>
-                                <th class="text-secondary-foreground font-normal text-left w-40">Website</th>
+                                <th class="text-secondary-foreground font-normal text-left">Tenant</th>
+                                <th class="text-secondary-foreground font-normal text-left">Website-thema</th>
+                                <th class="text-secondary-foreground font-normal text-left w-40"></th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($activeModulesForThemes as $module)
-                                    @php
-                                    $moduleName = $module->getName();
-                                    $moduleModel = $moduleModels[$moduleName] ?? null;
-                                    $currentThemeId = $moduleModel?->frontend_theme_id;
-                                    $effectiveThemeId = $currentThemeId ?? $activeThemeId;
-                                    $moduleStagingUrl = $moduleStagingUrls[$moduleName] ?? null;
+                            @forelse($companies ?? [] as $company)
+                                @php
+                                    $currentThemeId = $company->frontend_theme_id;
                                 @endphp
                                 <tr>
-                                    <td class="font-medium">{{ $module->getDisplayName() }}</td>
-                                    <td>
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <form action="{{ route('admin.frontend-themes.update-module-theme') }}" method="POST" class="inline-flex items-center gap-2">
-                                                @csrf
-                                                <input type="hidden" name="module_name" value="{{ $moduleName }}">
-                                                <select name="frontend_theme_id" class="kt-input text-sm w-48">
-                                                    <option value="" {{ !$effectiveThemeId ? 'selected' : '' }}>— Standaardthema —</option>
-                                                    @foreach($themes as $theme)
-                                                        <option value="{{ $theme->id }}" {{ (string)$effectiveThemeId === (string)$theme->id ? 'selected' : '' }}>{{ $theme->name }}{{ $theme->is_active ? ' (actief)' : '' }}</option>
-                                                    @endforeach
-                                                </select>
-                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Opslaan</button>
-                                            </form>
-                                            @if($activeThemeId && (string)$currentThemeId !== (string)$activeThemeId)
-                                            <form action="{{ route('admin.frontend-themes.update-module-theme') }}" method="POST" class="inline">
-                                                @csrf
-                                                <input type="hidden" name="module_name" value="{{ $moduleName }}">
-                                                <input type="hidden" name="frontend_theme_id" value="{{ $activeThemeId }}">
-                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-ghost text-primary">Gebruik actief thema</button>
-                                            </form>
-                                            @endif
-                                        </div>
-                                    </td>
-                                    <td>
-                                        @if($moduleStagingUrl)
-                                        <a href="{{ $moduleStagingUrl }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-outline inline-flex items-center gap-1" title="Staging: thema en pagina's van deze module">
-                                            <i class="ki-filled ki-eye text-sm"></i>
-                                            Website tonen
-                                        </a>
+                                    <td class="font-medium">
+                                        {{ $company->name }}
+                                        @if(! $company->is_active)
+                                            <span class="kt-badge kt-badge-outline text-muted-foreground ms-1">Inactief</span>
                                         @endif
                                     </td>
+                                    <td>
+                                        <form action="{{ route('admin.frontend-themes.update-company-theme') }}" method="POST" class="inline-flex flex-wrap items-center gap-2">
+                                            @csrf
+                                            <input type="hidden" name="company_id" value="{{ $company->id }}">
+                                            <select name="frontend_theme_id" class="kt-input text-sm w-56">
+                                                <option value="" {{ ! $currentThemeId ? 'selected' : '' }}>— Geen thema —</option>
+                                                @foreach($themes as $theme)
+                                                    @if($theme->is_active || (string) $currentThemeId === (string) $theme->id)
+                                                        <option value="{{ $theme->id }}" {{ (string) $currentThemeId === (string) $theme->id ? 'selected' : '' }}>
+                                                            {{ $theme->name }}{{ $theme->is_active ? '' : ' (niet actief)' }}
+                                                        </option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Opslaan</button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-sm kt-btn-ghost">Bedrijf bewerken</a>
+                                    </td>
                                 </tr>
-                            @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="text-muted-foreground">Nog geen tenants. Maak eerst een bedrijf aan.</td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-    @endif
 </div>
 @endsection

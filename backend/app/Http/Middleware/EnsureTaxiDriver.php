@@ -2,8 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Company;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
+use App\Services\CompanyEntitlementService;
+use App\Services\PlatformBilling\TenantBillingAccessService;
+use App\Support\TenantPackageCapability;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +32,17 @@ class EnsureTaxiDriver
 
         if (! $this->eligibility->isChauffeurForCompany($user, $companyId)) {
             return response()->json(['message' => 'Geen chauffeur-toegang voor dit bedrijf.'], 403);
+        }
+
+        $company = Company::query()->find($companyId);
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($company, TenantPackageCapability::DRIVER_APP)) {
+            return $entitlements->jsonDenied($company, TenantPackageCapability::DRIVER_APP);
+        }
+
+        $billingAccess = app(TenantBillingAccessService::class);
+        if ($billingAccess->isFullyBlocked($company)) {
+            return response()->json(['message' => $billingAccess->fullBlockMessage()], 403);
         }
 
         if (! TaxiDriverAccountStatus::isActive($user)) {

@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Auth\Access\AuthorizationException;
 use App\Support\AdminReturnUrl;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -33,10 +33,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.host' => \App\Http\Middleware\ResolveTenantFromHost::class,
             'tenant.domain.user' => \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,
             'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
+            'taxi.contract' => \App\Http\Middleware\EnsureTaxiContractPortal::class,
             'skillmatching.portal' => \App\Http\Middleware\EnsureSkillmatchingModule::class,
             'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
             'taxi.portal.password' => \App\Http\Middleware\EnsureTaxiKlantPasswordIsSet::class,
+            'admin.password.changed' => \App\Http\Middleware\EnsureAdminPasswordChanged::class,
             'auth.query.token' => \App\Http\Middleware\AppendBearerTokenFromQuery::class,
+            'tenant.billing' => \App\Http\Middleware\EnforceTenantBillingRestriction::class,
         ]);
 
         $middleware->api(prepend: [
@@ -50,6 +53,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'integrations/n8n/*',
+            'api/whatsapp/webhook',
+            'nieuwsbrief/afmelden/*',
         ]);
 
         $middleware->web(append: [
@@ -59,6 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\TenantMiddleware::class,
             \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,
+            \App\Http\Middleware\EnforceTenantBillingRestriction::class,
         ]);
 
         // Ongeauthenticeerde frontend-gebruikers naar meld-pagina (sessie verlopen) i.p.v. direct naar login, met intended voor redirect na inloggen
@@ -66,6 +72,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => '/meld/sessie-verlopen?'.http_build_query(['intended' => $request->url()]));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
+            return \App\Services\CompanyEntitlementService::adminGetDeniedRedirect($e, $request);
+        });
+
         // Altijd onze volledige 403-pagina (CodePen-stijl), niet een gecachte oude layout met sidebar.
         // HttpException (abort(403)) implementeert HttpExceptionInterface; Gate/policy gebruikt AuthorizationException (anders).
         $exceptions->render(function (\Throwable $e, Request $request) {

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
+use App\Services\ModuleDatabaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -41,18 +43,68 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Incoming message / status events (POST). Acknowledge quickly.
+     * Incoming message / status events (POST). Acknowledge quickly; process pickup proposal replies.
      */
-    public function handle(Request $request): Response
-    {
-        // Voor nu alleen accepteren zodat Meta de subscription behoudt.
-        // Delivery-status / inkomende berichten kunnen later verwerkt worden.
-        if (config('app.debug')) {
-            Log::debug('WhatsApp webhook ontvangen.', [
-                'object' => $request->input('object'),
-                'entry_count' => is_array($request->input('entry')) ? count($request->input('entry')) : 0,
+    public function handle(
+        Request $request,
+        ModuleDatabaseService $moduleDb,
+        TaxiPickupProposalService $pickupProposals
+    ): Response {
+        try {
+            $entries = $request->json('entry', $request->input('entry'));
+            if (is_array($entries)) {
+                try {
+                    $moduleDb->registerConnection('taxi');
+                } catch (\Throwable) {
+                    // Connection kan al geregistreerd zijn.
+                }
+                $conn = $moduleDb->getModuleConnectionName('taxi');
+                foreach ($entries as $entry) {
+                    $changes = $entry['changes'] ?? [];
+                    if (! is_array($changes)) {
+                        continue;
+                    }
+                    foreach ($changes as $change) {
+                        $value = $change['value'] ?? [];
+                        if (! is_array($value)) {
+                            continue;
+                        }
+                        $messages = $value['messages'] ?? [];
+                        if (! is_array($messages)) {
+                            continue;
+                        }
+                        $waId = (string) data_get($value, 'contacts.0.wa_id', '');
+                        foreach ($messages as $message) {
+                            if (! is_array($message)) {
+                                continue;
+                            }
+                            if (($message['from'] ?? '') === '' && $waId !== '') {
+                                $message['from'] = $waId;
+                            }
+                            $handled = $pickupProposals->handleInboundCustomerMessage($conn, $message);
+                            Log::info('WhatsApp inbound bericht.', [
+                                'type' => $message['type'] ?? null,
+                                'button_text' => data_get($message, 'button.text'),
+                                'button_payload' => data_get($message, 'button.payload'),
+                                'interactive' => data_get($message, 'interactive.type'),
+                                'text' => data_get($message, 'text.body'),
+                                'context_id' => data_get($message, 'context.id'),
+                                'handled' => $handled,
+                            ]);
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp webhook verwerking mislukt.', [
+                'error' => $e->getMessage(),
             ]);
         }
+
+        Log::info('WhatsApp webhook ontvangen.', [
+            'object' => $request->input('object'),
+            'entry_count' => is_array($request->input('entry')) ? count($request->input('entry')) : 0,
+        ]);
 
         return response('EVENT_RECEIVED', 200)->header('Content-Type', 'text/plain');
     }

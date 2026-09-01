@@ -43,7 +43,7 @@
         animation: text-block-fade-in 2s ease-out forwards;
     }
 </style>
-<section class="text-block-section py-12 md:py-16 max-w-full overflow-x-hidden">
+<section class="text-block-section pt-6 md:pt-8 pb-8 md:pb-12 max-w-full overflow-x-hidden">
     <div class="text-block-section__inner mx-auto box-border w-full max-w-full" style="width: {{ $widthPercent }}%;">
         <div class="website-section-inner mx-auto w-full max-w-full">
             @if($showSideColumn)

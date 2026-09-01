@@ -5,22 +5,23 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Models\Company;
+use App\Models\DatabaseBackup;
 use App\Models\GeneralSetting;
-use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Models\Module;
 use App\Services\AiChatAssistantService;
+use App\Services\DatabaseBackupService;
+use App\Services\DatabaseBackupSettingsService;
 use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\GoogleSearchConsoleService;
 use App\Services\GoogleSeoSettingsService;
+use App\Services\InfoRequestFormPreviewContextService;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantSyncSettingsService;
 use App\Services\TenantWebsiteBundleService;
-use App\Services\InfoRequestFormPreviewContextService;
 use App\Services\WebsiteBuilderService;
 use App\Services\WhatsAppBookingMessageComposer;
-use App\Services\WhatsAppBusinessService;
 use App\Support\DutchPhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -44,6 +45,10 @@ class AdminSettingsController extends Controller
 
     protected GoogleSearchConsoleService $googleSearchConsole;
 
+    protected DatabaseBackupSettingsService $databaseBackupSettings;
+
+    protected DatabaseBackupService $databaseBackupService;
+
     public function __construct(
         EnvService $envService,
         TenantWebsiteBundleService $tenantWebsiteBundle,
@@ -52,6 +57,8 @@ class AdminSettingsController extends Controller
         TenantSyncSettingsService $tenantSyncSettings,
         GoogleSeoSettingsService $googleSeoSettings,
         GoogleSearchConsoleService $googleSearchConsole,
+        DatabaseBackupSettingsService $databaseBackupSettings,
+        DatabaseBackupService $databaseBackupService,
     ) {
         $this->envService = $envService;
         $this->tenantWebsiteBundle = $tenantWebsiteBundle;
@@ -60,6 +67,8 @@ class AdminSettingsController extends Controller
         $this->tenantSyncSettings = $tenantSyncSettings;
         $this->googleSeoSettings = $googleSeoSettings;
         $this->googleSearchConsole = $googleSearchConsole;
+        $this->databaseBackupSettings = $databaseBackupSettings;
+        $this->databaseBackupService = $databaseBackupService;
     }
 
     /**
@@ -146,33 +155,35 @@ class AdminSettingsController extends Controller
 
         // Get current mail settings (EnvService reads from GeneralSetting first for these keys)
         $mailSettings = [
-            'MAIL_MAILER' => $this->envService->get('MAIL_MAILER', 'log'),
-            'MAIL_HOST' => $this->envService->get('MAIL_HOST', ''),
-            'MAIL_PORT' => $this->envService->get('MAIL_PORT', '587'),
-            'MAIL_USERNAME' => $this->envService->get('MAIL_USERNAME', ''),
-            'MAIL_PASSWORD' => $this->envService->get('MAIL_PASSWORD', ''),
-            'MAIL_ENCRYPTION' => $this->envService->get('MAIL_ENCRYPTION', 'tls'),
-            'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', 'noreply@nexa-skillmatching.nl'),
-            'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Skillmatching'),
+            'MAIL_MAILER' => $this->envService->get('MAIL_MAILER', 'log', $settingsCompanyId),
+            'MAIL_HOST' => $this->envService->get('MAIL_HOST', '', $settingsCompanyId),
+            'MAIL_PORT' => $this->envService->get('MAIL_PORT', '587', $settingsCompanyId),
+            'MAIL_USERNAME' => $this->envService->get('MAIL_USERNAME', '', $settingsCompanyId),
+            'MAIL_PASSWORD' => $this->envService->get('MAIL_PASSWORD', '', $settingsCompanyId),
+            'MAIL_ENCRYPTION' => $this->envService->get('MAIL_ENCRYPTION', 'tls', $settingsCompanyId),
+            'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', 'noreply@nexasuite.nl', $settingsCompanyId),
+            'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Suite', $settingsCompanyId),
         ];
+        $mailDeliveryHint = $this->envService->mailDeliveryHint($settingsCompanyId);
+        $mailSettingsIsPlatform = $settingsCompanyId === null;
+        $mailUsingPlatformFallback = false;
+        if ($settingsCompanyId !== null) {
+            $mailUsingPlatformFallback = ! \App\Models\GeneralSetting::query()
+                ->where('company_id', $settingsCompanyId)
+                ->whereIn('key', \App\Models\GeneralSetting::MAIL_SETTING_KEYS)
+                ->whereNotNull('value')
+                ->where('value', '!=', '')
+                ->exists();
+        }
 
         // Get current SEO settings (tenant + platform fallback via GeneralSetting)
         $seoSettings = $this->googleSeoSettings->formSettings($settingsCompanyId);
 
-        // Get current Maps settings (zelfde bron als overal elders: Admin → Instellingen → Maps)
-        $mapsSettings = [
-            'GOOGLE_MAPS_API_KEY' => $this->envService->getGoogleMapsApiKey(),
-            'GOOGLE_MAPS_MAP_ID' => $this->envService->getGoogleMapsMapId(),
-            'GOOGLE_MAPS_ZOOM' => $this->envService->get('GOOGLE_MAPS_ZOOM', '12'),
-            'GOOGLE_MAPS_CENTER_LAT' => $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
-            'GOOGLE_MAPS_CENTER_LNG' => $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
-            'GOOGLE_MAPS_TYPE' => $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap'),
-        ];
-
-        // Get current WhatsApp tenant settings (widget / click-to-chat)
+        // Get current WhatsApp tenant settings (widget / click-to-chat / company booking number)
         $whatsappSettings = [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0'),
             'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''),
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $this->envService->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', '', $settingsCompanyId),
             'WHATSAPP_WIDGET_ENABLED' => $this->envService->get('WHATSAPP_WIDGET_ENABLED', '0'),
             'WHATSAPP_WIDGET_PHONE' => $this->envService->get('WHATSAPP_WIDGET_PHONE', ''),
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'),
@@ -203,10 +214,32 @@ class AdminSettingsController extends Controller
 
         $tenantSyncTargetDatabaseUrlPrefill = $this->tenantWebsiteBundle->suggestedTargetDatabaseUrl();
 
+        $paymentProviders = app(\App\Services\PaymentProviderService::class);
+        $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $mollieSummary = $paymentProviders->mollieSummaryForCompany($settingsCompanyId);
+        $paymentOptions = $settingsCompanyId !== null
+            ? $dispatchSettings->paymentOptionsForTenant($settingsCompanyId)
+            : ['booking' => false, 'driver' => false, 'mollie_configured' => false, 'mollie_package_allowed' => true];
+        $mollieDriverPaymentsEnabled = (bool) ($paymentOptions['driver'] ?? false);
+        $mollieBookingPaymentsEnabled = (bool) ($paymentOptions['booking'] ?? false);
+        $molliePackageAllowed = (bool) ($paymentOptions['mollie_package_allowed'] ?? true);
+        $molliePackageDeniedMessage = null;
+        if ($settingsCompanyId !== null && ! $molliePackageAllowed) {
+            $mollieCompany = Company::query()->find($settingsCompanyId);
+            $molliePackageDeniedMessage = app(\App\Services\CompanyEntitlementService::class)
+                ->deniedMessage(\App\Support\TenantPackageCapability::MOLLIE_PAYMENTS, $mollieCompany);
+        }
+        $defaultTaxiWebhookUrl = url('/api/taxi/webhooks/mollie');
+
+        $databaseBackupSettings = $this->databaseBackupSettings->formSettings();
+        $databaseBackups = $this->databaseBackupService->listBackups(100);
+
         return view('admin.settings.index', compact(
             'mailSettings',
+            'mailDeliveryHint',
+            'mailSettingsIsPlatform',
+            'mailUsingPlatformFallback',
             'seoSettings',
-            'mapsSettings',
             'whatsappSettings',
             'whatsappPlatformConfigured',
             'whatsappConnectionStatus',
@@ -225,7 +258,68 @@ class AdminSettingsController extends Controller
             'tenantSyncScope',
             'settingsCompanyId',
             'tenantScopedSettingsActive',
+            'mollieSummary',
+            'mollieDriverPaymentsEnabled',
+            'mollieBookingPaymentsEnabled',
+            'molliePackageAllowed',
+            'molliePackageDeniedMessage',
+            'defaultTaxiWebhookUrl',
+            'databaseBackupSettings',
+            'databaseBackups',
         ));
+    }
+
+    /**
+     * Tenant Mollie (chauffeur-/boekingsbetalingen) opslaan.
+     */
+    public function updateMollie(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
+        $entitlements = app(\App\Services\CompanyEntitlementService::class);
+        $company = \App\Models\Company::query()->find($companyId);
+        if ($company && ! $entitlements->allows($company, \App\Support\TenantPackageCapability::MOLLIE_PAYMENTS)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'mollie_api_key' => $entitlements->deniedMessage(\App\Support\TenantPackageCapability::MOLLIE_PAYMENTS, $company),
+            ])->redirectTo(route('admin.settings.index').'#mollie');
+        }
+
+        $validated = $request->validate([
+            'mollie_api_key' => 'nullable|string|max:255',
+            'mollie_is_active' => 'nullable|in:0,1',
+            'mollie_test_mode' => 'nullable|in:0,1',
+            'mollie_driver_payments' => 'nullable|in:0,1',
+            'mollie_booking_payments' => 'nullable|in:0,1',
+            'mollie_webhook_url' => 'nullable|string|max:500',
+        ]);
+
+        $apiKey = isset($validated['mollie_api_key']) ? trim((string) $validated['mollie_api_key']) : '';
+        $isActive = ($validated['mollie_is_active'] ?? '1') === '1';
+        $testMode = ($validated['mollie_test_mode'] ?? '0') === '1';
+        $webhookUrl = isset($validated['mollie_webhook_url']) ? trim((string) $validated['mollie_webhook_url']) : null;
+
+        try {
+            app(\App\Services\PaymentProviderService::class)->upsertMollieForCompany(
+                (int) $companyId,
+                $apiKey !== '' ? $apiKey : null,
+                $isActive,
+                $testMode,
+                $webhookUrl
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e->redirectTo(route('admin.settings.index').'#mollie');
+        }
+
+        $dispatch = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $dispatch->setPaymentDriverEnabled(($validated['mollie_driver_payments'] ?? '0') === '1', $companyId);
+        $dispatch->setPaymentBookingEnabled(($validated['mollie_booking_payments'] ?? '0') === '1', $companyId);
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#mollie')
+            ->with('success', 'Mollie-instellingen voor deze tenant opgeslagen.');
     }
 
     /**
@@ -383,11 +477,17 @@ class AdminSettingsController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'source_company_id' => ['required', 'integer', 'exists:companies,id'],
+            'source_company_id' => ['required', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (TenantWebsiteBundleService::isCentralSource($value)) {
+                    return;
+                }
+                if (! is_numeric($value) || Company::query()->whereKey((int) $value)->doesntExist()) {
+                    $fail('Kies een bron-tenant (bedrijf) of NEXA SaaS.');
+                }
+            }],
             'confirm_full_sync' => ['required', 'accepted'],
         ], [
-            'source_company_id.required' => 'Kies een bron-tenant (bedrijf).',
-            'source_company_id.exists' => 'Het gekozen bedrijf bestaat niet.',
+            'source_company_id.required' => 'Kies een bron-tenant (bedrijf) of NEXA SaaS.',
             'confirm_full_sync.required' => 'Vink de bevestiging aan om de sync te starten.',
             'confirm_full_sync.accepted' => 'Vink de bevestiging aan om de sync te starten.',
         ]);
@@ -406,15 +506,19 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
-        $sourceCompanyId = (int) $request->input('source_company_id');
+        $sourceRaw = $request->input('source_company_id');
+        $isCentral = TenantWebsiteBundleService::isCentralSource($sourceRaw);
+        $sourceCompanyId = $isCentral ? null : (int) $sourceRaw;
         $wantsStream = $wantsJson && $request->header('X-Tenant-Sync-Stream') === '1';
 
         if ($wantsStream) {
-            return $this->streamTenantSyncRun($sourceCompanyId);
+            return $this->streamTenantSyncRun($sourceCompanyId, $isCentral);
         }
 
         try {
-            $result = $this->tenantCompanyDataPush->pushFullTenant($sourceCompanyId);
+            $result = $isCentral
+                ? $this->tenantCompanyDataPush->pushCentralWebsite()
+                : $this->tenantCompanyDataPush->pushFullTenant((int) $sourceCompanyId);
         } catch (\Throwable $e) {
             $msg = 'Sync mislukt: '.$e->getMessage();
             if ($wantsJson) {
@@ -425,8 +529,10 @@ class AdminSettingsController extends Controller
         }
 
         $msg = $result['report']['summary'] ?? (
-            'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
-            .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+            $isCentral
+                ? 'NEXA SaaS-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
+                    .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
         );
 
         if ($wantsJson) {
@@ -445,9 +551,9 @@ class AdminSettingsController extends Controller
             ->with('tenant_sync_completed', true);
     }
 
-    private function streamTenantSyncRun(int $sourceCompanyId): StreamedResponse
+    private function streamTenantSyncRun(?int $sourceCompanyId, bool $isCentral = false): StreamedResponse
     {
-        return response()->stream(function () use ($sourceCompanyId): void {
+        return response()->stream(function () use ($sourceCompanyId, $isCentral): void {
             $this->flushTenantSyncStream();
 
             $emit = function (array $event): void {
@@ -456,13 +562,17 @@ class AdminSettingsController extends Controller
             };
 
             try {
-                $result = $this->tenantCompanyDataPush->pushFullTenant($sourceCompanyId, $emit);
+                $result = $isCentral
+                    ? $this->tenantCompanyDataPush->pushCentralWebsite($emit)
+                    : $this->tenantCompanyDataPush->pushFullTenant((int) $sourceCompanyId, $emit);
                 $emit([
                     'type' => 'complete',
                     'success' => true,
                     'message' => $result['report']['summary'] ?? (
-                        'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
-                        .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                        $isCentral
+                            ? 'NEXA SaaS-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                            : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
+                                .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                     ),
                     'report' => $result['report'] ?? null,
                 ]);
@@ -502,6 +612,10 @@ class AdminSettingsController extends Controller
     public function exportTenantStorageBundle(Request $request)
     {
         $this->ensureSuperAdmin();
+        if (TenantWebsiteBundleService::isCentralSource($request->query('company_id'))) {
+            return $this->tenantStorageBundle->exportCentralWebsiteZip();
+        }
+
         $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
         ]);
@@ -518,8 +632,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
         $maxKb = (int) config('upload.tenant_bundle_max_kb', 512000);
+        $isCentral = TenantWebsiteBundleService::isCentralSource($request->input('company_id'));
         $request->validate([
-            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'company_id' => $isCentral
+                ? ['required', 'string']
+                : ['required', 'integer', 'exists:companies,id'],
             'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
             'bundle.required' => 'Selecteer een ZIP-bestand.',
@@ -528,8 +645,12 @@ class AdminSettingsController extends Controller
         ]);
 
         try {
-            $company = Company::query()->findOrFail((int) $request->input('company_id'));
-            $result = $this->tenantStorageBundle->importZip($company, $request->file('bundle'));
+            if ($isCentral) {
+                $result = $this->tenantStorageBundle->importCentralWebsiteZip($request->file('bundle'));
+            } else {
+                $company = Company::query()->findOrFail((int) $request->input('company_id'));
+                $result = $this->tenantStorageBundle->importZip($company, $request->file('bundle'));
+            }
         } catch (\Throwable $e) {
             return redirect()->route('admin.settings.index')
                 ->withFragment('tenant-sync')
@@ -537,9 +658,11 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
+        $label = $isCentral ? 'NEXA SaaS-website geïmporteerd' : 'Tenant-export geïmporteerd';
+
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
-            ->with('success', 'Tenant-export geïmporteerd: '.$result['copied_files'].' bestand(en), '
+            ->with('success', $label.': '.$result['copied_files'].' bestand(en), '
                 .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en), '
                 .($result['imported_photos'] ?? 0).' profielfoto(\'s).');
     }
@@ -590,6 +713,138 @@ class AdminSettingsController extends Controller
             ->with('success', 'Website-import voltooid: '.$result['imported_pages']." pagina's, ".$result['copied_files'].' bestand(en) gekopieerd naar storage/app/public.');
     }
 
+    public function updateDatabaseBackupSettings(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validator = Validator::make($request->all(), $this->databaseBackupSettings->validationRules());
+        if ($validator->fails()) {
+            return redirect()->route('admin.settings.index')
+                ->withFragment('database-backups')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $this->databaseBackupSettings->saveFromRequest($request);
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', 'Database-backup instellingen opgeslagen.');
+    }
+
+    public function databaseBackupsTable()
+    {
+        $this->ensureSuperAdmin();
+
+        $databaseBackups = $this->databaseBackupService->listBackups(100);
+
+        return view('admin.settings.partials.database-backups-table', compact('databaseBackups'));
+    }
+
+    public function runDatabaseBackupNow(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $backup = $this->databaseBackupService->createBackup(DatabaseBackup::TRIGGER_MANUAL);
+        } catch (\Throwable $e) {
+            $message = 'Backup mislukt: '.$e->getMessage();
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+
+            return redirect()->route('admin.settings.index')
+                ->withFragment('database-backups')
+                ->with('database_backup_error', $message);
+        }
+
+        $message = 'Backup voltooid: '.$backup->filename.' ('.$backup->humanSize().').';
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'filename' => $backup->filename,
+            ]);
+        }
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', $message);
+    }
+
+    public function restoreDatabaseBackup(Request $request, DatabaseBackup $databaseBackup)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate(['confirm_restore' => ['required', 'in:1']]);
+
+        try {
+            $this->databaseBackupService->restore($databaseBackup);
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index')
+                ->withFragment('database-backups')
+                ->with('database_backup_error', 'Herstel mislukt: '.$e->getMessage());
+        }
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', 'Database hersteld vanuit '.$databaseBackup->filename.'.');
+    }
+
+    public function downloadDatabaseBackup(DatabaseBackup $databaseBackup)
+    {
+        $this->ensureSuperAdmin();
+
+        if ($databaseBackup->status !== DatabaseBackup::STATUS_COMPLETED || ! $databaseBackup->fileExists()) {
+            abort(404);
+        }
+
+        return response()->download($databaseBackup->absolutePath(), $databaseBackup->filename);
+    }
+
+    public function destroyDatabaseBackup(DatabaseBackup $databaseBackup)
+    {
+        $this->ensureSuperAdmin();
+
+        $name = $databaseBackup->filename;
+        $this->databaseBackupService->deleteBackup($databaseBackup);
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', 'Backup verwijderd: '.$name.'.');
+    }
+
+    public function bulkDestroyDatabaseBackups(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $result = $this->databaseBackupService->deleteBackups($validated['ids']);
+        $deleted = (int) ($result['deleted'] ?? 0);
+        $skipped = (int) ($result['skipped'] ?? 0);
+
+        $message = $deleted === 1
+            ? '1 backup verwijderd.'
+            : $deleted.' backups verwijderd.';
+        if ($skipped > 0) {
+            $message .= $skipped === 1
+                ? ' 1 bezig-backup overgeslagen.'
+                : ' '.$skipped.' bezig-backups overgeslagen.';
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => $deleted > 0 || $skipped > 0,
+                'message' => $message,
+                'deleted' => $deleted,
+                'skipped' => $skipped,
+            ], $deleted > 0 || $skipped > 0 ? 200 : 422);
+        }
+
+        return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
+            ->with('success', $message);
+    }
+
     /**
      * Update mail settings
      * Alleen toegankelijk voor super-admin
@@ -598,9 +853,6 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
-            return $redirect;
-        }
         $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
@@ -646,8 +898,12 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
+            $success = $companyId === null
+                ? 'Nexa SaaS-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
+                : 'Mail instellingen van deze tenant opgeslagen.';
+
             return redirect()->route('admin.settings.index')
-                ->with('success', 'Mail instellingen succesvol bijgewerkt!');
+                ->with('success', $success);
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
@@ -675,16 +931,12 @@ class AdminSettingsController extends Controller
         }
 
         try {
-            // Haal SMTP username op voor envelope sender
-            // De envelope sender (SMTP MAIL FROM) moet overeenkomen met de SMTP authenticatie gebruiker
-            // om te voorkomen dat de mailserver de verzending weigert
+            $this->envService->applyMailConfigToRuntime($this->settingsCompanyId());
+
             $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
             $configuredFromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
             $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
 
-            // Gebruik SMTP username als from address als deze beschikbaar is EN verschilt van configured address
-            // Dit voorkomt "not authorized to send on behalf of" errors wanneer de server dit niet toestaat
-            // Als SMTP username niet beschikbaar is of gelijk is aan configured address, gebruik de configured from address
             $fromAddress = (! empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
 
             \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
@@ -697,7 +949,7 @@ class AdminSettingsController extends Controller
             if ($mailer === 'log') {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Email is gelogd. Check storage/logs/laravel.log voor de inhoud. (Mailer staat op "log" mode)',
+                    'message' => 'Email is gelogd. Check storage/logs/laravel.log voor de inhoud. (Mailer staat op "log" mode — er is niets naar een inbox verstuurd.)',
                 ]);
             }
 
@@ -708,7 +960,7 @@ class AdminSettingsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden bij het verzenden: '.$e->getMessage(),
+                'message' => $this->envService->explainMailSendException($e),
             ], 500);
         }
     }
@@ -802,17 +1054,12 @@ class AdminSettingsController extends Controller
     }
 
     /**
-     * Update Google Maps settings
-     * Alleen toegankelijk voor super-admin
+     * Update Google Maps settings (platform-breed, Algemene configuraties).
+     * Alleen toegankelijk voor super-admin.
      */
     public function updateMaps(Request $request)
     {
         $this->ensureSuperAdmin();
-
-        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
-            return $redirect;
-        }
-        $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
             'GOOGLE_MAPS_API_KEY' => 'required|string|max:255',
@@ -834,7 +1081,7 @@ class AdminSettingsController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->withErrors($validator)
                 ->withInput();
         }
@@ -850,13 +1097,13 @@ class AdminSettingsController extends Controller
             ];
 
             foreach ($mapsSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value, $companyId);
+                GeneralSetting::set($key, (string) $value);
             }
 
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->with('success', 'Google Maps instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
@@ -957,12 +1204,15 @@ class AdminSettingsController extends Controller
             'WHATSAPP_BOOKING_TEMPLATE_LANG' => 'nullable|string|max:12',
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => 'nullable|string|max:120',
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => 'nullable|string|max:12',
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_BOOKING_DETAIL_FIELDS' => 'nullable|array',
             'WHATSAPP_BOOKING_DETAIL_FIELDS.*' => 'string|max:64',
             'WHATSAPP_RIDE_STATUS_TEMPLATE' => 'nullable|string|max:120',
             'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => 'nullable|string|max:12',
             'WHATSAPP_RIDE_STATUS_EVENTS' => 'nullable|array',
             'WHATSAPP_RIDE_STATUS_EVENTS.*' => 'string|max:64',
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE' => 'nullable|string|max:120',
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG' => 'nullable|string|max:12',
         ]);
 
         if ($validator->fails()) {
@@ -1001,6 +1251,7 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_BOOKING_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_BOOKING_TEMPLATE_LANG', 'nl')) ?: 'nl',
                 'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => trim((string) $request->input('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE', '')),
                 'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', 'nl')) ?: 'nl',
+                'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED' => $request->boolean('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED') ? '1' : '0',
                 'WHATSAPP_BOOKING_DETAIL_FIELDS' => $this->normalizeWhatsappBookingDetailFields(
                     $request->input('WHATSAPP_BOOKING_DETAIL_FIELDS', [])
                 ),
@@ -1009,6 +1260,8 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_RIDE_STATUS_EVENTS' => $this->normalizeWhatsappRideStatusEvents(
                     $request->input('WHATSAPP_RIDE_STATUS_EVENTS', [])
                 ),
+                'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE' => trim((string) $request->input('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE', '')),
+                'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG' => trim((string) $request->input('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG', 'nl')) ?: 'nl',
             ];
 
             foreach ($platformSettings as $key => $value) {
@@ -1117,6 +1370,7 @@ class AdminSettingsController extends Controller
         $validator = Validator::make($request->all(), [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_CLICK_TO_CHAT_NUMBER' => 'nullable|string|max:50',
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_WIDGET_PHONE' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
@@ -1132,12 +1386,20 @@ class AdminSettingsController extends Controller
         $normalizedClickToChat = DutchPhoneNumber::normalizeOptionalNlToInternational(
             trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''))
         );
+        $normalizedCompanyNotify = DutchPhoneNumber::normalizeOptionalNlToInternational(
+            trim((string) $request->input('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', ''))
+        );
         $normalizedWidgetPhone = DutchPhoneNumber::normalizeOptionalNlToInternational(
             trim((string) $request->input('WHATSAPP_WIDGET_PHONE', ''))
         );
         if ($normalizedClickToChat === null) {
             return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->withErrors(['WHATSAPP_CLICK_TO_CHAT_NUMBER' => $phoneError])
+                ->withInput();
+        }
+        if ($normalizedCompanyNotify === null) {
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
+                ->withErrors(['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $phoneError])
                 ->withInput();
         }
         if ($normalizedWidgetPhone === null) {
@@ -1152,6 +1414,7 @@ class AdminSettingsController extends Controller
             $whatsappSettings = [
                 'WHATSAPP_CLICK_TO_CHAT_ENABLED' => ($platformApiActive ? '0' : ($request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0')),
                 'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $normalizedClickToChat,
+                'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $normalizedCompanyNotify,
                 'WHATSAPP_WIDGET_ENABLED' => $request->boolean('WHATSAPP_WIDGET_ENABLED') ? '1' : '0',
                 'WHATSAPP_WIDGET_PHONE' => $normalizedWidgetPhone,
                 'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => trim((string) $request->input('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.')),
@@ -1160,12 +1423,6 @@ class AdminSettingsController extends Controller
             foreach ($whatsappSettings as $key => $value) {
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
-
-            GeneralSetting::set(
-                TaxiDispatchSettingsService::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT,
-                $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'],
-                $companyId
-            );
 
             return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->with('success', 'WhatsApp tenant-instellingen succesvol bijgewerkt!');
@@ -1361,16 +1618,20 @@ class AdminSettingsController extends Controller
             'WHATSAPP_BOOKING_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_BOOKING_TEMPLATE_LANG', 'nl'),
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE' => $this->envService->get('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE', ''),
             'WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', 'nl'),
+            'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED' => $this->envService->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', '0'),
             'WHATSAPP_BOOKING_DETAIL_FIELDS' => app(WhatsAppBookingMessageComposer::class)->selectedDetailFields(),
             'WHATSAPP_RIDE_STATUS_TEMPLATE' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE', ''),
             'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_RIDE_STATUS_TEMPLATE_LANG', 'nl'),
             'WHATSAPP_RIDE_STATUS_EVENTS' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE' => $this->envService->get('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE', ''),
+            'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG' => $this->envService->get('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG', 'nl'),
         ];
 
         $whatsappBookingMetaBodies = [
             'customer' => WhatsAppBookingMessageComposer::META_BODY_CUSTOMER,
             'dispatch' => WhatsAppBookingMessageComposer::META_BODY_DISPATCH,
             'status' => WhatsAppBookingMessageComposer::META_BODY_STATUS,
+            'pickup_proposal' => WhatsAppBookingMessageComposer::META_BODY_PICKUP_PROPOSAL,
         ];
         $whatsappBookingDetailFieldOptions = WhatsAppBookingMessageComposer::availableDetailFields();
         $whatsappRideStatusEventOptions = WhatsAppBookingMessageComposer::statusEventLabels();
@@ -1381,6 +1642,10 @@ class AdminSettingsController extends Controller
                 WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
                 $whatsappPlatformSettings['WHATSAPP_BOOKING_DETAIL_FIELDS']
             );
+        $whatsappPickupProposalSamplePreview = app(WhatsAppBookingMessageComposer::class)
+            ->samplePickupProposalPreview();
+
+        $mapsSettings = $this->envService->mapsFormSettings();
 
         $whatsappConnectionStatus = null;
         if (session()->has('whatsapp_connection_test') && is_array(session('whatsapp_connection_test'))) {
@@ -1394,7 +1659,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'mapsSettings', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
     }
 
     /**

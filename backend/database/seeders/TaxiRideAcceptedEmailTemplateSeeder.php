@@ -61,5 +61,9 @@ TEXT;
 
         app(\App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService::class)
             ->ensureGlobalTemplateExists();
+        app(\App\Modules\NexaTaxi\Services\TaxiAppLoginCodeEmailTemplateService::class)
+            ->ensureGlobalTemplateExists();
+        app(\App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeEmailTemplateService::class)
+            ->ensureAllGlobalTemplatesExist();
     }
 }

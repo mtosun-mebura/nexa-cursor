@@ -212,7 +212,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Titel *
+                                Paginatitel (SEO) *
                             </td>
                             <td>
                                 <input type="text"
@@ -222,7 +222,27 @@
                                        value="{{ old('title', $page->title) }}"
                                        required
                                        autocomplete="off">
+                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt als Google-titel. De menunaam blijft apart.</div>
                                 @error('title')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
+                                Naam in menu
+                            </td>
+                            <td>
+                                <input type="text"
+                                       name="menu_title"
+                                       id="menu_title"
+                                       class="kt-input @error('menu_title') border-destructive @enderror"
+                                       value="{{ old('menu_title', $page->menu_title) }}"
+                                       maxlength="80"
+                                       autocomplete="off"
+                                       placeholder="Korte naam in de navigatie">
+                                <div class="text-xs text-muted-foreground mt-1">Deze tekst staat in het website-menu. SEO-generatie past dit niet aan.</div>
+                                @error('menu_title')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
@@ -300,7 +320,7 @@
                                 @php
                                     $themeSlug = $page->theme?->slug ?? 'modern';
                                     $sectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug);
-                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null);
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null, $tenantThemeSlug ?? null);
                                 @endphp
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $sectionTypes, 'availableComponents' => $availableComponents])
                             </div>
@@ -486,6 +506,8 @@
                 }
                 collectFooterLinks('footer-quick-links-list', 'quick_links');
                 collectFooterLinks('footer-support-links-list', 'support_links');
+                var inheritEl = document.getElementById('footer-inherit-from-home');
+                if (inheritEl) footerPayload.inherit_from_home = inheritEl.checked ? 1 : 0;
                 footerConfigFb.value = JSON.stringify(footerPayload);
             }
             // Visibility footer-fallback: alle footer_* visibility-waarden in één veld (voorkomt verlies door max_input_vars)

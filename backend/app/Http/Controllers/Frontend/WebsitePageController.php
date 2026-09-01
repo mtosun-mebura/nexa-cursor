@@ -5,12 +5,11 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
-use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
+use App\Services\GoogleSeoSettingsService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
 use App\Services\WebsiteStructuredDataService;
-use App\Services\GoogleSeoSettingsService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -28,6 +27,7 @@ class WebsitePageController extends Controller
         'about', 'contact', 'home', 'login', 'register', 'logout',
         'jobs', 'dashboard', 'profile', 'matches', 'agenda', 'help', 'privacy', 'terms',
         'vacature-matching', 'favorites', 'verify-email', 'admin', 'storage', 'file',
+        'marketing',
         'demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7', 'demo8', 'demo9', 'demo10',
         \App\Models\WebsitePage::CENTRAL_WELCOME_SLUG,
     ];
@@ -140,8 +140,8 @@ class WebsitePageController extends Controller
             });
         }
 
-        $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
-        $isRenderingHome = $page->page_type === 'home' || $page->slug === 'home';
+        $themeHasHomeSections = \App\Models\FrontendTheme::usesHomeSections($themeSlug);
+        $isRenderingHome = $this->websiteBuilder->isSiteHomePage($page);
         $useThemeHomeLayout = $themeHasHomeSections && (
             ! empty($page->home_sections) || $isRenderingHome
         );
@@ -152,22 +152,7 @@ class WebsitePageController extends Controller
         $homeSections = $useCurrentPageSections
             ? $page->getHomeSections()
             : ($homePage ? $homePage->getHomeSections() : []);
-
-        if (! $isRenderingHome && $homePage && ! empty($homeSections['footer']['inherit_from_home'])) {
-            $homeFooterSections = $homePage->getHomeSections();
-            $homeSections['footer'] = $homeFooterSections['footer'] ?? [];
-            $homeSections['copyright'] = $homeFooterSections['copyright'] ?? ($homeSections['copyright'] ?? '');
-            $footerVisibilityKeys = ['footer', 'footer_logo', 'footer_tagline', 'footer_quick_links', 'footer_support_links', 'footer_social', 'footer_map'];
-            foreach ($footerVisibilityKeys as $k) {
-                if (array_key_exists($k, $homeFooterSections['visibility'] ?? [])) {
-                    $homeSections['visibility'][$k] = $homeFooterSections['visibility'][$k];
-                }
-            }
-            $sectionOrder = $homeSections['section_order'] ?? [];
-            if (is_array($sectionOrder) && ! in_array('footer', $sectionOrder, true)) {
-                $homeSections['section_order'] = array_merge(array_values($sectionOrder), ['footer']);
-            }
-        }
+        $homeSections = $this->websiteBuilder->applyInheritedHomeFooter($homeSections, $page);
         $templateConnection = null;
         $moduleName = $page->module_name;
         if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {
@@ -179,16 +164,8 @@ class WebsitePageController extends Controller
         $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections, $templateConnection);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
-        $env = app(EnvService::class);
-        // Maps-key per tenant: eerst de (tenant-)instelling, daarna .env-fallback.
         $googleMapsApiKey = $this->websiteBuilder->resolveGoogleMapsApiKeyForPage($page);
-        if ($googleMapsApiKey === '') {
-            $googleMapsApiKey = $this->readGoogleMapsApiKeyFromEnvFiles();
-        }
         $googleMapsMapId = $this->websiteBuilder->resolveGoogleMapsMapIdForPage($page);
-        if ($googleMapsMapId === '') {
-            $googleMapsMapId = $env->getGoogleMapsMapId();
-        }
         $whatsappWidget = $this->websiteBuilder->resolveWhatsappWidgetForPage($page);
 
         $reviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage($page);
@@ -232,46 +209,5 @@ class WebsitePageController extends Controller
             'structuredDataGraph' => $structuredDataGraph,
             'seoTracking' => $seoTracking,
         ]);
-    }
-
-    /**
-     * Lees GOOGLE_MAPS_API_KEY uit de root .env (projectroot).
-     * Fallback als EnvService niets geeft.
-     */
-    private function readGoogleMapsApiKeyFromEnvFiles(): string
-    {
-        $keyName = 'GOOGLE_MAPS_API_KEY';
-        $rootEnv = \App\Services\EnvService::getRootEnvPath();
-        $paths = [$rootEnv];
-        $backendEnv = base_path('.env');
-        if ($backendEnv !== $rootEnv && is_readable($backendEnv)) {
-            $paths[] = $backendEnv;
-        }
-        foreach ($paths as $path) {
-            if (! is_readable($path)) {
-                continue;
-            }
-            $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if (! is_array($lines)) {
-                continue;
-            }
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
-                    continue;
-                }
-                [$k, $value] = explode('=', $line, 2);
-                if (trim($k) === $keyName) {
-                    $value = trim($value);
-                    if (strlen($value) >= 2 && ($value[0] === '"' && $value[strlen($value) - 1] === '"' || $value[0] === "'" && $value[strlen($value) - 1] === "'")) {
-                        $value = substr($value, 1, -1);
-                    }
-
-                    return trim($value);
-                }
-            }
-        }
-
-        return '';
     }
 }

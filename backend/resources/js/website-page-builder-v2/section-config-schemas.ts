@@ -13,15 +13,28 @@ export type ConfigField =
   | { type: 'dynamic-select'; key: string; label: string; source: 'sideComponents' | 'emailTemplates'; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
-  | { type: 'color'; key: string; label: string; hint?: string }
+  | { type: 'color'; key: string; label: string; hint?: string; defaultValue?: string }
   | { type: 'image'; key: string; label: string; hint?: string }
+  | { type: 'video'; key: string; label: string; hint?: string }
   | { type: 'website-media-image'; key: string; label: string; hint?: string }
   | { type: 'checkbox'; key: string; label: string; hint?: string }
   | { type: 'star-rating'; key: string; label: string; min?: number; max?: number; hint?: string }
+  | { type: 'heroicon'; key: string; label: string; hint?: string }
   | { type: 'step-order'; key: string; label: string; options: SelectOption[] }
-  | { type: 'group'; label: string; fields: ConfigField[]; subVisibilityKey?: string; hint?: string }
+  | {
+      type: 'group'
+      label: string
+      fields: ConfigField[]
+      subVisibilityKey?: string
+      hint?: string
+      headingKey?: string
+      accentColorKey?: string
+      accentColorFallback?: string
+      alwaysOpen?: boolean
+    }
   | { type: 'footer-logo'; key: string; label: string }
   | { type: 'footer-map'; label: string; subVisibilityKey?: string }
+  | { type: 'pricing-packages-preview' }
   | {
       type: 'item-list'
       key: string
@@ -29,6 +42,7 @@ export type ConfigField =
       minItems?: number
       maxItems?: number
       itemLabel?: string
+      compact?: boolean
       fields: ConfigField[]
     }
 
@@ -53,7 +67,7 @@ const footerLogoHeightOptions: SelectOption[] = [12, 14, 16, 18, 20, 22, 24, 26,
   label: `${px}px`,
 }))
 
-const sectionWidthPercentOptions: SelectOption[] = [
+export const sectionWidthPercentOptions: SelectOption[] = [
   { value: '100', label: '100%' },
   { value: '90', label: '90%' },
   { value: '80', label: '80%' },
@@ -65,13 +79,18 @@ const sectionWidthPercentOptions: SelectOption[] = [
 ]
 
 const ctaButtonFields = (prefix: 'cta_primary' | 'cta_secondary', label: string): ConfigField[] => [
-  { type: 'group', label, fields: [
-    { type: 'text', key: `${prefix}_text`, label: 'Tekst' },
-    { type: 'text', key: `${prefix}_url`, label: 'URL' },
-    { type: 'color', key: `${prefix}_bg`, label: 'Achtergrondkleur' },
-    { type: 'color', key: `${prefix}_text_color`, label: 'Tekstkleur' },
-    { type: 'color', key: `${prefix}_border`, label: 'Borderkleur' },
-  ]},
+  {
+    type: 'group',
+    label,
+    subVisibilityKey: prefix === 'cta_primary' ? '_cta_primary' : '_cta_secondary',
+    fields: [
+      { type: 'text', key: `${prefix}_text`, label: 'Tekst' },
+      { type: 'text', key: `${prefix}_url`, label: 'URL' },
+      { type: 'color', key: `${prefix}_bg`, label: 'Achtergrondkleur' },
+      { type: 'color', key: `${prefix}_text_color`, label: 'Tekstkleur' },
+      { type: 'color', key: `${prefix}_border`, label: 'Borderkleur' },
+    ],
+  },
 ]
 
 export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
@@ -83,6 +102,14 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
     { type: 'color', key: 'subtitle_color', label: 'Ondertitel kleur' },
     { type: 'select', key: 'title_font_size_px', label: 'Tekstgrootte titel', options: heroBannerFontPxOptions, defaultValue: '44', hint: 'Op banner met achtergrondafbeelding', visibleWhen: { key: 'background_image_url', notEmpty: true } },
     { type: 'select', key: 'subtitle_font_size_px', label: 'Tekstgrootte ondertitel', options: heroBannerFontPxOptions, defaultValue: '22', hint: 'Op banner met achtergrondafbeelding', visibleWhen: { key: 'background_image_url', notEmpty: true } },
+    {
+      type: 'select',
+      key: 'subtitle_width_percent',
+      label: 'Breedte ondertitel',
+      options: sectionWidthPercentOptions,
+      defaultValue: '50',
+      hint: 'Percentage van de bannerbreedte. Smaller = compactere tekstregel.',
+    },
     { type: 'group', label: 'Achtergrond tekstblok', fields: [
       { type: 'color', key: 'text_bg_color', label: 'Achtergrond', hint: 'Kleurvlak achter titel en ondertitel' },
       { type: 'range', key: 'text_bg_opacity', label: 'Transparantie', min: 0, max: 100, step: 1, unit: '%', previewColorKey: 'text_bg_color', hint: '0 = doorzichtig, 100 = ondoorzichtig' },
@@ -107,8 +134,12 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
   ],
   why_nexa: [
     { type: 'text', key: 'title', label: 'Titel' },
+    { type: 'color', key: 'title_color', label: 'Titelkleur', hint: 'Handig bij een donkere achtergrond. Leeg = standaard.' },
     { type: 'wysiwyg', key: 'subtitle', label: 'Tekst', placeholder: 'Introductietekst…' },
     { type: 'color', key: 'subtitle_color', label: 'Tekstkleur' },
+    { type: 'image', key: 'background_image', label: 'Achtergrond light mode', hint: 'Voor de lichte weergave. Wordt over de volle paginabreedte getoond.' },
+    { type: 'image', key: 'background_image_dark', label: 'Achtergrond dark mode', hint: 'Voor de donkere weergave. Leeg = het light-mode plaatje.' },
+    { type: 'color', key: 'background', label: 'Achtergrondkleur', hint: 'Wordt over de volle paginabreedte getoond. Leeg = standaard.' },
   ],
   text_block: [
     { type: 'wysiwyg', key: 'content', label: 'Tekst (rich text)', placeholder: 'Voeg hier uw tekst toe...' },
@@ -165,7 +196,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       fields: [
         { type: 'text', key: 'title', label: 'Titel' },
         { type: 'wysiwyg', key: 'description', label: 'Tekst', placeholder: 'Beschrijving…' },
-        { type: 'text', key: 'icon', label: 'Icoon (heroicon-id)' },
+        { type: 'heroicon', key: 'icon', label: 'Icoon' },
         { type: 'select', key: 'icon_size', label: 'Icoongrootte', options: [
           { value: 'small', label: 'Klein' },
           { value: 'medium', label: 'Normaal' },
@@ -271,7 +302,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       maxItems: 6,
       itemLabel: 'Dienst',
       fields: [
-        { type: 'text', key: 'icon', label: 'Icoon' },
+        { type: 'heroicon', key: 'icon', label: 'Icoon' },
         { type: 'text', key: 'title', label: 'Titel' },
         { type: 'wysiwyg', key: 'description', label: 'Beschrijving', placeholder: 'Beschrijving…' },
       ],

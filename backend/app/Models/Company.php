@@ -20,7 +20,7 @@ class Company extends Model
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
         'is_active', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
         'logo_dark_blob', 'logo_dark_mime_type', 'building_image',
-        'frontend_theme_id',
+        'frontend_theme_id', 'package_key', 'package_addons',
     ];
 
     protected $casts = [
@@ -28,6 +28,7 @@ class Company extends Model
         'is_intermediary' => 'boolean',
         'is_main' => 'boolean',
         'building_image' => 'integer',
+        'package_addons' => 'array',
     ];
 
     protected static function boot()
@@ -59,6 +60,16 @@ class Company extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function billingProfile()
+    {
+        return $this->hasOne(CompanyBillingProfile::class);
+    }
+
+    public function customerEmails()
+    {
+        return $this->hasMany(TenantCustomerEmail::class);
     }
 
     /**
@@ -180,6 +191,12 @@ class Company extends Model
         $needle = strtolower(trim($name));
         if ($needle === '') {
             return false;
+        }
+
+        if ($this->relationLoaded('modules')) {
+            return $this->modules->contains(
+                static fn ($module) => strtolower((string) $module->name) === $needle
+            );
         }
 
         return $this->modules()->whereRaw('LOWER(name) = ?', [$needle])->exists();

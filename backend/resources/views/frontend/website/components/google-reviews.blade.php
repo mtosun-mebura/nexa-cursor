@@ -96,7 +96,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 #{{ $componentId }}.grw-in-view .grw-btn-next,
 #{{ $componentId }}.grw-in-view .grw-dots { opacity: 1; transform: translateZ(0); }
 </style>
-<section class="google-reviews-section py-12 md:py-16 @if($sectionBackground === '') bg-gray-100 dark:bg-gray-800 @endif" @if($sectionBackground !== '') style="background-color: {{ e($sectionBackground) }};" @endif aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
+<section class="google-reviews-section pt-6 md:pt-8 pb-10 md:pb-14 @if($sectionBackground === '') bg-gray-100 dark:bg-gray-800 @endif" @if($sectionBackground !== '') style="background-color: {{ e($sectionBackground) }};" @endif aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
     <div class="website-section-inner">
         {{-- Mobiel: onder elkaar; desktop: samenvatting links, carousel rechts --}}
         <div class="grw-layout flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-8 w-full px-3 sm:px-4 lg:px-0 lg:max-w-6xl lg:mx-auto">

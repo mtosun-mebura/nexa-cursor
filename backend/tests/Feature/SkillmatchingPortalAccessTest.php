@@ -65,7 +65,7 @@ class SkillmatchingPortalAccessTest extends TestCase
     #[Test]
     public function site_branding_shows_dashboard_link_for_taxi_module(): void
     {
-        Module::create([
+        $module = Module::create([
             'name' => 'taxi',
             'display_name' => 'Nexa Taxi',
             'version' => '1.0.0',
@@ -79,7 +79,12 @@ class SkillmatchingPortalAccessTest extends TestCase
             ],
         ]);
 
-        $branding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding('taxi');
+        $company = Company::query()->create(['name' => 'Taxi Branding', 'slug' => 'taxi-branding-'.uniqid()]);
+        $company->modules()->attach($module->id);
+        app()->instance('resolved_tenant', $company);
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $branding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding('taxi', false, (int) $company->id);
 
         $this->assertTrue($branding['dashboard_link_visible']);
         $this->assertSame('Mijn Taxi', $branding['dashboard_link_label']);
@@ -89,7 +94,7 @@ class SkillmatchingPortalAccessTest extends TestCase
     #[Test]
     public function site_branding_shows_dashboard_link_for_skillmatching_module(): void
     {
-        Module::create([
+        $module = Module::create([
             'name' => 'skillmatching',
             'display_name' => 'Nexa Skillmatching',
             'version' => '1.0.0',
@@ -103,7 +108,12 @@ class SkillmatchingPortalAccessTest extends TestCase
             ],
         ]);
 
-        $branding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding('skillmatching');
+        $company = Company::query()->create(['name' => 'Skill Branding', 'slug' => 'skill-branding-'.uniqid()]);
+        $company->modules()->attach($module->id);
+        app()->instance('resolved_tenant', $company);
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $branding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding('skillmatching', false, (int) $company->id);
 
         $this->assertTrue($branding['dashboard_link_visible']);
         $this->assertSame('Mijn Skillmatching', $branding['dashboard_link_label']);

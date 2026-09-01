@@ -13,6 +13,8 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-nexa}
     volumes:
       - nexa_postgres_data:/var/lib/postgresql/data
+    # Host-bind nodig voor tenant-sync SSH-tunnels (remote 127.0.0.1:5432).
+    # Deploy-script ruimt legacy project "current" / bezette 5432 op vóór compose up.
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:

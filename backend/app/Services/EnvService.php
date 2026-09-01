@@ -32,7 +32,10 @@ class EnvService
         'WHATSAPP_BOOKING_DETAIL_FIELDS',
         'WHATSAPP_RIDE_STATUS_TEMPLATE', 'WHATSAPP_RIDE_STATUS_TEMPLATE_LANG',
         'WHATSAPP_RIDE_STATUS_EVENTS',
+        'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE', 'WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG',
+        'WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED',
         'WHATSAPP_CLICK_TO_CHAT_ENABLED', 'WHATSAPP_CLICK_TO_CHAT_NUMBER',
+        'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER',
         'WHATSAPP_WIDGET_ENABLED', 'WHATSAPP_WIDGET_PHONE', 'WHATSAPP_WIDGET_DEFAULT_MESSAGE',
     ];
 
@@ -111,9 +114,9 @@ class EnvService
      * @param  int|null  $forCompanyId  Expliciete tenant; null = huidige scope (host/admin)
      * @return array<string, string|null>
      */
-    public function getMailOverlayValues(?int $forCompanyId = null): array
+    public function getMailOverlayValues(?int $forCompanyId = null, bool $platformOnly = false): array
     {
-        $cacheKey = $forCompanyId !== null && $forCompanyId > 0 ? $forCompanyId : 0;
+        $cacheKey = $platformOnly ? -1 : ($forCompanyId !== null && $forCompanyId > 0 ? $forCompanyId : 0);
         if (isset($this->mailOverlayCacheByScope[$cacheKey])) {
             return $this->mailOverlayCacheByScope[$cacheKey];
         }
@@ -123,30 +126,73 @@ class EnvService
             'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
         ];
 
-        $fromDb = $forCompanyId !== null && $forCompanyId > 0
-            ? GeneralSetting::getMany($keys, $forCompanyId)
-            : GeneralSetting::getMany($keys);
+        $cid = null;
+        if (! $platformOnly) {
+            $cid = $forCompanyId !== null && $forCompanyId > 0 ? $forCompanyId : null;
+            if ($cid === null) {
+                $cid = GeneralSetting::resolveScopeCompanyId();
+            }
+        }
+
+        $fromTenant = [];
+        $fromPlatform = [];
+        try {
+            if ($cid !== null) {
+                $fromTenant = GeneralSetting::query()
+                    ->whereIn('key', $keys)
+                    ->where('company_id', $cid)
+                    ->pluck('value', 'key')
+                    ->all();
+            }
+            $fromPlatform = GeneralSetting::query()
+                ->whereIn('key', $keys)
+                ->whereNull('company_id')
+                ->pluck('value', 'key')
+                ->all();
+        } catch (\Throwable) {
+            $fromTenant = [];
+            $fromPlatform = [];
+        }
         $fromEnv = $this->getAll();
         $merged = [];
 
         foreach ($keys as $key) {
-            $value = $fromDb[$key] ?? null;
-            if ($value === null || $value === '') {
-                $value = $fromEnv[$key] ?? null;
-            }
-            $merged[$key] = $value !== null && $value !== '' ? (string) $value : null;
+            $merged[$key] = $this->firstNonEmptyMailValue(
+                $fromTenant[$key] ?? null,
+                $fromPlatform[$key] ?? null,
+                $fromEnv[$key] ?? null
+            );
         }
 
         return $this->mailOverlayCacheByScope[$cacheKey] = $merged;
     }
 
+    private function firstNonEmptyMailValue(mixed ...$values): ?string
+    {
+        foreach ($values as $value) {
+            if ($value !== null && trim((string) $value) !== '') {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Alleen de Nexa SaaS-mailserver (geen tenant-SMTP, geen geselecteerde tenant).
+     */
+    public function applyPlatformMailConfigToRuntime(): void
+    {
+        $this->applyMailConfigToRuntime(null, true);
+    }
+
     /**
      * Pas mailconfiguratie uit admin (#mail) toe op de runtime (SMTP-auth + From).
      */
-    public function applyMailConfigToRuntime(?int $forCompanyId = null): void
+    public function applyMailConfigToRuntime(?int $forCompanyId = null, bool $platformOnly = false): void
     {
-        $mail = $this->getMailOverlayValues($forCompanyId);
-        $mailer = $mail['MAIL_MAILER'] ?? 'log';
+        $mail = $this->getMailOverlayValues($forCompanyId, $platformOnly);
+        $mailer = $this->resolveRuntimeMailer($mail['MAIL_MAILER'] ?? null);
         $encryption = $mail['MAIL_ENCRYPTION'] ?? 'tls';
         $fromAddress = $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address', 'noreply@example.com');
         $fromName = $mail['MAIL_FROM_NAME'] ?? config('mail.from.name', config('app.name', 'NEXA'));
@@ -156,14 +202,96 @@ class EnvService
         Config::set('mail.from.name', $fromName);
 
         if ($mailer === 'smtp') {
+            $port = $mail['MAIL_PORT'] ?? '587';
             Config::set('mail.mailers.smtp.host', $mail['MAIL_HOST'] ?? '');
-            Config::set('mail.mailers.smtp.port', $mail['MAIL_PORT'] ?? '587');
+            Config::set('mail.mailers.smtp.port', $port);
             Config::set('mail.mailers.smtp.username', $mail['MAIL_USERNAME'] ?? '');
             Config::set('mail.mailers.smtp.password', $mail['MAIL_PASSWORD'] ?? '');
-            Config::set('mail.mailers.smtp.encryption', $encryption === 'null' ? null : $encryption);
+            Config::set('mail.mailers.smtp.scheme', $this->smtpSchemeForEncryption($encryption, $port));
+            Config::set('mail.mailers.smtp.encryption', $encryption === 'null' || $encryption === '' ? null : $encryption);
         }
 
         app()->forgetInstance('mail.manager');
+    }
+
+    /**
+     * PHPUnit vangt mail in de array-driver; een lege overlay mag dat niet overschrijven naar log/smtp.
+     */
+    public function resolveRuntimeMailer(?string $overlayMailer): string
+    {
+        if (app()->runningUnitTests() && strtolower((string) env('MAIL_MAILER', '')) === 'array') {
+            return 'array';
+        }
+
+        $overlay = strtolower(trim((string) $overlayMailer));
+        if ($overlay !== '') {
+            return $overlay;
+        }
+
+        return strtolower(trim((string) config('mail.default', 'log'))) ?: 'log';
+    }
+
+    /**
+     * Laravel 12 SMTP-DSN accepteert alleen smtp/smtps, niet het oude MAIL_ENCRYPTION-waarde tls.
+     */
+    public function smtpSchemeForEncryption(?string $encryption, int|string|null $port = null): string
+    {
+        $enc = strtolower(trim((string) $encryption));
+        $port = (int) $port;
+        if ($enc === 'ssl' || $enc === 'smtps' || $port === 465) {
+            return 'smtps';
+        }
+
+        return 'smtp';
+    }
+
+    /**
+     * Uitleg voor de beheerder waarom uitgaande mail (nog) niet aankomt.
+     */
+    public function mailDeliveryHint(?int $forCompanyId = null): ?string
+    {
+        $mail = $this->getMailOverlayValues($forCompanyId);
+        $mailer = strtolower(trim((string) ($mail['MAIL_MAILER'] ?? config('mail.default', 'log'))));
+
+        if ($mailer === '' || $mailer === 'log' || $mailer === 'array') {
+            return 'Mailer staat op „Log (alleen loggen)”. E-mails worden nergens naar een inbox verstuurd. Kies SMTP, vul host/poort/gebruikersnaam/wachtwoord in en sla op.';
+        }
+
+        if ($mailer === 'smtp') {
+            if (trim((string) ($mail['MAIL_HOST'] ?? '')) === '') {
+                return 'SMTP-host ontbreekt. Vul de SMTP-server in (bijvoorbeeld send.one.com) en sla op.';
+            }
+            if (trim((string) ($mail['MAIL_USERNAME'] ?? '')) === '' || trim((string) ($mail['MAIL_PASSWORD'] ?? '')) === '') {
+                return 'SMTP-gebruikersnaam of -wachtwoord ontbreekt. Zonder inloggen weigert de mailserver verzending.';
+            }
+        }
+
+        $scheme = strtolower(trim((string) config('mail.mailers.smtp.scheme', '')));
+        if ($mailer === 'smtp' && in_array($scheme, ['tls', 'ssl'], true)) {
+            return 'SMTP-scheme „'.$scheme.'” is ongeldig in Laravel 12. Gebruik STARTTLS op poort 587 (scheme smtp) of SSL op poort 465 (scheme smtps). Dit wordt bij verzenden automatisch gecorrigeerd.';
+        }
+
+        return null;
+    }
+
+    public function explainMailSendException(\Throwable $e): string
+    {
+        $raw = $e->getMessage();
+
+        if (str_contains($raw, 'scheme is not supported')) {
+            return 'SMTP-encryptie is verkeerd ingesteld voor Laravel 12: scheme moet smtp (poort 587, STARTTLS) of smtps (poort 465, SSL) zijn, niet tls. Pas Encryptie/poort aan onder Mail Server Instellingen en probeer opnieuw.';
+        }
+        if (str_contains($raw, 'not authorized to send on behalf of') || str_contains($raw, '550 5.7.1')) {
+            return 'De mailserver weigert verzending: het From-adres mag niet namens deze SMTP-gebruiker. Zet From-adres gelijk aan de SMTP-gebruikersnaam, of laat de server namens dat adres verzenden.';
+        }
+        if (str_contains($raw, 'Connection could not be established') || str_contains($raw, 'Connection timed out')) {
+            return 'Geen verbinding met de SMTP-server. Controleer host, poort, firewall en of TLS/SSL bij de poort past (587 = TLS, 465 = SSL).';
+        }
+        if (str_contains($raw, 'Failed to authenticate') || str_contains($raw, '535')) {
+            return 'SMTP-inloggen mislukt. Controleer gebruikersnaam en wachtwoord.';
+        }
+
+        return 'Verzenden mislukt: '.$raw;
     }
 
     /**
@@ -189,9 +317,9 @@ class EnvService
     /**
      * @return array{from_address: string, from_name: string, smtp_username: string}
      */
-    public function resolveMailFromHeaders(?int $forCompanyId = null): array
+    public function resolveMailFromHeaders(?int $forCompanyId = null, bool $platformOnly = false): array
     {
-        $mail = $this->getMailOverlayValues($forCompanyId);
+        $mail = $this->getMailOverlayValues($forCompanyId, $platformOnly);
         $configuredFrom = $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address', 'noreply@example.com');
         $smtpUsername = trim((string) ($mail['MAIL_USERNAME'] ?? ''));
 
@@ -216,6 +344,12 @@ class EnvService
     public function get($key, $default = null, ?int $companyId = null)
     {
         if (in_array($key, self::GENERAL_SETTING_KEYS, true)) {
+            if (GeneralSetting::isMailSettingKey($key)) {
+                $mail = $this->getMailOverlayValues($companyId);
+                $value = $mail[$key] ?? null;
+
+                return $value !== null ? $value : $default;
+            }
             $value = GeneralSetting::get($key, null, $companyId);
             if ($value !== null) {
                 return $value;
@@ -236,8 +370,7 @@ class EnvService
     }
 
     /**
-     * Google Maps API key uit de root .env (projectroot).
-     * De key staat in .env in de projectroot, niet in backend/.env.
+     * Google Maps API key: eerst platform-configuratie (Algemene configuraties), daarna .env-fallback.
      */
     public function getGoogleMapsApiKey(): string
     {
@@ -245,6 +378,7 @@ class EnvService
         if ($key !== '') {
             return $key;
         }
+
         $rootEnv = self::getRootEnvPath();
         if (File::exists($rootEnv) && is_readable($rootEnv)) {
             $key = trim((string) $this->getFromFile($rootEnv, 'GOOGLE_MAPS_API_KEY', ''));
@@ -300,12 +434,48 @@ class EnvService
     }
 
     /**
+     * @return array<string, string>
+     */
+    public function mapsFormSettings(): array
+    {
+        return [
+            'GOOGLE_MAPS_API_KEY' => $this->getGoogleMapsApiKey(),
+            'GOOGLE_MAPS_MAP_ID' => $this->getGoogleMapsMapId(),
+            'GOOGLE_MAPS_ZOOM' => (string) $this->get('GOOGLE_MAPS_ZOOM', '12'),
+            'GOOGLE_MAPS_CENTER_LAT' => (string) $this->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
+            'GOOGLE_MAPS_CENTER_LNG' => (string) $this->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
+            'GOOGLE_MAPS_TYPE' => (string) $this->get('GOOGLE_MAPS_TYPE', 'roadmap'),
+        ];
+    }
+
+    /**
+     * Synchroniseer platform Maps-instellingen naar config('maps.*') voor legacy config()-gebruik.
+     */
+    public function syncMapsConfig(): void
+    {
+        $settings = $this->mapsFormSettings();
+        config([
+            'maps.api_key' => $settings['GOOGLE_MAPS_API_KEY'],
+            'maps.map_id' => $settings['GOOGLE_MAPS_MAP_ID'],
+            'maps.zoom' => (int) $settings['GOOGLE_MAPS_ZOOM'],
+            'maps.center_lat' => $settings['GOOGLE_MAPS_CENTER_LAT'],
+            'maps.center_lng' => $settings['GOOGLE_MAPS_CENTER_LNG'],
+            'maps.type' => $settings['GOOGLE_MAPS_TYPE'],
+        ]);
+    }
+
+    /**
      * Set environment variables
      */
     public function set(array $variables)
     {
         if (! File::exists($this->envPath)) {
             throw new \Exception('.env file not found');
+        }
+
+        if (is_file($this->envPath)) {
+            $backupPath = $this->envPath.'.backup.'.date('Y-m-d_His');
+            File::copy($this->envPath, $backupPath);
         }
 
         $env = $this->getAll();

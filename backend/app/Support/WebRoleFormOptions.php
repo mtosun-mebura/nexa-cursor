@@ -19,12 +19,33 @@ final class WebRoleFormOptions
 
         return $roles
             ->sortBy(fn (Role $role) => [
-                strtolower(trim((string) $role->name)),
+                self::normalizeName((string) $role->name),
                 $role->getAttribute($teamKey) === null ? 0 : 1,
                 (int) $role->getKey(),
             ])
-            ->unique(fn (Role $role) => strtolower(trim((string) $role->name)))
+            ->unique(fn (Role $role) => self::normalizeName((string) $role->name))
             ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
+    }
+
+    public static function normalizeName(string $name): string
+    {
+        return strtolower(trim($name));
+    }
+
+    /**
+     * @param  list<mixed>  $selectedRoles
+     */
+    public static function isSelected(string $roleName, array $selectedRoles): bool
+    {
+        $needle = self::normalizeName($roleName);
+
+        foreach ($selectedRoles as $selected) {
+            if (self::normalizeName((string) $selected) === $needle) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

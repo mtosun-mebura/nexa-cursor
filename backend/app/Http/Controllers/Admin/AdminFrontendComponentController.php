@@ -4,31 +4,40 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
+use App\Services\EnvService;
 use App\Services\FrontendComponentService;
-use App\Services\WebsiteBuilderService;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
  * Overzicht van front-end componenten (alleen lezen; aanpassen alleen in code).
+ * Componenten zijn platformbreed en gelden voor alle tenants.
  */
 class AdminFrontendComponentController extends Controller
 {
     public function __construct(
         protected FrontendComponentService $componentService,
-        protected WebsiteBuilderService $websiteBuilder
     ) {}
 
     public function index(): View
     {
         $this->ensureSuperAdmin();
-        $activeModuleName = $this->websiteBuilder->getActiveModuleName();
         $components = $this->catalogItems();
         $grouped = $components->isEmpty()
             ? new Collection
-            : $components->groupBy('module_name');
+            : $components->groupBy(fn ($c) => $this->componentService->catalogGroupKey($c))
+                ->sortBy(function ($items, $key) {
+                    if ($key === 'Algemeen') {
+                        return '0';
+                    }
+                    if (str_starts_with((string) $key, 'Thema:')) {
+                        return '2'.$key;
+                    }
 
-        return view('admin.frontend-components.index', compact('grouped', 'activeModuleName'));
+                    return '1'.$key;
+                });
+
+        return view('admin.frontend-components.index', compact('grouped'));
     }
 
     public function demo(string $componentId): View
@@ -102,6 +111,9 @@ class AdminFrontendComponentController extends Controller
 
         $homeSections = [
             'component:website.nexa_modules_overview' => [],
+            'component:website.screenshot_gallery' => [],
+            'component:website.comparison_table' => [],
+            'component:website.pricing_packages' => [],
             'component:taxi.tarieven' => [],
             'component:taxi.boekingsmodule' => [],
             'component:website.email_template_section' => [
@@ -110,7 +122,7 @@ class AdminFrontendComponentController extends Controller
             'visibility' => [],
         ];
 
-        $sectionKey = 'component:' . $component->id;
+        $sectionKey = 'component:'.$component->id;
 
         return view('admin.frontend-components.demo', [
             'component' => $component,
@@ -121,7 +133,7 @@ class AdminFrontendComponentController extends Controller
             'page' => new WebsitePage(['title' => 'Demo', 'slug' => 'demo']),
             'themeSlug' => 'modern',
             'themeSettings' => [],
-            'googleMapsApiKey' => (string) (config('maps.api_key') ?? ''),
+            'googleMapsApiKey' => app(EnvService::class)->getGoogleMapsApiKey(),
             'emailTemplate' => $demoEmailTemplate,
             'formFields' => $demoFormFields,
             'emailTemplateBySectionKey' => ['component:website.email_template_section' => $demoEmailTemplate],
@@ -140,7 +152,7 @@ class AdminFrontendComponentController extends Controller
                 }
 
                 return (object) [
-                    'id' => 'section.' . $type,
+                    'id' => 'section.'.$type,
                     'name' => $label,
                     'module_name' => 'Algemeen',
                     'description' => 'Ingebouwde pagina-sectie uit de website builder.',

@@ -27,7 +27,7 @@
     }
 
     .email-preview-content .prose,
-    .email-preview-content .prose *:not(table):not(td):not(th) {
+    .email-preview-content .prose *:not(table):not(td):not(th):not([style*="text-align"]) {
         text-align: left !important;
     }
 
@@ -109,7 +109,8 @@
 
     .email-preview-content table.info-request-fields td.info-request-field-value,
     .email-preview-content table.info-request-fields td.info-request-field-value--multiline {
-        width: auto !important;
+        width: 99% !important;
+        max-width: none !important;
         padding: 6px 10px 6px 10px !important;
         vertical-align: top !important;
         word-break: break-word !important;
@@ -118,14 +119,8 @@
         border: none !important;
     }
 
-    .email-preview-content tr.info-request-field-divider td {
-        padding: 0 !important;
-        margin: 0 !important;
-        height: 1px !important;
-        line-height: 1px !important;
-        font-size: 1px !important;
-        background-color: #d1d5db !important;
-        border: none !important;
+    .email-preview-content tr.info-request-field-divider {
+        display: none !important;
     }
 
     .email-preview-content table.info-request-fields td.info-request-field-value--multiline {
@@ -133,17 +128,43 @@
     }
 
     .email-preview-content .prose p { margin: 0 0 0.75em 0 !important; color: #333333 !important; }
+    .email-preview-content .prose td[bgcolor="#0f172a"] p,
+    .email-preview-content .prose td[style*="background-color: #0f172a"] p,
+    .email-preview-content .prose td[style*="background-color:#0f172a"] p,
+    .email-preview-content .prose td[style*="background-color: #111827"] p,
+    .email-preview-content .prose td[style*="background-color: #1e293b"] p {
+        color: #e2e8f0 !important;
+    }
+    .email-preview-content .prose td[bgcolor="#0f172a"] h1,
+    .email-preview-content .prose td[style*="background-color: #0f172a"] h1,
+    .email-preview-content .prose td[style*="background-color:#0f172a"] h1 {
+        color: #ffffff !important;
+    }
     .email-preview-content .prose h1 { font-size: 1.875em !important; font-weight: 700 !important; margin: 0 0 0.5em 0 !important; }
     .email-preview-content .prose h2 { font-size: 1.5em !important; font-weight: 600 !important; margin: 0 0 0.5em 0 !important; }
     .email-preview-content .prose h3 { font-size: 1.25em !important; font-weight: 600 !important; margin: 0 0 0.5em 0 !important; }
     .email-preview-content .prose ul,
-    .email-preview-content .prose ol { margin: 0 0 0.75em 0 !important; padding-left: 1.5em !important; }
-    .email-preview-content .prose a { color: #2563eb !important; }
+    .email-preview-content .prose ol { margin: 0 0 0.75em 0 !important; padding-left: 1.5em !important; list-style-position: outside !important; }
+    .email-preview-content .prose ul { list-style-type: disc !important; }
+    .email-preview-content .prose ol { list-style-type: decimal !important; }
+    .email-preview-content .prose li { display: list-item !important; color: #333333 !important; }
+    .email-preview-content .prose a:not([style*="background"]) { color: #2563eb !important; }
+    .email-preview-content .prose a[style*="background-color"],
+    .email-preview-content .prose a[style*="background:"] { color: #ffffff !important; }
+    .email-preview-content .prose a[style*="background-color"] span,
+    .email-preview-content .prose a[style*="background:"] span { color: #ffffff !important; }
     .email-preview-content img {
         width: auto !important;
         height: auto !important;
         max-width: 100% !important;
         object-fit: contain !important;
         display: block !important;
+    }
+    .email-preview-content img.nexa-email-logo,
+    .email-preview-content img[alt="NEXA"] {
+        height: 36px !important;
+        max-height: 40px !important;
+        width: auto !important;
+        max-width: 180px !important;
     }
 </style>

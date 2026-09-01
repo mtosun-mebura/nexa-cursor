@@ -236,6 +236,347 @@ class WebsitePageUpdateTest extends TestCase
 
     #[Test]
     #[Group('website-pages')]
+    public function builder_v2_json_update_hides_component_with_dotted_key(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $componentKey = 'component:website.nexa_modules_overview';
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', $componentKey, 'cta'],
+                'visibility' => ['hero' => true, 'footer' => true, $componentKey => true],
+                $componentKey => ['title' => 'Modules'],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => ['hero', $componentKey, 'cta'],
+                'visibility' => [
+                    'hero' => true,
+                    'footer' => true,
+                    $componentKey => false,
+                ],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                $componentKey => ['title' => 'Modules'],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $vis = $page->getHomeSections()['visibility'] ?? [];
+        $this->assertArrayHasKey($componentKey, $vis);
+        $this->assertFalse($vis[$componentKey], 'Hidden component visibility must persist as false via builder v2 JSON');
+
+        $preview = $this->actingAs($user)->get(route('admin.website-pages.preview', $page));
+        $preview->assertOk();
+        $preview->assertDontSee('id="modules-overview"', false);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_json_update_removes_component_omitted_from_section_order(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $componentKey = 'component:website.nexa_modules_overview';
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', $componentKey, 'cta'],
+                'visibility' => ['hero' => true, 'footer' => true, $componentKey => true],
+                $componentKey => ['title' => 'Modules'],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => ['hero', 'cta'],
+                'visibility' => [
+                    'hero' => true,
+                    'footer' => true,
+                ],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                'removed_section_keys' => $componentKey,
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $order = $page->getHomeSections()['section_order'] ?? [];
+        $this->assertNotContains($componentKey, $order);
+        $this->assertContains('hero', $order);
+        $this->assertContains('cta', $order);
+        $this->assertArrayNotHasKey($componentKey, $page->home_sections ?? []);
+        $this->assertSame($componentKey, $page->getHomeSections()['removed_section_keys'] ?? '');
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_json_update_persists_why_nexa_full_width_background(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['why_nexa'],
+                'visibility' => ['why_nexa' => true, 'footer' => true],
+                'why_nexa' => ['title' => 'Waarom Nexa'],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => ['why_nexa'],
+                'visibility' => ['why_nexa' => true, 'footer' => true],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                'why_nexa' => [
+                    'title' => 'Waarom Nexa',
+                    'title_color' => '#ffffff',
+                    'subtitle' => 'Daarom stappen taxibedrijven over',
+                    'background' => '#0f172a',
+                    'background_image' => '/storage/website/why-bg.jpg',
+                    'background_image_dark' => '/storage/website/why-bg-dark.jpg',
+                ],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $why = $page->getHomeSections()['why_nexa'] ?? [];
+        $this->assertSame('#0f172a', $why['background'] ?? null);
+        $this->assertSame('/storage/website/why-bg.jpg', $why['background_image'] ?? null);
+        $this->assertSame('/storage/website/why-bg-dark.jpg', $why['background_image_dark'] ?? null);
+        $this->assertSame('#ffffff', $why['title_color'] ?? null);
+
+        $preview = $this->actingAs($user)->get(route('admin.website-pages.preview', $page));
+        $preview->assertOk();
+        $preview->assertSee('background-color: #0f172a !important', false);
+        $preview->assertSee('why-nexa--custom-color', false);
+        $preview->assertSee('why-bg.jpg', false);
+        $preview->assertSee('why-bg-dark.jpg', false);
+        $preview->assertSee('dark:hidden', false);
+        $preview->assertSee('hidden dark:block', false);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_json_update_hides_individual_hero_cta_button(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero'],
+                'visibility' => ['hero' => true, 'hero_cta' => true, 'footer' => true],
+                'hero' => [
+                    'cta_primary_text' => 'KnopEenZichtbaar',
+                    'cta_secondary_text' => 'KnopTweeVerborgen',
+                ],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => ['hero'],
+                'visibility' => [
+                    'hero' => true,
+                    'hero_cta' => true,
+                    'hero_cta_primary' => true,
+                    'hero_cta_secondary' => false,
+                    'footer' => true,
+                ],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                'hero' => [
+                    'cta_primary_text' => 'KnopEenZichtbaar',
+                    'cta_secondary_text' => 'KnopTweeVerborgen',
+                ],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $vis = $page->getHomeSections()['visibility'] ?? [];
+        $this->assertTrue((bool) ($vis['hero_cta_primary'] ?? false));
+        $this->assertFalse($vis['hero_cta_secondary'] ?? true);
+
+        $preview = $this->actingAs($user)->get(route('admin.website-pages.preview', $page));
+        $preview->assertOk();
+        $preview->assertSee('KnopEenZichtbaar');
+        $preview->assertDontSee('KnopTweeVerborgen');
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_json_update_persists_pricing_packages_width_percent(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $packagesKey = \App\Services\NexaPricingService::PACKAGES_SECTION_KEY;
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'prijzen-schaal',
+            'title' => 'Prijzen',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => [$packagesKey],
+                'visibility' => [$packagesKey => true, 'footer' => true],
+                $packagesKey => ['width_percent' => 100],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => [$packagesKey],
+                'visibility' => [$packagesKey => true, 'footer' => true],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                $packagesKey => ['width_percent' => '70'],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $this->assertSame(70, $page->getHomeSections()[$packagesKey]['width_percent'] ?? null);
+
+        $preview = $this->actingAs($user)->get(route('admin.website-pages.preview', $page));
+        $preview->assertOk();
+        $preview->assertSee('--nexa-pricing-scale: 70%', false);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_json_update_persists_nexa_modules_overview_width_percent(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $componentKey = 'component:website.nexa_modules_overview';
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'modules-breedte',
+            'title' => 'Modules',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => [$componentKey],
+                'visibility' => [$componentKey => true, 'footer' => true],
+                $componentKey => ['title' => 'Modules', 'width_percent' => 100],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => [$componentKey],
+                'visibility' => [$componentKey => true, 'footer' => true],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                $componentKey => [
+                    'title' => 'Modules',
+                    'width_percent' => '70',
+                    'items' => [
+                        [
+                            'name' => 'NEXA Taxi',
+                            'description' => 'Ritbeheer',
+                            'badge' => 'Beschikbaar',
+                            'icon' => 'truck',
+                            'url' => '/taxi',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $section = $page->getHomeSections()[$componentKey] ?? [];
+        $this->assertSame(70, $section['width_percent'] ?? null);
+        $this->assertSame('/taxi', $section['items'][0]['url'] ?? null);
+
+        $preview = $this->actingAs($user)->get(route('admin.website-pages.preview', $page));
+        $preview->assertOk();
+        $preview->assertSee('--nexa-modules-width: 70%', false);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
     public function update_removes_component_from_section_order_when_not_in_section_order()
     {
         ['company_id' => $companyId] = $this->websitePageCompanyForTests();
@@ -918,14 +1259,179 @@ class WebsitePageUpdateTest extends TestCase
         $themeOptionsHtml = $themeSelectMatch[1] ?? '';
         $this->assertNotSame('', $themeOptionsHtml, 'Theme select should be rendered.');
         $this->assertMatchesRegularExpression(
-            '/value="' . preg_quote((string) $vpn->id, '/') . '"[^>]*\sselected/',
+            '/value="'.preg_quote((string) $vpn->id, '/').'"[^>]*\sselected/',
             $themeOptionsHtml,
             'Saved VPN theme should be selected in the edit form.'
         );
         $this->assertDoesNotMatchRegularExpression(
-            '/value="' . preg_quote((string) $metronic->id, '/') . '"[^>]*\sselected/',
+            '/value="'.preg_quote((string) $metronic->id, '/').'"[^>]*\sselected/',
             $themeOptionsHtml,
             'Metronic should not be selected when page uses VPN theme.'
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_preserves_footer_inherit_from_home_when_checked(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'footer-inherit-keep',
+            'title' => 'Footer inherit',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => true, 'tagline' => 'Niet van home'],
+                'copyright' => '',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = array_filter([
+            'slug' => 'footer-inherit-keep',
+            'title' => 'Footer inherit',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'company_id' => $companyId !== null ? (string) $companyId : null,
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+                'hero' => ['title' => 'Nieuwe titel'],
+                'copyright' => '',
+                'footer' => [
+                    'inherit_from_home' => '1',
+                    'tagline' => 'Niet van home',
+                ],
+            ],
+        ], fn ($v) => $v !== null);
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $page->refresh();
+        $this->assertTrue(
+            (bool) ($page->home_sections['footer']['inherit_from_home'] ?? false),
+            'Overnemen van Home moet aan blijven na opslaan'
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_preserves_footer_inherit_from_home_via_config_fallback_when_post_has_zero(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'footer-inherit-fallback',
+            'title' => 'Footer inherit fallback',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => true],
+                'copyright' => '',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = array_filter([
+            'slug' => 'footer-inherit-fallback',
+            'title' => 'Footer inherit fallback',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'company_id' => $companyId !== null ? (string) $companyId : null,
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            '_footer_config_fallback' => json_encode(['inherit_from_home' => 1]),
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+                'hero' => ['title' => 'Nieuwe titel'],
+                'copyright' => '',
+                'footer' => ['inherit_from_home' => '0'],
+            ],
+        ], fn ($v) => $v !== null);
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $page->refresh();
+        $this->assertTrue(
+            (bool) ($page->home_sections['footer']['inherit_from_home'] ?? false),
+            'Fallback-JSON moet inherit_from_home=1 behouden als de checkbox uit de POST is gevallen'
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function builder_v2_update_preserves_footer_inherit_from_home_when_omitted(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'footer-inherit-v2',
+            'title' => 'Footer inherit v2',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => true, 'tagline' => 'Bewaar mij'],
+                'copyright' => '',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'hero' => ['title' => 'Nieuwe hero'],
+                'copyright' => '',
+                'footer' => ['tagline' => 'Bewaar mij'],
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+        $page->refresh();
+        $this->assertTrue(
+            (bool) ($page->home_sections['footer']['inherit_from_home'] ?? false),
+            'Builder v2 mag inherit_from_home niet wissen als het veld ontbreekt in de footer-payload'
         );
     }
 }

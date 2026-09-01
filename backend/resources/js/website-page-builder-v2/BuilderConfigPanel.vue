@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import BuilderConfigFields from './BuilderConfigFields.vue'
-import { schemaForComponent } from './component-config-schemas'
+import { inferConfigFieldsFromData, schemaForComponent } from './component-config-schemas'
 import { baseTypeFromKey } from './palette-meta'
 import { deepMerge } from './nested-data'
 import { schemaForBaseType } from './section-config-schemas'
@@ -41,22 +41,6 @@ const emit = defineEmits<{
 
 const baseType = computed(() => baseTypeFromKey(props.blockKey))
 
-const schemaFields = computed(() => {
-  let fields: ReturnType<typeof schemaForBaseType>
-  if (props.isComponent) {
-    fields = schemaForComponent(props.blockKey)
-  } else {
-    fields = schemaForBaseType(baseType.value)
-  }
-  if (props.blockKey === 'footer' && !props.isNonHomePage) {
-    fields = fields.filter((field) => !('key' in field) || field.key !== 'inherit_from_home')
-  }
-  if (props.blockKey === 'footer' && props.footerInheritedFromHome) {
-    fields = fields.filter((field) => 'key' in field && field.key === 'inherit_from_home')
-  }
-  return fields
-})
-
 const displayData = computed(() => {
   if (props.isComponent) {
     const defaults = props.componentDefaults[props.blockKey]
@@ -67,17 +51,23 @@ const displayData = computed(() => {
   return props.data
 })
 
-const extraScalarFields = computed(() => {
-  if (schemaFields.value.length > 0) {
-    return []
+const schemaFields = computed(() => {
+  let fields: ReturnType<typeof schemaForBaseType>
+  if (props.isComponent) {
+    fields = schemaForComponent(props.blockKey)
+    if (fields.length === 0) {
+      fields = inferConfigFieldsFromData(displayData.value)
+    }
+  } else {
+    fields = schemaForBaseType(baseType.value)
   }
-  return Object.entries(displayData.value)
-    .filter(([key, value]) => {
-      if (key === 'items') return false
-      const t = typeof value
-      return t === 'string' || t === 'number' || t === 'boolean'
-    })
-    .map(([key, value]) => ({ key, value }))
+  if (props.blockKey === 'footer' && !props.isNonHomePage) {
+    fields = fields.filter((field) => !('key' in field) || field.key !== 'inherit_from_home')
+  }
+  if (props.blockKey === 'footer' && props.footerInheritedFromHome) {
+    fields = fields.filter((field) => 'key' in field && field.key === 'inherit_from_home')
+  }
+  return fields
 })
 
 const sideComponentOptions = computed(() =>
@@ -130,20 +120,8 @@ const emailTemplateOptions = computed(() =>
       @patch-visibility="(key, visible) => emit('patch-visibility', key, visible)"
     />
 
-    <div v-if="extraScalarFields.length > 0" class="space-y-3">
-      <p class="text-xs font-medium text-muted-foreground">Overige velden</p>
-      <label v-for="entry in extraScalarFields" :key="entry.key" class="builder-field">
-        <span>{{ entry.key }}</span>
-        <input
-          class="kt-input"
-          :value="String(entry.value ?? '')"
-          @input="emit('patch', { [entry.key]: ($event.target as HTMLInputElement).value })"
-        />
-      </label>
-    </div>
-
     <div
-      v-if="!configReadonly && schemaFields.length === 0 && extraScalarFields.length === 0 && blockKey !== 'footer'"
+      v-if="!configReadonly && schemaFields.length === 0 && blockKey !== 'footer'"
       class="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground"
     >
       Geen bekende instellingen voor dit blok. Voeg het component opnieuw toe of gebruik de klassieke editor.
@@ -172,10 +150,15 @@ const emailTemplateOptions = computed(() =>
 }
 
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-field--wysiwyg),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field--media),
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(.builder-media-image-row)),
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-group),
 .builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-item-list),
-.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-step-order) {
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-step-order),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(+ .builder-config-field--pricing-preview)),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-field:has(+ .nexa-pricing-preview)),
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-field--pricing-preview),
+.builder-config-panel--expanded :deep(.builder-config-fields > .nexa-pricing-preview) {
   grid-column: 1 / -1;
 }
 
@@ -185,15 +168,23 @@ const emailTemplateOptions = computed(() =>
 }
 
 .builder-config-panel--expanded :deep(.builder-config-group__body .builder-field--wysiwyg),
+.builder-config-panel--expanded :deep(.builder-config-group__body .builder-field--media),
 .builder-config-panel--expanded :deep(.builder-config-group__body .builder-config-item-list) {
   grid-column: 1 / -1;
 }
 
-.builder-config-panel--expanded :deep(.builder-config-item:not(.builder-config-item--footer-link)) {
+.builder-config-panel--expanded :deep(.builder-config-item:not(.builder-config-item--footer-link):not(.builder-config-item--compact)) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem 1.25rem;
   align-items: start;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-item--compact) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  grid-column: 1 / -1;
 }
 
 .builder-config-panel--expanded :deep(.builder-config-item--footer-link) {
@@ -214,8 +205,11 @@ const emailTemplateOptions = computed(() =>
 }
 
 .builder-config-panel--expanded :deep(.builder-field:has(.builder-image-preview)),
-.builder-config-panel--expanded :deep(.builder-field:has(.builder-media-image-row)) {
+.builder-config-panel--expanded :deep(.builder-field:has(.builder-media-image-row)),
+.builder-config-panel--expanded :deep(.builder-field--media),
+.builder-config-panel--expanded :deep(.builder-field--footer-logo) {
   grid-column: 1 / -1;
+  width: 100%;
 }
 
 .builder-config-panel--expanded :deep(.builder-image-preview),
@@ -226,7 +220,13 @@ const emailTemplateOptions = computed(() =>
 
 .builder-config-panel--expanded :deep(.builder-media-upload-area) {
   min-height: 4.5rem;
-  max-width: 100%;
+  width: 100%;
+  max-width: none;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-fields > .builder-config-field--pricing-preview),
+.builder-config-panel--expanded :deep(.builder-config-fields > .nexa-pricing-preview) {
+  margin-top: 0.5rem;
 }
 
 @media (max-width: 768px) {

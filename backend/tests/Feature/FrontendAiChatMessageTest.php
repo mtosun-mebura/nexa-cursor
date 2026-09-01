@@ -190,4 +190,128 @@ class FrontendAiChatMessageTest extends TestCase
             return str_contains($request->url(), 'router.project-osrm.org');
         });
     }
+
+    public function test_central_website_chat_answers_product_questions_without_n8n(): void
+    {
+        Http::fake();
+
+        config()->set('tenancy.central_domains', ['localhost']);
+        config()->set('app.url', 'http://localhost:8085');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ])->postJson('/ai-chat/message', [
+            'message' => 'Ik ben geïnteresseerd, bij wie kan ik terecht?',
+            'module' => 'nexa',
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $reply = mb_strtolower((string) $response->json('reply'));
+        $this->assertStringContainsString('contactformulier', $reply);
+        $this->assertStringContainsString('info@nexasuite.nl', $reply);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_central_website_chat_does_not_start_taxi_quote_flow(): void
+    {
+        Http::fake();
+
+        config()->set('tenancy.central_domains', ['localhost']);
+        config()->set('app.url', 'http://localhost:8085');
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ])->postJson('/ai-chat/message', [
+            'message' => 'Wat kost Nexa Taxi?',
+            'module' => 'nexa',
+            'sessionId' => 'central-no-quote',
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $response->assertJsonMissing(['input']);
+        $reply = mb_strtolower((string) $response->json('reply'));
+        $this->assertStringContainsString('/prijzen', $reply);
+        $this->assertStringContainsString('€ 49', $reply);
+        $this->assertStringNotContainsString('vanaf welk adres', $reply);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_central_website_chat_answers_package_questions(): void
+    {
+        Http::fake();
+
+        config()->set('tenancy.central_domains', ['localhost']);
+        config()->set('app.url', 'http://localhost:8085');
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ])->postJson('/ai-chat/message', [
+            'message' => 'Welke pakketten zijn er?',
+            'module' => 'nexa',
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $reply = (string) $response->json('reply');
+        $this->assertStringContainsString('Start', $reply);
+        $this->assertStringContainsString('Pro', $reply);
+        $this->assertStringContainsString('Business', $reply);
+        $this->assertStringContainsString('€ 99', $reply);
+        $this->assertStringContainsString('/prijzen', $reply);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_central_website_chat_answers_visitor_questions_even_when_module_is_taxi(): void
+    {
+        Http::fake();
+
+        config()->set('tenancy.central_domains', ['localhost']);
+        config()->set('app.url', 'http://localhost:8085');
+
+        $middleware = [
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ];
+
+        $prices = $this->withoutMiddleware($middleware)->postJson('/ai-chat/message', [
+            'message' => 'wat zijn de prijzen?',
+            'module' => 'taxi',
+        ]);
+        $prices->assertOk()->assertJsonPath('success', true);
+        $priceReply = (string) $prices->json('reply');
+        $this->assertStringContainsString('Start', $priceReply);
+        $this->assertStringContainsString('Pro', $priceReply);
+        $this->assertStringContainsString('€ 49', $priceReply);
+        $this->assertStringContainsString('/prijzen', $priceReply);
+
+        $products = $this->withoutMiddleware($middleware)->postJson('/ai-chat/message', [
+            'message' => 'welke producten zijn er',
+            'module' => 'taxi',
+        ]);
+        $products->assertOk()->assertJsonPath('success', true);
+        $productReply = (string) $products->json('reply');
+        $this->assertStringContainsString('Nexa Taxi', $productReply);
+        $this->assertStringContainsString('Contractvervoer', $productReply);
+
+        $signup = $this->withoutMiddleware($middleware)->postJson('/ai-chat/message', [
+            'message' => 'hoe kan ik me aanmelden?',
+            'module' => 'taxi',
+        ]);
+        $signup->assertOk()->assertJsonPath('success', true);
+        $signupReply = mb_strtolower((string) $signup->json('reply'));
+        $this->assertStringContainsString('contactformulier', $signupReply);
+        $this->assertStringContainsString('/contact', $signupReply);
+
+        Http::assertNothingSent();
+    }
 }

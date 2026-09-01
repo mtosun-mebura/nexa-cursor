@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, height=844">
+<title>Vandaag contractant</title>
+<style>
+  :root {
+    --bg: #121214;
+    --card: #1c1c1e;
+    --chrome: #1c1c1e;
+    --text: #ffffff;
+    --muted: #9ca3af;
+    --orange: #f97316;
+    --green: #22c55e;
+    --red: #ef4444;
+    --line: rgba(255,255,255,0.08);
+    --soft-text: #d1d5db;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    width: 390px;
+    height: 844px;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .home-top {
+    position: relative;
+    padding: 10px 16px 8px;
+    background: var(--chrome);
+    border-bottom: 1px solid var(--line);
+  }
+  .home-top__row {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding-right: 2.75rem;
+  }
+  .home-top h1 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .theme-toggle {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 0;
+  }
+  .theme-toggle svg { width: 1.2rem; height: 1.2rem; display: block; }
+  .home-scroll { padding: 12px 16px 8px; height: 708px; overflow: hidden; }
+  .home-meta { margin: 0 0 0.45rem; font-size: 0.875rem; color: var(--muted); font-weight: 400; }
+  .home-meta.dest { font-weight: 600; color: var(--text); margin-bottom: 0.85rem; }
+  .card {
+    background: var(--card);
+    border-radius: 0.875rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--line);
+  }
+  .passenger-card-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .passenger-card-toggle-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
+  .passenger-name { font-weight: 650; font-size: 1rem; margin: 0; }
+  .passenger-card-summary { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
+  .passenger-card-chevron {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+  .passenger-card.is-expanded .passenger-card-chevron { transform: rotate(180deg); }
+  .passenger-card-body { margin-top: 0.75rem; }
+  .passenger-card:not(.is-expanded) .card-actions { margin-top: 0.65rem; }
+  .leg-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin: 0 0 0.55rem;
+  }
+  .offer-route { position: relative; margin: 0 0 0.55rem; }
+  .offer-route::before {
+    content: "";
+    position: absolute;
+    left: 0.55rem;
+    top: 1.15rem;
+    bottom: 0;
+    border-left: 2px dashed rgba(156, 163, 175, 0.55);
+  }
+  .offer-route-stop { position: relative; padding-bottom: 0.85rem; }
+  .offer-route-stop:last-child { padding-bottom: 0; }
+  .offer-route-head { display: flex; align-items: center; gap: 0.55rem; margin: 0 0 0.2rem; }
+  .offer-route-dot {
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 999px;
+    border: 2px solid var(--card);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .offer-route-dot--pickup { background: var(--green); }
+  .offer-route-dot--dropoff { background: var(--orange); }
+  .offer-route-label { font-size: 0.8125rem; color: var(--soft-text); font-weight: 600; margin: 0; line-height: 1.3; }
+  .offer-route-label-time { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+  .offer-route-body { display: block; padding-left: 1.7rem; }
+  .offer-route-main { display: block; font-size: 0.95rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .offer-route-sub { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; line-height: 1.3; }
+  .status-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .status-planned { background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+  .status-none { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+  .card-actions { display: flex; margin-top: 0.75rem; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 0.625rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #fff;
+  }
+  .btn-danger { background: var(--red); }
+  .nav {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 76px;
+    display: flex;
+    align-items: stretch;
+    padding: 7px 6px 10px;
+    background: var(--chrome);
+    border-top: 1px solid var(--line);
+  }
+  .nav button {
+    flex: 1 1 0;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+  }
+  .nav button.active { color: var(--orange); }
+  .nav svg { width: 22px; height: 22px; }
+</style>
+</head>
+<body>
+  <div class="home-top">
+    <div class="home-top__row"><h1>Vandaag</h1></div>
+    <button class="theme-toggle" type="button" aria-label="Thema wisselen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="home-scroll">
+    <p class="home-meta">Contractant · Basisschool De Linden · di 18 aug</p>
+    <p class="home-meta dest">Bestemming: Basisschool De Linden, Schoolstraat 10, Amsterdam</p>
+
+    <div class="card passenger-card is-expanded">
+      <div class="passenger-card-toggle">
+        <span class="passenger-card-toggle-text">
+          <span class="passenger-name">Jan de Vries</span>
+          <span class="passenger-card-summary">Heen 08:00</span>
+        </span>
+        <span class="passenger-card-chevron">▼</span>
+      </div>
+      <div class="passenger-card-body">
+        <p class="leg-label">Heen</p>
+        <div class="offer-route">
+          <div class="offer-route-stop">
+            <div class="offer-route-head">
+              <span class="offer-route-dot offer-route-dot--pickup"></span>
+              <p class="offer-route-label">Ophalen</p>
+              <span class="offer-route-label-time">08:00</span>
+            </div>
+            <div class="offer-route-body">
+              <span class="offer-route-main">Stationsplein 1</span>
+              <span class="offer-route-sub">Amsterdam</span>
+            </div>
+          </div>
+          <div class="offer-route-stop">
+            <div class="offer-route-head">
+              <span class="offer-route-dot offer-route-dot--dropoff"></span>
+              <p class="offer-route-label">Afzetten</p>
+              <span class="offer-route-label-time">08:15</span>
+            </div>
+            <div class="offer-route-body">
+              <span class="offer-route-main">Basisschool De Linden</span>
+              <span class="offer-route-sub">Schoolstraat 10, Amsterdam</span>
+            </div>
+          </div>
+        </div>
+        <div class="status-pills">
+          <span class="status-pill status-planned">Gepland</span>
+          <span class="status-pill status-none">Nog niet opgehaald</span>
+          <span class="status-pill status-none">Bestemming nog niet bereikt</span>
+        </div>
+      </div>
+      <div class="card-actions"><span class="btn btn-danger">Afmelden</span></div>
+    </div>
+
+    <div class="card passenger-card">
+      <div class="passenger-card-toggle">
+        <span class="passenger-card-toggle-text">
+          <span class="passenger-name">Emma Jansen</span>
+          <span class="passenger-card-summary">Heen 07:50</span>
+        </span>
+        <span class="passenger-card-chevron">▼</span>
+      </div>
+      <div class="card-actions"><span class="btn btn-danger">Afmelden</span></div>
+    </div>
+
+    <div class="card passenger-card">
+      <div class="passenger-card-toggle">
+        <span class="passenger-card-toggle-text">
+          <span class="passenger-name">Lucas Bakker</span>
+          <span class="passenger-card-summary">Heen 07:40</span>
+        </span>
+        <span class="passenger-card-chevron">▼</span>
+      </div>
+      <div class="card-actions"><span class="btn btn-danger">Afmelden</span></div>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="active" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M3 10h18"/></svg>
+      <span>Vandaag</span>
+    </button>
+    <button type="button">
+      <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 7h8M8 12h8M8 17h5"/><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Planning</span>
+    </button>
+    <button type="button">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m15 9-6 6M9 9l6 6"/></svg>
+      <span>Afmeldingen</span>
+    </button>
+    <button type="button">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 19.5c1.6-3.2 4-4.8 6.5-4.8s4.9 1.6 6.5 4.8"/></svg>
+      <span>Profiel</span>
+    </button>
+  </nav>
+</body>
+</html>

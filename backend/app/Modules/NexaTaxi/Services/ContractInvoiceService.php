@@ -7,6 +7,7 @@ use App\Models\CompanyLocation;
 use App\Models\EmailTemplate;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
+use App\Models\TenantCustomerEmail;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportContract;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
@@ -14,13 +15,15 @@ use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Models\TransportPaymentMandate;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Services\CompanyEmailLogoService;
+use App\Services\CompanyEntitlementService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
+use App\Services\TenantCustomerMailService;
+use App\Support\TenantPackageCapability;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -82,6 +85,9 @@ class ContractInvoiceService
                 'contract' => ['Contractklant niet gevonden.'],
             ]);
         }
+
+        $company = Company::query()->find((int) $contract->company_id);
+        app(CompanyEntitlementService::class)->assertAllows($company, TenantPackageCapability::MONTHLY_INVOICE_SEPA);
 
         $rideStats = $this->completedRideStatsForPeriod($conn, $contract, $period);
         $lineItems = $this->buildLineItems($contract, $period, $rideStats);
@@ -462,37 +468,27 @@ class ContractInvoiceService
 
         $toEmail = $invoice->customer_email;
         $toName = $invoice->customer_name ?? $toEmail;
-
-        $this->env->applyMailConfigToRuntime();
-        $from = $this->env->resolveMailFromHeaders();
         $companyReplyTo = trim((string) ($details['email'] ?? ''));
 
-        Mail::send([], [], function ($message) use (
-            $toEmail,
-            $toName,
-            $subject,
-            $htmlContent,
-            $textContent,
-            $invoice,
-            $pdfBytes,
-            $from,
-            $companyReplyTo,
-            $details,
-        ) {
-            $message->to($toEmail, $toName)
-                ->subject($subject)
-                ->from($from['from_address'], $from['from_name']);
-
-            if ($companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL)) {
-                $message->replyTo($companyReplyTo, (string) ($details['name'] ?? ''));
-            }
-
-            $message->html($htmlContent);
-            $message->text($textContent);
-            $message->attachData($pdfBytes, 'factuur-'.$invoice->invoice_number.'.pdf', [
+        app(TenantCustomerMailService::class)->send([
+            'company_id' => $companyId,
+            'type' => TenantCustomerEmail::TYPE_INVOICE,
+            'to_email' => $toEmail,
+            'to_name' => $toName,
+            'subject' => $subject,
+            'html' => $htmlContent,
+            'text' => $textContent,
+            'related_type' => 'invoice',
+            'related_id' => $invoice->id,
+            'reply_to' => $companyReplyTo !== '' && filter_var($companyReplyTo, FILTER_VALIDATE_EMAIL) ? $companyReplyTo : null,
+            'reply_to_name' => (string) ($details['name'] ?? ''),
+            'attachments' => [[
+                'bytes' => $pdfBytes,
+                'filename' => 'factuur-'.$invoice->invoice_number.'.pdf',
                 'mime' => 'application/pdf',
-            ]);
-        });
+            ]],
+            'throw' => true,
+        ]);
     }
 
     /**

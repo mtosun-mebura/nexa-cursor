@@ -8,6 +8,55 @@
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
 @endpush
 
+@push('styles')
+<style>
+    .test-email-feedback-slot .field-feedback {
+        margin-top: 0;
+        padding-top: 0.15rem;
+        line-height: 1.25;
+    }
+    #mail .kt-card-footer {
+        padding-bottom: 0.5rem;
+    }
+    #test-email-btn .test-email-spinner {
+        display: none;
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+        animation: test-email-spin 0.7s linear infinite;
+    }
+    #test-email-btn.is-loading .test-email-spinner {
+        display: block;
+    }
+    #test-email-btn.is-loading .test-email-send-icon {
+        display: none;
+    }
+    @keyframes test-email-spin {
+        to { transform: rotate(360deg); }
+    }
+    #test-email-status[data-ok="1"] {
+        color: #16a34a;
+    }
+    #test-email-status[data-ok="0"] {
+        color: #dc2626;
+    }
+    #test-email-message[data-ok="1"] {
+        color: #166534;
+        background: #dcfce7;
+        border: 1px solid #86efac;
+        border-radius: 0.5rem;
+        padding: 0.65rem 0.85rem;
+    }
+    #test-email-message[data-ok="0"] {
+        color: #991b1b;
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        border-radius: 0.5rem;
+        padding: 0.65rem 0.85rem;
+    }
+</style>
+@endpush
+
 @section('content')
 
 <div class="kt-container-fixed">
@@ -63,12 +112,33 @@
     @endif
 
     <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
-    @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
-        <!-- Mail Server Instellingen -->
+        <!-- Mail Server Instellingen: Nexa SaaS (Alle Tenants) of per tenant -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => ($mailSettingsIsPlatform ?? false)
+                ? '<i class="ki-filled ki-sms me-2"></i> Nexa SaaS Mail Server'
+                : '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <p class="text-sm text-muted-foreground mx-5 mt-4 mb-0">
+                @if($mailSettingsIsPlatform ?? false)
+                    Dit is de standaard mailserver van Nexa SaaS. Platformmails (welkomstmail, wachtwoordreset, testmail, facturen) gebruiken deze server. Een tenant zonder eigen mailserver valt hier automatisch op terug.
+                @else
+                    Optioneel per tenant. Als deze velden leeg zijn of niet zijn opgeslagen, wordt de Nexa SaaS-mailserver gebruikt (Configuraties bij “Alle Tenants”).
+                @endif
+            </p>
+            @if(!empty($mailUsingPlatformFallback) && empty($mailDeliveryHint))
+                <div class="kt-alert kt-alert-primary mx-5 mt-4 mb-0" role="status">
+                    <i class="ki-filled ki-information-2 me-2"></i>
+                    Deze tenant heeft geen eigen mailserver. Uitgaande mail gebruikt de Nexa SaaS-mailserver.
+                </div>
+            @endif
+            @if(!empty($mailDeliveryHint))
+                <div class="kt-alert kt-alert-warning mx-5 mt-4 mb-0" role="alert" id="mail-config-hint">
+                    <i class="ki-filled ki-information-2 me-2"></i>
+                    {{ $mailDeliveryHint }}
+                </div>
+            @endif
+            <div id="test-email-message" class="hidden mx-5 mt-4 mb-0 text-sm" role="status" aria-live="polite"></div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-0">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
@@ -141,7 +211,7 @@
                                         <option value="null" {{ old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION']) === 'null' || empty(old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION'])) ? 'selected' : '' }}>Geen</option>
                                     </select>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Encryptie type voor SMTP verbinding</div>
+                                <div class="text-xs text-muted-foreground mt-1">TLS (poort 587, STARTTLS) of SSL (poort 465). Laravel 12 gebruikt intern smtp/smtps, niet „tls” als scheme.</div>
                                 @error('MAIL_ENCRYPTION')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -218,21 +288,32 @@
                             </td>
                         </tr>
                     </table>
-                    <div class="kt-card-footer flex justify-between items-center gap-5 pt-5 border-t border-border">
-                        <button type="submit" class="kt-btn kt-btn-primary">
+                    <div class="kt-card-footer flex justify-between items-start gap-5 pt-4 pb-2 border-t border-border">
+                        <button type="submit" class="kt-btn kt-btn-primary mt-6">
                             <i class="ki-filled ki-check me-2"></i> Mail Instellingen Opslaan
                         </button>
-                        <div class="flex items-end gap-2.5">
-                            <div class="flex flex-col">
-                                <label for="test-email-input" class="kt-form-label text-sm mb-1">Test Email</label>
-                                <div class="relative">
-                                    <input type="email" class="kt-input" id="test-email-input" 
-                                           placeholder="test@example.com">
+                        <div class="flex flex-col min-w-0">
+                            <label for="test-email-input" class="kt-form-label text-sm mb-1">Test Email</label>
+                            <div class="flex items-start gap-2.5">
+                                <div class="flex flex-col min-w-0 w-64">
+                                    <div class="relative">
+                                        <input type="email" class="kt-input w-full" id="test-email-input"
+                                               placeholder="test@example.com">
+                                    </div>
+                                    <div class="test-email-feedback-slot min-h-5">
+                                        <div class="field-feedback text-xs text-destructive leading-snug" data-field="test-email-input"></div>
+                                    </div>
                                 </div>
+                                <button type="button" class="kt-btn kt-btn-outline shrink-0 inline-flex items-center gap-1.5" id="test-email-btn">
+                                    <svg class="test-email-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
+                                        <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                                    </svg>
+                                    <i class="ki-filled ki-send test-email-send-icon"></i>
+                                    <span class="test-email-btn-label">Verstuur Test</span>
+                                </button>
+                                <span id="test-email-status" class="hidden inline-flex items-center justify-center shrink-0 w-8 h-8 mt-0.5" role="status" aria-live="polite"></span>
                             </div>
-                            <button type="button" class="kt-btn kt-btn-outline" id="test-email-btn">
-                                <i class="ki-filled ki-send me-2"></i> Verstuur Test
-                            </button>
                         </div>
                     </div>
                 </form>
@@ -240,6 +321,7 @@
             </div>
         </div>
 
+    @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
         <!-- Google SEO Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-abstract-26 me-2"></i> Google SEO &amp; Search Console'])
@@ -422,133 +504,8 @@
             </div>
         </div>
 
-        <!-- Google Maps Instellingen -->
-        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="maps">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-geolocation me-2"></i> Google Maps Configuratie'])
-            <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <form method="POST" action="{{ route('admin.settings.maps.update') }}" data-validate="true">
-                    @csrf
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Google Maps API Key *</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('GOOGLE_MAPS_API_KEY') border-destructive @enderror" 
-                                           id="GOOGLE_MAPS_API_KEY" 
-                                           name="GOOGLE_MAPS_API_KEY" 
-                                           value="{{ old('GOOGLE_MAPS_API_KEY', $mapsSettings['GOOGLE_MAPS_API_KEY'] ?? '') }}" 
-                                           placeholder="AIzaSy..." 
-                                           required>
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Google Maps JavaScript API key voor kaarten en geocoding</div>
-                                @error('GOOGLE_MAPS_API_KEY')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Map ID (optioneel)</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text"
-                                           class="kt-input @error('GOOGLE_MAPS_MAP_ID') border-destructive @enderror"
-                                           id="GOOGLE_MAPS_MAP_ID"
-                                           name="GOOGLE_MAPS_MAP_ID"
-                                           value="{{ old('GOOGLE_MAPS_MAP_ID', $mapsSettings['GOOGLE_MAPS_MAP_ID'] ?? '') }}"
-                                           placeholder="bijv. abc123def456">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Voor Advanced Markers (geen deprecation-warning). Aanmaken in <a href="https://console.cloud.google.com/google/maps-apis/studio/maps" target="_blank" rel="noopener" class="underline">Google Cloud Console → Map Management</a></div>
-                                @error('GOOGLE_MAPS_MAP_ID')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Standaard Zoom Level</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="number" 
-                                           class="kt-input @error('GOOGLE_MAPS_ZOOM') border-destructive @enderror" 
-                                           id="GOOGLE_MAPS_ZOOM" 
-                                           name="GOOGLE_MAPS_ZOOM" 
-                                           value="{{ old('GOOGLE_MAPS_ZOOM', $mapsSettings['GOOGLE_MAPS_ZOOM'] ?? '12') }}" 
-                                           placeholder="12" 
-                                           min="1" 
-                                           max="20">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Standaard zoom level voor kaarten (1-20, standaard: 12)</div>
-                                @error('GOOGLE_MAPS_ZOOM')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Standaard Centrum (Latitude)</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('GOOGLE_MAPS_CENTER_LAT') border-destructive @enderror" 
-                                           id="GOOGLE_MAPS_CENTER_LAT" 
-                                           name="GOOGLE_MAPS_CENTER_LAT" 
-                                           value="{{ old('GOOGLE_MAPS_CENTER_LAT', $mapsSettings['GOOGLE_MAPS_CENTER_LAT'] ?? '52.3676') }}" 
-                                           placeholder="52.3676">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Standaard latitude voor kaart centrum (bijv. 52.3676 voor Amsterdam)</div>
-                                @error('GOOGLE_MAPS_CENTER_LAT')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Standaard Centrum (Longitude)</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('GOOGLE_MAPS_CENTER_LNG') border-destructive @enderror" 
-                                           id="GOOGLE_MAPS_CENTER_LNG" 
-                                           name="GOOGLE_MAPS_CENTER_LNG" 
-                                           value="{{ old('GOOGLE_MAPS_CENTER_LNG', $mapsSettings['GOOGLE_MAPS_CENTER_LNG'] ?? '4.9041') }}" 
-                                           placeholder="4.9041">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Standaard longitude voor kaart centrum (bijv. 4.9041 voor Amsterdam)</div>
-                                @error('GOOGLE_MAPS_CENTER_LNG')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Map Type</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <select class="kt-select @error('GOOGLE_MAPS_TYPE') border-destructive @enderror" 
-                                            id="GOOGLE_MAPS_TYPE" 
-                                            name="GOOGLE_MAPS_TYPE">
-                                        <option value="roadmap" {{ old('GOOGLE_MAPS_TYPE', $mapsSettings['GOOGLE_MAPS_TYPE'] ?? 'roadmap') === 'roadmap' ? 'selected' : '' }}>Roadmap</option>
-                                        <option value="satellite" {{ old('GOOGLE_MAPS_TYPE', $mapsSettings['GOOGLE_MAPS_TYPE'] ?? 'roadmap') === 'satellite' ? 'selected' : '' }}>Satellite</option>
-                                        <option value="hybrid" {{ old('GOOGLE_MAPS_TYPE', $mapsSettings['GOOGLE_MAPS_TYPE'] ?? 'roadmap') === 'hybrid' ? 'selected' : '' }}>Hybrid</option>
-                                        <option value="terrain" {{ old('GOOGLE_MAPS_TYPE', $mapsSettings['GOOGLE_MAPS_TYPE'] ?? 'roadmap') === 'terrain' ? 'selected' : '' }}>Terrain</option>
-                                    </select>
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Standaard kaart type</div>
-                                @error('GOOGLE_MAPS_TYPE')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                    </table>
-                    <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
-                        <button type="submit" class="kt-btn kt-btn-primary">
-                            <i class="ki-filled ki-check me-2"></i> Maps Instellingen Opslaan
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-        </div>
 
-        <!-- Google Reviews (zelfde Maps API-sleutel; Places API moet ingeschakeld zijn) -->
+        <!-- Google Reviews (platform Maps API-sleutel; Places API moet ingeschakeld zijn) -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="google-reviews">
             <style>
             #google-reviews input[type="number"]::-webkit-outer-spin-button,
@@ -833,8 +790,38 @@
                                            placeholder="0612345678 of +31612345678"
                                            autocomplete="tel">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Ontvangernummer voor boekingsmeldingen / wa.me-fallback.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Nummer voor wa.me-fallback (zonder Business API).</div>
                                 @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" class="pt-4">
+                                <div class="rounded-lg border border-border bg-background px-4 py-3">
+                                    <div class="text-sm font-semibold text-secondary-foreground">Boekingsmelding naar bedrijf</div>
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Ontvangernummer voor WhatsApp bij nieuwe boekingen (template “dispatch”).
+                                        Aan/uit staat onder Algemene configuraties → WhatsApp Business API →
+                                        <a href="{{ route('admin.settings.general.index') }}#whatsapp-booking-templates" class="underline">Boekingssjablonen</a>.
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp-nummer bedrijf</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="tel"
+                                           class="kt-input @error('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER') border-destructive @enderror"
+                                           id="WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER"
+                                           name="WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER"
+                                           value="{{ old('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', $whatsappSettings['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER'] ?? '') }}"
+                                           placeholder="0612345678 of +31612345678"
+                                           autocomplete="tel">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Leeg = geen bericht naar het bedrijf, ook als de platform-optie aan staat.</div>
+                                @error('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
@@ -905,30 +892,187 @@
             </div>
         </div>
 
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mollie">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-dollar me-2"></i> Mollie (tenant)'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <div class="px-5 pb-3 text-xs text-muted-foreground" style="padding-top: 10px;">
+                    Eigen Mollie-omgeving van <strong>deze tenant</strong>. Betalingen in de chauffeur-app (QR) en optioneel bij websiteboekingen gaan via deze API-sleutel.
+                    Het geld komt op de Mollie-rekening van het taxibedrijf, niet op die van Nexa.
+                    Dit is niet de NEXA-facturatie van het platform.
+                </div>
+                @if(isset($molliePackageAllowed) && ! $molliePackageAllowed)
+                    <div class="px-5 pb-3">
+                        <div class="kt-alert kt-alert-warning text-sm mb-0" role="alert">
+                            {{ $molliePackageDeniedMessage ?? 'Betalen via Mollie zit niet in het pakket van deze tenant.' }}
+                        </div>
+                    </div>
+                @endif
+                <form method="POST" action="{{ route('admin.settings.mollie.update') }}" data-validate="true">
+                    @csrf
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Status</td>
+                            <td class="min-w-48 w-full pt-4">
+                                @if(!empty($mollieSummary['configured']) && !empty($mollieSummary['is_active']))
+                                    <span class="text-sm text-emerald-700 dark:text-emerald-300">Actief{{ !empty($mollieSummary['test_mode']) ? ' (testmodus)' : '' }}</span>
+                                @elseif(!empty($mollieSummary['provider']))
+                                    <span class="text-sm text-amber-700 dark:text-amber-300">Opgeslagen, maar niet actief of zonder geldige sleutel</span>
+                                @else
+                                    <span class="text-sm text-muted-foreground">Nog niet ingesteld</span>
+                                @endif
+                                @if(!empty($mollieSummary['api_key_preview']))
+                                    <div class="text-xs text-muted-foreground mt-1">Huidige sleutel: <code class="text-xs">{{ $mollieSummary['api_key_preview'] }}</code></div>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Mollie API-sleutel{{ empty($mollieSummary['configured']) ? ' *' : '' }}</td>
+                            <td class="min-w-48 w-full">
+                                <input type="password"
+                                       class="kt-input @error('mollie_api_key') border-destructive @enderror"
+                                       id="mollie_api_key"
+                                       name="mollie_api_key"
+                                       value="{{ old('mollie_api_key') }}"
+                                       autocomplete="new-password"
+                                       placeholder="{{ !empty($mollieSummary['configured']) ? 'Leeg laten om de huidige sleutel te behouden' : 'test_… of live_…' }}">
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Uit het Mollie-dashboard van de tenant (Developers → API-keys). Begint met <code>test_</code> of <code>live_</code>.
+                                    @if(!empty($mollieSummary['configured']))
+                                        Leeg laten om de bestaande sleutel te houden.
+                                    @endif
+                                </div>
+                                @error('mollie_api_key')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Actief</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="mollie_is_active" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           name="mollie_is_active"
+                                           value="1"
+                                           {{ old('mollie_is_active', (!isset($mollieSummary['provider']) || ($mollieSummary['is_active'] ?? true)) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Gebruik deze Mollie-omgeving voor betalingen van deze tenant</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Testmodus</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="mollie_test_mode" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           name="mollie_test_mode"
+                                           value="1"
+                                           {{ old('mollie_test_mode', !empty($mollieSummary['test_mode']) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Testomgeving (wordt automatisch aan gezet bij een test_-sleutel)</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Betalen in chauffeur-app</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="mollie_driver_payments" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           name="mollie_driver_payments"
+                                           value="1"
+                                           {{ old('mollie_driver_payments', !empty($mollieDriverPaymentsEnabled) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Chauffeur toont een Mollie QR-code; het bedrag gaat naar de rekening van deze tenant</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Direct betalen bij boeking</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="mollie_booking_payments" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           name="mollie_booking_payments"
+                                           value="1"
+                                           {{ old('mollie_booking_payments', !empty($mollieBookingPaymentsEnabled) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Klant betaalt via Mollie na het bevestigen van de websiteboeking</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Webhook-URL</td>
+                            <td class="min-w-48 w-full">
+                                <input type="url"
+                                       class="kt-input @error('mollie_webhook_url') border-destructive @enderror"
+                                       name="mollie_webhook_url"
+                                       value="{{ old('mollie_webhook_url', $mollieSummary['webhook_url'] ?? '') }}"
+                                       placeholder="{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}">
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Optioneel. Lokaal (<code>localhost</code>) kan Mollie niet bereiken; de chauffeur-app volgt de betaling via polling.
+                                    Standaard: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
+                                </div>
+                                @error('mollie_webhook_url')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
+                        <button type="submit" class="kt-btn kt-btn-primary">
+                            <i class="ki-filled ki-check me-2"></i> Mollie tenant opslaan
+                        </button>
+                    </div>
+                </form>
+            </div>
+            </div>
+        </div>
+
         @endif
 
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="tenant-sync">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant en NEXA SaaS)'])
             <div class="settings-collapsible-body">
             <div class="kt-card-content px-6 pb-4 space-y-6">
                 @include('admin.settings.partials.heading-with-info', [
                     'tag' => 'p',
                     'class' => 'text-sm text-secondary-foreground m-0',
-                    'title' => 'Configureer de doel-database en push een bron-tenant naar die omgeving.',
+                    'title' => 'Configureer de doel-database en push een bron-tenant of de NEXA SaaS-website naar die omgeving.',
                     'infoId' => 'tenant-sync-intro-info',
-                    'info' => 'Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>: de rij in <code>companies</code> plus alle rijen op tabellen met <code>company_id</code> voor dat bedrijf. Bestaande rijen op doel worden niet overschreven; bron-<code>id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk). Gebruikers, tenant-rollen (<code>roles</code> + <code>model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code>permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.',
+                    'info' => 'Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> of de <strong>NEXA SaaS-website</strong> naar die database pushen. Tenant: de rij in <code>companies</code> plus alle rijen op tabellen met <code>company_id</code> voor dat bedrijf (alleen toevoegen, nieuwe id’s). NEXA SaaS: centrale <code>website_pages</code> (<code>company_id</code> null) en <code>nexa_pricing</code> (upsert). Bestanden gaan niet over het net — gebruik daarvoor ZIP-export/import.',
                 ])
 
-                <div class="rounded-md border border-border bg-muted/30 px-3 py-3 text-xs text-secondary-foreground">
-                    @include('admin.settings.partials.heading-with-info', [
-                        'tag' => 'p',
-                        'class' => 'font-medium text-foreground mb-2',
-                        'title' => 'Tabellen op <strong>deze</strong> omgeving',
-                        'infoId' => 'tenant-sync-scope-info',
-                        'info' => 'Overzicht van tabellen die op <strong>deze</strong> omgeving meegaan bij volledige tenant-sync. Driver: <code>' . e($tenantSyncScope['driver'] ?? '?') . '</code>. Altijd mee: de <code>companies</code>-rij. Tabellen met <code>company_id</code> worden per gekozen tenant gekopieerd. Globale vereisten (modules, themes) gaan eerst. Nexa Taxi-tabellen alleen als de module aan de tenant gekoppeld is. Uitgesloten tabellen staan onderaan.',
-                    ])
+                @php
+                    $tenantSyncTableCount = count($tenantSyncScope['tables_with_company_id'] ?? []);
+                    $tenantSyncScopeInfo = 'Overzicht van tabellen die op <strong>deze</strong> omgeving meegaan bij volledige tenant-sync. Driver: <code>' . e($tenantSyncScope['driver'] ?? '?') . '</code>. Altijd mee: de <code>companies</code>-rij. Tabellen met <code>company_id</code> worden per gekozen tenant gekopieerd. Globale vereisten (modules, themes) gaan eerst. Nexa Taxi-tabellen alleen als de module aan de tenant gekoppeld is. Uitgesloten tabellen staan onderaan.';
+                @endphp
+                <div class="rounded-md border border-border bg-muted/30 settings-collapsible-section settings-collapsible-card--collapsed" id="tenant-sync-tables">
+                    <div class="settings-collapsible-header px-3 py-2">
+                        <div class="flex items-center gap-1 min-w-0">
+                            <button type="button"
+                                    class="settings-collapsible-toggle flex min-w-0 flex-1 items-center justify-between gap-3 border-0 bg-transparent p-0 text-start cursor-pointer min-h-[2rem]"
+                                    aria-expanded="false">
+                                <span class="kt-card-title mb-0 flex-1 min-w-0 text-sm font-medium">
+                                    Tabellen op deze omgeving
+                                    <span class="font-normal text-muted-foreground">({{ $tenantSyncTableCount }})</span>
+                                </span>
+                                <span class="settings-collapsible-chevron shrink-0 text-muted-foreground" aria-hidden="true">
+                                    <i class="ki-filled ki-down settings-collapsible-icon-down text-base" aria-hidden="true"></i>
+                                    <i class="ki-filled ki-up settings-collapsible-icon-up text-base" aria-hidden="true"></i>
+                                </span>
+                            </button>
+                            @include('admin.settings.partials.info-hover-icon', [
+                                'id' => 'tenant-sync-scope-info',
+                                'content' => $tenantSyncScopeInfo,
+                            ])
+                        </div>
+                    </div>
+                    <div class="settings-collapsible-body px-3 pb-3 text-xs text-secondary-foreground">
                     <p class="mb-1"><span class="text-foreground font-medium">Altijd mee:</span> {{ $tenantSyncScope['company_row'] ?? 'companies' }}</p>
-                    <p class="mb-1"><span class="text-foreground font-medium">Met <code class="font-mono">company_id</code> ({{ count($tenantSyncScope['tables_with_company_id'] ?? []) }} tabellen):</span></p>
+                    <p class="mb-1"><span class="text-foreground font-medium">Met <code class="font-mono">company_id</code> ({{ $tenantSyncTableCount }} tabellen):</span></p>
                     <div class="max-h-40 overflow-y-auto rounded border border-border/80 bg-background px-2 py-1.5 font-mono text-[11px] leading-relaxed text-foreground">
                         @php $syncTables = $tenantSyncScope['tables_with_company_id'] ?? []; @endphp
                         @forelse ($syncTables as $t)
@@ -968,6 +1112,7 @@
                     @endif
                     <p class="mt-2 mb-0"><span class="text-foreground font-medium">Expliciet uitgesloten</span> (config <code class="font-mono">tenant_sync.excluded_tables</code>):</p>
                     <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
+                    </div>
                 </div>
 
                 @php
@@ -1202,9 +1347,9 @@
                     @include('admin.settings.partials.heading-with-info', [
                         'tag' => 'h4',
                         'class' => 'text-sm font-medium text-foreground mb-2',
-                        'title' => 'Volledige tenant-sync uitvoeren',
+                        'title' => 'Sync uitvoeren',
                         'infoId' => 'tenant-sync-run-info',
-                        'info' => 'Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.',
+                        'info' => 'Kies het bedrijf (tenant) of <strong>NEXA SaaS</strong> (centrale website) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat. Tenant: volledige tenant-data (alleen toevoegen). NEXA SaaS: centrale <code>website_pages</code> en <code>nexa_pricing</code> (bestaande rijen op doel worden bijgewerkt).',
                     ])
                     <p class="text-sm text-secondary-foreground mb-4">
                         Synchroniseert naar:
@@ -1217,9 +1362,10 @@
                     <form id="tenant-sync-run-form" method="POST" action="{{ route('admin.settings.tenant-sync.run') }}" class="space-y-4" novalidate>
                         @csrf
                         <div>
-                            <label for="source_company_id" class="text-sm text-secondary-foreground block mb-1">Bron-tenant (bedrijf) <span class="text-destructive">*</span></label>
+                            <label for="source_company_id" class="text-sm text-secondary-foreground block mb-1">Bron <span class="text-destructive">*</span></label>
                             <select name="source_company_id" id="source_company_id" class="kt-select tenant-sync-company-select @error('source_company_id') border-destructive @enderror">
-                                <option value="" disabled @selected(old('source_company_id') === null || old('source_company_id') === '')>— Kies een bedrijf —</option>
+                                <option value="" disabled @selected(old('source_company_id') === null || old('source_company_id') === '')>— Kies een bron —</option>
+                                <option value="nexa" @selected((string) old('source_company_id') === 'nexa')>NEXA SaaS (centrale website)</option>
                                 @foreach ($companiesForSync ?? [] as $c)
                                     <option value="{{ $c->id }}" @selected((string) old('source_company_id') === (string) $c->id)>{{ $c->name }} (id {{ $c->id }})</option>
                                 @endforeach
@@ -1229,25 +1375,26 @@
                             @enderror
                             <div id="tenant-sync-ajax-error-source_company_id" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
                             @if (($companiesForSync ?? collect())->isEmpty())
-                                <div class="text-xs text-destructive mt-1">Geen bedrijven gevonden om te synchroniseren.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Geen tenant-bedrijven gevonden. Je kunt wél de NEXA SaaS-website synchroniseren.</div>
                             @endif
                         </div>
                         <label class="inline-flex items-start gap-2">
                             <input type="checkbox" name="confirm_full_sync" value="1" id="confirm_full_sync" class="kt-checkbox mt-0.5 @error('confirm_full_sync') border-destructive @enderror"
                                    @checked(old('confirm_full_sync') === '1')>
-                            <span class="text-sm text-secondary-foreground">Ik bevestig dat ik naar de geconfigureerde doel-database wil schrijven (alleen toevoegen, geen overschrijven op bestaande pk’s).</span>
+                            <span class="text-sm text-secondary-foreground">Ik bevestig dat ik naar de geconfigureerde doel-database wil schrijven. Tenant: alleen toevoegen. NEXA SaaS: centrale pagina’s en prijzen worden bijgewerkt.</span>
                         </label>
                         @error('confirm_full_sync')
                             <div class="text-xs text-destructive">{{ $message }}</div>
                         @enderror
                         <div id="tenant-sync-ajax-error-confirm_full_sync" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
-                        <div class="flex flex-wrap items-start gap-3">
-                            <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
-                                    style="padding-top: 2px;"
-                                    @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
-                                <i class="ki-filled ki-cloud-add me-2"></i> Start tenant-sync
-                            </button>
-                            <span id="tenant-sync-submit-status" class="block w-full text-xs min-h-[2.125rem]" aria-live="polite"></span>
+                        <div class="flex flex-col gap-3 min-w-0 w-full">
+                            <div class="flex flex-wrap items-start gap-3 min-w-0 w-full">
+                                <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
+                                        style="padding-top: 2px;">
+                                    <i class="ki-filled ki-cloud-add me-2"></i> Start sync
+                                </button>
+                            </div>
+                            <div id="tenant-sync-submit-status" class="min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words" aria-live="polite"></div>
                         </div>
                     </form>
                 </div>
@@ -1256,14 +1403,15 @@
                     @include('admin.settings.partials.heading-with-info', [
                         'tag' => 'h4',
                         'class' => 'text-sm font-medium text-foreground mb-4',
-                        'title' => 'ZIP-export / -import (volledige tenant)',
+                        'title' => 'ZIP-export / -import',
                         'infoId' => 'tenant-sync-zip-info',
-                        'info' => 'Eén bundle per bedrijf: <strong>bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code>private_files/invoices/…</code>), <strong>website_pages</strong> in het manifest, en <strong>tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys). Bestandsnaam begint met <code>tenant-export-</code>. Manifest: <code>bundle_type</code> <code>tenant_media</code>, <code>bundle_version</code> 2. Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.',
+                        'info' => 'Kies een <strong>tenant</strong> of <strong>NEXA SaaS</strong>. Tenant: bestanden, website_pages en tenant-instellingen (<code>tenant-export-</code>, bundle <code>tenant_media</code>). NEXA SaaS: centrale website-pagina’s (company_id null), media en <code>nexa_pricing</code> (<code>nexa-saas-website-</code>, bundle <code>nexa_saas_website</code>).',
                     ])
                     <div>
-                        <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
+                        <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Bron (tenant of NEXA SaaS)</label>
                         <select id="tenant-sync-zip-company-id" class="kt-select tenant-sync-company-select" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
-                            <option value="">— Kies een bedrijf —</option>
+                            <option value="">— Kies een bron —</option>
+                            <option value="nexa">NEXA SaaS (centrale website)</option>
                             @foreach (($companiesForSync ?? []) as $c)
                                 <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
                             @endforeach
@@ -1274,13 +1422,13 @@
                     <div class="max-w-2xl mt-6 space-y-6">
                         <div class="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-3">
                             @include('admin.settings.partials.heading-with-info', [
-                                'title' => 'Tenant-export (ZIP)',
+                                'title' => 'Export (ZIP)',
                                 'infoId' => 'tenant-sync-zip-export-info',
-                                'info' => 'Download of importeer één ZIP met <code>manifest.json</code>. Publieke bestanden staan onder <code>files/…</code> (komt in <code>storage/app/public</code> met dezelfde mappenstructuur). Versleutelde website-carouselbestanden en <strong>factuur-PDF’s</strong> staan onder <code>private_files/…</code> (komt in <code>storage/app/…</code>, facturen o.a. <code>private_files/private/invoices/{company_id}/</code>). Import overschrijft <code>website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug. Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong>Volledige tenant-sync</strong> — alle tabellen met <code>company_id</code>, inclusief <code>payment_providers</code>, <code>invoice_settings</code>, <code>invoices</code>, <code>payments</code>, <code>payment_reminders</code>, <code>ride_payments</code>.',
+                                'info' => 'Download of importeer één ZIP met <code>manifest.json</code>. Tenant: publieke bestanden onder <code>files/…</code>, private facturen onder <code>private_files/…</code>. NEXA SaaS: alleen centrale website-pagina’s, gerefereerde media en prijzen. Import van een tenant-ZIP overschrijft <code>website_pages</code> per slug voor het gekozen bedrijf. Import van een NEXA SaaS-ZIP overschrijft centrale pagina’s (company_id null).',
                             ])
                             <div class="flex flex-wrap items-center gap-2">
                                 <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
-                                    <i class="ki-filled ki-file-down me-2"></i> Download tenant-ZIP
+                                    <i class="ki-filled ki-file-down me-2"></i> Download ZIP
                                 </button>
                             </div>
                             <form method="POST" action="{{ route('admin.settings.tenant-storage-bundle.import') }}" enctype="multipart/form-data" class="space-y-3" id="tenant-files-import-form">
@@ -1289,15 +1437,14 @@
                                 <div>
                                     @include('admin.settings.partials.label-with-info', [
                                         'for' => 'tenant-files-bundle-input',
-                                        'label' => 'Tenant-ZIP importeren',
+                                        'label' => 'ZIP importeren',
                                         'infoId' => 'tenant-sync-zip-upload-info',
                                         'info' => 'Max. ' . (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) . ' MB per upload. Bij <strong>413 Request Entity Too Large</strong>: zet op de server in nginx <code>client_max_body_size 512M;</code> (zie <code>deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.',
                                     ])
                                     <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
                                 </div>
-                                <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
-                                        @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
-                                    <i class="ki-filled ki-file-up me-2"></i> Importeer tenant-ZIP
+                                <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit">
+                                    <i class="ki-filled ki-file-up me-2"></i> Importeer ZIP
                                 </button>
                             </form>
                         </div>
@@ -1306,6 +1453,8 @@
             </div>
             </div>
         </div>
+
+        @include('admin.settings.partials.database-backups')
 
     </div>
 </div>
@@ -1345,50 +1494,112 @@ document.addEventListener('DOMContentLoaded', function() {
     // Test email functionality
     const testEmailBtn = document.getElementById('test-email-btn');
     const testEmailInput = document.getElementById('test-email-input');
+    const testEmailStatus = document.getElementById('test-email-status');
+
+    function setTestEmailStatus(ok, message) {
+        if (!testEmailStatus) {
+            return;
+        }
+        const label = ok ? 'Test e-mail succesvol verzonden' : 'Test e-mail mislukt';
+        const color = ok ? '#16a34a' : '#dc2626';
+        testEmailStatus.classList.remove('hidden');
+        testEmailStatus.dataset.ok = ok ? '1' : '0';
+        testEmailStatus.style.color = color;
+        testEmailStatus.setAttribute('aria-label', label);
+        testEmailStatus.setAttribute('title', message || label);
+        testEmailStatus.innerHTML = ok
+            ? '<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+            : '<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+
+        var msg = document.getElementById('test-email-message');
+        if (msg) {
+            msg.classList.remove('hidden');
+            msg.dataset.ok = ok ? '1' : '0';
+            msg.textContent = message || label;
+        }
+        var hint = document.getElementById('mail-config-hint');
+        if (hint && !ok) {
+            hint.classList.add('hidden');
+        }
+    }
+
+    function clearTestEmailStatus() {
+        if (!testEmailStatus) {
+            return;
+        }
+        testEmailStatus.classList.add('hidden');
+        testEmailStatus.removeAttribute('title');
+        testEmailStatus.removeAttribute('aria-label');
+        testEmailStatus.removeAttribute('data-ok');
+        testEmailStatus.style.color = '';
+        testEmailStatus.innerHTML = '';
+        var msg = document.getElementById('test-email-message');
+        if (msg) {
+            msg.classList.add('hidden');
+            msg.textContent = '';
+            msg.removeAttribute('data-ok');
+        }
+    }
     
     if (testEmailBtn && testEmailInput) {
         testEmailBtn.addEventListener('click', function() {
             const email = testEmailInput.value.trim();
             
             if (!email) {
-                alert('Vul een e-mailadres in om te testen.');
+                setTestEmailStatus(false, 'Vul een e-mailadres in om te testen.');
                 return;
             }
             
             if (!email.includes('@')) {
-                alert('Vul een geldig e-mailadres in.');
+                setTestEmailStatus(false, 'Vul een geldig e-mailadres in.');
                 return;
             }
-            
-            // Disable button during request
+
+            clearTestEmailStatus();
             testEmailBtn.disabled = true;
-            testEmailBtn.innerHTML = '<i class="ki-filled ki-arrows-circle"></i> Verzenden...';
+            testEmailBtn.classList.add('is-loading');
+            testEmailBtn.setAttribute('aria-busy', 'true');
+            var testEmailBtnLabel = testEmailBtn.querySelector('.test-email-btn-label');
+            if (testEmailBtnLabel) {
+                testEmailBtnLabel.textContent = 'Verzenden...';
+            }
             
             fetch('{{ route("admin.settings.mail.test") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
                     test_email: email
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('✓ ' + data.message);
-                } else {
-                    alert('✗ ' + data.message);
-                }
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    return { ok: response.ok, data: data };
+                });
             })
-            .catch(error => {
+            .then(function(result) {
+                const data = result.data || {};
+                const success = result.ok && data.success === true;
+                setTestEmailStatus(success, data.message || (success
+                    ? 'Test e-mail succesvol verzonden.'
+                    : 'Test e-mail kon niet worden verzonden.'));
+            })
+            .catch(function(error) {
                 console.error('Error:', error);
-                alert('Er is een fout opgetreden bij het testen van de email.');
+                setTestEmailStatus(false, 'Er is een fout opgetreden bij het testen van de email.');
             })
-            .finally(() => {
+            .finally(function() {
                 testEmailBtn.disabled = false;
-                testEmailBtn.innerHTML = '<i class="ki-filled ki-send me-2"></i> Verstuur Test';
+                testEmailBtn.classList.remove('is-loading');
+                testEmailBtn.removeAttribute('aria-busy');
+                var testEmailBtnLabel = testEmailBtn.querySelector('.test-email-btn-label');
+                if (testEmailBtnLabel) {
+                    testEmailBtnLabel.textContent = 'Verstuur Test';
+                }
             });
         });
     }
@@ -1780,29 +1991,103 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!container) return null;
 
         container.textContent = '';
-        container.className = 'block w-full text-xs min-h-[2.125rem]';
+        container.className = 'min-w-0 max-w-full w-full text-xs min-h-[2.125rem] break-words';
+
+        var shell = document.createElement('div');
+        shell.className = 'tenant-sync-progress-shell';
+
+        var meter = document.createElement('div');
+        meter.className = 'tenant-sync-progress-meter';
+        meter.innerHTML =
+            '<div class="tenant-sync-progress-meter-label">' +
+                '<span class="tenant-sync-progress-meter-status">Bezig met synchroniseren…</span>' +
+                '<span class="tenant-sync-progress-meter-percent">0%</span>' +
+            '</div>' +
+            '<div class="tenant-sync-progress-meter-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+                '<div class="tenant-sync-progress-meter-fill"></div>' +
+            '</div>';
 
         var wrap = document.createElement('div');
-        wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left';
+        wrap.className = 'tenant-sync-progress rounded-md border border-border bg-muted/20 p-4 text-left min-w-0 max-w-full';
+
+        var toolbar = document.createElement('div');
+        toolbar.className = 'tenant-sync-progress-toolbar';
 
         var heading = document.createElement('p');
-        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-2.5 flex items-center gap-2';
-        heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0" aria-hidden="true"></i><span>Sync bezig…</span>';
+        heading.className = 'tenant-sync-progress-heading font-medium text-foreground mb-0 flex items-start gap-2 min-w-0 flex-1';
+        heading.innerHTML = '<i class="ki-filled ki-arrows-circle text-sm animate-spin shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words">Sync bezig…</span>';
+
+        var toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'tenant-sync-progress-toggle';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.textContent = 'Uitklappen';
+
+        toolbar.appendChild(heading);
+        toolbar.appendChild(toggle);
+
+        var body = document.createElement('div');
+        body.className = 'tenant-sync-progress-body';
 
         var list = document.createElement('ul');
         list.className = 'tenant-sync-progress-list space-y-1.5';
         list.setAttribute('aria-live', 'polite');
 
-        wrap.appendChild(heading);
-        wrap.appendChild(list);
-        container.appendChild(wrap);
+        body.appendChild(list);
+        wrap.appendChild(toolbar);
+        wrap.appendChild(body);
+        shell.appendChild(meter);
+        shell.appendChild(wrap);
+        container.appendChild(shell);
 
-        return {
+        var progressUi = {
+            shell: shell,
             wrap: wrap,
             heading: heading,
             list: list,
+            body: body,
+            toggle: toggle,
+            meter: meter,
+            meterFill: meter.querySelector('.tenant-sync-progress-meter-fill'),
+            meterTrack: meter.querySelector('.tenant-sync-progress-meter-track'),
+            meterPercent: meter.querySelector('.tenant-sync-progress-meter-percent'),
+            meterStatus: meter.querySelector('.tenant-sync-progress-meter-status'),
             sections: {},
+            percent: 0,
+            expanded: false,
         };
+
+        toggle.addEventListener('click', function() {
+            progressUi.expanded = !progressUi.expanded;
+            wrap.classList.toggle('is-expanded', progressUi.expanded);
+            toggle.setAttribute('aria-expanded', progressUi.expanded ? 'true' : 'false');
+            toggle.textContent = progressUi.expanded ? 'Inklappen' : 'Uitklappen';
+            if (progressUi.expanded && body) {
+                body.scrollTop = 0;
+            }
+        });
+
+        setTenantSyncProgressPercent(progressUi, 0, 'Bezig met synchroniseren…');
+
+        return progressUi;
+    }
+
+    function setTenantSyncProgressPercent(progressUi, percent, statusText) {
+        if (!progressUi) return;
+        var value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+        progressUi.percent = value;
+        if (progressUi.meterFill) {
+            progressUi.meterFill.style.width = value + '%';
+        }
+        if (progressUi.meterTrack) {
+            progressUi.meterTrack.setAttribute('aria-valuenow', String(value));
+        }
+        if (progressUi.meterPercent) {
+            progressUi.meterPercent.textContent = value + '%';
+        }
+        if (statusText && progressUi.meterStatus) {
+            progressUi.meterStatus.textContent = statusText;
+        }
     }
 
     function appendTenantSyncProgressSection(progressUi, sectionTitle) {
@@ -1811,36 +2096,61 @@ document.addEventListener('DOMContentLoaded', function() {
         progressUi.sections[sectionTitle] = true;
 
         var li = document.createElement('li');
-        li.className = 'tenant-sync-progress-item text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0';
+        li.className = 'tenant-sync-progress-item text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1';
         li.textContent = sectionTitle;
-        progressUi.list.appendChild(li);
+        prependTenantSyncProgressItem(progressUi, li);
+    }
+
+    function prependTenantSyncProgressItem(progressUi, li) {
+        if (!progressUi || !li) return;
+        li.classList.add('tenant-sync-progress-item');
+        if (progressUi.list.firstChild) {
+            progressUi.list.insertBefore(li, progressUi.list.firstChild);
+        } else {
+            progressUi.list.appendChild(li);
+        }
+        if (progressUi.body && !progressUi.expanded) {
+            progressUi.body.scrollTop = 0;
+        }
     }
 
     function appendTenantSyncProgressItem(progressUi, li) {
-        if (!progressUi || !li) return;
-        li.classList.add('tenant-sync-progress-item');
-        progressUi.list.appendChild(li);
-        if (progressUi.list.lastElementChild) {
-            progressUi.list.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
+        prependTenantSyncProgressItem(progressUi, li);
     }
 
     function handleTenantSyncProgressEvent(progressUi, event) {
         if (!progressUi || !event || !event.type) return;
 
+        if (event.type === 'progress') {
+            var percent = typeof event.percent === 'number' ? event.percent : progressUi.percent;
+            var status = 'Bezig met synchroniseren…';
+            if (event.total > 0) {
+                status = 'Voortgang ' + (event.done || 0) + ' / ' + event.total;
+            }
+            setTenantSyncProgressPercent(progressUi, percent, status);
+            return;
+        }
+
         if (event.type === 'step') {
             var stepLi = document.createElement('li');
             stepLi.className = 'flex items-start gap-2 text-foreground';
-            stepLi.innerHTML = '<i class="ki-filled ki-check-circle text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (event.label || 'Stap voltooid') + '</span>';
-            appendTenantSyncProgressItem(progressUi, stepLi);
+            var stepIcon = document.createElement('i');
+            stepIcon.className = 'ki-filled ki-check-circle text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5';
+            stepIcon.setAttribute('aria-hidden', 'true');
+            var stepText = document.createElement('span');
+            stepText.className = 'min-w-0 break-words';
+            stepText.textContent = event.label || 'Stap voltooid';
+            stepLi.appendChild(stepIcon);
+            stepLi.appendChild(stepText);
+            prependTenantSyncProgressItem(progressUi, stepLi);
             return;
         }
 
         if (event.type === 'note') {
             var noteLi = document.createElement('li');
-            noteLi.className = 'text-muted-foreground text-[11px]';
+            noteLi.className = 'text-muted-foreground text-[11px] break-words';
             noteLi.textContent = event.note || '';
-            appendTenantSyncProgressItem(progressUi, noteLi);
+            prependTenantSyncProgressItem(progressUi, noteLi);
             return;
         }
 
@@ -1848,11 +2158,19 @@ document.addEventListener('DOMContentLoaded', function() {
             var row = event.row || {};
             if (!tenantSyncRowIsNotable(row)) return;
 
+            var rowLi = buildTenantSyncReportRowLi(row);
             if (event.section) {
-                appendTenantSyncProgressSection(progressUi, event.section);
+                var sectionTag = document.createElement('span');
+                sectionTag.className = 'text-[10px] uppercase tracking-wide text-muted-foreground mr-2';
+                sectionTag.textContent = event.section;
+                if (rowLi.firstChild) {
+                    rowLi.insertBefore(sectionTag, rowLi.firstChild);
+                } else {
+                    rowLi.appendChild(sectionTag);
+                }
             }
 
-            appendTenantSyncProgressItem(progressUi, buildTenantSyncReportRowLi(row));
+            prependTenantSyncProgressItem(progressUi, rowLi);
             return;
         }
 
@@ -1864,11 +2182,26 @@ document.addEventListener('DOMContentLoaded', function() {
     function finishTenantSyncProgressUi(progressUi, success, message) {
         if (!progressUi) return;
 
+        setTenantSyncProgressPercent(
+            progressUi,
+            success ? 100 : Math.max(progressUi.percent || 0, 1),
+            success ? 'Sync voltooid' : 'Sync mislukt'
+        );
+        if (progressUi.meterFill) {
+            progressUi.meterFill.classList.toggle('is-success', !!success);
+            progressUi.meterFill.classList.toggle('is-error', !success);
+        }
+
         if (progressUi.heading) {
-            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-2.5 flex items-start gap-2 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            progressUi.heading.className = 'tenant-sync-progress-heading font-medium mb-0 flex items-start gap-2 min-w-0 flex-1 ' + (success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive');
+            var safeMessage = String(message || (success ? (progressUi.summaryText || 'Sync voltooid.') : 'Sync mislukt.'));
             progressUi.heading.innerHTML = success
-                ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || progressUi.summaryText || 'Sync voltooid.') + '</span>'
-                : '<i class="ki-filled ki-information text-base shrink-0 mt-0.5" aria-hidden="true"></i><span>' + (message || 'Sync mislukt.') + '</span>';
+                ? '<i class="ki-filled ki-check-circle text-base shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words"></span>'
+                : '<i class="ki-filled ki-information text-base shrink-0 mt-0.5" aria-hidden="true"></i><span class="min-w-0 break-words"></span>';
+            var messageSpan = progressUi.heading.querySelector('span');
+            if (messageSpan) {
+                messageSpan.textContent = safeMessage;
+            }
         }
     }
 
@@ -1942,11 +2275,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         tenantSyncSubmitStatus.textContent = '';
         var wrap = document.createElement('span');
-        wrap.className = 'inline-flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium';
+        wrap.className = 'inline-flex items-start gap-1.5 min-w-0 max-w-full text-emerald-600 dark:text-emerald-400 font-medium';
         var icon = document.createElement('i');
         icon.className = 'ki-filled ki-check-circle text-lg shrink-0 mt-0.5';
         icon.setAttribute('aria-hidden', 'true');
         var txt = document.createElement('span');
+        txt.className = 'min-w-0 break-words';
         txt.textContent = message || 'Sync voltooid.';
         wrap.appendChild(icon);
         wrap.appendChild(txt);
@@ -1957,11 +2291,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!tenantSyncSubmitStatus) return;
         tenantSyncSubmitStatus.textContent = '';
         var wrap = document.createElement('span');
-        wrap.className = 'inline-flex items-start gap-1.5 text-destructive font-medium';
+        wrap.className = 'inline-flex items-start gap-1.5 min-w-0 max-w-full text-destructive font-medium';
         var icon = document.createElement('i');
         icon.className = 'ki-filled ki-information text-lg shrink-0 mt-0.5';
         icon.setAttribute('aria-hidden', 'true');
         var txt = document.createElement('span');
+        txt.className = 'min-w-0 break-words';
         txt.textContent = message || 'Er is een fout opgetreden.';
         wrap.appendChild(icon);
         wrap.appendChild(txt);
@@ -2098,7 +2433,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tenantFilesExportBtn.addEventListener('click', function() {
             var id = tenantZipCompanySel.value;
             if (!id) {
-                showTenantZipCompanyError('Selecteer een tenant (bedrijf) om de ZIP te downloaden.');
+                showTenantZipCompanyError('Selecteer een tenant of NEXA SaaS om de ZIP te downloaden.');
                 return;
             }
             clearTenantZipCompanyError();
@@ -2110,7 +2445,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var id = tenantZipCompanySel.value;
             if (!id) {
                 ev.preventDefault();
-                showTenantZipCompanyError('Selecteer een tenant (bedrijf) om de tenant-ZIP te importeren.');
+                showTenantZipCompanyError('Selecteer een tenant of NEXA SaaS om de ZIP te importeren.');
                 return;
             }
             clearTenantZipCompanyError();

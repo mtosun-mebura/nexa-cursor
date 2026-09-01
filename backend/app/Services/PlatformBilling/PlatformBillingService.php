@@ -136,6 +136,20 @@ class PlatformBillingService
             }
         }
 
+        if ($profile->pending_proration_applied_at === null) {
+            $proration = round((float) ($profile->pending_proration_amount ?? 0), 2);
+            if ($proration > 0) {
+                $lines[] = [
+                    'description' => trim((string) ($profile->pending_proration_label ?: 'Upgrade (resterende dagen van deze maand)')),
+                    'quantity' => 1,
+                    'unit_price' => $proration,
+                    'total' => $proration,
+                    'type' => 'proration',
+                    'billing_period' => $billingPeriod,
+                ];
+            }
+        }
+
         if ($profile->shouldIncludeExtraLines()) {
             foreach ($profile->lineItems as $item) {
                 if (! $item->is_active) {
@@ -425,6 +439,84 @@ class PlatformBillingService
         ];
     }
 
+    /**
+     * Voorbeeldfactuur op basis van de actuele facturatie-instellingen (geen echte tenant).
+     *
+     * @return array<string, mixed>
+     */
+    public function dummyWorkflowInvoicePreview(?Carbon $now = null): array
+    {
+        $now ??= now();
+        $settings = PlatformBillingSetting::current();
+        $paymentTermsDays = max(1, (int) $settings->payment_terms_days);
+        $billingDay = max(1, min(28, (int) $settings->billing_day));
+        $invoiceDate = $now->copy()->startOfMonth()->day($billingDay)->startOfDay();
+        if ($invoiceDate->gt($now)) {
+            $invoiceDate->subMonthNoOverflow();
+        }
+        $dueDate = $invoiceDate->copy()->addDays($paymentTermsDays);
+        $period = $invoiceDate->format('Y-m');
+        $taxRate = (float) $settings->tax_rate_percent;
+        $unitPrice = 179.00;
+        $taxAmount = round($unitPrice * $taxRate / 100, 2);
+        $total = round($unitPrice + $taxAmount, 2);
+        $invoiceNumber = str_replace(
+            ['{prefix}', '{year}', '{number}'],
+            [
+                $settings->invoice_number_prefix ?: 'SAAS',
+                $invoiceDate->format('Y'),
+                'VOORB',
+            ],
+            $settings->invoice_number_format ?: '{prefix}-{year}-{number}'
+        );
+        $issuer = $settings->issuerDetailsSnapshot();
+        $dummyInvoice = new PlatformInvoice([
+            'invoice_number' => $invoiceNumber,
+            'billing_period' => $period,
+            'invoice_date' => $invoiceDate,
+            'due_date' => $dueDate,
+            'payment_terms_days' => $paymentTermsDays,
+            'amount' => $unitPrice,
+            'tax_amount' => $taxAmount,
+            'total_amount' => $total,
+            'status' => 'sent',
+            'issuer_details' => $issuer,
+        ]);
+
+        return [
+            'billing_period' => $period,
+            'invoice_number' => $invoiceNumber,
+            'invoice_date' => $invoiceDate->toDateString(),
+            'due_date' => $dueDate->toDateString(),
+            'payment_terms_days' => $paymentTermsDays,
+            'line_items' => [[
+                'description' => 'NEXA-abonnement — '.$period,
+                'quantity' => 1,
+                'unit_price' => $unitPrice,
+                'total' => $unitPrice,
+                'type' => 'subscription',
+                'billing_period' => $period,
+            ]],
+            'amount' => $unitPrice,
+            'tax_amount' => $taxAmount,
+            'total_amount' => $total,
+            'tax_rate' => $taxRate,
+            'issuer' => $issuer,
+            'recipient' => [
+                'name' => 'Voorbeeld Taxi B.V.',
+                'contact_name' => 'Administratie',
+                'address' => 'Voorbeeldstraat 12',
+                'postal_code' => '7511 AB',
+                'city' => 'Enschede',
+                'email' => 'facturatie@voorbeeld.taxi',
+            ],
+            'payment_terms_text' => PlatformBillingSetting::invoicePaymentTermsTextForInvoice($dummyInvoice),
+            'company_name' => 'Voorbeeld Taxi B.V.',
+            'amount_formatted' => '€'.number_format($total, 2, ',', '.'),
+            'due_formatted' => $dueDate->format('d-m-Y'),
+        ];
+    }
+
     public function estimateFirstCollectionAmount(CompanyBillingProfile $profile, ?Carbon $asOf = null): float
     {
         $asOf ??= now();
@@ -453,6 +545,12 @@ class PlatformBillingService
     {
         $asOf ??= now();
         $count = 0;
+
+        try {
+            $count += app(TenantSubscriptionService::class)->applyDueChanges($asOf);
+        } catch (\Throwable $e) {
+            Log::warning('Geplande abonnementswijzigingen toepassen mislukt', ['error' => $e->getMessage()]);
+        }
 
         CompanyBillingProfile::query()
             ->with('company')
@@ -575,6 +673,11 @@ class PlatformBillingService
         $hasExtras = collect($lineItems)->contains(fn (array $line) => ($line['type'] ?? '') === 'extra');
         if ($hasExtras && $profile->extra_lines_one_time && $profile->extra_lines_applied_at === null) {
             $profile->update(['extra_lines_applied_at' => now()]);
+        }
+
+        $hasProration = collect($lineItems)->contains(fn (array $line) => ($line['type'] ?? '') === 'proration');
+        if ($hasProration && $profile->pending_proration_applied_at === null) {
+            $profile->update(['pending_proration_applied_at' => now()]);
         }
     }
 
@@ -812,6 +915,8 @@ class PlatformBillingService
             if ($customerId !== '') {
                 $this->activateMandateFromVerification($paymentRow->company_id, $customerId);
             }
+
+            app(PlatformDunningService::class)->clearRestrictionIfSettled((int) $paymentRow->company_id);
         }
     }
 
@@ -877,6 +982,10 @@ class PlatformBillingService
 
         if ($status === 'paid' && ! $invoice->paid_at) {
             $invoice->update(['status' => 'paid', 'paid_at' => now()]);
+        }
+
+        if ($status === 'paid') {
+            app(PlatformDunningService::class)->clearRestrictionIfSettled($companyId);
         }
 
         PlatformPayment::query()->create([
@@ -1021,7 +1130,7 @@ class PlatformBillingService
         }
 
         $body = "Beste {$invoice->company->name},\n\n".
-            "Uw SaaS-factuur {$invoice->invoice_number} (periode {$invoice->billing_period}) staat open.\n".
+            "Uw NEXA-factuur {$invoice->invoice_number} (periode {$invoice->billing_period}) staat open.\n".
             'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.')."\n\n";
         if ($checkoutUrl) {
             $body .= "Betaal direct via:\n{$checkoutUrl}\n\n";
@@ -1042,7 +1151,7 @@ class PlatformBillingService
         }
 
         Mail::raw($body, function ($message) use ($email, $invoice, $pdf) {
-            $message->to($email)->subject('SaaS-factuur '.$invoice->invoice_number);
+            $message->to($email)->subject('NEXA-factuur '.$invoice->invoice_number);
             if ($pdf && ! empty($pdf['bytes'])) {
                 $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
                 $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
@@ -1058,6 +1167,81 @@ class PlatformBillingService
         $invoice->update([
             'payment_terms_days' => $paymentTermsDays,
             'due_date' => $invoiceDate->copy()->addDays($paymentTermsDays)->toDateString(),
+        ]);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * @param  array{
+     *     status: string,
+     *     payment_terms_days: int,
+     *     notes?: string|null,
+     *     line_items: array<int, array<string, mixed>>
+     * }  $data
+     */
+    public function updateInvoice(PlatformInvoice $invoice, array $data): PlatformInvoice
+    {
+        $settings = PlatformBillingSetting::current();
+        $issuer = is_array($invoice->issuer_details) && $invoice->issuer_details !== []
+            ? $invoice->issuer_details
+            : $settings->issuerDetailsSnapshot();
+        $taxRate = (float) ($issuer['tax_rate'] ?? $settings->tax_rate_percent);
+
+        $lineItems = [];
+        foreach ($data['line_items'] as $row) {
+            $quantity = round((float) ($row['quantity'] ?? 1), 2);
+            if ($quantity <= 0) {
+                $quantity = 1;
+            }
+            $unitPrice = round((float) ($row['unit_price'] ?? 0), 2);
+            $line = [
+                'description' => trim((string) ($row['description'] ?? '')),
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total' => round($quantity * $unitPrice, 2),
+                'type' => trim((string) ($row['type'] ?? '')) ?: 'extra',
+            ];
+            if (! empty($row['billing_period'])) {
+                $line['billing_period'] = (string) $row['billing_period'];
+            }
+            if (! empty($row['platform_billing_line_item_id'])) {
+                $line['platform_billing_line_item_id'] = (int) $row['platform_billing_line_item_id'];
+            }
+            $lineItems[] = $line;
+        }
+
+        $totals = $this->calculateTotalsFromLineItems($lineItems, $taxRate);
+        $paymentTermsDays = max(1, min(365, (int) $data['payment_terms_days']));
+        $invoiceDate = $invoice->invoice_date ?? now();
+        $status = (string) $data['status'];
+
+        $paidAt = $invoice->paid_at;
+        $sentAt = $invoice->sent_at;
+        if ($status === 'paid') {
+            $paidAt = $paidAt ?? now();
+        } else {
+            $paidAt = null;
+        }
+        if (in_array($status, ['sent', 'paid'], true)) {
+            $sentAt = $sentAt ?? now();
+        }
+
+        $notes = array_key_exists('notes', $data) ? trim((string) ($data['notes'] ?? '')) : (string) ($invoice->notes ?? '');
+        $notes = $notes === '' ? null : $notes;
+
+        $invoice->update([
+            'line_items' => $lineItems,
+            'amount' => $totals['amount'],
+            'tax_amount' => $totals['tax_amount'],
+            'total_amount' => $totals['total_amount'],
+            'payment_terms_days' => $paymentTermsDays,
+            'due_date' => $invoiceDate->copy()->addDays($paymentTermsDays)->toDateString(),
+            'status' => $status,
+            'paid_at' => $paidAt,
+            'sent_at' => $sentAt,
+            'notes' => $notes,
+            'pdf_path' => null,
         ]);
 
         return $invoice->fresh();

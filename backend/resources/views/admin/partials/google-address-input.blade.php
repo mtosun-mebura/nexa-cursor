@@ -1,5 +1,5 @@
 @php
-    $mapsKey = trim((string) ($googleMapsApiKey ?? config('maps.api_key') ?? app(\App\Services\EnvService::class)->getGoogleMapsApiKey() ?? ''));
+    $mapsKey = trim((string) ($googleMapsApiKey ?? app(\App\Services\EnvService::class)->getGoogleMapsApiKey() ?? ''));
     $addressSearchUrl = \Illuminate\Support\Facades\Route::has('nexataxi.booking.address-search')
         ? route('nexataxi.booking.address-search')
         : url('/nexa-taxi/booking/address-search');
@@ -18,6 +18,7 @@
            value="{{ $value ?? '' }}"
            class="kt-input w-full @error($name) border-destructive @enderror"
            @if(!empty($required)) required @endif
+           @if(!empty($disabled)) disabled @endif
            maxlength="{{ $maxlength ?? 500 }}"
            placeholder="{{ $placeholder ?? 'Zoek adres...' }}"
            autocomplete="off"

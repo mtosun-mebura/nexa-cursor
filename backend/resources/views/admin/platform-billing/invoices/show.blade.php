@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'SaaS-factuur '.$invoice->invoice_number)
+@section('title', 'NEXA-factuur '.$invoice->invoice_number)
 
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                SaaS-factuur <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}</span>
+                NEXA-factuur <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}</span>
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
                 Platform → tenant factuurdetails
@@ -17,6 +17,10 @@
             <a href="{{ route('admin.platform-billing.invoices.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
+            </a>
+            <a href="{{ route('admin.platform-billing.invoices.edit', $invoice) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-pencil me-2"></i>
+                Bewerken
             </a>
             <a href="{{ route('admin.platform-billing.invoices.pdf', $invoice) }}" class="kt-btn kt-btn-primary" target="_blank" rel="noopener">
                 <i class="ki-filled ki-file-down me-2"></i>
@@ -40,8 +44,8 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card min-w-full">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
+            <div class="kt-card-header px-5 py-5">
+                <h3 class="kt-card-title mb-0">
                     Factuurgegevens
                 </h3>
             </div>
@@ -57,7 +61,9 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">Status</td>
-                        <td>{{ $invoice->status }}</td>
+                        <td>
+                            <span class="kt-badge kt-badge-outline rounded-[30px] whitespace-nowrap {{ $invoice->statusBadgeClass() }}">{{ $invoice->statusLabel() }}</span>
+                        </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">Incasso</td>
@@ -91,42 +97,84 @@
                         <td>{{ $invoice->paid_at->format('d-m-Y H:i') }}</td>
                     </tr>
                     @endif
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">1e aanmaning</td>
+                        <td>{{ $invoice->first_reminder_sent_at?->format('d-m-Y H:i') ?? '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">2e aanmaning</td>
+                        <td>{{ $invoice->second_reminder_sent_at?->format('d-m-Y H:i') ?? '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Blokkade</td>
+                        <td>
+                            @if($invoice->blocked_at)
+                                {{ $invoice->blocked_at->format('d-m-Y H:i') }}
+                                @if($invoice->block_waived_at)
+                                    <span class="text-muted-foreground">(opgeheven {{ $invoice->block_waived_at->format('d-m-Y H:i') }})</span>
+                                @endif
+                            @else
+                                —
+                            @endif
+                        </td>
+                    </tr>
+                    @if($invoice->notes)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Notities</td>
+                        <td>{{ $invoice->notes }}</td>
+                    </tr>
+                    @endif
                 </table>
             </div>
         </div>
 
-        @if(!$invoice->isPaid())
-        <form method="POST" action="{{ route('admin.platform-billing.invoices.update', $invoice) }}">
-            @csrf
-            @method('PUT')
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header px-5 py-5">
+                <h3 class="kt-card-title mb-0">
+                    Factuurregels
+                </h3>
+            </div>
+            <div class="kt-card-content p-5">
+                @php
+                    $fmtMoney = function (float $n): string {
+                        $formatted = number_format(abs($n), 2, ',', '.');
 
-            <div class="kt-card min-w-full">
-                <div class="kt-card-header">
-                    <h3 class="kt-card-title">
-                        Betaaltermijn voor deze factuur
-                    </h3>
-                </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Aantal dagen</td>
-                            <td class="min-w-48 w-full">
-                                <input type="number" name="payment_terms_days" min="1" max="365" class="kt-input w-full max-w-xs" value="{{ old('payment_terms_days', $invoice->payment_terms_days ?? \App\Models\PlatformBillingSetting::paymentTermsDaysForInvoice($invoice)) }}" required>
-                                <div class="text-xs text-muted-foreground mt-1">De vervaldatum wordt herberekend vanaf de factuurdatum.</div>
-                            </td>
-                        </tr>
+                        return $n < 0 ? '− € '.$formatted : '€ '.$formatted;
+                    };
+                @endphp
+                <div class="kt-scrollable-x-auto min-w-0">
+                    <table class="kt-table kt-table-border align-middle text-sm w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-secondary-foreground font-normal text-left" data-label="Omschrijving">Omschrijving</th>
+                                <th class="text-secondary-foreground font-normal text-right" data-label="Aantal">Aantal</th>
+                                <th class="text-secondary-foreground font-normal text-right" data-label="Prijs excl. BTW">Prijs excl. BTW</th>
+                                <th class="text-secondary-foreground font-normal text-right" data-label="Totaal excl. BTW">Totaal excl. BTW</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @forelse($invoice->line_items ?? [] as $item)
+                            @php
+                                $isDiscount = ($item['type'] ?? '') === 'discount';
+                                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                                $lineTotal = (float) ($item['total'] ?? 0);
+                            @endphp
+                            <tr>
+                                <td class="{{ $isDiscount ? 'text-destructive' : '' }}">{{ $item['description'] ?? '—' }}</td>
+                                <td class="text-right tabular-nums">{{ $item['quantity'] ?? 1 }}</td>
+                                <td class="text-right tabular-nums {{ $isDiscount ? 'text-destructive' : '' }}">{{ $fmtMoney($unitPrice) }}</td>
+                                <td class="text-right tabular-nums {{ $isDiscount ? 'text-destructive' : '' }}">{{ $fmtMoney($lineTotal) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="p-5 text-secondary-foreground">Geen factuurregels.</td>
+                            </tr>
+                        @endforelse
+                        </tbody>
                     </table>
                 </div>
             </div>
-
-            <div class="flex items-center justify-end gap-2.5 mt-5">
-                <button type="submit" class="kt-btn kt-btn-primary">
-                    <i class="ki-filled ki-check me-2"></i>
-                    Betaaltermijn opslaan
-                </button>
-            </div>
-        </form>
-        @endif
+        </div>
     </div>
 </div>
 @endsection

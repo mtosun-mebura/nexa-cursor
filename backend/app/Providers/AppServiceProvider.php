@@ -8,12 +8,15 @@ use App\Models\WebsitePage;
 use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
-use App\Services\ModuleManager;
 use App\Services\WebsiteBuilderService;
 use App\Support\Admin\AdminTenantScope;
+use App\Support\DestructiveDatabaseGuard;
 use App\Support\Tenancy\CentralDomains;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
@@ -31,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         require_once app_path('helpers.php');
+        $this->usePublishedPostgresWhenDockerHostnameIsUnreachable();
     }
 
     /**
@@ -51,9 +55,10 @@ class AppServiceProvider extends ServiceProvider
             });
         });
 
+        $this->registerDestructiveDatabaseGuard();
         $this->registerModuleDatabaseConnections();
         $this->registerWebsitePageRouteBinding();
-        $this->loadGoogleMapsApiKeyFromRootEnv();
+        $this->syncMapsConfigFromSettings();
         $this->forceLocalDevRootUrlFromRequest();
 
         View::composer('admin.layouts.app', function ($view) {
@@ -93,11 +98,7 @@ class AppServiceProvider extends ServiceProvider
                     ]);
                 }
                 if (! isset($data['googleMapsApiKey']) || $data['googleMapsApiKey'] === '') {
-                    $key = trim((string) (config('maps.api_key') ?? ''));
-                    if ($key === '') {
-                        $key = app(EnvService::class)->getGoogleMapsApiKey();
-                    }
-                    $view->with('googleMapsApiKey', $key);
+                    $view->with('googleMapsApiKey', app(EnvService::class)->getGoogleMapsApiKey());
                 }
                 if (! array_key_exists('googleMapsMapId', $view->getData())) {
                     $view->with('googleMapsMapId', app(EnvService::class)->getGoogleMapsMapId());
@@ -126,10 +127,32 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip().'|'.(string) $request->input('email'));
         });
 
+        RateLimiter::for('taxi-contract-login', function ($request) {
+            return Limit::perMinute(10)->by($request->ip().'|'.(string) $request->input('email'));
+        });
+
+        RateLimiter::for('taxi-app-login-code', function ($request) {
+            return [
+                Limit::perMinute(8)->by($request->ip()),
+                Limit::perHour(8)->by($request->ip().'|'.strtolower((string) $request->input('email'))),
+            ];
+        });
+
         RateLimiter::for('taxi-driver-poll', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 
             return Limit::perMinute(120)->by('taxi-poll|'.$key);
+        });
+
+        RateLimiter::for('public-forms', function ($request) {
+            return [
+                Limit::perMinute(5)->by($request->ip()),
+                Limit::perHour(20)->by($request->ip()),
+            ];
+        });
+
+        Event::listen(MessageSending::class, function () {
+            return app(\App\Services\NexaDemoAccountService::class)->shouldSuppressOutgoingMail() ? false : null;
         });
 
         // Register SMS notification channel
@@ -209,37 +232,11 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Laad GOOGLE_MAPS_API_KEY uit de root .env (projectroot) in config, zodat de key overal beschikbaar is.
+     * Laad platform Maps-instellingen (Algemene configuraties) in config('maps.*').
      */
-    private function loadGoogleMapsApiKeyFromRootEnv(): void
+    private function syncMapsConfigFromSettings(): void
     {
-        if (config('maps.api_key')) {
-            return;
-        }
-        $rootEnv = \App\Services\EnvService::getRootEnvPath();
-        if (! is_readable($rootEnv)) {
-            return;
-        }
-        $lines = @file($rootEnv, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (! is_array($lines)) {
-            return;
-        }
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
-                continue;
-            }
-            [$k, $value] = explode('=', $line, 2);
-            if (trim($k) === 'GOOGLE_MAPS_API_KEY') {
-                $value = trim($value);
-                if (strlen($value) >= 2 && ($value[0] === '"' && $value[strlen($value) - 1] === '"' || $value[0] === "'" && $value[strlen($value) - 1] === "'")) {
-                    $value = substr($value, 1, -1);
-                }
-                config(['maps.api_key' => trim($value)]);
-
-                return;
-            }
-        }
+        app(EnvService::class)->syncMapsConfig();
     }
 
     /**
@@ -269,5 +266,35 @@ class AppServiceProvider extends ServiceProvider
         }
 
         URL::forceRootUrl($root);
+    }
+
+    /**
+     * Artisan op de Mac: .env heeft DB_HOST=db (Compose-servicenaam). Die hostname bestaat
+     * alleen in het Docker-netwerk. Postgres is lokaal gepubliceerd op 127.0.0.1:5432.
+     */
+    private function registerDestructiveDatabaseGuard(): void
+    {
+        Event::listen(CommandStarting::class, function (CommandStarting $event): void {
+            DestructiveDatabaseGuard::abortIfBlocked($event->command);
+        });
+    }
+
+    private function usePublishedPostgresWhenDockerHostnameIsUnreachable(): void
+    {
+        if (is_file('/.dockerenv')) {
+            return;
+        }
+
+        $default = (string) config('database.default');
+        if ($default === '' || $default === 'sqlite') {
+            return;
+        }
+
+        $hostKey = "database.connections.{$default}.host";
+        if ((string) config($hostKey) !== 'db') {
+            return;
+        }
+
+        config([$hostKey => '127.0.0.1']);
     }
 }

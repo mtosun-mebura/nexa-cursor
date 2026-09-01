@@ -9,6 +9,7 @@ use App\Services\PaymentProviderService;
 use App\Services\PlatformBilling\PlatformMollieService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class AdminPlatformBillingSettingsController extends Controller
@@ -44,6 +45,8 @@ class AdminPlatformBillingSettingsController extends Controller
             'sender_email' => 'nullable|email|max:255',
             'tax_rate_percent' => 'required|numeric|min:0|max:100',
             'payment_terms_days' => 'required|integer|min:1|max:365',
+            'dunning_first_interval_days' => 'required|integer|min:1|max:365',
+            'dunning_interval_days' => 'required|integer|min:1|max:365',
             'invoice_footer' => 'nullable|string|max:5000',
             'invoice_number_prefix' => 'required|string|max:10',
             'invoice_number_format' => 'required|string|max:100',
@@ -81,6 +84,13 @@ class AdminPlatformBillingSettingsController extends Controller
         $clearMollieKey = $request->boolean('clear_mollie_api_key');
         unset($validated['mollie_api_key'], $validated['clear_mollie_api_key']);
 
+        if (! Schema::hasColumn('platform_billing_settings', 'dunning_first_interval_days')) {
+            unset($validated['dunning_first_interval_days']);
+        }
+        if (! Schema::hasColumn('platform_billing_settings', 'dunning_interval_days')) {
+            unset($validated['dunning_interval_days']);
+        }
+
         if ($plainMollieKey !== '') {
             if (! PaymentProviderService::isValidMollieApiKeyFormat($plainMollieKey)) {
                 return back()
@@ -96,7 +106,7 @@ class AdminPlatformBillingSettingsController extends Controller
         $settings->save();
 
         return redirect()->route('admin.platform-billing.settings.edit')
-            ->with('success', 'SaaS-facturatie-instellingen opgeslagen.');
+            ->with('success', 'NEXA-facturatie-instellingen opgeslagen.');
     }
 
     public function importFromInvoiceSettings(): RedirectResponse

@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideClaimService;
+use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
+use App\Services\WhatsAppBusinessService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -39,6 +41,12 @@ class RideClaimServiceTest extends TestCase
             $table->string('dropoff_address');
             $table->unsignedSmallInteger('passengers')->default(1);
             $table->dateTime('pickup_at');
+            $table->dateTime('pickup_proposal_at')->nullable();
+            $table->string('pickup_proposal_status', 32)->nullable();
+            $table->text('pickup_proposal_customer_remark')->nullable();
+            $table->timestamp('pickup_proposal_sent_at')->nullable();
+            $table->timestamp('pickup_proposal_responded_at')->nullable();
+            $table->string('pickup_proposal_whatsapp_wamid', 191)->nullable();
             $table->decimal('quoted_price', 10, 2)->nullable();
             $table->string('customer_name');
             $table->string('customer_email')->nullable();
@@ -57,6 +65,7 @@ class RideClaimServiceTest extends TestCase
             $table->timestamp('offered_at');
             $table->timestamp('expires_at');
             $table->timestamp('responded_at')->nullable();
+            $table->timestamp('archived_at')->nullable();
             $table->timestamps();
         });
 
@@ -307,7 +316,8 @@ class RideClaimServiceTest extends TestCase
             'status' => RideRequest::STATUS_OFFERED,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => now()->addHour(),
+            // Naive Amsterdam wall-clock (niet app-TZ converteren).
+            'pickup_at' => now('Europe/Amsterdam')->addHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Test',
         ]);
 
@@ -338,7 +348,7 @@ class RideClaimServiceTest extends TestCase
             'status' => RideRequest::STATUS_PENDING_DISPATCH,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => now()->subHours(2),
+            'pickup_at' => now('Europe/Amsterdam')->subHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Test',
         ]);
 
@@ -352,7 +362,7 @@ class RideClaimServiceTest extends TestCase
             'responded_at' => now()->subHour(),
         ]);
 
-        $newPickup = now()->addDay()->startOfMinute();
+        $newPickup = now('Europe/Amsterdam')->addDay()->startOfMinute();
         $claim = app(RideClaimService::class);
         $result = $claim->acceptOffer(
             'module_taxi',
@@ -362,20 +372,31 @@ class RideClaimServiceTest extends TestCase
         );
 
         $this->assertSame(RideRequest::STATUS_ACCEPTED, $result['ride']->status);
-        $this->assertTrue($result['ride']->pickup_at->equalTo($newPickup));
+        $this->assertTrue(! empty($result['pickup_proposed']));
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $result['ride']->pickup_proposal_status);
+        $this->assertNotNull($result['ride']->pickup_proposal_at);
+        $this->assertSame(
+            1,
+            RideDispatchOffer::on('module_taxi')->awaitingCustomerApprovalForDriver($driver->id)->count()
+        );
+        $this->assertSame(
+            0,
+            RideDispatchOffer::on('module_taxi')->customerDeclinedProposalForDriver($driver->id)->count()
+        );
+        // Oude pickup_at blijft tot de klant via WhatsApp (rit_ophaal_voorstel) accepteert.
+        $this->assertTrue($result['ride']->pickup_at->format('Y-m-d H:i:s') < $newPickup->format('Y-m-d H:i:s'));
     }
 
-    public function test_accept_declined_overdue_ride_keeps_pickup_at_without_change(): void
+    public function test_accept_declined_overdue_ride_requires_new_pickup_at(): void
     {
         $driver = User::factory()->create();
-        $originalPickup = now()->subHours(2)->startOfMinute();
 
         $ride = RideRequest::on('module_taxi')->create([
             'company_id' => 1,
             'status' => RideRequest::STATUS_PENDING_DISPATCH,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => $originalPickup,
+            'pickup_at' => now('Europe/Amsterdam')->subHours(2)->format('Y-m-d H:i:s'),
             'customer_name' => 'Test',
         ]);
 
@@ -390,8 +411,564 @@ class RideClaimServiceTest extends TestCase
         ]);
 
         $claim = app(RideClaimService::class);
-        $result = $claim->acceptOffer('module_taxi', $driver, $offer->id, null);
 
-        $this->assertTrue($result['ride']->pickup_at->equalTo($originalPickup));
+        $this->expectException(ValidationException::class);
+        $claim->acceptOffer('module_taxi', $driver, $offer->id, null);
+    }
+
+    public function test_customer_accepts_pickup_proposal_makes_ride_available_with_new_time(): void
+    {
+        $driver = User::factory()->create();
+        $oldPickup = now('UTC')->subHours(2)->startOfMinute();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => $oldPickup->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+        ]);
+
+        $updated = app(TaxiPickupProposalService::class)->acceptProposal('module_taxi', $ride);
+
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_ACCEPTED, $updated->pickup_proposal_status);
+        $this->assertSame($proposed->format('Y-m-d H:i:s'), $updated->pickup_at->format('Y-m-d H:i:s'));
+        $this->assertSame($driver->id, (int) $updated->driver_id);
+        $this->assertSame(RideRequest::STATUS_ACCEPTED, $updated->status);
+        $this->assertFalse($updated->hasOpenPickupProposal());
+    }
+
+    public function test_customer_declines_pickup_proposal_stays_assigned_until_archived(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_ACCEPTED,
+            'offered_at' => now()->subHours(3),
+            'expires_at' => now()->subHours(2),
+            'responded_at' => now()->subHour(),
+        ]);
+
+        $declined = app(TaxiPickupProposalService::class)->declineProposal('module_taxi', $ride);
+
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_DECLINED, $declined->pickup_proposal_status);
+        $this->assertSame($driver->id, (int) $declined->driver_id);
+        $this->assertSame(RideRequest::STATUS_ACCEPTED, $declined->status);
+        $this->assertTrue($declined->hasDeclinedPickupProposal());
+
+        $awaiting = RideDispatchOffer::on('module_taxi')->awaitingCustomerApprovalForDriver($driver->id)->count();
+        $customerDeclined = RideDispatchOffer::on('module_taxi')->customerDeclinedProposalForDriver($driver->id)->count();
+        $this->assertSame(0, $awaiting);
+        $this->assertSame(1, $customerDeclined);
+
+        $archived = app(RideClaimService::class)->archiveCustomerDeclinedPickupProposal(
+            'module_taxi',
+            $driver,
+            $offer->id
+        );
+
+        $this->assertSame(RideDispatchOffer::STATUS_DECLINED, $archived->status);
+        $this->assertNotNull($archived->archived_at);
+
+        $freshRide = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertNull($freshRide->driver_id);
+        $this->assertSame(RideRequest::STATUS_PENDING_DISPATCH, $freshRide->status);
+        $this->assertNull($freshRide->pickup_proposal_status);
+        $this->assertSame(0, RideDispatchOffer::on('module_taxi')->customerDeclinedProposalForDriver($driver->id)->count());
+    }
+
+    public function test_whatsapp_text_accepteren_matches_06_and_31_phone(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'text',
+            'text' => ['body' => 'Accepteren'],
+        ]);
+
+        $this->assertTrue($handled);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_ACCEPTED, $fresh->pickup_proposal_status);
+        $this->assertSame($proposed->format('Y-m-d H:i:s'), $fresh->pickup_at->format('Y-m-d H:i:s'));
+        $this->assertNull($fresh->pickup_proposal_customer_remark);
+    }
+
+    public function test_whatsapp_button_payload_accepts_proposal(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '+31612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'button',
+            'button' => [
+                'payload' => TaxiPickupProposalService::BUTTON_ACCEPT,
+                'text' => 'Accepteren',
+            ],
+        ]);
+
+        $this->assertTrue($handled);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_ACCEPTED, $fresh->pickup_proposal_status);
+    }
+
+    public function test_whatsapp_button_uses_knoptekst_when_payload_is_index(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'button',
+            'button' => [
+                'payload' => 0,
+                'text' => 'Accepteren',
+            ],
+        ]);
+
+        $this->assertTrue($handled);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_ACCEPTED, $fresh->pickup_proposal_status);
+        $this->assertSame($proposed->format('Y-m-d H:i:s'), $fresh->pickup_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_whatsapp_text_weigeren_declines_proposal(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'text',
+            'text' => ['body' => 'Weigeren'],
+        ]);
+
+        $this->assertTrue($handled);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_DECLINED, $fresh->pickup_proposal_status);
+    }
+
+    public function test_whatsapp_free_text_remark_does_not_accept(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'text',
+            'text' => ['body' => 'Graag 10 minuten later'],
+        ]);
+
+        $this->assertTrue($handled);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $fresh->pickup_proposal_status);
+        $this->assertSame('Graag 10 minuten later', $fresh->pickup_proposal_customer_remark);
+    }
+
+    public function test_archive_pending_pickup_proposal_hides_ride_until_customer_replies(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_ACCEPTED,
+            'offered_at' => now()->subHours(3),
+            'expires_at' => now()->subHours(2),
+            'responded_at' => now()->subHour(),
+        ]);
+
+        $archived = app(RideClaimService::class)->archivePendingPickupProposal(
+            'module_taxi',
+            $driver,
+            $offer->id
+        );
+
+        $this->assertNotNull($archived->archived_at);
+        $this->assertSame(RideDispatchOffer::STATUS_EXPIRED, $archived->status);
+        $this->assertSame(0, RideDispatchOffer::on('module_taxi')->awaitingCustomerApprovalForDriver($driver->id)->count());
+
+        $freshRide = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertNull($freshRide->driver_id);
+        $this->assertSame(RideRequest::STATUS_PENDING_DISPATCH, $freshRide->status);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $freshRide->pickup_proposal_status);
+        $this->assertSame($proposed->format('Y-m-d H:i:s'), $freshRide->pickup_proposal_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_whatsapp_accept_after_archive_returns_as_new_offer(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_ACCEPTED,
+            'offered_at' => now()->subHours(3),
+            'expires_at' => now()->subHours(2),
+            'responded_at' => now()->subHour(),
+        ]);
+
+        app(RideClaimService::class)->archivePendingPickupProposal('module_taxi', $driver, $offer->id);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'text',
+            'text' => ['body' => 'Accepteren'],
+        ]);
+
+        $this->assertTrue($handled);
+        $freshRide = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertNull($freshRide->driver_id);
+        $this->assertSame($proposed->format('Y-m-d H:i:s'), $freshRide->pickup_at->format('Y-m-d H:i:s'));
+        $this->assertNull($freshRide->pickup_proposal_status);
+        $this->assertSame(RideRequest::STATUS_OFFERED, $freshRide->status);
+
+        $freshOffer = RideDispatchOffer::on('module_taxi')->find($offer->id);
+        $this->assertSame(RideDispatchOffer::STATUS_PENDING, $freshOffer->status);
+        $this->assertNull($freshOffer->archived_at);
+    }
+
+    public function test_whatsapp_decline_after_archive_returns_to_declined_inbox(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => now('UTC')->addDays(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_ACCEPTED,
+            'offered_at' => now()->subHours(3),
+            'expires_at' => now()->subHours(2),
+            'responded_at' => now()->subHour(),
+        ]);
+
+        app(RideClaimService::class)->archivePendingPickupProposal('module_taxi', $driver, $offer->id);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'text',
+            'text' => ['body' => 'Weigeren'],
+        ]);
+
+        $this->assertTrue($handled);
+        $freshRide = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertNull($freshRide->driver_id);
+        $this->assertNull($freshRide->pickup_proposal_status);
+
+        $freshOffer = RideDispatchOffer::on('module_taxi')->find($offer->id);
+        $this->assertSame(RideDispatchOffer::STATUS_DECLINED, $freshOffer->status);
+        $this->assertNull($freshOffer->archived_at);
+    }
+
+    public function test_whatsapp_context_id_matches_the_specific_pending_proposal(): void
+    {
+        $driver = User::factory()->create();
+        $proposedOlder = now('UTC')->addDay()->startOfMinute();
+        $proposedNewer = now('UTC')->addDays(2)->startOfMinute();
+
+        $older = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposedOlder->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now()->subMinutes(5),
+            'pickup_proposal_whatsapp_wamid' => 'wamid.OLDER',
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $newer = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'C',
+            'dropoff_address' => 'D',
+            'pickup_at' => now('UTC')->subHour()->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposedNewer->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'pickup_proposal_whatsapp_wamid' => 'wamid.NEWER',
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'button',
+            'button' => [
+                'text' => 'Accepteren',
+            ],
+            'context' => [
+                'from' => '15550000000',
+                'id' => 'wamid.OLDER',
+            ],
+        ]);
+
+        $this->assertTrue($handled);
+        $freshOlder = RideRequest::on('module_taxi')->find($older->id);
+        $freshNewer = RideRequest::on('module_taxi')->find($newer->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_ACCEPTED, $freshOlder->pickup_proposal_status);
+        $this->assertSame($proposedOlder->format('Y-m-d H:i:s'), $freshOlder->pickup_at->format('Y-m-d H:i:s'));
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $freshNewer->pickup_proposal_status);
+    }
+
+    public function test_whatsapp_unknown_context_id_falls_back_to_phone(): void
+    {
+        $driver = User::factory()->create();
+        $proposed = now('UTC')->addDay()->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->subHours(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => $proposed->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'pickup_proposal_whatsapp_wamid' => 'wamid.KNOWN',
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'button',
+            'button' => [
+                'text' => 'Accepteren',
+            ],
+            'context' => [
+                'id' => 'wamid.UNKNOWN',
+            ],
+        ]);
+
+        $this->assertTrue($handled);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_ACCEPTED, $fresh->pickup_proposal_status);
+    }
+
+    public function test_whatsapp_context_id_of_closed_proposal_does_not_hit_another_pending_ride(): void
+    {
+        $driver = User::factory()->create();
+
+        RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_ACCEPTED,
+            'pickup_proposal_sent_at' => now()->subHour(),
+            'pickup_proposal_responded_at' => now()->subMinutes(10),
+            'pickup_proposal_whatsapp_wamid' => 'wamid.CLOSED',
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $otherPending = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'C',
+            'dropoff_address' => 'D',
+            'pickup_at' => now('UTC')->subHour()->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => now('UTC')->addDays(2)->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'pickup_proposal_whatsapp_wamid' => 'wamid.OTHER',
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $handled = app(TaxiPickupProposalService::class)->handleInboundCustomerMessage('module_taxi', [
+            'from' => '31612345678',
+            'type' => 'button',
+            'button' => [
+                'text' => 'Accepteren',
+            ],
+            'context' => [
+                'id' => 'wamid.CLOSED',
+            ],
+        ]);
+
+        $this->assertFalse($handled);
+        $fresh = RideRequest::on('module_taxi')->find($otherPending->id);
+        $this->assertSame(RideRequest::PICKUP_PROPOSAL_PENDING, $fresh->pickup_proposal_status);
+    }
+
+    public function test_send_proposal_whatsapp_stores_wamid(): void
+    {
+        $this->mock(WhatsAppBusinessService::class, function ($mock): void {
+            $mock->shouldReceive('isConfigured')->andReturn(true);
+            $mock->shouldReceive('sendTemplate')->once()->andReturn([
+                'ok' => true,
+                'wamid' => 'wamid.HBgNSTORED',
+            ]);
+        });
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now('UTC')->addHour()->format('Y-m-d H:i:s'),
+            'pickup_proposal_at' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'pickup_proposal_status' => RideRequest::PICKUP_PROPOSAL_PENDING,
+            'pickup_proposal_sent_at' => now(),
+            'customer_name' => 'Test',
+            'customer_phone' => '0612345678',
+        ]);
+
+        $ok = app(TaxiPickupProposalService::class)->sendProposalWhatsapp('module_taxi', $ride);
+
+        $this->assertTrue($ok);
+        $fresh = RideRequest::on('module_taxi')->find($ride->id);
+        $this->assertSame('wamid.HBgNSTORED', $fresh->pickup_proposal_whatsapp_wamid);
     }
 }

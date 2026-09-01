@@ -3,7 +3,7 @@
     $items = array_slice(array_merge($items, [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']]), 0, 4);
     $background = isset($sectionData['background']) && is_string($sectionData['background']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $sectionData['background']) ? $sectionData['background'] : '';
     $backgroundImage = isset($sectionData['background_image']) && is_string($sectionData['background_image']) ? trim($sectionData['background_image']) : '';
-    $sectionClass = 'website-block website-block-stats py-16 stats-section';
+    $sectionClass = 'website-block website-block-stats pt-8 md:pt-10 pb-12 md:pb-16 stats-section';
     if ($background === '' && $backgroundImage === '') {
         $sectionClass .= ' bg-gray-100 dark:bg-gray-900';
     }

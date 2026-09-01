@@ -1,5 +1,5 @@
 @push('scripts')
-<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260516d"></script>
+<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260822a"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var form = document.querySelector('form.knowledge-document-form');

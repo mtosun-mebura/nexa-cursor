@@ -532,6 +532,33 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function ride_stops_manual_foreign_keys_include_ride_request_id(): void
+    {
+        $keys = config('tenant_sync.taxi_module.manual_foreign_keys.ride_stops', []);
+
+        $this->assertSame('ride_requests', $keys['ride_request_id'] ?? null);
+    }
+
+    #[Test]
+    public function remap_configured_foreign_keys_remaps_ride_stops_ride_request_id(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapConfiguredForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'tenant_sync.taxi_module.manual_foreign_keys',
+            'ride_stops',
+            ['ride_request_id' => 10, 'sequence' => 1, 'transport_passenger_id' => null],
+            ['ride_requests' => [10 => 55]]
+        );
+
+        $this->assertIsArray($result);
+        $this->assertSame(55, (int) $result['ride_request_id']);
+    }
+
+    #[Test]
     public function remap_configured_foreign_keys_nulls_optional_parent_when_missing(): void
     {
         $service = app(TenantCompanyDataPushService::class);
@@ -601,5 +628,50 @@ class TenantCompanyDataPushServiceTest extends TestCase
             $rows->contains(fn ($row) => (int) $row->id === (int) $user->id),
             'User linked only via model_has_roles should be included in tenant user sync set.'
         );
+    }
+
+    #[Test]
+    public function prepare_insert_payload_keeps_remote_company_id_for_invoices(): void
+    {
+        if (! Schema::hasTable('invoices') || ! Schema::hasColumn('invoices', 'company_id')) {
+            $this->markTestSkipped('invoices.company_id required');
+        }
+
+        $default = (string) config('database.default');
+        config([
+            'database.connections.tenant_website_sync_target' => config('database.connections.'.$default),
+        ]);
+        DB::purge('tenant_website_sync_target');
+        // SQLite :memory: is per-connection; reuse the default PDO so schema matches.
+        DB::connection('tenant_website_sync_target')->setPdo(DB::connection($default)->getPdo());
+
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'prepareInsertPayload');
+        $method->setAccessible(true);
+
+        $idMaps = [];
+        $fkEdges = [
+            ['child' => 'invoices', 'child_column' => 'company_id', 'parent' => 'companies'],
+        ];
+        $row = [
+            'id' => 99,
+            'invoice_number' => '2026-006',
+            'company_id' => 7,
+            'amount' => 59.50,
+            'tax_amount' => 0,
+            'total_amount' => 59.50,
+            'currency' => 'EUR',
+            'status' => 'draft',
+            'invoice_date' => '2026-08-01',
+            'due_date' => '2026-08-15',
+        ];
+
+        $args = ['invoices', $row, 42, &$idMaps, $fkEdges];
+        $payload = $method->invokeArgs($service, $args);
+
+        $this->assertIsArray($payload);
+        $this->assertSame(42, (int) $payload['company_id']);
+        $this->assertSame('2026-006', $payload['invoice_number']);
+        $this->assertArrayNotHasKey('id', $payload);
     }
 }

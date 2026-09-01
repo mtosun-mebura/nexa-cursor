@@ -11,7 +11,28 @@ use Illuminate\Support\Facades\DB;
 class TaxiDriverEligibilityService
 {
     /** @var list<string> */
-    private const CHAUFFEUR_ROLE_NAMES = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur'];
+    public const CHAUFFEUR_ROLE_NAMES = [
+        'chauffeur',
+        'taxi-chauffeur',
+        'taxi_chauffeur',
+        'taxichauffeur',
+        'chauffeur-inkomsten',
+    ];
+
+    public function chauffeurRoleNames(): array
+    {
+        return self::CHAUFFEUR_ROLE_NAMES;
+    }
+
+    /**
+     * @param  list<string>  $roleNames
+     */
+    public function rolesIncludeChauffeur(array $roleNames): bool
+    {
+        $normalized = array_map(static fn ($name) => strtolower(trim((string) $name)), $roleNames);
+
+        return count(array_intersect($normalized, self::CHAUFFEUR_ROLE_NAMES)) > 0;
+    }
 
     public function isChauffeurForCompany(User $user, int $companyId): bool
     {

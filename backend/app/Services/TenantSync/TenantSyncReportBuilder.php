@@ -24,8 +24,14 @@ final class TenantSyncReportBuilder
     /** @var list<string> */
     private array $notes = [];
 
+    private ?string $customSummary = null;
+
     /** @var null|callable(array<string, mixed>): void */
     private $onProgress = null;
+
+    private int $progressDone = 0;
+
+    private int $progressTotal = 0;
 
     /**
      * @param  callable(array<string, mixed>): void|null  $callback
@@ -33,6 +39,15 @@ final class TenantSyncReportBuilder
     public function onProgress(?callable $callback): void
     {
         $this->onProgress = $callback;
+    }
+
+    /**
+     * Verwacht aantal voortgangseenheden (stappen + tabelrijen) voor de procentbalk.
+     */
+    public function setProgressTotal(int $total): void
+    {
+        $this->progressTotal = max(0, $total);
+        $this->emitProgress(false);
     }
 
     public function addStep(string $label, string $status = 'done'): void
@@ -46,6 +61,7 @@ final class TenantSyncReportBuilder
             'label' => $label,
             'status' => $status,
         ]);
+        $this->bumpProgress();
     }
 
     /**
@@ -60,13 +76,45 @@ final class TenantSyncReportBuilder
         ($this->onProgress)(array_merge(['type' => $type], $payload));
     }
 
-    public function setSummary(int $remoteCompanyId, int $inserted, int $updated, int $skipped): void
+    private function bumpProgress(int $by = 1): void
+    {
+        $this->progressDone += max(0, $by);
+        $this->emitProgress(false);
+    }
+
+    private function emitProgress(bool $complete): void
+    {
+        if ($complete) {
+            $percent = 100;
+            $done = max($this->progressDone, $this->progressTotal);
+            $total = max($this->progressTotal, $done);
+        } elseif ($this->progressTotal > 0) {
+            $done = $this->progressDone;
+            $total = $this->progressTotal;
+            // Houd 100% voor de complete-event; tijdens de run max 99%.
+            $percent = min(99, (int) floor(($done / $total) * 100));
+        } else {
+            $done = $this->progressDone;
+            $total = 0;
+            $percent = min(90, 5 + ($done * 3));
+        }
+
+        $this->emit('progress', [
+            'done' => $done,
+            'total' => $total,
+            'percent' => $percent,
+        ]);
+    }
+
+    public function setSummary(int $remoteCompanyId, int $inserted, int $updated, int $skipped, ?string $summaryOverride = null): void
     {
         $this->remoteCompanyId = $remoteCompanyId;
         $this->totalInserted = $inserted;
         $this->totalUpdated = $updated;
         $this->totalSkipped = $skipped;
+        $this->customSummary = $summaryOverride;
 
+        $this->emitProgress(true);
         $this->emit('summary', [
             'remote_company_id' => $remoteCompanyId,
             'totals' => [
@@ -139,10 +187,15 @@ final class TenantSyncReportBuilder
             'section' => $section,
             'row' => $row,
         ]);
+        $this->bumpProgress();
     }
 
     public function summaryLine(): string
     {
+        if ($this->customSummary !== null && $this->customSummary !== '') {
+            return $this->customSummary;
+        }
+
         return sprintf(
             'Tenant-sync voltooid. Doel company_id: %d. Toegevoegd: %d, bijgewerkt: %d, overgeslagen: %d.',
             $this->remoteCompanyId,

@@ -11,6 +11,8 @@ class InfoRequestFormField extends Model
 
     public const TEXTAREA_MAX_LENGTH = 500;
 
+    public const TEXT_MAX_LENGTH = 255;
+
     protected $table = 'info_request_form_fields';
 
     protected $fillable = [
@@ -31,6 +33,11 @@ class InfoRequestFormField extends Model
             && str_contains(strtolower((string) $this->label), 'omschrijving');
     }
 
+    public function isNexaPackageField(): bool
+    {
+        return $this->validation_rule === 'nexa_package' || $this->name === 'pakket';
+    }
+
     /**
      * Laravel validation rules voor dit veld (voor request).
      */
@@ -40,18 +47,27 @@ class InfoRequestFormField extends Model
         if ($this->validation_rule) {
             if ($this->validation_rule === 'email') {
                 $rules[] = 'email';
+                $rules[] = 'max:255';
             } elseif ($this->validation_rule === 'tel') {
                 $rules[] = 'string';
-                $rules[] = 'max:100';
+                $rules[] = 'max:20';
             } elseif ($this->validation_rule === 'number') {
                 $rules[] = 'numeric';
+            } elseif ($this->isNexaPackageField()) {
+                $rules[] = 'string';
+                $rules[] = 'max:80';
+                $allowed = app(\App\Services\NexaPricingService::class)->packageNames();
+                if ($allowed !== []) {
+                    $rules[] = \Illuminate\Validation\Rule::in($allowed);
+                }
             } elseif (str_starts_with($this->validation_rule, 'regex:')) {
                 $rules[] = $this->validation_rule;
             }
         } else {
             $rules[] = 'string';
-            $rules[] = 'max:' . ($this->isTextareaField() ? self::TEXTAREA_MAX_LENGTH : 5000);
+            $rules[] = 'max:'.($this->isTextareaField() ? self::TEXTAREA_MAX_LENGTH : self::TEXT_MAX_LENGTH);
         }
+
         return $rules;
     }
 

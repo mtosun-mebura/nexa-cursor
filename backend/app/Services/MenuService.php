@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use App\Models\Module as ModuleModel;
-use App\Services\ModuleManager;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 
@@ -24,41 +24,58 @@ class MenuService
         $menuItems = [];
 
         try {
-            if (!Schema::hasTable('modules')) {
+            if (! Schema::hasTable('modules')) {
                 return $menuItems;
             }
 
             // Check if user is logged in
-            if (!auth()->check()) {
+            if (! auth()->check()) {
                 return $menuItems;
             }
 
             $user = auth()->user();
             $isSuperAdmin = $user->hasRole('super-admin');
+            $isDemoUser = app(NexaDemoAccountService::class)->isDemoUser($user);
+            $demoMenuKeys = $isDemoUser ? app(NexaDemoAccountService::class)->menuKeys() : [];
 
             $activeModules = $this->moduleManager->getActiveModules();
+            $companyId = $isSuperAdmin && session('selected_tenant')
+                ? (int) session('selected_tenant')
+                : ($user->company_id ? (int) $user->company_id : null);
+            $allowedModuleNames = $this->allowedModuleNamesForMenu($user, $companyId);
+            $menuCompany = ($companyId !== null && $companyId > 0)
+                ? Company::query()->find($companyId)
+                : null;
+            $entitlements = app(CompanyEntitlementService::class);
 
             foreach ($activeModules as $module) {
-                if (!$module) {
+                if (! $module) {
+                    continue;
+                }
+
+                if ($allowedModuleNames !== null && ! in_array(strtolower($module->getName()), $allowedModuleNames, true)) {
                     continue;
                 }
 
                 $moduleMenuItems = $module->registerMenuItems();
-                $companyId = auth()->user()?->hasRole('super-admin') && session('selected_tenant')
-                    ? (int) session('selected_tenant')
-                    : (auth()->user()?->company_id ? (int) auth()->user()->company_id : null);
                 $enabledKeys = $this->getEnabledMenuKeysForModule($module->getName(), $companyId);
 
                 foreach ($moduleMenuItems as $item) {
+                    if ($isDemoUser && $demoMenuKeys !== [] && isset($item['key']) && ! in_array($item['key'], $demoMenuKeys, true)) {
+                        continue;
+                    }
+                    if (! empty($item['super_admin_only']) && ! $isSuperAdmin) {
+                        continue;
+                    }
                     // Filter op door gebruiker geselecteerde onderdelen (enabled_menu_items in config)
                     if (isset($item['key'])) {
-                        if ($enabledKeys !== null && !in_array($item['key'], $enabledKeys, true)) {
+                        if ($enabledKeys !== null && ! in_array($item['key'], $enabledKeys, true)) {
                             continue;
                         }
                     }
                     // Check permission if specified
                     $permissionOk = true;
-                    if (isset($item['permission']) || !empty($item['permission_any'])) {
+                    if (isset($item['permission']) || ! empty($item['permission_any'])) {
                         if ($isSuperAdmin) {
                             $permissionOk = true;
                         } else {
@@ -80,34 +97,79 @@ class MenuService
                                 }
                             }
                             $permissionOk = $hasAny;
-                            if (!$permissionOk && !empty($permissionsToCheck)) {
+                            if (! $permissionOk && ! empty($permissionsToCheck)) {
                                 continue;
                             }
                         }
+                    }
+                    if (! $this->menuItemAllowedForPackage($item, $entitlements, $menuCompany)) {
+                        continue;
+                    }
+                    if (! empty($item['children']) && is_array($item['children'])) {
+                        $item['children'] = array_values(array_filter(
+                            $item['children'],
+                            fn (array $child) => $this->menuItemAllowedForPackage($child, $entitlements, $menuCompany)
+                        ));
                     }
                     // If no permission specified, show for everyone (or check if logged in)
 
                     // Add module info to menu item
                     $item['module'] = $module->getName();
                     $item['module_display_name'] = $module->getDisplayName();
-                    
+
                     $menuItems[] = $item;
                 }
             }
 
             // Sort by order if specified
-            usort($menuItems, function($a, $b) {
+            usort($menuItems, function ($a, $b) {
                 $orderA = $a['order'] ?? 999;
                 $orderB = $b['order'] ?? 999;
+
                 return $orderA <=> $orderB;
             });
 
         } catch (\Exception $e) {
             // Log error but don't break the page
-            \Log::error('Error in getModuleMenuItems: ' . $e->getMessage());
+            \Log::error('Error in getModuleMenuItems: '.$e->getMessage());
         }
 
         return $menuItems;
+    }
+
+    /**
+     * Module-namen die in het admin-menu mogen. Null = geen filter (super-admin zonder tenant).
+     *
+     * @return list<string>|null
+     */
+    private function allowedModuleNamesForMenu($user, ?int $companyId): ?array
+    {
+        $isSuperAdmin = $user->hasRole('super-admin');
+        if ($isSuperAdmin && ($companyId === null || $companyId <= 0)) {
+            return null;
+        }
+
+        $company = null;
+        if ($companyId !== null && $companyId > 0) {
+            $company = Company::query()->find($companyId);
+        }
+        if ($company === null && ! $isSuperAdmin && $user->company_id) {
+            $company = Company::query()->find((int) $user->company_id);
+        }
+        if ($company === null) {
+            return $isSuperAdmin ? null : [];
+        }
+
+        if (! Schema::hasTable('company_module')) {
+            return $isSuperAdmin ? null : [];
+        }
+
+        return $company->modules()
+            ->pluck('name')
+            ->map(fn ($name) => strtolower((string) $name))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -117,12 +179,12 @@ class MenuService
      */
     public function getEnabledMenuKeysForModule(string $moduleName, ?int $companyId = null): ?array
     {
-        if (!Schema::hasTable('modules')) {
+        if (! Schema::hasTable('modules')) {
             return null;
         }
 
         $model = ModuleModel::where('name', $moduleName)->first();
-        if (!$model) {
+        if (! $model) {
             return null;
         }
 
@@ -132,7 +194,7 @@ class MenuService
         }
 
         $enabled = $config['enabled_menu_items'] ?? null;
-        if (!is_array($enabled)) {
+        if (! is_array($enabled)) {
             return null;
         }
 
@@ -147,6 +209,19 @@ class MenuService
     }
 
     /**
+     * @param  array<string, mixed>  $item
+     */
+    private function menuItemAllowedForPackage(array $item, CompanyEntitlementService $entitlements, ?Company $company): bool
+    {
+        $capability = $item['package_capability'] ?? null;
+        if (! is_string($capability) || $capability === '') {
+            return true;
+        }
+
+        return $entitlements->allows($company, $capability);
+    }
+
+    /**
      * Routes die door een actieve module als menuitem worden getoond (bv. admin.branches.index).
      * Gebruikt in de sidebar om dubbele items te vermijden (bv. Branches niet statisch tonen als module het toont).
      */
@@ -154,17 +229,18 @@ class MenuService
     {
         $routes = [];
         try {
-            if (!Schema::hasTable('modules')) {
+            if (! Schema::hasTable('modules')) {
                 return $routes;
             }
             foreach ($this->getModuleMenuItems() as $item) {
-                if (!empty($item['route'])) {
+                if (! empty($item['route'])) {
                     $routes[$item['route']] = true;
                 }
             }
         } catch (\Exception $e) {
             // ignore
         }
+
         return $routes;
     }
 
@@ -176,19 +252,19 @@ class MenuService
         $permissions = [];
 
         try {
-            if (!Schema::hasTable('modules')) {
+            if (! Schema::hasTable('modules')) {
                 return $permissions;
             }
 
             $activeModules = $this->moduleManager->getActiveModules();
 
             foreach ($activeModules as $module) {
-                if (!$module) {
+                if (! $module) {
                     continue;
                 }
 
                 $modulePermissions = $module->registerPermissions();
-                
+
                 foreach ($modulePermissions as $permission) {
                     $permissions[] = [
                         'name' => $permission,
@@ -216,7 +292,7 @@ class MenuService
 
         foreach ($permissions as $perm) {
             $moduleName = $perm['module_display_name'];
-            if (!isset($grouped[$moduleName])) {
+            if (! isset($grouped[$moduleName])) {
                 $grouped[$moduleName] = [
                     'module' => $perm['module'],
                     'display_name' => $moduleName,

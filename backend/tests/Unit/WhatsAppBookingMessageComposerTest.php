@@ -49,11 +49,16 @@ class WhatsAppBookingMessageComposerTest extends TestCase
 
         $this->assertSame('Sara Jansen', $composed['template_params'][0]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][1]);
-        $this->assertStringContainsString('Referentie: rit #99', $composed['template_params'][2]);
-        $this->assertStringContainsString('Ophalen: Dam 1, Amsterdam', $composed['template_params'][2]);
-        $this->assertStringNotContainsString('Telefoon:', $composed['template_params'][2]);
-        $this->assertSame('Taxi Royaal', $composed['template_params'][3]);
+        $this->assertSame('rit #99', $composed['template_params'][2]);
+        $this->assertSame('+31612345678', $composed['template_params'][3]);
+        $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][4]);
+        $this->assertSame('CS Utrecht', $composed['template_params'][5]);
+        $this->assertSame('2', $composed['template_params'][7]);
+        $this->assertSame('Taxi Royaal', $composed['template_params'][10]);
+        $this->assertCount(11, $composed['template_params']);
         $this->assertStringContainsString('Beste Sara Jansen', $composed['preview']);
+        $this->assertStringContainsString('Aanbieding/voertuig:', $composed['preview']);
+        $this->assertStringNotContainsString(' · ', $composed['preview']);
     }
 
     #[Test]
@@ -90,14 +95,18 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertSame('Sara Jansen', $composed['template_params'][0]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][1]);
         $this->assertSame('Rit gestart — chauffeur onderweg', $composed['template_params'][2]);
-        $this->assertStringContainsString('Chauffeur: Piet', $composed['template_params'][3]);
-        $this->assertStringContainsString('Ophalen: Dam 1, Amsterdam', $composed['template_params'][3]);
-        $this->assertStringContainsString('statusupdate over uw taxirit bij Taxi Royaal', $composed['preview']);
-        $this->assertStringContainsString('Huidige status: Rit gestart — chauffeur onderweg', $composed['preview']);
+        $this->assertSame('—', $composed['template_params'][3]);
+        $this->assertSame('Piet', $composed['template_params'][4]);
+        $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][6]);
+        $this->assertCount(7, $composed['template_params']);
+        $this->assertStringContainsString('reactie op uw taxirit bij Taxi Royaal', $composed['preview']);
+        $this->assertStringContainsString('Status: Rit gestart — chauffeur onderweg.', $composed['preview']);
+        $this->assertStringContainsString('Chauffeur: Piet', $composed['preview']);
+        $this->assertStringContainsString('Ophaaladres: Dam 1, Amsterdam', $composed['preview']);
     }
 
     #[Test]
-    public function sample_preview_respects_selected_fields(): void
+    public function sample_preview_uses_fixed_customer_template_fields(): void
     {
         $whatsapp = Mockery::mock(WhatsAppBusinessService::class);
         $env = Mockery::mock(EnvService::class);
@@ -109,11 +118,12 @@ class WhatsAppBookingMessageComposerTest extends TestCase
             $env
         );
 
-        $sample = $composer->sampleCustomerPreview(['pickup_address', 'price']);
+        $sample = $composer->sampleCustomerPreview();
 
-        $this->assertStringContainsString('Ophalen:', $sample['details']);
+        $this->assertCount(11, $sample['params']);
+        $this->assertStringContainsString('Aanbieding/voertuig:', $sample['details']);
         $this->assertStringContainsString('Prijsindicatie:', $sample['details']);
-        $this->assertStringNotContainsString('Telefoon:', $sample['details']);
-        $this->assertCount(4, $sample['params']);
+        $this->assertStringContainsString("Referentie: rit #1042\nTelefoon:", $sample['details']);
+        $this->assertStringNotContainsString(' · ', $sample['preview']);
     }
 }

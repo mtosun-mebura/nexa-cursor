@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\NexaPricingService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CompanyBillingProfile extends Model
 {
@@ -24,8 +26,19 @@ class CompanyBillingProfile extends Model
         'billing_email',
         'billing_contact_name',
         'auto_collect_enabled',
+        'overdue_block_mode',
+        'access_restriction',
+        'access_restriction_source',
+        'access_restricted_at',
+        'access_restricted_invoice_id',
         'subscription_start_date',
         'subscription_end_date',
+        'pending_change_type',
+        'pending_package_key',
+        'pending_change_effective_on',
+        'pending_proration_amount',
+        'pending_proration_label',
+        'pending_proration_applied_at',
         'mollie_subscription_id',
         'mollie_subscription_status',
         'mollie_subscription_synced_at',
@@ -39,8 +52,12 @@ class CompanyBillingProfile extends Model
         'custom_monthly_amount' => 'decimal:2',
         'discount_percent' => 'integer',
         'auto_collect_enabled' => 'boolean',
+        'access_restricted_at' => 'datetime',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
+        'pending_change_effective_on' => 'date',
+        'pending_proration_amount' => 'decimal:2',
+        'pending_proration_applied_at' => 'datetime',
         'mollie_subscription_synced_at' => 'datetime',
         'extra_lines_one_time' => 'boolean',
         'extra_lines_applied_at' => 'datetime',
@@ -55,6 +72,11 @@ class CompanyBillingProfile extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(PlatformBillingPackage::class, 'platform_billing_package_id');
+    }
+
+    public function subscriptionChanges(): HasMany
+    {
+        return $this->hasMany(CompanySubscriptionChange::class);
     }
 
     public function lineItems(): BelongsToMany
@@ -90,7 +112,7 @@ class CompanyBillingProfile extends Model
         return match ($this->billing_mode) {
             self::MODE_FREE => 'Gratis gebruik',
             self::MODE_CUSTOM => 'Maandabonnement (maatwerk)',
-            default => $this->package?->name ?? 'Maandabonnement',
+            default => $this->nexaPackageName() ?? $this->package?->name ?? 'Maandabonnement',
         };
     }
 
@@ -109,8 +131,15 @@ class CompanyBillingProfile extends Model
             return round(max(0, (float) ($this->custom_monthly_amount ?? 0)), 2);
         }
 
-        if ($this->billing_mode === self::MODE_PACKAGE && $this->package) {
-            return round(max(0, (float) $this->package->monthly_amount), 2);
+        if ($this->billing_mode === self::MODE_PACKAGE) {
+            $fromPricing = $this->nexaMonthlyAmount();
+            if ($fromPricing !== null) {
+                return $fromPricing;
+            }
+
+            if ($this->package) {
+                return round(max(0, (float) $this->package->monthly_amount), 2);
+            }
         }
 
         return 0.0;
@@ -190,5 +219,43 @@ class CompanyBillingProfile extends Model
     {
         return $this->mollie_subscription_id
             && in_array($this->mollie_subscription_status, ['pending', 'active'], true);
+    }
+
+    private function nexaPackageKey(): string
+    {
+        $key = trim((string) ($this->package?->package_key ?? ''));
+        if ($key !== '') {
+            return $key;
+        }
+
+        $company = $this->relationLoaded('company')
+            ? $this->company
+            : $this->company()->first();
+
+        return trim((string) ($company?->package_key ?? ''));
+    }
+
+    private function nexaMonthlyAmount(): ?float
+    {
+        $key = $this->nexaPackageKey();
+        if ($key === '') {
+            return null;
+        }
+
+        $amount = app(NexaPricingService::class)->monthlyAmountForKey($key);
+
+        return $amount === null ? null : round(max(0, $amount), 2);
+    }
+
+    private function nexaPackageName(): ?string
+    {
+        $key = $this->nexaPackageKey();
+        if ($key === '') {
+            return null;
+        }
+
+        $name = trim((string) (app(NexaPricingService::class)->packageByKey($key)['name'] ?? ''));
+
+        return $name !== '' ? $name : null;
     }
 }

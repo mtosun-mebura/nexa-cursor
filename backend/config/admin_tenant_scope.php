@@ -43,6 +43,16 @@ return [
         'admin.meld.*',
         'admin.skillmatching.branches.*',
         'admin.skillmatching.test',
+        'admin.welcome-page.*',
+        'admin.nexa-pricing.*',
+        'admin.platform-billing.*',
+        'admin.website-pages.*',
+        'admin.frontend-themes.*',
+        'admin.frontend-components.*',
+        'admin.customer-emails.*',
+        'admin.email-templates.*',
+        'admin.newsletters.*',
+        'admin.whatsapp-pickup-proposal-mock.*',
     ],
 
     /*
@@ -52,6 +62,8 @@ return [
     */
     'notice_only_route_names' => [
         'admin.settings.index',
+        'admin.settings.mail.update',
+        'admin.settings.mail.test',
     ],
 
     /*
@@ -60,7 +72,6 @@ return [
     |--------------------------------------------------------------------------
     */
     'route_notice_variants' => [
-        'admin.website-pages.*' => 'website-pages',
         'admin.settings.*' => 'settings',
         'admin.modules.config' => 'module-config',
     ],

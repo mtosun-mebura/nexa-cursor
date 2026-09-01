@@ -36,7 +36,7 @@ class ThemeCopyService
      */
     public function getAvailableThemeFolders(): array
     {
-        if (!$this->hasThemasSource()) {
+        if (! $this->hasThemasSource()) {
             return [];
         }
         $dirs = File::directories($this->themasSourcePath);
@@ -44,6 +44,7 @@ class ThemeCopyService
         foreach ($dirs as $dir) {
             $names[] = basename($dir);
         }
+
         return $names;
     }
 
@@ -53,18 +54,19 @@ class ThemeCopyService
     public function copyThemesToPublic(): array
     {
         $results = [];
-        if (!$this->hasThemasSource()) {
+        if (! $this->hasThemasSource()) {
             return $results;
         }
-        if (!File::exists($this->publicThemesPath)) {
+        if (! File::exists($this->publicThemesPath)) {
             File::makeDirectory($this->publicThemesPath, 0755, true);
         }
         foreach ($this->getAvailableThemeFolders() as $folder) {
             $slug = $this->folderToSlug($folder);
-            $target = $this->publicThemesPath . '/' . $slug;
-            $this->copyDirectory($this->themasSourcePath . '/' . $folder, $target);
+            $target = $this->publicThemesPath.'/'.$slug;
+            $this->copyDirectory($this->themasSourcePath.'/'.$folder, $target);
             $results[] = $slug;
         }
+
         return $results;
     }
 
@@ -74,23 +76,24 @@ class ThemeCopyService
     public function copyThemesToModule(string $moduleName): array
     {
         $results = [];
-        if (!$this->hasThemasSource()) {
+        if (! $this->hasThemasSource()) {
             return $results;
         }
         $modulePath = $this->getModulePath($moduleName);
-        if (!$modulePath || !File::isDirectory($modulePath)) {
+        if (! $modulePath || ! File::isDirectory($modulePath)) {
             return $results;
         }
-        $targetBase = $modulePath . '/Resources/frontend/themes';
-        if (!File::exists($targetBase)) {
+        $targetBase = $modulePath.'/Resources/frontend/themes';
+        if (! File::exists($targetBase)) {
             File::makeDirectory($targetBase, 0755, true);
         }
         foreach ($this->getAvailableThemeFolders() as $folder) {
             $slug = $this->folderToSlug($folder);
-            $target = $targetBase . '/' . $slug;
-            $this->copyDirectory($this->themasSourcePath . '/' . $folder, $target);
+            $target = $targetBase.'/'.$slug;
+            $this->copyDirectory($this->themasSourcePath.'/'.$folder, $target);
             $results[] = $slug;
         }
+
         return $results;
     }
 
@@ -101,22 +104,23 @@ class ThemeCopyService
     public function copySingleThemeToModule(string $themeSlug, string $moduleName): bool
     {
         $sourcePath = $this->getSourcePathForThemeSlug($themeSlug);
-        if (!$sourcePath || !File::isDirectory($sourcePath)) {
-            $sourcePath = $this->publicThemesPath . '/' . $themeSlug;
+        if (! $sourcePath || ! File::isDirectory($sourcePath)) {
+            $sourcePath = $this->publicThemesPath.'/'.$themeSlug;
         }
-        if (!File::isDirectory($sourcePath)) {
+        if (! File::isDirectory($sourcePath)) {
             return false;
         }
         $modulePath = $this->getModulePath($moduleName);
-        if (!$modulePath || !File::isDirectory($modulePath)) {
+        if (! $modulePath || ! File::isDirectory($modulePath)) {
             return false;
         }
-        $targetBase = $modulePath . '/Resources/frontend/themes';
-        if (!File::exists($targetBase)) {
+        $targetBase = $modulePath.'/Resources/frontend/themes';
+        if (! File::exists($targetBase)) {
             File::makeDirectory($targetBase, 0755, true);
         }
-        $target = $targetBase . '/' . $themeSlug;
+        $target = $targetBase.'/'.$themeSlug;
         $this->copyDirectory($sourcePath, $target);
+
         return true;
     }
 
@@ -129,9 +133,13 @@ class ThemeCopyService
             'atom-v2' => 'atom-v2',
             'nextly-template' => 'nextly-template-main',
             'next-landing-vpn' => 'next-landing-vpn-main',
+            'landwind' => 'landwind',
+            'play-tailwind' => 'play-tailwind',
+            'vue-material-kit' => 'vue-material-kit',
         ];
         $folder = $map[$themeSlug] ?? $themeSlug;
-        $path = $this->themasSourcePath . '/' . $folder;
+        $path = $this->themasSourcePath.'/'.$folder;
+
         return File::isDirectory($path) ? $path : null;
     }
 
@@ -140,7 +148,7 @@ class ThemeCopyService
      */
     public function getPublicThemeUrl(string $slug): string
     {
-        return asset('frontend-themes/' . $slug);
+        return asset('frontend-themes/'.$slug);
     }
 
     protected function folderToSlug(string $folder): string
@@ -148,6 +156,7 @@ class ThemeCopyService
         $slug = strtolower($folder);
         $slug = preg_replace('/-main$/', '', $slug);
         $slug = preg_replace('/[^a-z0-9_-]/', '-', $slug);
+
         return $slug ?: $folder;
     }
 
@@ -161,12 +170,13 @@ class ThemeCopyService
                 return $dir;
             }
         }
+
         return null;
     }
 
     protected function copyDirectory(string $source, string $target): void
     {
-        if (!File::isDirectory($source)) {
+        if (! File::isDirectory($source)) {
             return;
         }
         if (File::exists($target)) {

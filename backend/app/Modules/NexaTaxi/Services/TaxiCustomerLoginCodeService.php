@@ -4,13 +4,14 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\Company;
 use App\Models\CustomerLoginCode;
+use App\Models\TenantCustomerEmail;
 use App\Models\User;
 use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
+use App\Services\TenantCustomerMailService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class TaxiCustomerLoginCodeService
 {
@@ -25,9 +26,17 @@ class TaxiCustomerLoginCodeService
 
     /**
      * Genereer code, sla op en verstuur e-mail. Retourneert false bij mislukte verzending.
+     *
+     * @param  array{resent_from_id?: int}  $logMeta
      */
-    public function issueAndSend(User $user, ?int $companyId, string $loginUrl, ?int $expiresMinutes = null): bool
-    {
+    public function issueAndSend(
+        User $user,
+        ?int $companyId,
+        string $loginUrl,
+        ?int $expiresMinutes = null,
+        string $mailType = TenantCustomerEmail::TYPE_LOGIN_CODE,
+        array $logMeta = []
+    ): bool {
         $expiresMinutes = $expiresMinutes ?? app(TaxiDispatchSettingsService::class)
             ->customerLoginCodeExpiresMinutes($companyId && $companyId > 0 ? $companyId : null);
 
@@ -35,29 +44,15 @@ class TaxiCustomerLoginCodeService
 
         CustomerLoginCode::create([
             'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_CUSTOMER,
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes($expiresMinutes),
         ]);
 
         $mailCompanyId = $companyId && $companyId > 0 ? $companyId : null;
-
-        if (! $this->env->isMailDeliverableToInbox($mailCompanyId)) {
-            Log::warning('Inlogcode-e-mail niet verstuurd: geen bruikbare SMTP voor deze tenant.', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'company_id' => $mailCompanyId,
-                'mailer' => config('mail.default'),
-            ]);
-            if (app()->environment('local')) {
-                Log::info('DEV: eenmalige inlogcode (alleen in log, niet per e-mail)', [
-                    'email' => $user->email,
-                    'login_code' => $code,
-                    'login_url' => $loginUrl,
-                ]);
-            }
-
-            return false;
-        }
+        $mailType = $mailType === TenantCustomerEmail::TYPE_WELCOME
+            ? TenantCustomerEmail::TYPE_WELCOME
+            : TenantCustomerEmail::TYPE_LOGIN_CODE;
 
         $template = $this->emailTemplateService->resolveActiveTemplate($companyId);
 
@@ -94,62 +89,62 @@ class TaxiCustomerLoginCodeService
             $textContent = $this->templateParser->parseTemplateVariables($this->emailTemplateService->defaultTextContent(), $variables);
         }
 
-        $this->env->applyMailConfigToRuntime($mailCompanyId);
-        $from = $this->env->resolveMailFromHeaders($mailCompanyId);
+        $payload = [
+            'company_id' => $mailCompanyId,
+            'type' => $mailType,
+            'to_email' => (string) $user->email,
+            'to_name' => $variables['USER_NAME'] ?: $user->email,
+            'subject' => $subject,
+            'html' => $htmlContent,
+            'text' => $textContent,
+            'related_type' => 'user',
+            'related_id' => $user->id,
+            'resent_from_id' => $logMeta['resent_from_id'] ?? null,
+        ];
 
-        $recipientName = $variables['USER_NAME'] ?: $user->email;
+        $customerMail = app(TenantCustomerMailService::class);
 
-        try {
-            Mail::send([], [], function ($message) use ($user, $subject, $htmlContent, $textContent, $from, $companyId, $companyName, $recipientName) {
-                try {
-                    $htmlBody = $this->companyLogos->embedInHtml(
-                        $htmlContent,
-                        $message,
-                        $companyId && $companyId > 0 ? $companyId : null,
-                        $companyName
-                    );
-                } catch (\Throwable $logoError) {
-                    Log::warning('Logo embed mislukt voor inlogcode-mail, verstuur zonder ingesloten logo.', [
-                        'error' => $logoError->getMessage(),
-                    ]);
-                    $htmlBody = $htmlContent;
-                }
-
-                $message->to($user->email, $recipientName)
-                    ->subject($subject)
-                    ->from($from['from_address'], $from['from_name'])
-                    ->html($htmlBody)
-                    ->text($textContent);
-
-                if ($from['smtp_username'] !== '') {
-                    try {
-                        $symfonyMessage = $message->getSymfonyMessage();
-                        $symfonyMessage->getHeaders()->remove('Sender');
-                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $from['smtp_username']);
-                    } catch (\Throwable) {
-                        // optioneel
-                    }
-                }
-            });
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::error('Kon inlogcode-e-mail niet versturen.', [
+        if (! $this->env->isMailDeliverableToInbox($mailCompanyId)) {
+            Log::warning('Inlogcode-e-mail niet verstuurd: geen bruikbare SMTP voor deze tenant.', [
                 'user_id' => $user->id,
                 'email' => $user->email,
+                'company_id' => $mailCompanyId,
                 'mailer' => config('mail.default'),
-                'error' => $e->getMessage(),
             ]);
-
             if (app()->environment('local')) {
-                Log::info('DEV: eenmalige inlogcode (verzending mislukt)', [
+                Log::info('DEV: eenmalige inlogcode (alleen in log, niet per e-mail)', [
                     'email' => $user->email,
                     'login_code' => $code,
                     'login_url' => $loginUrl,
                 ]);
             }
 
+            $customerMail->record($payload, TenantCustomerEmail::STATUS_FAILED, 'Geen bruikbare SMTP-configuratie voor deze tenant.');
+
             return false;
         }
+
+        $record = $customerMail->send($payload);
+
+        if ($record->status === TenantCustomerEmail::STATUS_SENT) {
+            return true;
+        }
+
+        Log::error('Kon inlogcode-e-mail niet versturen.', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'mailer' => config('mail.default'),
+            'error' => $record->error_message,
+        ]);
+
+        if (app()->environment('local')) {
+            Log::info('DEV: eenmalige inlogcode (verzending mislukt)', [
+                'email' => $user->email,
+                'login_code' => $code,
+                'login_url' => $loginUrl,
+            ]);
+        }
+
+        return false;
     }
 }

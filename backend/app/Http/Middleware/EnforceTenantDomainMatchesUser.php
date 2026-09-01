@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CompanyDomain;
+use App\Support\Tenancy\CentralDomains;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -10,7 +12,20 @@ class EnforceTenantDomainMatchesUser
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! auth()->check()) {
+        try {
+            $authenticated = auth()->check();
+        } catch (\Throwable $e) {
+            report($e);
+            $authenticated = false;
+        }
+        if (! $authenticated) {
+            return $next($request);
+        }
+
+        // Centrale host (localhost / SaaS): geen tenant-domein-afdwinging.
+        // Dev-simulatie van een andere tenant-host mag admin/home op de centrale URL niet blokkeren.
+        $host = CompanyDomain::normalizeHost($request->getHost());
+        if (CentralDomains::isCentral($host)) {
             return $next($request);
         }
 
@@ -23,7 +38,13 @@ class EnforceTenantDomainMatchesUser
             return $next($request);
         }
 
-        $user = auth()->user();
+        try {
+            $user = auth()->user();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $next($request);
+        }
         if ($user === null) {
             return $next($request);
         }

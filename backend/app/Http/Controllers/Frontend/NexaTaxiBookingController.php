@@ -3,23 +3,27 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
-use App\Models\WebsitePage;
+use App\Models\Company;
 use App\Models\User;
+use App\Models\WebsitePage;
 use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
 use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
-use Illuminate\Support\Facades\Log;
-use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\NexaTaxiBookingPricingService;
+use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Services\WebsiteBuilderService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -56,9 +60,18 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $companyId = $resolved['tenant_company_id'] ?? null;
+        $company = is_numeric($companyId) ? Company::query()->find((int) $companyId) : null;
+        $bookingBlock = $this->bookingAccessDeniedResponse($company);
+        if ($bookingBlock) {
+            return $bookingBlock;
+        }
         $quotes = $this->pricing->buildQuotes($resolved['config'], $data, $resolved['tenant_company_id']);
 
-        $companyId = $resolved['tenant_company_id'] ?? null;
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($company, TenantPackageCapability::WEBSITE_BOOKING)) {
+            return $entitlements->jsonDenied($company, TenantPackageCapability::WEBSITE_BOOKING);
+        }
         $paymentOptions = app(TaxiDispatchSettingsService::class)
             ->paymentOptionsForTenant(is_numeric($companyId) ? (int) $companyId : null);
 
@@ -118,6 +131,17 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $bookingCompany = ! empty($resolved['tenant_company_id'])
+            ? Company::query()->find((int) $resolved['tenant_company_id'])
+            : null;
+        $bookingBlock = $this->bookingAccessDeniedResponse($bookingCompany);
+        if ($bookingBlock) {
+            return $bookingBlock;
+        }
+        $entitlements = app(CompanyEntitlementService::class);
+        if (! $entitlements->allows($bookingCompany, TenantPackageCapability::WEBSITE_BOOKING)) {
+            return $entitlements->jsonDenied($bookingCompany, TenantPackageCapability::WEBSITE_BOOKING);
+        }
         $sectionConfig = $resolved['config'];
         $quotes = $this->pricing->buildQuotes($sectionConfig, $data, $resolved['tenant_company_id']);
         $selected = collect($quotes['offers'] ?? [])->firstWhere('id', (string) $data['selected_offer_id']);
@@ -203,6 +227,7 @@ class NexaTaxiBookingController extends Controller
                     'user' => $existingUser,
                     'company_id' => $notificationCompanyId,
                     'login_url' => $loginUrl,
+                    'mail_type' => \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE,
                 ];
             } else {
                 $createdCustomer = User::query()->create([
@@ -230,6 +255,7 @@ class NexaTaxiBookingController extends Controller
                     'user' => $createdCustomer,
                     'company_id' => $notificationCompanyId,
                     'login_url' => $loginUrl,
+                    'mail_type' => \App\Models\TenantCustomerEmail::TYPE_WELCOME,
                 ];
             }
         }
@@ -368,7 +394,9 @@ class NexaTaxiBookingController extends Controller
                     app(TaxiCustomerLoginCodeService::class)->issueAndSend(
                         $pendingLogin['user'],
                         $pendingLogin['company_id'],
-                        $pendingLogin['login_url']
+                        $pendingLogin['login_url'],
+                        null,
+                        $pendingLogin['mail_type'] ?? \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE
                     );
                 } catch (\Throwable $e) {
                     Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt (afterResponse).', [
@@ -492,6 +520,20 @@ class NexaTaxiBookingController extends Controller
         }
 
         return $query->first();
+    }
+
+    protected function bookingAccessDeniedResponse(?Company $company): ?JsonResponse
+    {
+        if (! $company && app()->bound('resolved_tenant') && app('resolved_tenant') instanceof Company) {
+            $company = app('resolved_tenant');
+        }
+
+        $access = app(TenantBillingAccessService::class);
+        if (! $access->isBookingBlocked($company)) {
+            return null;
+        }
+
+        return $access->jsonBookingDenied();
     }
 
     /**

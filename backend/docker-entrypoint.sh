@@ -32,11 +32,12 @@ chmod -R 775 storage bootstrap/cache || true
 # zodat requests parallel worden afgehandeld i.p.v. single-threaded (1 trage request blokkeert anders alles).
 export PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-8}"
 
-# Caches: eerst clear (verse staat), daarna Blade-views vooraf compileren.
+# Caches: eerst clear (verse staat), daarna autoload + Blade-views vooraf compileren.
 php artisan config:clear || true
 php artisan cache:clear || true
 php artisan route:clear || true
 php artisan view:clear || true
+composer dump-autoload -o --no-interaction 2>/dev/null || composer dump-autoload --no-interaction 2>/dev/null || true
 
 # Blade-views vooraf compileren zodat de EERSTE weergave van een (admin)pagina niet hoeft te
 # compileren tijdens de request. Scheelt merkbaar bij het navigeren in de admin na een herstart.
@@ -44,6 +45,13 @@ php artisan view:cache || true
 
 # (Optioneel) storage symlink
 php artisan storage:link || true
+
+# PostgreSQL CLI-tools voor database-backups (pg_dump / pg_restore)
+if [ "${DB_CONNECTION:-}" = "pgsql" ] && ! command -v pg_dump >/dev/null 2>&1; then
+  echo "postgresql-client ontbreekt in backend-image; installeren..."
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-client >/dev/null
+fi
 
 # Wacht op PostgreSQL (compose service `db` met healthcheck)
 if [ -n "${DB_HOST:-}" ] && [ "${DB_HOST}" != "127.0.0.1" ] && [ "${DB_HOST}" != "localhost" ]; then
@@ -70,9 +78,12 @@ fi
 # Migraties + minimale seed (rollen, super admin, branches, thema's, …) als DB-variabelen aanwezig zijn
 if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan migrate --force || true
-  # Idempotent: veilig bij elke container-start; eerste deployment krijgt altijd basisdata
-  php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force || true
+  # Idempotent: veilig bij elke container-start; herstelt super-admin en centrale pagina's indien nodig
+  php artisan nexa:ensure-bootstrap || true
 fi
+
+echo "Start Laravel scheduler (schedule:work) op de achtergrond..."
+php artisan schedule:work >> storage/logs/scheduler.log 2>&1 &
 
 echo "Start Laravel op 0.0.0.0:8000 (workers: ${PHP_CLI_SERVER_WORKERS})"
 # --no-reload is verplicht voor PHP_CLI_SERVER_WORKERS: zonder vlag forceert Laravel 1 worker (hot-reload).

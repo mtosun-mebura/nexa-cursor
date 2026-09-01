@@ -212,6 +212,7 @@ export function registerAiChatbot(Alpine) {
         mapsLoading: false,
         _placesService: null,
         _addressDebounce: null,
+        _messageSeq: 0,
 
         init() {
             const greeting = this.config.greeting || 'Hallo! Hoe kan ik je helpen?';
@@ -244,6 +245,8 @@ export function registerAiChatbot(Alpine) {
                 }
             }
 
+            this.ensureUniqueMessageIds();
+
             if (!Array.isArray(this.messages) || this.messages.length === 0) {
                 this.messages = [this.createGreetingMessage(greeting)];
             }
@@ -272,12 +275,32 @@ export function registerAiChatbot(Alpine) {
             window.addEventListener('resize', this._onViewportChange);
         },
 
+        siteHeaderBottomPx() {
+            const header = document.querySelector('header.sticky') || document.querySelector('header');
+            if (!header) {
+                return 65;
+            }
+
+            const rect = header.getBoundingClientRect();
+            const bottom = Math.round(rect.bottom);
+
+            return bottom > 0 ? bottom : Math.round(rect.height);
+        },
+
+        applySiteHeaderOffset(panel) {
+            const bottom = `${this.siteHeaderBottomPx()}px`;
+            panel.style.setProperty('--nexa-site-header-bottom', bottom);
+            document.documentElement.style.setProperty('--nexa-site-header-bottom', bottom);
+        },
+
         syncMobileViewport() {
             const panel = this.$refs.chatPanel;
             if (!panel || !this.isMobileChatViewport() || !this.isOpen) {
                 this.resetMobileViewport();
                 return;
             }
+
+            this.applySiteHeaderOffset(panel);
 
             const visualViewport = window.visualViewport;
             if (!visualViewport) {
@@ -307,6 +330,7 @@ export function registerAiChatbot(Alpine) {
             panel.classList.remove('ai-chat-panel--keyboard');
             panel.style.removeProperty('--ai-chat-panel-top');
             panel.style.removeProperty('--ai-chat-panel-height');
+            panel.style.removeProperty('--nexa-site-header-bottom');
         },
 
         onInputFocus() {
@@ -370,7 +394,7 @@ export function registerAiChatbot(Alpine) {
             }
 
             if (input.type === 'text') {
-                this.remarksValue = '';
+                this.remarksValue = String(input.prefill || '').trim();
             }
         },
 
@@ -461,9 +485,52 @@ export function registerAiChatbot(Alpine) {
             });
         },
 
+        nextMessageId() {
+            this._messageSeq = (this._messageSeq || 0) + 1;
+
+            return `msg-${Date.now()}-${this._messageSeq}`;
+        },
+
+        ensureUniqueMessageIds() {
+            if (!Array.isArray(this.messages)) {
+                this.messages = [];
+                return;
+            }
+
+            const seen = new Set();
+            let changed = false;
+            this.messages = this.messages.map((message) => {
+                if (!message || typeof message !== 'object') {
+                    changed = true;
+
+                    return {
+                        id: this.nextMessageId(),
+                        sender: 'ai',
+                        text: '',
+                        time: '',
+                    };
+                }
+
+                const currentId = message.id === undefined || message.id === null ? '' : String(message.id);
+                if (currentId === '' || seen.has(currentId)) {
+                    changed = true;
+
+                    return { ...message, id: this.nextMessageId() };
+                }
+
+                seen.add(currentId);
+
+                return message;
+            });
+
+            if (changed) {
+                this.saveMessages();
+            }
+        },
+
         createGreetingMessage(text) {
             return {
-                id: Date.now(),
+                id: this.nextMessageId(),
                 sender: 'ai',
                 text,
                 time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
@@ -607,7 +674,7 @@ export function registerAiChatbot(Alpine) {
         async dispatchUserMessage(outgoing) {
             if (this.config.requiresTenant) {
                 this.messages.push({
-                    id: Date.now(),
+                    id: this.nextMessageId(),
                     sender: 'ai',
                     text: this.config.tenantRequiredMessage
                         || 'Selecteer eerst een bedrijf in de tenant-kiezer.',
@@ -619,7 +686,7 @@ export function registerAiChatbot(Alpine) {
             }
 
             const userMessage = {
-                id: Date.now(),
+                id: this.nextMessageId(),
                 sender: 'user',
                 text: outgoing,
                 time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
@@ -637,7 +704,7 @@ export function registerAiChatbot(Alpine) {
             try {
                 const response = await this.callAssistantAPI(outgoing, quoteAddressPayload, quoteBaggagePayload);
                 this.messages.push({
-                    id: Date.now() + 1,
+                    id: this.nextMessageId(),
                     sender: 'ai',
                     text: response.reply,
                     input: response.input || null,
@@ -650,7 +717,7 @@ export function registerAiChatbot(Alpine) {
                     ? error.message
                     : fallback;
                 this.messages.push({
-                    id: Date.now() + 1,
+                    id: this.nextMessageId(),
                     sender: 'ai',
                     text: detail,
                     time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
@@ -1344,7 +1411,18 @@ export function registerAiChatbot(Alpine) {
                 return '';
             }
 
-            return this.formatChatBlocks(this.applyChatLinks(text));
+            try {
+                return this.formatInlineMarkdown(this.formatChatBlocks(this.applyChatLinks(text)));
+            } catch (error) {
+                return text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+        },
+
+        formatInlineMarkdown(text) {
+            return String(text).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         },
 
         applyChatLinks(text) {

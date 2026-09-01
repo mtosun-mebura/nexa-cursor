@@ -232,6 +232,7 @@
         document.querySelectorAll('.fe-logo-dark').forEach(function(el) {
           el.style.setProperty('display', dark ? 'block' : 'none', 'important');
         });
+        document.dispatchEvent(new CustomEvent('nexataxi-website-theme-changed'));
       }
     </script>
     <!-- Hide user dropdown if not authenticated -->

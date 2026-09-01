@@ -118,8 +118,9 @@
                                         class="kt-input"
                                         required
                                         data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
+                                    @php $selectedModuleName = old('module_name', $defaultModuleName ?? ''); @endphp
                                     <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
-                                        {{ !old('module_name') ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
+                                        {{ $selectedModuleName === '' || $selectedModuleName === null ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
                                     @foreach($installedModules as $module)
                                         @php
                                             $moduleName = $module->getName();
@@ -129,11 +130,11 @@
                                         @endphp
                                         <option value="{{ $moduleName }}"
                                             data-theme-id="{{ $themeId }}"
-                                            {{ old('module_name') === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
+                                            {{ (string) $selectedModuleName === (string) $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
                                     @endforeach
                                 </select>
                                 <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
-                                <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name') }}">
+                                <input type="hidden" name="module_name" id="module_name_hidden" value="{{ $selectedModuleName }}">
                             </td>
                         </tr>
                         @include('admin.website-pages.partials.tenant-context-row')
@@ -167,7 +168,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Titel *
+                                Paginatitel (SEO) *
                             </td>
                             <td>
                                 <input type="text"
@@ -177,7 +178,27 @@
                                        value="{{ old('title') }}"
                                        required
                                        autocomplete="off">
+                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt als Google-titel. De menunaam blijft apart.</div>
                                 @error('title')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
+                                Naam in menu
+                            </td>
+                            <td>
+                                <input type="text"
+                                       name="menu_title"
+                                       id="menu_title"
+                                       class="kt-input @error('menu_title') border-destructive @enderror"
+                                       value="{{ old('menu_title') }}"
+                                       maxlength="80"
+                                       autocomplete="off"
+                                       placeholder="Korte naam in de navigatie">
+                                <div class="text-xs text-muted-foreground mt-1">Deze tekst staat in het website-menu. SEO-generatie past dit niet aan.</div>
+                                @error('menu_title')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
@@ -259,7 +280,7 @@
                                 @php
                                     $createThemeSlug = $defaultTheme->slug ?? 'modern';
                                     $createSectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($createThemeSlug);
-                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null);
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null, $tenantThemeSlug ?? null);
                                 @endphp
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $createSectionTypes, 'availableComponents' => $availableComponents])
                             </div>

@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Services\EnvService;
 use App\Services\PaymentProviderService;
 use Carbon\CarbonInterface;
@@ -17,6 +18,8 @@ class TaxiDispatchSettingsService
     public const KEY_OFFER_TTL_SECONDS = 'taxi_dispatch_offer_ttl_seconds';
 
     public const KEY_PAST_PICKUP_GRACE_HOURS = 'taxi_dispatch_past_pickup_grace_hours';
+
+    public const KEY_PAST_PICKUP_GRACE_MINUTES = 'taxi_dispatch_past_pickup_grace_minutes';
 
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
@@ -68,6 +71,10 @@ class TaxiDispatchSettingsService
 
     public const MAX_PAST_PICKUP_GRACE_HOURS = 72;
 
+    public const MIN_PAST_PICKUP_GRACE_MINUTES = 0;
+
+    public const MAX_PAST_PICKUP_GRACE_MINUTES = 4320; // 72 uur
+
     public function __construct(
         protected EnvService $env,
         protected PaymentProviderService $paymentProviders
@@ -99,25 +106,41 @@ class TaxiDispatchSettingsService
         return max(self::MIN_TTL_SECONDS, min(self::MAX_TTL_SECONDS, $seconds));
     }
 
-    public function pastPickupGraceHours(?int $companyId = null): int
+    public function pastPickupGraceMinutes(?int $companyId = null): int
     {
-        $default = (int) config('taxi-dispatch.past_pickup_grace_hours', 2);
-        $raw = GeneralSetting::get(self::KEY_PAST_PICKUP_GRACE_HOURS, null, $companyId);
-
-        if ($raw === null || $raw === '') {
-            return $this->clampPastPickupGraceHours($default);
+        $default = (int) config('taxi-dispatch.past_pickup_grace_minutes', 60);
+        $rawMinutes = GeneralSetting::get(self::KEY_PAST_PICKUP_GRACE_MINUTES, null, $companyId);
+        if ($rawMinutes !== null && $rawMinutes !== '') {
+            return $this->clampPastPickupGraceMinutes((int) $rawMinutes);
         }
 
-        return $this->clampPastPickupGraceHours((int) $raw);
+        $rawHours = GeneralSetting::get(self::KEY_PAST_PICKUP_GRACE_HOURS, null, $companyId);
+        if ($rawHours !== null && $rawHours !== '') {
+            return $this->clampPastPickupGraceMinutes(((int) $rawHours) * 60);
+        }
+
+        return $this->clampPastPickupGraceMinutes($default);
     }
 
-    public function setPastPickupGraceHours(int $hours, ?int $companyId = null): void
+    public function setPastPickupGraceMinutes(int $minutes, ?int $companyId = null): void
     {
         GeneralSetting::set(
-            self::KEY_PAST_PICKUP_GRACE_HOURS,
-            (string) $this->clampPastPickupGraceHours($hours),
+            self::KEY_PAST_PICKUP_GRACE_MINUTES,
+            (string) $this->clampPastPickupGraceMinutes($minutes),
             $companyId
         );
+    }
+
+    /** @deprecated Gebruik pastPickupGraceMinutes() */
+    public function pastPickupGraceHours(?int $companyId = null): int
+    {
+        return (int) round($this->pastPickupGraceMinutes($companyId) / 60);
+    }
+
+    /** @deprecated Gebruik setPastPickupGraceMinutes() */
+    public function setPastPickupGraceHours(int $hours, ?int $companyId = null): void
+    {
+        $this->setPastPickupGraceMinutes($this->clampPastPickupGraceHours($hours) * 60, $companyId);
     }
 
     public function clampPastPickupGraceHours(int $hours): int
@@ -125,15 +148,42 @@ class TaxiDispatchSettingsService
         return max(self::MIN_PAST_PICKUP_GRACE_HOURS, min(self::MAX_PAST_PICKUP_GRACE_HOURS, $hours));
     }
 
+    public function clampPastPickupGraceMinutes(int $minutes): int
+    {
+        return max(self::MIN_PAST_PICKUP_GRACE_MINUTES, min(self::MAX_PAST_PICKUP_GRACE_MINUTES, $minutes));
+    }
+
     /**
      * Ritten met pickup_at vóór dit moment vallen uit de chauffeur-wachtrij.
+     * Binding is naïef UTC met Amsterdam-wallclock-cijfers (matcht DB-opslag).
      */
     public function pickupQueueCutoffAt(?int $companyId = null, ?CarbonInterface $now = null): CarbonInterface
     {
-        $hours = $this->pastPickupGraceHours($companyId);
-        $base = $now ? Carbon::parse($now) : now();
+        $minutes = $this->pastPickupGraceMinutes($companyId);
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
 
-        return $base->copy()->subHours($hours);
+        return ContractTransportTimezone::naiveUtcForWallClockQuery(
+            $base->copy()->subMinutes($minutes)
+        );
+    }
+
+    /**
+     * Openstaande aanvraag: ophaalmoment is voorbij (Amsterdam wall-clock).
+     */
+    public function offerPickupIsPast(RideRequest $ride, ?CarbonInterface $now = null): bool
+    {
+        $dueAt = $this->scheduledRideDueAt($ride);
+        if (! $dueAt) {
+            return false;
+        }
+
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
+
+        return $dueAt->lte($base);
     }
 
     /**
@@ -143,7 +193,9 @@ class TaxiDispatchSettingsService
     {
         $companyId = $companyId ?? (int) ($ride->company_id ?? 0);
         $ttl = $this->offerTtlSeconds($companyId > 0 ? $companyId : null);
-        $base = $now ? Carbon::parse($now) : now();
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
         $dueAt = $this->scheduledRideDueAt($ride);
 
         if (! $dueAt) {
@@ -160,21 +212,19 @@ class TaxiDispatchSettingsService
                 ->schedulePayloadForRide($ride->getConnectionName(), $ride);
 
             if (! empty($schedule['destination_arrival_at'])) {
-                return Carbon::parse($schedule['destination_arrival_at']);
+                return Carbon::parse($schedule['destination_arrival_at'])->timezone(ContractTransportTimezone::TIMEZONE);
             }
 
             if (! empty($schedule['departure_at'])) {
-                return Carbon::parse($schedule['departure_at']);
+                return Carbon::parse($schedule['departure_at'])->timezone(ContractTransportTimezone::TIMEZONE);
             }
         }
 
         if ($ride->isReturnTrip() && $ride->hasOutboundCompleted()) {
-            $dueAt = $ride->effectivePickupAt();
-
-            return $dueAt ? Carbon::parse($dueAt) : null;
+            return ContractTransportTimezone::asAmsterdamWall($ride->effectivePickupAt());
         }
 
-        return $ride->pickup_at ? Carbon::parse($ride->pickup_at) : null;
+        return ContractTransportTimezone::asAmsterdamWall($ride->pickup_at);
     }
 
     public function bookingWhatsappEnabled(?int $companyId = null): bool
@@ -199,17 +249,29 @@ class TaxiDispatchSettingsService
 
     public function bookingWhatsappNumber(?int $companyId = null): string
     {
-        $stored = trim((string) GeneralSetting::get(self::KEY_BOOKING_WHATSAPP_NUMBER, null, $companyId));
-        if ($stored !== '') {
-            return $stored;
-        }
-
-        return $this->envFallbackWhatsappNumber();
+        // Click-to-chat / wa.me: WHATSAPP_CLICK_TO_CHAT_NUMBER (of widget-nummer).
+        return $this->envFallbackWhatsappNumber($companyId);
     }
 
     public function setBookingWhatsappNumber(string $number, ?int $companyId = null): void
     {
-        GeneralSetting::set(self::KEY_BOOKING_WHATSAPP_NUMBER, trim($number), $companyId);
+        // Legacy no-op: nummer hoort bij WHATSAPP_CLICK_TO_CHAT_NUMBER.
+    }
+
+    /**
+     * Platform-schakelaar: WhatsApp naar het bedrijf bij elke boeking.
+     */
+    public function companyBookingWhatsappNotifyEnabled(?int $companyId = null): bool
+    {
+        return GeneralSetting::get('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', '0') === '1';
+    }
+
+    /**
+     * Tenant-nummer voor bedrijfsboekingsmeldingen (leeg = niet versturen).
+     */
+    public function companyBookingWhatsappNotifyNumber(?int $companyId = null): string
+    {
+        return trim((string) $this->env->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', '', $companyId));
     }
 
     public function bookingWhatsappClickToChatEnabled(?int $companyId = null): bool
@@ -219,16 +281,7 @@ class TaxiDispatchSettingsService
             return false;
         }
 
-        if (! $this->clickToChatMasterEnabled($companyId)) {
-            return false;
-        }
-
-        $stored = GeneralSetting::get(self::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT, null, $companyId);
-        if ($stored !== null && $stored !== '') {
-            return $stored === '1';
-        }
-
-        return true;
+        return $this->clickToChatMasterEnabled($companyId);
     }
 
     public function whatsappApiTokenPresent(?int $companyId = null): bool
@@ -238,7 +291,7 @@ class TaxiDispatchSettingsService
 
     public function setBookingWhatsappClickToChatEnabled(bool $enabled, ?int $companyId = null): void
     {
-        GeneralSetting::set(self::KEY_BOOKING_WHATSAPP_CLICK_TO_CHAT, $enabled ? '1' : '0', $companyId);
+        // Legacy no-op: schakelaar staat onder WHATSAPP_CLICK_TO_CHAT_ENABLED.
     }
 
     public function bookingDriverEmailEnabled(?int $companyId = null): bool
@@ -290,14 +343,14 @@ class TaxiDispatchSettingsService
         return GeneralSetting::get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0', $companyId) === '1';
     }
 
-    public function envFallbackWhatsappNumber(): string
+    public function envFallbackWhatsappNumber(?int $companyId = null): string
     {
-        $number = trim((string) $this->env->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''));
+        $number = trim((string) $this->env->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', '', $companyId));
         if ($number !== '') {
             return $number;
         }
 
-        return trim((string) $this->env->get('WHATSAPP_WIDGET_PHONE', ''));
+        return trim((string) $this->env->get('WHATSAPP_WIDGET_PHONE', '', $companyId));
     }
 
     public function paymentBookingEnabled(?int $companyId = null): bool
@@ -336,16 +389,19 @@ class TaxiDispatchSettingsService
     }
 
     /**
-     * @return array{booking: bool, driver: bool, mollie_configured: bool}
+     * @return array{booking: bool, driver: bool, mollie_configured: bool, mollie_package_allowed: bool}
      */
     public function paymentOptionsForTenant(?int $companyId = null): array
     {
-        $mollieConfigured = $this->hasMollieConfigured($companyId);
+        $mollieAllowed = app(\App\Services\CompanyEntitlementService::class)
+            ->allowsCompanyId($companyId, \App\Support\TenantPackageCapability::MOLLIE_PAYMENTS);
+        $mollieConfigured = $mollieAllowed && $this->hasMollieConfigured($companyId);
 
         return [
             'booking' => $mollieConfigured && $this->paymentBookingEnabled($companyId),
             'driver' => $mollieConfigured && $this->paymentDriverEnabled($companyId),
             'mollie_configured' => $mollieConfigured,
+            'mollie_package_allowed' => $mollieAllowed,
         ];
     }
 

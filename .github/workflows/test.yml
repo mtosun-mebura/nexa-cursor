@@ -9,7 +9,11 @@ on:
       - main
       - release/test
   pull_request:
-    branches: [ develop, release/test ]
+    branches: [ develop ]
+
+concurrency:
+  group: phpunit-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -20,11 +24,11 @@ jobs:
       uses: actions/checkout@v5
       
     - name: Setup PHP
-      uses: shivammathur/setup-php@v2
+      uses: shivammathur/setup-php@2.37.2
       with:
         php-version: '8.2'
-        extensions: mbstring, dom, fileinfo, mysql, zip, gd, curl, intl, bcmath, soap, redis, xdebug
-        coverage: xdebug
+        extensions: mbstring, dom, fileinfo, mysql, zip, gd, curl, intl, bcmath, soap, redis
+        coverage: none
         
     - name: Setup Node.js
       uses: actions/setup-node@v5
@@ -82,7 +86,7 @@ jobs:
       run: npm run build
       
     - name: Execute tests (Unit and Feature tests) via PHPUnit
-      run: php artisan test
+      run: php -d memory_limit=1G artisan test
       working-directory: ./backend
       
     - name: Check for syntax errors

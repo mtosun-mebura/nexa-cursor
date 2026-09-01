@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { registerWysiwygFlush } from './wysiwyg-flush'
+
+type FlowbiteEditor = {
+  getHTML: () => string
+  isFocused?: boolean
+  on: (event: string, callback: () => void) => void
+  off: (event: string, callback: () => void) => void
+  commands?: { setContent: (html: string, emitUpdate?: boolean) => void }
+  chain?: () => { focus: () => { setContent: (html: string) => void; run: () => void } }
+}
 
 type FlowbiteWrapper = HTMLElement & {
-  _flowbiteEditor?: {
-    getHTML: () => string
-    on: (event: string, callback: () => void) => void
-    off: (event: string, callback: () => void) => void
-    commands?: { setContent: (html: string) => void }
-    chain?: () => { focus: () => { setContent: (html: string) => void; run: () => void } }
-  }
+  _flowbiteEditor?: FlowbiteEditor
 }
 
 const props = defineProps<{
@@ -25,6 +29,8 @@ const emit = defineEmits<{
 const hostRef = ref<HTMLElement | null>(null)
 let wrapperEl: FlowbiteWrapper | null = null
 let onEditorUpdate: (() => void) | null = null
+let cancelled = false
+let unregisterFlush: (() => void) | null = null
 
 function getFlowbiteHtml(editorId: string, textareaId: string): string {
   const builder = (window as Window & {
@@ -62,6 +68,10 @@ function setEditorContent(html: string) {
   if (!editor) {
     return
   }
+  if (typeof editor.commands?.setContent === 'function') {
+    editor.commands.setContent(html || '', false)
+    return
+  }
   if (editor.chain) {
     editor.chain().focus().setContent(html || '').run()
     return
@@ -70,6 +80,21 @@ function setEditorContent(html: string) {
   if (textarea) {
     textarea.value = html
   }
+}
+
+async function waitForEditor(timeoutMs = 8000): Promise<FlowbiteWrapper | null> {
+  const started = Date.now()
+  while (!cancelled) {
+    const el = hostRef.value?.querySelector('[data-flowbite-wysiwyg]') as FlowbiteWrapper | null
+    if (el?._flowbiteEditor) {
+      return el
+    }
+    if (Date.now() - started >= timeoutMs) {
+      return el
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 50))
+  }
+  return null
 }
 
 async function mountEditor() {
@@ -91,26 +116,44 @@ async function mountEditor() {
   }
 
   await nextTick()
+  if (cancelled || !hostRef.value) {
+    return
+  }
 
-  const init = (window as Window & { initFlowbiteWysiwyg?: (container: HTMLElement) => void }).initFlowbiteWysiwyg
-  init?.(hostRef.value)
+  const init = (
+    window as Window & {
+      initFlowbiteWysiwyg?: (container: HTMLElement) => Promise<unknown> | void
+    }
+  ).initFlowbiteWysiwyg
+  try {
+    await init?.(hostRef.value)
+  } catch {
+    // TipTap-import kan falen; waitForEditor vangt een late _flowbiteEditor alsnog.
+  }
 
-  wrapperEl = hostRef.value.querySelector('[data-flowbite-wysiwyg]') as FlowbiteWrapper | null
-  if (!wrapperEl?._flowbiteEditor) {
+  wrapperEl = await waitForEditor()
+  if (cancelled || !wrapperEl?._flowbiteEditor) {
     return
   }
 
   onEditorUpdate = () => syncFromEditor()
   wrapperEl._flowbiteEditor.on('update', onEditorUpdate)
+  wrapperEl._flowbiteEditor.on('blur', onEditorUpdate)
 }
 
 onMounted(() => {
+  cancelled = false
+  unregisterFlush = registerWysiwygFlush(() => syncFromEditor())
   void mountEditor()
 })
 
 onUnmounted(() => {
+  cancelled = true
+  unregisterFlush?.()
+  unregisterFlush = null
   if (wrapperEl?._flowbiteEditor && onEditorUpdate) {
     wrapperEl._flowbiteEditor.off('update', onEditorUpdate)
+    wrapperEl._flowbiteEditor.off('blur', onEditorUpdate)
   }
   if (hostRef.value) {
     const destroy = (window as Window & { destroyFlowbiteWysiwygIn?: (container: HTMLElement) => void }).destroyFlowbiteWysiwygIn
@@ -123,10 +166,11 @@ onUnmounted(() => {
 watch(
   () => props.modelValue,
   (value) => {
-    if (!wrapperEl?._flowbiteEditor) {
+    const editor = wrapperEl?._flowbiteEditor
+    if (!editor || editor.isFocused) {
       return
     }
-    const current = wrapperEl._flowbiteEditor.getHTML()
+    const current = editor.getHTML()
     if ((value ?? '') !== current) {
       setEditorContent(value ?? '')
     }

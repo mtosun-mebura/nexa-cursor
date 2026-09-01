@@ -461,6 +461,43 @@
                 </div>
             </div>
 
+            @if(auth()->user()?->isSuperAdmin())
+            <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title mb-0">Pakket</h3>
+                </div>
+                <div class="kt-card-content flex flex-col gap-4">
+                    <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
+                        Bepaalt welke functies dit bedrijf mag gebruiken, zoals het maximum aantal chauffeurs en of Mollie aan mag. Functies stel je in bij Systeem → Paketten.
+                    </p>
+                    <div class="min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Pakket</td>
+                            <td class="min-w-48 w-full">
+                                <select name="package_key" class="kt-input @error('package_key') border-destructive @enderror">
+                                    <option value="">— Geen pakket (geen extra beperking) —</option>
+                                    @foreach($nexaPackages ?? [] as $packageKey => $packageName)
+                                        <option value="{{ $packageKey }}" {{ (string) old('package_key', $company->package_key) === (string) $packageKey ? 'selected' : '' }}>
+                                            {{ $packageName }} ({{ $packageKey }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @if(empty($nexaPackages))
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Er zijn nog geen pakketten. Ga naar <a href="{{ route('admin.nexa-pricing.edit') }}" class="text-primary underline">Paketten</a>.</p>
+                                @endif
+                                @error('package_key')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        @include('admin.companies.partials.package-addons', ['company' => $company])
+                    </table>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             @can('edit-companies')
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">

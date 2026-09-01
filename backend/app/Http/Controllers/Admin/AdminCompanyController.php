@@ -11,9 +11,13 @@ use App\Models\Module as ModuleModel;
 use App\Models\User;
 use App\Services\EnvService;
 use App\Services\ModuleManager;
+use App\Services\NexaPricingService;
+use App\Services\TenantOnboardingService;
 use App\Support\ModuleSchemaAvailability;
+use App\Support\TenantPackageAddon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 class AdminCompanyController extends Controller
 {
@@ -115,8 +119,9 @@ class AdminCompanyController extends Controller
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
         $publishedFrontendThemes = FrontendTheme::active()->orderBy('name')->get();
+        $nexaPackages = $this->nexaPackagesForSelect();
 
-        return view('admin.companies.create', compact('branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes'));
+        return view('admin.companies.create', compact('branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes', 'nexaPackages'));
     }
 
     public function store(Request $request)
@@ -127,6 +132,7 @@ class AdminCompanyController extends Controller
 
         $request->merge([
             'building_image' => $request->filled('building_image') ? (int) $request->input('building_image') : null,
+            'package_key' => $this->normalizePackageKeyInput($request->input('package_key')),
         ]);
 
         $request->validate([
@@ -161,6 +167,11 @@ class AdminCompanyController extends Controller
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
+            'package_key' => $this->packageKeyRules(),
+            'package_addons' => ['nullable', 'array'],
+            'package_addons.'.TenantPackageAddon::EXTRA_CLIENTS => ['nullable', 'integer', 'min:0', 'max:50'],
+            'package_addons.'.TenantPackageAddon::GPS_TRACKING => ['nullable'],
+            'package_addons.'.TenantPackageAddon::FLEET => ['nullable'],
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -178,6 +189,7 @@ class AdminCompanyController extends Controller
             'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
             'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
+            'package_key.in' => 'Kies een bestaand pakket of laat leeg.',
             'locations.*.name.required_with' => 'Vestigingsnaam is verplicht wanneer een vestiging wordt toegevoegd.',
             'locations.*.name.min' => 'Vestigingsnaam moet minimaal 2 tekens bevatten.',
             'locations.*.postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
@@ -207,6 +219,8 @@ class AdminCompanyController extends Controller
         // Handle logo upload (must run before create; do not pass UploadedFile to create)
         unset($companyData['logo'], $companyData['logo_dark'], $companyData['company_logo_mode']);
         $companyData['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
+        $this->applyPackageKeyFromRequest($request, $companyData);
+        $this->applyPackageAddonsFromRequest($request, $companyData);
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
             $companyData['logo_blob'] = base64_encode(file_get_contents($file->getRealPath()));
@@ -310,6 +324,13 @@ class AdminCompanyController extends Controller
             }
         }
 
+        $needsCompanyAdminWelcome = false;
+        if (auth()->user()?->isSuperAdmin()) {
+            $adminEmail = strtolower(trim((string) $company->email));
+            $needsCompanyAdminWelcome = $adminEmail !== ''
+                && ! $company->users->contains(fn (User $user) => strtolower((string) $user->email) === $adminEmail);
+        }
+
         return view('admin.companies.show', compact(
             'company',
             'googleMapsApiKey',
@@ -320,8 +341,42 @@ class AdminCompanyController extends Controller
             'companyWebsiteDevPreviewUrl',
             'companyWebsiteDevPreviewHost',
             'companyWebsiteHomeInactive',
-            'companyWebsiteInactivePages'
+            'companyWebsiteInactivePages',
+            'needsCompanyAdminWelcome'
         ));
+    }
+
+    public function sendWelcomeMail(Company $company, TenantOnboardingService $onboarding): \Illuminate\Http\RedirectResponse
+    {
+        if (! auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Alleen super-admin kan de welkomstmail van een tenant versturen.');
+        }
+
+        if (! $this->canAccessResource($company)) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+
+        try {
+            $result = $onboarding->provisionOrResendWelcome($company);
+        } catch (RuntimeException $e) {
+            return redirect()
+                ->route('admin.companies.show', $company)
+                ->with('error', $e->getMessage());
+        }
+
+        if ($result['mailed']) {
+            $message = $result['created']
+                ? 'Company-admin aangemaakt. Welkomstmail verstuurd naar '.$result['user']->email.'.'
+                : 'Welkomstmail opnieuw verstuurd naar '.$result['user']->email.'.';
+
+            return redirect()
+                ->route('admin.companies.show', $company)
+                ->with('success', $message);
+        }
+
+        return redirect()
+            ->route('admin.companies.show', $company)
+            ->with('error', $this->envService->explainMailSendException(new RuntimeException('De welkomstmail kon niet worden verstuurd. Controleer de mailserver.')));
     }
 
     public function edit(Company $company)
@@ -346,8 +401,9 @@ class AdminCompanyController extends Controller
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
         $publishedFrontendThemes = FrontendTheme::active()->orderBy('name')->get();
+        $nexaPackages = $this->nexaPackagesForSelect();
 
-        return view('admin.companies.edit', compact('company', 'branches', 'allModules', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes'));
+        return view('admin.companies.edit', compact('company', 'branches', 'allModules', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes', 'nexaPackages'));
     }
 
     public function update(Request $request, Company $company)
@@ -363,6 +419,7 @@ class AdminCompanyController extends Controller
 
         $request->merge([
             'building_image' => $request->filled('building_image') ? (int) $request->input('building_image') : null,
+            'package_key' => $this->normalizePackageKeyInput($request->input('package_key')),
         ]);
 
         $request->validate([
@@ -394,6 +451,11 @@ class AdminCompanyController extends Controller
             'module_ids.*' => 'integer|exists:modules,id',
             'apply_module_sync' => 'nullable|boolean',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
+            'package_key' => $this->packageKeyRules(),
+            'package_addons' => ['nullable', 'array'],
+            'package_addons.'.TenantPackageAddon::EXTRA_CLIENTS => ['nullable', 'integer', 'min:0', 'max:50'],
+            'package_addons.'.TenantPackageAddon::GPS_TRACKING => ['nullable'],
+            'package_addons.'.TenantPackageAddon::FLEET => ['nullable'],
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -413,6 +475,7 @@ class AdminCompanyController extends Controller
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
             'module_ids.required' => 'Selecteer minimaal één module.',
             'module_ids.min' => 'Selecteer minimaal één module.',
+            'package_key.in' => 'Kies een bestaand pakket of laat leeg.',
         ]);
 
         $data = $request->all();
@@ -434,6 +497,8 @@ class AdminCompanyController extends Controller
 
         unset($data['logo'], $data['logo_dark'], $data['company_logo_mode'], $data['module_ids'], $data['apply_module_sync']);
         $data['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
+        $this->applyPackageKeyFromRequest($request, $data);
+        $this->applyPackageAddonsFromRequest($request, $data);
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
@@ -676,5 +741,64 @@ class AdminCompanyController extends Controller
         $theme = FrontendTheme::query()->whereKey($id)->where('is_active', true)->first();
 
         return $theme ? $theme->id : null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function nexaPackagesForSelect(): array
+    {
+        return app(NexaPricingService::class)->packagesForSelect();
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    protected function packageKeyRules(): array
+    {
+        if (! auth()->user()?->isSuperAdmin()) {
+            return ['prohibited'];
+        }
+
+        $keys = array_keys($this->nexaPackagesForSelect());
+
+        return ['nullable', 'string', 'max:80', Rule::in($keys)];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function applyPackageKeyFromRequest(Request $request, array &$data): void
+    {
+        if (! auth()->user()?->isSuperAdmin()) {
+            unset($data['package_key']);
+
+            return;
+        }
+
+        $key = trim((string) $request->input('package_key', ''));
+        $data['package_key'] = $key === '' ? null : $key;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function applyPackageAddonsFromRequest(Request $request, array &$data): void
+    {
+        if (! auth()->user()?->isSuperAdmin()) {
+            unset($data['package_addons']);
+
+            return;
+        }
+
+        $raw = $request->input('package_addons', []);
+        $data['package_addons'] = TenantPackageAddon::normalizeSelections(is_array($raw) ? $raw : []);
+    }
+
+    private function normalizePackageKeyInput(mixed $value): ?string
+    {
+        $key = trim((string) ($value ?? ''));
+
+        return $key === '' ? null : $key;
     }
 }

@@ -111,6 +111,151 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * Push de NEXA SaaS-hoofdwebsite (pagina's + nexa_pricing) naar het sync-doel.
+     *
+     * @param  null|callable(array<string, mixed>): void  $onProgress
+     * @return array{remote_company_id: int, inserted: int, skipped: int, updated: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
+     */
+    public function pushCentralWebsite(?callable $onProgress = null): array
+    {
+        return $this->websiteBundle->runWithSyncTarget(function () use ($onProgress) {
+            return $this->pushCentralWebsiteThroughTunnel($onProgress);
+        });
+    }
+
+    /**
+     * @param  null|callable(array<string, mixed>): void  $onProgress
+     * @return array{remote_company_id: int, inserted: int, skipped: int, updated: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
+     */
+    private function pushCentralWebsiteThroughTunnel(?callable $onProgress = null): array
+    {
+        $sourceConn = (string) config('database.default');
+        $targetConn = TenantWebsiteBundleService::SYNC_CONNECTION;
+
+        $this->websiteBundle->registerSyncConnection();
+
+        try {
+            DB::connection($targetConn)->getPdo();
+        } catch (\Throwable $e) {
+            throw new RuntimeException($this->websiteBundle->explainSyncTargetConnectionError($e), 0, $e);
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+        $this->resetSyncRunState();
+        $report = $this->report();
+        $report->onProgress($onProgress);
+        $report->setProgressTotal(4);
+        $report->addStep('NEXA SaaS-website-sync gestart');
+
+        try {
+            $pageStats = $this->websiteBundle->pushCentralWebsitePagesForSync();
+            $inserted += (int) ($pageStats['inserted'] ?? 0);
+            $updated += (int) ($pageStats['updated'] ?? 0);
+            $skipped += (int) ($pageStats['skipped'] ?? 0);
+            $report->addRow(
+                'NEXA SaaS',
+                'website_pages',
+                (int) ($pageStats['inserted'] ?? 0),
+                (int) ($pageStats['updated'] ?? 0),
+                (int) ($pageStats['skipped'] ?? 0)
+            );
+
+            $settingStats = $this->pushCentralNexaPricingSetting($sourceConn, $targetConn);
+            $inserted += (int) ($settingStats['inserted'] ?? 0);
+            $updated += (int) ($settingStats['updated'] ?? 0);
+            $skipped += (int) ($settingStats['skipped'] ?? 0);
+            $report->addRow(
+                'NEXA SaaS',
+                'general_settings (nexa_pricing)',
+                (int) ($settingStats['inserted'] ?? 0),
+                (int) ($settingStats['updated'] ?? 0),
+                (int) ($settingStats['skipped'] ?? 0)
+            );
+
+            $summary = sprintf(
+                'NEXA SaaS-website-sync voltooid. Toegevoegd: %d, bijgewerkt: %d, overgeslagen: %d.',
+                $inserted,
+                $updated,
+                $skipped
+            );
+            $report->setSummary(0, $inserted, $updated, $skipped, $summary);
+            $reportArray = $report->toArray();
+
+            Log::info('central_website_push', [
+                'inserted' => $inserted,
+                'skipped' => $skipped,
+                'updated' => $updated,
+            ]);
+
+            return [
+                'remote_company_id' => 0,
+                'inserted' => $inserted,
+                'skipped' => $skipped,
+                'updated' => $updated,
+                'tables' => ['website_pages', 'general_settings'],
+                'messages' => $reportArray['notes'],
+                'report' => $reportArray,
+            ];
+        } finally {
+            $this->resetSyncRunState();
+            DB::purge($targetConn);
+        }
+    }
+
+    /**
+     * @return array{inserted: int, updated: int, skipped: int}
+     */
+    private function pushCentralNexaPricingSetting(string $sourceConn, string $targetConn): array
+    {
+        if (! Schema::connection($sourceConn)->hasTable('general_settings')
+            || ! Schema::connection($targetConn)->hasTable('general_settings')) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 1];
+        }
+
+        $q = DB::connection($sourceConn)->table('general_settings')->where('key', 'nexa_pricing');
+        if (Schema::connection($sourceConn)->hasColumn('general_settings', 'company_id')) {
+            $q->whereNull('company_id');
+        }
+        $row = $q->first();
+        if ($row === null) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 1];
+        }
+
+        $value = (string) ($row->value ?? '');
+        $target = DB::connection($targetConn)->table('general_settings')->where('key', 'nexa_pricing');
+        if (Schema::connection($targetConn)->hasColumn('general_settings', 'company_id')) {
+            $target->whereNull('company_id');
+        }
+        $existing = $target->first();
+        $payload = [
+            'key' => 'nexa_pricing',
+            'value' => $value,
+            'updated_at' => now(),
+        ];
+        if (Schema::connection($targetConn)->hasColumn('general_settings', 'company_id')) {
+            $payload['company_id'] = null;
+        }
+
+        if ($existing === null) {
+            $payload['created_at'] = now();
+            DB::connection($targetConn)->table('general_settings')->insert($payload);
+
+            return ['inserted' => 1, 'updated' => 0, 'skipped' => 0];
+        }
+
+        DB::connection($targetConn)->table('general_settings')
+            ->where('id', $existing->id)
+            ->update([
+                'value' => $value,
+                'updated_at' => now(),
+            ]);
+
+        return ['inserted' => 0, 'updated' => 1, 'skipped' => 0];
+    }
+
+    /**
      * @param  null|callable(array<string, mixed>): void  $onProgress
      * @return array{remote_company_id: int, inserted: int, skipped: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
      */
@@ -155,6 +300,18 @@ final class TenantCompanyDataPushService
                 ? $this->discoverForeignKeysToParentId($sourceConn, $prerequisiteTables)
                 : [];
 
+            $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
+            $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
+            $taxiTableCount = count($this->taxiModuleSyncTableNames());
+            // Stappen + prerequisite-rijen + company-tabellen + taxi-tabellen (schatting voor %).
+            $report->setProgressTotal(
+                4
+                + count($prerequisiteTables)
+                + max(0, count($orderedTables) - 1)
+                + $taxiTableCount
+                + 6
+            );
+
             $idMaps = [];
             if ($prerequisiteTables !== []) {
                 $preStats = $this->pushPrerequisiteTables(
@@ -191,9 +348,7 @@ final class TenantCompanyDataPushService
 
             $report->addStep('Schema op doel gecontroleerd');
 
-            $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
             $allFkEdges = array_merge($fkEdges, $prerequisiteFkEdges);
-            $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
 
             $remoteCompanyId = $this->resolveOrCreateRemoteCompany($targetConn, $company, $messages, $idMaps);
             $sameDatabase = $this->connectionsPointToSameDatabase($sourceConn, $targetConn);
@@ -1042,6 +1197,7 @@ final class TenantCompanyDataPushService
 
                 continue;
             }
+            $row['company_id'] = $remoteCompanyId;
 
             $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
             if ($payload === []) {
@@ -1049,6 +1205,7 @@ final class TenantCompanyDataPushService
 
                 continue;
             }
+            $payload['company_id'] = $remoteCompanyId;
 
             $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, $table, $payload);
             if ($existingId !== null && $existingId > 0) {
@@ -1156,6 +1313,20 @@ final class TenantCompanyDataPushService
             $row = (array) $rowObj;
             $oldId = isset($row['id']) ? (int) $row['id'] : null;
             unset($row['id']);
+
+            // Parent-FK uit child_tables-config altijd hermappen (niet alleen manual_foreign_keys).
+            if (array_key_exists($foreignKey, $row) && $row[$foreignKey] !== null) {
+                $oldParentId = (int) $row[$foreignKey];
+                if ($oldParentId > 0) {
+                    if (! isset($idMaps[$parentTable][$oldParentId])) {
+                        $skipped++;
+
+                        continue;
+                    }
+                    $row[$foreignKey] = $idMaps[$parentTable][$oldParentId];
+                }
+            }
+
             $row = $this->remapConfiguredForeignKeys('tenant_sync.taxi_module.manual_foreign_keys', $table, $row, $idMaps);
             if ($row === null) {
                 $skipped++;
@@ -1490,8 +1661,9 @@ final class TenantCompanyDataPushService
         array $fkEdges
     ): ?array {
         unset($row['id']);
+        $keepNullCompanyId = $table === 'email_templates' && ($row['company_id'] ?? null) === null;
         if ($table === 'email_templates') {
-            $row['company_id'] = ($row['company_id'] ?? null) === null ? null : $remoteCompanyId;
+            $row['company_id'] = $keepNullCompanyId ? null : $remoteCompanyId;
             $row = $this->sanitizeEmailTemplateRowForSync($row, $idMaps);
         } else {
             $row['company_id'] = $remoteCompanyId;
@@ -1505,7 +1677,20 @@ final class TenantCompanyDataPushService
             return null;
         }
 
+        // company_id is tenant scope (already set to remote id), never an FK remap target.
+        if (! $keepNullCompanyId) {
+            $row['company_id'] = $remoteCompanyId;
+        }
+
         $payload = $this->stripUnsupportedColumns($table, $row, TenantWebsiteBundleService::SYNC_CONNECTION);
+
+        // stripUnsupportedColumns kan company_id droppen als doel-schema-cache de kolom mist;
+        // zonder herstel faalt Postgres met NOT NULL (o.a. invoices).
+        if ($keepNullCompanyId) {
+            $payload['company_id'] = null;
+        } else {
+            $payload['company_id'] = $remoteCompanyId;
+        }
 
         return $payload === [] ? null : $payload;
     }
@@ -1522,6 +1707,10 @@ final class TenantCompanyDataPushService
                 continue;
             }
             $col = $edge['child_column'];
+            // Tenant-scope: company_id is al gezet naar remote company id; niet hermappen via idMaps.
+            if ($col === 'company_id') {
+                continue;
+            }
             if (! array_key_exists($col, $row) || $row[$col] === null) {
                 continue;
             }
@@ -1554,6 +1743,9 @@ final class TenantCompanyDataPushService
                 continue;
             }
             $col = $edge['child_column'];
+            if ($col === 'company_id') {
+                continue;
+            }
             if (! array_key_exists($col, $row) || $row[$col] === null) {
                 continue;
             }
@@ -1769,6 +1961,9 @@ final class TenantCompanyDataPushService
 
         foreach ($configured as $column => $parentTable) {
             if (! is_string($column) || $column === '' || ! is_string($parentTable) || $parentTable === '') {
+                continue;
+            }
+            if ($column === 'company_id') {
                 continue;
             }
             if (! array_key_exists($column, $row) || $row[$column] === null) {
@@ -2038,12 +2233,13 @@ final class TenantCompanyDataPushService
     /**
      * @param  array<string, array<int, int>>  $idMaps
      */
-    private function resolveOrCreateRemoteCompany(string $targetConn, Company $source, array &$messages, array $idMaps = []): int
+    private function resolveOrCreateRemoteCompany(string $targetConn, Company $source, array &$messages, array &$idMaps): int
     {
         $attrs = $source->getAttributes();
         unset($attrs['id']);
         $slug = $attrs['slug'] ?? null;
         $sourceTimestamps = $this->timestampsPayloadFromAttributes($attrs);
+        $sourceId = (int) $source->id;
 
         if (is_string($slug) && $slug !== '') {
             $existing = DB::connection($targetConn)->table('companies')->where('slug', $slug)->value('id');
@@ -2066,8 +2262,12 @@ final class TenantCompanyDataPushService
                         ->update($updatePayload);
                 }
                 $this->backfillTimestampsIfMissingOnTarget($targetConn, 'companies', (int) $existing, $sourceTimestamps);
+                $remoteId = (int) $existing;
+                if ($sourceId > 0) {
+                    $idMaps['companies'][$sourceId] = $remoteId;
+                }
 
-                return (int) $existing;
+                return $remoteId;
             }
         }
 
@@ -2082,7 +2282,12 @@ final class TenantCompanyDataPushService
             }
         }
 
-        return (int) DB::connection($targetConn)->table('companies')->insertGetId($payload);
+        $remoteId = (int) DB::connection($targetConn)->table('companies')->insertGetId($payload);
+        if ($sourceId > 0) {
+            $idMaps['companies'][$sourceId] = $remoteId;
+        }
+
+        return $remoteId;
     }
 
     /**
@@ -2189,9 +2394,13 @@ final class TenantCompanyDataPushService
         $companySet = array_flip($companyTables);
         $discovered = [];
 
+        // companies wordt apart via resolveOrCreateRemoteCompany gezet — niet als prerequisite bulk-kopiëren.
+        $excluded['companies'] = true;
+
         foreach ($this->discoverForeignKeyEdgesForChildren($connection, $companyTables) as $edge) {
             $parent = $edge['parent'];
-            if (! isset($companySet[$parent], $excluded[$parent])
+            if (! isset($companySet[$parent])
+                && ! isset($excluded[$parent])
                 && Schema::connection($connection)->hasTable($parent)) {
                 $discovered[$parent] = true;
             }

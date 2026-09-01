@@ -24,7 +24,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ $w['meta_title'] ?? 'NEXA — Modulair SaaS Platform' }}</title>
+    <title>{{ $w['meta_title'] ?? 'NEXA: modulair SaaS-platform' }}</title>
     <meta name="description" content="{{ $w['meta_description'] ?? 'NEXA is een modulair SaaS-platform. Kies de modules die bij uw bedrijf passen: Skillmatching, Taxi en Garage.' }}" />
     @if(!empty($faviconUrl))
     <link rel="icon" href="{{ $faviconUrl }}" />

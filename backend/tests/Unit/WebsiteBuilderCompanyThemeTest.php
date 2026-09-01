@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Company;
 use App\Models\FrontendTheme;
+use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
 use App\Services\WebsiteBuilderService;
@@ -65,6 +66,21 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
 
         $this->assertNotNull($theme);
         $this->assertSame($modern->id, $theme->id);
+    }
+
+    public function test_new_packaged_themes_are_wired_for_home_sections(): void
+    {
+        foreach (['landwind', 'play-tailwind', 'vue-material-kit'] as $slug) {
+            $this->assertTrue(FrontendTheme::usesHomeSections($slug), $slug);
+            $order = WebsitePage::defaultHomeSectionsForTheme($slug)['section_order'] ?? [];
+            $this->assertContains('hero', $order, $slug);
+            $this->assertContains('features', $order, $slug);
+            $this->assertContains('cta', $order, $slug);
+        }
+
+        $this->assertContains('landwind', FrontendTheme::PACKAGED_SOURCE_SLUGS);
+        $this->assertContains('play-tailwind', FrontendTheme::PACKAGED_SOURCE_SLUGS);
+        $this->assertContains('vue-material-kit', FrontendTheme::PACKAGED_SOURCE_SLUGS);
     }
 
     public function test_get_theme_for_page_prefers_page_theme_over_company_default(): void
@@ -251,12 +267,22 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         $this->assertNull(app(WebsiteBuilderService::class)->getThemeForCompany($company->id));
     }
 
-    public function test_google_maps_key_uses_tenant_setting_over_env(): void
+    public function test_google_maps_key_uses_platform_setting_not_tenant(): void
     {
-        config(['maps.api_key' => 'ENV_GLOBAL_KEY']);
+        try {
+            GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'PLATFORM_KEY_123');
+        } catch (\RuntimeException $e) {
+            $this->markTestSkipped($e->getMessage());
+        }
 
         $company = Company::query()->create(['name' => 'Maps Tenant']);
-        \App\Models\GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'TENANT_KEY_123', $company->id);
+        // Legacy tenant-rij mag de platform-sleutel niet overschrijven (set() negeert company_id).
+        GeneralSetting::query()->create([
+            'key' => 'GOOGLE_MAPS_API_KEY',
+            'company_id' => $company->id,
+            'value' => 'TENANT_KEY_123',
+        ]);
+        GeneralSetting::clearRequestCache();
 
         $page = WebsitePage::query()->create([
             'slug' => 'home',
@@ -267,9 +293,8 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         ]);
 
         $service = app(WebsiteBuilderService::class);
-        $this->assertSame('TENANT_KEY_123', $service->resolveGoogleMapsApiKeyForPage($page));
+        $this->assertSame('PLATFORM_KEY_123', $service->resolveGoogleMapsApiKeyForPage($page));
 
-        // Zonder tenant-instelling valt het terug op .env/config.
         $other = Company::query()->create(['name' => 'No Maps Tenant']);
         $otherPage = WebsitePage::query()->create([
             'slug' => 'home-2',
@@ -278,7 +303,7 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
             'company_id' => $other->id,
             'is_active' => true,
         ]);
-        $this->assertSame('ENV_GLOBAL_KEY', $service->resolveGoogleMapsApiKeyForPage($otherPage));
+        $this->assertSame('PLATFORM_KEY_123', $service->resolveGoogleMapsApiKeyForPage($otherPage));
     }
 
     public function test_whatsapp_widget_enabled_only_from_tenant_setting(): void

@@ -61,23 +61,22 @@ Author: Keenthemes
             width: 100% !important;
         }
         
-        /* Autofill achtergrond licht grijs */
+        /* Autofill: zelfde achtergrond als kt-input (geen browser-grijs) */
         #sign_in_form input:-webkit-autofill,
         #sign_in_form input:-webkit-autofill:hover,
         #sign_in_form input:-webkit-autofill:focus,
         #sign_in_form input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 30px #f3f4f6 inset !important;
-            -webkit-text-fill-color: #1f2937 !important;
-            background-color: #f3f4f6 !important;
+            -webkit-box-shadow: 0 0 0 1000px var(--background) inset !important;
+            box-shadow: 0 0 0 1000px var(--background) inset !important;
+            -webkit-text-fill-color: var(--foreground) !important;
+            caret-color: var(--foreground);
+            transition: background-color 5000s ease-in-out 0s;
         }
-        
-        .dark #sign_in_form input:-webkit-autofill,
-        .dark #sign_in_form input:-webkit-autofill:hover,
-        .dark #sign_in_form input:-webkit-autofill:focus,
-        .dark #sign_in_form input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 30px #374151 inset !important;
-            -webkit-text-fill-color: #f9fafb !important;
-            background-color: #374151 !important;
+
+        #sign_in_form input:autofill {
+            box-shadow: 0 0 0 1000px var(--background) inset !important;
+            -webkit-text-fill-color: var(--foreground) !important;
+            caret-color: var(--foreground);
         }
     </style>
     

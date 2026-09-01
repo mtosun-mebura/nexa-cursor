@@ -4,7 +4,10 @@ namespace App\Modules\NexaTaxi\Jobs;
 
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
+use App\Models\Company;
+use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Support\TenantPackageCapability;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +31,12 @@ class StartRideDispatchJob
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $ride = RideRequest::on($conn)->find($this->rideRequestId);
         if (! $ride || $ride->driver_id) {
+            return;
+        }
+        if (! app(CompanyEntitlementService::class)->allows(
+            Company::query()->find($this->companyId),
+            TenantPackageCapability::DISPATCH
+        )) {
             return;
         }
 

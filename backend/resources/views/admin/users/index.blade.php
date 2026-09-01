@@ -294,7 +294,7 @@
                                                     <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $user->email }}">
                                                         {{ $user->email }}
                                                     </a>
-                                                    @if($user->function)
+                                                    @if($user->function && $user->company?->hasSkillmatchingModule())
                                                         <span class="text-xs text-muted-foreground font-normal mt-0.5">
                                                             {{ $user->function }}
                                                         </span>

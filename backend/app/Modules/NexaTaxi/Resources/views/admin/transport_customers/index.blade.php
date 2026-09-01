@@ -6,14 +6,16 @@
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Contractklanten</h1>
-        @can('rides.create')
-        <a href="{{ route('admin.taxi.transport_customers.create') }}" class="kt-btn kt-btn-primary shrink-0">
-            <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-            </svg>
-            Nieuwe klant
-        </a>
-        @endcan
+        @if(empty($packageDeniedMessage))
+            @can('rides.create')
+            <a href="{{ route('admin.taxi.transport_customers.create') }}" class="kt-btn kt-btn-primary shrink-0">
+                <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+                Nieuwe klant
+            </a>
+            @endcan
+        @endif
     </div>
 
     @if(session('success'))
@@ -27,6 +29,12 @@
         </div>
     @endif
 
+    @if(!empty($packageDeniedMessage))
+        <div class="kt-alert kt-alert-warning mb-5" role="alert">
+            <i class="ki-filled ki-information me-2"></i>
+            {{ $packageDeniedMessage }}
+        </div>
+    @else
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
@@ -182,6 +190,7 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 @endsection
 

@@ -7,15 +7,14 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
-use App\Services\ModuleConfigurationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class WebsiteBuilderService
 {
@@ -117,32 +116,19 @@ class WebsiteBuilderService
     }
 
     /**
-     * Google Maps API-key per tenant: eerst de (tenant-)instelling in general_settings, daarna pas .env.
-     * Zo kan elke tenant een eigen key gebruiken; .env is alleen fallback als er niets is ingesteld.
+     * Google Maps API-key platform-breed: Algemene configuraties, daarna .env-fallback.
      */
     public function resolveGoogleMapsApiKeyForPage(WebsitePage $page): string
     {
-        $cid = $this->tenantCompanyIdForPage($page);
-        $fromSetting = trim((string) (GeneralSetting::get('GOOGLE_MAPS_API_KEY', null, $cid) ?? ''));
-        if ($fromSetting !== '') {
-            return $fromSetting;
-        }
-
-        return trim((string) (config('maps.api_key') ?? env('GOOGLE_MAPS_API_KEY', '')));
+        return app(EnvService::class)->getGoogleMapsApiKey();
     }
 
     /**
-     * Google Maps Map ID per tenant: eerst de (tenant-)instelling, daarna .env.
+     * Google Maps Map ID platform-breed: Algemene configuraties, daarna .env-fallback.
      */
     public function resolveGoogleMapsMapIdForPage(WebsitePage $page): string
     {
-        $cid = $this->tenantCompanyIdForPage($page);
-        $fromSetting = trim((string) (GeneralSetting::get('GOOGLE_MAPS_MAP_ID', null, $cid) ?? ''));
-        if ($fromSetting !== '') {
-            return $fromSetting;
-        }
-
-        return trim((string) (config('maps.map_id') ?? env('GOOGLE_MAPS_MAP_ID', '')));
+        return app(EnvService::class)->getGoogleMapsMapId();
     }
 
     /**
@@ -452,6 +438,7 @@ class WebsiteBuilderService
      *   als aanwezig → {@see boolFromDashboardConfig()}.
      * - Geen modulenaam (`null`, publiek): fallback {@see getBrandingModule()} voor dezelfde regels op die module.
      * - Staging-preview: zie `$forStagingPreview`; zonder modulecontext blijft de knop uit.
+     * - Centrale Nexa SaaS-host (geen tenant/`forCompanyId`): knop altijd uit (geen “Mijn Taxi” op de productwebsite).
      *
      * @param  string|null  $forModuleName  Optioneel: module waarvan de configuratie gebruikt wordt (b.v. staging-URL).
      *                                      Anders: {@see getBrandingModule()}.
@@ -540,6 +527,15 @@ class WebsiteBuilderService
                 } elseif (! $this->tenantHasModuleNamed($dashboardLinkModule, $forCompanyId)) {
                     $dashboardLinkVisible = false;
                 }
+            }
+        }
+
+        // Nexa SaaS-hoofdwebsite (geen tenant): geen Mijn Taxi / portaal-knop.
+        // Staging-preview mag wél de knop tonen o.b.v. module-config (admin-voorbeeld).
+        if (! $forStagingPreview) {
+            $resolvedTenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+            if ($resolvedTenantId === null || (int) $resolvedTenantId <= 0) {
+                $dashboardLinkVisible = false;
             }
         }
 
@@ -1219,6 +1215,73 @@ class WebsiteBuilderService
     }
 
     /**
+     * True wanneer deze pagina de publieke startpagina is (tenant-home of centrale marketing-home).
+     */
+    public function isSiteHomePage(WebsitePage $page): bool
+    {
+        if ($page->page_type === 'home' || $page->slug === 'home') {
+            return true;
+        }
+
+        return WebsitePage::isCentralMarketingWelcomeSlug($page->slug) && $page->company_id === null;
+    }
+
+    /**
+     * Homepagina waarvan andere pagina's de footer overnemen.
+     * Op het centrale domein is dat de marketing-welkomstpagina, niet page_type=home.
+     */
+    public function getSiteHomePageFor(WebsitePage $page): ?WebsitePage
+    {
+        if ($page->company_id === null) {
+            $central = $this->getCentralMarketingWelcomePage();
+            if ($central !== null) {
+                return $central;
+            }
+        }
+
+        return $this->getHomePage();
+    }
+
+    /**
+     * Vervang footer/copyright/footer-visibility door die van de site-home wanneer inherit aan staat.
+     *
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public function applyInheritedHomeFooter(array $homeSections, WebsitePage $page): array
+    {
+        if ($this->isSiteHomePage($page) || empty($homeSections['footer']['inherit_from_home'])) {
+            return $homeSections;
+        }
+
+        $homePage = $this->getSiteHomePageFor($page);
+        if ($homePage === null || (int) $homePage->id === (int) $page->id) {
+            return $homeSections;
+        }
+
+        $fromHome = $homePage->getHomeSections();
+        $homeSections['footer'] = $fromHome['footer'] ?? [];
+        $homeSections['footer']['inherit_from_home'] = true;
+        $homeSections['copyright'] = $fromHome['copyright'] ?? ($homeSections['copyright'] ?? '');
+        if (! isset($homeSections['visibility']) || ! is_array($homeSections['visibility'])) {
+            $homeSections['visibility'] = [];
+        }
+        $homeVisibility = is_array($fromHome['visibility'] ?? null) ? $fromHome['visibility'] : [];
+        $footerVisibilityKeys = ['footer', 'footer_logo', 'footer_tagline', 'footer_quick_links', 'footer_support_links', 'footer_social', 'footer_map'];
+        foreach ($footerVisibilityKeys as $k) {
+            $homeSections['visibility'][$k] = array_key_exists($k, $homeVisibility)
+                ? $homeVisibility[$k]
+                : ($k === 'footer_map' ? false : true);
+        }
+        $sectionOrder = $homeSections['section_order'] ?? [];
+        if (is_array($sectionOrder) && ! in_array('footer', $sectionOrder, true)) {
+            $homeSections['section_order'] = array_merge(array_values($sectionOrder), ['footer']);
+        }
+
+        return $homeSections;
+    }
+
+    /**
      * Boekingsmodule-config van de tenant-home (zelfde aanbiedingen/logica als op de website).
      *
      * @return array{config: array, tenant_company_id: ?int, page: ?\App\Models\WebsitePage}
@@ -1380,7 +1443,7 @@ class WebsiteBuilderService
 
         $theme = $this->getThemeForPage($homePage);
         $themeSlug = $theme ? $theme->slug : 'modern';
-        if (! in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true)) {
+        if (! \App\Models\FrontendTheme::usesHomeSections($themeSlug)) {
             return [];
         }
 
@@ -1559,7 +1622,12 @@ class WebsiteBuilderService
             $q->whereNull($table.'.company_id');
         }
 
-        return $q->first();
+        $page = $q->first();
+        if ($page === null && $this->resolvedPublicTenantCompanyId() === null) {
+            return app(CentralWelcomePageService::class)->ensurePageExists();
+        }
+
+        return $page;
     }
 
     /**
@@ -1606,6 +1674,11 @@ class WebsiteBuilderService
         if (WebsitePage::isCentralMarketingWelcomeSlug($slug)) {
             return null;
         }
+
+        if ($this->resolvedPublicTenantCompanyId() === null && CentralWelcomePageService::isMarketingSlug($slug)) {
+            app(CentralWelcomePageService::class)->ensureMarketingPagesExist();
+        }
+
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
         $page = $this->firstActiveWebsitePage(
@@ -1645,6 +1718,10 @@ class WebsiteBuilderService
             ->orderBy('id')
             ->get();
 
+        if ($this->resolvedPublicTenantCompanyId() === null) {
+            return $this->withCentralHomeInMenu($corePages);
+        }
+
         $hasModuleDb = $moduleName !== null && $moduleName !== ''
             && $this->moduleDb
             && $this->moduleDb->supportsModuleDatabases();
@@ -1680,8 +1757,27 @@ class WebsiteBuilderService
     }
 
     /**
-     * Centrale marketing-welkom (slug nexa-centraal-welkom) hoort niet in het hoofdmenu;
-     * de paginatitel blijft beschikbaar voor &lt;title&gt; in de layout.
+     * Op het centrale domein staat de marketing-welkom altijd als eerste menu-item (label Home).
+     *
+     * @param  Collection<int, WebsitePage>  $pages
+     * @return Collection<int, WebsitePage>
+     */
+    private function withCentralHomeInMenu(Collection $pages): Collection
+    {
+        $pages = $pages->reject(function (WebsitePage $p) {
+            return WebsitePage::isCentralMarketingWelcomeSlug($p->slug);
+        })->values();
+        $welcome = $this->getCentralMarketingWelcomePage();
+        if ($welcome !== null) {
+            $pages->prepend($welcome);
+        }
+
+        return $pages->values();
+    }
+
+    /**
+     * Centrale marketing-welkom (slug nexa-centraal-welkom) hoort niet in het tenant-hoofdmenu;
+     * op het centrale domein komt die via {@see withCentralHomeInMenu()} als Home.
      *
      * @param  Collection<int, WebsitePage>  $pages
      * @return Collection<int, WebsitePage>
@@ -1886,5 +1982,63 @@ class WebsiteBuilderService
             ['sort_order', 'asc'],
             ['title', 'asc'],
         ])->values();
+    }
+
+    /**
+     * CSS-variabelen voor knop-hoverkleuren.
+     * Lege hover-achtergrond gebruikt de knopkleur, zodat hover de achtergrond niet verandert.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function ctaButtonHoverCss(array $data, string $prefix): string
+    {
+        $hex = static function (mixed $value): string {
+            $v = trim((string) $value);
+
+            return preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $v) === 1 ? $v : '';
+        };
+
+        $restBg = $hex($data[$prefix.'_bg'] ?? '');
+        $restColor = $hex($data[$prefix.'_text_color'] ?? '');
+        $restBorder = $hex($data[$prefix.'_border'] ?? '');
+        $hoverBg = $hex($data[$prefix.'_hover_bg'] ?? '');
+        $hoverColor = $hex($data[$prefix.'_hover_text_color'] ?? '');
+        $hoverBorder = $hex($data[$prefix.'_hover_border'] ?? '');
+
+        if ($hoverBg === '') {
+            $hoverBg = $restBg;
+        }
+        if ($hoverColor === '') {
+            $hoverColor = $restColor;
+        }
+        if ($hoverBorder === '') {
+            $hoverBorder = $restBorder;
+        }
+
+        if ($hoverBg === '' && $hoverColor === '' && $hoverBorder === '') {
+            return '';
+        }
+
+        $parts = [];
+        if ($restBg !== '') {
+            $parts[] = '--nexa-cta-bg:'.$restBg;
+        }
+        if ($restColor !== '') {
+            $parts[] = '--nexa-cta-color:'.$restColor;
+        }
+        if ($restBorder !== '') {
+            $parts[] = '--nexa-cta-border:'.$restBorder;
+        }
+        if ($hoverBg !== '') {
+            $parts[] = '--nexa-cta-hover-bg:'.$hoverBg;
+        }
+        if ($hoverColor !== '') {
+            $parts[] = '--nexa-cta-hover-color:'.$hoverColor;
+        }
+        if ($hoverBorder !== '') {
+            $parts[] = '--nexa-cta-hover-border:'.$hoverBorder;
+        }
+
+        return implode(';', $parts).';';
     }
 }
