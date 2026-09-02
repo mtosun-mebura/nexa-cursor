@@ -78,7 +78,10 @@ class PlatformInvoicePdfService
         ];
 
         $viewData = $this->invoiceViewData($invoice, $issuer, $recipient, $presentation, $taxRate);
-        $viewData['paymentTermsText'] = (string) ($preview['payment_terms_text'] ?? '');
+        $previewTerms = trim((string) ($preview['payment_terms_text'] ?? ''));
+        if ($previewTerms !== '') {
+            $viewData['paymentTermsText'] = $previewTerms;
+        }
 
         return $this->renderDocumentPdf($viewData);
     }

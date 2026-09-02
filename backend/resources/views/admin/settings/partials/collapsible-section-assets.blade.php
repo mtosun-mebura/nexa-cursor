@@ -241,6 +241,8 @@
         'settings-collapsible-root',
         'general-settings-collapsible-root',
         'dispatch-settings-collapsible-root',
+        'wizard-integrations-collapsible-root',
+        'wizard-google-collapsible-root',
     ];
 
     function sectionStorageKey(card, root) {
@@ -351,6 +353,10 @@
         }
         restoreCollapsibleState(root);
         root.querySelectorAll('.settings-collapsible-card, .settings-collapsible-section').forEach(function (card) {
+            var btn = card.querySelector(':scope > .settings-collapsible-header .settings-collapsible-toggle');
+            if (btn) {
+                btn.setAttribute('aria-expanded', card.classList.contains('settings-collapsible-card--collapsed') ? 'false' : 'true');
+            }
             var id = card.id;
             if (id && window.location.hash === '#' + id) {
                 setSettingsSectionCollapsed(card, false);
@@ -404,6 +410,8 @@
         initSettingsCollapsible(document.getElementById('settings-collapsible-root'));
         initSettingsCollapsible(document.getElementById('general-settings-collapsible-root'));
         initSettingsCollapsible(document.getElementById('dispatch-settings-collapsible-root'));
+        initSettingsCollapsible(document.getElementById('wizard-integrations-collapsible-root'));
+        initSettingsCollapsible(document.getElementById('wizard-google-collapsible-root'));
         bindCollapsiblePersistOnSubmit();
 
         var hash = (window.location.hash || '').replace(/^#/, '');

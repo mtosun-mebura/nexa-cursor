@@ -33,8 +33,29 @@
             @forelse($databaseBackups ?? [] as $backup)
                 @php
                     $isPending = $backup->status === \App\Models\DatabaseBackup::STATUS_PENDING;
+                    $triggerLabel = $backup->trigger === 'scheduled' ? 'gepland' : 'handmatig';
+                    $statusLabel = match ($backup->status) {
+                        \App\Models\DatabaseBackup::STATUS_COMPLETED => 'Gereed',
+                        \App\Models\DatabaseBackup::STATUS_FAILED => 'Mislukt',
+                        \App\Models\DatabaseBackup::STATUS_PENDING => 'Bezig',
+                        default => (string) $backup->status,
+                    };
+                    $createdAt = $backup->localCreatedAt();
+                    $searchText = mb_strtolower(implode(' ', array_filter([
+                        $backup->filename,
+                        $backup->database_name,
+                        $backup->humanSize(),
+                        $statusLabel,
+                        $triggerLabel,
+                        $createdAt?->format('d-m-Y H:i'),
+                    ])), 'UTF-8');
                 @endphp
-                <tr data-id="{{ $backup->id }}" data-filename="{{ $backup->filename }}" data-status="{{ $backup->status }}" data-size="{{ (int) $backup->size_bytes }}">
+                <tr data-id="{{ $backup->id }}"
+                    data-filename="{{ $backup->filename }}"
+                    data-status="{{ $backup->status }}"
+                    data-trigger="{{ $backup->trigger }}"
+                    data-size="{{ (int) $backup->size_bytes }}"
+                    data-search-text="{{ $searchText }}">
                     <td class="database-backups-col-select text-center" data-no-row-link data-label="">
                         <label class="kt-label mb-0 inline-flex items-center justify-center {{ $isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
                             <input type="checkbox"
@@ -53,7 +74,7 @@
                         <div class="text-xs text-muted-foreground">({{ $backup->humanSizeMegabytes() }})</div>
                     </td>
                     <td class="database-backups-col-status" data-label="Status">
-                        <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <div class="database-backups-status">
                             @if($backup->status === \App\Models\DatabaseBackup::STATUS_COMPLETED)
                                 <span class="kt-badge kt-badge-sm kt-badge-success">Gereed</span>
                             @elseif($backup->status === \App\Models\DatabaseBackup::STATUS_FAILED)
@@ -63,10 +84,17 @@
                             @else
                                 <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $backup->status }}</span>
                             @endif
-                            <span class="text-xs text-muted-foreground">{{ $backup->trigger === 'scheduled' ? 'gepland' : 'handmatig' }}</span>
+                            <span class="database-backups-status__trigger">{{ $triggerLabel }}</span>
                         </div>
                     </td>
-                    <td class="database-backups-col-date whitespace-nowrap tabular-nums" data-label="Datum">{{ $backup->localCreatedAt()?->format('d-m-Y H:i') }}</td>
+                    <td class="database-backups-col-date tabular-nums" data-label="Datum">
+                        @if($createdAt)
+                            <div class="whitespace-nowrap">{{ $createdAt->format('d-m-Y') }}</div>
+                            <div class="text-xs text-muted-foreground whitespace-nowrap">{{ $createdAt->format('H:i') }}</div>
+                        @else
+                            —
+                        @endif
+                    </td>
                     <td class="text-center admin-table__actions-col" data-no-row-link data-label="Acties">
                         <div class="kt-menu flex justify-center" data-kt-menu="true">
                             <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
@@ -116,6 +144,11 @@
                     <td colspan="7" class="text-center text-muted-foreground py-8">Nog geen backups. Sla de instellingen op en maak een backup, of wacht op de planner.</td>
                 </tr>
             @endforelse
+            @if(count($databaseBackups ?? []) > 0)
+                <tr class="database-backups-filter-empty" hidden>
+                    <td colspan="7" class="text-center text-muted-foreground py-8">Geen backups gevonden voor deze filters.</td>
+                </tr>
+            @endif
         </tbody>
     </table>
 </div>

@@ -162,7 +162,7 @@ class TaxiScopedEmailTemplateServiceTest extends TestCase
             'company_id' => null,
             'name' => 'Globaal',
             'subject' => 'Globaal',
-            'html_content' => '<p>Open de app:</p>'.$heading.'<p>Powered by NEXA SaaS.</p>',
+            'html_content' => '<p>Open de app:</p>'.$heading.'<p>Powered by NEXA Suite.</p>',
             'is_active' => true,
         ]);
         EmailTemplate::query()->create([
@@ -170,7 +170,7 @@ class TaxiScopedEmailTemplateServiceTest extends TestCase
             'company_id' => $company->id,
             'name' => 'Tenant',
             'subject' => 'Tenant',
-            'html_content' => '<p>Open de app:</p>'.$heading.'<p>Powered by NEXA SaaS.</p>',
+            'html_content' => '<p>Open de app:</p>'.$heading.'<p>Powered by NEXA Suite.</p>',
             'is_active' => true,
         ]);
 
@@ -190,7 +190,7 @@ class TaxiScopedEmailTemplateServiceTest extends TestCase
         foreach ([$global, $tenant] as $template) {
             $this->assertStringContainsString('background-color:#ea580c', $template->html_content);
             $this->assertStringContainsString('Open {{ APP_NAME }}', $template->html_content);
-            $this->assertStringContainsString('Powered by NEXA SaaS.', $template->html_content);
+            $this->assertStringContainsString('Powered by NEXA Suite.', $template->html_content);
             $this->assertStringNotContainsString('<h2', $template->html_content);
         }
     }
@@ -238,7 +238,7 @@ class TaxiScopedEmailTemplateServiceTest extends TestCase
             'company_id' => $company->id,
             'name' => 'Tenant',
             'subject' => 'Tenant',
-            'html_content' => '<p>Hallo</p>'.$oldBlock.'<p>Powered by NEXA SaaS.</p>',
+            'html_content' => '<p>Hallo</p>'.$oldBlock.'<p>Powered by NEXA Suite.</p>',
             'is_active' => true,
         ]);
 
@@ -262,6 +262,6 @@ class TaxiScopedEmailTemplateServiceTest extends TestCase
             $this->assertStringNotContainsString('#f8fafc', $template->html_content);
             $this->assertStringNotContainsString('#64748b', $template->html_content);
         }
-        $this->assertStringContainsString('Powered by NEXA SaaS.', $tenant->html_content);
+        $this->assertStringContainsString('Powered by NEXA Suite.', $tenant->html_content);
     }
 }

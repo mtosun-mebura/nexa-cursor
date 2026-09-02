@@ -438,7 +438,7 @@ class WebsiteBuilderService
      *   als aanwezig → {@see boolFromDashboardConfig()}.
      * - Geen modulenaam (`null`, publiek): fallback {@see getBrandingModule()} voor dezelfde regels op die module.
      * - Staging-preview: zie `$forStagingPreview`; zonder modulecontext blijft de knop uit.
-     * - Centrale Nexa SaaS-host (geen tenant/`forCompanyId`): knop altijd uit (geen “Mijn Taxi” op de productwebsite).
+     * - Centrale NEXA Suite-host (geen tenant/`forCompanyId`): knop altijd uit (geen “Mijn Taxi” op de productwebsite).
      *
      * @param  string|null  $forModuleName  Optioneel: module waarvan de configuratie gebruikt wordt (b.v. staging-URL).
      *                                      Anders: {@see getBrandingModule()}.
@@ -530,7 +530,7 @@ class WebsiteBuilderService
             }
         }
 
-        // Nexa SaaS-hoofdwebsite (geen tenant): geen Mijn Taxi / portaal-knop.
+        // NEXA Suite-hoofdwebsite (geen tenant): geen Mijn Taxi / portaal-knop.
         // Staging-preview mag wél de knop tonen o.b.v. module-config (admin-voorbeeld).
         if (! $forStagingPreview) {
             $resolvedTenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
@@ -1279,6 +1279,20 @@ class WebsiteBuilderService
         }
 
         return $homeSections;
+    }
+
+    /**
+     * Verberg Vacatures-link en Skillmatching-tagline wanneer Skillmatching niet de actieve frontend-module is.
+     *
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public function preparePublicFooterSections(array $homeSections): array
+    {
+        return WebsitePage::prepareFooterForPublicDisplay(
+            $homeSections,
+            $this->shouldShowSkillmatchingFrontendAppLinks()
+        );
     }
 
     /**

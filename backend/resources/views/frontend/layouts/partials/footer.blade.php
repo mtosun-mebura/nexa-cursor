@@ -14,7 +14,7 @@
                             ])
                         </div>
                         <p class="text-gray-600 dark:text-gray-200 mb-4 w-full leading-relaxed">
-                            Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.
+                            {{ \App\Models\WebsitePage::DEFAULT_FOOTER_TAGLINE }}
                         </p>
                         <div class="flex space-x-4">
                             <a href="#" class="text-gray-500 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200" aria-label="LinkedIn">
@@ -40,7 +40,9 @@
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Snelle Links</h3>
                         <ul class="space-y-3">
                             <li><a href="{{ route('home') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Home</a></li>
+                            @if($showSkillmatchingAppLinks ?? false)
                             <li><a href="{{ route('jobs.index') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Vacatures</a></li>
+                            @endif
                             <li><a href="{{ route('about') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Over Ons</a></li>
                             <li><a href="{{ route('contact') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Contact</a></li>
                         </ul>

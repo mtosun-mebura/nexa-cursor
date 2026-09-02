@@ -5,6 +5,7 @@
  * Bron voor /prijzen, marketing-preview en de product-FAQ.
  */
 return [
+    'trial_notice_days' => 5,
     'vat_note' => 'Prijzen exclusief btw. Standaardtermijn 12 maanden; daarna maandelijks opzegbaar.',
     'eyebrow' => 'Prijzen',
     'title' => 'Start klein. Groei mee als de ritten toenemen.',
@@ -142,7 +143,7 @@ return [
         [
             'name' => 'GPS-trackers',
             'price' => '+ € 19 / maand',
-            'description' => 'Taxi’s volgen via GPS (koppeling volgt later).',
+            'description' => 'Taxi’s live volgen op de kaart via GPS.',
         ],
         [
             'name' => 'AI-assistent',

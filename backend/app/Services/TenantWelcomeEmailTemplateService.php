@@ -24,7 +24,6 @@ class TenantWelcomeEmailTemplateService
         return [
             'USER_NAME' => 'Naam van de beheerder',
             'USER_EMAIL' => 'E-mailadres (gebruikersnaam)',
-            'TEMP_PASSWORD' => 'Tijdelijk wachtwoord (eenmalig)',
             'COMPANY_NAME' => 'Bedrijfsnaam',
             'PACKAGE_NAME' => 'Pakketnaam',
             'PACKAGE_FEATURES_HTML' => 'Kenmerken van het pakket (HTML-lijst)',
@@ -52,7 +51,6 @@ class TenantWelcomeEmailTemplateService
             [
                 'USER_NAME' => 'Lisa Vermeer',
                 'USER_EMAIL' => 'lisa@horizontaxi.nl',
-                'TEMP_PASSWORD' => 'TijdelijkWachtwoord1',
                 'COMPANY_NAME' => e($companyName),
                 'PACKAGE_NAME' => e($packageName),
                 'PACKAGE_FEATURES_HTML' => self::featuresHtml($features),
@@ -73,7 +71,7 @@ class TenantWelcomeEmailTemplateService
     {
         $features = self::normalizedFeatures($features);
         if ($features === []) {
-            return '<p>Zie de handleiding voor de onderdelen van uw pakket.</p>';
+            return '<p>Zie de handleiding voor de onderdelen van je pakket.</p>';
         }
 
         return '<ul style="margin:0;padding-left:20px;">'
@@ -88,7 +86,7 @@ class TenantWelcomeEmailTemplateService
     {
         $features = self::normalizedFeatures($features);
         if ($features === []) {
-            return 'Zie de handleiding voor de onderdelen van uw pakket.';
+            return 'Zie de handleiding voor de onderdelen van je pakket.';
         }
 
         return implode("\n", array_map(static fn (string $item) => '- '.$item, $features));
@@ -120,8 +118,9 @@ class TenantWelcomeEmailTemplateService
             }
 
             $this->ensureNexaLogoPlaceholder($existing);
+            $this->upgradeStoredTemplates();
 
-            return $existing;
+            return $existing->fresh() ?? $existing;
         }
 
         return EmailTemplate::query()->create([
@@ -129,7 +128,7 @@ class TenantWelcomeEmailTemplateService
             'company_id' => null,
             'name' => self::TEMPLATE_NAME,
             'subject' => 'Welkom bij NEXA Suite — toegang tot {{ COMPANY_NAME }}',
-            'description' => 'Algemene welkomstmail voor nieuwe company-admins na het afnemen van een abonnement. Bevat inloggegevens, tijdelijk wachtwoord en knoppen naar de admin.',
+            'description' => 'Algemene welkomstmail voor nieuwe company-admins na het afnemen van een abonnement. Bevat inloginstructie via een eenmalige code (geen wachtwoord) en knoppen naar de admin.',
             'html_content' => $this->html(),
             'text_content' => $this->text(),
             'is_active' => true,
@@ -140,13 +139,7 @@ class TenantWelcomeEmailTemplateService
 
     public function resolveActive(): ?EmailTemplate
     {
-        $template = EmailTemplate::query()
-            ->where('type', self::TYPE)
-            ->whereNull('company_id')
-            ->where('is_active', true)
-            ->first();
-
-        return $template ?: $this->ensureExists();
+        return $this->ensureExists();
     }
 
     /**
@@ -192,9 +185,188 @@ class TenantWelcomeEmailTemplateService
         $template->save();
     }
 
+    /**
+     * Ronde hoeken op het inlogkader (border-collapse:collapse blokkeert radius) en
+     * tijdelijk wachtwoord vervangen door instructie voor een eenmalige code.
+     */
+    public function upgradeStoredTemplates(): void
+    {
+        EmailTemplate::query()
+            ->where('type', self::TYPE)
+            ->get()
+            ->each(function (EmailTemplate $template): void {
+                $html = (string) $template->html_content;
+                $text = (string) ($template->text_content ?? '');
+                $description = (string) ($template->description ?? '');
+                $updatedHtml = $this->roundBorderedTables($html);
+                $updatedHtml = $this->replacePasswordLoginBox($updatedHtml);
+                $updatedHtml = $this->informalizeCopy($this->upgradeFirstStepsHtml($updatedHtml));
+                $updatedText = $this->informalizeCopy($this->upgradeLoginText($text));
+                $updatedDescription = $description;
+                if (str_contains(mb_strtolower($description), 'tijdelijk wachtwoord')) {
+                    $updatedDescription = 'Algemene welkomstmail voor nieuwe company-admins na het afnemen van een abonnement. Bevat inloginstructie via een eenmalige code (geen wachtwoord) en knoppen naar de admin.';
+                }
+
+                $dirty = false;
+                if ($updatedHtml !== $html) {
+                    $template->html_content = $updatedHtml;
+                    $dirty = true;
+                }
+                if ($updatedText !== $text) {
+                    $template->text_content = $updatedText;
+                    $dirty = true;
+                }
+                if ($updatedDescription !== $description) {
+                    $template->description = $updatedDescription;
+                    $dirty = true;
+                }
+                if ($dirty) {
+                    $template->save();
+                }
+            });
+    }
+
+    private function loginBoxHtml(): string
+    {
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">'
+            .'<tr>'
+            .'<td style="padding:16px 18px;border-radius:12px;background-color:#e8eef5;">'
+            .'<p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Inloggen</p>'
+            .'<p style="margin:0 0 6px;font-size:14px;"><strong>Gebruikersnaam:</strong> {{ USER_EMAIL }}</p>'
+            .'<p style="margin:0 0 6px;font-size:14px;"><strong>Eerste login:</strong> vraag op het inlogscherm een eenmalige code aan.</p>'
+            .'<p style="margin:0;font-size:13px;color:#334155;">Je ontvangt de code in een aparte e-mail. Die is 15 minuten geldig. Daarna kies je zelf een wachtwoord. Er gaat geen wachtwoord mee in deze welkomstmail.</p>'
+            .'</td>'
+            .'</tr>'
+            .'</table>';
+    }
+
+    private function roundBorderedTables(string $html): string
+    {
+        $updated = preg_replace_callback(
+            '/<table\b[^>]*>/i',
+            static function (array $match): string {
+                $tag = $match[0];
+                if (! preg_match('/border-radius\s*:/i', $tag)) {
+                    return $tag;
+                }
+                if (preg_match('/border-collapse\s*:\s*collapse/i', $tag)) {
+                    $tag = preg_replace(
+                        '/border-collapse\s*:\s*collapse\s*;?/i',
+                        'border-collapse:separate;border-spacing:0;',
+                        $tag
+                    ) ?? $tag;
+                } elseif (preg_match('/border-collapse\s*:\s*separate/i', $tag) && ! preg_match('/border-spacing\s*:/i', $tag)) {
+                    $tag = preg_replace(
+                        '/border-collapse\s*:\s*separate\s*;?/i',
+                        'border-collapse:separate;border-spacing:0;',
+                        $tag
+                    ) ?? $tag;
+                }
+                $tag = preg_replace('/border-radius\s*:\s*\d+px/i', 'border-radius:12px', $tag) ?? $tag;
+
+                return $tag;
+            },
+            $html
+        );
+
+        return is_string($updated) ? $updated : $html;
+    }
+
+    private function replacePasswordLoginBox(string $html): string
+    {
+        if (! str_contains($html, 'TEMP_PASSWORD') && ! str_contains($html, 'Tijdelijk wachtwoord')) {
+            return $html;
+        }
+
+        $replaced = preg_replace(
+            '/<table\b[^>]*>[\s\S]{0,900}?Inloggen[\s\S]{0,1600}?(?:TEMP_PASSWORD|Tijdelijk wachtwoord)[\s\S]{0,900}?<\/table>/i',
+            $this->loginBoxHtml(),
+            $html,
+            1
+        );
+        if (is_string($replaced) && $replaced !== $html) {
+            return $replaced;
+        }
+
+        $stripped = preg_replace('/<p\b[^>]*>[\s\S]*?(?:TEMP_PASSWORD|Tijdelijk wachtwoord)[\s\S]*?<\/p>/i', '', $html) ?? $html;
+
+        return str_replace('{{ TEMP_PASSWORD }}', '', $stripped);
+    }
+
+    private function upgradeFirstStepsHtml(string $html): string
+    {
+        $html = str_replace(
+            'Log in met uw e-mailadres als gebruikersnaam en het tijdelijke wachtwoord.',
+            'Klik op «Eerste keer inloggen» en vraag een eenmalige code aan voor dit e-mailadres.',
+            $html
+        );
+
+        return str_replace(
+            'Kies direct een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).',
+            'Vul de code uit de volgende e-mail in en kies een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).',
+            $html
+        );
+    }
+
+    private function upgradeLoginText(string $text): string
+    {
+        if ($text === '' || (! str_contains($text, 'TEMP_PASSWORD') && ! str_contains($text, 'Tijdelijk wachtwoord'))) {
+            return $text;
+        }
+
+        $text = preg_replace('/^Tijdelijk wachtwoord:.*$/m', 'Eerste login: vraag op het inlogscherm een eenmalige code aan.', $text) ?? $text;
+        $text = str_replace('{{ TEMP_PASSWORD }}', '', $text);
+        $text = str_replace(
+            'Dit wachtwoord mag één keer worden gebruikt. Direct na het inloggen moet u een eigen wachtwoord kiezen. U kunt het scherm niet verlaten totdat dat is gebeurd.',
+            'Je ontvangt de code in een aparte e-mail. Die is 15 minuten geldig. Daarna kies je zelf een wachtwoord. Er gaat geen wachtwoord mee in deze welkomstmail.',
+            $text
+        );
+        $text = str_replace(
+            'Log in met uw e-mailadres als gebruikersnaam en het tijdelijke wachtwoord.',
+            'Klik op «Eerste keer inloggen» en vraag een eenmalige code aan voor dit e-mailadres.',
+            $text
+        );
+        $text = str_replace(
+            'Kies direct een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).',
+            'Vul de code uit de volgende e-mail in en kies een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).',
+            $text
+        );
+
+        return $text;
+    }
+
+    private function informalizeCopy(string $content): string
+    {
+        return str_replace(
+            [
+                'Hieronder staan uw inloggegevens en de eerste stappen.',
+                'Hieronder ziet u hoe u voor het eerst inlogt.',
+                'U ontvangt de code in een aparte e-mail. Die is 15 minuten geldig. Daarna kiest u zelf een wachtwoord.',
+                'Daarna kiest u zelf een wachtwoord.',
+                'onderdelen van uw pakket',
+                'Wat zit er in uw pakket',
+                'Heeft u vragen over uw abonnement of inloggen?',
+                'Zie de handleiding voor de onderdelen van uw pakket.',
+            ],
+            [
+                'Hieronder zie je hoe je voor het eerst inlogt.',
+                'Hieronder zie je hoe je voor het eerst inlogt.',
+                'Je ontvangt de code in een aparte e-mail. Die is 15 minuten geldig. Daarna kies je zelf een wachtwoord.',
+                'Daarna kies je zelf een wachtwoord.',
+                'onderdelen van je pakket',
+                'Wat zit er in je pakket',
+                'Heb je vragen over je abonnement of inloggen?',
+                'Zie de handleiding voor de onderdelen van je pakket.',
+            ],
+            $content
+        );
+    }
+
     private function html(): string
     {
-        return <<<'HTML'
+        $loginBox = $this->loginBoxHtml();
+
+        return str_replace('<!--LOGIN_BOX-->', $loginBox, <<<'HTML'
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -220,19 +392,10 @@ class TenantWelcomeEmailTemplateService
                             <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6;">
                                 Bedankt voor het afnemen van een abonnement. We hebben een beheeraccount aangemaakt voor
                                 <strong>{{ COMPANY_NAME }}</strong> (pakket <strong>{{ PACKAGE_NAME }}</strong>).
-                                Hieronder staan uw inloggegevens en de eerste stappen.
+                                Hieronder zie je hoe je voor het eerst inlogt.
                             </p>
 
-                            <table role="presentation" width="100%" style="width: 100%; border-collapse: collapse; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 0 0 20px;">
-                                <tr>
-                                    <td style="padding: 16px 18px;">
-                                        <p style="margin: 0 0 8px; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Inloggen</p>
-                                        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Gebruikersnaam:</strong> {{ USER_EMAIL }}</p>
-                                        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Tijdelijk wachtwoord:</strong> {{ TEMP_PASSWORD }}</p>
-                                        <p style="margin: 0; font-size: 13px; color: #64748b;">Dit wachtwoord mag één keer worden gebruikt. Direct na het inloggen moet u een eigen wachtwoord kiezen. U kunt het scherm niet verlaten totdat dat is gebeurd.</p>
-                                    </td>
-                                </tr>
-                            </table>
+                            <!--LOGIN_BOX-->
 
                             <p style="margin: 0 0 18px; text-align: center;">
                                 <a href="{{ ADMIN_LOGIN_URL }}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 6px;">
@@ -246,12 +409,12 @@ class TenantWelcomeEmailTemplateService
                             <h2 style="margin: 0 0 10px; font-size: 16px;">Eerste stappen</h2>
                             <ol style="margin: 0 0 20px; padding-left: 20px; font-size: 14px; line-height: 1.7;">
                                 <li>Open de admin via de knop hierboven.</li>
-                                <li>Log in met uw e-mailadres als gebruikersnaam en het tijdelijke wachtwoord.</li>
-                                <li>Kies direct een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).</li>
-                                <li>Bekijk daarna de welkomsthandleiding. Die toont precies de onderdelen van uw pakket.</li>
+                                <li>Klik op «Eerste keer inloggen» en vraag een eenmalige code aan voor dit e-mailadres.</li>
+                                <li>Vul de code uit de volgende e-mail in en kies een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).</li>
+                                <li>Bekijk daarna de welkomsthandleiding. Die toont precies de onderdelen van je pakket.</li>
                             </ol>
 
-                            <h2 style="margin: 0 0 10px; font-size: 16px;">Wat zit er in uw pakket</h2>
+                            <h2 style="margin: 0 0 10px; font-size: 16px;">Wat zit er in je pakket</h2>
                             <div style="margin: 0 0 20px; font-size: 14px; line-height: 1.7;">{{ PACKAGE_FEATURES_HTML }}</div>
 
                             <p style="margin: 0 0 18px; text-align: center;">
@@ -261,7 +424,7 @@ class TenantWelcomeEmailTemplateService
                             </p>
 
                             <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.6;">
-                                Heeft u vragen over uw abonnement of inloggen? Neem contact op via
+                                Heb je vragen over je abonnement of inloggen? Neem contact op via
                                 <a href="mailto:info@nexasuite.nl" style="color: #2563eb;">info@nexasuite.nl</a>.
                             </p>
                         </td>
@@ -277,7 +440,8 @@ class TenantWelcomeEmailTemplateService
     </table>
 </body>
 </html>
-HTML;
+HTML
+        );
     }
 
     private function text(): string
@@ -291,20 +455,20 @@ Bedankt voor het afnemen van een abonnement. We hebben een beheeraccount aangema
 
 Inloggen
 Gebruikersnaam: {{ USER_EMAIL }}
-Tijdelijk wachtwoord: {{ TEMP_PASSWORD }}
+Eerste login: vraag op het inlogscherm een eenmalige code aan.
 
-Dit wachtwoord mag één keer worden gebruikt. Direct na het inloggen moet u een eigen wachtwoord kiezen. U kunt het scherm niet verlaten totdat dat is gebeurd.
+Je ontvangt de code in een aparte e-mail. Die is 15 minuten geldig. Daarna kies je zelf een wachtwoord. Er gaat geen wachtwoord mee in deze welkomstmail.
 
 Admin openen: {{ ADMIN_LOGIN_URL }}
 Handleiding: {{ HANDLEIDING_URL }}
 
 Eerste stappen
 1. Open de admin via nexasuite.nl/admin.
-2. Log in met uw e-mailadres als gebruikersnaam en het tijdelijke wachtwoord.
-3. Kies direct een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).
-4. Bekijk daarna de welkomsthandleiding. Die toont precies de onderdelen van uw pakket.
+2. Klik op «Eerste keer inloggen» en vraag een eenmalige code aan voor dit e-mailadres.
+3. Vul de code uit de volgende e-mail in en kies een eigen wachtwoord (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).
+4. Bekijk daarna de welkomsthandleiding. Die toont precies de onderdelen van je pakket.
 
-Wat zit er in uw pakket
+Wat zit er in je pakket
 {{ PACKAGE_FEATURES_TEXT }}
 
 Vragen? Mail info@nexasuite.nl.

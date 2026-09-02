@@ -1,6 +1,6 @@
 @php
     $pageTitle = trim($__env->yieldContent('title'));
-    $htmlTitle = $pageTitle !== '' ? $pageTitle.' - NEXA SaaS Admin' : 'NEXA SaaS Admin';
+    $htmlTitle = $pageTitle !== '' ? $pageTitle.' - NEXA Suite Admin' : 'NEXA Suite Admin';
 @endphp
 <title>{{ $htmlTitle }}</title>
 <meta charset="utf-8" />
@@ -17,7 +17,7 @@
 <meta content="{{ url(request()->path()) }}" property="og:url" />
 <meta content="nl_NL" property="og:locale" />
 <meta content="website" property="og:type" />
-<meta content="NEXA SaaS Admin" property="og:site_name" />
+<meta content="NEXA Suite Admin" property="og:site_name" />
 <meta content="{{ $htmlTitle }}" property="og:title" />
 <meta content="" property="og:description" />
 <meta content="{{ asset('assets/media/app/og-image.png') }}" property="og:image" />

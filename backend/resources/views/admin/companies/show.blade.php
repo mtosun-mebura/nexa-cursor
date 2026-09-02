@@ -23,7 +23,7 @@
                 <div class="font-medium">Company-admin ontbreekt — welkomstmail is nog niet verstuurd.</div>
                 <p class="text-sm mb-0 mt-1 opacity-90">
                     De wizard is niet tot de laatste stap afgerond. {{ $company->email }} heeft nog geen account
-                    en dus ook geen tijdelijk wachtwoord ontvangen.
+                    en dus ook nog geen welkomstmail om een inlogcode aan te vragen.
                 </p>
             </div>
             <form method="POST" action="{{ route('admin.companies.send-welcome', $company) }}" class="shrink-0" id="company-welcome-mail-form">
@@ -531,6 +531,7 @@
 <!-- End of Container -->
 
 <!-- Container -->
+@if(auth()->user()?->hasRole('super-admin'))
 <div class="kt-container-fixed">
     <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5">
         <div class="kt-card-header items-center justify-between gap-3">
@@ -574,6 +575,7 @@
         </div>
     </div>
 </div>
+@endif
 <!-- End of Container -->
 
 <!-- Container -->
@@ -617,7 +619,7 @@
                         @endif
                     </li>
                 @endif
-                @if(auth()->user()->hasRole('super-admin'))
+                @if(auth()->user()->hasRole('super-admin') || app(\App\Services\TenantConfigAccessService::class)->can(auth()->user(), $company, \App\Support\TenantConfigCapability::WEBSITE))
                     <li class="flex flex-wrap items-center gap-2">
                         <span>Website-pagina's voor deze tenant beheren (zoals in wizard stap Website).</span>
                         <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">Naar website-pagina's</a>
@@ -632,7 +634,20 @@
 </div>
 <!-- End of Container -->
 
+@if(auth()->user()?->isSuperAdmin())
+<div class="kt-container-fixed">
+    <div class="mt-5 lg:mt-7.5">
+        @include('admin.companies.partials.config-access', [
+            'company' => $company,
+            'configAccessUsers' => $company->users->sortBy('email'),
+            'grantsByUserId' => app(\App\Services\TenantConfigAccessService::class)->grantsByUserId($company),
+        ])
+    </div>
+</div>
+@endif
+
 <!-- Container -->
+@if(auth()->user()?->hasRole('super-admin') || app(\App\Services\TenantConfigAccessService::class)->can(auth()->user(), $company, \App\Support\TenantConfigCapability::DOMAIN))
 <div class="kt-container-fixed">
     <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5">
         <div class="kt-card-header">
@@ -700,6 +715,7 @@
         </div>
     </div>
 </div>
+@endif
 <!-- End of Container -->
 
 <!-- Container -->

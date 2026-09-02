@@ -57,8 +57,8 @@ class SystemUpgradeService
             $composerPackages = $this->composerPackagesFromSelections($selections);
             if ($composerPackages !== [] || in_array('step:composer', $selections, true)) {
                 $command = $composerPackages !== []
-                    ? 'composer update '.implode(' ', array_map('escapeshellarg', $composerPackages)).' --no-interaction --no-ansi --prefer-dist'
-                    : 'composer update --no-interaction --no-ansi --prefer-dist';
+                    ? 'composer update '.implode(' ', array_map('escapeshellarg', $composerPackages)).' --with-all-dependencies --no-interaction --no-ansi --prefer-dist'
+                    : 'composer update --with-all-dependencies --no-interaction --no-ansi --prefer-dist';
                 $this->runShellStep($emit, $steps, 'Composer dependencies bijwerken', $command, 900);
             }
 
@@ -83,7 +83,14 @@ class SystemUpgradeService
             }
 
             if (in_array('step:tests', $selections, true)) {
-                $this->runArtisanStep($emit, $steps, 'Unit tests uitvoeren', ['test', '--colors=never'], 1200);
+                $this->runArtisanStep(
+                    $emit,
+                    $steps,
+                    'Unit tests uitvoeren',
+                    ['test', '--colors=never', '--without-tty'],
+                    1200,
+                    $this->phpunitProcessEnvironment(),
+                );
             }
 
             $toStack = $this->snapshots->capture();
@@ -189,7 +196,9 @@ class SystemUpgradeService
         });
 
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException(trim($label.' mislukt: '.$process->getErrorOutput()."\n".$process->getOutput()));
+            throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
+                $process->getErrorOutput()."\n".$process->getOutput()
+            )));
         }
 
         $this->markLastStepDone($steps, $output);
@@ -199,13 +208,14 @@ class SystemUpgradeService
     /**
      * @param  list<string>  $artisanArgs
      * @param  list<array{label: string, status: string, output?: string}>  $steps
+     * @param  array<string, string>|null  $env
      */
-    private function runArtisanStep(?callable $emit, array &$steps, string $label, array $artisanArgs, int $timeout): void
+    private function runArtisanStep(?callable $emit, array &$steps, string $label, array $artisanArgs, int $timeout, ?array $env = null): void
     {
         $this->step($emit, $steps, $label, 'running');
 
         $command = array_merge([PHP_BINARY, base_path('artisan')], $artisanArgs);
-        $process = new Process($command, base_path(), null, null, $timeout);
+        $process = new Process($command, base_path(), $env, null, $timeout);
         $output = '';
 
         $process->run(function (string $type, string $buffer) use ($emit, &$output): void {
@@ -217,7 +227,9 @@ class SystemUpgradeService
         });
 
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException(trim($label.' mislukt: '.$process->getErrorOutput()."\n".$process->getOutput()));
+            throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
+                $process->getErrorOutput()."\n".$process->getOutput()
+            )));
         }
 
         $this->markLastStepDone($steps, $output);
@@ -279,5 +291,38 @@ class SystemUpgradeService
         $process->run();
 
         return $process->isSuccessful();
+    }
+
+    /**
+     * Tests vanuit de web-upgrade erven anders DB_CONNECTION=pgsql uit de draaiende app.
+     *
+     * @return array<string, string>
+     */
+    private function phpunitProcessEnvironment(): array
+    {
+        return [
+            'APP_ENV' => 'testing',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+            'CACHE_STORE' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'SESSION_DRIVER' => 'array',
+            'MAIL_MAILER' => 'array',
+            'PULSE_ENABLED' => 'false',
+            'TELESCOPE_ENABLED' => 'false',
+            'NIGHTWATCH_ENABLED' => 'false',
+        ];
+    }
+
+    private function truncateProcessOutput(string $output, int $max = 6000): string
+    {
+        $output = trim($output);
+        if ($output === '' || mb_strlen($output) <= $max) {
+            return $output;
+        }
+
+        $head = 1800;
+
+        return mb_substr($output, 0, $head)."\n…\n".mb_substr($output, -($max - $head));
     }
 }

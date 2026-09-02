@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\WebsiteMedia;
 use App\Services\ModuleContextService;
+use App\Services\TenantConfigAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -161,8 +162,14 @@ class AdminWebsiteMediaController extends Controller
 
     protected function ensureSuperAdmin(): void
     {
-        if (!auth()->check() || !auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admins hebben toegang tot website-media upload.');
-        }
+        $user = auth()->user();
+        $companyId = $user?->isSuperAdmin()
+            ? (session('selected_tenant') ? (int) session('selected_tenant') : null)
+            : ($user?->company_id ? (int) $user->company_id : null);
+
+        app(TenantConfigAccessService::class)->assertWebsiteAccess(
+            $user,
+            $companyId,
+        );
     }
 }

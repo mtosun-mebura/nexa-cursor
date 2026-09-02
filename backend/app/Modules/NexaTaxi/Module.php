@@ -92,6 +92,25 @@ class Module extends BaseModule
                 ],
             ],
             [
+                'key' => 'gps_tracking',
+                'title' => 'GPS-tracker',
+                'route' => 'admin.taxi.gps_tracking.index',
+                'icon' => 'ki-filled ki-geolocation',
+                'permission_any' => ['vehicles.view', 'rides.view'],
+                'package_capability' => TenantPackageCapability::GPS_TRACKING,
+                'order' => 24,
+                'children' => [
+                    [
+                        'title' => 'Voertuigen',
+                        'route' => 'admin.taxi.gps_tracking.index',
+                    ],
+                    [
+                        'title' => 'Configuratie',
+                        'route' => 'admin.taxi.gps_tracking.settings',
+                    ],
+                ],
+            ],
+            [
                 'key' => 'dispatch_settings',
                 'title' => 'Chauffeur dispatch',
                 'route' => 'admin.taxi.dispatch_settings.edit',

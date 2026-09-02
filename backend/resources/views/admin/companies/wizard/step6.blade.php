@@ -5,29 +5,27 @@
 @section('wizard_content')
 <form method="post" action="{{ route('admin.companies.wizard.submit-step', [$company, 6]) }}">
     @csrf
-    <div class="kt-card min-w-full mb-6">
-        <div class="kt-card-header">
-            <h3 class="kt-card-title">Website & pagina’s</h3>
+    <div class="kt-card w-full min-w-0 mb-6 overflow-hidden">
+        <div class="kt-card-header px-5 py-5">
+            <h3 class="kt-card-title mb-0">Website & pagina’s</h3>
         </div>
-        <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
-                <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Uitleg</td>
-                    <td class="min-w-48 w-full">
-                        <p class="text-sm text-secondary-foreground mb-4">
-                            Stel de openbare website samen met de website-builder: pagina’s, thema-blokken en componenten. Dit is meestal een globale configuratie; voor tenant-specifieke sites volgt later koppeling per domein.
-                        </p>
-                        @if(auth()->user()->hasRole('super-admin'))
-                            <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => $currentStep]) }}" class="kt-btn kt-btn-outline">
-                                <i class="ki-filled ki-screen me-2"></i>
-                                Website-pagina’s beheren
-                            </a>
-                        @else
-                            <p class="text-sm text-muted-foreground mb-0">Alleen super-admin kan website-pagina’s beheren. Vraag een beheerder om de site in te richten.</p>
-                        @endif
-                    </td>
-                </tr>
-            </table>
+        <div class="kt-card-content p-5 min-w-0">
+            <div class="flex flex-col gap-2 sm:flex-row sm:gap-6 min-w-0">
+                <div class="shrink-0 text-sm text-secondary-foreground font-normal w-24 sm:pt-0.5">Uitleg</div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm text-secondary-foreground mb-4 break-words">
+                        Stel de openbare website samen met de website-builder: pagina’s, thema-blokken en componenten. Dit is meestal een globale configuratie; voor tenant-specifieke sites volgt later koppeling per domein.
+                    </p>
+                    @if(! empty($canConfigureWebsite))
+                        <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => $currentStep]) }}" class="kt-btn kt-btn-outline">
+                            <i class="ki-filled ki-screen me-2"></i>
+                            Website-pagina’s beheren
+                        </a>
+                    @else
+                        <p class="text-sm text-muted-foreground mb-0 break-words">Alleen super-admin of gebruikers met website-toegang kunnen website-pagina’s beheren.</p>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 

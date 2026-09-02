@@ -25,14 +25,7 @@ class TransportAnnouncementController extends Controller
         $customer = TransportCustomer::on($conn)->findOrFail($customerId);
         $this->assertCustomerInTenant($customer);
 
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:200'],
-            'body' => ['nullable', 'string', 'max:2000'],
-            'severity' => ['required', 'in:info,warning,critical'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'is_active' => ['sometimes', 'boolean'],
-        ]);
+        $data = $this->validatedAnnouncementData($request);
 
         TransportAnnouncement::on($conn)->create([
             'company_id' => (int) $customer->company_id,
@@ -46,7 +39,7 @@ class TransportAnnouncementController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.taxi.transport_customers.show', $customer->id)
+            ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'meldingen'])
             ->with('success', 'Verstoring / melding geplaatst.');
     }
 
@@ -64,14 +57,7 @@ class TransportAnnouncementController extends Controller
             ->where('transport_customer_id', $customer->id)
             ->findOrFail($announcementId);
 
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:200'],
-            'body' => ['nullable', 'string', 'max:2000'],
-            'severity' => ['required', 'in:info,warning,critical'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'is_active' => ['sometimes', 'boolean'],
-        ]);
+        $data = $this->validatedAnnouncementData($request);
 
         $announcement->update([
             'title' => $data['title'],
@@ -83,7 +69,7 @@ class TransportAnnouncementController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.taxi.transport_customers.show', $customer->id)
+            ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'meldingen'])
             ->with('success', 'Melding bijgewerkt.');
     }
 
@@ -103,8 +89,25 @@ class TransportAnnouncementController extends Controller
             ->delete();
 
         return redirect()
-            ->route('admin.taxi.transport_customers.show', $customer->id)
+            ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'meldingen'])
             ->with('success', 'Melding verwijderd.');
+    }
+
+    private function validatedAnnouncementData(Request $request): array
+    {
+        $request->merge([
+            'starts_at' => parse_admin_datetime($request->input('starts_at')),
+            'ends_at' => parse_admin_datetime($request->input('ends_at')),
+        ]);
+
+        return $request->validate([
+            'title' => ['required', 'string', 'max:200'],
+            'body' => ['nullable', 'string', 'max:2000'],
+            'severity' => ['required', 'in:info,warning,critical'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
     }
 
     private function assertCustomerInTenant(TransportCustomer $customer): void

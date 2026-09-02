@@ -45,6 +45,9 @@ return [
         'api_key' => env('OPENAI_API_KEY'),
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
         'web_search_model' => env('OPENAI_WEB_SEARCH_MODEL', 'gpt-4o-mini'),
+        'image_model' => env('OPENAI_IMAGE_MODEL', 'dall-e-3'),
+        'image_quality' => env('OPENAI_IMAGE_QUALITY', 'hd'),
+        'image_size' => env('OPENAI_IMAGE_SIZE', '1792x1024'),
     ],
 
     'hunter' => [

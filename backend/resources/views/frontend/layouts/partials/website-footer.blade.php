@@ -1,13 +1,14 @@
 @php
     $homeSections = $homeSections ?? [];
-    $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+    $websiteBuilder = $websiteBuilder ?? app(\App\Services\WebsiteBuilderService::class);
+    $branding = $branding ?? $websiteBuilder->getSiteBranding();
     $themeSettings = $themeSettings ?? [];
+    $homeSections = $websiteBuilder->preparePublicFooterSections($homeSections);
 @endphp
     <footer class="{{ !empty($homeSections) ? 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' }} border-t border-gray-200 dark:border-gray-600">
         @if(!empty($homeSections) && ($homeSections['visibility']['footer'] ?? true) && (!empty($homeSections['footer']) || !empty($homeSections['copyright'])))
             @php
                 $footerData = $homeSections['footer'] ?? [];
-                $websiteBuilder = app(\App\Services\WebsiteBuilderService::class);
                 $footerLogoUrl = ! empty($footerData['logo_url'])
                     ? $websiteBuilder->storageUrlToDisplayUrl($footerData['logo_url'])
                     : ($branding['logo_url'] ?? null);
@@ -25,7 +26,7 @@
                     $footerLogoImgClass = 'w-auto h-'.$footerLogoTw.' object-contain';
                     $footerLogoImgStyle = '';
                 } else {
-                    $footerLogoPx = (int) ($branding['logo_size_px'] ?? app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx());
+                    $footerLogoPx = (int) ($branding['logo_size_px'] ?? $websiteBuilder->resolveLogoSizePx());
                     $footerLogoImgClass = 'w-auto max-w-[350px] object-contain';
                     $footerLogoImgStyle = 'height: '.$footerLogoPx.'px';
                 }

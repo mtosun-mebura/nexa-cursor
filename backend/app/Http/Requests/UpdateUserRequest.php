@@ -22,6 +22,7 @@ class UpdateUserRequest extends BaseFormRequest
     public function rules(): array
     {
         $userId = $this->route('user')->id ?? null;
+        $canEditRoles = $this->canEditRolesForTarget();
 
         return [
             'first_name' => [
@@ -71,11 +72,16 @@ class UpdateUserRequest extends BaseFormRequest
                 'nullable',
                 'exists:companies,id',
             ],
-            'roles' => [
-                'required',
-                'array',
-                'min:1',
-            ],
+            'roles' => $canEditRoles
+                ? [
+                    'required',
+                    'array',
+                    'min:1',
+                ]
+                : [
+                    'nullable',
+                    'array',
+                ],
             'roles.*' => [
                 'string',
                 'distinct',
@@ -92,6 +98,9 @@ class UpdateUserRequest extends BaseFormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
+            if (! $this->canEditRolesForTarget()) {
+                return;
+            }
             $roles = $this->input('roles', []);
             if (! is_array($roles)) {
                 return;
@@ -100,6 +109,14 @@ class UpdateUserRequest extends BaseFormRequest
                 $validator->errors()->add('roles', 'Je mag geen super-admin rol toewijzen.');
             }
         });
+    }
+
+    private function canEditRolesForTarget(): bool
+    {
+        $actor = auth()->user();
+        $target = $this->route('user');
+
+        return $actor && $target instanceof \App\Models\User && $actor->canEditRolesOf($target);
     }
 
     public function messages(): array

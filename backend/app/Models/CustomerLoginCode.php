@@ -15,6 +15,8 @@ class CustomerLoginCode extends Model
 
     public const PURPOSE_CONTRACT = 'contract';
 
+    public const PURPOSE_ADMIN = 'admin';
+
     protected $fillable = [
         'user_id',
         'purpose',

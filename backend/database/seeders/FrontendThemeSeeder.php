@@ -124,6 +124,11 @@ class FrontendThemeSeeder extends Seeder
         ];
 
         foreach ($themes as $theme) {
+            $existing = FrontendTheme::query()->where('slug', $theme['slug'])->first();
+            if ($existing) {
+                // Niet overschrijven: publiceren/depubliceren is een beheeractie, geen seed-default.
+                unset($theme['is_active']);
+            }
             FrontendTheme::updateOrCreate(
                 ['slug' => $theme['slug']],
                 $theme

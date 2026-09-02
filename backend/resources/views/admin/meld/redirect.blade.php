@@ -16,7 +16,7 @@
 <body class="antialiased flex min-h-screen items-center justify-center bg-gray-100 p-4 text-gray-900 dark:bg-slate-950 dark:text-gray-100">
     <div class="w-full max-w-md">
         <div class="mb-6 text-center">
-            @include('partials.nexa-brand-logo', ['class' => 'h-10 w-auto mx-auto object-contain dark:brightness-0 dark:invert'])
+            @include('partials.nexa-brand-logo', ['class' => 'h-10 w-auto mx-auto object-contain'])
         </div>
         @include('partials.redirect-message', ['redirectSeconds' => 5])
     </div>

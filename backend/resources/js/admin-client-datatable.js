@@ -1,6 +1,6 @@
 const FILTER_DELAY_MS = 120;
 const PAGE_MORE_LIMIT = 5;
-const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 function ensureAdminDatatableSizeSelectOptions(select, pageSize) {
     if (!select) {
@@ -230,8 +230,33 @@ export class AdminClientDatatable {
             this.updateResetButton();
         });
 
+        this.root.__adminDatatable = this;
         this.applyFilter();
         setTimeout(initAdminDatatableMenus, 200);
+    }
+
+    reloadRows() {
+        const previousPage = this.page;
+        this.table = this.root.querySelector('table');
+        this.tbody = this.table?.querySelector('tbody');
+        if (!this.tbody) {
+            return;
+        }
+
+        this.allRows = Array.from(this.tbody.querySelectorAll(':scope > tr'))
+            .filter((row) => !row.querySelector('td[colspan]'))
+            .map((row) => ({
+                row,
+                searchText: normalizeAdminDatatableSearchValue(
+                    row.getAttribute('data-search-text') || row.textContent
+                ),
+                filters: this.readRowFilters(row),
+            }));
+
+        this.lastTotalPages = null;
+        this.applyFilter();
+        this.goToPage(previousPage);
+        this.updateResetButton();
     }
 
     readRowFilters(row) {
@@ -468,7 +493,12 @@ export function initAdminClientDatatables(root = document) {
         element.dataset.adminDatatableInit = '1';
         const datatable = new AdminClientDatatable(element);
         datatable.init();
+        element.__adminDatatable = datatable;
     });
+}
+
+if (typeof window !== 'undefined') {
+    window.initAdminClientDatatables = initAdminClientDatatables;
 }
 
 if (document.readyState === 'loading') {

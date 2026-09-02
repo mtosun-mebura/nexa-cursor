@@ -180,6 +180,14 @@
                 <td class="voor">rides.view plus pakket-capability contract_transport. Zie tabel 2. Demo: menu-key transport_customers, daarna hetzelfde pakketfilter.</td>
             </tr>
             <tr>
+                <td>GPS-tracker (+ Voertuigen)</td>
+                <td class="c cond">Voorwaarde</td>
+                <td class="c cond">Voorwaarde</td>
+                <td class="c no">Nee</td>
+                <td class="c cond">Voorwaarde</td>
+                <td class="voor">vehicles.view of rides.view plus aanvullende module GPS-trackers (package_capability gps_tracking). Menu-key gps_tracking. Niet in de demo-sleutels.</td>
+            </tr>
+            <tr>
                 <td>Chauffeur dispatch</td>
                 <td class="c cond">Voorwaarde</td>
                 <td class="c cond">Voorwaarde</td>

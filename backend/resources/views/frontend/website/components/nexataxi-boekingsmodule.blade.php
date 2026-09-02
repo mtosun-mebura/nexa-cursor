@@ -86,6 +86,8 @@
     $titleFontPxVal = max(16, min(72, $titleFontPxVal));
     $stepHeadingFontPxVal = (int) ($sectionStyle['step_heading_font_size_px'] ?? 30);
     $stepHeadingFontPxVal = max(16, min(48, $stepHeadingFontPxVal));
+    $fieldHeadingFontPxVal = (int) ($sectionStyle['field_heading_font_size_px'] ?? 16);
+    $fieldHeadingFontPxVal = max(12, min(28, $fieldHeadingFontPxVal));
     $stepHeadingStyle = 'color: '.e($sectionStyle['primary_color'] ?? $bookingDefaultAccent).';';
     $routeMapZoomVal = max(1, min(21, (int) ($sectionStyle['route_map_zoom'] ?? 14)));
     $routeMapImgScale = 0.68 + ($routeMapZoomVal - 1) * (0.64 / 20);
@@ -108,6 +110,7 @@
         '--booking-route-map-img-scale: '.$routeMapImgScale,
         '--booking-title-size-max: '.$titleFontPxVal.'px',
         '--booking-step-heading-size-max: '.$stepHeadingFontPxVal.'px',
+        '--booking-field-heading-size: '.$fieldHeadingFontPxVal.'px',
         '--booking-card-radius: '.$bookingCardRadiusPx.'px',
     ];
     if (! $bookingPortalMode && ! empty($sectionStyle['container_max_width'])) {
@@ -308,7 +311,7 @@
                     <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['trip'] ?? 'Reisgegevens') }}</h3>
                     <div class="booking-trip-layout">
                         <div class="booking-trip-left space-y-5">
-                            <label class="block text-base font-semibold text-heading">Waar wil je heen?</label>
+                            <label class="booking-module-field-heading block font-semibold text-heading">Waar wil je heen?</label>
                             <div class="booking-route-wrap">
                                 <div class="booking-route-icons text-fg-brand shrink-0">
                                     <div class="booking-route-icons-list" data-route-icons-list></div>
@@ -354,14 +357,14 @@
                             </div>
                             <div class="pt-1">
                                 @if(empty($logic['skip_baggage_step']))
-                                <label class="block mb-2.5 text-sm font-semibold text-heading">Reis je met bagage?</label>
-                                <div class="flex flex-wrap items-center gap-5 text-heading">
-                                    <label class="inline-flex items-center gap-2">
-                                        <input type="radio" name="booking_has_baggage_ui" value="yes" class="w-4 h-4 border border-default-medium rounded-full bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-has-baggage-choice="yes" checked>
+                                <label class="booking-module-field-heading block mb-2.5 font-semibold text-heading">Reis je met bagage?</label>
+                                <div class="booking-baggage-choice flex flex-wrap items-center gap-4 text-xs md:text-sm font-medium text-heading">
+                                    <label class="inline-flex items-center gap-1.5">
+                                        <input type="radio" name="booking_has_baggage_ui" value="yes" class="w-3 h-3 border border-default-medium rounded-full bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-has-baggage-choice="yes" checked>
                                         <span>Ja</span>
                                     </label>
-                                    <label class="inline-flex items-center gap-2">
-                                        <input type="radio" name="booking_has_baggage_ui" value="no" class="w-4 h-4 border border-default-medium rounded-full bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-has-baggage-choice="no">
+                                    <label class="inline-flex items-center gap-1.5">
+                                        <input type="radio" name="booking_has_baggage_ui" value="no" class="w-3 h-3 border border-default-medium rounded-full bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-has-baggage-choice="no">
                                         <span>Nee, ik heb geen bagage</span>
                                     </label>
                                 </div>
@@ -421,7 +424,7 @@
                         </div>
                         <div class="booking-trip-right space-y-5">
                             <div>
-                                <label class="block mb-2.5 text-base font-semibold text-heading">Ophaalmoment taxi</label>
+                                <label class="booking-module-field-heading block mb-2.5 font-semibold text-heading">Ophaalmoment taxi</label>
                                 <div class="relative mt-1 booking-datetime-wrap">
                                     <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 2v3m8-3v3M3 9h18M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
@@ -437,7 +440,7 @@
                             <div>
                                 <label class="inline-flex cursor-pointer select-none items-center gap-2.5">
                                     <input type="checkbox" role="switch" class="kt-switch kt-switch-sm shrink-0" data-field="return_trip" {{ !empty($logic['return_enabled_by_default']) ? 'checked' : '' }}>
-                                    <span class="text-heading text-base font-semibold">Retour</span>
+                                    <span class="booking-module-field-heading text-heading font-semibold">Retour</span>
                                 </label>
                                 <div class="relative mt-3 booking-datetime-wrap booking-return-datetime-wrap">
                                     <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -990,10 +993,13 @@
     }
 }
 .booking-module-title {
-    font-size: clamp(1.125rem, 4vw + 0.5rem, var(--booking-title-size-max, 2.25rem));
+    font-size: var(--booking-title-size-max, 2.25rem);
 }
 .booking-module-step-heading {
-    font-size: clamp(1rem, 2.5vw + 0.5rem, var(--booking-step-heading-size-max, 1.875rem));
+    font-size: var(--booking-step-heading-size-max, 1.875rem);
+}
+.booking-module-field-heading {
+    font-size: var(--booking-field-heading-size, 1rem);
 }
 
 /* Scroll-reveal: alleen animeren als JS expliciet wil; default altijd zichtbaar */
@@ -1035,7 +1041,11 @@
 
 [data-nexataxi-booking-module]:not(.booking-module--portal) .booking-module-step-heading {
     margin-bottom: 0.5rem !important;
-    font-size: clamp(0.95rem, 1.8vw + 0.45rem, 1.35rem);
+    font-size: var(--booking-step-heading-size-max, 1.35rem);
+}
+
+[data-nexataxi-booking-module] .booking-module-field-heading {
+    font-size: var(--booking-field-heading-size, 1rem);
 }
 
 [data-nexataxi-booking-module]:not(.booking-module--portal) .booking-trip-left.space-y-5 {
@@ -1652,11 +1662,62 @@ body.booking-modal-open {
 }
 
 [data-nexataxi-booking-module] [data-stopovers-list] {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 0;
+}
+
+[data-nexataxi-booking-module] [data-stopovers-list]:empty {
+    display: none;
+}
+
+[data-nexataxi-booking-module] .booking-stopover-row.is-dragging {
+    opacity: 0.62;
+    z-index: 40;
+}
+
+[data-nexataxi-booking-module] .booking-stopover-drag {
+    position: absolute;
+    right: 2.15rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    border-radius: 0.375rem;
+    color: inherit;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+    z-index: 2;
+    -webkit-user-drag: element;
+    user-select: none;
+}
+
+[data-nexataxi-booking-module] .booking-stopover-row[data-stopover-sortable="1"] .booking-stopover-drag {
+    display: inline-flex;
+}
+
+[data-nexataxi-booking-module] .booking-stopover-row.is-dragging .booking-stopover-drag {
+    cursor: grabbing;
+}
+
+[data-nexataxi-booking-module] .booking-stopover-drag:hover,
+[data-nexataxi-booking-module] .booking-stopover-drag:focus-visible {
+    background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 [data-nexataxi-booking-module] .booking-route-fields input {
     width: 100%;
+}
+
+[data-nexataxi-booking-module] .booking-baggage-choice input[type="radio"] {
+    width: 1em;
+    height: 1em;
 }
 
 [data-nexataxi-booking-module] .booking-address-suggestions-panel,
@@ -3627,6 +3688,8 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         if (hint) {
             hint.classList.toggle('hidden', hasStops);
         }
+        indexStopoverRows();
+        syncStopoverDragHandles();
         renderRouteIcons(list.children.length);
         syncRouteFieldLabels();
     }
@@ -3751,12 +3814,203 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         row.className = 'relative booking-route-field-row booking-stopover-row';
         row.setAttribute('data-route-row', 'stopover');
         row.innerHTML =
-            '<span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none" data-route-field-label>stop</span>' +
-            '<input type="text" style="padding-left: 70px;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full pe-10 py-3.5 shadow-xs placeholder:text-body" data-stopover-input placeholder="tussenstop adres">' +
+            '<span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none pointer-events-none" data-route-field-label>stop</span>' +
+            '<input type="text" style="padding-left: 70px; padding-right: 4.5rem;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full py-3.5 shadow-xs placeholder:text-body" data-stopover-input placeholder="tussenstop adres">' +
+            '<span class="booking-stopover-drag text-fg-brand" data-stopover-drag draggable="true" role="button" tabindex="0" aria-label="Sleep om volgorde te wijzigen" title="Sleep om volgorde te wijzigen">' +
+                '<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" draggable="false"><path d="M7 4a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 7 4Zm0 6a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 7 10Zm0 6a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 7 16Zm8.5-12a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 15.5 4Zm0 6a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 15.5 10Zm0 6a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 15.5 16Z"/></svg>' +
+            '</span>' +
             '<button type="button" class="booking-stopover-remove absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-brand hover:bg-neutral-secondary-soft" aria-label="Verwijder tussenstop">×</button>';
         var input = row.querySelector('[data-stopover-input]');
         if (input) input.value = value || '';
         return row;
+    }
+
+    function getStopoverRows() {
+        var list = root.querySelector('[data-stopovers-list]');
+        return list ? Array.from(list.querySelectorAll('[data-route-row="stopover"]')) : [];
+    }
+
+    function indexStopoverRows() {
+        getStopoverRows().forEach(function(row, index) {
+            row.setAttribute('data-stopover-index', String(index));
+        });
+    }
+
+    function syncStopoverDragHandles() {
+        var stopRows = getStopoverRows();
+        var sortable = stopRows.length > 1;
+        stopRows.forEach(function(row) {
+            row.setAttribute('data-stopover-sortable', sortable ? '1' : '0');
+        });
+    }
+
+    function permuteStopoversGeoToDom() {
+        var stopRows = getStopoverRows();
+        var oldGeo = Array.isArray(state.stopovers_geo) ? state.stopovers_geo.slice() : [];
+        state.stopovers_geo = stopRows.map(function(row) {
+            var oldIndex = parseInt(row.getAttribute('data-stopover-index'), 10);
+            if (Number.isNaN(oldIndex)) return null;
+            return oldGeo[oldIndex] || null;
+        });
+        indexStopoverRows();
+    }
+
+    function afterStopoverOrderChanged() {
+        permuteStopoversGeoToDom();
+        syncStateFromFields();
+        state.summary_route_polyline = '';
+        liveRouteCalcLastSignature = '';
+        liveRouteMapRenderSignature = '';
+        snapshotRouteAddressInputs();
+        scheduleRouteIconAlignment();
+        if (bookingSplitMapV2) {
+            ensureLiveMapRouteReady();
+        } else if (window.__nexataxiBookingRouteCalc) {
+            window.__nexataxiBookingRouteCalc();
+        } else {
+            requestQuotes();
+        }
+    }
+
+    function bindStopoverSortable() {
+        var list = root.querySelector('[data-stopovers-list]');
+        if (!list || list.getAttribute('data-stopover-sort-bound') === '1') return;
+        list.setAttribute('data-stopover-sort-bound', '1');
+        var drag = null;
+
+        function placeRowAtPointer(row, clientY) {
+            var others = getStopoverRows().filter(function(item) { return item !== row; });
+            var inserted = false;
+            for (var i = 0; i < others.length; i += 1) {
+                var rect = others[i].getBoundingClientRect();
+                if (clientY < rect.top + (rect.height / 2)) {
+                    list.insertBefore(row, others[i]);
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) list.appendChild(row);
+            syncRouteFieldLabels();
+            scheduleRouteIconAlignment();
+        }
+
+        function restoreStartOrder(startOrder) {
+            if (!startOrder || !startOrder.length) return;
+            startOrder.forEach(function(row) {
+                list.appendChild(row);
+            });
+        }
+
+        function orderChanged(startOrder) {
+            var now = getStopoverRows();
+            return now.length !== startOrder.length || now.some(function(row, i) { return row !== startOrder[i]; });
+        }
+
+        function startDrag(row, pointerId) {
+            indexStopoverRows();
+            drag = {
+                row: row,
+                pointerId: pointerId,
+                startOrder: getStopoverRows().slice(),
+                bodySelect: document.body.style.userSelect,
+                bodyCursor: document.body.style.cursor
+            };
+            row.classList.add('is-dragging');
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'grabbing';
+        }
+
+        function onHtml5DragOver(e) {
+            if (!drag) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            placeRowAtPointer(drag.row, e.clientY);
+        }
+
+        function onPointerMove(e) {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            e.preventDefault();
+            placeRowAtPointer(drag.row, e.clientY);
+        }
+
+        function finishDrag(commit) {
+            if (!drag) return;
+            var session = drag;
+            drag = null;
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+            document.removeEventListener('pointercancel', onPointerCancel);
+            document.removeEventListener('dragover', onHtml5DragOver);
+            session.row.classList.remove('is-dragging');
+            document.body.style.userSelect = session.bodySelect || '';
+            document.body.style.cursor = session.bodyCursor || '';
+            if (commit && orderChanged(session.startOrder)) {
+                afterStopoverOrderChanged();
+            } else {
+                if (!commit) restoreStartOrder(session.startOrder);
+                scheduleRouteIconAlignment();
+            }
+        }
+
+        function onPointerUp(e) {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            finishDrag(true);
+        }
+
+        function onPointerCancel(e) {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            finishDrag(false);
+        }
+
+        list.addEventListener('pointerdown', function(e) {
+            var handle = e.target.closest('[data-stopover-drag]');
+            if (!handle || !list.contains(handle)) return;
+            if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+            if (e.button != null && e.button !== 0) return;
+            var row = handle.closest('[data-route-row="stopover"]');
+            if (!row || row.getAttribute('data-stopover-sortable') !== '1') return;
+            e.preventDefault();
+            e.stopPropagation();
+            startDrag(row, e.pointerId);
+            try {
+                handle.setPointerCapture(e.pointerId);
+            } catch (err) {}
+            document.addEventListener('pointermove', onPointerMove, { passive: false });
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointercancel', onPointerCancel);
+        });
+
+        list.addEventListener('dragstart', function(e) {
+            var handle = e.target.closest('[data-stopover-drag]');
+            if (!handle || !list.contains(handle)) return;
+            var row = handle.closest('[data-route-row="stopover"]');
+            if (!row || row.getAttribute('data-stopover-sortable') !== '1') {
+                e.preventDefault();
+                return;
+            }
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', 'stopover');
+                try {
+                    e.dataTransfer.setDragImage(row, 24, 24);
+                } catch (err) {}
+            }
+            startDrag(row, null);
+            document.addEventListener('dragover', onHtml5DragOver);
+        });
+
+        list.addEventListener('dragover', onHtml5DragOver);
+
+        list.addEventListener('drop', function(e) {
+            if (!drag) return;
+            e.preventDefault();
+            placeRowAtPointer(drag.row, e.clientY);
+            finishDrag(true);
+        });
+
+        list.addEventListener('dragend', function() {
+            if (drag) finishDrag(true);
+        });
     }
 
     function addStopover(initialValue) {
@@ -7585,10 +7839,14 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
                 state.dropoff_lng = lng;
                 if (state.stopovers && state.stopovers.length) {
                     state.stopovers.reverse();
+                    if (Array.isArray(state.stopovers_geo) && state.stopovers_geo.length) {
+                        state.stopovers_geo.reverse();
+                    }
                     var stopoverInputs = root.querySelectorAll('[data-stopover-input]');
                     stopoverInputs.forEach(function(input, index) {
                         input.value = state.stopovers[index] || '';
                     });
+                    indexStopoverRows();
                 }
                 syncStateFromFields();
                 state.summary_route_polyline = '';
@@ -7783,6 +8041,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             });
         }
         setupAddressTypeaheadFallback();
+        bindStopoverSortable();
         bindBookingModuleDomEvents();
         initGoogleMaps();
         if (bookingSplitMapV2 && mapsApiKey && window.google && google.maps) {

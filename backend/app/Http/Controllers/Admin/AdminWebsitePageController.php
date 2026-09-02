@@ -16,6 +16,7 @@ use App\Services\ModuleContextService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\NexaTaxiBookingPricingService;
+use App\Services\TenantConfigAccessService;
 use App\Services\WebsiteBuilderService;
 use App\Services\WebsitePageSeoGeneratorService;
 use App\Services\WebsiteStructuredDataService;
@@ -4191,9 +4192,14 @@ class AdminWebsitePageController extends Controller
 
     protected function ensureSuperAdmin(): void
     {
-        if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admins hebben toegang tot website-pagina\'s.');
+        $user = auth()->user();
+        $companyId = $this->resolveTenantCompanyIdForWebsitePagesList(request());
+        $page = request()->route('website_page');
+        if ($companyId === null && is_object($page) && isset($page->company_id) && $page->company_id) {
+            $companyId = (int) $page->company_id;
         }
+
+        app(TenantConfigAccessService::class)->assertWebsiteAccess($user, $companyId);
     }
 
     /**
@@ -4291,7 +4297,7 @@ class AdminWebsitePageController extends Controller
                 $q = [
                     'from_wizard' => 1,
                     'wizard_company' => (int) $companyId,
-                    'wizard_step' => max(1, min(7, (int) $request->input('wizard_step', 6))),
+                    'wizard_step' => AdminCompanyWizardController::clampStep((int) $request->input('wizard_step', 6)),
                 ];
             }
         }
@@ -4343,7 +4349,7 @@ class AdminWebsitePageController extends Controller
         $request->merge([
             'from_wizard' => '1',
             'wizard_company' => (string) (int) $sid,
-            'wizard_step' => (string) max(1, min(7, (int) $request->input('wizard_step', 6))),
+            'wizard_step' => (string) AdminCompanyWizardController::clampStep((int) $request->input('wizard_step', 6)),
         ]);
     }
 
@@ -4514,7 +4520,7 @@ class AdminWebsitePageController extends Controller
             return ['company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')]];
         }
 
-        // Centrale Nexa SaaS-pagina's (geen tenant): bedrijf is optioneel.
+        // Centrale NEXA Suite-pagina's (geen tenant): bedrijf is optioneel.
         return ['company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')]];
     }
 
@@ -4524,16 +4530,15 @@ class AdminWebsitePageController extends Controller
      * @return array{visible: bool, has_company_column: bool, stored_company: ?\App\Models\Company, effective_company: ?\App\Models\Company, stored_id: ?int, show_company_dropdown: bool, companies: \Illuminate\Support\Collection<int, \App\Models\Company>}
      */
     /**
-     * Volledige tenant-website openen (dev: ?_tenant_host=… op APP_URL; productie: primair domein).
+     * Website-voorbeeld: tenant-site (dev: ?_tenant_host=… op APP_URL; productie: primair domein)
+     * of de centrale NEXA-site als er geen tenant is gekozen.
      * Inclusief nexa_admin_preview + admin_back voor terug naar admin.
+     * Zonder tenant: lege ?_tenant_host= wist een eerder gesimuleerde tenant uit de sessie.
      */
     private function buildWebsiteDevPreviewUrl(Request $request, ?WebsitePage $page): ?string
     {
         $company = $this->resolveCompanyForWebsiteDevPreview($request, $page);
         $host = $this->resolveTenantPreviewHost($company);
-        if ($host === null || $host === '') {
-            return null;
-        }
 
         $adminBack = $page !== null
             ? route('admin.website-pages.edit', array_merge(['website_page' => $page], $this->websitePagesIndexQuery($request)), false)
@@ -4545,6 +4550,15 @@ class AdminWebsitePageController extends Controller
         ];
 
         $devParam = (string) config('tenancy.dev_effective_host_query_param', '');
+
+        if ($host === null || $host === '') {
+            if (! app()->isProduction() && $devParam !== '') {
+                $previewQuery[$devParam] = '';
+            }
+
+            return url('/').'?'.http_build_query($previewQuery, '', '&', PHP_QUERY_RFC3986);
+        }
+
         if (! app()->isProduction() && $devParam !== '') {
             $previewQuery[$devParam] = $host;
 

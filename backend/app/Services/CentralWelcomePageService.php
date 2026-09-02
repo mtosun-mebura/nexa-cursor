@@ -58,7 +58,7 @@ class CentralWelcomePageService
     }
 
     /**
-     * Zorgt dat home + productpagina's van de Nexa SaaS-hoofdwebsite bestaan.
+     * Zorgt dat home + productpagina's van de NEXA Suite-hoofdwebsite bestaan.
      *
      * @return Collection<int, WebsitePage>
      */

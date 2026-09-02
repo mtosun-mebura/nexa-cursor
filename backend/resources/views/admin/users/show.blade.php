@@ -77,6 +77,18 @@
         </div>
         <div class="flex items-center gap-2.5">
             @can('edit-users')
+            @if($user->id === auth()->id())
+            <label class="kt-label flex items-center">
+                @php
+                    $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
+                @endphp
+                <input type="checkbox"
+                       class="kt-switch kt-switch-sm"
+                       {{ $isActive ? 'checked' : '' }}
+                       disabled/>
+                <span class="ms-2">Actief</span>
+            </label>
+            @else
             <form action="{{ route('admin.users.toggle-status', $user) }}" method="POST" id="toggle-status-form" class="inline">
                 @csrf
                 <label class="kt-label flex items-center">
@@ -90,6 +102,7 @@
                     <span class="ms-2">Actief</span>
                 </label>
             </form>
+            @endif
             @else
             <label class="kt-label flex items-center">
                 @php

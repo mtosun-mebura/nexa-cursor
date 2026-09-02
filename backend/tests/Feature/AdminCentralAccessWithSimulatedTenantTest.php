@@ -91,4 +91,22 @@ class AdminCentralAccessWithSimulatedTenantTest extends TestCase
             ->get('http://localhost:8085/')
             ->assertOk();
     }
+
+    #[Test]
+    public function empty_tenant_host_query_clears_simulated_tenant_session(): void
+    {
+        $other = Company::query()->create(['name' => 'Andere Taxi', 'is_active' => true]);
+        CompanyDomain::query()->create([
+            'company_id' => $other->id,
+            'host' => 'taxiroyaal.nexasuite.nl',
+            'is_primary' => true,
+        ]);
+
+        $this->withSession([
+            ApplyDevSimulatedTenantHost::SESSION_DEV_EFFECTIVE_HOST => 'taxiroyaal.nexasuite.nl',
+        ])
+            ->get('http://localhost:8085/?nexa_admin_preview=1&_tenant_host=')
+            ->assertOk()
+            ->assertSessionMissing(ApplyDevSimulatedTenantHost::SESSION_DEV_EFFECTIVE_HOST);
+    }
 }

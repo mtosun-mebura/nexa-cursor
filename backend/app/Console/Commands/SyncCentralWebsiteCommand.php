@@ -10,7 +10,7 @@ class SyncCentralWebsiteCommand extends Command
     protected $signature = 'nexa:sync-central-website
                             {--force : Overschrijf bestaande content van de centrale pagina\'s}';
 
-    protected $description = 'Maak of (met --force) vul de Nexa SaaS-hoofdwebsite (home, taxi, contractvervoer, website, contact)';
+    protected $description = 'Maak of (met --force) vul de NEXA Suite-hoofdwebsite (home, taxi, contractvervoer, website, contact)';
 
     public function handle(CentralWelcomePageService $central): int
     {

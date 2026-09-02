@@ -81,6 +81,18 @@ class User extends Authenticatable
     }
 
     /**
+     * Eigen rollen mag de gebruiker niet wijzigen; alleen een super-admin mag rollen aanpassen (ook van zichzelf).
+     */
+    public function canEditRolesOf(User $target): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return (int) $this->getKey() !== (int) $target->getKey();
+    }
+
+    /**
      * Spatie teams: als de super-admin-rol niet via de gefilterde relatie matcht, alsnog true
      * wanneer {@see isSuperAdmin()} dat aangeeft — gelijk aan {@see hasRole()} met rolnaam `super-admin`.
      */

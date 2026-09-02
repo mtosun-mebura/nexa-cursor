@@ -67,12 +67,31 @@
                                 <select name="platform_billing_package_id" class="kt-select w-full" id="platform_billing_package_id" data-invoice-preview-trigger>
                                     <option value="">— Kies —</option>
                                     @foreach($packages as $pkg)
-                                        <option value="{{ $pkg->id }}" @selected((int) old('platform_billing_package_id', $profile->platform_billing_package_id) === $pkg->id)>
+                                        <option value="{{ $pkg->id }}" data-monthly-amount="{{ number_format((float) $pkg->monthly_amount, 2, '.', '') }}" @selected((int) old('platform_billing_package_id', $profile->platform_billing_package_id) === $pkg->id)>
                                             {{ $pkg->name }} (€ {{ number_format((float) $pkg->monthly_amount, 2, ',', '.') }})
                                         </option>
                                     @endforeach
                                 </select>
-                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Prijzen komen uit <a href="{{ route('admin.nexa-pricing.edit') }}" class="underline underline-offset-2">Paketten</a>.</p>
+                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Prijzen komen uit <a href="{{ route('admin.nexa-pricing.edit') }}" class="underline underline-offset-2">Paketten</a>. Nieuwe klanten krijgen de actuele pakketprijs; bestaande klanten houden hun afgesproken bedrag.</p>
+                            </td>
+                        </tr>
+                        <tr data-billing-field-row="package">
+                            <td class="text-secondary-foreground font-normal align-top">Afgesproken maandprijs</td>
+                            <td>
+                                <div class="inline-flex items-stretch">
+                                    <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
+                                    <input class="kt-input rounded-l-none tabular-nums @error('agreed_monthly_amount') border-destructive @enderror"
+                                           type="number"
+                                           step="0.01"
+                                           min="0"
+                                           name="agreed_monthly_amount"
+                                           id="agreed_monthly_amount"
+                                           data-invoice-preview-trigger
+                                           value="{{ old('agreed_monthly_amount', $profile->agreed_monthly_amount) }}"
+                                           style="width: 7.5rem; max-width: 7.5rem;">
+                                </div>
+                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Vastgelegd bij afname. Een tariefswijziging in Paketten past dit bedrag niet automatisch aan.</p>
+                                @error('agreed_monthly_amount')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr data-billing-field-row="custom">
@@ -509,6 +528,7 @@
             billing_mode: readSelectValue('billing_mode') || 'package',
             platform_billing_package_id: readSelectValue('platform_billing_package_id'),
             custom_monthly_amount: readInputValue('custom_monthly_amount'),
+            agreed_monthly_amount: readInputValue('agreed_monthly_amount'),
             discount_percent: readInputValue('discount_percent'),
             extra_lines_discount_percent: readInputValue('extra_lines_discount_percent'),
             subscription_start_date: readDateValue('subscription_start_date'),
@@ -545,6 +565,7 @@
         formData.set('billing_mode', readSelectValue('billing_mode') || 'package');
         formData.set('platform_billing_package_id', readSelectValue('platform_billing_package_id'));
         formData.set('custom_monthly_amount', readInputValue('custom_monthly_amount'));
+        formData.set('agreed_monthly_amount', readInputValue('agreed_monthly_amount'));
         formData.set('discount_percent', readInputValue('discount_percent'));
         formData.set('extra_lines_discount_percent', readInputValue('extra_lines_discount_percent'));
         formData.set('subscription_start_date', readDateValue('subscription_start_date'));
@@ -868,6 +889,17 @@
 
     initialFormSnapshot = collectFormSnapshot();
     syncBillingFieldRows();
+    var packageSelect = document.getElementById('platform_billing_package_id');
+    var agreedInput = document.getElementById('agreed_monthly_amount');
+    if (packageSelect && agreedInput) {
+        packageSelect.addEventListener('change', function () {
+            var option = packageSelect.selectedOptions[0];
+            var amount = option ? option.getAttribute('data-monthly-amount') : '';
+            if (amount) {
+                agreedInput.value = amount;
+            }
+        });
+    }
     updateUnsavedNotice();
     schedulePreviewUpdate();
 

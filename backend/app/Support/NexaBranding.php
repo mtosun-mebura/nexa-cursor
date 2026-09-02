@@ -16,6 +16,13 @@ class NexaBranding
         return $path !== '' ? $path : 'images/nexa-logo.png';
     }
 
+    public static function defaultLogoDarkPath(): string
+    {
+        $path = (string) config('nexa.default_logo_dark', 'images/nexa-logo-dark.png');
+
+        return $path !== '' ? $path : 'images/nexa-logo-dark.png';
+    }
+
     public static function defaultUserAvatarPath(): string
     {
         $path = (string) config('nexa.default_user_avatar', 'images/nexa-x-logo.png');
@@ -26,6 +33,27 @@ class NexaBranding
     public static function defaultLogoUrl(): string
     {
         return asset(self::defaultLogoPath());
+    }
+
+    public static function defaultLogoDarkUrl(): string
+    {
+        return asset(self::defaultLogoDarkPath());
+    }
+
+    /**
+     * Logo voor e-mails: koppen zijn donker (#0f172a), dus de lichte variant
+     * (donker streepje + SUITE) is onleesbaar. Gebruik de donkere variant.
+     */
+    public static function emailLogoPath(): string
+    {
+        $path = public_path(self::defaultLogoDarkPath());
+
+        return is_file($path) ? self::defaultLogoDarkPath() : self::defaultLogoPath();
+    }
+
+    public static function emailLogoUrl(): string
+    {
+        return asset(self::emailLogoPath());
     }
 
     public static function defaultLogoDataUri(): ?string
@@ -68,12 +96,12 @@ class NexaBranding
 
     public static function emailLogoImgHtml(string $src): string
     {
-        return '<img class="nexa-email-logo" src="'.e($src).'" alt="NEXA" width="140" height="40" style="display:block;height:40px;width:auto;max-height:40px;max-width:180px;border:0;outline:none;text-decoration:none;margin:0 0 10px 0;" />';
+        return '<img class="nexa-email-logo" src="'.e($src).'" alt="NEXA Suite" width="220" height="40" style="display:block;height:40px;width:auto;max-height:40px;max-width:240px;border:0;outline:none;text-decoration:none;margin:0 0 10px 0;" />';
     }
 
     public static function emailLogoPreviewHtml(): string
     {
-        return self::emailLogoImgHtml(self::defaultLogoUrl());
+        return self::emailLogoImgHtml(self::emailLogoUrl());
     }
 
     public static function injectPreviewLogo(string $html): string
@@ -100,7 +128,7 @@ class NexaBranding
             return $html;
         }
 
-        $path = public_path(self::defaultLogoPath());
+        $path = public_path(self::emailLogoPath());
         if (! is_file($path)) {
             return str_replace(self::EMAIL_LOGO_PLACEHOLDER, self::emailLogoPreviewHtml(), $html);
         }

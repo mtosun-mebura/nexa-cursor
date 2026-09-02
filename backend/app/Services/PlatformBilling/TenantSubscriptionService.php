@@ -25,9 +25,11 @@ class TenantSubscriptionService
 
     public function ensureProfile(Company $company): CompanyBillingProfile
     {
-        $start = $company->created_at
-            ? Carbon::parse($company->created_at)->toDateString()
-            : now()->toDateString();
+        $trialStart = $company->created_at
+            ? Carbon::parse($company->created_at)->startOfDay()
+            : now()->startOfDay();
+        $freeMonths = $this->freeMonthsForCompany($company);
+        $trialEnd = $trialStart->copy()->addMonthsNoOverflow($freeMonths);
 
         $profile = CompanyBillingProfile::query()->firstOrCreate(
             ['company_id' => $company->id],
@@ -35,14 +37,14 @@ class TenantSubscriptionService
                 'billing_mode' => CompanyBillingProfile::MODE_PACKAGE,
                 'extra_lines_one_time' => true,
                 'auto_collect_enabled' => true,
-                'subscription_start_date' => $start,
+                'agreed_monthly_amount' => $this->catalogAmountForCompany($company),
+                'trial_started_at' => $trialStart->toDateString(),
+                'trial_ends_at' => $trialEnd->toDateString(),
+                'subscription_start_date' => $trialEnd->toDateString(),
             ]
         );
 
-        if ($profile->subscription_start_date === null) {
-            $profile->subscription_start_date = $start;
-            $profile->save();
-        }
+        $this->backfillTrialDates($profile, $trialStart);
 
         $packageKey = trim((string) ($company->package_key ?? ''));
         if (
@@ -53,7 +55,113 @@ class TenantSubscriptionService
             $this->assignBillingPackage($profile, $packageKey);
         }
 
+        $this->lockAgreedMonthlyAmountIfMissing($profile);
+
         return $profile->fresh(['package', 'company']) ?? $profile;
+    }
+
+    private function backfillTrialDates(CompanyBillingProfile $profile, Carbon $fallbackStart): void
+    {
+        $dirty = false;
+        if ($profile->trial_started_at === null) {
+            $profile->trial_started_at = $profile->subscription_start_date
+                ? Carbon::parse($profile->subscription_start_date)->toDateString()
+                : $fallbackStart->toDateString();
+            $dirty = true;
+        }
+        if ($profile->subscription_start_date === null) {
+            $profile->subscription_start_date = $profile->trial_started_at
+                ? Carbon::parse($profile->trial_started_at)->toDateString()
+                : $fallbackStart->toDateString();
+            $dirty = true;
+        }
+        if ($profile->trial_ends_at === null) {
+            $profile->trial_ends_at = $profile->subscription_start_date
+                ? Carbon::parse($profile->subscription_start_date)->toDateString()
+                : $fallbackStart->toDateString();
+            $dirty = true;
+        }
+        if ($dirty) {
+            $profile->save();
+        }
+    }
+
+    private function freeMonthsForCompany(Company $company): int
+    {
+        $key = trim((string) ($company->package_key ?? ''));
+        if ($key === '') {
+            return 0;
+        }
+        $package = $this->pricing->packageByKey($key);
+        if (! is_array($package)) {
+            return 0;
+        }
+
+        return $this->pricing->packageFreeMonths($package);
+    }
+
+    public function isInTrial(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): bool
+    {
+        if (! $profile->trial_ends_at) {
+            return false;
+        }
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        if ($this->calculator->isEnded($profile, $asOf)) {
+            return false;
+        }
+        $ends = Carbon::parse($profile->trial_ends_at)->startOfDay();
+
+        return $asOf->lt($ends);
+    }
+
+    public function trialDaysRemaining(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): ?int
+    {
+        if (! $this->isInTrial($profile, $asOf)) {
+            return null;
+        }
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $ends = Carbon::parse($profile->trial_ends_at)->startOfDay();
+
+        return max(0, (int) $asOf->diffInDays($ends, false));
+    }
+
+    /**
+     * Stop de proefperiode: tenant inactief, geen jaarcontract, geen verdere incasso.
+     */
+    public function endTrialAndDeactivate(Company $company, ?CarbonInterface $asOf = null): CompanyBillingProfile
+    {
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $profile = $this->ensureProfile($company);
+        if (! $this->isInTrial($profile, $asOf)) {
+            throw new RuntimeException('De proefperiode is al voorbij; het jaarcontract is ingegaan.');
+        }
+
+        $currentKey = trim((string) ($company->package_key ?? ''));
+        $fromAmount = $profile->resolveMonthlyAmount();
+
+        $this->clearPendingChange($profile, false);
+        $company->update(['is_active' => false]);
+        $profile->update([
+            'subscription_end_date' => $asOf->toDateString(),
+            'pending_change_type' => null,
+            'pending_package_key' => null,
+            'pending_change_effective_on' => null,
+        ]);
+
+        $this->recordChange($profile, CompanySubscriptionChange::TYPE_TRIAL_END, [
+            'status' => CompanySubscriptionChange::STATUS_APPLIED,
+            'from_package_key' => $currentKey !== '' ? $currentKey : null,
+            'to_package_key' => null,
+            'from_monthly_amount' => $fromAmount,
+            'to_monthly_amount' => 0,
+            'effective_on' => $asOf->toDateString(),
+            'applied_at' => now(),
+        ]);
+
+        $fresh = $profile->fresh(['package', 'company']) ?? $profile;
+        app(PlatformBillingService::class)->cancelMollieSubscriptionIfNeeded($fresh, $asOf);
+
+        return $fresh->fresh(['package', 'company']) ?? $fresh;
     }
 
     /**
@@ -98,6 +206,14 @@ class TenantSubscriptionService
                 ? Carbon::parse($profile->pending_change_effective_on)->startOfDay()
                 : null,
             'ended' => $this->calculator->isEnded($profile, $asOf),
+            'in_trial' => $this->isInTrial($profile, $asOf),
+            'trial_ends_at' => $profile->trial_ends_at
+                ? Carbon::parse($profile->trial_ends_at)->startOfDay()
+                : null,
+            'trial_days_remaining' => $this->trialDaysRemaining($profile, $asOf),
+            'billing_start_date' => $profile->subscription_start_date
+                ? Carbon::parse($profile->subscription_start_date)->startOfDay()
+                : $start,
             'packages' => $this->catalogFor($company),
         ];
     }
@@ -137,6 +253,10 @@ class TenantSubscriptionService
 
     public function contractStart(CompanyBillingProfile $profile): Carbon
     {
+        if ($profile->trial_started_at) {
+            return Carbon::parse($profile->trial_started_at)->startOfDay();
+        }
+
         if ($profile->subscription_start_date) {
             return Carbon::parse($profile->subscription_start_date)->startOfDay();
         }
@@ -389,14 +509,48 @@ class TenantSubscriptionService
     private function assignBillingPackage(CompanyBillingProfile $profile, string $packageKey): void
     {
         $billingPackage = $this->ensurePlatformPackage($packageKey);
+        $amount = (float) ($this->pricing->monthlyAmountForKey($packageKey) ?? $billingPackage->monthly_amount ?? 0);
         $updates = [
             'billing_mode' => CompanyBillingProfile::MODE_PACKAGE,
             'platform_billing_package_id' => $billingPackage->id,
             'custom_monthly_amount' => null,
+            'agreed_monthly_amount' => round(max(0, $amount), 2),
         ];
         $profile->fill($updates);
         $profile->save();
         $profile->setRelation('package', $billingPackage);
+    }
+
+    private function lockAgreedMonthlyAmountIfMissing(CompanyBillingProfile $profile): void
+    {
+        if ($profile->billing_mode !== CompanyBillingProfile::MODE_PACKAGE) {
+            return;
+        }
+        if ($profile->agreed_monthly_amount !== null) {
+            return;
+        }
+
+        $amount = $this->catalogAmountForCompany($profile->company ?? $profile->company()->first());
+        if ($amount === null && $profile->package) {
+            $amount = round(max(0, (float) $profile->package->monthly_amount), 2);
+        }
+        if ($amount === null) {
+            return;
+        }
+
+        $profile->agreed_monthly_amount = $amount;
+        $profile->save();
+    }
+
+    private function catalogAmountForCompany(?Company $company): ?float
+    {
+        $key = trim((string) ($company?->package_key ?? ''));
+        if ($key === '') {
+            return null;
+        }
+        $amount = $this->pricing->monthlyAmountForKey($key);
+
+        return $amount === null ? null : round(max(0, $amount), 2);
     }
 
     /**

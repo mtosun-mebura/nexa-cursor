@@ -192,7 +192,7 @@ class TransportCustomerPortalController extends Controller
         }
 
         return redirect()
-            ->route('admin.taxi.transport_customers.show', $customer->id)
+            ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'portaal'])
             ->with('success', ! empty($createdNewUser)
                 ? 'Portaalgebruiker gekoppeld. Er is een welkomstmail verstuurd; eerste keer inloggen via een code in de app (/taxi/contract).'
                 : 'Portaalgebruiker gekoppeld. App: /taxi/contract');
@@ -243,7 +243,7 @@ class TransportCustomerPortalController extends Controller
         }
 
         return redirect()
-            ->route('admin.taxi.transport_customers.show', $customer->id)
+            ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'portaal'])
             ->with('success', 'Portaalgebruiker bijgewerkt.');
     }
 
@@ -269,7 +269,7 @@ class TransportCustomerPortalController extends Controller
         $link->delete();
 
         return redirect()
-            ->route('admin.taxi.transport_customers.show', $customer->id)
+            ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'portaal'])
             ->with('success', 'Portaalgebruiker ontkoppeld.');
     }
 

@@ -264,7 +264,7 @@
             <h3 class="kt-card-title">Contactpersoon</h3>
         </div>
         <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Deze persoon wordt de company-admin. Het e-mailadres is de gebruikersnaam. Bij afronden van de wizard ontvangt deze persoon de welkomstmail met een tijdelijk wachtwoord.
+            Deze persoon wordt de company-admin. Het e-mailadres is de gebruikersnaam. Bij afronden van de wizard ontvangt deze persoon de welkomstmail. De eerste login gaat via een eenmalige code, daarna kiest hij of zij zelf een wachtwoord.
         </p>
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">

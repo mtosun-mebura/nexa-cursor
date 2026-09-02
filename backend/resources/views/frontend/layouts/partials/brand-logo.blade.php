@@ -24,6 +24,10 @@
             <img src="{{ $logoUrl }}" alt="{{ $logoAlt }}" class="{{ $logoImgClass }}" style="{{ $logoImgStyle }}">
         @endif
     @else
-        <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="{{ $logoImgClass }}" style="{{ $logoImgStyle }}">
+        @include('partials.nexa-brand-logo', [
+            'class' => $logoImgClass,
+            'style' => $logoImgStyle,
+            'alt' => 'NEXA Suite',
+        ])
     @endif
 </a>

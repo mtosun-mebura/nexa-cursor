@@ -6,7 +6,10 @@
         <!-- Mobile Logo -->
         <div class="-ms-1 flex items-center gap-2.5 lg:hidden">
             <a class="shrink-0" href="{{ route('dashboard') }}">
-                <img class="h-[30px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
+                @include('partials.nexa-brand-logo', [
+                    'class' => 'h-[30px] w-auto max-w-[220px] object-contain',
+                    'alt' => 'NEXA Suite',
+                ])
             </a>
             <div class="flex items-center">
                 <button class="kt-btn kt-btn-icon kt-btn-ghost" data-kt-drawer-toggle="#sidebar">

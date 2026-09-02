@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\CompanyDomain;
 use App\Models\FrontendTheme;
 use App\Models\User;
 use App\Models\WebsitePage;
@@ -80,10 +81,57 @@ class WebsitePageCrudAndPreviewTest extends TestCase
         $response = $this->actingAs($user)->get(route('admin.website-pages.index'));
 
         $response->assertStatus(200);
-        $response->assertSee('hoofdwebsite van Nexa SaaS', false);
+        $response->assertSee('hoofdwebsite van NEXA Suite', false);
         $response->assertSee('Central Saas Home Unique');
         $response->assertDontSee('Hidden Without Tenant');
         $response->assertDontSee('voordat u website-pagina');
+    }
+
+    #[Test]
+    public function website_pages_index_without_tenant_preview_clears_simulated_host(): void
+    {
+        config([
+            'app.url' => 'http://localhost:8085',
+            'tenancy.dev_effective_host_query_param' => '_tenant_host',
+            'tenancy.central_domains' => ['localhost'],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(route('admin.website-pages.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Website voorbeeld', false);
+        $response->assertDontSee('>Pagina voorbeeld<', false);
+        $response->assertSee('_tenant_host=', false);
+        $this->assertStringNotContainsString('_tenant_host=tax', $response->getContent());
+    }
+
+    #[Test]
+    public function website_pages_index_with_tenant_preview_keeps_tenant_host(): void
+    {
+        config([
+            'app.url' => 'http://localhost:8085',
+            'tenancy.dev_effective_host_query_param' => '_tenant_host',
+            'tenancy.central_domains' => ['localhost'],
+        ]);
+
+        $tenant = Company::query()->create(['name' => 'Preview Taxi', 'slug' => 'preview-taxi-'.uniqid()]);
+        CompanyDomain::query()->create([
+            'company_id' => $tenant->id,
+            'host' => 'previewtaxi.nexasuite.nl',
+            'is_primary' => true,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)
+            ->withSession(['selected_tenant' => $tenant->id])
+            ->get(route('admin.website-pages.index', ['tenant_company' => $tenant->id]));
+        $response->assertStatus(200);
+        $response->assertSee('_tenant_host=previewtaxi.nexasuite.nl', false);
+        $response->assertSee('Website voorbeeld', false);
     }
 
     #[Test]
@@ -421,7 +469,7 @@ class WebsitePageCrudAndPreviewTest extends TestCase
                 'is_active' => true,
                 'show_in_menu' => true,
                 'sort_order' => 1,
-                'meta_description' => 'Centrale Nexa SaaS-pagina',
+                'meta_description' => 'Centrale NEXA Suite-pagina',
                 'company_id' => null,
             ])
             ->assertOk()

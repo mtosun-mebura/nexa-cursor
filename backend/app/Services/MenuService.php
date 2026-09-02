@@ -304,4 +304,46 @@ class MenuService
 
         return $grouped;
     }
+
+    /**
+     * Of een submenu-item de huidige pagina is.
+     * Index-kinderen mogen gerelateerde routes onder hetzelfde prefix actief maken,
+     * behalve als een sibling een specifiekere route claimt
+     * (bijv. gps_tracking.settings naast gps_tracking.index).
+     *
+     * @param  array{route?: string}  $child
+     * @param  list<array{route?: string}>  $siblings
+     */
+    public static function childMenuItemIsActive(array $child, array $siblings): bool
+    {
+        $route = (string) ($child['route'] ?? '');
+        if ($route === '') {
+            return false;
+        }
+
+        if (request()->routeIs($route) || request()->routeIs($route.'.*')) {
+            return true;
+        }
+
+        if (! str_ends_with($route, '.index')) {
+            return false;
+        }
+
+        $prefix = substr($route, 0, -strlen('.index'));
+        if (! request()->routeIs($prefix.'.*')) {
+            return false;
+        }
+
+        foreach ($siblings as $sibling) {
+            $siblingRoute = (string) ($sibling['route'] ?? '');
+            if ($siblingRoute === '' || $siblingRoute === $route) {
+                continue;
+            }
+            if (request()->routeIs($siblingRoute) || request()->routeIs($siblingRoute.'.*')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

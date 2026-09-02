@@ -2,6 +2,7 @@
 
 use App\Jobs\ProcessPlatformBillingJob;
 use App\Jobs\ProcessPlatformDunningJob;
+use App\Jobs\ProcessSaasTrialNoticeJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
@@ -62,6 +63,11 @@ Schedule::job(new GenerateContractInvoicesJob)
 Schedule::job(new ProcessPlatformBillingJob)
     ->hourly()
     ->name('platform-billing-monthly')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessSaasTrialNoticeJob)
+    ->dailyAt('07:00')
+    ->name('platform-saas-trial-notice')
     ->withoutOverlapping();
 
 Schedule::job(new ProcessPlatformDunningJob)

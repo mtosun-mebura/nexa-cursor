@@ -62,6 +62,11 @@ class Company extends Model
         return $this->hasMany(User::class);
     }
 
+    public function configAccessGrants()
+    {
+        return $this->hasMany(CompanyConfigAccessGrant::class);
+    }
+
     public function billingProfile()
     {
         return $this->hasOne(CompanyBillingProfile::class);

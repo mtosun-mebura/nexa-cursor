@@ -14,11 +14,11 @@
                 Bij afronden van de wizard wordt automatisch een <strong>company-admin</strong> aangemaakt.
                 Gebruikersnaam is het e-mailadres van de contactpersoon
                 (<strong class="break-all">{{ $company->email }}</strong>).
-                Die persoon ontvangt de welkomstmail met een tijdelijk wachtwoord dat één keer mag worden gebruikt.
+                Die persoon ontvangt de welkomstmail. De eerste login gaat via een eenmalige code per e-mail, daarna kiest hij of zij zelf een wachtwoord.
             </p>
             <ul class="list-disc ps-5 text-sm text-secondary-foreground space-y-1 mb-4 break-words">
                 <li>Optioneel: extra medewerkers via <strong>Nieuwe gebruiker</strong>.</li>
-                <li>De eerste inlog toont een verplicht scherm om het wachtwoord te wijzigen.</li>
+                <li>De eerste inlog toont «Eerste keer inloggen»: code aanvragen, daarna een eigen wachtwoord kiezen.</li>
                 <li>Daarna opent de welkomsthandleiding voor het gekozen pakket.</li>
             </ul>
             <div class="flex flex-wrap items-center gap-2">
@@ -86,4 +86,13 @@
         </button>
     </x-wizard.footer-actions>
 </form>
+
+@if(auth()->user()?->isSuperAdmin())
+    @include('admin.companies.partials.config-access', [
+        'company' => $company,
+        'configAccessUsers' => $configAccessUsers ?? collect(),
+        'grantsByUserId' => $grantsByUserId ?? [],
+        'configAccessRedirect' => request()->fullUrl(),
+    ])
+@endif
 @endsection

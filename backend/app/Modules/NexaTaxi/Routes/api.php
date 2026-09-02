@@ -55,6 +55,12 @@ Route::prefix('v1/driver')
         Route::put('availability', [DriverAvailabilityController::class, 'update'])
             ->middleware('throttle:60,1');
 
+        Route::put('availability/location', [DriverAvailabilityController::class, 'updateLocation'])
+            ->middleware('throttle:120,1');
+
+        Route::get('vehicles', [DriverAvailabilityController::class, 'vehicles'])
+            ->middleware('throttle:60,1');
+
         Route::get('dispatch/inbox', [DriverDispatchController::class, 'inbox'])
             ->middleware('throttle:taxi-driver-poll');
 

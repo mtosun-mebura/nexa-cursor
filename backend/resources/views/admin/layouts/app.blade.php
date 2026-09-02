@@ -54,6 +54,23 @@
         .kt-menu-item.pt-2\.25:first-child {
             border-top: none !important;
         }
+        /* Gebruikersmenu: standaard 250px, alleen breder als naam of e-mail niet past */
+        .kt-dropdown-menu.admin-user-dropdown {
+            width: max-content !important;
+            min-width: 250px !important;
+            max-width: min(22rem, calc(100vw - 1.25rem)) !important;
+        }
+        .admin-user-dropdown-meta {
+            width: max-content;
+            max-width: 100%;
+        }
+        .admin-user-dropdown-meta a {
+            display: block;
+            width: max-content;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+        }
+
         /* Maak dropdown separator borders grijs */
         .kt-dropdown-menu-separator {
             background-color: var(--border) !important;

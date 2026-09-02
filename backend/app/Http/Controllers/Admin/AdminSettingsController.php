@@ -482,12 +482,12 @@ class AdminSettingsController extends Controller
                     return;
                 }
                 if (! is_numeric($value) || Company::query()->whereKey((int) $value)->doesntExist()) {
-                    $fail('Kies een bron-tenant (bedrijf) of NEXA SaaS.');
+                    $fail('Kies een bron-tenant (bedrijf) of NEXA Suite.');
                 }
             }],
             'confirm_full_sync' => ['required', 'accepted'],
         ], [
-            'source_company_id.required' => 'Kies een bron-tenant (bedrijf) of NEXA SaaS.',
+            'source_company_id.required' => 'Kies een bron-tenant (bedrijf) of NEXA Suite.',
             'confirm_full_sync.required' => 'Vink de bevestiging aan om de sync te starten.',
             'confirm_full_sync.accepted' => 'Vink de bevestiging aan om de sync te starten.',
         ]);
@@ -530,7 +530,7 @@ class AdminSettingsController extends Controller
 
         $msg = $result['report']['summary'] ?? (
             $isCentral
-                ? 'NEXA SaaS-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                ? 'NEXA Suite-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                 : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
                     .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
         );
@@ -570,7 +570,7 @@ class AdminSettingsController extends Controller
                     'success' => true,
                     'message' => $result['report']['summary'] ?? (
                         $isCentral
-                            ? 'NEXA SaaS-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                            ? 'NEXA Suite-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                             : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
                                 .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                     ),
@@ -658,7 +658,7 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
-        $label = $isCentral ? 'NEXA SaaS-website geïmporteerd' : 'Tenant-export geïmporteerd';
+        $label = $isCentral ? 'NEXA Suite-website geïmporteerd' : 'Tenant-export geïmporteerd';
 
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
@@ -899,7 +899,7 @@ class AdminSettingsController extends Controller
             }
 
             $success = $companyId === null
-                ? 'Nexa SaaS-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
+                ? 'NEXA Suite-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
                 : 'Mail instellingen van deze tenant opgeslagen.';
 
             return redirect()->route('admin.settings.index')

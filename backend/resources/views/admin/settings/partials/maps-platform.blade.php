@@ -4,7 +4,7 @@
     <div class="settings-collapsible-body">
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <p class="settings-section-intro">
-                Eén Google Maps-configuratie voor de hele NEXA SaaS-applicatie: website-footers, admin-kaarten, adresvelden, Google Reviews en boekingsmodules gebruiken deze instellingen.
+                Eén Google Maps-configuratie voor de hele NEXA Suite-applicatie: website-footers, admin-kaarten, adresvelden, Google Reviews en boekingsmodules gebruiken deze instellingen.
             </p>
             <form method="POST" action="{{ route('admin.settings.maps.update') }}" data-validate="true" id="maps-platform-form">
                 @csrf

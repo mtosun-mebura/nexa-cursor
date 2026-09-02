@@ -11,10 +11,10 @@ class NexaContactAanvraagEmailTemplateService
 
     public const TEMPLATE_NAME = 'NEXA Suite contactaanvraag';
 
-    public const FROM_NAME = 'NEXA SaaS';
+    public const FROM_NAME = 'NEXA Suite';
 
     /**
-     * Globale informatieaanvraag-template voor de Nexa SaaS-hoofdwebsite.
+     * Globale informatieaanvraag-template voor de NEXA Suite-hoofdwebsite.
      */
     public function ensureExists(): EmailTemplate
     {

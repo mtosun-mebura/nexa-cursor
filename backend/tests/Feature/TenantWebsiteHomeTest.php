@@ -73,4 +73,29 @@ class TenantWebsiteHomeTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Server Error', false);
     }
+
+    #[Test]
+    public function booking_module_applies_configured_step_heading_font_size(): void
+    {
+        $html = view('frontend.website.components.nexataxi-boekingsmodule', [
+            'homeSections' => [
+                'component:taxi.boekingsmodule' => [
+                    'title' => 'Boek je rit',
+                    'style' => [
+                        'step_heading_font_size_px' => '42',
+                        'title_font_size_px' => '48',
+                        'field_heading_font_size_px' => '20',
+                    ],
+                ],
+            ],
+            'sectionKey' => 'component:taxi.boekingsmodule',
+        ])->render();
+
+        $this->assertStringContainsString('--booking-step-heading-size-max: 42px', $html);
+        $this->assertStringContainsString('--booking-title-size-max: 48px', $html);
+        $this->assertStringContainsString('--booking-field-heading-size: 20px', $html);
+        $this->assertStringContainsString('font-size: var(--booking-step-heading-size-max', $html);
+        $this->assertStringContainsString('font-size: var(--booking-field-heading-size', $html);
+        $this->assertStringNotContainsString('font-size: clamp(0.95rem, 1.8vw + 0.45rem, 1.35rem)', $html);
+    }
 }

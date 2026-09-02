@@ -67,18 +67,123 @@ class TenantOnboardingTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->withSession(['company_wizard.'.$company->id.'.max_reachable' => 7])
-            ->post(route('admin.companies.wizard.submit-step', [$company, 7]))
+            ->withSession(['company_wizard.'.$company->id.'.max_reachable' => 10])
+            ->post(route('admin.companies.wizard.submit-step', [$company, 10]))
             ->assertRedirect(route('admin.companies.show', $company));
 
         $user = User::query()->where('email', 'beheer@example.com')->first();
         $this->assertNotNull($user);
         $this->assertTrue($user->must_change_password);
+        $this->assertTrue($user->password_must_be_set);
         $this->assertNotNull($user->email_verified_at);
         app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($company->id);
         $user->unsetRelation('roles');
         $this->assertTrue($user->hasRole('company-admin'));
         $this->assertNotNull(EmailTemplate::query()->where('type', 'tenant_welcome')->whereNull('company_id')->first());
+    }
+
+    #[Test]
+    public function wizard_blocks_future_steps_until_previous_are_completed(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $company = Company::query()->create([
+            'name' => 'Taxi Stappen BV',
+            'email' => 'stappen@example.com',
+            'package_key' => 'start',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(['company_wizard.'.$company->id.'.max_reachable' => 3])
+            ->get(route('admin.companies.wizard.step', [$company, 10]))
+            ->assertRedirect(route('admin.companies.wizard.step', [$company, 3]));
+
+        $this->actingAs($admin)
+            ->withSession(['company_wizard.'.$company->id.'.max_reachable' => 3])
+            ->post(route('admin.companies.wizard.submit-step', [$company, 10]))
+            ->assertRedirect(route('admin.companies.wizard.step', [$company, 3]));
+    }
+
+    #[Test]
+    public function existing_company_can_open_all_wizard_steps_without_onboarding_session(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $company = Company::query()->create([
+            'name' => 'Taxi Bestaand BV',
+            'email' => 'bestaand@example.com',
+            'package_key' => 'pro',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.companies.wizard.step', [$company, 9]))
+            ->assertOk()
+            ->assertSee('Mollie (tenant)', false);
+    }
+
+    #[Test]
+    public function wizard_mail_step_stores_tenant_mail_settings(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $company = Company::query()->create([
+            'name' => 'Taxi Mail BV',
+            'email' => 'mailtenant@example.com',
+            'package_key' => 'pro',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(['company_wizard.'.$company->id.'.max_reachable' => 7])
+            ->post(route('admin.companies.wizard.submit-step', [$company, 7]), [
+                'MAIL_MAILER' => 'smtp',
+                'MAIL_HOST' => 'smtp.example.com',
+                'MAIL_PORT' => '587',
+                'MAIL_ENCRYPTION' => 'tls',
+                'MAIL_USERNAME' => 'tenant@example.com',
+                'MAIL_FROM_ADDRESS' => 'noreply@example.com',
+                'MAIL_FROM_NAME' => 'Taxi Mail',
+            ])
+            ->assertRedirect(route('admin.companies.wizard.step', [$company, 8]));
+
+        $this->assertSame('smtp', \App\Models\GeneralSetting::get('MAIL_MAILER', null, $company->id));
+        $this->assertSame('smtp.example.com', \App\Models\GeneralSetting::get('MAIL_HOST', null, $company->id));
+    }
+
+    #[Test]
+    public function wizard_switches_selected_tenant_so_super_admin_can_continue(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $other = Company::query()->create([
+            'name' => 'Andere Tenant BV',
+            'email' => 'andere@example.com',
+            'package_key' => 'start',
+            'is_active' => true,
+        ]);
+        $company = Company::query()->create([
+            'name' => 'Nieuwe Wizard BV',
+            'email' => 'nieuwizard@example.com',
+            'package_key' => 'pro',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession([
+                'selected_tenant' => $other->id,
+                'company_wizard.'.$company->id.'.max_reachable' => 2,
+            ])
+            ->get(route('admin.companies.wizard.step', [$company, 2]))
+            ->assertOk()
+            ->assertSee('Vestigingen', false);
+
+        $this->assertSame($company->id, (int) session('selected_tenant'));
     }
 
     #[Test]
@@ -169,7 +274,11 @@ class TenantOnboardingTest extends TestCase
     {
         $template = app(TenantWelcomeEmailTemplateService::class)->ensureExists();
         $this->assertStringContainsString('nexasuite.nl/admin', (string) $template->html_content);
-        $this->assertStringContainsString('TEMP_PASSWORD', (string) $template->html_content);
+        $this->assertStringNotContainsString('TEMP_PASSWORD', (string) $template->html_content);
+        $this->assertStringNotContainsString('Tijdelijk wachtwoord', (string) $template->html_content);
+        $this->assertStringContainsString('border-radius:12px', (string) $template->html_content);
+        $this->assertStringContainsString('border-collapse:separate', (string) $template->html_content);
+        $this->assertStringContainsString('eenmalige code', (string) $template->html_content);
         $this->assertStringContainsString('HANDLEIDING_URL', (string) $template->html_content);
 
         $company = Company::query()->create([
@@ -184,14 +293,47 @@ class TenantOnboardingTest extends TestCase
         $result = app(TenantOnboardingService::class)->provisionCompanyAdmin($company);
         $this->assertTrue($result['created']);
         $this->assertTrue($result['mailed']);
-        $this->assertNotNull($result['password']);
+        $this->assertNull($result['password']);
         $this->assertTrue($result['user']->must_change_password);
+        $this->assertTrue($result['user']->password_must_be_set);
         $this->assertDatabaseHas('tenant_customer_emails', [
             'company_id' => $company->id,
             'type' => 'tenant_welcome',
             'recipient_email' => 'mailcheck@example.com',
             'status' => 'sent',
         ]);
+        $mail = \App\Models\TenantCustomerEmail::query()
+            ->where('recipient_email', 'mailcheck@example.com')
+            ->where('type', 'tenant_welcome')
+            ->first();
+        $this->assertNotNull($mail);
+        $this->assertStringNotContainsString('Tijdelijk wachtwoord', (string) $mail->body_html);
+        $this->assertStringContainsString('eenmalige code', (string) $mail->body_html);
+    }
+
+    #[Test]
+    public function stored_welcome_template_gets_rounded_login_box_and_drops_password(): void
+    {
+        EmailTemplate::query()->where('type', 'tenant_welcome')->delete();
+        EmailTemplate::query()->create([
+            'type' => 'tenant_welcome',
+            'company_id' => null,
+            'name' => 'Oude welkomstmail',
+            'subject' => 'Welkom',
+            'description' => 'Bevat inloggegevens, tijdelijk wachtwoord en knoppen naar de admin.',
+            'html_content' => '<table role="presentation" width="100%" style="width: 100%; border-collapse: collapse; background-color: #334155; border: 1px solid #94a3b8; border-radius: 8px; margin: 0 0 20px;"><tr><td style="padding: 16px 18px;"><p>Inloggen</p><p><strong>Tijdelijk wachtwoord:</strong> {{ TEMP_PASSWORD }}</p></td></tr></table>',
+            'text_content' => "Tijdelijk wachtwoord: {{ TEMP_PASSWORD }}\nLog in met uw e-mailadres als gebruikersnaam en het tijdelijke wachtwoord.",
+            'is_active' => true,
+        ]);
+
+        $template = app(TenantWelcomeEmailTemplateService::class)->ensureExists();
+        $this->assertStringNotContainsString('TEMP_PASSWORD', (string) $template->html_content);
+        $this->assertStringNotContainsString('Tijdelijk wachtwoord', (string) $template->html_content);
+        $this->assertStringContainsString('border-radius:12px', (string) $template->html_content);
+        $this->assertStringContainsString('border-collapse:separate', (string) $template->html_content);
+        $this->assertStringContainsString('eenmalige code', (string) $template->html_content);
+        $this->assertStringContainsString('eenmalige code', (string) $template->text_content);
+        $this->assertStringNotContainsString('tijdelijk wachtwoord', mb_strtolower((string) $template->description));
     }
 
     #[Test]
@@ -224,6 +366,7 @@ class TenantOnboardingTest extends TestCase
         $this->assertNotNull($user);
         $this->assertSame($company->id, (int) $user->company_id);
         $this->assertTrue($user->must_change_password);
+        $this->assertTrue($user->password_must_be_set);
         $this->assertDatabaseHas('tenant_customer_emails', [
             'company_id' => $company->id,
             'type' => 'tenant_welcome',

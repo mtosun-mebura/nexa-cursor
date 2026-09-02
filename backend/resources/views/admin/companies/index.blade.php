@@ -2,6 +2,22 @@
 
 @section('title', 'Bedrijven Beheer')
 
+@push('styles')
+<style>
+    .kt-btn-wizard-start {
+        background-color: #f97316;
+        border-color: #f97316;
+        color: #fff;
+    }
+    .kt-btn-wizard-start:hover,
+    .kt-btn-wizard-start:focus-visible {
+        background-color: #ea580c;
+        border-color: #ea580c;
+        color: #fff;
+    }
+</style>
+@endpush
+
 @section('content')
 
 <div class="kt-container-fixed">
@@ -13,13 +29,13 @@
             @auth
             @if(auth()->user()->canCreateCompanies())
             <div class="flex flex-1 flex-wrap items-center justify-end gap-2 relative z-10 min-w-0" data-company-create-actions="true">
-                <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-primary">
+                <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-wizard-start">
                     <i class="ki-filled ki-element-11 me-2"></i>
                     Nieuwe tenant (wizard)
                 </a>
-                <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-outline">
+                <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
-                    Nieuw bedrijf (formulier)
+                    Nieuw bedrijf
                 </a>
             </div>
             @endif
@@ -332,7 +348,7 @@
                                                         @can('create-companies')
                                                         @if(session()->has('company_wizard.'.$company->id.'.max_reachable'))
                                                         @php
-                                                            $wizardResumeStep = max(1, min(7, (int) session('company_wizard.'.$company->id.'.max_reachable')));
+                                                            $wizardResumeStep = \App\Http\Controllers\Admin\AdminCompanyWizardController::clampStep((int) session('company_wizard.'.$company->id.'.max_reachable'));
                                                         @endphp
                                                         <div class="kt-menu-item">
                                                             <a class="kt-menu-link" href="{{ route('admin.companies.wizard.step', [$company, $wizardResumeStep]) }}">

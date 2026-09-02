@@ -38,6 +38,7 @@ class NexaTaxiBookingPricingService
                 'tab_font_size_px' => '14',
                 'title_font_size_px' => '36',
                 'step_heading_font_size_px' => '30',
+                'field_heading_font_size_px' => '16',
                 'route_map_zoom' => '14',
                 'live_map_position' => 'beside_card',
                 'background_color' => '#ffffff',
@@ -167,6 +168,12 @@ class NexaTaxiBookingPricingService
             ? $stepHeadingFontPx
             : (int) $defaults['style']['step_heading_font_size_px'];
         $section['style']['step_heading_font_size_px'] = (string) $stepHeadingFontPx;
+
+        $fieldHeadingFontPx = (int) ($section['style']['field_heading_font_size_px'] ?? $defaults['style']['field_heading_font_size_px']);
+        $fieldHeadingFontPx = ($fieldHeadingFontPx >= 12 && $fieldHeadingFontPx <= 28 && $fieldHeadingFontPx % 2 === 0)
+            ? $fieldHeadingFontPx
+            : (int) $defaults['style']['field_heading_font_size_px'];
+        $section['style']['field_heading_font_size_px'] = (string) $fieldHeadingFontPx;
 
         $routeMapZoom = (int) ($section['style']['route_map_zoom'] ?? $defaults['style']['route_map_zoom']);
         $routeMapZoom = max(1, min(21, $routeMapZoom));

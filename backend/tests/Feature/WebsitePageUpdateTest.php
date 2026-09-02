@@ -1036,7 +1036,7 @@ class WebsitePageUpdateTest extends TestCase
         $this->assertNotSame(
             WebsitePage::defaultHomeSections()['footer']['tagline'] ?? '',
             $footer['tagline'] ?? '',
-            'Footer mag niet terugvallen naar Skillmatching-default tagline'
+            'Footer mag niet terugvallen naar de standaard footer-tagline'
         );
     }
 

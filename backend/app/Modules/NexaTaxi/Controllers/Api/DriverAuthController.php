@@ -112,11 +112,12 @@ class DriverAuthController extends Controller
 
         $accountActive = TaxiDriverAccountStatus::isActive($user);
 
-        $isOnline = $this->driverIsOnline($moduleDb, (int) $user->id);
+        $availability = $this->driverAvailability($moduleDb, (int) $user->id);
+        $isOnline = $availability && $availability->is_online;
         $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
 
         return response()->json([
-            'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline),
+            'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline, $availability),
             'permissions' => [
                 'earnings_view' => $earningsPerms['view'],
                 'earnings_view_month' => $earningsPerms['view_month'],
@@ -196,14 +197,15 @@ class DriverAuthController extends Controller
             now()->addDays($expiryDays)
         );
 
-        $isOnline = $this->driverIsOnline($moduleDb, (int) $user->id);
+        $availability = $this->driverAvailability($moduleDb, (int) $user->id);
+        $isOnline = $availability && $availability->is_online;
         $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
 
         return response()->json([
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
-            'user' => $this->driverUserPayload($user, $companyId, true, $isOnline),
+            'user' => $this->driverUserPayload($user, $companyId, true, $isOnline, $availability),
             'permissions' => [
                 'earnings_view' => $earningsPerms['view'],
                 'earnings_view_month' => $earningsPerms['view_month'],
@@ -217,7 +219,7 @@ class DriverAuthController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function driverUserPayload(User $user, int $companyId, bool $accountActive, bool $isOnline): array
+    private function driverUserPayload(User $user, int $companyId, bool $accountActive, bool $isOnline, ?DriverAvailability $availability = null): array
     {
         $firstName = trim((string) ($user->first_name ?? ''));
         $lastName = trim((string) ($user->last_name ?? ''));
@@ -245,21 +247,22 @@ class DriverAuthController extends Controller
             'company_name' => $companyName,
             'is_account_active' => $accountActive,
             'is_online' => $isOnline,
+            'vehicle_id' => $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null,
             'pwa_accent' => PwaAccent::fromUser($user),
         ];
     }
 
-    private function driverIsOnline(ModuleDatabaseService $moduleDb, int $driverId): bool
+    private function driverAvailability(ModuleDatabaseService $moduleDb, int $driverId): ?DriverAvailability
     {
         $conn = $moduleDb->getModuleConnectionName('taxi');
         if (! TaxiDispatchSchema::driverAvailabilityExists($conn)) {
-            return false;
+            return null;
         }
 
-        $availability = DriverAvailability::on($conn)
+        TaxiDispatchSchema::ensureVehicleIdColumn($conn);
+
+        return DriverAvailability::on($conn)
             ->where('driver_id', $driverId)
             ->first();
-
-        return $availability && $availability->is_online;
     }
 }

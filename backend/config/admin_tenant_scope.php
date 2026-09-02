@@ -47,6 +47,7 @@ return [
         'admin.nexa-pricing.*',
         'admin.platform-billing.*',
         'admin.website-pages.*',
+        'admin.website-ai.*',
         'admin.frontend-themes.*',
         'admin.frontend-components.*',
         'admin.customer-emails.*',

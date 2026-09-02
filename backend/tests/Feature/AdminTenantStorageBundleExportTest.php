@@ -121,7 +121,7 @@ class AdminTenantStorageBundleExportTest extends TestCase
             $this->assertSame('nexa_saas_website', $manifest['bundle_type'] ?? null);
             $this->assertArrayHasKey('source_company_id', $manifest);
             $this->assertNull($manifest['source_company_id']);
-            $this->assertSame('NEXA SaaS', $manifest['source_company_name'] ?? null);
+            $this->assertSame('NEXA Suite', $manifest['source_company_name'] ?? null);
             $this->assertArrayHasKey('pages', $manifest);
             $this->assertArrayHasKey('general_settings', $manifest);
             $zip->close();
@@ -142,7 +142,7 @@ class AdminTenantStorageBundleExportTest extends TestCase
             'bundle_version' => TenantStorageBundleService::BUNDLE_VERSION,
             'exported_at' => now()->toIso8601String(),
             'source_company_id' => null,
-            'source_company_name' => 'NEXA SaaS',
+            'source_company_name' => 'NEXA Suite',
             'pages' => [[
                 'connection' => (string) config('database.default'),
                 'theme_slug' => null,

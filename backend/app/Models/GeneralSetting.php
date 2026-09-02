@@ -76,7 +76,7 @@ class GeneralSetting extends Model
         'nexa_pricing',
     ];
 
-    /** Tenant-mailserver; leeg = Nexa SaaS-mailserver (`company_id` null) of `.env`. */
+    /** Tenant-mailserver; leeg = NEXA Suite-mailserver (`company_id` null) of `.env`. */
     public const MAIL_SETTING_KEYS = [
         'MAIL_MAILER',
         'MAIL_HOST',

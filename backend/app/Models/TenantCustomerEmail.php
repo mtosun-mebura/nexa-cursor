@@ -23,6 +23,8 @@ class TenantCustomerEmail extends Model
 
     public const TYPE_REMINDER = 'reminder';
 
+    public const TYPE_CONFIG_ACCESS = 'config_access';
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_FAILED = 'failed';
@@ -41,6 +43,7 @@ class TenantCustomerEmail extends Model
         self::TYPE_INVOICE,
         self::TYPE_PAYMENT_LINK,
         self::TYPE_REMINDER,
+        self::TYPE_CONFIG_ACCESS,
     ];
 
     /**
@@ -55,6 +58,7 @@ class TenantCustomerEmail extends Model
         self::TYPE_INVOICE => 'Factuur',
         self::TYPE_PAYMENT_LINK => 'Betaallink',
         self::TYPE_REMINDER => 'Herinnering',
+        self::TYPE_CONFIG_ACCESS => 'Configuratie-toegang',
     ];
 
     /**

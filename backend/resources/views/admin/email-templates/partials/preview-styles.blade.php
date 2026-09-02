@@ -161,10 +161,11 @@
         display: block !important;
     }
     .email-preview-content img.nexa-email-logo,
-    .email-preview-content img[alt="NEXA"] {
+    .email-preview-content img[alt="NEXA"],
+    .email-preview-content img[alt="NEXA Suite"] {
         height: 36px !important;
         max-height: 40px !important;
         width: auto !important;
-        max-width: 180px !important;
+        max-width: 240px !important;
     }
 </style>

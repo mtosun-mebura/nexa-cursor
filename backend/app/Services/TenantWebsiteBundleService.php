@@ -34,7 +34,7 @@ final class TenantWebsiteBundleService
 
     public const SYNC_MODULE_TAXI_CONNECTION = 'tenant_sync_module_taxi';
 
-    /** Select-waarde in Omgeving-sync voor de NEXA SaaS-hoofdwebsite (company_id null). */
+    /** Select-waarde in Omgeving-sync voor de NEXA Suite-hoofdwebsite (company_id null). */
     public const CENTRAL_SOURCE_KEY = 'nexa';
 
     /** Schijf waarop versleutelde website_media staan (root: storage/app/private). */
@@ -46,7 +46,7 @@ final class TenantWebsiteBundleService
     }
 
     /**
-     * Pagina's van de NEXA SaaS-hoofdwebsite (geen tenant: company_id null).
+     * Pagina's van de NEXA Suite-hoofdwebsite (geen tenant: company_id null).
      *
      * @return \Illuminate\Support\Collection<int, WebsitePage>
      */
@@ -512,7 +512,7 @@ final class TenantWebsiteBundleService
     }
 
     /**
-     * Sync de NEXA SaaS-hoofdwebsite (company_id null) naar het sync-doel.
+     * Sync de NEXA Suite-hoofdwebsite (company_id null) naar het sync-doel.
      *
      * @return array{inserted: int, updated: int, skipped: int, message: string}
      */
@@ -528,7 +528,7 @@ final class TenantWebsiteBundleService
                 'inserted' => 0,
                 'updated' => 0,
                 'skipped' => 0,
-                'message' => 'NEXA SaaS-website: geen centrale pagina\'s gevonden op bron.',
+                'message' => 'NEXA Suite-website: geen centrale pagina\'s gevonden op bron.',
             ];
         }
 
@@ -572,7 +572,7 @@ final class TenantWebsiteBundleService
             'updated' => $updated,
             'skipped' => $skipped,
             'message' => sprintf(
-                'NEXA SaaS-website: %d nieuw, %d bijgewerkt, %d overgeslagen (totaal %d op bron).',
+                'NEXA Suite-website: %d nieuw, %d bijgewerkt, %d overgeslagen (totaal %d op bron).',
                 $inserted,
                 $updated,
                 $skipped,

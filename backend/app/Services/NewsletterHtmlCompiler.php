@@ -21,7 +21,7 @@ class NewsletterHtmlCompiler
         $hero = $this->absoluteUrl((string) ($blocks['hero_image'] ?? config('newsletter.stock_images.hero')));
         $company = $prospect?->company_name ?: 'uw taxibedrijf';
         $unsubscribeUrl = $unsubscribeUrl ?: ($prospect?->unsubscribeUrl() ?? url('/contact'));
-        $logo = NexaBranding::defaultLogoUrl();
+        $logo = NexaBranding::emailLogoUrl();
         $greeting = 'Beste '.($prospect?->greetingName() ?: $company).',';
 
         $featuresHtml = '';
@@ -60,7 +60,7 @@ class NewsletterHtmlCompiler
 <table role="presentation" width="100%" style="width:100%;max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #d1d5db;border-radius:8px;border-collapse:separate;overflow:hidden;">
 <tr>
     <td bgcolor="#0f172a" style="padding:22px 28px;background:#0f172a;">
-        <img src="{$this->e($logo)}" alt="NEXA" height="32" style="height:32px;width:auto;display:block;margin:0 0 12px;">
+        <img src="{$this->e($logo)}" alt="NEXA Suite" height="32" style="height:32px;width:auto;display:block;margin:0 0 12px;">
         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;">{$this->e($eyebrow)}</p>
         <h1 style="margin:0;font-size:22px;line-height:1.3;color:#ffffff;">{$this->e($title)}</h1>
     </td>

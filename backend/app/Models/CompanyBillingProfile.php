@@ -22,6 +22,7 @@ class CompanyBillingProfile extends Model
         'billing_mode',
         'platform_billing_package_id',
         'custom_monthly_amount',
+        'agreed_monthly_amount',
         'discount_percent',
         'billing_email',
         'billing_contact_name',
@@ -33,6 +34,9 @@ class CompanyBillingProfile extends Model
         'access_restricted_invoice_id',
         'subscription_start_date',
         'subscription_end_date',
+        'trial_started_at',
+        'trial_ends_at',
+        'trial_notice_sent_at',
         'pending_change_type',
         'pending_package_key',
         'pending_change_effective_on',
@@ -50,11 +54,15 @@ class CompanyBillingProfile extends Model
 
     protected $casts = [
         'custom_monthly_amount' => 'decimal:2',
+        'agreed_monthly_amount' => 'decimal:2',
         'discount_percent' => 'integer',
         'auto_collect_enabled' => 'boolean',
         'access_restricted_at' => 'datetime',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
+        'trial_started_at' => 'date',
+        'trial_ends_at' => 'date',
+        'trial_notice_sent_at' => 'datetime',
         'pending_change_effective_on' => 'date',
         'pending_proration_amount' => 'decimal:2',
         'pending_proration_applied_at' => 'datetime',
@@ -132,6 +140,10 @@ class CompanyBillingProfile extends Model
         }
 
         if ($this->billing_mode === self::MODE_PACKAGE) {
+            if ($this->agreed_monthly_amount !== null) {
+                return round(max(0, (float) $this->agreed_monthly_amount), 2);
+            }
+
             $fromPricing = $this->nexaMonthlyAmount();
             if ($fromPricing !== null) {
                 return $fromPricing;
