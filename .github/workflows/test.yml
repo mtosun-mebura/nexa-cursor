@@ -18,25 +18,29 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 45
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
-      
+
+    # Zelfde major als Docker (php:8.3-cli). PHP 8.2 laat composer install
+    # crashen zodra lockfile-packages zoals laravel/pint ^8.3 eisen.
     - name: Setup PHP
       uses: shivammathur/setup-php@2.37.2
       with:
-        php-version: '8.2'
+        php-version: '8.3'
         extensions: mbstring, dom, fileinfo, mysql, zip, gd, curl, intl, bcmath, soap, redis
         coverage: none
-        
+        tools: composer
+
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
         node-version: '24'
         cache: 'npm'
         cache-dependency-path: 'backend/package-lock.json'
-        
+
     - name: Prepare shared .env (root)
       run: |
         echo "APP_ENV=testing" > .env
@@ -45,50 +49,86 @@ jobs:
         echo "APP_KEY=" >> .env
         echo "DB_CONNECTION=sqlite" >> .env
         echo "DB_DATABASE=:memory:" >> .env
+        echo "MAIL_MAILER=array" >> .env
         echo "LOG_CHANNEL=stack" >> .env
-    
+
     - name: Link backend .env to root
       run: ln -sf ../.env .env
       working-directory: ./backend
-      
+
+    - name: Get Composer cache directory
+      id: composer-cache
+      working-directory: ./backend
+      run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Composer packages
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('backend/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-php-8.3-composer-
+
     - name: Install Composer dependencies
       working-directory: ./backend
-      run: composer install --no-interaction --prefer-dist
-      
+      run: |
+        set -euo pipefail
+        for attempt in 1 2 3; do
+          if composer install --no-interaction --prefer-dist --no-progress; then
+            exit 0
+          fi
+          echo "Composer install mislukt (poging ${attempt}/3)" >&2
+          if [ "$attempt" -eq 3 ]; then
+            exit 1
+          fi
+          sleep $((attempt * 8))
+        done
+
     - name: Install NPM dependencies
       working-directory: ./backend
-      run: npm ci
-      
+      run: |
+        set -euo pipefail
+        for attempt in 1 2 3; do
+          if npm ci; then
+            exit 0
+          fi
+          echo "npm ci mislukt (poging ${attempt}/3)" >&2
+          if [ "$attempt" -eq 3 ]; then
+            exit 1
+          fi
+          sleep $((attempt * 8))
+        done
+
     - name: Generate key
       run: php artisan key:generate
       working-directory: ./backend
-      
+
     - name: Directory Permissions
-      run: chmod -R 777 backend/storage backend/bootstrap/cache backend/public
+      run: chmod -R 777 backend/storage backend/bootstrap/cache
       working-directory: ./
-      
+
     - name: Create Database
       run: |
         mkdir -p database
         touch database/database.sqlite
       working-directory: ./backend
-      
+
     - name: Run Migrations
       run: php artisan migrate --force
       working-directory: ./backend
-      
+
     - name: Prepare build directory
       run: mkdir -p public/build
       working-directory: ./backend
-      
+
     - name: Build assets
       working-directory: ./backend
       run: npm run build
-      
+
     - name: Execute tests (Unit and Feature tests) via PHPUnit
       run: php -d memory_limit=1G artisan test
       working-directory: ./backend
-      
+
     - name: Check for syntax errors
       run: php -l artisan
       working-directory: ./backend
