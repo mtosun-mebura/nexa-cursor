@@ -7,11 +7,14 @@
                 @php
                     $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                     $logoHeight = $logoSize . 'px';
-                    $nexaLogoUrl = asset('images/nexa-logo.png');
                     $nexaMarkUrl = asset('images/nexa-x-logo.png');
                 @endphp
-                <img class="default-logo w-auto max-w-[350px] object-contain" style="height: {{ $logoHeight }};" src="{{ $nexaLogoUrl }}" alt="NEXA" />
-                <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ $nexaMarkUrl }}" alt="NEXA" />
+                @include('partials.nexa-brand-logo', [
+                    'class' => 'default-logo w-auto max-w-[350px] object-contain',
+                    'style' => 'height: '.$logoHeight,
+                    'alt' => 'NEXA Suite',
+                ])
+                <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ $nexaMarkUrl }}" alt="NEXA Suite" />
             </a>
             <button
                 type="button"
@@ -280,8 +283,7 @@
                             <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
                                 @foreach($moduleMenuChildren as $childItem)
                                     @php
-                                        $childPrefix = str_replace('.index', '', $childItem['route']);
-                                        $childActive = request()->routeIs($childItem['route']) || request()->routeIs($childPrefix . '.*');
+                                        $childActive = \App\Services\MenuService::childMenuItemIsActive($childItem, $moduleMenuChildren);
                                     @endphp
                                     <div class="kt-menu-item {{ $childActive ? 'active' : '' }}">
                                         <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
@@ -343,6 +345,21 @@
                 </div>
                 @endif
 
+                @if(auth()->user()?->isSuperAdmin() || (auth()->user()?->canAccessAdminPanel() && auth()->user()?->company_id))
+                <div class="kt-menu-item {{ request()->routeIs('admin.incidents.*') ? 'active' : '' }}">
+                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        href="{{ route('admin.incidents.index') }}" tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-flag text-lg"></i>
+                        </span>
+                        <span
+                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Incidenten
+                        </span>
+                    </a>
+                </div>
+                @endif
+
                 @if(auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
@@ -398,7 +415,7 @@
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-send text-lg"></i>
+                            <i class="ki-filled ki-speaker text-lg"></i>
                         </span>
                         <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
                             Nieuwsbrieven
@@ -851,8 +868,9 @@
                     $isWelcomeMenuActive = request()->routeIs('admin.welcome-page.*')
                         || (request()->routeIs('admin.website-pages.*') && $isCentralWelcomeWebsitePage);
                     $isWebsitePagesMenuActive = request()->routeIs('admin.website-pages.*') && ! $isCentralWelcomeWebsitePage;
+                    $isWebsiteAiMenuActive = request()->routeIs('admin.website-ai.*');
                 @endphp
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') ? 'here show' : '' }}" 
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || $isWebsiteAiMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -904,6 +922,15 @@
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Pagina's
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ $isWebsiteAiMenuActive ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.website-ai.create') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Genereer website AI
                                 </span>
                             </a>
                         </div>

@@ -109,6 +109,9 @@
                 <div class="w-full h-px bg-border mb-4"></div>
 
                 <div class="text-lg font-semibold text-mono">{{ $user->first_name }} {{ $user->last_name }}</div>
+                @php
+                    $profileRoleNames = $user->webRoleNames();
+                @endphp
                 <div class="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground mt-1">
                     @if($user->function)
                         <span class="flex items-center gap-1">
@@ -116,13 +119,13 @@
                             {{ $user->function }}
                         </span>
                     @endif
-                    @if($user->roles->isNotEmpty())
+                    @if(count($profileRoleNames) > 0)
                         @if($user->function)
                             <span>•</span>
                         @endif
                         <span class="flex items-center gap-1">
                             <i class="ki-filled ki-profile-user text-base"></i>
-                            {{ $user->roles->first()->name }}
+                            {{ ucfirst(str_replace('-', ' ', $profileRoleNames[0])) }}
                         </span>
                     @endif
                 </div>

@@ -133,23 +133,33 @@ class PlatformBillingSetting extends Model
      */
     public function recipientDetailsSnapshot(Company $company, ?CompanyBillingProfile $profile = null): array
     {
-        $profile ??= CompanyBillingProfile::query()->where('company_id', $company->id)->first();
+        $profile ??= $company->id
+            ? CompanyBillingProfile::query()->where('company_id', $company->id)->first()
+            : null;
+
+        $source = $company;
+        if (trim((string) ($company->street ?? '')) === '' && $company->exists) {
+            $company->loadMissing('mainLocation');
+            if ($company->mainLocation) {
+                $source = $company->mainLocation;
+            }
+        }
 
         $address = trim(implode(' ', array_filter([
-            $company->street,
-            $company->house_number,
-            $company->house_number_extension,
+            $source->street ?? null,
+            $source->house_number ?? null,
+            $source->house_number_extension ?? null,
         ])));
 
         return array_filter([
             'name' => $company->name,
             'contact_name' => trim((string) ($profile?->billing_contact_name ?? '')),
-            'email' => trim((string) ($profile?->billingEmailForCompany() ?? '')),
+            'email' => trim((string) ($profile?->billingEmailForCompany() ?: ($company->email ?? ''))),
             'address' => $address,
-            'postal_code' => trim((string) ($company->postal_code ?? '')),
-            'city' => trim((string) ($company->city ?? '')),
-            'country' => trim((string) ($company->country ?? '')),
-            'phone' => trim((string) ($company->phone ?? '')),
+            'postal_code' => trim((string) ($source->postal_code ?? '')),
+            'city' => trim((string) ($source->city ?? '')),
+            'country' => trim((string) ($source->country ?? '')),
+            'phone' => trim((string) ($source->phone ?? ($company->phone ?? ''))),
             'vat_number' => trim((string) ($company->kvk_number ?? '')),
         ], fn ($value) => $value !== '' && $value !== null);
     }

@@ -96,6 +96,37 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
     }
 
     #[Test]
+    public function cms_footer_hides_vacatures_and_legacy_skillmatching_tagline_when_not_skillmatching(): void
+    {
+        $html = view('frontend.layouts.partials.website-footer', [
+            'homeSections' => WebsitePage::prepareFooterForPublicDisplay([
+                'footer' => [
+                    'tagline' => WebsitePage::LEGACY_SKILLMATCHING_FOOTER_TAGLINE,
+                    'quick_links' => [
+                        ['label' => 'Home', 'url' => '/'],
+                        ['label' => 'Vacatures', 'url' => '/jobs'],
+                        ['label' => 'Over Ons', 'url' => '/over-ons'],
+                    ],
+                ],
+                'visibility' => [
+                    'footer' => true,
+                    'footer_map' => false,
+                    'footer_quick_links' => true,
+                    'footer_tagline' => true,
+                ],
+            ], false),
+            'branding' => ['site_name' => 'Test'],
+            'googleMapsApiKey' => '',
+            'websiteBuilder' => app(WebsiteBuilderService::class),
+        ])->render();
+
+        $this->assertStringNotContainsString('Vacatures', $html);
+        $this->assertStringNotContainsString('perfecte match', $html);
+        $this->assertStringContainsString('Ontdek wat wij voor u kunnen betekenen', $html);
+        $this->assertStringContainsString('Over Ons', $html);
+    }
+
+    #[Test]
     public function central_home_shows_header_menu_with_product_pages(): void
     {
         $this->get('http://localhost:8085/')

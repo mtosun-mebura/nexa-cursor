@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
 use App\Http\Controllers\Admin\AdminCompanyController;
+use App\Http\Controllers\Admin\AdminCompanyConfigAccessController;
 use App\Http\Controllers\Admin\AdminCompanyDomainController;
 use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminForcePasswordController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
 use App\Http\Controllers\Admin\AdminHandleidingController;
+use App\Http\Controllers\Admin\AdminIncidentController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminModuleController;
 use App\Http\Controllers\Admin\AdminNewsletterController;
@@ -41,6 +43,7 @@ use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\WebsitePageController;
 use App\Http\Controllers\PublicVacancyController;
+use App\Http\Controllers\SaasTrialStopController;
 use App\Models\Vacancy;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
@@ -63,6 +66,12 @@ Route::bind('job', function (string $value) {
 
     return Vacancy::whereKey($value)->firstOrFail();
 });
+
+Route::get('/proefperiode/beeindigd', [SaasTrialStopController::class, 'stopped'])->name('saas.trial.stopped');
+Route::get('/proefperiode/{company}/stoppen', [SaasTrialStopController::class, 'show'])
+    ->middleware('signed')
+    ->name('saas.trial.stop.show');
+Route::post('/proefperiode/stoppen', [SaasTrialStopController::class, 'store'])->name('saas.trial.stop');
 
 // Debug route for upload limits (publiek)
 Route::get('/debug-upload-limits', function () {
@@ -331,6 +340,8 @@ Route::get('/jobs/{job}', fn () => redirect()->route('home'))->name('jobs.show')
 // Admin Authentication Routes (without admin middleware)
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
+Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:8,1')->name('admin.login.first-code');
+Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:8,1')->name('admin.login.first-verify');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 Route::get('/admin/manifest.webmanifest', App\Http\Controllers\Admin\AdminWebManifestController::class)->name('admin.manifest');
 
@@ -383,6 +394,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('abonnementen/upgrade', [AdminCompanySubscriptionController::class, 'upgrade'])->name('subscriptions.upgrade');
     Route::post('abonnementen/downgrade', [AdminCompanySubscriptionController::class, 'downgrade'])->name('subscriptions.downgrade');
     Route::post('abonnementen/opzeggen', [AdminCompanySubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+    Route::post('abonnementen/proef-stoppen', [AdminCompanySubscriptionController::class, 'endTrial'])->name('subscriptions.end-trial');
     Route::post('abonnementen/intrekken', [AdminCompanySubscriptionController::class, 'withdraw'])->name('subscriptions.withdraw');
 
     Route::get('email-communicatie', [AdminTenantCustomerEmailController::class, 'index'])->name('customer-emails.index');
@@ -423,6 +435,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::middleware('role:super-admin')->group(function () {
         Route::view('playground/metronic-demo1', 'admin.metronic-vue-demo1')->name('playground.metronic-demo1');
         Route::post('companies/{company}/send-welcome', [AdminCompanyController::class, 'sendWelcomeMail'])->name('companies.send-welcome');
+        Route::put('companies/{company}/config-access', [AdminCompanyConfigAccessController::class, 'update'])->name('companies.config-access.update');
         Route::get('companies/{company}/website-bundle/export', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'export'])->name('companies.website-bundle.export');
         Route::post('companies/{company}/website-bundle/import', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'import'])->name('companies.website-bundle.import');
     });
@@ -597,6 +610,15 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('notifications/{notification}/mark-read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.mark-read');
     Route::post('notifications/{notification}/respond-interview', [AdminNotificationController::class, 'respondToInterview'])->name('notifications.respond-interview');
     Route::resource('notifications', AdminNotificationController::class);
+
+    Route::get('incidents', [AdminIncidentController::class, 'index'])->name('incidents.index');
+    Route::get('incidents/list', [AdminIncidentController::class, 'list'])->name('incidents.list');
+    Route::post('incidents/archive', [AdminIncidentController::class, 'archive'])->name('incidents.archive');
+    Route::post('incidents', [AdminIncidentController::class, 'store'])->name('incidents.store');
+    Route::get('incidents/{incident}', [AdminIncidentController::class, 'show'])->name('incidents.show');
+    Route::patch('incidents/{incident}', [AdminIncidentController::class, 'update'])->name('incidents.update');
+    Route::post('incidents/{incident}/comments', [AdminIncidentController::class, 'storeComment'])->name('incidents.comments.store');
+    Route::delete('incidents/{incident}/comments/{comment}', [AdminIncidentController::class, 'destroyComment'])->name('incidents.comments.destroy');
 
     // Email Templates — form-fields moet vóór de parent resource, anders matcht
     // GET /email-templates/form-fields op email-templates/{id} (show) met id "form-fields".
@@ -796,26 +818,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::middleware('role:super-admin')->group(function () {
             Route::get('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
             Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
+            Route::get('website-ai', [App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController::class, 'create'])->name('website-ai.create');
+            Route::post('website-ai', [App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController::class, 'generate'])->name('website-ai.generate');
         });
 
-        // Website builder (Super Admin only)
-        Route::get('website-pages/theme-blocks', [AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
-        Route::get('website-pages/section-card-html', [AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
-        Route::get('website-pages/component-section-html', [AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
-        Route::get('website-pages/block-preview', [AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
-        Route::post('website-pages/upload-footer-logo', [AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
-        Route::post('website-pages/upload-hero-image', [AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
-        Route::post('website-pages/upload-wysiwyg-document', [AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
-        Route::post('website-pages/generate-seo', [AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
-        Route::post('website-pages/generate-seo-all', [AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
-        Route::get('website-pages/{website_page}/preview', [AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
-        Route::get('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
-        Route::put('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
-        Route::patch('website-pages/{website_page}/builder-v2/meta', [AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
-        Route::post('website-pages/{website_page}/reorder', [AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
-        Route::resource('website-pages', AdminWebsitePageController::class)->names('website-pages');
-        Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
-        Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
         Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
         Route::get('frontend-themes/preview', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
         Route::get('frontend-themes/staging', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');
@@ -833,6 +839,24 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         // Postcode lookup (for address autocomplete)
         Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');
     });
+
+    Route::get('website-pages/theme-blocks', [AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
+    Route::get('website-pages/section-card-html', [AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
+    Route::get('website-pages/component-section-html', [AdminWebsitePageController::class, 'componentSectionCardHtml'])->name('website-pages.component-section-html');
+    Route::get('website-pages/block-preview', [AdminWebsitePageController::class, 'blockPreview'])->name('website-pages.block-preview');
+    Route::post('website-pages/upload-footer-logo', [AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
+    Route::post('website-pages/upload-hero-image', [AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
+    Route::post('website-pages/upload-wysiwyg-document', [AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
+    Route::post('website-pages/generate-seo', [AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
+    Route::post('website-pages/generate-seo-all', [AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
+    Route::get('website-pages/{website_page}/preview', [AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
+    Route::get('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
+    Route::put('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
+    Route::patch('website-pages/{website_page}/builder-v2/meta', [AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
+    Route::post('website-pages/{website_page}/reorder', [AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
+    Route::resource('website-pages', AdminWebsitePageController::class)->names('website-pages');
+    Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
+    Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
 });
 
 // Frontend home page

@@ -108,6 +108,7 @@
             @if(!empty($recipient['postal_code']) || !empty($recipient['city']))
                 {{ trim(($recipient['postal_code'] ?? '').' '.($recipient['city'] ?? '')) }}<br>
             @endif
+            @if(!empty($recipient['country'])){{ $recipient['country'] }}<br>@endif
             @if(!empty($recipient['email'])){{ $recipient['email'] }}@endif
         </td>
     </tr>

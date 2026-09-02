@@ -103,7 +103,8 @@
         @elseif(!empty($logoUrl))
             <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-8 w-auto max-w-[200px] object-contain object-left" />
         @else
-            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-8 w-auto max-w-[200px] object-contain object-left" />
+            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA Suite" class="welcome-logo-light h-8 w-auto max-w-[220px] object-contain object-left" />
+            <img src="{{ asset('images/nexa-logo-dark.png') }}" alt="NEXA Suite" class="welcome-logo-dark h-8 w-auto max-w-[220px] object-contain object-left" />
         @endif
     </a>
     <button id="theme-toggle" type="button"
@@ -199,7 +200,8 @@
             @elseif(!empty($logoUrl))
                 <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-4 w-auto object-contain" />
             @else
-                <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-4 w-auto" />
+                <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA Suite" class="welcome-logo-light h-4 w-auto" />
+                <img src="{{ asset('images/nexa-logo-dark.png') }}" alt="NEXA Suite" class="welcome-logo-dark h-4 w-auto" />
             @endif
             <span>&copy; {{ date('Y') }} Alle rechten voorbehouden.</span>
         </div>

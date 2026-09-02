@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\CompanyDomain;
+use App\Services\TenantConfigAccessService;
+use App\Support\TenantConfigCapability;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -13,11 +15,19 @@ class AdminCompanyDomainController extends Controller
 {
     use TenantFilter;
 
+    private function ensureDomainAccess(Company $company): void
+    {
+        app(TenantConfigAccessService::class)->assertCan(
+            auth()->user(),
+            $company,
+            TenantConfigCapability::DOMAIN,
+            'Alleen een super-admin of gebruikers met domein-toegang kunnen tenant-domeinen beheren.'
+        );
+    }
+
     public function store(Request $request, Company $company)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om dit te wijzigen.');
-        }
+        $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
@@ -71,9 +81,7 @@ class AdminCompanyDomainController extends Controller
 
     public function destroy(Request $request, Company $company, CompanyDomain $domain)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om dit te wijzigen.');
-        }
+        $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
@@ -100,9 +108,7 @@ class AdminCompanyDomainController extends Controller
 
     public function setPrimary(Request $request, Company $company, CompanyDomain $domain)
     {
-        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om dit te wijzigen.');
-        }
+        $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }

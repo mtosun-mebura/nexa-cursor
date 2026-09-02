@@ -83,6 +83,7 @@ class NexaPricingServiceTest extends TestCase
             'period' => 'per maand',
         ])['after_label']);
         $this->assertSame(['Start', 'Pro', 'Business'], $service->packageNames());
+        $this->assertSame(5, $service->trialNoticeDays());
         $this->assertSame('Start', $service->matchPackageName('start'));
         $this->assertSame(['start' => 'Start', 'pro' => 'Pro', 'business' => 'Business'], $service->packagesForSelect());
         $this->assertSame('start', $service->packageByKey('start')['key'] ?? null);

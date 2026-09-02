@@ -1,7 +1,7 @@
-# NEXA SaaS MACH microservices migratieplan
+# NEXA Suite MACH microservices migratieplan
 
 Datum: 2026-06-03  
-Scope: huidige NEXA SaaS codebase met Core, Nexa Taxi, Nexa Skillmatching, website builder, admin, chauffeur app en toekomstige modules.
+Scope: huidige NEXA Suite codebase met Core, Nexa Taxi, Nexa Skillmatching, website builder, admin, chauffeur app en toekomstige modules.
 
 ---PAGE---
 

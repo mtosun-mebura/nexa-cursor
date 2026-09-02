@@ -89,6 +89,8 @@ class EnforceTenantBillingRestriction
             || $request->is('admin/reset-password')
             || $request->is('admin/reset-password/*')
             || $request->is('up')
-            || $request->is('livewire/*');
+            || $request->is('livewire/*')
+            || $request->is('proefperiode')
+            || $request->is('proefperiode/*');
     }
 }

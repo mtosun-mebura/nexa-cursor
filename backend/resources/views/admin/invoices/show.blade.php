@@ -68,7 +68,10 @@
                                 @elseif($invoice->company)
                                     <span class="text-lg font-semibold text-mono">{{ $invoice->company->name }}</span>
                                 @else
-                                    <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-12 w-auto">
+                                    @include('partials.nexa-brand-logo', [
+                                        'class' => 'h-12 w-auto',
+                                        'alt' => 'NEXA Suite',
+                                    ])
                                 @endif
                             </div>
                             <div class="text-right ml-auto pl-8">

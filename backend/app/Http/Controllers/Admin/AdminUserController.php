@@ -37,9 +37,6 @@ class AdminUserController extends Controller
         $query = User::with(['company.modules', 'roles']);
         $this->applyTenantFilter($query);
 
-        // Exclude de ingelogde gebruiker uit het overzicht
-        $query->where('id', '!=', auth()->id());
-
         // Filter super-admins: alleen super-admins kunnen andere super-admins zien
         if (! auth()->user()->hasRole('super-admin')) {
             $query->whereNot(fn ($q) => $this->applyWebRoleNameFilter($q, 'super-admin'));
@@ -148,7 +145,7 @@ class AdminUserController extends Controller
         $wizardContextStep = null;
         $wizardCompany = $this->resolveWizardCompanyFromUserCreateRequest($request);
         if ($wizardCompany !== null) {
-            $wizardStep = max(1, min(7, (int) ($request->input('wizard_step') ?: 5)));
+            $wizardStep = \App\Http\Controllers\Admin\AdminCompanyWizardController::clampStep((int) ($request->input('wizard_step') ?: 5));
             $userCreateBackFallback = route('admin.companies.wizard.step', [$wizardCompany, $wizardStep]);
             $wizardContextCompanyId = (int) $wizardCompany->id;
             $wizardContextStep = $wizardStep;
@@ -320,7 +317,7 @@ class AdminUserController extends Controller
         $request->merge([
             'from_wizard' => '1',
             'wizard_company' => (string) (int) $sid,
-            'wizard_step' => (string) max(1, min(7, (int) $request->input('wizard_step', 5))),
+            'wizard_step' => (string) \App\Http\Controllers\Admin\AdminCompanyWizardController::clampStep((int) $request->input('wizard_step', 5)),
         ]);
     }
 
@@ -416,6 +413,7 @@ class AdminUserController extends Controller
         }
 
         $roles = $this->assignableWebRolesForForms($currentUser->hasRole('super-admin'));
+        $canEditRoles = $currentUser->canEditRolesOf($user);
         $skillmatchingCompanyIds = $this->skillmatchingCompanyIds();
         $functionCompanyId = old('company_id', $user->company_id);
         if (! $currentUser->hasRole('super-admin')) {
@@ -423,7 +421,7 @@ class AdminUserController extends Controller
         }
         $showFunctionField = $this->companyHasSkillmatchingModule($functionCompanyId !== null && $functionCompanyId !== '' ? (int) $functionCompanyId : null);
 
-        return view('admin.users.edit', compact('user', 'companies', 'roles', 'skillmatchingCompanyIds', 'showFunctionField'));
+        return view('admin.users.edit', compact('user', 'companies', 'roles', 'canEditRoles', 'skillmatchingCompanyIds', 'showFunctionField'));
     }
 
     public function update(UpdateUserRequest $request, User $user)
@@ -434,6 +432,9 @@ class AdminUserController extends Controller
         }
 
         $validated = $request->validated();
+        if (! auth()->user()->canEditRolesOf($user)) {
+            $validated['roles'] = $user->webRoleNames();
+        }
 
         $userData = [
             'first_name' => $validated['first_name'],
@@ -517,6 +518,10 @@ class AdminUserController extends Controller
 
         if (! $this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        if (! auth()->user()->canEditRolesOf($user)) {
+            return back()->withErrors(['roles' => 'Alleen een super-admin mag rollen wijzigen. Je kunt je eigen rollen niet aanpassen.']);
         }
 
         $roles = $request->input('roles', []);
@@ -909,13 +914,12 @@ class AdminUserController extends Controller
     }
 
     /**
-     * Basisquery voor gebruikersoverzicht (tenant, zonder huidige gebruiker, zonder super-admin voor niet-super-admins).
+     * Basisquery voor gebruikersoverzicht (tenant, zonder super-admin voor niet-super-admins).
      */
     private function baseUsersIndexQuery(): Builder
     {
         $query = User::query();
         $this->applyTenantFilter($query);
-        $query->where('id', '!=', auth()->id());
 
         if (! auth()->user()->hasRole('super-admin')) {
             $query->whereNot(fn ($q) => $this->applyWebRoleNameFilter($q, 'super-admin'));

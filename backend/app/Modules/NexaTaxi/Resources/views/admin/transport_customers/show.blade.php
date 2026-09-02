@@ -37,19 +37,30 @@
         </div>
     @endif
 
+    @php
+        $portalCount = ($portalUsers ?? collect())->count();
+        $contractCount = ($contracts ?? collect())->count();
+        $announcementCount = ($announcements ?? collect())->count();
+        $customerSection = old('section', request('section', 'portaal'));
+        if (! in_array($customerSection, ['portaal', 'abonnementen', 'meldingen'], true)) {
+            $customerSection = 'portaal';
+        }
+        $customerSectionUrl = fn (string $section) => request()->fullUrlWithQuery(['section' => $section]);
+    @endphp
+
     <div class="grid gap-5 lg:gap-7.5">
 
         {{-- Klantdetails --}}
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header">
+            <div class="kt-card-header px-5 py-5">
                 <h3 class="kt-card-title mb-0">Klantdetails</h3>
             </div>
             <div class="kt-card-content p-0">
                 <div class="px-3 sm:px-5 pb-3 min-w-0">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table customer-detail-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-medium">Status</td>
-                            <td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Status</td>
+                            <td class="min-w-0">
                                 @if($customer->active)
                                     <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
                                 @else
@@ -58,24 +69,24 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-medium">Contactpersoon</td>
-                            <td>{{ $customer->contact_name ?: '—' }}</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Contactpersoon</td>
+                            <td class="min-w-0">{{ $customer->contact_name ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-medium">E-mail</td>
-                            <td>{{ $customer->contact_email ?: '—' }}</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">E-mail</td>
+                            <td class="min-w-0">{{ $customer->contact_email ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-medium">Telefoon</td>
-                            <td>{{ $customer->contact_phone ?: '—' }}</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Telefoon</td>
+                            <td class="min-w-0">{{ $customer->contact_phone ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-medium">Debiteurnummer</td>
-                            <td>{{ $customer->debtor_number ?: '—' }}</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Debiteurnummer</td>
+                            <td class="min-w-0">{{ $customer->debtor_number ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-medium">Factuuradres</td>
-                            <td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Factuuradres</td>
+                            <td class="min-w-0">
                                 @if($customer->billing_address)
                                     {{ $customer->billing_address }}<br>
                                     {{ $customer->billing_postal_code }} {{ $customer->billing_city }}<br>
@@ -87,8 +98,8 @@
                         </tr>
                         @if($customer->notes)
                         <tr>
-                            <td class="text-secondary-foreground font-medium">Notities</td>
-                            <td class="whitespace-pre-wrap">{{ $customer->notes }}</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Notities</td>
+                            <td class="min-w-0 whitespace-pre-wrap">{{ $customer->notes }}</td>
                         </tr>
                         @endif
                     </table>
@@ -96,9 +107,46 @@
             </div>
         </div>
 
+        <nav class="customer-section-nav grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4 w-full min-w-0" aria-label="Klantonderdelen" data-customer-sections>
+            <a
+                href="{{ $customerSectionUrl('portaal') }}"
+                class="customer-section-tile{{ $customerSection === 'portaal' ? ' is-active' : '' }}"
+                data-customer-section="portaal"
+                @if($customerSection === 'portaal') aria-current="page" @endif
+            >
+                <span class="customer-section-tile__label">Contractportaal</span>
+                <span class="customer-section-tile__value">{{ $portalCount }}</span>
+                <span class="customer-section-tile__meta">{{ $portalCount === 1 ? 'gebruiker' : 'gebruikers' }} · contract-app</span>
+            </a>
+            <a
+                href="{{ $customerSectionUrl('abonnementen') }}"
+                class="customer-section-tile{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}"
+                data-customer-section="abonnementen"
+                @if($customerSection === 'abonnementen') aria-current="page" @endif
+            >
+                <span class="customer-section-tile__label">Abonnementen</span>
+                <span class="customer-section-tile__value">{{ $contractCount }}</span>
+                <span class="customer-section-tile__meta">{{ $contractCount === 1 ? 'abonnement' : 'abonnementen' }} · planning &amp; facturatie</span>
+            </a>
+            <a
+                href="{{ $customerSectionUrl('meldingen') }}"
+                class="customer-section-tile{{ $customerSection === 'meldingen' ? ' is-active' : '' }}"
+                data-customer-section="meldingen"
+                @if($customerSection === 'meldingen') aria-current="page" @endif
+            >
+                <span class="customer-section-tile__label">Verstoringen &amp; meldingen</span>
+                <span class="customer-section-tile__value">{{ $announcementCount }}</span>
+                <span class="customer-section-tile__meta">{{ $announcementCount === 1 ? 'melding' : 'meldingen' }} · banner in de app</span>
+            </a>
+        </nav>
+
         {{-- Contractportaal --}}
+        @php
+            $openPortalAddForm = $errors->any() && old('section') === 'portaal';
+        @endphp
+        <div class="customer-section-panel{{ $customerSection === 'portaal' ? ' is-active' : '' }}" data-customer-section-panel="portaal" id="customer-section-portaal">
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header px-5 py-5">
+            <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
                 <div class="min-w-0">
                     <h3 class="kt-card-title mb-0">Contractportaal</h3>
                     <p class="text-sm text-muted-foreground mt-1.5 mb-0">
@@ -106,6 +154,22 @@
                         <a href="{{ url('/taxi/contract') }}" target="_blank" rel="noopener" class="text-primary hover:underline break-all">/taxi/contract</a>
                     </p>
                 </div>
+                @can('rides.update')
+                <button
+                    type="button"
+                    class="kt-btn kt-btn-primary shrink-0"
+                    id="portal-user-add-toggle"
+                    data-portal-add-open
+                    aria-expanded="{{ $openPortalAddForm ? 'true' : 'false' }}"
+                    aria-controls="portal-user-add-section"
+                    @if($openPortalAddForm) hidden @endif
+                >
+                    <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                    </svg>
+                    Gebruiker toevoegen
+                </button>
+                @endcan
             </div>
             <div class="kt-card-content p-0 min-w-0">
                 <div class="portal-users-stack p-5 flex flex-col gap-4">
@@ -142,6 +206,7 @@
                                 <div class="portal-user-block-body px-5 pb-5">
                                 <form method="POST" action="{{ route('admin.taxi.transport_customers.portal.update', [$customer->id, $portalUser->id]) }}" class="min-w-0">
                                     @csrf
+                                    <input type="hidden" name="section" value="portaal">
                                     @method('PUT')
                                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                                         <tr>
@@ -206,6 +271,7 @@
                                     class="hidden"
                                 >
                                     @csrf
+                                    <input type="hidden" name="section" value="portaal">
                                     @method('DELETE')
                                 </form>
                                 @endcan
@@ -215,17 +281,31 @@
                     @else
                         <p class="text-sm text-muted-foreground mb-0">Nog geen portaalgebruikers gekoppeld.</p>
                     @endif
+                </div>
+            </div>
+        </div>
 
-                    @can('rides.update')
-                    <div class="min-w-0" id="portal-user-add-section">
-                        <h4 class="text-sm font-medium text-foreground mb-3">Portaalgebruiker toevoegen</h4>
-                    @if(session('success'))
-                        <div class="kt-alert kt-alert-success mb-4" role="alert">
-                            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-                        </div>
-                    @endif
-                    @if($errors->any())
-                        <div class="kt-alert kt-alert-danger mb-4" role="alert">
+        @can('rides.update')
+        <div
+            class="kt-card w-full min-w-0{{ $openPortalAddForm ? '' : ' portal-user-add-card--collapsed' }}"
+            id="portal-user-add-section"
+            @unless($openPortalAddForm) hidden @endunless
+        >
+            <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
+                <h3 class="kt-card-title mb-0">Gebruiker toevoegen</h3>
+                <button
+                    type="button"
+                    class="kt-btn kt-btn-outline kt-btn-sm shrink-0"
+                    id="portal-user-add-cancel"
+                    data-portal-add-close
+                >
+                    Annuleren
+                </button>
+            </div>
+            <div class="kt-card-content p-0 min-w-0">
+                <div class="px-3 sm:px-5 pb-5 min-w-0">
+                    @if($openPortalAddForm)
+                        <div class="kt-alert kt-alert-danger mb-4 mt-4" role="alert">
                             <ul class="list-disc list-inside mb-0">
                                 @foreach($errors->all() as $error)
                                     <li>{{ $error }}</li>
@@ -235,6 +315,7 @@
                     @endif
                     <form method="POST" action="{{ route('admin.taxi.transport_customers.portal.store', $customer->id) }}" class="min-w-0" id="portal-user-add-form" novalidate>
                         @csrf
+                        <input type="hidden" name="section" value="portaal">
                         @php
                             $selectedExistingUserId = (int) old('existing_user_id', 0);
                             $userMode = old('user_mode', $selectedExistingUserId > 0 ? 'existing' : 'new');
@@ -352,15 +433,16 @@
                             <button type="submit" class="kt-btn kt-btn-primary">Toevoegen / koppelen</button>
                         </div>
                     </form>
-                    </div>
-                    @endcan
                 </div>
             </div>
         </div>
+        @endcan
+        </div>
 
         {{-- Abonnementen --}}
+        <div class="customer-section-panel{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}" data-customer-section-panel="abonnementen" id="customer-section-abonnementen">
         <div class="kt-card kt-card-grid w-full min-w-0">
-            <div class="kt-card-header">
+            <div class="kt-card-header px-5 py-5">
                 <h3 class="kt-card-title mb-0">Abonnementen</h3>
             </div>
             <div class="kt-card-content p-0 min-w-0">
@@ -428,10 +510,12 @@
                 </div>
             </div>
         </div>
+        </div>
 
         {{-- Verstoringen / meldingen voor contractportaal --}}
+        <div class="customer-section-panel{{ $customerSection === 'meldingen' ? ' is-active' : '' }}" data-customer-section-panel="meldingen" id="customer-section-meldingen">
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header">
+            <div class="kt-card-header px-5 py-5">
                 <div class="min-w-0">
                     <h3 class="kt-card-title mb-0">Verstoringen &amp; meldingen</h3>
                     <p class="text-sm text-muted-foreground mt-1.5 mb-0">
@@ -446,6 +530,7 @@
                             <div class="px-3 sm:px-5 py-4 min-w-0">
                                 <form method="POST" action="{{ route('admin.taxi.transport_customers.announcements.update', [$customer->id, $announcement->id]) }}" class="space-y-3">
                                     @csrf
+                                    <input type="hidden" name="section" value="meldingen">
                                     @method('PUT')
                                     <div class="flex flex-wrap items-start justify-between gap-2">
                                         <div class="min-w-0">
@@ -480,11 +565,19 @@
                                         </div>
                                         <div>
                                             <label class="text-sm text-muted-foreground">Start</label>
-                                            <input type="datetime-local" name="starts_at" class="kt-input w-full" value="{{ optional($announcement->starts_at)->format('Y-m-d\\TH:i') }}">
+                                            @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
+                                                'name' => 'starts_at',
+                                                'value' => old('starts_at', $announcement->starts_at),
+                                                'placeholder' => 'Selecteer datum en tijd',
+                                            ])
                                         </div>
                                         <div>
                                             <label class="text-sm text-muted-foreground">Einde</label>
-                                            <input type="datetime-local" name="ends_at" class="kt-input w-full" value="{{ optional($announcement->ends_at)->format('Y-m-d\\TH:i') }}">
+                                            @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
+                                                'name' => 'ends_at',
+                                                'value' => old('ends_at', $announcement->ends_at),
+                                                'placeholder' => 'Selecteer datum en tijd',
+                                            ])
                                         </div>
                                     </div>
                                     <label class="inline-flex items-center gap-2 text-sm">
@@ -498,6 +591,7 @@
                                 </form>
                                 <form id="announcement-delete-{{ $announcement->id }}" method="POST" action="{{ route('admin.taxi.transport_customers.announcements.destroy', [$customer->id, $announcement->id]) }}" class="hidden">
                                     @csrf
+                                    <input type="hidden" name="section" value="meldingen">
                                     @method('DELETE')
                                 </form>
                             </div>
@@ -509,10 +603,11 @@
                     </div>
                 @endif
 
-                <div class="px-3 sm:px-5 py-4 border-t min-w-0">
+                <div class="px-3 sm:px-5 py-4 border-t border-border min-w-0">
                     <h4 class="font-medium text-foreground mb-3">Nieuwe melding</h4>
                     <form method="POST" action="{{ route('admin.taxi.transport_customers.announcements.store', $customer->id) }}" class="space-y-3">
                         @csrf
+                        <input type="hidden" name="section" value="meldingen">
                         <div class="grid gap-3 sm:grid-cols-2">
                             <div>
                                 <label class="text-sm text-muted-foreground">Titel</label>
@@ -532,11 +627,19 @@
                             </div>
                             <div>
                                 <label class="text-sm text-muted-foreground">Start (optioneel)</label>
-                                <input type="datetime-local" name="starts_at" class="kt-input w-full" value="{{ old('starts_at') }}">
+                                @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
+                                    'name' => 'starts_at',
+                                    'value' => old('starts_at'),
+                                    'placeholder' => 'Selecteer datum en tijd',
+                                ])
                             </div>
                             <div>
                                 <label class="text-sm text-muted-foreground">Einde (optioneel)</label>
-                                <input type="datetime-local" name="ends_at" class="kt-input w-full" value="{{ old('ends_at') }}">
+                                @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
+                                    'name' => 'ends_at',
+                                    'value' => old('ends_at'),
+                                    'placeholder' => 'Selecteer datum en tijd',
+                                ])
                             </div>
                         </div>
                         <label class="inline-flex items-center gap-2 text-sm">
@@ -551,6 +654,7 @@
                 </div>
             </div>
         </div>
+        </div>
 
     </div>
 </div>
@@ -558,6 +662,99 @@
 
 @push('styles')
 <style>
+    #content .customer-section-nav {
+        min-width: 0;
+    }
+
+    #content .customer-section-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        min-width: 0;
+        padding: 1.25rem;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius, 0.5rem) + 4px);
+        background: var(--card, var(--background));
+        color: inherit;
+        text-decoration: none;
+        box-shadow: none;
+        transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    #content .customer-section-tile:hover {
+        border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+        color: inherit;
+    }
+
+    #content .customer-section-tile.is-active {
+        border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
+        background: color-mix(in oklab, var(--primary) 8%, var(--background));
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 28%, transparent);
+    }
+
+    #content .customer-section-tile__label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--foreground);
+        line-height: 1.3;
+    }
+
+    #content .customer-section-tile__value {
+        font-size: 1.5rem;
+        font-weight: 650;
+        line-height: 1.2;
+        color: var(--mono, var(--foreground));
+        letter-spacing: -0.02em;
+    }
+
+    #content .customer-section-tile.is-active .customer-section-tile__value {
+        color: var(--primary);
+    }
+
+    #content .customer-section-tile__meta {
+        font-size: 0.8125rem;
+        color: var(--muted-foreground);
+        line-height: 1.35;
+    }
+
+    #content .customer-section-panel.is-active {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        min-width: 0;
+    }
+
+    #content .customer-section-panel:not(.is-active) {
+        display: none !important;
+    }
+
+    #content #portal-user-add-section[hidden],
+    #content #portal-user-add-section.portal-user-add-card--collapsed,
+    #content #portal-user-add-toggle[hidden] {
+        display: none !important;
+    }
+
+    #content .customer-detail-table,
+    #content #portal-user-add-form .wizard-onboarding-form-table {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    #content .customer-detail-table td:first-child,
+    #content #portal-user-add-form .wizard-onboarding-form-table td:first-child {
+        width: 14rem;
+        min-width: 14rem;
+        max-width: 14rem;
+        vertical-align: top;
+    }
+
+    #content .customer-detail-table td:nth-child(2),
+    #content #portal-user-add-form .wizard-onboarding-form-table td:nth-child(2) {
+        min-width: 0;
+        overflow-wrap: break-word;
+    }
+
     #content #transport-customer-contracts-table .transport-customers-table__actions-col {
         width: 4.5rem !important;
         min-width: 4.5rem !important;
@@ -762,7 +959,72 @@
 
 @push('scripts')
 <script>
+(function() {
+    document.addEventListener('click', function(event) {
+        if (event.target.closest('[data-portal-add-open]')) {
+            event.preventDefault();
+            var section = document.getElementById('portal-user-add-section');
+            var toggle = document.getElementById('portal-user-add-toggle');
+            if (!section) {
+                return;
+            }
+            section.hidden = false;
+            section.classList.remove('portal-user-add-card--collapsed');
+            if (toggle) {
+                toggle.hidden = true;
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+            section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            var first = document.getElementById('portal-first-name');
+            if (first && !first.disabled) {
+                window.setTimeout(function() { first.focus(); }, 80);
+            }
+            return;
+        }
+        if (event.target.closest('[data-portal-add-close]')) {
+            event.preventDefault();
+            var addSection = document.getElementById('portal-user-add-section');
+            var addToggle = document.getElementById('portal-user-add-toggle');
+            if (!addSection) {
+                return;
+            }
+            addSection.hidden = true;
+            addSection.classList.add('portal-user-add-card--collapsed');
+            if (addToggle) {
+                addToggle.hidden = false;
+                addToggle.setAttribute('aria-expanded', 'false');
+            }
+        }
+    });
+})();
 document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(event) {
+        var tile = event.target.closest('[data-customer-sections] a[data-customer-section]');
+        if (!tile || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        var section = tile.getAttribute('data-customer-section');
+        if (!section) {
+            return;
+        }
+        event.preventDefault();
+        document.querySelectorAll('[data-customer-sections] a[data-customer-section]').forEach(function(item) {
+            var active = item.getAttribute('data-customer-section') === section;
+            item.classList.toggle('is-active', active);
+            if (active) {
+                item.setAttribute('aria-current', 'page');
+            } else {
+                item.removeAttribute('aria-current');
+            }
+        });
+        document.querySelectorAll('[data-customer-section-panel]').forEach(function(panel) {
+            panel.classList.toggle('is-active', panel.getAttribute('data-customer-section-panel') === section);
+        });
+        var url = new URL(window.location.href);
+        url.searchParams.set('section', section);
+        window.history.replaceState({}, '', url.toString());
+    });
+
     document.querySelectorAll('#transport-customer-contracts-table tr[data-row-href]').forEach(function(row) {
         row.addEventListener('click', function(event) {
             if (event.target.closest('[data-no-row-link]')) {

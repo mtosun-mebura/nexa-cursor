@@ -225,7 +225,13 @@
                         @if($emailTemplate->type === 'tenant_welcome')
                         <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
                             <p class="mb-2 text-foreground font-medium">Welkomstmail tenant</p>
-                            <p class="mb-0">Plaats {{ '{' }}{{ '{' }} NEXA_LOGO {{ '}' }}{{ '}' }} linksboven in de kop voor het Nexa-logo. {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }} is het logo van de tenant. Knoptekst (zoals &quot;Open de admin&quot;) het beste in een &lt;span style=&quot;color:#ffffff&quot;&gt; zetten, zodat die in de preview en in e-mailclients leesbaar blijft.</p>
+                            <p class="mb-0">Plaats {{ '{' }}{{ '{' }} NEXA_LOGO {{ '}' }}{{ '}' }} linksboven in de kop voor het Nexa-logo. {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }} is het logo van de tenant. Deze mail bevat <strong>geen wachtwoord</strong>: de beheerder vraagt op het inlogscherm een eenmalige code aan. Knoptekst (zoals &quot;Open de admin&quot;) het beste in een &lt;span style=&quot;color:#ffffff&quot;&gt; zetten, zodat die in de preview en in e-mailclients leesbaar blijft.</p>
+                        </div>
+                        @endif
+                        @if($emailTemplate->type === 'admin_first_login_code')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-2 text-foreground font-medium">Eenmalige inlogcode admin</p>
+                            <p class="mb-0">Verstuurd wanneer een nieuwe company-admin op het inlogscherm een code aanvraagt. Belangrijkste variabelen: {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }} (6 cijfers), {{ '{' }}{{ '{' }} CODE_EXPIRES_MINUTES {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} ADMIN_LOGIN_URL {{ '}' }}{{ '}' }}. Zet de code niet in de welkomstmail.</p>
                         </div>
                         @endif
                         @if($emailTemplate->type === 'invoice')

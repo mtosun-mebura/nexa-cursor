@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Services\UserRoleAssignmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -18,7 +20,10 @@ class AdminUserEditRolesTest extends TestCase
     {
         parent::setUp();
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'view-users', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'edit-users', 'guard_name' => 'web']);
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
     }
 
@@ -55,6 +60,117 @@ class AdminUserEditRolesTest extends TestCase
             str_contains($match[0], 'checked'),
             'Rol chauffeur zou aangevinkt moeten zijn, ook als de database "Chauffeur" opslaat. Input: '.$match[0]
         );
+    }
+
+    #[Test]
+    public function company_admin_sees_own_account_in_users_index(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->assertSee($admin->email, false)
+            ->assertSee('Jij', false)
+            ->assertDontSee('mailto:'.$admin->email, false);
+    }
+
+    #[Test]
+    public function company_admin_cannot_edit_own_roles_in_the_form_or_via_post(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.users.edit', $admin))
+            ->assertOk()
+            ->assertSee('Alleen een super-admin kan rollen wijzigen', false)
+            ->assertDontSee('data-checkbox-group="roles"', false);
+
+        $this->actingAs($admin, 'web')
+            ->put(route('admin.users.update', $admin), [
+                'first_name' => $admin->first_name,
+                'last_name' => $admin->last_name,
+                'email' => $admin->email,
+                'roles' => ['chauffeur'],
+            ])
+            ->assertRedirect(route('admin.users.show', $admin));
+
+        $admin->refresh();
+        $this->assertSame(['company-admin'], $admin->webRoleNames());
+    }
+
+    #[Test]
+    public function company_admin_can_change_another_users_roles(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+        $colleague = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Karel',
+            'last_name' => 'Collega',
+            'email' => 'karel.collega@example.com',
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($colleague, ['chauffeur']);
+
+        $this->actingAs($admin, 'web')
+            ->put(route('admin.users.update', $colleague), [
+                'first_name' => $colleague->first_name,
+                'last_name' => $colleague->last_name,
+                'email' => $colleague->email,
+                'roles' => ['company-admin'],
+            ])
+            ->assertRedirect(route('admin.users.show', $colleague));
+
+        $colleague->refresh();
+        $this->assertSame(['company-admin'], $colleague->webRoleNames());
+    }
+
+    #[Test]
+    public function super_admin_can_change_another_users_roles(): void
+    {
+        $company = Company::query()->create(['name' => 'Taxi Super Roles', 'is_active' => true]);
+        $super = User::factory()->create();
+        $super->assignRole('super-admin');
+
+        $target = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Sara',
+            'last_name' => 'Doel',
+            'email' => 'sara.doel@example.com',
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($target, ['chauffeur']);
+
+        $this->actingAs($super, 'web')
+            ->withSession(['selected_tenant' => $company->id])
+            ->put(route('admin.users.update', $target), [
+                'first_name' => $target->first_name,
+                'last_name' => $target->last_name,
+                'email' => $target->email,
+                'company_id' => $company->id,
+                'roles' => ['company-admin'],
+            ])
+            ->assertRedirect(route('admin.users.show', $target));
+
+        $target->refresh();
+        $this->assertSame(['company-admin'], $target->webRoleNames());
+    }
+
+    /**
+     * @return array{0: Company, 1: User}
+     */
+    private function makeCompanyAdmin(): array
+    {
+        $company = Company::query()->create(['name' => 'Taxi Eigen Gebruiker', 'is_active' => true]);
+        $admin = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Anna',
+            'last_name' => 'Admin',
+            'email' => 'anna.admin@example.com',
+        ]);
+        $role = Role::findByName('company-admin', 'web');
+        $role->givePermissionTo(['view-users', 'edit-users']);
+        app(UserRoleAssignmentService::class)->syncWebRoles($admin, ['company-admin']);
+
+        return [$company, $admin];
     }
 
     private function attachWebRole(User $user, Role $role, int $companyId): void

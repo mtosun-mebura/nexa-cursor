@@ -135,10 +135,11 @@ class EmailTemplateService
      *
      * @param  string|null  $fromEmail  Optioneel From-adres (bijv. ingelogde gebruiker); voorkomt SMTP 550 "not authorized to send on behalf of"
      * @param  string|null  $fromName  Optioneel From-naam
-     * @param  bool  $usePlatformMail  true = altijd Nexa SaaS-mailserver (admin-testmail)
+     * @param  bool  $usePlatformMail  true = altijd NEXA Suite-mailserver (admin-testmail)
      * @param  bool  $asTemplateSample  true = banner “dit is een voorbeeld” (alleen admin-testmail)
+     * @param  array<int, array{bytes: string, filename: string, mime?: string}>  $attachments
      */
-    public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null, bool $usePlatformMail = false, bool $asTemplateSample = false): void
+    public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null, bool $usePlatformMail = false, bool $asTemplateSample = false, array $attachments = []): void
     {
         $logoCompanyId = $template->company_id
             ?? (function_exists('auth') && auth()->check() ? auth()->user()->company_id : null);
@@ -205,6 +206,13 @@ class EmailTemplateService
             [$subject, $htmlContent, $textContent] = $this->markAsTemplateSample($subject, $htmlContent, $textContent);
         }
 
+        if ($attachments === [] && $template->type === SaasBillingStartEmailTemplateService::TYPE) {
+            $samplePdf = app(SaasBillingStartEmailTemplateService::class)->sampleInvoiceAttachment();
+            if ($samplePdf) {
+                $attachments[] = $samplePdf;
+            }
+        }
+
         $logoService = app(CompanyEmailLogoService::class);
         $env = app(EnvService::class);
         if ($usePlatformMail) {
@@ -240,7 +248,8 @@ class EmailTemplateService
             $defaultCompanyName,
             $logoService,
             $replyToEmail,
-            $replyToName
+            $replyToName,
+            $attachments
         ) {
             if ($resolvedFromEmail) {
                 $message->from($resolvedFromEmail, $resolvedFromName ?: $resolvedFromEmail);
@@ -260,6 +269,16 @@ class EmailTemplateService
             }
             if ($textContent) {
                 $message->text($textContent);
+            }
+            foreach ($attachments as $attachment) {
+                $bytes = (string) ($attachment['bytes'] ?? '');
+                $filename = (string) ($attachment['filename'] ?? 'bijlage.pdf');
+                if ($bytes === '' || $filename === '') {
+                    continue;
+                }
+                $message->attachData($bytes, $filename, [
+                    'mime' => (string) ($attachment['mime'] ?? 'application/pdf'),
+                ]);
             }
         });
     }

@@ -288,12 +288,24 @@
                                                     </div>
                                                 @endif
                                                 <div class="flex flex-col">
-                                                    <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $user) }}" data-user-id="{{ $user->id }}">
-                                                        {{ $user->first_name }} {{ $user->last_name }}
-                                                    </a>
-                                                    <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $user->email }}">
-                                                        {{ $user->email }}
-                                                    </a>
+                                                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                                                        <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $user) }}" data-user-id="{{ $user->id }}">
+                                                            {{ $user->first_name }} {{ $user->last_name }}
+                                                        </a>
+                                                        @if($user->id === auth()->id())
+                                                            <span class="kt-badge kt-badge-sm kt-badge-secondary shrink-0">Jij</span>
+                                                        @endif
+                                                    </div>
+                                                    <div class="flex items-center gap-1 min-w-0">
+                                                        <span class="user-email-text text-sm text-secondary-foreground font-normal truncate">{{ $user->email }}</span>
+                                                        <button type="button"
+                                                                class="user-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                                                                data-copy-text="{{ $user->email }}"
+                                                                title="E-mailadres kopiëren"
+                                                                aria-label="E-mailadres kopiëren">
+                                                            <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                                                        </button>
+                                                    </div>
                                                     @if($user->function && $user->company?->hasSkillmatchingModule())
                                                         <span class="text-xs text-muted-foreground font-normal mt-0.5">
                                                             {{ $user->function }}
@@ -358,6 +370,7 @@
                                                             </a>
                                                         </div>
                                                         @endcan
+                                                        @if($user->id !== auth()->id())
                                                         @if(auth()->user()->can('view-users') || auth()->user()->can('edit-users'))
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
@@ -401,6 +414,7 @@
                                                             </form>
                                                         </div>
                                                         @endcan
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>
@@ -437,6 +451,109 @@
 </div>
 
 @push('scripts')
+<script>
+(function () {
+    function copyWithSelection(text) {
+        var span = document.createElement('span');
+        span.textContent = text;
+        span.style.cssText = 'position:fixed;top:0;left:0;white-space:pre;';
+        document.body.appendChild(span);
+        var selection = window.getSelection();
+        var range = document.createRange();
+        range.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        var copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (err) {
+            copied = false;
+        }
+        selection.removeAllRanges();
+        span.remove();
+        return copied;
+    }
+
+    function copyFromVisibleEmail(button) {
+        var label = button.parentElement ? button.parentElement.querySelector('.user-email-text') : null;
+        if (!label) {
+            return false;
+        }
+        var selection = window.getSelection();
+        var range = document.createRange();
+        range.selectNodeContents(label);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        var copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (err) {
+            copied = false;
+        }
+        selection.removeAllRanges();
+        return copied;
+    }
+
+    function markEmailCopied(button) {
+        var icon = button.querySelector('i');
+        button.setAttribute('title', 'Gekopieerd');
+        button.setAttribute('aria-label', 'Gekopieerd');
+        if (icon) {
+            icon.classList.remove('ki-copy');
+            icon.classList.add('ki-check');
+        }
+        window.setTimeout(function () {
+            button.setAttribute('title', 'E-mailadres kopiëren');
+            button.setAttribute('aria-label', 'E-mailadres kopiëren');
+            if (icon) {
+                icon.classList.remove('ki-check');
+                icon.classList.add('ki-copy');
+            }
+        }, 1500);
+    }
+
+    document.addEventListener('click', function (e) {
+        var button = e.target && e.target.closest ? e.target.closest('.user-email-copy') : null;
+        if (!button) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        var text = button.getAttribute('data-copy-text') || '';
+        if (!text) {
+            return;
+        }
+
+        try {
+            window.focus();
+            button.focus();
+        } catch (err) {}
+
+        var clipboardPromise = null;
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            clipboardPromise = navigator.clipboard.writeText(text);
+        }
+
+        var copiedNow = copyFromVisibleEmail(button) || copyWithSelection(text);
+        if (copiedNow) {
+            markEmailCopied(button);
+        }
+
+        if (clipboardPromise) {
+            clipboardPromise.then(function () {
+                markEmailCopied(button);
+            }).catch(function () {
+                if (!copiedNow) {
+                    window.prompt('Kopieer dit e-mailadres:', text);
+                }
+            });
+        } else if (!copiedNow) {
+            window.prompt('Kopieer dit e-mailadres:', text);
+        }
+    }, true);
+})();
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Replace "of" with "van" in pagination info
@@ -667,10 +784,11 @@
                 const actionsTd = row.querySelector('td:last-child');
                 const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
                 const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isCopyEmail = !!clickedElement.closest('.user-email-copy');
                 const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
                 const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
                 
-                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                if (isCopyEmail || isInActionsColumn || isInMenu || isButton || isLink) {
                     return;
                 }
                 
@@ -771,6 +889,9 @@
     /* Table row hover styling (same as demo) */
     .user-row {
         cursor: pointer !important;
+    }
+    .user-email-copy {
+        cursor: pointer;
     }
     .user-row:hover {
         background-color: var(--muted) !important;

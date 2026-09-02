@@ -112,6 +112,8 @@
                                                 <option value="error" {{ old('category', $notification->category ?? '') == 'error' ? 'selected' : '' }}>Fout</option>
                                                 <option value="reminder" {{ old('category', $notification->category ?? '') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
                                                 <option value="update" {{ old('category', $notification->category ?? '') == 'update' ? 'selected' : '' }}>Update</option>
+                                                <option value="incident" {{ old('category', $notification->category ?? '') == 'incident' ? 'selected' : '' }}>Incident</option>
+                                                <option value="incident" {{ old('category', $notification->category ?? '') == 'incident' ? 'selected' : '' }}>Incident</option>
                                             </select>
                                         </div>
                                         @error('category')
@@ -147,6 +149,7 @@
                                                 <option value="email" {{ old('type', $notification->type) == 'email' ? 'selected' : '' }}>E-mail</option>
                                                 <option value="reminder" {{ old('type', $notification->type) == 'reminder' ? 'selected' : '' }}>Herinnering</option>
                                                 <option value="file" {{ old('type', $notification->type) == 'file' ? 'selected' : '' }}>Bestand</option>
+                                                <option value="incident" {{ old('type', $notification->type) == 'incident' ? 'selected' : '' }}>Incident</option>
                                             </select>
                                         </div>
                                         @error('type')

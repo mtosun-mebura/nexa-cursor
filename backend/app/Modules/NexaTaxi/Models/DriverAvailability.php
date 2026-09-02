@@ -19,6 +19,7 @@ class DriverAvailability extends Model
     protected $fillable = [
         'driver_id',
         'company_id',
+        'vehicle_id',
         'is_online',
         'lat',
         'lng',

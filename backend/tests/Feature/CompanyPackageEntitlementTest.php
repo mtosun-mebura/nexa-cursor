@@ -37,7 +37,11 @@ class CompanyPackageEntitlementTest extends TestCase
             ->assertSee('Pro (pro)', false)
             ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::EXTRA_CLIENTS.']"', false)
             ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::GPS_TRACKING.']"', false)
-            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::FLEET.']"', false);
+            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::FLEET.']"', false)
+            ->assertSee('Stappenplan', false)
+            ->assertSee('Klik een stap om die onderdelen te bewerken', false)
+            ->assertSee(route('admin.companies.wizard.step', [$company, 9]), false)
+            ->assertSee('Integraties', false);
     }
 
     #[Test]

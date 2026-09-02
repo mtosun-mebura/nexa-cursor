@@ -58,7 +58,7 @@
             @endphp
             <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
-                Pagina voorbeeld
+                Website voorbeeld
             </a>
             <a href="{{ $builderV2EditUrl }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-design-1 me-2"></i>

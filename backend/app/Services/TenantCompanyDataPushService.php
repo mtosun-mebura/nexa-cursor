@@ -111,7 +111,7 @@ final class TenantCompanyDataPushService
     }
 
     /**
-     * Push de NEXA SaaS-hoofdwebsite (pagina's + nexa_pricing) naar het sync-doel.
+     * Push de NEXA Suite-hoofdwebsite (pagina's + nexa_pricing) naar het sync-doel.
      *
      * @param  null|callable(array<string, mixed>): void  $onProgress
      * @return array{remote_company_id: int, inserted: int, skipped: int, updated: int, tables: list<string>, messages: list<string>, report: array<string, mixed>}
@@ -147,7 +147,7 @@ final class TenantCompanyDataPushService
         $report = $this->report();
         $report->onProgress($onProgress);
         $report->setProgressTotal(4);
-        $report->addStep('NEXA SaaS-website-sync gestart');
+        $report->addStep('NEXA Suite-website-sync gestart');
 
         try {
             $pageStats = $this->websiteBundle->pushCentralWebsitePagesForSync();
@@ -155,7 +155,7 @@ final class TenantCompanyDataPushService
             $updated += (int) ($pageStats['updated'] ?? 0);
             $skipped += (int) ($pageStats['skipped'] ?? 0);
             $report->addRow(
-                'NEXA SaaS',
+                'NEXA Suite',
                 'website_pages',
                 (int) ($pageStats['inserted'] ?? 0),
                 (int) ($pageStats['updated'] ?? 0),
@@ -167,7 +167,7 @@ final class TenantCompanyDataPushService
             $updated += (int) ($settingStats['updated'] ?? 0);
             $skipped += (int) ($settingStats['skipped'] ?? 0);
             $report->addRow(
-                'NEXA SaaS',
+                'NEXA Suite',
                 'general_settings (nexa_pricing)',
                 (int) ($settingStats['inserted'] ?? 0),
                 (int) ($settingStats['updated'] ?? 0),
@@ -175,7 +175,7 @@ final class TenantCompanyDataPushService
             );
 
             $summary = sprintf(
-                'NEXA SaaS-website-sync voltooid. Toegevoegd: %d, bijgewerkt: %d, overgeslagen: %d.',
+                'NEXA Suite-website-sync voltooid. Toegevoegd: %d, bijgewerkt: %d, overgeslagen: %d.',
                 $inserted,
                 $updated,
                 $skipped

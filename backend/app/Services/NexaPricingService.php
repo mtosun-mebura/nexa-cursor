@@ -369,6 +369,20 @@ class NexaPricingService
         return max(0, min(24, (int) $raw));
     }
 
+    /**
+     * Dagen vóór einde proeftijd waarop NEXA de aankondigingsmail stuurt.
+     */
+    public function trialNoticeDays(?array $pricing = null): int
+    {
+        $pricing = $pricing ?? $this->get();
+        $raw = $pricing['trial_notice_days'] ?? 5;
+        if (is_string($raw) && trim($raw) === '') {
+            $raw = 5;
+        }
+
+        return max(1, min(30, (int) $raw));
+    }
+
     public function freeMonthsLabel(int $months): string
     {
         if ($months <= 0) {
@@ -698,7 +712,13 @@ class NexaPricingService
             ];
         }
 
+        $trialNoticeDays = $raw['trial_notice_days'] ?? 5;
+        if (is_string($trialNoticeDays) && trim($trialNoticeDays) === '') {
+            $trialNoticeDays = 5;
+        }
+
         return [
+            'trial_notice_days' => max(1, min(30, (int) $trialNoticeDays)),
             'vat_note' => trim((string) ($raw['vat_note'] ?? '')),
             'eyebrow' => trim((string) ($raw['eyebrow'] ?? 'Prijzen')),
             'title' => trim((string) ($raw['title'] ?? '')),

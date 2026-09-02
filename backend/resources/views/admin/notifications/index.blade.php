@@ -134,6 +134,7 @@
                                 <option value="warning" {{ request('type') == 'warning' ? 'selected' : '' }}>Waarschuwing</option>
                                 <option value="error" {{ request('type') == 'error' ? 'selected' : '' }}>Fout</option>
                                 <option value="success" {{ request('type') == 'success' ? 'selected' : '' }}>Succes</option>
+                                <option value="incident" {{ request('type') == 'incident' ? 'selected' : '' }}>Incident</option>
                             </select>
 
                             @if(auth()->user()->hasRole('super-admin'))

@@ -112,23 +112,23 @@
     @endif
 
     <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
-        <!-- Mail Server Instellingen: Nexa SaaS (Alle Tenants) of per tenant -->
+        <!-- Mail Server Instellingen: NEXA Suite (Alle Tenants) of per tenant -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => ($mailSettingsIsPlatform ?? false)
-                ? '<i class="ki-filled ki-sms me-2"></i> Nexa SaaS Mail Server'
+                ? '<i class="ki-filled ki-sms me-2"></i> NEXA Suite Mail Server'
                 : '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
             <div class="settings-collapsible-body">
             <p class="text-sm text-muted-foreground mx-5 mt-4 mb-0">
                 @if($mailSettingsIsPlatform ?? false)
-                    Dit is de standaard mailserver van Nexa SaaS. Platformmails (welkomstmail, wachtwoordreset, testmail, facturen) gebruiken deze server. Een tenant zonder eigen mailserver valt hier automatisch op terug.
+                    Dit is de standaard mailserver van NEXA Suite. Platformmails (welkomstmail, wachtwoordreset, testmail, facturen) gebruiken deze server. Een tenant zonder eigen mailserver valt hier automatisch op terug.
                 @else
-                    Optioneel per tenant. Als deze velden leeg zijn of niet zijn opgeslagen, wordt de Nexa SaaS-mailserver gebruikt (Configuraties bij “Alle Tenants”).
+                    Optioneel per tenant. Als deze velden leeg zijn of niet zijn opgeslagen, wordt de NEXA Suite-mailserver gebruikt (Configuraties bij “Alle Tenants”).
                 @endif
             </p>
             @if(!empty($mailUsingPlatformFallback) && empty($mailDeliveryHint))
                 <div class="kt-alert kt-alert-primary mx-5 mt-4 mb-0" role="status">
                     <i class="ki-filled ki-information-2 me-2"></i>
-                    Deze tenant heeft geen eigen mailserver. Uitgaande mail gebruikt de Nexa SaaS-mailserver.
+                    Deze tenant heeft geen eigen mailserver. Uitgaande mail gebruikt de NEXA Suite-mailserver.
                 </div>
             @endif
             @if(!empty($mailDeliveryHint))
@@ -1034,15 +1034,15 @@
         @endif
 
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="tenant-sync">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant en NEXA SaaS)'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant en NEXA Suite)'])
             <div class="settings-collapsible-body">
             <div class="kt-card-content px-6 pb-4 space-y-6">
                 @include('admin.settings.partials.heading-with-info', [
                     'tag' => 'p',
                     'class' => 'text-sm text-secondary-foreground m-0',
-                    'title' => 'Configureer de doel-database en push een bron-tenant of de NEXA SaaS-website naar die omgeving.',
+                    'title' => 'Configureer de doel-database en push een bron-tenant of de NEXA Suite-website naar die omgeving.',
                     'infoId' => 'tenant-sync-intro-info',
-                    'info' => 'Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> of de <strong>NEXA SaaS-website</strong> naar die database pushen. Tenant: de rij in <code>companies</code> plus alle rijen op tabellen met <code>company_id</code> voor dat bedrijf (alleen toevoegen, nieuwe id’s). NEXA SaaS: centrale <code>website_pages</code> (<code>company_id</code> null) en <code>nexa_pricing</code> (upsert). Bestanden gaan niet over het net — gebruik daarvoor ZIP-export/import.',
+                    'info' => 'Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> of de <strong>NEXA Suite-website</strong> naar die database pushen. Tenant: de rij in <code>companies</code> plus alle rijen op tabellen met <code>company_id</code> voor dat bedrijf (alleen toevoegen, nieuwe id’s). NEXA Suite: centrale <code>website_pages</code> (<code>company_id</code> null) en <code>nexa_pricing</code> (upsert). Bestanden gaan niet over het net — gebruik daarvoor ZIP-export/import.',
                 ])
 
                 @php
@@ -1349,7 +1349,7 @@
                         'class' => 'text-sm font-medium text-foreground mb-2',
                         'title' => 'Sync uitvoeren',
                         'infoId' => 'tenant-sync-run-info',
-                        'info' => 'Kies het bedrijf (tenant) of <strong>NEXA SaaS</strong> (centrale website) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat. Tenant: volledige tenant-data (alleen toevoegen). NEXA SaaS: centrale <code>website_pages</code> en <code>nexa_pricing</code> (bestaande rijen op doel worden bijgewerkt).',
+                        'info' => 'Kies het bedrijf (tenant) of <strong>NEXA Suite</strong> (centrale website) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat. Tenant: volledige tenant-data (alleen toevoegen). NEXA Suite: centrale <code>website_pages</code> en <code>nexa_pricing</code> (bestaande rijen op doel worden bijgewerkt).',
                     ])
                     <p class="text-sm text-secondary-foreground mb-4">
                         Synchroniseert naar:
@@ -1365,7 +1365,7 @@
                             <label for="source_company_id" class="text-sm text-secondary-foreground block mb-1">Bron <span class="text-destructive">*</span></label>
                             <select name="source_company_id" id="source_company_id" class="kt-select tenant-sync-company-select @error('source_company_id') border-destructive @enderror">
                                 <option value="" disabled @selected(old('source_company_id') === null || old('source_company_id') === '')>— Kies een bron —</option>
-                                <option value="nexa" @selected((string) old('source_company_id') === 'nexa')>NEXA SaaS (centrale website)</option>
+                                <option value="nexa" @selected((string) old('source_company_id') === 'nexa')>NEXA Suite (centrale website)</option>
                                 @foreach ($companiesForSync ?? [] as $c)
                                     <option value="{{ $c->id }}" @selected((string) old('source_company_id') === (string) $c->id)>{{ $c->name }} (id {{ $c->id }})</option>
                                 @endforeach
@@ -1375,13 +1375,13 @@
                             @enderror
                             <div id="tenant-sync-ajax-error-source_company_id" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
                             @if (($companiesForSync ?? collect())->isEmpty())
-                                <div class="text-xs text-muted-foreground mt-1">Geen tenant-bedrijven gevonden. Je kunt wél de NEXA SaaS-website synchroniseren.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Geen tenant-bedrijven gevonden. Je kunt wél de NEXA Suite-website synchroniseren.</div>
                             @endif
                         </div>
                         <label class="inline-flex items-start gap-2">
                             <input type="checkbox" name="confirm_full_sync" value="1" id="confirm_full_sync" class="kt-checkbox mt-0.5 @error('confirm_full_sync') border-destructive @enderror"
                                    @checked(old('confirm_full_sync') === '1')>
-                            <span class="text-sm text-secondary-foreground">Ik bevestig dat ik naar de geconfigureerde doel-database wil schrijven. Tenant: alleen toevoegen. NEXA SaaS: centrale pagina’s en prijzen worden bijgewerkt.</span>
+                            <span class="text-sm text-secondary-foreground">Ik bevestig dat ik naar de geconfigureerde doel-database wil schrijven. Tenant: alleen toevoegen. NEXA Suite: centrale pagina’s en prijzen worden bijgewerkt.</span>
                         </label>
                         @error('confirm_full_sync')
                             <div class="text-xs text-destructive">{{ $message }}</div>
@@ -1405,13 +1405,13 @@
                         'class' => 'text-sm font-medium text-foreground mb-4',
                         'title' => 'ZIP-export / -import',
                         'infoId' => 'tenant-sync-zip-info',
-                        'info' => 'Kies een <strong>tenant</strong> of <strong>NEXA SaaS</strong>. Tenant: bestanden, website_pages en tenant-instellingen (<code>tenant-export-</code>, bundle <code>tenant_media</code>). NEXA SaaS: centrale website-pagina’s (company_id null), media en <code>nexa_pricing</code> (<code>nexa-saas-website-</code>, bundle <code>nexa_saas_website</code>).',
+                        'info' => 'Kies een <strong>tenant</strong> of <strong>NEXA Suite</strong>. Tenant: bestanden, website_pages en tenant-instellingen (<code>tenant-export-</code>, bundle <code>tenant_media</code>). NEXA Suite: centrale website-pagina’s (company_id null), media en <code>nexa_pricing</code> (<code>nexa-saas-website-</code>, bundle <code>nexa_saas_website</code>).',
                     ])
                     <div>
-                        <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Bron (tenant of NEXA SaaS)</label>
+                        <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Bron (tenant of NEXA Suite)</label>
                         <select id="tenant-sync-zip-company-id" class="kt-select tenant-sync-company-select" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
                             <option value="">— Kies een bron —</option>
-                            <option value="nexa">NEXA SaaS (centrale website)</option>
+                            <option value="nexa">NEXA Suite (centrale website)</option>
                             @foreach (($companiesForSync ?? []) as $c)
                                 <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
                             @endforeach
@@ -1424,7 +1424,7 @@
                             @include('admin.settings.partials.heading-with-info', [
                                 'title' => 'Export (ZIP)',
                                 'infoId' => 'tenant-sync-zip-export-info',
-                                'info' => 'Download of importeer één ZIP met <code>manifest.json</code>. Tenant: publieke bestanden onder <code>files/…</code>, private facturen onder <code>private_files/…</code>. NEXA SaaS: alleen centrale website-pagina’s, gerefereerde media en prijzen. Import van een tenant-ZIP overschrijft <code>website_pages</code> per slug voor het gekozen bedrijf. Import van een NEXA SaaS-ZIP overschrijft centrale pagina’s (company_id null).',
+                                'info' => 'Download of importeer één ZIP met <code>manifest.json</code>. Tenant: publieke bestanden onder <code>files/…</code>, private facturen onder <code>private_files/…</code>. NEXA Suite: alleen centrale website-pagina’s, gerefereerde media en prijzen. Import van een tenant-ZIP overschrijft <code>website_pages</code> per slug voor het gekozen bedrijf. Import van een NEXA Suite-ZIP overschrijft centrale pagina’s (company_id null).',
                             ])
                             <div class="flex flex-wrap items-center gap-2">
                                 <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
@@ -2433,7 +2433,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tenantFilesExportBtn.addEventListener('click', function() {
             var id = tenantZipCompanySel.value;
             if (!id) {
-                showTenantZipCompanyError('Selecteer een tenant of NEXA SaaS om de ZIP te downloaden.');
+                showTenantZipCompanyError('Selecteer een tenant of NEXA Suite om de ZIP te downloaden.');
                 return;
             }
             clearTenantZipCompanyError();
@@ -2445,7 +2445,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var id = tenantZipCompanySel.value;
             if (!id) {
                 ev.preventDefault();
-                showTenantZipCompanyError('Selecteer een tenant of NEXA SaaS om de ZIP te importeren.');
+                showTenantZipCompanyError('Selecteer een tenant of NEXA Suite om de ZIP te importeren.');
                 return;
             }
             clearTenantZipCompanyError();

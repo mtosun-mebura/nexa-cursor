@@ -61,7 +61,7 @@ class AdminCompaniesIndexButtonsTest extends TestCase
             ->get(route('admin.companies.index'))
             ->assertOk()
             ->assertDontSee('Nieuwe tenant (wizard)', false)
-            ->assertDontSee('Nieuw bedrijf (formulier)', false)
+            ->assertDontSee('Nieuw bedrijf', false)
             ->assertDontSee('E-mail Templates', false);
     }
 
@@ -76,6 +76,6 @@ class AdminCompaniesIndexButtonsTest extends TestCase
             ->get(route('admin.companies.index'))
             ->assertOk()
             ->assertSee('Nieuwe tenant (wizard)', false)
-            ->assertSee('Nieuw bedrijf (formulier)', false);
+            ->assertSee('Nieuw bedrijf', false);
     }
 }

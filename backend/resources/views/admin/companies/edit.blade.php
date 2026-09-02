@@ -15,6 +15,14 @@
         </a>
     </div>
 
+    @include('admin.companies.wizard.partials.tabs', [
+        'company' => $company,
+        'currentStep' => $currentStep ?? 1,
+        'maxReachable' => $maxReachable ?? \App\Http\Controllers\Admin\AdminCompanyWizardController::TOTAL_STEPS,
+        'wizardSteps' => $wizardSteps ?? \App\Http\Controllers\Admin\AdminCompanyWizardController::stepMeta(),
+        'wizardBrowse' => $wizardBrowse ?? true,
+    ])
+
     <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
         @csrf
         @method('PUT')
@@ -533,6 +541,7 @@
                 </div>
             </div>
 
+            @if(auth()->user()?->hasRole('super-admin'))
             <div class="kt-card w-full min-w-0 @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title mb-0">Modules voor deze tenant</h3>
@@ -607,6 +616,7 @@
                 @endif
                 </div>
             </div>
+            @endif
             @endcan
         </div>
 

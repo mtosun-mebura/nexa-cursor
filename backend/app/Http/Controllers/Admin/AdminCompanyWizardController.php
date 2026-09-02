@@ -5,27 +5,61 @@ namespace App\Http\Controllers\Admin;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CompanyDomain;
+use App\Models\GeneralSetting;
 use App\Models\Module as ModuleModel;
 use App\Models\User;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
+use App\Services\GoogleSeoSettingsService;
 use App\Services\ModuleManager;
 use App\Services\NexaPricingService;
+use App\Services\PaymentProviderService;
+use App\Services\TenantConfigAccessService;
 use App\Services\TenantOnboardingService;
 use App\Services\WebsiteBuilderService;
+use App\Support\DutchPhoneNumber;
+use App\Support\TenantConfigCapability;
+use App\Support\TenantPackageCapability;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
 
 class AdminCompanyWizardController extends AdminCompanyController
 {
-    private const TOTAL_STEPS = 7;
+    public const TOTAL_STEPS = 10;
 
     private const SESSION_PREFIX = 'company_wizard.';
 
-    /** Tijdens onboarding (stap 2–7): koppel nieuwe resources aan dit bedrijf als URL-parameters ontbreken. */
+    /** Tijdens onboarding (stap 2–laatste): koppel nieuwe resources aan dit bedrijf als URL-parameters ontbreken. */
     public const SESSION_ACTIVE_ONBOARDING_COMPANY_ID = 'tenant_onboarding_active_company_id';
+
+    /**
+     * @return array<int, array{label: string, short: string, icon: string}>
+     */
+    public static function stepMeta(): array
+    {
+        return [
+            1 => ['label' => 'Bedrijf & logo', 'short' => 'Bedrijf', 'icon' => 'ki-notepad'],
+            2 => ['label' => 'Vestigingen', 'short' => 'Vestigingen', 'icon' => 'ki-geolocation'],
+            3 => ['label' => 'Domein', 'short' => 'Domein', 'icon' => 'ki-cloud'],
+            4 => ['label' => 'Modules', 'short' => 'Modules', 'icon' => 'ki-element-11'],
+            5 => ['label' => 'Gebruikers', 'short' => 'Gebruikers', 'icon' => 'ki-users'],
+            6 => ['label' => 'Website', 'short' => 'Website', 'icon' => 'ki-screen'],
+            7 => ['label' => 'Mailserver', 'short' => 'Mail', 'icon' => 'ki-sms'],
+            8 => ['label' => 'Google SEO & reviews', 'short' => 'Google', 'icon' => 'ki-abstract-26'],
+            9 => ['label' => 'WhatsApp & Mollie', 'short' => 'Integraties', 'icon' => 'ki-setting-2'],
+            10 => ['label' => 'Afronden', 'short' => 'Afronden', 'icon' => 'ki-verify'],
+        ];
+    }
+
+    public static function clampStep(int $step): int
+    {
+        return max(1, min(self::TOTAL_STEPS, $step));
+    }
 
     public function __construct(
         EnvService $envService,
@@ -52,6 +86,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             'company' => null,
             'currentStep' => 1,
             'maxReachable' => 1,
+            'wizardSteps' => self::stepMeta(),
             'branches' => $branches,
             'nexaPackages' => $this->nexaPackagesForSelect(),
             'googleMapsApiKey' => $googleMapsApiKey,
@@ -59,6 +94,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             'googleMapsCenterLat' => $googleMapsCenterLat,
             'googleMapsCenterLng' => $googleMapsCenterLng,
             'googleMapsType' => $googleMapsType,
+            'wizardAccessLockedSteps' => [],
         ]);
     }
 
@@ -67,6 +103,7 @@ class AdminCompanyWizardController extends AdminCompanyController
         $this->authorizeWizard();
 
         $company = $this->createCompanyFromWizardRequest($request);
+        $this->bindWizardTenantContext($company);
         $this->setMaxReachable($company, 2);
 
         return redirect()
@@ -76,12 +113,7 @@ class AdminCompanyWizardController extends AdminCompanyController
 
     public function step(Request $request, Company $company, int $step): View|RedirectResponse
     {
-        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
-        }
-        if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
-        }
+        $this->assertCanViewWizardCompany($company);
 
         if ($step < 1 || $step > self::TOTAL_STEPS) {
             abort(404);
@@ -102,13 +134,14 @@ class AdminCompanyWizardController extends AdminCompanyController
         $company->load(['domains', 'locations', 'modules']);
 
         if ($step >= 2) {
-            session([self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID => $company->id]);
+            $this->bindWizardTenantContext($company);
         }
 
-        $viewData = [
+        $viewData = array_merge([
             'company' => $company,
             'currentStep' => $step,
             'maxReachable' => $maxReachable,
+            'wizardSteps' => self::stepMeta(),
             'branches' => $branches,
             'nexaPackages' => $this->nexaPackagesForSelect(),
             'googleMapsApiKey' => $googleMapsApiKey,
@@ -116,7 +149,14 @@ class AdminCompanyWizardController extends AdminCompanyController
             'googleMapsCenterLat' => $googleMapsCenterLat,
             'googleMapsCenterLng' => $googleMapsCenterLng,
             'googleMapsType' => $googleMapsType,
-        ];
+        ], $this->wizardAccessViewData($company, $step));
+
+        if (! $this->tenantConfigAccess()->canAccessWizardStep(auth()->user(), $company, $step)) {
+            return view('admin.companies.wizard.step-locked', array_merge($viewData, [
+                'lockedStepLabel' => self::stepMeta()[$step]['label'] ?? 'Configuratie',
+                'lockedMessage' => TenantConfigAccessService::DENIED_MESSAGE,
+            ]));
+        }
 
         return match ($step) {
             1 => view('admin.companies.wizard.step1', $viewData),
@@ -135,22 +175,17 @@ class AdminCompanyWizardController extends AdminCompanyController
                 'websitePages' => $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true),
                 'activeTheme' => $this->websiteBuilder->getActiveTheme((int) $company->id),
             ])),
-            7 => view('admin.companies.wizard.step7', array_merge($viewData, [
-                'packageLabel' => app(NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''))['name']
-                    ?? $company->package_key,
-            ])),
+            7 => view('admin.companies.wizard.step7', array_merge($viewData, $this->mailConfigViewData($company))),
+            8 => view('admin.companies.wizard.step8', array_merge($viewData, $this->googleConfigViewData($company))),
+            9 => view('admin.companies.wizard.step9', array_merge($viewData, $this->integrationsConfigViewData($company))),
+            10 => view('admin.companies.wizard.step10', array_merge($viewData, $this->summaryViewData($company))),
             default => abort(404),
         };
     }
 
     public function submitStep(Request $request, Company $company, int $step): RedirectResponse
     {
-        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
-        }
-        if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
-        }
+        $this->assertCanEditWizardCompany($company);
 
         if ($step < 1 || $step > self::TOTAL_STEPS) {
             abort(404);
@@ -161,6 +196,8 @@ class AdminCompanyWizardController extends AdminCompanyController
             return redirect()->route('admin.companies.wizard.step', [$company, $maxReachable]);
         }
 
+        $this->tenantConfigAccess()->assertWizardStep(auth()->user(), $company, $step);
+
         return match ($step) {
             1 => $this->submitStep1Update($request, $company),
             2 => $this->submitStep2($request, $company),
@@ -168,7 +205,10 @@ class AdminCompanyWizardController extends AdminCompanyController
             4 => $this->submitStep4($request, $company),
             5 => $this->submitStep5($company),
             6 => $this->submitStep6($company),
-            7 => $this->submitStep7($company),
+            7 => $this->submitStep7($request, $company),
+            8 => $this->submitStep8($request, $company),
+            9 => $this->submitStep9($request, $company),
+            10 => $this->submitStep10($company),
             default => abort(404),
         };
     }
@@ -225,28 +265,18 @@ class AdminCompanyWizardController extends AdminCompanyController
 
         $this->setMaxReachable($company, max(2, $this->getMaxReachable($company)));
 
-        return redirect()
-            ->route('admin.companies.wizard.step', [$company, 2])
-            ->with('success', 'Bedrijfsgegevens bijgewerkt.');
+        return $this->continueWizard($company, 1, 'Bedrijfsgegevens bijgewerkt.');
     }
 
     private function submitStep2(Request $request, Company $company): RedirectResponse
     {
         if ($request->boolean('skip_locations')) {
-            $this->setMaxReachable($company, max(3, $this->getMaxReachable($company)));
-
-            return redirect()
-                ->route('admin.companies.wizard.step', [$company, 3])
-                ->with('success', 'Stap overgeslagen. Ga verder met domein.');
+            return $this->continueWizard($company, 2, 'Stap overgeslagen. Ga verder met het stappenplan.');
         }
 
         $locationsIn = $request->input('locations', []);
         if (empty($locationsIn[0]['name'] ?? '')) {
-            $this->setMaxReachable($company, max(3, $this->getMaxReachable($company)));
-
-            return redirect()
-                ->route('admin.companies.wizard.step', [$company, 3])
-                ->with('success', 'Geen vestiging toegevoegd. Ga verder met domein.');
+            return $this->continueWizard($company, 2, 'Geen vestiging toegevoegd. Ga verder met het stappenplan.');
         }
 
         $request->validate([
@@ -284,21 +314,13 @@ class AdminCompanyWizardController extends AdminCompanyController
             }
         }
 
-        $this->setMaxReachable($company, max(3, $this->getMaxReachable($company)));
-
-        return redirect()
-            ->route('admin.companies.wizard.step', [$company, 3])
-            ->with('success', 'Vestigingen opgeslagen.');
+        return $this->continueWizard($company, 2, 'Vestigingen opgeslagen.');
     }
 
     private function submitStep3(Request $request, Company $company): RedirectResponse
     {
         if ($request->boolean('skip_domain')) {
-            $this->setMaxReachable($company, max(4, $this->getMaxReachable($company)));
-
-            return redirect()
-                ->route('admin.companies.wizard.step', [$company, 4])
-                ->with('success', 'Domein overgeslagen. Kies modules.');
+            return $this->continueWizard($company, 3, 'Domein overgeslagen. Ga verder met het stappenplan.');
         }
 
         $request->merge([
@@ -334,11 +356,11 @@ class AdminCompanyWizardController extends AdminCompanyController
             ]);
         }
 
-        $this->setMaxReachable($company, max(4, $this->getMaxReachable($company)));
-
-        return redirect()
-            ->route('admin.companies.wizard.step', [$company, 4])
-            ->with('success', $request->filled('host') ? 'Domein opgeslagen. Kies modules.' : 'Ga verder met modules.');
+        return $this->continueWizard(
+            $company,
+            3,
+            $request->filled('host') ? 'Domein opgeslagen. Ga verder met het stappenplan.' : 'Ga verder met het stappenplan.'
+        );
     }
 
     private function submitStep4(Request $request, Company $company): RedirectResponse
@@ -376,34 +398,196 @@ class AdminCompanyWizardController extends AdminCompanyController
             }
         }
 
-        $this->setMaxReachable($company, max(5, $this->getMaxReachable($company)));
-
-        return redirect()
-            ->route('admin.companies.wizard.step', [$company, 5])
-            ->with('success', 'Modules gekoppeld.');
+        return $this->continueWizard($company, 4, 'Modules gekoppeld.');
     }
 
     private function submitStep5(Company $company): RedirectResponse
     {
-        $this->setMaxReachable($company, max(6, $this->getMaxReachable($company)));
-
-        return redirect()->route('admin.companies.wizard.step', [$company, 6]);
+        return $this->continueWizard($company, 5, 'Gebruikersstap opgeslagen.');
     }
 
     private function submitStep6(Company $company): RedirectResponse
     {
-        $this->setMaxReachable($company, max(7, $this->getMaxReachable($company)));
-
-        return redirect()->route('admin.companies.wizard.step', [$company, 7]);
+        return $this->continueWizard($company, 6, 'Website-stap opgeslagen.');
     }
 
-    private function submitStep7(Company $company): RedirectResponse
+    private function submitStep7(Request $request, Company $company): RedirectResponse
+    {
+        if (! $request->boolean('skip_config')) {
+            $mailer = trim((string) $request->input('MAIL_MAILER', ''));
+            if ($mailer !== '') {
+                $rules = [
+                    'MAIL_MAILER' => 'required|in:log,smtp,sendmail,mailgun,ses,postmark,resend',
+                    'MAIL_HOST' => 'required_if:MAIL_MAILER,smtp|nullable|string|max:255',
+                    'MAIL_PORT' => 'required_if:MAIL_MAILER,smtp|nullable|integer|min:1|max:65535',
+                    'MAIL_USERNAME' => 'nullable|string|max:255',
+                    'MAIL_PASSWORD' => 'nullable|string|max:255',
+                    'MAIL_ENCRYPTION' => 'nullable|in:tls,ssl,null',
+                    'MAIL_FROM_ADDRESS' => 'required|email|max:255',
+                    'MAIL_FROM_NAME' => 'required|string|max:255',
+                ];
+                $request->validate($rules, [
+                    'MAIL_MAILER.in' => 'Ongeldige mailer geselecteerd.',
+                    'MAIL_HOST.required_if' => 'SMTP host is verplicht wanneer SMTP is geselecteerd.',
+                    'MAIL_PORT.required_if' => 'SMTP poort is verplicht wanneer SMTP is geselecteerd.',
+                    'MAIL_FROM_ADDRESS.required' => 'From adres is verplicht.',
+                    'MAIL_FROM_ADDRESS.email' => 'From adres moet een geldig e-mailadres zijn.',
+                    'MAIL_FROM_NAME.required' => 'From naam is verplicht.',
+                ]);
+
+                $mailSettings = [
+                    'MAIL_MAILER' => $mailer,
+                    'MAIL_HOST' => (string) $request->input('MAIL_HOST', ''),
+                    'MAIL_PORT' => (string) $request->input('MAIL_PORT', '587'),
+                    'MAIL_USERNAME' => (string) $request->input('MAIL_USERNAME', ''),
+                    'MAIL_ENCRYPTION' => (string) $request->input('MAIL_ENCRYPTION', 'tls'),
+                    'MAIL_FROM_ADDRESS' => (string) $request->input('MAIL_FROM_ADDRESS'),
+                    'MAIL_FROM_NAME' => (string) $request->input('MAIL_FROM_NAME'),
+                ];
+                if ($request->filled('MAIL_PASSWORD')) {
+                    $mailSettings['MAIL_PASSWORD'] = (string) $request->input('MAIL_PASSWORD');
+                }
+                foreach ($mailSettings as $key => $value) {
+                    GeneralSetting::set($key, (string) $value, $company->id);
+                }
+            }
+        }
+
+        return $this->continueWizard(
+            $company,
+            7,
+            $request->boolean('skip_config') || trim((string) $request->input('MAIL_MAILER', '')) === ''
+                ? 'NEXA Suite-mailserver blijft van toepassing. Ga verder met het stappenplan.'
+                : 'Mailserver opgeslagen. Ga verder met het stappenplan.'
+        );
+    }
+
+    private function submitStep8(Request $request, Company $company): RedirectResponse
+    {
+        if (! $request->boolean('skip_config')) {
+            $request->validate([
+                GoogleSeoSettingsService::KEY_PROPERTY_ID => 'nullable|string|max:255',
+                GoogleSeoSettingsService::KEY_ANALYTICS_ID => 'nullable|string|max:255',
+                GoogleSeoSettingsService::KEY_TAG_MANAGER_ID => 'nullable|string|max:255',
+                GoogleSeoSettingsService::KEY_META_DESCRIPTION => 'nullable|string|max:500',
+                GoogleSeoSettingsService::KEY_META_KEYWORDS => 'nullable|string|max:500',
+                GoogleSeoSettingsService::KEY_SITE_VERIFICATION => 'nullable|string|max:255',
+                GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_ENABLED => 'nullable|boolean',
+                GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_SERVICE_ACCOUNT => 'nullable|string|max:20000',
+                GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_SITEMAP_PATH => 'nullable|string|max:255',
+                GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_AUTO_SITEMAP => 'nullable|boolean',
+                'google_reviews_place_id' => 'nullable|string|max:255',
+                'google_reviews_business_name' => 'nullable|string|max:255',
+                'google_reviews_section_title' => 'nullable|string|max:255',
+            ]);
+
+            try {
+                app(GoogleSeoSettingsService::class)->saveFromRequest($request->all(), $company->id);
+            } catch (\InvalidArgumentException $e) {
+                return redirect()
+                    ->route('admin.companies.wizard.step', [$company, 8])
+                    ->with('error', $e->getMessage())
+                    ->withInput();
+            }
+
+            GeneralSetting::set('google_reviews_place_id', trim((string) $request->input('google_reviews_place_id', '')), $company->id);
+            GeneralSetting::set('google_reviews_business_name', trim((string) $request->input('google_reviews_business_name', '')), $company->id);
+            GeneralSetting::set('google_reviews_section_title', trim((string) $request->input('google_reviews_section_title', '')), $company->id);
+        }
+
+        return $this->continueWizard($company, 8, 'Google-instellingen bijgewerkt. Ga verder met het stappenplan.');
+    }
+
+    private function submitStep9(Request $request, Company $company): RedirectResponse
+    {
+        if (! $request->boolean('skip_config')) {
+            $user = auth()->user();
+            $canWhatsapp = $this->tenantConfigAccess()->can($user, $company, TenantConfigCapability::WHATSAPP);
+            $canMollie = $this->tenantConfigAccess()->can($user, $company, TenantConfigCapability::MOLLIE);
+
+            $request->validate([
+                'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
+                'WHATSAPP_CLICK_TO_CHAT_NUMBER' => 'nullable|string|max:50',
+                'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => 'nullable|string|max:50',
+                'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
+                'WHATSAPP_WIDGET_PHONE' => 'nullable|string|max:50',
+                'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
+                'mollie_api_key' => 'nullable|string|max:255',
+                'mollie_is_active' => 'nullable|in:0,1',
+                'mollie_test_mode' => 'nullable|in:0,1',
+                'mollie_driver_payments' => 'nullable|in:0,1',
+                'mollie_booking_payments' => 'nullable|in:0,1',
+                'mollie_webhook_url' => 'nullable|string|max:500',
+            ]);
+
+            if ($canWhatsapp) {
+                $phoneError = 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).';
+                $normalizedClickToChat = DutchPhoneNumber::normalizeOptionalNlToInternational(
+                    trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''))
+                );
+                $normalizedCompanyNotify = DutchPhoneNumber::normalizeOptionalNlToInternational(
+                    trim((string) $request->input('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', ''))
+                );
+                $normalizedWidgetPhone = DutchPhoneNumber::normalizeOptionalNlToInternational(
+                    trim((string) $request->input('WHATSAPP_WIDGET_PHONE', ''))
+                );
+                if ($normalizedClickToChat === null) {
+                    throw ValidationException::withMessages(['WHATSAPP_CLICK_TO_CHAT_NUMBER' => $phoneError]);
+                }
+                if ($normalizedCompanyNotify === null) {
+                    throw ValidationException::withMessages(['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $phoneError]);
+                }
+                if ($normalizedWidgetPhone === null) {
+                    throw ValidationException::withMessages(['WHATSAPP_WIDGET_PHONE' => $phoneError]);
+                }
+
+                $platformApiActive = app(\App\Services\WhatsAppBusinessService::class)->hasApiToken();
+                foreach ([
+                    'WHATSAPP_CLICK_TO_CHAT_ENABLED' => ($platformApiActive ? '0' : ($request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0')),
+                    'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $normalizedClickToChat,
+                    'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $normalizedCompanyNotify,
+                    'WHATSAPP_WIDGET_ENABLED' => $request->boolean('WHATSAPP_WIDGET_ENABLED') ? '1' : '0',
+                    'WHATSAPP_WIDGET_PHONE' => $normalizedWidgetPhone,
+                    'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => trim((string) $request->input('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.')),
+                ] as $key => $value) {
+                    GeneralSetting::set($key, (string) $value, $company->id);
+                }
+            }
+
+            if ($canMollie) {
+                $entitlements = app(CompanyEntitlementService::class);
+                $apiKey = trim((string) $request->input('mollie_api_key', ''));
+                $existingMollie = app(PaymentProviderService::class)->mollieSummaryForCompany($company->id);
+                if ($apiKey !== '' || ! empty($existingMollie['configured'])) {
+                    if (! $entitlements->allows($company, TenantPackageCapability::MOLLIE_PAYMENTS)) {
+                        throw ValidationException::withMessages([
+                            'mollie_api_key' => $entitlements->deniedMessage(TenantPackageCapability::MOLLIE_PAYMENTS, $company),
+                        ]);
+                    }
+                    app(PaymentProviderService::class)->upsertMollieForCompany(
+                        $company->id,
+                        $apiKey !== '' ? $apiKey : null,
+                        $request->input('mollie_is_active', '1') === '1',
+                        $request->input('mollie_test_mode', '0') === '1',
+                        trim((string) $request->input('mollie_webhook_url', '')) ?: null
+                    );
+                    $dispatch = app(TaxiDispatchSettingsService::class);
+                    $dispatch->setPaymentDriverEnabled($request->input('mollie_driver_payments', '0') === '1', $company->id);
+                    $dispatch->setPaymentBookingEnabled($request->input('mollie_booking_payments', '0') === '1', $company->id);
+                }
+            }
+        }
+
+        return $this->continueWizard($company, 9, 'Integraties bijgewerkt. Controleer de samenvatting en rond af.');
+    }
+
+    private function submitStep10(Company $company): RedirectResponse
     {
         try {
             $result = app(TenantOnboardingService::class)->provisionCompanyAdmin($company);
         } catch (RuntimeException $e) {
             return redirect()
-                ->route('admin.companies.wizard.step', [$company, 7])
+                ->route('admin.companies.wizard.step', [$company, 10])
                 ->with('error', $e->getMessage());
         }
 
@@ -412,7 +596,7 @@ class AdminCompanyWizardController extends AdminCompanyController
 
         $message = 'Tenant-onboarding afgerond.';
         if ($result['created'] && $result['mailed']) {
-            $message .= ' De company-admin ('.$result['user']->email.') ontvangt de welkomstmail met een tijdelijk wachtwoord.';
+            $message .= ' De company-admin ('.$result['user']->email.') ontvangt de welkomstmail met uitleg voor de eerste login via een eenmalige code.';
         } elseif ($result['created'] && ! $result['mailed']) {
             $message .= ' De company-admin ('.$result['user']->email.') is aangemaakt, maar de welkomstmail kon niet worden verstuurd. Controleer de mailserver.';
         } elseif (! $result['created']) {
@@ -473,6 +657,18 @@ class AdminCompanyWizardController extends AdminCompanyController
         }
 
         return Company::create($companyData);
+    }
+
+    /**
+     * Tijdens onboarding de zijbalk-tenant op dit bedrijf zetten, anders blokkeert
+     * canAccessResource een super-admin die nog een andere tenant geselecteerd had.
+     */
+    private function bindWizardTenantContext(Company $company): void
+    {
+        session([self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID => $company->id]);
+        if (auth()->user()?->hasRole('super-admin')) {
+            session(['selected_tenant' => $company->id]);
+        }
     }
 
     private function authorizeWizard(): void
@@ -571,6 +767,126 @@ class AdminCompanyWizardController extends AdminCompanyController
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function mailConfigViewData(Company $company): array
+    {
+        $companyId = $company->id;
+        $mailSettings = [
+            'MAIL_MAILER' => $this->envService->get('MAIL_MAILER', '', $companyId),
+            'MAIL_HOST' => $this->envService->get('MAIL_HOST', '', $companyId),
+            'MAIL_PORT' => $this->envService->get('MAIL_PORT', '587', $companyId),
+            'MAIL_USERNAME' => $this->envService->get('MAIL_USERNAME', '', $companyId),
+            'MAIL_ENCRYPTION' => $this->envService->get('MAIL_ENCRYPTION', 'tls', $companyId),
+            'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', (string) $company->email, $companyId),
+            'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', (string) $company->name, $companyId),
+        ];
+        $tenantHasMail = GeneralSetting::query()
+            ->where('company_id', $companyId)
+            ->whereIn('key', GeneralSetting::MAIL_SETTING_KEYS)
+            ->whereNotNull('value')
+            ->where('value', '!=', '')
+            ->exists();
+
+        if (! $tenantHasMail) {
+            $mailSettings['MAIL_MAILER'] = '';
+            $mailSettings['MAIL_HOST'] = '';
+            $mailSettings['MAIL_USERNAME'] = '';
+            $mailSettings['MAIL_PORT'] = '587';
+            $mailSettings['MAIL_ENCRYPTION'] = 'tls';
+            $mailSettings['MAIL_FROM_ADDRESS'] = (string) $company->email;
+            $mailSettings['MAIL_FROM_NAME'] = (string) $company->name;
+        }
+
+        return [
+            'mailSettings' => $mailSettings,
+            'mailUsingPlatformFallback' => ! $tenantHasMail,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function googleConfigViewData(Company $company): array
+    {
+        $companyId = $company->id;
+
+        return [
+            'seoSettings' => app(GoogleSeoSettingsService::class)->formSettings($companyId),
+            'googleReviewsPlaceId' => GeneralSetting::get('google_reviews_place_id', '', $companyId),
+            'googleReviewsBusinessName' => GeneralSetting::get('google_reviews_business_name', '', $companyId),
+            'googleReviewsSectionTitle' => GeneralSetting::get('google_reviews_section_title', '', $companyId),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function integrationsConfigViewData(Company $company): array
+    {
+        $companyId = $company->id;
+        $entitlements = app(CompanyEntitlementService::class);
+        $molliePackageAllowed = $entitlements->allows($company, TenantPackageCapability::MOLLIE_PAYMENTS);
+        $paymentOptions = app(TaxiDispatchSettingsService::class)->paymentOptionsForTenant($companyId);
+
+        return [
+            'whatsappSettings' => [
+                'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0', $companyId),
+                'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', '', $companyId),
+                'WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $this->envService->get('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', '', $companyId),
+                'WHATSAPP_WIDGET_ENABLED' => $this->envService->get('WHATSAPP_WIDGET_ENABLED', '0', $companyId),
+                'WHATSAPP_WIDGET_PHONE' => $this->envService->get('WHATSAPP_WIDGET_PHONE', '', $companyId),
+                'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.', $companyId),
+            ],
+            'whatsappPlatformConfigured' => app(\App\Services\WhatsAppBusinessService::class)->isConfigured(),
+            'mollieSummary' => app(PaymentProviderService::class)->mollieSummaryForCompany($companyId),
+            'mollieDriverPaymentsEnabled' => (bool) ($paymentOptions['driver'] ?? false),
+            'mollieBookingPaymentsEnabled' => (bool) ($paymentOptions['booking'] ?? false),
+            'molliePackageAllowed' => $molliePackageAllowed,
+            'molliePackageDeniedMessage' => $molliePackageAllowed
+                ? null
+                : $entitlements->deniedMessage(TenantPackageCapability::MOLLIE_PAYMENTS, $company),
+            'defaultTaxiWebhookUrl' => url('/api/taxi/webhooks/mollie'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function summaryViewData(Company $company): array
+    {
+        $companyId = $company->id;
+        $tenantHasMail = GeneralSetting::query()
+            ->where('company_id', $companyId)
+            ->whereIn('key', GeneralSetting::MAIL_SETTING_KEYS)
+            ->whereNotNull('value')
+            ->where('value', '!=', '')
+            ->exists();
+        $seo = app(GoogleSeoSettingsService::class)->formSettings($companyId);
+        $mollie = app(PaymentProviderService::class)->mollieSummaryForCompany($companyId);
+
+        return [
+            'packageLabel' => app(NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''))['name']
+                ?? $company->package_key,
+            'mailConfigured' => $tenantHasMail,
+            'seoConfigured' => ($seo[GoogleSeoSettingsService::KEY_ANALYTICS_ID] ?? '') !== ''
+                || ($seo[GoogleSeoSettingsService::KEY_PROPERTY_ID] ?? '') !== ''
+                || ($seo[GoogleSeoSettingsService::KEY_TAG_MANAGER_ID] ?? '') !== '',
+            'mollieConfigured' => ! empty($mollie['configured']),
+        ];
+    }
+
+    public static function reachableStep(Company $company): int
+    {
+        $key = self::SESSION_PREFIX.$company->id.'.max_reachable';
+        if (session()->has($key)) {
+            return self::clampStep((int) session($key, 1));
+        }
+
+        return self::TOTAL_STEPS;
+    }
+
     private function sessionKey(Company $company): string
     {
         return self::SESSION_PREFIX.$company->id.'.max_reachable';
@@ -578,11 +894,94 @@ class AdminCompanyWizardController extends AdminCompanyController
 
     private function getMaxReachable(Company $company): int
     {
-        return (int) session($this->sessionKey($company), 1);
+        return self::reachableStep($company);
     }
 
     private function setMaxReachable(Company $company, int $step): void
     {
         session([$this->sessionKey($company) => min(self::TOTAL_STEPS, max(1, $step))]);
+    }
+
+    private function tenantConfigAccess(): TenantConfigAccessService
+    {
+        return app(TenantConfigAccessService::class);
+    }
+
+    private function assertCanViewWizardCompany(Company $company): void
+    {
+        $user = auth()->user();
+        if ($user === null) {
+            abort(403);
+        }
+
+        $this->bindWizardTenantContext($company);
+
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        if ((int) $user->company_id !== (int) $company->id) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+
+        if ($user->can('view-companies') || in_array('company-admin', $user->webRoleNames(), true)) {
+            return;
+        }
+
+        abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
+    }
+
+    private function assertCanEditWizardCompany(Company $company): void
+    {
+        $user = auth()->user();
+        if ($user === null) {
+            abort(403);
+        }
+
+        $this->bindWizardTenantContext($company);
+
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        if ((int) $user->company_id !== (int) $company->id) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+
+        if ($user->can('edit-companies') || in_array('company-admin', $user->webRoleNames(), true)) {
+            return;
+        }
+
+        abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function wizardAccessViewData(Company $company, int $step): array
+    {
+        $user = auth()->user();
+        $access = $this->tenantConfigAccess();
+
+        return [
+            'wizardAccessLockedSteps' => $access->lockedWizardSteps($user, $company),
+            'canConfigureWebsite' => $access->can($user, $company, TenantConfigCapability::WEBSITE),
+            'canConfigureWhatsapp' => $access->can($user, $company, TenantConfigCapability::WHATSAPP),
+            'canConfigureMollie' => $access->can($user, $company, TenantConfigCapability::MOLLIE),
+            'configAccessUsers' => $user?->isSuperAdmin()
+                ? User::query()->where('company_id', $company->id)->orderBy('first_name')->orderBy('email')->get()
+                : collect(),
+            'grantsByUserId' => $user?->isSuperAdmin() ? $access->grantsByUserId($company) : [],
+        ];
+    }
+
+    private function continueWizard(Company $company, int $completedStep, string $success): RedirectResponse
+    {
+        $this->setMaxReachable($company, max($completedStep + 1, $this->getMaxReachable($company)));
+        $next = $this->tenantConfigAccess()->nextAccessibleStep(auth()->user(), $company, $completedStep + 1);
+
+        return redirect()
+            ->route('admin.companies.wizard.step', [$company, $next])
+            ->with('success', $success);
     }
 }

@@ -203,6 +203,27 @@
         .driver-app-header__online .switch.is-on::after {
             transform: translateX(0.9rem);
         }
+        .driver-vehicle-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0.35rem 0 0.15rem;
+        }
+        .driver-vehicle-row label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .driver-vehicle-row select {
+            flex: 1;
+            min-width: 0;
+            background: var(--card-elevated);
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 0.6rem;
+            padding: 0.4rem 0.55rem;
+            font-size: 0.8125rem;
+        }
         .driver-app-header__center {
             grid-column: 2;
             justify-self: center;
@@ -3226,6 +3247,12 @@
                 <div class="driver-app-header__end" aria-hidden="true"></div>
             </div>
             <div class="dispatch-banners">
+                <div id="driver-vehicle-row" class="driver-vehicle-row" hidden>
+                    <label for="driver-vehicle-select">Voertuig</label>
+                    <select id="driver-vehicle-select" aria-label="Voertuig dat je nu bestuurt">
+                        <option value="">Kies kenteken</option>
+                    </select>
+                </div>
                 <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
                     Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
                 </div>

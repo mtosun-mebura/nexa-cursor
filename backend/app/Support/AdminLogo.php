@@ -21,7 +21,8 @@ class AdminLogo
     public static function displayUrls(?User $user = null): array
     {
         $user ??= auth()->user();
-        $fallback = NexaBranding::defaultLogoUrl();
+        $fallbackLight = NexaBranding::defaultLogoUrl();
+        $fallbackDark = NexaBranding::defaultLogoDarkUrl();
 
         $settingsLogo = trim((string) (GeneralSetting::get('logo') ?? ''));
         if ($settingsLogo === '') {
@@ -69,9 +70,9 @@ class AdminLogo
 
         return [
             'source' => 'default',
-            'light_url' => $fallback,
-            'dark_url' => $fallback,
-            'alt' => 'NEXA',
+            'light_url' => $fallbackLight,
+            'dark_url' => $fallbackDark,
+            'alt' => 'NEXA Suite',
         ];
     }
 

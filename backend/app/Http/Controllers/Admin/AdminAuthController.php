@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
+use App\Services\AdminFirstLoginService;
 use App\Services\EnvService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\AdminReturnUrl;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
@@ -47,8 +49,8 @@ class AdminAuthController extends Controller
             session(['url.intended' => $intended]);
         }
 
-        // Verse CSRF-token zodat inloggen werkt na sessieverloop (voorkomt 419 bij refresh/resubmit).
-        $request->session()->regenerateToken();
+        // Geen regenerateToken() hier: dat maakt een open login-tab (eerste-keer-code
+        // invoeren) ongeldig zodra de e-maillink of een tweede GET /admin/login de token roteert.
 
         // Always show login form for non-authenticated users or users without admin role
         return view('admin.auth.login');
@@ -80,6 +82,15 @@ class AdminAuthController extends Controller
 
         if (! $user) {
             return back()->withErrors(['email' => 'Gebruiker niet gevonden.'])->withInput($withInput);
+        }
+
+        if (app(AdminFirstLoginService::class)->needsFirstLogin($user)) {
+            Hash::check('probe', Hash::make('probe'));
+
+            return back()
+                ->withInput($withInput)
+                ->with('first_login_required', true)
+                ->with('first_login_message', AdminFirstLoginService::ACTIVATION_REQUIRED_MESSAGE);
         }
 
         if (! Hash::check($credentials['password'], $user->password)) {
@@ -175,6 +186,67 @@ class AdminAuthController extends Controller
         session()->forget('url.intended');
 
         return redirect()->route('admin.dashboard');
+    }
+
+    public function requestFirstLoginCode(Request $request, AdminFirstLoginService $firstLogin): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $result = $firstLogin->requestCode($validated['email'], (string) $request->ip());
+
+        return response()->json(
+            array_filter([
+                'message' => $result['message'],
+                'code' => $result['code'] ?? null,
+                'retry_after' => $result['retry_after'] ?? null,
+            ], static fn ($value) => $value !== null),
+            $result['status']
+        );
+    }
+
+    public function verifyFirstLoginCode(Request $request, AdminFirstLoginService $firstLogin): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $result = $firstLogin->verifyAndSetPassword(
+            $validated['email'],
+            $validated['code'],
+            $validated['password'],
+            (string) $request->ip()
+        );
+
+        if (! $result['ok'] || ! isset($result['user'])) {
+            return response()->json(array_filter([
+                'message' => $result['message'],
+                'code' => $result['code'] ?? null,
+            ], static fn ($value) => $value !== null), $result['status']);
+        }
+
+        $user = $result['user'];
+        $this->applyPermissionsTeamForUser($user);
+
+        if ($user->company_id) {
+            $company = Company::query()->find((int) $user->company_id);
+            $billingAccess = app(TenantBillingAccessService::class);
+            if ($billingAccess->isFullyBlocked($company) && ! $user->hasRole('super-admin')) {
+                return response()->json(['message' => $billingAccess->fullBlockMessage()], 403);
+            }
+        }
+
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+        $request->session()->put('has_logged_in_before', true);
+
+        return response()->json([
+            'message' => $result['message'],
+            'redirect' => route('admin.handleiding.index', ['saved' => 1]),
+        ]);
     }
 
     public function logout(Request $request)

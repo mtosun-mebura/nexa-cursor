@@ -56,12 +56,15 @@
                                         {{ auth()->user()->last_name ?? '' }}
                                     </span>
                                 </div>
-                                @if(auth()->user()->roles->count() > 0)
+                                @php
+                                    $welcomeRoleNames = auth()->user()->webRoleNames();
+                                @endphp
+                                @if(count($welcomeRoleNames) > 0)
                                 <div class="flex flex-col gap-2">
                                     <span class="text-sm font-medium text-secondary-foreground">Rol(len)</span>
                                     <div class="flex flex-wrap gap-2">
-                                        @foreach(auth()->user()->roles as $role)
-                                            <span class="kt-badge kt-badge-primary">{{ $role->name }}</span>
+                                        @foreach($welcomeRoleNames as $roleName)
+                                            <span class="kt-badge kt-badge-primary">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                         @endforeach
                                     </div>
                                 </div>

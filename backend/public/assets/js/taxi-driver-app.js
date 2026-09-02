@@ -5,6 +5,7 @@
     const STORAGE_KEY = 'nexa_taxi_driver_token';
     const COMPANY_KEY = 'nexa_taxi_driver_company_id';
     const ONLINE_KEY = 'nexa_taxi_driver_online';
+    const VEHICLE_KEY = 'nexa_taxi_driver_vehicle_id';
     const NOTIFICATIONS_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_notifications_hint';
     const IOS_AWAKE_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_ios_awake_hint';
     const INSTALL_HINT_DISMISSED_KEY = 'nexa_taxi_dismiss_install_hint';
@@ -64,6 +65,15 @@
     let stopArrivedAnimationIds = {};
     let offerQueueIndex = 0;
     let isOnline = false;
+    let selectedVehicleId = (function () {
+        const raw = localStorage.getItem(VEHICLE_KEY);
+        const parsed = raw != null ? parseInt(raw, 10) : NaN;
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    })();
+    let lastGpsCoords = null;
+    let lastGpsSentAt = 0;
+    let gpsWatchId = null;
+    let gpsHeartbeatTimer = null;
     let companyId = (function () {
         const raw = sessionStorage.getItem(COMPANY_KEY);
         const parsed = raw != null ? parseInt(raw, 10) : NaN;
@@ -4466,14 +4476,25 @@
         if (isOnline) {
             await prepareDriverAlerts();
             requestScreenWakeLockFromGesture();
+            await refreshDriverVehicles();
         }
         if (!token) {
             return;
         }
         try {
+            const coords = isOnline ? await getDriverPosition() : lastGpsCoords;
+            const body = { is_online: isOnline };
+            if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
+                body.lat = coords.lat;
+                body.lng = coords.lng;
+                lastGpsCoords = coords;
+            }
+            if (selectedVehicleId) {
+                body.vehicle_id = selectedVehicleId;
+            }
             await api('/availability', {
                 method: 'PUT',
-                body: { is_online: isOnline },
+                body: body,
             });
         } catch (e) {
             if (e.code === 'driver_not_active') {
@@ -4482,8 +4503,10 @@
             console.warn(e);
         }
         if (isOnline) {
+            startGpsTracking();
             await refreshInbox();
         } else {
+            stopGpsTracking();
             inboxLoading = false;
             inboxHasLoaded = false;
             stopInboxSync();
@@ -4491,6 +4514,136 @@
             updateEmptyState();
         }
         syncScreenWakeLock();
+    }
+
+    function persistSelectedVehicle(id) {
+        const parsed = parseInt(id, 10);
+        selectedVehicleId = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        if (selectedVehicleId) {
+            localStorage.setItem(VEHICLE_KEY, String(selectedVehicleId));
+        } else {
+            localStorage.removeItem(VEHICLE_KEY);
+        }
+        const select = $('#driver-vehicle-select');
+        if (select && selectedVehicleId) {
+            select.value = String(selectedVehicleId);
+        }
+    }
+
+    function renderDriverVehicles(items) {
+        const row = $('#driver-vehicle-row');
+        const select = $('#driver-vehicle-select');
+        if (!row || !select) {
+            return;
+        }
+        const list = Array.isArray(items) ? items : [];
+        if (!list.length) {
+            row.hidden = true;
+            return;
+        }
+        const current = select.value;
+        select.innerHTML = '<option value="">Kies kenteken</option>';
+        list.forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = String(item.id);
+            const plate = item.license_plate ? String(item.license_plate) : '';
+            opt.textContent = plate ? (plate + (item.name ? ' · ' + item.name : '')) : (item.name || ('Voertuig ' + item.id));
+            select.appendChild(opt);
+        });
+        const preferred = selectedVehicleId ? String(selectedVehicleId) : current;
+        if (preferred && list.some(function (item) { return String(item.id) === preferred; })) {
+            select.value = preferred;
+            persistSelectedVehicle(preferred);
+        }
+        row.hidden = false;
+    }
+
+    async function refreshDriverVehicles() {
+        if (!token) {
+            return;
+        }
+        try {
+            const data = await api('/vehicles');
+            renderDriverVehicles(data && data.data ? data.data : []);
+        } catch (e) {
+            console.warn(e);
+        }
+    }
+
+    function getDriverPosition() {
+        return new Promise(function (resolve) {
+            if (!navigator.geolocation) {
+                resolve(lastGpsCoords);
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                function (pos) {
+                    resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                },
+                function () {
+                    resolve(lastGpsCoords);
+                },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
+            );
+        });
+    }
+
+    async function sendDriverLocation(coords, withVehicle, force) {
+        if (!token || !coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+            return;
+        }
+        lastGpsCoords = coords;
+        const now = Date.now();
+        if (!force && now - lastGpsSentAt < 4000) {
+            return;
+        }
+        lastGpsSentAt = now;
+        const body = { lat: coords.lat, lng: coords.lng };
+        if (withVehicle && selectedVehicleId) {
+            body.vehicle_id = selectedVehicleId;
+        }
+        try {
+            await api('/availability/location', { method: 'PUT', body: body });
+        } catch (e) {
+            if (e.code !== 'driver_not_active') {
+                console.warn(e);
+            }
+        }
+    }
+
+    function startGpsTracking() {
+        stopGpsTracking();
+        if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
+            gpsHeartbeatTimer = setInterval(function () {
+                getDriverPosition().then(function (coords) {
+                    sendDriverLocation(coords, false);
+                });
+            }, 5000);
+            return;
+        }
+        gpsWatchId = navigator.geolocation.watchPosition(
+            function (pos) {
+                sendDriverLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }, false);
+            },
+            function () {},
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 4000 }
+        );
+        gpsHeartbeatTimer = setInterval(function () {
+            if (lastGpsCoords) {
+                sendDriverLocation(lastGpsCoords, false, true);
+            }
+        }, 8000);
+    }
+
+    function stopGpsTracking() {
+        if (gpsWatchId != null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            gpsWatchId = null;
+        }
+        if (gpsHeartbeatTimer) {
+            clearInterval(gpsHeartbeatTimer);
+            gpsHeartbeatTimer = null;
+        }
     }
 
     function parseIsoMs(iso) {
@@ -7903,6 +8056,9 @@
         if (data.user && typeof data.user.is_online === 'boolean') {
             applyOnlineStateFromServer(data.user.is_online);
         }
+        if (data.user && data.user.vehicle_id) {
+            persistSelectedVehicle(data.user.vehicle_id);
+        }
         if (data.meta && data.meta.poll_interval_ms) {
             cfg.pollMs = data.meta.poll_interval_ms;
         }
@@ -8038,6 +8194,9 @@
         if (data.user && typeof data.user.is_online === 'boolean') {
             applyOnlineStateFromServer(data.user.is_online);
         }
+        if (data.user && data.user.vehicle_id) {
+            persistSelectedVehicle(data.user.vehicle_id);
+        }
         if (data.meta && data.meta.poll_interval_ms) {
             cfg.pollMs = data.meta.poll_interval_ms;
         }
@@ -8048,6 +8207,7 @@
 
     function logout(callApi) {
         stopInboxSync();
+        stopGpsTracking();
         clearOfferTimer();
         if (callApi && token) {
             fetch(cfg.apiBase + '/logout', {
@@ -9167,6 +9327,11 @@
         }
         setOnlineUi();
         updateProfileOnlineStatus();
+        if (isOnline && token && accountActive) {
+            startGpsTracking();
+        } else {
+            stopGpsTracking();
+        }
     }
 
     function setProfileField(el, value) {
@@ -9287,6 +9452,10 @@
             const active = me.user && me.user.is_account_active !== false;
             setAccountInactive(!active);
             applyOnlineStateFromServer(me.user && me.user.is_online);
+            if (me.user && me.user.vehicle_id) {
+                persistSelectedVehicle(me.user.vehicle_id);
+            }
+            await refreshDriverVehicles();
             if (accountActive) {
                 if (isOnline) {
                     startInboxSync();
@@ -9460,6 +9629,25 @@
             await refreshScheduledRidesOnly();
             updateEmptyState();
         }
+        });
+    }
+
+    const vehicleSelect = $('#driver-vehicle-select');
+    if (vehicleSelect) {
+        vehicleSelect.addEventListener('change', async function () {
+            persistSelectedVehicle(vehicleSelect.value);
+            if (isOnline && lastGpsCoords) {
+                await sendDriverLocation(lastGpsCoords, true, true);
+            } else if (isOnline && token) {
+                try {
+                    await api('/availability', {
+                        method: 'PUT',
+                        body: { is_online: true, vehicle_id: selectedVehicleId },
+                    });
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
         });
     }
 

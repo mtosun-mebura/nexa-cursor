@@ -280,12 +280,12 @@ final class TenantStorageBundleService
             'bundle_version' => self::BUNDLE_VERSION,
             'exported_at' => now()->toIso8601String(),
             'source_company_id' => null,
-            'source_company_name' => 'NEXA SaaS',
+            'source_company_name' => 'NEXA Suite',
             'pages' => $pagePayloads,
             'general_settings' => $settingsPayload,
             'storage_paths' => $allPaths,
             'website_media' => $mediaPayloads,
-            'note' => 'NEXA SaaS-hoofdwebsite: website_pages met company_id null, gerefereerde bestanden, carousel-media en nexa_pricing.',
+            'note' => 'NEXA Suite-hoofdwebsite: website_pages met company_id null, gerefereerde bestanden, carousel-media en nexa_pricing.',
         ];
 
         $filename = 'nexa-saas-website-'.now()->format('Y-m-d-His').'.zip';
@@ -359,7 +359,7 @@ final class TenantStorageBundleService
             throw new RuntimeException('Ongeldig manifest.');
         }
         if (($manifest['bundle_type'] ?? '') !== self::BUNDLE_TYPE_CENTRAL) {
-            throw new RuntimeException('Dit is geen NEXA SaaS-websitebundle (verwacht bundle_type "'.self::BUNDLE_TYPE_CENTRAL.'"). Kies NEXA SaaS in de lijst, of gebruik een tenant-ZIP voor een bedrijf.');
+            throw new RuntimeException('Dit is geen NEXA Suite-websitebundle (verwacht bundle_type "'.self::BUNDLE_TYPE_CENTRAL.'"). Kies NEXA Suite in de lijst, of gebruik een tenant-ZIP voor een bedrijf.');
         }
 
         $copied = $this->copyFilesFromZipToPublicDisk($tmp);

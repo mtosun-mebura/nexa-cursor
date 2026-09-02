@@ -8,6 +8,11 @@ use App\Models\PlatformBillingSetting;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
 use App\Models\PlatformPaymentMandate;
+use App\Services\CompanyEmailLogoService;
+use App\Services\EmailTemplateService;
+use App\Services\EnvService;
+use App\Services\NexaPricingService;
+use App\Services\SaasBillingStartEmailTemplateService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1129,16 +1134,9 @@ class PlatformBillingService
             return;
         }
 
-        $body = "Beste {$invoice->company->name},\n\n".
-            "Uw NEXA-factuur {$invoice->invoice_number} (periode {$invoice->billing_period}) staat open.\n".
-            'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.')."\n\n";
-        if ($checkoutUrl) {
-            $body .= "Betaal direct via:\n{$checkoutUrl}\n\n";
-            if ($invoice->collection_method === 'first_payment_mandate') {
-                $body .= "Met deze betaling geeft u tevens toestemming voor automatische maandelijkse incasso.\n\n";
-            }
-        }
-        $body .= "Met vriendelijke groet,\nNexa Suite";
+        $invoice->loadMissing('company');
+        $isFirstCollection = $invoice->collection_method === 'first_payment_mandate'
+            || PlatformInvoice::query()->where('company_id', $invoice->company_id)->count() <= 1;
 
         try {
             $pdf = $this->pdf->generateAndStore($invoice);
@@ -1150,8 +1148,106 @@ class PlatformBillingService
             $pdf = null;
         }
 
+        if ($isFirstCollection && $profile && $checkoutUrl) {
+            try {
+                $this->sendBillingStartEmail($invoice, $profile, $checkoutUrl, $email, $pdf);
+            } catch (\Throwable $e) {
+                Log::warning('Eerste-betalingmail versturen mislukt', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return;
+        }
+
+        $body = "Beste {$invoice->company->name},\n\n".
+            "Uw NEXA-factuur {$invoice->invoice_number} (periode {$invoice->billing_period}) staat open.\n".
+            'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.')."\n\n";
+        if ($checkoutUrl) {
+            $body .= "Betaal direct via:\n{$checkoutUrl}\n\n";
+            if ($invoice->collection_method === 'first_payment_mandate') {
+                $body .= "Met deze betaling geeft u tevens toestemming voor automatische maandelijkse incasso.\n\n";
+            }
+        }
+        $body .= "Met vriendelijke groet,\nNexa Suite";
+
         Mail::raw($body, function ($message) use ($email, $invoice, $pdf) {
             $message->to($email)->subject('NEXA-factuur '.$invoice->invoice_number);
+            if ($pdf && ! empty($pdf['bytes'])) {
+                $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
+                $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
+            }
+        });
+    }
+
+    /**
+     * @param  array{bytes?: string}|null  $pdf
+     */
+    private function sendBillingStartEmail(
+        PlatformInvoice $invoice,
+        CompanyBillingProfile $profile,
+        string $checkoutUrl,
+        string $email,
+        ?array $pdf,
+    ): void {
+        $billingStart = app(SaasBillingStartEmailTemplateService::class);
+        $template = $billingStart->resolveActive();
+        $collection = $this->subscriptionCalculator->firstCollectionPresentation(
+            $profile,
+            $profile->subscription_start_date ?? now()
+        );
+        $pricing = app(NexaPricingService::class);
+        $packageName = $profile->subscriptionLineLabel();
+        $firstAmount = (float) $invoice->total_amount > 0
+            ? (float) $invoice->total_amount
+            : $collection['first_amount_incl'];
+        $variables = array_merge(
+            [
+                'COMPANY_NAME' => $invoice->company?->name ?: 'klant',
+                'PACKAGE_NAME' => $packageName,
+                'START_DATE' => $collection['start_label'],
+                'FIRST_AMOUNT' => $pricing->displayAmount(number_format($firstAmount, 2, '.', '')),
+                'MONTHLY_AMOUNT' => $pricing->displayAmount(number_format($collection['monthly_amount'], 2, '.', '')),
+                'RECURRING_FROM' => $collection['recurring_from_label'],
+                'INVOICE_NUMBER' => (string) $invoice->invoice_number,
+                'PAYMENT_URL' => $checkoutUrl,
+            ],
+            \App\Support\NexaBranding::emailLogoTemplateVariable()
+        );
+
+        $mail = app(EmailTemplateService::class);
+        $subject = $mail->parseTemplateVariables((string) $template->subject, $variables);
+        $html = $mail->parseTemplateVariables((string) $template->html_content, $variables);
+        $text = $mail->parseTemplateVariables((string) ($template->text_content ?: strip_tags($html)), $variables);
+
+        $env = app(EnvService::class);
+        $env->applyPlatformMailConfigToRuntime();
+        $from = $env->resolveMailFromHeaders(null, true);
+        $logoService = app(CompanyEmailLogoService::class);
+        $toName = $profile->billing_contact_name ?: ($invoice->company?->name ?: $email);
+
+        Mail::send([], [], function ($message) use (
+            $email,
+            $toName,
+            $subject,
+            $html,
+            $text,
+            $from,
+            $pdf,
+            $invoice,
+            $logoService
+        ) {
+            if (! empty($from['from_address'])) {
+                $message->from($from['from_address'], $from['from_name'] ?: SaasBillingStartEmailTemplateService::FROM_NAME);
+            }
+            $message->to($email, $toName)->subject($subject);
+            if ($html) {
+                $message->html($logoService->embedInHtml($html, $message, null, 'NEXA Suite'));
+            }
+            if ($text) {
+                $message->text($text);
+            }
             if ($pdf && ! empty($pdf['bytes'])) {
                 $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
                 $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);

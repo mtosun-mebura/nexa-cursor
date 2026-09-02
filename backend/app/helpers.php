@@ -72,6 +72,71 @@ if (! function_exists('parse_admin_date')) {
     }
 }
 
+if (! function_exists('admin_datetime_picker_display')) {
+    /**
+     * Waarde voor weergave in KT-datepicker met tijd (dd-mm-jjjj uu:mm).
+     */
+    function admin_datetime_picker_display(mixed $value): string
+    {
+        $parsed = parse_admin_datetime($value);
+
+        if ($parsed === null) {
+            return '';
+        }
+
+        return Carbon::parse($parsed)->format('d-m-Y H:i');
+    }
+}
+
+if (! function_exists('parse_admin_datetime')) {
+    /**
+     * Parse admin-datetimepicker-waarde naar Y-m-d H:i:s.
+     */
+    function parse_admin_datetime(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::parse($value)->format('Y-m-d H:i:s');
+        }
+
+        $str = trim((string) $value);
+        if ($str === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $str, $m)) {
+            return Carbon::create(
+                (int) $m[3],
+                (int) $m[2],
+                (int) $m[1],
+                (int) ($m[4] ?? 0),
+                (int) ($m[5] ?? 0),
+                (int) ($m[6] ?? 0),
+            )->format('Y-m-d H:i:s');
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/', $str, $m)) {
+            return Carbon::create(
+                (int) $m[1],
+                (int) $m[2],
+                (int) $m[3],
+                (int) ($m[4] ?? 0),
+                (int) ($m[5] ?? 0),
+                (int) ($m[6] ?? 0),
+            )->format('Y-m-d H:i:s');
+        }
+
+        try {
+            return Carbon::parse($str)->format('Y-m-d H:i:s');
+        } catch (\Exception) {
+            return null;
+        }
+    }
+}
+
 if (! function_exists('normalize_iban')) {
     /**
      * IBAN normaliseren: hoofdletters, zonder spaties.

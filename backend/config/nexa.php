@@ -24,6 +24,7 @@ return [
   |--------------------------------------------------------------------------
   */
     'default_logo' => env('NEXA_DEFAULT_LOGO', 'images/nexa-logo.png'),
+    'default_logo_dark' => env('NEXA_DEFAULT_LOGO_DARK', 'images/nexa-logo-dark.png'),
     'default_user_avatar' => env('NEXA_DEFAULT_USER_AVATAR', 'images/nexa-x-logo.png'),
 
     /*

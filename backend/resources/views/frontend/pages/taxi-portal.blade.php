@@ -659,8 +659,10 @@
     @php
         $logoAlt = $branding['site_name'] ?? config('app.name', 'Nexa');
         $logoHref = \App\Support\Tenancy\TenantFrontendUrl::for(route('home'));
-        $logoLight = $branding['logo_url'] ?? asset('images/nexa-logo.png');
-        $logoDark = $branding['logo_dark_url'] ?? $logoLight;
+        $logoLight = ! empty($branding['logo_url']) ? $branding['logo_url'] : asset('images/nexa-logo.png');
+        $logoDark = ! empty($branding['logo_dark_url'])
+            ? $branding['logo_dark_url']
+            : (! empty($branding['logo_url']) ? $logoLight : asset('images/nexa-logo-dark.png'));
     @endphp
 
     <div

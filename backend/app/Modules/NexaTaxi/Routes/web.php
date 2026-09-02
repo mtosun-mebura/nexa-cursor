@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Modules\NexaTaxi\Controllers\Admin\VehicleController;
 use App\Modules\NexaTaxi\Controllers\Admin\RideRequestController;
 use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
+use App\Modules\NexaTaxi\Controllers\Admin\GpsTrackingController;
 use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
 use App\Modules\NexaTaxi\Controllers\Admin\AiChatbotSettingsController;
 use App\Modules\NexaTaxi\Controllers\Admin\KnowledgeDocumentController;
@@ -47,6 +48,13 @@ Route::resource('ai-chatbot', KnowledgeDocumentController::class)
     ->parameters(['ai-chatbot' => 'knowledge_document'])
     ->names('knowledge_documents');
 
+Route::get('gps-tracker', [GpsTrackingController::class, 'index'])->name('gps_tracking.index');
+Route::get('gps-tracker/posities', [GpsTrackingController::class, 'positions'])->name('gps_tracking.positions');
+Route::post('gps-tracker/offline-ontgrendelen', [GpsTrackingController::class, 'unlock'])->name('gps_tracking.unlock');
+Route::post('gps-tracker/offline-verbergen', [GpsTrackingController::class, 'lock'])->name('gps_tracking.lock');
+Route::put('gps-tracker/veiligheidscode', [GpsTrackingController::class, 'updateCode'])->name('gps_tracking.code');
+Route::get('gps-tracker/configuratie', [GpsTrackingController::class, 'settings'])->name('gps_tracking.settings');
+Route::put('gps-tracker/configuratie', [GpsTrackingController::class, 'updateSettings'])->name('gps_tracking.settings.update');
 Route::get('dispatch-instellingen', [DispatchSettingsController::class, 'edit'])->name('dispatch_settings.edit');
 Route::put('dispatch-instellingen', [DispatchSettingsController::class, 'update'])->name('dispatch_settings.update');
 Route::get('dispatch-instellingen/klant-e-mail', [DispatchSettingsController::class, 'editCustomerAcceptEmail'])

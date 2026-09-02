@@ -28,7 +28,7 @@
             @endif
             @if(!empty($websitePagesManagingCentralSite))
                 <p class="text-sm text-muted-foreground mt-2 mb-0">
-                    Pagina&rsquo;s van de <span class="text-foreground font-medium">hoofdwebsite van Nexa SaaS</span> (geen tenant).
+                    Pagina&rsquo;s van de <span class="text-foreground font-medium">hoofdwebsite van NEXA Suite</span> (geen tenant).
                     Kies een tenant in de zijbalk om de website van een klantbedrijf te beheren.
                 </p>
             @endif
@@ -49,9 +49,9 @@
                 ]);
                 $websitePagesSeoCount = ($pages ?? collect())->count();
             @endphp
-            <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
+            <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn website-pages-btn-preview">
                 <i class="ki-filled ki-eye me-2"></i>
-                Pagina voorbeeld
+                Website voorbeeld
             </a>
             <form method="POST" action="{{ route('admin.website-pages.generate-seo-all', $wizardIndexQuery ?? []) }}" id="website-pages-generate-seo-all-form" class="m-0">
                 @csrf
@@ -60,10 +60,10 @@
                 @endforeach
                 <button type="submit"
                         id="website-pages-generate-seo-all-btn"
-                        class="kt-btn kt-btn-outline"
+                        class="kt-btn website-pages-btn-seo"
                         @disabled($websitePagesSeoCount < 1)
                         title="Genereer SEO-titels, meta-omschrijvingen en hero-teksten voor alle pagina's op deze lijst">
-                    <i class="ki-filled ki-magic me-2"></i>
+                    <i class="ki-filled ki-search-list me-2"></i>
                     SEO teksten
                 </button>
             </form>
@@ -172,7 +172,7 @@
                                     @if($rowCompanyId !== null)
                                         <span class="font-medium text-foreground">{{ $rowCompanyName ?? ('Bedrijf #'.$rowCompanyId) }}</span>
                                     @else
-                                        <span class="text-muted-foreground">Nexa SaaS</span>
+                                        <span class="text-muted-foreground">NEXA Suite</span>
                                     @endif
                                 </td>
                             @endif
@@ -249,6 +249,28 @@
 @push('styles')
 <style>
     .website-pages-actions-dropdown.is-open { display: block !important; }
+
+    #content .website-pages-btn-preview {
+        background-color: #ea580c;
+        color: #fff;
+        border-color: transparent;
+    }
+    #content .website-pages-btn-preview:hover {
+        background-color: #c2410c;
+        color: #fff;
+    }
+    #content .website-pages-btn-seo {
+        background-color: #7c3aed;
+        color: #fff;
+        border-color: transparent;
+    }
+    #content .website-pages-btn-seo:hover {
+        background-color: #6d28d9;
+        color: #fff;
+    }
+    #content .website-pages-btn-seo:disabled {
+        opacity: 0.55;
+    }
 
     #content #website-pages-table.website-pages-table .website-pages-col-order {
         width: 7.5rem;

@@ -179,7 +179,7 @@ class EnvService
     }
 
     /**
-     * Alleen de Nexa SaaS-mailserver (geen tenant-SMTP, geen geselecteerde tenant).
+     * Alleen de NEXA Suite-mailserver (geen tenant-SMTP, geen geselecteerde tenant).
      */
     public function applyPlatformMailConfigToRuntime(): void
     {

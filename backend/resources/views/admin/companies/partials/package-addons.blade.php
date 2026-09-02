@@ -15,7 +15,7 @@
 <tr>
     <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
     <td>
-        <p class="text-xs text-muted-foreground mb-3">Extra’s binnen het abonnement. GPS-trackers bouwen we later; extra contractklanten verhogen het limiet. Vloot maakt contractklanten onbeperkt.</p>
+        <p class="text-xs text-muted-foreground mb-3">Extra’s binnen het abonnement. GPS-trackers tonen de live kaart in het menu. Extra contractklanten verhogen het limiet. Vloot maakt contractklanten onbeperkt.</p>
         <div class="space-y-3">
             <div class="border border-border rounded-lg p-3">
                 <div class="flex flex-wrap items-start justify-between gap-2">
@@ -35,7 +35,7 @@
                     <input type="checkbox" name="package_addons[{{ \App\Support\TenantPackageAddon::GPS_TRACKING }}]" id="package-addon-gps" value="1" class="kt-switch kt-switch-sm shrink-0 mt-0.5" @checked((int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 1)>
                     <span>
                         <span class="text-sm font-medium text-foreground">{{ $gpsDef['name'] ?? 'GPS-trackers' }}</span>
-                        <span class="block text-xs text-muted-foreground font-normal mt-1">{{ $gpsDef['description'] ?? 'Taxi’s volgen via GPS (koppeling volgt later).' }} (+ € {{ (int) ($gpsDef['price'] ?? 19) }} / maand)</span>
+                        <span class="block text-xs text-muted-foreground font-normal mt-1">{{ $gpsDef['description'] ?? 'Taxi’s live volgen op de kaart via GPS.' }} (+ € {{ (int) ($gpsDef['price'] ?? 19) }} / maand)</span>
                     </span>
                 </label>
             </div>

@@ -15,7 +15,7 @@
             </a>
         </div>
         <p class="text-sm text-secondary-foreground max-w-3xl">
-            Doorloop de stappen om een nieuwe tenant in te richten. Je kunt op eerdere tabs terug om gegevens te wijzigen. Toekomstige stappen worden pas vrijgegeven na <strong>Volgende</strong>.
+            Doorloop alle stappen om de tenant in te richten, inclusief mailserver, Google SEO en integraties.
         </p>
     </div>
 

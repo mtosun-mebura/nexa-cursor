@@ -12,9 +12,13 @@ use App\Modules\NexaTaxi\Services\TaxiAppLoginCodeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
+use App\Services\AdminFirstLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
 use App\Services\InformatieaanvraagEmailHtmlNormalizer;
 use App\Services\MenuService;
+use App\Services\SaasBillingStartEmailTemplateService;
+use App\Services\SaasTrialEndingEmailTemplateService;
+use App\Services\TenantConfigAccessGrantedEmailTemplateService;
 use App\Services\TenantWelcomeEmailTemplateService;
 use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\Request;
@@ -76,6 +80,10 @@ class AdminEmailTemplateController extends Controller
         return [
             'welcome' => null,
             'tenant_welcome' => null,
+            AdminFirstLoginCodeEmailTemplateService::TYPE => null,
+            TenantConfigAccessGrantedEmailTemplateService::TYPE => null,
+            'saas_trial_ending' => null,
+            'saas_billing_start' => null,
             'password_reset' => null,
             'email_verification' => null,
             'informatieaanvraag' => null,
@@ -113,6 +121,10 @@ class AdminEmailTemplateController extends Controller
         return [
             'welcome' => 'Welkom',
             'tenant_welcome' => 'Welkomstmail tenant (company-admin)',
+            AdminFirstLoginCodeEmailTemplateService::TYPE => 'Eenmalige inlogcode admin (eerste login)',
+            TenantConfigAccessGrantedEmailTemplateService::TYPE => 'Configuratie-toegang (bericht in NEXA Suite)',
+            'saas_trial_ending' => 'Proeftijd bijna voorbij (NEXA Suite)',
+            'saas_billing_start' => 'Eerste betaling NEXA-abonnement',
             'password_reset' => 'Wachtwoord Reset',
             'email_verification' => 'E-mail Verificatie',
             'informatieaanvraag' => 'Informatieaanvraag',
@@ -188,6 +200,10 @@ class AdminEmailTemplateController extends Controller
             TaxiCustomerLoginCodeEmailTemplateService::TYPE => TaxiCustomerLoginCodeEmailTemplateService::variableLabels(),
             TaxiCustomerAcceptEmailTemplateService::TYPE => TaxiCustomerAcceptEmailTemplateService::variableLabels(),
             TenantWelcomeEmailTemplateService::TYPE => TenantWelcomeEmailTemplateService::variableLabels(),
+            AdminFirstLoginCodeEmailTemplateService::TYPE => AdminFirstLoginCodeEmailTemplateService::variableLabels(),
+            TenantConfigAccessGrantedEmailTemplateService::TYPE => TenantConfigAccessGrantedEmailTemplateService::variableLabels(),
+            SaasTrialEndingEmailTemplateService::TYPE => SaasTrialEndingEmailTemplateService::variableLabels(),
+            SaasBillingStartEmailTemplateService::TYPE => SaasBillingStartEmailTemplateService::variableLabels(),
             TaxiAppLoginCodeEmailTemplateService::TYPE => TaxiAppLoginCodeEmailTemplateService::variableLabels(),
             TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR,
             TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
@@ -303,6 +319,10 @@ class AdminEmailTemplateController extends Controller
         $menuService = app(MenuService::class);
         $this->provisionTaxiEmailTemplatesIfNeeded($menuService);
         app(TenantWelcomeEmailTemplateService::class)->ensureExists();
+        app(AdminFirstLoginCodeEmailTemplateService::class)->ensureExists();
+        app(TenantConfigAccessGrantedEmailTemplateService::class)->ensureExists();
+        app(SaasTrialEndingEmailTemplateService::class)->ensureExists();
+        app(SaasBillingStartEmailTemplateService::class)->ensureExists();
 
         $query = EmailTemplate::with('company');
 
@@ -655,6 +675,32 @@ class AdminEmailTemplateController extends Controller
             $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
             $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
         }
+        if ($emailTemplate->type === AdminFirstLoginCodeEmailTemplateService::TYPE) {
+            $previewVars = app(AdminFirstLoginCodeEmailTemplateService::class)->previewVariables();
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
+        if ($emailTemplate->type === TenantConfigAccessGrantedEmailTemplateService::TYPE) {
+            $previewCompany = $emailTemplate->company
+                ?? ($tenantId ? Company::find((int) $tenantId) : null);
+            $previewVars = app(TenantConfigAccessGrantedEmailTemplateService::class)->previewVariables($previewCompany);
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
+        if ($emailTemplate->type === SaasTrialEndingEmailTemplateService::TYPE) {
+            $previewVars = app(SaasTrialEndingEmailTemplateService::class)->previewVariables();
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
+        if ($emailTemplate->type === SaasBillingStartEmailTemplateService::TYPE) {
+            $previewVars = app(SaasBillingStartEmailTemplateService::class)->previewVariables();
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
 
         return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables', 'users', 'formFields', 'previewHtml', 'previewSubject'));
     }
@@ -944,6 +990,25 @@ class AdminEmailTemplateController extends Controller
         }
 
         $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
+        if ($emailTemplate->type === SaasTrialEndingEmailTemplateService::TYPE) {
+            $variables = array_merge(app(SaasTrialEndingEmailTemplateService::class)->previewVariables(), $variables);
+        }
+        if ($emailTemplate->type === SaasBillingStartEmailTemplateService::TYPE) {
+            $variables = array_merge(app(SaasBillingStartEmailTemplateService::class)->previewVariables(), $variables);
+        }
+        if ($emailTemplate->type === TenantWelcomeEmailTemplateService::TYPE) {
+            $previewCompany = $emailTemplate->company
+                ?? ($this->getTenantId() ? Company::find((int) $this->getTenantId()) : null);
+            $variables = array_merge(app(TenantWelcomeEmailTemplateService::class)->previewVariables($previewCompany), $variables);
+        }
+        if ($emailTemplate->type === AdminFirstLoginCodeEmailTemplateService::TYPE) {
+            $variables = array_merge(app(AdminFirstLoginCodeEmailTemplateService::class)->previewVariables(), $variables);
+        }
+        if ($emailTemplate->type === TenantConfigAccessGrantedEmailTemplateService::TYPE) {
+            $previewCompany = $emailTemplate->company
+                ?? ($this->getTenantId() ? Company::find((int) $this->getTenantId()) : null);
+            $variables = array_merge(app(TenantConfigAccessGrantedEmailTemplateService::class)->previewVariables($previewCompany), $variables);
+        }
         foreach ($formFields as $field) {
             $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_'.$field->name, '');
         }

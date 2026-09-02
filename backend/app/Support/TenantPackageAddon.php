@@ -48,7 +48,7 @@ final class TenantPackageAddon
                 'key' => self::GPS_TRACKING,
                 'type' => self::TYPE_BOOL,
                 'label' => 'GPS-trackers',
-                'hint' => 'Taxi’s volgen via GPS. De koppeling bouwen we later; de module kun je nu al activeren (+ € 19 per maand).',
+                'hint' => 'Volg taxi’s live op de kaart via GPS (+ € 19 per maand).',
                 'price' => 19,
                 'code' => 'TenantPackageAddon::GPS_TRACKING',
             ],

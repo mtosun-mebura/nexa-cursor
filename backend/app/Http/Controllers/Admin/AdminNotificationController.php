@@ -482,8 +482,8 @@ class AdminNotificationController extends Controller
         
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'category' => 'required|in:info,warning,success,error,reminder,update',
-            'type' => 'required|in:match,interview,application,system,email,reminder,file',
+            'category' => 'required|in:info,warning,success,error,reminder,update,incident',
+            'type' => 'required|in:match,interview,application,system,email,reminder,file,incident,config_access',
             'email_template_id' => 'nullable|exists:email_templates,id',
             'title' => 'required|string|max:255',
             'message' => 'required|string',
@@ -892,8 +892,8 @@ class AdminNotificationController extends Controller
         
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'category' => 'required|in:info,warning,success,error,reminder,update',
-            'type' => 'required|in:match,interview,application,system,email,reminder,file',
+            'category' => 'required|in:info,warning,success,error,reminder,update,incident',
+            'type' => 'required|in:match,interview,application,system,email,reminder,file,incident,config_access',
             'email_template_id' => 'nullable|exists:email_templates,id',
             'title' => 'required|string|max:255',
             'message' => 'required|string',
@@ -1074,8 +1074,8 @@ class AdminNotificationController extends Controller
         $query = Notification::where('user_id', $user->id)
             ->whereNull('read_at');
         
-        // For admin users, filter by company
-        if ($user->company_id) {
+        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
+        if ($user->company_id && ! $user->isSuperAdmin()) {
             $query->where('company_id', $this->getTenantId());
         }
         
@@ -1094,8 +1094,8 @@ class AdminNotificationController extends Controller
             ->whereNull('read_at')
             ->whereNull('archived_at');
         
-        // For admin users, filter by company
-        if ($user->company_id) {
+        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
+        if ($user->company_id && ! $user->isSuperAdmin()) {
             $query->where('company_id', $this->getTenantId());
         }
         
@@ -1106,7 +1106,7 @@ class AdminNotificationController extends Controller
             ->whereNull('read_at')
             ->whereNull('archived_at');
         
-        if ($user->company_id) {
+        if ($user->company_id && ! $user->isSuperAdmin()) {
             $priorityQuery->where('company_id', $this->getTenantId());
         }
         
@@ -1136,13 +1136,9 @@ class AdminNotificationController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(50);
         
-        // For admin users, filter by company
-        if ($user->company_id) {
+        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
+        if ($user->company_id && ! $user->isSuperAdmin()) {
             $query->where('company_id', $user->company_id);
-        } else {
-            // For frontend users (candidates), show all notifications for this user
-            // regardless of company_id (candidates can receive notifications from any company)
-            // No additional filtering needed - just user_id is enough
         }
         
         // Get company for main address lookup
@@ -1507,8 +1503,8 @@ class AdminNotificationController extends Controller
         $query = Notification::where('user_id', $user->id)
             ->whereIn('id', $request->notification_ids);
         
-        // For admin users, filter by company
-        if ($user->company_id) {
+        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
+        if ($user->company_id && ! $user->isSuperAdmin()) {
             $query->where('company_id', $this->getTenantId());
         }
         
@@ -1531,8 +1527,8 @@ class AdminNotificationController extends Controller
         $query = Notification::where('user_id', $user->id)
             ->whereIn('id', $request->notification_ids);
         
-        // For admin users, filter by company
-        if ($user->company_id) {
+        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
+        if ($user->company_id && ! $user->isSuperAdmin()) {
             $query->where('company_id', $this->getTenantId());
         }
         

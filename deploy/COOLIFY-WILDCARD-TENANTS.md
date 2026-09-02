@@ -47,7 +47,7 @@ Subdomeinen komen via labels in `docker-compose.deploy.yml`.
 | Apex/www | `Host(nexasuite.nl) \|\| Host(www…)` | `100` | `backend` |
 | Tenants | `HostRegexp(…)` **én** `!Host(panel\|n8n\|automations\|www)` | `1` | `backend` |
 
-**Reserved** (niet Nexa SaaS — eigen Coolify-app):
+**Reserved** (niet NEXA Suite — eigen Coolify-app):
 
 | Subdomein | Doel | Coolify Domain (voorbeeld) |
 |-----------|------|----------------------------|

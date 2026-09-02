@@ -130,6 +130,7 @@ class AdminCompanyBillingProfileController extends Controller
             'billing_mode' => 'required|in:package,custom,free',
             'platform_billing_package_id' => 'nullable|exists:platform_billing_packages,id',
             'custom_monthly_amount' => 'nullable|numeric|min:0',
+            'agreed_monthly_amount' => 'nullable|numeric|min:0',
             'discount_percent' => 'nullable|integer|min:0|max:100',
             'extra_lines_discount_percent' => 'nullable|integer|min:0|max:100',
             'subscription_start_date' => 'nullable|date',
@@ -175,6 +176,9 @@ class AdminCompanyBillingProfileController extends Controller
             'custom_monthly_amount' => $validated['billing_mode'] === 'custom'
                 ? ($validated['custom_monthly_amount'] ?? 0)
                 : null,
+            'agreed_monthly_amount' => $validated['billing_mode'] === 'package' && isset($validated['agreed_monthly_amount']) && $validated['agreed_monthly_amount'] !== '' && $validated['agreed_monthly_amount'] !== null
+                ? round((float) $validated['agreed_monthly_amount'], 2)
+                : ($validated['billing_mode'] === 'package' ? $profile->agreed_monthly_amount : null),
         ]);
 
         if ($this->lineItemSelectionChanged($selectedLineItemIds, $previousLineItemIds)) {
@@ -266,6 +270,9 @@ class AdminCompanyBillingProfileController extends Controller
             'custom_monthly_amount' => $billingMode === CompanyBillingProfile::MODE_CUSTOM
                 ? max(0, (float) $request->input('custom_monthly_amount', 0))
                 : null,
+            'agreed_monthly_amount' => $billingMode === CompanyBillingProfile::MODE_PACKAGE && $request->filled('agreed_monthly_amount')
+                ? round(max(0, (float) $request->input('agreed_monthly_amount')), 2)
+                : $profile->agreed_monthly_amount,
             'discount_percent' => max(0, min(100, (int) $request->input('discount_percent', $profile->discount_percent ?? 0))),
             'extra_lines_discount_percent' => max(0, min(100, (int) $request->input('extra_lines_discount_percent', $profile->extra_lines_discount_percent ?? 0))),
             'subscription_start_date' => parse_admin_date($request->input('subscription_start_date')),

@@ -97,7 +97,9 @@ class DatabaseBackupSettingsTest extends TestCase
             ->assertOk()
             ->assertSee('Database backups', false)
             ->assertSee('Nederlandse tijd', false)
-            ->assertSee('Lijst vernieuwen', false);
+            ->assertSee('Lijst vernieuwen', false)
+            ->assertSee('data-admin-datatable="true"', false)
+            ->assertSee('Zoek bestand, database, datum', false);
     }
 
     public function test_super_admin_can_fetch_backup_table_fragment(): void
@@ -121,6 +123,7 @@ class DatabaseBackupSettingsTest extends TestCase
             ->assertSee('id="database-backups-table"', false)
             ->assertSee('database-backups-select-all', false)
             ->assertSee('database-backup-checkbox', false)
+            ->assertSee('database-backups-status__trigger', false)
             ->assertDontSee('Beschikbare backups', false);
     }
 

@@ -39,7 +39,8 @@ class TenantCustomerMailService
      *     reply_to_name?: string|null,
      *     attachments?: list<array{bytes: string, filename: string, mime?: string}>,
      *     meta?: array<string, mixed>,
-     *     throw?: bool
+     *     throw?: bool,
+     *     platform_mail?: bool
      * }  $data
      */
     public function send(array $data): TenantCustomerEmail
@@ -83,8 +84,14 @@ class TenantCustomerMailService
             return $this->record($attributes, TenantCustomerEmail::STATUS_SKIPPED, 'Demo: uitgaande mail onderdrukt.');
         }
 
-        $this->env->applyMailConfigToRuntime($companyId);
-        $from = $this->env->resolveMailFromHeaders($companyId);
+        $usePlatformMail = (bool) ($data['platform_mail'] ?? false);
+        if ($usePlatformMail) {
+            $this->env->applyPlatformMailConfigToRuntime();
+            $from = $this->env->resolveMailFromHeaders(null, true);
+        } else {
+            $this->env->applyMailConfigToRuntime($companyId);
+            $from = $this->env->resolveMailFromHeaders($companyId);
+        }
         $companyName = $companyId ? (Company::query()->find($companyId)?->name) : null;
         $replyTo = trim((string) ($data['reply_to'] ?? ''));
         $replyToName = trim((string) ($data['reply_to_name'] ?? ''));
@@ -275,6 +282,7 @@ class TenantCustomerMailService
             'resent_from_id' => $original->id,
             'attachments' => $attachments,
             'meta' => is_array($original->meta) ? $original->meta : [],
+            'platform_mail' => (bool) (is_array($original->meta) ? ($original->meta['platform_mail'] ?? false) : false),
             'throw' => true,
         ]);
 

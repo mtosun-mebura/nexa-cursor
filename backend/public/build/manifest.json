@@ -1,10 +1,14 @@
 {
+  "__plugin-vue_export-helper-DlAUqK2U.js": {
+    "file": "assets/_plugin-vue_export-helper-DlAUqK2U.js",
+    "name": "_plugin-vue_export-helper"
+  },
   "_bootstrap-q14h8CwY.js": {
     "file": "assets/bootstrap-q14h8CwY.js",
     "name": "bootstrap"
   },
-  "_runtime-dom.esm-bundler-B5bsclsy.js": {
-    "file": "assets/runtime-dom.esm-bundler-B5bsclsy.js",
+  "_runtime-dom.esm-bundler-BjkUsv80.js": {
+    "file": "assets/runtime-dom.esm-bundler-BjkUsv80.js",
     "name": "runtime-dom.esm-bundler"
   },
   "node_modules/flag-icons/flags/1x1/ad.svg": {
@@ -2176,7 +2180,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CQnZfv9e.css",
+    "file": "assets/app-BmfQfdvJ.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2184,7 +2188,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-DfaMVgcb.js",
+    "file": "assets/app-CJDn0Bmu.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2192,7 +2196,7 @@
       "_bootstrap-q14h8CwY.js"
     ],
     "css": [
-      "assets/app-CvxHHv97.css"
+      "assets/app-B6DA4Aqr.css"
     ]
   },
   "resources/js/frontend-app.js": {
@@ -2204,37 +2208,51 @@
       "_bootstrap-q14h8CwY.js"
     ]
   },
+  "resources/js/incident-app.ts": {
+    "file": "assets/incident-app-CytCJJOr.js",
+    "name": "incident-app",
+    "src": "resources/js/incident-app.ts",
+    "isEntry": true,
+    "imports": [
+      "_runtime-dom.esm-bundler-BjkUsv80.js",
+      "__plugin-vue_export-helper-DlAUqK2U.js"
+    ],
+    "css": [
+      "assets/incident-app-C1rsfdVT.css"
+    ]
+  },
   "resources/js/metronic-vue-demo1.ts": {
-    "file": "assets/metronic-vue-demo1-BKbPhrqa.js",
+    "file": "assets/metronic-vue-demo1-CMTffpAL.js",
     "name": "metronic-vue-demo1",
     "src": "resources/js/metronic-vue-demo1.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-B5bsclsy.js"
+      "_runtime-dom.esm-bundler-BjkUsv80.js"
     ]
   },
   "resources/js/taxi-portal-app.ts": {
-    "file": "assets/taxi-portal-app-DZK9QhcT.js",
+    "file": "assets/taxi-portal-app-Dz2gZ11K.js",
     "name": "taxi-portal-app",
     "src": "resources/js/taxi-portal-app.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-B5bsclsy.js"
+      "_runtime-dom.esm-bundler-BjkUsv80.js"
     ],
     "css": [
       "assets/taxi-portal-app-DEO4neoZ.css"
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-AUonY2GR.js",
+    "file": "assets/website-page-builder-v2-Crn-vUG6.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-B5bsclsy.js"
+      "_runtime-dom.esm-bundler-BjkUsv80.js",
+      "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-o01KfHOT.css"
+      "assets/website-page-builder-v2-B-0_kbXR.css"
     ]
   }
 }

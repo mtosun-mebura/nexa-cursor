@@ -363,7 +363,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
           type: 'wysiwyg',
           key: 'tagline',
           label: 'Tagline',
-          placeholder: 'Ontdek de perfecte match...',
+          placeholder: 'Ontdek wat wij voor u kunnen betekenen...',
           hint: 'Wordt onder het logo in de footer getoond.',
         },
       ],

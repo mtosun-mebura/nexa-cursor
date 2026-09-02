@@ -1,4 +1,4 @@
-# NEXA SaaS datamodel en productuitleg
+# NEXA Suite datamodel en productuitleg
 
 Dit document beschrijft het huidige SaaS-product op basis van de codebase, met focus op de modules `taxi` en `skillmatching`. Het is bedoeld als basis voor verkoopmateriaal, website-uitleg en technische productpositionering.
 
@@ -172,7 +172,7 @@ erDiagram
 
 Gebruik deze kernboodschap op de website:
 
-> NEXA SaaS combineert een krachtige backend admin, flexibele website builder en losse headless modules. Bedrijven activeren alleen wat ze nodig hebben: taxi boekingen met chauffeur app, of skillmatching met vacatures, kandidaten, matches en interviews.
+> NEXA Suite combineert een krachtige backend admin, flexibele website builder en losse headless modules. Bedrijven activeren alleen wat ze nodig hebben: taxi boekingen met chauffeur app, of skillmatching met vacatures, kandidaten, matches en interviews.
 
 Sterke punten om zichtbaar te maken:
 

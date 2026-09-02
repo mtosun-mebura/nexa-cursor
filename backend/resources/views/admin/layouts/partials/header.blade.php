@@ -13,7 +13,10 @@
                 <i class="ki-filled ki-menu" aria-hidden="true"></i>
             </button>
             <a class="shrink-0 flex items-center" href="{{ route('admin.dashboard') }}">
-                <img class="h-[30px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
+                @include('partials.nexa-brand-logo', [
+                    'class' => 'h-[30px] w-auto max-w-[220px] object-contain',
+                    'alt' => 'NEXA Suite',
+                ])
             </a>
         </div>
         <!-- Topbar -->
