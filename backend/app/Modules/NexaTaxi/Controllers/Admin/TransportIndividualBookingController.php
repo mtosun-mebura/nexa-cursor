@@ -197,13 +197,16 @@ class TransportIndividualBookingController extends Controller
             'dropoff_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'dropoff_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'pickup_at' => ['required', 'date'],
-            'driver_id' => ['nullable', 'integer'],
-            'vehicle_id' => ['nullable', 'integer'],
+            'driver_id' => ['required', 'integer'],
+            'vehicle_id' => ['required', 'integer'],
             'price_override' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'driver_id.required' => 'Selecteer een vaste chauffeur.',
+            'vehicle_id.required' => 'Selecteer een vast voertuig.',
         ]);
 
-        $data['driver_id'] = ! empty($data['driver_id']) ? (int) $data['driver_id'] : null;
-        $data['vehicle_id'] = ! empty($data['vehicle_id']) ? (int) $data['vehicle_id'] : null;
+        $data['driver_id'] = (int) $data['driver_id'];
+        $data['vehicle_id'] = (int) $data['vehicle_id'];
         $data['price_override'] = isset($data['price_override']) && $data['price_override'] !== ''
             ? $data['price_override']
             : null;
@@ -214,23 +217,19 @@ class TransportIndividualBookingController extends Controller
     /** @param  array<string, mixed>  $data */
     private function assertDriverAndVehicle(string $conn, int $companyId, array $data): void
     {
-        if (! empty($data['driver_id'])) {
-            $valid = $this->driverEligibility->buildChauffeurQuery($companyId)
-                ->where('users.id', $data['driver_id'])
-                ->exists();
-            if (! $valid) {
-                throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur.']);
-            }
+        $valid = $this->driverEligibility->buildChauffeurQuery($companyId)
+            ->where('users.id', $data['driver_id'])
+            ->exists();
+        if (! $valid) {
+            throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur.']);
         }
 
-        if (! empty($data['vehicle_id'])) {
-            $valid = Vehicle::on($conn)
-                ->where('company_id', $companyId)
-                ->where('id', $data['vehicle_id'])
-                ->exists();
-            if (! $valid) {
-                throw ValidationException::withMessages(['vehicle_id' => 'Ongeldig voertuig.']);
-            }
+        $valid = Vehicle::on($conn)
+            ->where('company_id', $companyId)
+            ->where('id', $data['vehicle_id'])
+            ->exists();
+        if (! $valid) {
+            throw ValidationException::withMessages(['vehicle_id' => 'Ongeldig voertuig.']);
         }
     }
 

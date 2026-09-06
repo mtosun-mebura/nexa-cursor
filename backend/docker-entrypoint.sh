@@ -78,7 +78,8 @@ fi
 # Migraties + minimale seed (rollen, super admin, branches, thema's, …) als DB-variabelen aanwezig zijn
 if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan migrate --force || true
-  # Idempotent: veilig bij elke container-start; herstelt super-admin en centrale pagina's indien nodig
+  # Idempotent: veilig bij elke container-start. Maakt super-admin/rollen alleen aan als ze ontbreken;
+  # een bestaand wachtwoord wordt nooit overschreven.
   php artisan nexa:ensure-bootstrap || true
 fi
 

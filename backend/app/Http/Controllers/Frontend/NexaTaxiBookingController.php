@@ -15,6 +15,8 @@ use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Services\NearestTaxiTenantResolver;
+use App\Services\NearbyAvailableTaxiFleetService;
 use App\Services\NexaTaxiBookingPricingService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Services\WebsiteBuilderService;
@@ -53,6 +55,8 @@ class NexaTaxiBookingController extends Controller
             'baggage.*' => 'nullable|integer|min:0|max:20',
             'special_baggage' => 'nullable|array',
             'special_baggage.*' => 'nullable|integer|min:0|max:20',
+            'pickup_lat' => 'nullable|numeric',
+            'pickup_lng' => 'nullable|numeric',
         ]);
 
         $resolved = $this->resolveSectionConfig(
@@ -60,6 +64,11 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $marketplace = $this->resolveMarketplaceAssignment($resolved, $data);
+        if ($marketplace['error']) {
+            return $marketplace['error'];
+        }
+        $resolved = $marketplace['resolved'];
         $companyId = $resolved['tenant_company_id'] ?? null;
         $company = is_numeric($companyId) ? Company::query()->find((int) $companyId) : null;
         $bookingBlock = $this->bookingAccessDeniedResponse($company);
@@ -75,10 +84,42 @@ class NexaTaxiBookingController extends Controller
         $paymentOptions = app(TaxiDispatchSettingsService::class)
             ->paymentOptionsForTenant(is_numeric($companyId) ? (int) $companyId : null);
 
-        return response()->json([
+        $payload = [
             'success' => true,
             'data' => $quotes,
             'payment' => $paymentOptions,
+        ];
+        if (! empty($resolved['marketplace'])) {
+            $payload['marketplace'] = $resolved['marketplace'];
+        }
+
+        return response()->json($payload);
+    }
+
+    public function nearbyTaxis(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => 'nullable|numeric',
+            'lng' => 'nullable|numeric',
+            'section_key' => 'nullable|string|max:120',
+        ]);
+        $sectionKey = isset($data['section_key']) ? (string) $data['section_key'] : '';
+        if ($sectionKey !== '' && ! $this->isMarketplaceBookingModule($sectionKey)) {
+            return response()->json(['vehicles' => []]);
+        }
+
+        $lat = isset($data['lat']) && is_numeric($data['lat']) ? (float) $data['lat'] : null;
+        $lng = isset($data['lng']) && is_numeric($data['lng']) ? (float) $data['lng'] : null;
+        if (($lat === null) !== ($lng === null)) {
+            $lat = null;
+            $lng = null;
+        }
+
+        $vehicles = app(NearbyAvailableTaxiFleetService::class)->vehicles($lat, $lng);
+
+        return response()->json([
+            'vehicles' => $vehicles,
+            'server_now' => now()->toIso8601String(),
         ]);
     }
 
@@ -131,6 +172,11 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $marketplace = $this->resolveMarketplaceAssignment($resolved, $data);
+        if ($marketplace['error']) {
+            return $marketplace['error'];
+        }
+        $resolved = $marketplace['resolved'];
         $bookingCompany = ! empty($resolved['tenant_company_id'])
             ? Company::query()->find((int) $resolved['tenant_company_id'])
             : null;
@@ -159,9 +205,14 @@ class NexaTaxiBookingController extends Controller
             : null;
 
         // Fallback: bij person-range kan vehicle_id ontbreken; kies dan een actief voertuig in die range.
+        // Altijd scopen op de tenant van de website waarop geboekt wordt, anders kan hier per ongeluk
+        // een voertuig (en dus company_id) van een andere tenant gekozen worden.
         if ($vehicleId === null) {
             $personRange = isset($selected['person_range']) ? trim((string) $selected['person_range']) : '';
             $vehicleQuery = Vehicle::on($conn)->where('active', true);
+            if (! empty($resolved['tenant_company_id'])) {
+                $vehicleQuery->where('company_id', (int) $resolved['tenant_company_id']);
+            }
             if ($personRange !== '') {
                 $vehicleQuery->where('person_range', $personRange);
             }
@@ -314,6 +365,10 @@ class NexaTaxiBookingController extends Controller
             ],
             'pricing' => $quotes,
         ];
+        if (! empty($resolved['marketplace'])) {
+            $payload['channel'] = RideRequest::SOURCE_NEXA_SUITE;
+            $payload['marketplace'] = $resolved['marketplace'];
+        }
 
         $rideCompanyId = ($companyId !== null && $companyId > 0) ? $companyId : $notificationCompanyId;
 
@@ -345,6 +400,11 @@ class NexaTaxiBookingController extends Controller
             'booking_payload' => $payload,
             'selected_offer_payload' => $selected,
         ];
+        if (Schema::connection($conn)->hasColumn('ride_requests', 'source')) {
+            $rideData['source'] = ! empty($resolved['marketplace'])
+                ? RideRequest::SOURCE_NEXA_SUITE
+                : RideRequest::SOURCE_BOOKING;
+        }
         if (Schema::connection($conn)->hasColumn('ride_requests', 'customer_user_id')) {
             $rideData['customer_user_id'] = $customerUserForRide ? (int) $customerUserForRide->id : null;
         }
@@ -704,21 +764,94 @@ class NexaTaxiBookingController extends Controller
     }
 
     /**
+     * Centrale nexasuite.nl-boeking: koppel de rit aan de dichtstbijzijnde taxi-tenant.
+     * Algemene boekingsmodule: altijd marketplace. Boekingsmodule v2: alleen de tenant van de pagina.
+     *
+     * @param  array{config: array, tenant_company_id: ?int, marketplace?: array}  $resolved
+     * @param  array<string, mixed>  $data
+     * @return array{resolved: array, error: ?JsonResponse}
+     */
+    protected function resolveMarketplaceAssignment(array $resolved, array $data): array
+    {
+        $sectionKey = isset($data['section_key']) ? (string) $data['section_key'] : '';
+
+        if ($this->isTenantOnlyBookingModule($sectionKey)) {
+            unset($resolved['marketplace']);
+            $tenantCompanyId = isset($resolved['tenant_company_id']) ? (int) $resolved['tenant_company_id'] : 0;
+            if ($tenantCompanyId <= 0 && app()->bound('resolved_tenant_id')) {
+                $boundId = (int) app('resolved_tenant_id');
+                if ($boundId > 0) {
+                    $tenantCompanyId = $boundId;
+                    $resolved['tenant_company_id'] = $boundId;
+                }
+            }
+            if ($tenantCompanyId <= 0) {
+                return [
+                    'resolved' => $resolved,
+                    'error' => response()->json([
+                        'success' => false,
+                        'message' => 'Deze boekingsmodule verstuurt ritten alleen naar het taxibedrijf van deze website. Gebruik de Algemene boekingsmodule voor NEXA Suite.',
+                    ], 422),
+                ];
+            }
+
+            return ['resolved' => $resolved, 'error' => null];
+        }
+
+        $forceMarketplace = $this->isMarketplaceBookingModule($sectionKey);
+        $tenantCompanyId = isset($resolved['tenant_company_id']) ? (int) $resolved['tenant_company_id'] : 0;
+        if (! $forceMarketplace) {
+            if ($tenantCompanyId > 0) {
+                return ['resolved' => $resolved, 'error' => null];
+            }
+            if (app()->bound('resolved_tenant_id') && (int) app('resolved_tenant_id') > 0) {
+                return ['resolved' => $resolved, 'error' => null];
+            }
+        }
+
+        $lat = isset($data['pickup_lat']) && is_numeric($data['pickup_lat']) ? (float) $data['pickup_lat'] : null;
+        $lng = isset($data['pickup_lng']) && is_numeric($data['pickup_lng']) ? (float) $data['pickup_lng'] : null;
+        if ($lat === null || $lng === null) {
+            return [
+                'resolved' => $resolved,
+                'error' => response()->json([
+                    'success' => false,
+                    'message' => 'Kies een ophaallocatie zodat we de dichtstbijzijnde taxicentrale kunnen bepalen.',
+                ], 422),
+            ];
+        }
+
+        $match = app(NearestTaxiTenantResolver::class)->resolve($lat, $lng);
+        if ($match === null) {
+            return [
+                'resolved' => $resolved,
+                'error' => response()->json([
+                    'success' => false,
+                    'message' => 'Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.',
+                ], 422),
+            ];
+        }
+
+        /** @var Company $company */
+        $company = $match['company'];
+        $resolved['tenant_company_id'] = (int) $company->id;
+        $resolved['marketplace'] = [
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'label' => 'NEXA Suite',
+            'company_id' => (int) $company->id,
+            'company_name' => $company->name,
+            'distance_km' => $match['distance_km'],
+        ];
+
+        return ['resolved' => $resolved, 'error' => null];
+    }
+
+    /**
      * @return array{config: array, tenant_company_id: ?int}
      */
     private function resolveSectionConfig(?int $pageId, string $sectionKey, ?string $moduleName = null): array
     {
         $default = $this->pricing->getDefaultSectionConfig();
-
-        if ($this->isTaxiBookingModuleSectionKey($sectionKey)) {
-            $module = ($moduleName !== null && trim($moduleName) !== '') ? trim($moduleName) : 'taxi';
-            $resolved = $this->websiteBuilder->resolveBookingModuleSection($sectionKey, $module);
-
-            return [
-                'config' => $resolved['config'],
-                'tenant_company_id' => $resolved['tenant_company_id'],
-            ];
-        }
 
         if ($pageId) {
             $query = $moduleName && $this->moduleDb->supportsModuleDatabases()
@@ -731,15 +864,35 @@ class NexaTaxiBookingController extends Controller
                     : null;
                 $homeSections = $page->getHomeSections();
                 $raw = $homeSections[$sectionKey] ?? [];
-                if (is_array($raw)) {
+                $config = is_array($raw) && $raw !== []
+                    ? $this->pricing->mergeSectionConfig($raw)
+                    : $default;
+
+                if ($tenantCompanyId && (! is_array($raw) || $raw === []) && $this->isTaxiBookingModuleSectionKey($sectionKey)) {
+                    $module = ($moduleName !== null && trim($moduleName) !== '') ? trim($moduleName) : 'taxi';
+                    $resolved = $this->websiteBuilder->resolveBookingModuleSection($sectionKey, $module);
+
                     return [
-                        'config' => $this->pricing->mergeSectionConfig($raw),
-                        'tenant_company_id' => $tenantCompanyId,
+                        'config' => $resolved['config'],
+                        'tenant_company_id' => $resolved['tenant_company_id'] ?: $tenantCompanyId,
                     ];
                 }
 
-                return ['config' => $default, 'tenant_company_id' => $tenantCompanyId];
+                return [
+                    'config' => $config,
+                    'tenant_company_id' => $tenantCompanyId,
+                ];
             }
+        }
+
+        if ($this->isTaxiBookingModuleSectionKey($sectionKey)) {
+            $module = ($moduleName !== null && trim($moduleName) !== '') ? trim($moduleName) : 'taxi';
+            $resolved = $this->websiteBuilder->resolveBookingModuleSection($sectionKey, $module);
+
+            return [
+                'config' => $resolved['config'],
+                'tenant_company_id' => $resolved['tenant_company_id'],
+            ];
         }
 
         return ['config' => $default, 'tenant_company_id' => null];
@@ -747,8 +900,23 @@ class NexaTaxiBookingController extends Controller
 
     private function isTaxiBookingModuleSectionKey(string $sectionKey): bool
     {
-        return in_array($sectionKey, ['component:taxi.boekingsmodule', 'component:taxiroyaal.boekingsmodule'], true)
+        return in_array($sectionKey, [
+            'component:taxi.boekingsmodule',
+            'component:taxiroyaal.boekingsmodule',
+            'component:taxi.boekingsmodule_v2',
+            'component:taxi.algemene_boekingsmodule',
+        ], true)
             || (str_contains($sectionKey, 'taxi') && str_contains($sectionKey, 'boekingsmodule'));
+    }
+
+    private function isMarketplaceBookingModule(string $sectionKey): bool
+    {
+        return str_contains(strtolower($sectionKey), 'algemene_boekingsmodule');
+    }
+
+    private function isTenantOnlyBookingModule(string $sectionKey): bool
+    {
+        return str_contains(strtolower($sectionKey), 'boekingsmodule_v2');
     }
 
     private function isBookingPhoneValid(string $value): bool

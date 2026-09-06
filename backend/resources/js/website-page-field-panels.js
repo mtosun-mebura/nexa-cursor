@@ -40,13 +40,23 @@ function escapePanelTitle(text) {
         .replace(/"/g, '&quot;');
 }
 
+function getPanelBody(panel) {
+    return (
+        panel.querySelector(':scope > .home-section-field-panel-body') ||
+        panel.querySelector(':scope > .nexa-smooth-accordion .home-section-field-panel-body')
+    );
+}
+
 function setPanelCollapsed(panel, collapsed) {
     if (!panel) return;
     const toggle = panel.querySelector(':scope > .home-section-field-panel-toggle');
-    const body = panel.querySelector(':scope > .home-section-field-panel-body');
+    const body = getPanelBody(panel);
     panel.classList.toggle('home-section-field-panel--collapsed', collapsed);
     if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    if (body) body.hidden = collapsed;
+    if (body) {
+        body.removeAttribute('hidden');
+        body.style.removeProperty('display');
+    }
 }
 
 const EDITOR_STATE_KEY_PREFIX = 'website-page-editor-state:';
@@ -119,10 +129,12 @@ function setSectionCardCollapsed(card, collapsed) {
     const body = card.querySelector('.home-section-card-body');
     if (collapsed) {
         card.classList.add('home-section-card--collapsed');
-        if (body) body.style.display = 'none';
     } else {
         card.classList.remove('home-section-card--collapsed');
-        if (body) body.style.removeProperty('display');
+    }
+    if (body) {
+        body.removeAttribute('hidden');
+        body.style.removeProperty('display');
     }
 }
 
@@ -251,7 +263,6 @@ function createPanelElement(title, elements, open = false, actionsEl = null, nes
 
     const body = document.createElement('div');
     body.className = 'home-section-field-panel-body';
-    body.hidden = !open;
     elements.forEach((el) => {
         if (el && el.parentNode) body.appendChild(el);
     });

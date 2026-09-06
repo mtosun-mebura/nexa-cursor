@@ -77,6 +77,8 @@ class PlatformMollieService
     ): array {
         $amount = (float) config('platform-billing.mandate_verification_amount', 0.01);
 
+        // Geen method=directdebit: SEPA-incasso ondersteunt sequenceType=first niet.
+        // De klant betaalt via iDEAL/Bancontact e.d.; dat levert het SEPA-mandaat op.
         return $this->createPayment([
             'amount' => [
                 'currency' => 'EUR',
@@ -84,7 +86,6 @@ class PlatformMollieService
             ],
             'customerId' => $customerId,
             'sequenceType' => 'first',
-            'method' => 'directdebit',
             'description' => 'SEPA-mandaat bevestigen (€0,01)',
             'redirectUrl' => $redirectUrl,
             'webhookUrl' => $this->webhookUrl(),
@@ -138,6 +139,8 @@ class PlatformMollieService
         string $redirectUrl,
         array $metadata = []
     ): array {
+        // Geen method=directdebit bij sequenceType=first (Mollie 422).
+        // Checkout toont methoden die een mandaat opleveren (o.a. iDEAL → SEPA).
         return $this->createPayment([
             'amount' => [
                 'currency' => 'EUR',
@@ -145,7 +148,6 @@ class PlatformMollieService
             ],
             'customerId' => $customerId,
             'sequenceType' => 'first',
-            'method' => 'directdebit',
             'description' => mb_substr($description, 0, 255),
             'redirectUrl' => $redirectUrl,
             'webhookUrl' => $this->webhookUrl(),

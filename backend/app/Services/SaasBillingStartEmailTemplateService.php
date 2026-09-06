@@ -322,7 +322,8 @@ class SaasBillingStartEmailTemplateService
     {
         return str_contains($html, 'AMOUNT_TABLE')
             || str_contains($html, 'Het eerste te betalen bedrag is')
-            || str_contains($html, 'Met de knop hieronder voldoe je');
+            || str_contains($html, 'Met de knop hieronder voldoe je')
+            || str_contains($html, 'Via de knop hieronder kan de eerste betaling voldaan worden');
     }
 
     private function html(): string
@@ -351,12 +352,12 @@ class SaasBillingStartEmailTemplateService
                             <p style="margin:0 0 16px;">Beste {{ COMPANY_NAME }},</p>
                             <p style="margin:0 0 16px;">Je NEXA-abonnement <strong>{{ PACKAGE_NAME }}</strong> gaat in op <strong>{{ START_DATE }}</strong>.</p>
                             <p style="margin:0 0 16px;">Er wordt een bedrag van <strong>{{ FIRST_AMOUNT }}</strong> incl. btw geïncasseerd. De details staan in de factuur in de bijlage.</p>
-                            <p style="margin:0 0 16px;">Vanaf <strong>{{ RECURRING_FROM }}</strong> wordt maandelijks het volle bedrag van {{ MONTHLY_AMOUNT }} excl. btw geïncasseerd.</p>
-                            <p style="margin:0 0 8px;">Via de knop hieronder kan de eerste betaling voldaan worden.</p>
-                            <p style="margin:0 0 24px;">Na deze betaling zullen de overige maanden via automatische incasso verlopen.</p>
-                            <p style="margin:0 0 28px;text-align:center;">
+                            <p style="margin:0 0 24px;">Vanaf <strong>{{ RECURRING_FROM }}</strong> wordt maandelijks het volle bedrag van {{ MONTHLY_AMOUNT }} excl. btw geïncasseerd.</p>
+                            <p style="margin:0 0 16px;text-align:center;">
                                 <a href="{{ PAYMENT_URL }}" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;">Eerste betaling voldoen</a>
                             </p>
+                            <p style="margin:0 0 8px;text-align:center;">Via de knop hierboven kan de eerste betaling voldaan worden.</p>
+                            <p style="margin:0 0 28px;text-align:center;">Na deze betaling zullen de overige maanden via automatische incasso verlopen.</p>
                             <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Factuurnummer: {{ INVOICE_NUMBER }}</p>
                             <p style="margin:0;color:#64748b;font-size:13px;">Vragen? Mail <a href="mailto:info@nexasuite.nl" style="color:#2563eb;">info@nexasuite.nl</a>.</p>
                         </td>
@@ -381,11 +382,11 @@ Er wordt een bedrag van {{ FIRST_AMOUNT }} incl. btw geïncasseerd. De details s
 
 Vanaf {{ RECURRING_FROM }} wordt maandelijks het volle bedrag van {{ MONTHLY_AMOUNT }} excl. btw geïncasseerd.
 
-Via de knop hieronder kan de eerste betaling voldaan worden.
-Na deze betaling zullen de overige maanden via automatische incasso verlopen.
-
 Eerste betaling voldoen:
 {{ PAYMENT_URL }}
+
+Via de knop hierboven kan de eerste betaling voldaan worden.
+Na deze betaling zullen de overige maanden via automatische incasso verlopen.
 
 Factuurnummer: {{ INVOICE_NUMBER }}
 

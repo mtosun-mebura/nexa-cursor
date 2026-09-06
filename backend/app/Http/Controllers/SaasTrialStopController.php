@@ -42,14 +42,28 @@ class SaasTrialStopController extends Controller
         }
 
         try {
-            $subscriptions->endTrialAndDeactivate($company);
+            $profile = $subscriptions->endTrialAndDeactivate($company);
         } catch (RuntimeException $e) {
             return redirect()
                 ->route('saas.trial.stopped')
                 ->with('error', $e->getMessage());
         }
 
-        return redirect()->route('saas.trial.stopped');
+        $user = $request->user();
+        if (
+            $user
+            && (int) $user->company_id === (int) $company->id
+            && $user->hasRole('company-admin')
+            && ! $user->hasRole('super-admin')
+        ) {
+            return redirect()->route('admin.subscriptions.show')
+                ->with('trial_stopped', true);
+        }
+
+        return redirect()->route('saas.trial.stopped')->with([
+            'trial_ends_at' => $profile->trial_ends_at,
+            'start_date' => $subscriptions->contractStart($profile),
+        ]);
     }
 
     public function stopped(): View

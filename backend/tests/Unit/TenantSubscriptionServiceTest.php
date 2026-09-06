@@ -114,7 +114,7 @@ class TenantSubscriptionServiceTest extends TestCase
         $this->assertSame(999.0, $pricing->monthlyAmountForKey('start'));
     }
 
-    public function test_ending_trial_deactivates_the_tenant(): void
+    public function test_ending_trial_keeps_access_until_trial_end_and_can_be_reactivated(): void
     {
         Carbon::setTestNow('2026-04-10 10:00:00');
         $pricing = app(NexaPricingService::class)->get();
@@ -126,18 +126,52 @@ class TenantSubscriptionServiceTest extends TestCase
             'is_active' => true,
             'package_key' => 'start',
             'email' => 'stop@example.com',
+        ]);
+        $company->forceFill([
             'created_at' => '2026-03-15 09:00:00',
             'updated_at' => '2026-03-15 09:00:00',
-        ]);
+        ])->save();
+        $company->refresh();
 
         $service = app(TenantSubscriptionService::class);
-        $service->ensureProfile($company);
+        $profile = $service->ensureProfile($company);
+        $this->assertSame('2026-03-15', $profile->trial_started_at->toDateString());
+        $this->assertSame('2026-04-15', $profile->trial_ends_at->toDateString());
+        $this->assertSame('2026-04-15', $profile->subscription_start_date->toDateString());
+
         $profile = $service->endTrialAndDeactivate($company);
 
         $company->refresh();
+        $this->assertTrue((bool) $company->is_active);
+        $this->assertNull($profile->subscription_end_date);
+        $this->assertTrue($service->isInTrial($profile));
+        $this->assertTrue($service->hasDeclinedTrial($profile));
+        $this->assertSame('2026-03-15', $profile->trial_started_at->toDateString());
+        $this->assertSame('2026-04-15', $profile->trial_ends_at->toDateString());
+        $this->assertSame('2026-04-15', $profile->subscription_start_date->toDateString());
+        $this->assertDatabaseHas('company_subscription_changes', [
+            'company_id' => $company->id,
+            'change_type' => 'trial_end',
+            'status' => 'scheduled',
+        ]);
+
+        $calculator = app(\App\Services\PlatformBilling\SubscriptionBillingCalculator::class);
+        $this->assertFalse($calculator->isBillable($profile, Carbon::parse('2026-04-15')));
+
+        $reactivated = $service->withdrawPending($company->fresh());
+        $company->refresh();
+        $this->assertTrue((bool) $company->is_active);
+        $this->assertFalse($service->hasDeclinedTrial($reactivated));
+        $this->assertSame('2026-03-15', $reactivated->trial_started_at->toDateString());
+        $this->assertSame('2026-04-15', $reactivated->trial_ends_at->toDateString());
+        $this->assertSame('2026-04-15', $reactivated->subscription_start_date->toDateString());
+        $this->assertTrue($calculator->isBillable($reactivated, Carbon::parse('2026-04-15')));
+
+        $service->endTrialAndDeactivate($company->fresh());
+        $this->assertTrue($service->applyDueChange($company->fresh()->billingProfile, Carbon::parse('2026-04-15')));
+        $company->refresh();
         $this->assertFalse((bool) $company->is_active);
-        $this->assertSame('2026-04-10', $profile->subscription_end_date->toDateString());
-        $this->assertFalse($service->isInTrial($profile));
+        $this->assertSame('2026-04-15', $company->billingProfile->subscription_end_date->toDateString());
         $this->assertDatabaseHas('company_subscription_changes', [
             'company_id' => $company->id,
             'change_type' => 'trial_end',
@@ -155,6 +189,36 @@ class TenantSubscriptionServiceTest extends TestCase
         $this->assertSame(0, $pricing->packageRank('start'));
         $this->assertSame(1, $pricing->packageRank('pro'));
         $this->assertSame(2, $pricing->packageRank('business'));
+    }
+
+    public function test_emergency_terminate_always_uses_end_of_current_month_even_in_first_year(): void
+    {
+        Carbon::setTestNow('2026-06-10 10:00:00');
+        $profile = $this->profileStarting('2026-03-15');
+        $service = app(TenantSubscriptionService::class);
+
+        $this->assertFalse($service->isPastFirstYear($profile));
+        $this->assertSame('2027-03-15', $service->nextAllowedChangeDate($profile)->toDateString());
+
+        $updated = $service->emergencyTerminateAtMonthEnd($profile->company);
+        $this->assertSame('cancel', $updated->pending_change_type);
+        $this->assertSame('2026-06-30', $updated->subscription_end_date->toDateString());
+        $this->assertSame('2026-06-30', $updated->pending_change_effective_on->toDateString());
+    }
+
+    public function test_emergency_terminate_overrides_scheduled_contract_cancel(): void
+    {
+        Carbon::setTestNow('2026-06-10 10:00:00');
+        $profile = $this->profileStarting('2026-03-15');
+        $service = app(TenantSubscriptionService::class);
+
+        $service->scheduleCancel($profile->company);
+        $profile->refresh();
+        $this->assertSame('2027-03-15', $profile->subscription_end_date->toDateString());
+
+        $updated = $service->emergencyTerminateAtMonthEnd($profile->company);
+        $this->assertSame('2026-06-30', $updated->subscription_end_date->toDateString());
+        $this->assertSame('2026-06-30', $updated->pending_change_effective_on->toDateString());
     }
 
     private function profileStarting(string $startDate): CompanyBillingProfile

@@ -9,6 +9,7 @@
     <style>
         :root {
             --theme-primary: {{ $themeSettings['primary_color'] ?? '#2563eb' }};
+            --theme-secondary: {{ $themeSettings['secondary_color'] ?? '#0f172a' }};
             --theme-font-heading: {{ $themeSettings['font_heading'] ?? 'Inter' }}, sans-serif;
             --theme-font-body: {{ $themeSettings['font_body'] ?? 'Inter' }}, sans-serif;
         }

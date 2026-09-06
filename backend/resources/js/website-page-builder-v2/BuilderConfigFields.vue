@@ -35,6 +35,10 @@ const props = defineProps<{
   googleMapsMapId?: string
   postcodeLookupUrl?: string
   moduleName?: string | null
+  generateImageUrl?: string
+  pageTitle?: string
+  companyName?: string
+  companyId?: number | null
   visibility?: Record<string, unknown>
 }>()
 
@@ -51,6 +55,7 @@ if (injectedExpanded === null) {
 }
 
 const uploadingKey = ref<string | null>(null)
+const generatingImageKey = ref<string | null>(null)
 
 const injectedLightbox = inject<ImageLightboxApi | null>(IMAGE_LIGHTBOX_KEY, null)
 const ownLightboxSrc = ref<string | null>(null)
@@ -484,6 +489,45 @@ async function uploadImage(fieldKey: string, file: File, onSuccess?: (url: strin
   }
 }
 
+async function generateAiImage(fieldKey: string) {
+  if (!props.generateImageUrl || generatingImageKey.value) {
+    return
+  }
+  generatingImageKey.value = fieldKey
+  try {
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+    const res = await fetch(props.generateImageUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-CSRF-TOKEN': token,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({
+        content: String(props.data.content ?? ''),
+        page_title: props.pageTitle ?? '',
+        company_name: props.companyName ?? '',
+        company_id: props.companyId ?? null,
+      }),
+    })
+    const json = (await res.json()) as { ok?: boolean; url?: string; message?: string }
+    if (!res.ok || !json.ok || !json.url) {
+      throw new Error(json.message ?? 'Afbeelding genereren mislukt')
+    }
+    const patch: Record<string, unknown> = { [fieldKey]: json.url }
+    const alignment = String(props.data.alignment ?? '')
+    if (fieldKey === 'image_url' && !['left', 'right'].includes(alignment)) {
+      patch.alignment = 'left'
+    }
+    emit('patch', patch)
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Afbeelding genereren mislukt')
+  } finally {
+    generatingImageKey.value = null
+  }
+}
+
 function onImagePick(fieldKey: string, event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -658,6 +702,9 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           'builder-config-group--collapsed': !groupIsOpen(field, fi),
           'builder-config-group--hidden': field.subVisibilityKey && !subVisibilityVisible(field.subVisibilityKey),
           'builder-config-group--accent': !!field.accentColorKey,
+          'builder-config-group--row': field.layout === 'row',
+          'builder-config-group--row-wide': field.layout === 'row' && field.wideStart,
+          'is-open': groupIsOpen(field, fi),
         }"
         :style="groupAccentStyle(field)"
       >
@@ -695,54 +742,68 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               tabindex="-1"
               @click.stop="toggleCollapsed(fi, field.label)"
             >
-              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+              <i class="ki-filled ki-down builder-config-chevron" />
             </button>
           </div>
         </div>
-        <p v-if="field.hint && groupIsOpen(field, fi)" class="builder-field-hint builder-config-group__hint">{{ field.hint }}</p>
         <div
-          v-if="field.label === 'Social media' && groupIsOpen(field, fi)"
-          class="builder-social-preview-row"
-          aria-hidden="true"
+          class="builder-config-accordion"
+          :class="{ 'builder-config-accordion--static': field.alwaysOpen }"
+          :inert="field.alwaysOpen ? undefined : !groupIsOpen(field, fi)"
+          :aria-hidden="field.alwaysOpen ? undefined : (!groupIsOpen(field, fi) ? 'true' : 'false')"
         >
-          <BuilderFooterSocialIcon
-            v-for="network in ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok']"
-            :key="network"
-            :network="network"
-            :class="{
-              'builder-social-icon--inactive': !str(`social_${network}`).trim(),
-              'builder-social-icon--instagram': network === 'instagram',
-            }"
-          />
-        </div>
-        <div v-show="groupIsOpen(field, fi)" class="builder-config-group__body">
-          <BuilderConfigFields
-            :fields="field.fields"
-            :data="data"
-            :upload-url="uploadUrl"
-            :website-media-upload-url="websiteMediaUploadUrl"
-            :website-media-serve-base="websiteMediaServeBase"
-            :footer-logo-upload-url="footerLogoUploadUrl"
-            :footer-logo-fallback-url="footerLogoFallbackUrl"
-            :google-maps-api-key="googleMapsApiKey"
-            :google-maps-map-id="googleMapsMapId"
-            :postcode-lookup-url="postcodeLookupUrl"
-            :module-name="moduleName"
-            :visibility="visibility"
-            :collapse-prefix="childCollapsePrefix(fi, field.label)"
-            :block-key="blockKey"
-            :side-component-options="sideComponentOptions"
-            :email-template-options="emailTemplateOptions"
-            @patch="emit('patch', $event)"
-            @patch-visibility="(key, visible) => emit('patch-visibility', key, visible)"
-          />
+          <div class="builder-config-accordion__clip">
+            <div class="builder-config-accordion__inner">
+              <p v-if="field.hint" class="builder-field-hint builder-config-group__hint">{{ field.hint }}</p>
+              <div
+                v-if="field.label === 'Social media'"
+                class="builder-social-preview-row"
+                aria-hidden="true"
+              >
+                <BuilderFooterSocialIcon
+                  v-for="network in ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok']"
+                  :key="network"
+                  :network="network"
+                  :class="{
+                    'builder-social-icon--inactive': !str(`social_${network}`).trim(),
+                    'builder-social-icon--instagram': network === 'instagram',
+                  }"
+                />
+              </div>
+              <div class="builder-config-group__body">
+                <BuilderConfigFields
+                  :fields="field.fields"
+                  :data="data"
+                  :upload-url="uploadUrl"
+                  :website-media-upload-url="websiteMediaUploadUrl"
+                  :website-media-serve-base="websiteMediaServeBase"
+                  :footer-logo-upload-url="footerLogoUploadUrl"
+                  :footer-logo-fallback-url="footerLogoFallbackUrl"
+                  :google-maps-api-key="googleMapsApiKey"
+                  :google-maps-map-id="googleMapsMapId"
+                  :postcode-lookup-url="postcodeLookupUrl"
+                  :module-name="moduleName"
+                  :visibility="visibility"
+                  :collapse-prefix="childCollapsePrefix(fi, field.label)"
+                  :block-key="blockKey"
+                  :side-component-options="sideComponentOptions"
+                  :email-template-options="emailTemplateOptions"
+                  @patch="emit('patch', $event)"
+                  @patch-visibility="(key, visible) => emit('patch-visibility', key, visible)"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <div
         v-else-if="field.type === 'step-order'"
         class="builder-config-step-order"
-        :class="{ 'builder-config-section--collapsed': isCollapsed(fi, field.label) }"
+        :class="{
+          'builder-config-section--collapsed': isCollapsed(fi, field.label),
+          'is-open': !isCollapsed(fi, field.label),
+        }"
       >
         <div
           class="builder-config-section__header builder-config-header--clickable"
@@ -763,21 +824,31 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               tabindex="-1"
               @click.stop="toggleCollapsed(fi, field.label)"
             >
-              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+              <i class="ki-filled ki-down builder-config-chevron" />
             </button>
           </div>
         </div>
-        <div v-show="!isCollapsed(fi, field.label)" class="builder-config-step-order__grid">
-          <label v-for="(_, index) in 5" :key="`${field.key}-${index}`" class="builder-field">
-            <span>Positie {{ index + 1 }}</span>
-            <select
-              class="kt-input"
-              :value="stepOrderValues()[index] ?? field.options[0]?.value ?? ''"
-              @change="patchStepOrderIndex(index, ($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-          </label>
+        <div
+          class="builder-config-accordion"
+          :inert="isCollapsed(fi, field.label)"
+          :aria-hidden="isCollapsed(fi, field.label) ? 'true' : 'false'"
+        >
+          <div class="builder-config-accordion__clip">
+            <div class="builder-config-accordion__inner">
+              <div class="builder-config-step-order__grid">
+                <label v-for="(_, index) in 5" :key="`${field.key}-${index}`" class="builder-field">
+                  <span>Positie {{ index + 1 }}</span>
+                  <select
+                    class="kt-input"
+                    :value="stepOrderValues()[index] ?? field.options[0]?.value ?? ''"
+                    @change="patchStepOrderIndex(index, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -792,6 +863,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           'builder-config-section--collapsed': !isFooterLinkList(field) && isCollapsed(fi, field.label),
           'builder-config-item-list--footer-links': isFooterLinkList(field),
           'builder-config-item-list--compact': isCompactItemList(field),
+          'is-open': isFooterLinkList(field) || !isCollapsed(fi, field.label),
         }"
       >
         <div
@@ -825,11 +897,18 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               tabindex="-1"
               @click.stop="toggleCollapsed(fi, field.label)"
             >
-              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+              <i class="ki-filled ki-down builder-config-chevron" />
             </button>
           </div>
         </div>
-        <template v-if="isFooterLinkList(field) || !isCollapsed(fi, field.label)">
+        <div
+          class="builder-config-accordion"
+          :class="{ 'builder-config-accordion--static': isFooterLinkList(field) }"
+          :inert="isFooterLinkList(field) ? undefined : isCollapsed(fi, field.label)"
+          :aria-hidden="isFooterLinkList(field) ? undefined : (isCollapsed(fi, field.label) ? 'true' : 'false')"
+        >
+          <div class="builder-config-accordion__clip">
+            <div class="builder-config-accordion__inner">
         <div
           v-for="(item, index) in ensureItemCount(field.key, field.minItems ?? 0, field.maxItems ?? 99, {})"
           :key="`${field.key}-${index}`"
@@ -1134,13 +1213,18 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           </template>
           </template>
         </div>
-        </template>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div
         v-else-if="field.type === 'footer-map'"
         class="builder-config-group"
-        :class="{ 'builder-config-section--collapsed': isCollapsed(fi, field.label) }"
+        :class="{
+          'builder-config-section--collapsed': isCollapsed(fi, field.label),
+          'is-open': !isCollapsed(fi, field.label),
+        }"
       >
         <div
           class="builder-config-group__header builder-config-header--clickable"
@@ -1172,20 +1256,30 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               tabindex="-1"
               @click.stop="toggleCollapsed(fi, field.label)"
             >
-              <i class="ki-filled" :class="isCollapsed(fi, field.label) ? 'ki-down' : 'ki-up'" />
+              <i class="ki-filled ki-down builder-config-chevron" />
             </button>
           </div>
         </div>
-        <div v-show="!isCollapsed(fi, field.label)" class="builder-config-group__body">
-          <BuilderFooterMapField
-            v-if="postcodeLookupUrl && googleMapsApiKey !== undefined"
-            :data="data"
-            :label="field.label"
-            :google-maps-api-key="googleMapsApiKey ?? ''"
-            :google-maps-map-id="googleMapsMapId ?? ''"
-            :postcode-lookup-url="postcodeLookupUrl"
-            @patch="emit('patch', $event)"
-          />
+        <div
+          class="builder-config-accordion"
+          :inert="isCollapsed(fi, field.label)"
+          :aria-hidden="isCollapsed(fi, field.label) ? 'true' : 'false'"
+        >
+          <div class="builder-config-accordion__clip">
+            <div class="builder-config-accordion__inner">
+              <div class="builder-config-group__body">
+                <BuilderFooterMapField
+                  v-if="postcodeLookupUrl && googleMapsApiKey !== undefined"
+                  :data="data"
+                  :label="field.label"
+                  :google-maps-api-key="googleMapsApiKey ?? ''"
+                  :google-maps-map-id="googleMapsMapId ?? ''"
+                  :postcode-lookup-url="postcodeLookupUrl"
+                  @patch="emit('patch', $event)"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1222,7 +1316,15 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
 
-      <label v-else-if="field.type === 'text'" class="builder-field" :class="{ 'builder-field--social': isFooterSocialField(field.key) }">
+      <label
+        v-else-if="field.type === 'text'"
+        class="builder-field"
+        :class="{
+          'builder-field--social': isFooterSocialField(field.key),
+          'builder-field--span-2': field.colSpan === 2,
+          'builder-field--span-3': field.colSpan === 3,
+        }"
+      >
         <span class="builder-field__label-row">
           <BuilderFooterSocialIcon
             v-if="isFooterSocialField(field.key)"
@@ -1360,7 +1462,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           />
           <input
             class="kt-input font-mono text-sm"
-            :value="str(field.key)"
+            :value="str(field.key, field.defaultValue ?? '')"
             :placeholder="field.defaultValue ?? '#hex (leeg = standaard)'"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
           />
@@ -1414,6 +1516,16 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
               @change="onImagePick(field.key, $event)"
             />
           </label>
+          <button
+            v-if="field.generateImage && generateImageUrl"
+            type="button"
+            class="kt-btn kt-btn-outline kt-btn-sm shrink-0"
+            :disabled="generatingImageKey === field.key"
+            @click="generateAiImage(field.key)"
+          >
+            <i class="ki-filled ki-magic me-1" aria-hidden="true" />
+            {{ generatingImageKey === field.key ? 'Genereren…' : 'Genereer afbeelding' }}
+          </button>
         </div>
       </div>
 
@@ -1561,7 +1673,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   padding: 0.65rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -1587,7 +1699,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 .builder-config-fields--compact .builder-config-item-list,
 .builder-config-fields--compact .builder-config-step-order {
   padding: 0.5rem 0.6rem;
-  gap: 0.45rem;
+  gap: 0;
 }
 
 .builder-config-fields--compact .builder-config-group__body {
@@ -1668,7 +1780,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0;
 }
 
 .builder-config-group--collapsed {
@@ -1748,13 +1860,150 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 }
 
 .builder-config-group__hint {
-  margin: -0.25rem 0 0.5rem;
+  margin: 0;
 }
 
 .builder-config-group__body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.builder-config-accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-open > .builder-config-accordion {
+  grid-template-rows: 1fr;
+}
+
+.builder-config-accordion--static {
+  grid-template-rows: 1fr;
+  transition: none;
+}
+
+.builder-config-accordion__clip {
+  overflow: hidden;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.is-open > .builder-config-accordion > .builder-config-accordion__clip,
+.builder-config-accordion--static > .builder-config-accordion__clip {
+  pointer-events: auto;
+}
+
+.builder-config-accordion__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-top: 0.65rem;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.32s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-open > .builder-config-accordion > .builder-config-accordion__clip > .builder-config-accordion__inner {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.06s;
+}
+
+.builder-config-accordion--static > .builder-config-accordion__clip > .builder-config-accordion__inner {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.builder-config-fields--compact .builder-config-accordion__inner {
+  gap: 0.45rem;
+  padding-top: 0.45rem;
+}
+
+.builder-config-item-list--compact > .builder-config-accordion > .builder-config-accordion__clip > .builder-config-accordion__inner {
+  gap: 0.45rem;
+  padding-top: 0.45rem;
+}
+
+.builder-config-chevron {
+  display: inline-flex;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-open > .builder-config-group__header .builder-config-chevron,
+.is-open > .builder-config-section__header .builder-config-chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .builder-config-accordion,
+  .builder-config-accordion__inner,
+  .builder-config-chevron {
+    transition: none;
+  }
+}
+
+.builder-config-group--row {
+  padding: 0.5rem 0.65rem 0.6rem;
+  gap: 0;
+  background: color-mix(in srgb, var(--muted) 28%, transparent);
+  border-color: color-mix(in srgb, var(--border) 85%, transparent);
+}
+
+.builder-config-group--row > .builder-config-group__header {
+  min-height: auto;
+}
+
+.builder-config-group--row > .builder-config-group__header .builder-config-group__legend {
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.builder-config-group--row > .builder-config-accordion > .builder-config-accordion__clip > .builder-config-accordion__inner {
+  gap: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.builder-config-group--row .builder-config-group__body {
+  gap: 0;
+}
+
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields) {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.55rem 0.85rem;
+  align-items: start;
+}
+
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-field) {
+  min-width: 0;
+  max-width: none;
+}
+
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-checkbox) {
+  grid-column: 1 / -1;
+  margin-top: 0.1rem;
+}
+
+.builder-config-group--row-wide .builder-config-group__body :deep(.builder-config-fields) {
+  grid-template-columns: minmax(16rem, 2.4fr) minmax(10.5rem, 1fr) minmax(10.5rem, 1fr) !important;
+}
+
+.builder-config-group--row .builder-config-group__body :deep(.builder-field--span-2) {
+  grid-column: span 2;
+}
+
+.builder-config-group--row .builder-config-group__body :deep(.builder-field--span-3) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-group--row :deep(.builder-color-row .kt-input) {
+  max-width: 7.25rem;
 }
 
 .builder-config-section__actions {
@@ -1817,7 +2066,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 }
 
 .builder-config-item-list--compact {
-  gap: 0.45rem;
+  gap: 0;
 }
 
 .builder-config-item__header {
@@ -2137,7 +2386,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 .builder-image-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 10060;
+  z-index: 11050;
   display: flex;
   align-items: center;
   justify-content: center;

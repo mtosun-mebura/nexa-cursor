@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\CompanyBillingProfile;
+use App\Models\CompanySubscriptionChange;
 use App\Models\PlatformBillingLineItem;
 use App\Models\PlatformBillingPackage;
 use App\Models\PlatformPaymentMandate;
 use App\Services\PlatformBilling\PlatformBillingService;
 use App\Services\PlatformBilling\PlatformInvoicePdfService;
 use App\Services\PlatformBilling\PlatformMollieRequestBuilder;
+use App\Services\PlatformBilling\SubscriptionBillingCalculator;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Support\Admin\AdminTenantScope;
@@ -72,7 +74,7 @@ class AdminCompanyBillingProfileController extends Controller
         $companyIds = $companies->pluck('id');
 
         $profiles = CompanyBillingProfile::query()
-            ->with('package')
+            ->with(['package', 'company'])
             ->whereIn('company_id', $companyIds)
             ->get()
             ->keyBy('company_id');
@@ -96,26 +98,37 @@ class AdminCompanyBillingProfileController extends Controller
     public function edit(Company $company, PlatformBillingService $billing, PlatformMollieRequestBuilder $mollieRequests): View
     {
         $this->ensureSuperAdmin();
-        $profile = CompanyBillingProfile::query()->firstOrCreate(
-            ['company_id' => $company->id],
-            ['billing_mode' => CompanyBillingProfile::MODE_PACKAGE, 'extra_lines_one_time' => true]
-        );
-        $profile->load(['package', 'lineItems', 'company']);
         app(TenantSubscriptionService::class)->syncPlatformPackagesFromPricing();
-        $packages = PlatformBillingPackage::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+        $profile = app(TenantSubscriptionService::class)->syncBillingPackageFromCompany($company);
+        $profile->load(['package', 'lineItems', 'company']);
         $catalogLineItems = PlatformBillingLineItem::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $mandate = PlatformPaymentMandate::query()->where('company_id', $company->id)->first();
         $invoicePreview = $this->buildInvoicePreviewData($company, $profile, $billing);
         $mollieRequestPlan = $mollieRequests->buildTenantRequestPlan($company, $profile, $mandate);
 
+        $calculator = app(SubscriptionBillingCalculator::class);
+        $asOf = now()->startOfDay();
+        $emergencyTerminateEffectiveOn = $asOf->copy()->endOfMonth()->startOfDay();
+        $subscriptionEnded = $calculator->isEnded($profile, $asOf)
+            && trim((string) ($profile->pending_change_type ?? '')) !== CompanySubscriptionChange::TYPE_CANCEL;
+        $emergencyCancelAlreadyScheduled = trim((string) ($profile->pending_change_type ?? '')) === CompanySubscriptionChange::TYPE_CANCEL
+            && $profile->subscription_end_date
+            && $profile->subscription_end_date->copy()->startOfDay()->equalTo($emergencyTerminateEffectiveOn);
+        $canEmergencyTerminate = ! $subscriptionEnded
+            && $profile->billing_mode !== CompanyBillingProfile::MODE_FREE
+            && ! $emergencyCancelAlreadyScheduled;
+
         return view('admin.platform-billing.tenants.edit', compact(
             'company',
             'profile',
-            'packages',
             'catalogLineItems',
             'mandate',
             'invoicePreview',
             'mollieRequestPlan',
+            'emergencyTerminateEffectiveOn',
+            'canEmergencyTerminate',
+            'emergencyCancelAlreadyScheduled',
+            'subscriptionEnded',
         ));
     }
 
@@ -128,9 +141,7 @@ class AdminCompanyBillingProfileController extends Controller
         ]);
         $validated = $request->validate([
             'billing_mode' => 'required|in:package,custom,free',
-            'platform_billing_package_id' => 'nullable|exists:platform_billing_packages,id',
             'custom_monthly_amount' => 'nullable|numeric|min:0',
-            'agreed_monthly_amount' => 'nullable|numeric|min:0',
             'discount_percent' => 'nullable|integer|min:0|max:100',
             'extra_lines_discount_percent' => 'nullable|integer|min:0|max:100',
             'subscription_start_date' => 'nullable|date',
@@ -150,6 +161,7 @@ class AdminCompanyBillingProfileController extends Controller
             ['company_id' => $company->id],
             ['billing_mode' => CompanyBillingProfile::MODE_PACKAGE, 'extra_lines_one_time' => true]
         );
+        $profile->load(['package', 'company']);
 
         $selectedLineItemIds = collect($validated['platform_billing_line_item_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
@@ -170,16 +182,21 @@ class AdminCompanyBillingProfileController extends Controller
             'auto_collect_enabled' => $request->boolean('auto_collect_enabled'),
             'overdue_block_mode' => $validated['overdue_block_mode'],
             'extra_lines_one_time' => $request->boolean('extra_lines_one_time'),
-            'platform_billing_package_id' => $validated['billing_mode'] === 'package'
-                ? ($validated['platform_billing_package_id'] ?? null)
-                : null,
             'custom_monthly_amount' => $validated['billing_mode'] === 'custom'
                 ? ($validated['custom_monthly_amount'] ?? 0)
                 : null,
-            'agreed_monthly_amount' => $validated['billing_mode'] === 'package' && isset($validated['agreed_monthly_amount']) && $validated['agreed_monthly_amount'] !== '' && $validated['agreed_monthly_amount'] !== null
-                ? round((float) $validated['agreed_monthly_amount'], 2)
-                : ($validated['billing_mode'] === 'package' ? $profile->agreed_monthly_amount : null),
         ]);
+
+        if ($validated['billing_mode'] !== 'package') {
+            $profile->platform_billing_package_id = null;
+            $profile->agreed_monthly_amount = null;
+        }
+
+        $profile->save();
+
+        if ($validated['billing_mode'] === 'package') {
+            $profile = app(TenantSubscriptionService::class)->syncBillingPackageFromCompany($company->fresh());
+        }
 
         if ($this->lineItemSelectionChanged($selectedLineItemIds, $previousLineItemIds)) {
             $profile->extra_lines_applied_at = null;
@@ -230,11 +247,13 @@ class AdminCompanyBillingProfileController extends Controller
         $profile = $this->profileFromRequest($company, $request);
         $preview = $this->buildInvoicePreviewData($company, $profile, $billing);
         $bytes = $pdf->renderPreviewPdfBytes($company, $preview);
-        $filename = 'factuur-'.($preview['invoice_number'] ?? 'voorbeeld').'-voorbeeld.pdf';
+        $filename = 'factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($preview['invoice_number'] ?? 'voorbeeld')).'-voorbeeld.pdf';
 
         return response($bytes, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+            'Content-Length' => (string) strlen($bytes),
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
@@ -252,6 +271,27 @@ class AdminCompanyBillingProfileController extends Controller
         return back()->with('success', 'Mandaat-aanvraag verstuurd per e-mail (€0,01 verificatie).');
     }
 
+    public function emergencyTerminate(Company $company, TenantSubscriptionService $subscriptions): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $profile = $subscriptions->emergencyTerminateAtMonthEnd($company);
+        } catch (\Throwable $e) {
+            return redirect()
+                ->route('admin.platform-billing.tenants.edit', $company)
+                ->with('error', $e->getMessage());
+        }
+
+        $endLabel = $profile->subscription_end_date
+            ? $profile->subscription_end_date->translatedFormat('j F Y')
+            : 'einde van de maand';
+
+        return redirect()
+            ->route('admin.platform-billing.tenants.edit', ['company' => $company, 'saved' => 1])
+            ->with('success', 'Abonnement wordt per '.$endLabel.' beëindigd. De volgende incasso is gestopt.');
+    }
+
     private function profileFromRequest(Company $company, Request $request): CompanyBillingProfile
     {
         $profile = CompanyBillingProfile::query()->firstOrCreate(
@@ -260,19 +300,15 @@ class AdminCompanyBillingProfileController extends Controller
         );
 
         $billingMode = (string) $request->input('billing_mode', $profile->billing_mode);
-        $packageId = $billingMode === CompanyBillingProfile::MODE_PACKAGE && $request->filled('platform_billing_package_id')
-            ? (int) $request->input('platform_billing_package_id')
-            : null;
 
         $profile->fill([
             'billing_mode' => $billingMode,
-            'platform_billing_package_id' => $packageId,
             'custom_monthly_amount' => $billingMode === CompanyBillingProfile::MODE_CUSTOM
                 ? max(0, (float) $request->input('custom_monthly_amount', 0))
                 : null,
-            'agreed_monthly_amount' => $billingMode === CompanyBillingProfile::MODE_PACKAGE && $request->filled('agreed_monthly_amount')
-                ? round(max(0, (float) $request->input('agreed_monthly_amount')), 2)
-                : $profile->agreed_monthly_amount,
+            'agreed_monthly_amount' => $billingMode === CompanyBillingProfile::MODE_PACKAGE
+                ? $profile->agreed_monthly_amount
+                : null,
             'discount_percent' => max(0, min(100, (int) $request->input('discount_percent', $profile->discount_percent ?? 0))),
             'extra_lines_discount_percent' => max(0, min(100, (int) $request->input('extra_lines_discount_percent', $profile->extra_lines_discount_percent ?? 0))),
             'subscription_start_date' => parse_admin_date($request->input('subscription_start_date')),
@@ -286,6 +322,10 @@ class AdminCompanyBillingProfileController extends Controller
             'extra_lines_one_time' => $request->boolean('extra_lines_one_time'),
             'extra_lines_applied_at' => $profile->extra_lines_applied_at,
         ]);
+
+        if ($billingMode !== CompanyBillingProfile::MODE_PACKAGE) {
+            $profile->platform_billing_package_id = null;
+        }
 
         $lineItemIds = collect($request->input('platform_billing_line_item_ids', []))
             ->map(fn ($id) => (int) $id)

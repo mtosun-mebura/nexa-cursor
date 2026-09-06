@@ -200,6 +200,9 @@
             meta.setAttribute('content', theme === 'light' ? '#f1f5f9' : (meta.getAttribute('data-nexa-dark-theme-color') || '#0f172a'));
         }
         btn.setAttribute('aria-label', theme === 'dark' ? 'Schakel naar licht thema' : 'Schakel naar donker thema');
+        try {
+            window.dispatchEvent(new CustomEvent('nexa-pwa-theme-change', { detail: { theme: theme } }));
+        } catch (e) {}
     }
 
     var meta = document.querySelector('meta[name="theme-color"]');

@@ -31,7 +31,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('admin.taxi.transport_individual_bookings.update', [$customer->id, $contract->id, $booking->id]) }}">
+    <form method="POST" action="{{ route('admin.taxi.transport_individual_bookings.update', [$customer->id, $contract->id, $booking->id]) }}" data-validate="true" novalidate>
         @csrf
         @method('PUT')
         <input type="hidden" name="return" value="{{ old('return', $backUrl) }}">
@@ -50,3 +50,7 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush

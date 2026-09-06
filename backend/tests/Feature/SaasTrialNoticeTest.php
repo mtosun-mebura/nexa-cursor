@@ -43,6 +43,9 @@ class SaasTrialNoticeTest extends TestCase
             ->get(route('admin.subscriptions.show'))
             ->assertOk()
             ->assertSee('Proefperiode stoppen', false)
+            ->assertSee('id="subscription-end-trial-modal"', false)
+            ->assertSee('data-end-trial-open', false)
+            ->assertSee('Direct stoppen kan alleen tijdens de', false)
             ->assertDontSee('Opzeggen per', false);
     }
 
@@ -98,7 +101,7 @@ class SaasTrialNoticeTest extends TestCase
     }
 
     #[Test]
-    public function signed_stop_link_deactivates_the_tenant(): void
+    public function signed_stop_link_keeps_access_until_trial_end(): void
     {
         [, $company] = $this->trialCompanyAdmin();
         $url = URL::temporarySignedRoute(
@@ -115,7 +118,40 @@ class SaasTrialNoticeTest extends TestCase
             ->assertRedirect(route('saas.trial.stopped'));
 
         $company->refresh();
-        $this->assertFalse((bool) $company->is_active);
+        $this->assertTrue((bool) $company->is_active);
+        $this->assertSame('trial_end', $company->billingProfile?->pending_change_type);
+        $this->assertNull($company->billingProfile?->subscription_end_date);
+    }
+
+    #[Test]
+    public function company_admin_stays_in_admin_after_stopping_the_trial(): void
+    {
+        [$user, $company] = $this->trialCompanyAdmin();
+
+        $this->actingAs($user)
+            ->followingRedirects()
+            ->post(route('admin.subscriptions.end-trial'))
+            ->assertOk()
+            ->assertSee('id="admin-trial-declined-modal"', false)
+            ->assertSee('Proefperiode beëindigd', false)
+            ->assertSee('Abonnement activeren', false)
+            ->assertDontSee('Je tenant wordt inactief gezet en er volgt geen incasso.', false);
+
+        $company->refresh();
+        $this->assertTrue((bool) $company->is_active);
+        $this->assertSame('trial_end', $company->billingProfile?->pending_change_type);
+
+        $this->actingAs($user)
+            ->get(route('admin.subscriptions.show'))
+            ->assertOk()
+            ->assertDontSee('id="admin-trial-declined-modal"', false);
+
+        $this->actingAs($user)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('id="admin-trial-declined-modal"', false)
+            ->assertSee('Stopt per', false)
+            ->assertSee('15 april 2026', false);
     }
 
     /**

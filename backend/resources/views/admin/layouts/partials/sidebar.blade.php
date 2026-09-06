@@ -3,27 +3,27 @@
     data-kt-drawer="true" data-kt-drawer-class="kt-drawer kt-drawer-start top-0 bottom-0" id="sidebar">
     <div class="flex flex-col shrink-0 bg-background overflow-visible" id="sidebar_header">
         <div class="kt-sidebar-header flex items-center relative justify-center px-3 lg:px-6 shrink-0">
-            <a href="{{ route('admin.dashboard') }}" class="flex w-full items-center justify-center">
+            <a href="{{ route('admin.dashboard') }}" class="flex w-full items-center justify-center pe-8">
                 @php
                     $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                     $logoHeight = $logoSize . 'px';
-                    $nexaMarkUrl = asset('images/nexa-x-logo.png');
+                    $collapsedMarkUrl = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta(null)['url'];
                 @endphp
                 @include('partials.nexa-brand-logo', [
                     'class' => 'default-logo w-auto max-w-[350px] object-contain',
                     'style' => 'height: '.$logoHeight,
                     'alt' => 'NEXA Suite',
                 ])
-                <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ $nexaMarkUrl }}" alt="NEXA Suite" />
+                <img class="small-logo h-[26px] w-[26px] shrink-0 object-contain" src="{{ $collapsedMarkUrl }}" alt="NEXA Suite" />
             </a>
             <button
                 type="button"
-                class="kt-btn kt-btn-outline kt-btn-icon absolute start-full top-2/4 size-[30px] -translate-x-2/4 -translate-y-2/4 rtl:translate-x-2/4"
+                class="kt-btn kt-btn-outline kt-btn-icon absolute end-0 h-[22px] w-[18px] rounded-e-none border-e-0 p-0"
                 data-kt-toggle="body" data-kt-toggle-class="kt-sidebar-collapse" id="sidebar_toggle"
                 aria-label="Menu in- of uitklappen">
-                <i
-                    class="ki-filled ki-black-left-line kt-toggle-active:rotate-180 rtl:translate rtl:kt-toggle-active:rotate-0 transition-all duration-300 rtl:rotate-180">
-                </i>
+                <svg class="sidebar-toggle-caret kt-toggle-active:rotate-180 rtl:rotate-180 rtl:kt-toggle-active:rotate-0 transition-transform duration-300" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M8.25 1.6 3.4 6l4.85 4.4z"/>
+                </svg>
             </button>
         </div>
         @if(auth()->user()?->isSuperAdmin())
@@ -329,7 +329,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-notifications'))
+                @if(auth()->user()?->isSuperAdmin() || auth()->user()?->can('view-notifications'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.notifications.index') }}" tabindex="0">
@@ -593,7 +593,7 @@
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.nexa-suite-bookings.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -657,6 +657,15 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
                                     Klantfacturen
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-suite-bookings.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                href="{{ route('admin.nexa-suite-bookings.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                    NEXA Suite ritten
                                 </span>
                             </a>
                         </div>
@@ -869,8 +878,9 @@
                         || (request()->routeIs('admin.website-pages.*') && $isCentralWelcomeWebsitePage);
                     $isWebsitePagesMenuActive = request()->routeIs('admin.website-pages.*') && ! $isCentralWelcomeWebsitePage;
                     $isWebsiteAiMenuActive = request()->routeIs('admin.website-ai.*');
+                    $isAiImagesMenuActive = request()->routeIs('admin.ai-images.*');
                 @endphp
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || $isWebsiteAiMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') ? 'here show' : '' }}" 
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || $isWebsiteAiMenuActive || $isAiImagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') || request()->routeIs('admin.playground.metronic-demo1') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -934,6 +944,15 @@
                                 </span>
                             </a>
                         </div>
+                        <div class="kt-menu-item {{ $isAiImagesMenuActive ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.ai-images.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    AI Afbeeldingen
+                                </span>
+                            </a>
+                        </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.frontend-themes.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.frontend-themes.index') }}" tabindex="0">
@@ -991,6 +1010,8 @@
     .demo1.kt-sidebar-collapse .kt-sidebar:not(:hover) .tenant-switcher {
         padding-left: 0;
         padding-right: 0;
+        display: flex;
+        justify-content: center;
     }
     .demo1.kt-sidebar-collapse .kt-sidebar:not(:hover) .tenant-toggle-icon {
         width: 34px;

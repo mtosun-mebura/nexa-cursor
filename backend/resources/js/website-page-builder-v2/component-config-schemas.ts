@@ -38,27 +38,41 @@ const containerMaxWidthOptions: SelectOption[] = [100, 90, 80, 70, 60, 50, 40, 3
   label: `${percent}%`,
 }))
 
-const TAXI_BOOKING_KEYS = new Set(['component:taxi.boekingsmodule', 'component:taxiroyaal.boekingsmodule', 'component:taxi.boekingsmodule_v2'])
+const TAXI_BOOKING_KEYS = new Set([
+  'component:taxi.boekingsmodule',
+  'component:taxiroyaal.boekingsmodule',
+  'component:taxi.boekingsmodule_v2',
+  'component:taxi.algemene_boekingsmodule',
+])
 
 export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
   { type: 'group', label: 'Uiterlijk & titel', fields: [
-    { type: 'text', key: 'title', label: 'Bloktitel' },
-    { type: 'select', key: 'style.title_font_size_px', label: 'Tekstgrootte titel', options: pxSelectOptions(16, 72, 2), defaultValue: '36' },
-    { type: 'text', key: 'subtitle', label: 'Subtitel' },
-    { type: 'color', key: 'style.primary_color', label: 'Primair kleur' },
-    { type: 'color', key: 'style.active_tab_color', label: 'Actieve tab kleur' },
-    { type: 'select', key: 'style.tab_font_size_px', label: 'Tekstgrootte tabbladen', options: pxSelectOptions(10, 24, 2), defaultValue: '14' },
-    { type: 'select', key: 'style.step_heading_font_size_px', label: 'Tekstgrootte stapkop', options: pxSelectOptions(16, 48, 2), defaultValue: '30' },
-    { type: 'select', key: 'style.field_heading_font_size_px', label: 'Tekstgrootte veldkoppen', options: pxSelectOptions(12, 28, 2), defaultValue: '16' },
-    { type: 'number', key: 'style.route_map_zoom', label: 'Zoom routekaarten', min: 1, max: 21, step: 1 },
-    { type: 'select', key: 'style.container_max_width', label: 'Max breedte', options: containerMaxWidthOptions, defaultValue: '100%' },
-    { type: 'text', key: 'style.container_min_height', label: 'Min. hoogte blok', placeholder: 'auto of 600px' },
-    { type: 'number', key: 'style.border_radius', label: 'Border radius (px)', min: 0, max: 40, step: 1 },
-    { type: 'select', key: 'style.align', label: 'Uitlijning blok', options: alignOptions },
-    { type: 'select', key: 'logic.offer_display_mode', label: 'Aanbiedingen tonen als', options: offerDisplayOptions },
-    { type: 'checkbox', key: 'logic.use_evening_night_tariff', label: 'Avond/nacht tarief (22:00–06:00 ×1,2)' },
+    { type: 'group', label: 'Titel', alwaysOpen: true, layout: 'row', wideStart: true, fields: [
+      { type: 'text', key: 'title', label: 'Bloktitel' },
+      { type: 'color', key: 'style.title_color', label: 'Kleur titel', defaultValue: '#f97316' },
+      { type: 'select', key: 'style.title_font_size_px', label: 'Tekstgrootte titel', options: pxSelectOptions(16, 72, 2), defaultValue: '24' },
+      { type: 'text', key: 'subtitle', label: 'Subtitel', colSpan: 2 },
+    ]},
+    { type: 'group', label: 'Tabbladen', alwaysOpen: true, layout: 'row', fields: [
+      { type: 'color', key: 'style.primary_color', label: 'Primair kleur' },
+      { type: 'color', key: 'style.active_tab_color', label: 'Actieve tab kleur' },
+      { type: 'select', key: 'style.tab_font_size_px', label: 'Tekstgrootte tabbladen', options: pxSelectOptions(10, 24, 2), defaultValue: '14' },
+    ]},
+    { type: 'group', label: 'Koppen', alwaysOpen: true, layout: 'row', fields: [
+      { type: 'select', key: 'style.step_heading_font_size_px', label: 'Tekstgrootte stapkop', options: pxSelectOptions(16, 48, 2), defaultValue: '20' },
+      { type: 'select', key: 'style.field_heading_font_size_px', label: 'Tekstgrootte veldkoppen', options: pxSelectOptions(12, 28, 2), defaultValue: '16' },
+    ]},
+    { type: 'group', label: 'Blok', alwaysOpen: true, layout: 'row', fields: [
+      { type: 'number', key: 'style.route_map_zoom', label: 'Zoom routekaarten', min: 1, max: 21, step: 1 },
+      { type: 'select', key: 'style.container_max_width', label: 'Max breedte', options: containerMaxWidthOptions, defaultValue: '100%' },
+      { type: 'text', key: 'style.container_min_height', label: 'Min. hoogte blok', placeholder: 'auto of 600px' },
+      { type: 'number', key: 'style.border_radius', label: 'Border radius (px)', min: 0, max: 40, step: 1 },
+      { type: 'select', key: 'style.align', label: 'Uitlijning blok', options: alignOptions },
+      { type: 'select', key: 'logic.offer_display_mode', label: 'Aanbiedingen tonen als', options: offerDisplayOptions },
+      { type: 'checkbox', key: 'logic.use_evening_night_tariff', label: 'Avond/nacht tarief (22:00–06:00 ×1,2)' },
+    ]},
   ]},
-  { type: 'group', label: 'Staplabels (tabs)', fields: [
+  { type: 'group', label: 'Staplabels (tabs)', layout: 'row', fields: [
     { type: 'text', key: 'step_labels.step1', label: 'STEP1 label' },
     { type: 'text', key: 'step_labels.step2', label: 'STEP2 label' },
     { type: 'text', key: 'step_labels.step3', label: 'STEP3 label' },
@@ -156,6 +170,7 @@ export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
 const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
   'component:taxi.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.boekingsmodule_v2': TAXI_BOOKING_MODULE_V2_SCHEMA,
+  'component:taxi.algemene_boekingsmodule': TAXI_BOOKING_MODULE_V2_SCHEMA,
   'component:taxiroyaal.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.tarieven': [
     { type: 'text', key: 'title', label: 'Bloktitel' },

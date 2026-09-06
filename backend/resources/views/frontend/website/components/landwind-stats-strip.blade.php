@@ -11,7 +11,7 @@
     $primary = $themeSettings['primary_color'] ?? '#7e3af2';
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
-<section class="py-12 md:py-16 bg-gray-50 dark:bg-gray-800/60 theme-scroll-reveal" data-theme-component="landwind.stats_strip" data-theme-anim="pop" data-scroll-reveal>
+<section class="py-8 md:py-12 bg-gray-50 dark:bg-gray-800/60 theme-scroll-reveal" data-theme-component="landwind.stats_strip" data-theme-anim="pop" data-scroll-reveal>
     <div class="website-section-inner">
         <div class="theme-fade mx-auto mb-10 max-w-2xl text-center">
             <p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em]" style="color: {{ $primary }}">{{ $data['eyebrow'] ?? 'In cijfers' }}</p>

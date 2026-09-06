@@ -217,31 +217,50 @@ class ModuleSchemaService
 
     /**
      * Superadmin-gebruiker en super-admin rol aanmaken in de huidige search_path.
+     * Bestaande gebruiker (inclusief wachtwoord) blijft ongewijzigd.
      */
     protected function createSuperadminUserAndRole(): void
     {
-        $roleId = DB::table('roles')->insertGetId([
-            'name' => 'super-admin',
-            'guard_name' => 'web',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $roleId = DB::table('roles')
+            ->where('name', 'super-admin')
+            ->where('guard_name', 'web')
+            ->value('id');
 
-        $userId = DB::table('users')->insertGetId([
-            'first_name' => 'Super',
-            'last_name' => 'Admin',
-            'email' => self::SUPERADMIN_EMAIL,
-            'email_verified_at' => now(),
-            'password' => Hash::make(self::SUPERADMIN_PASSWORD),
-            'company_id' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if (! $roleId) {
+            $roleId = DB::table('roles')->insertGetId([
+                'name' => 'super-admin',
+                'guard_name' => 'web',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
-        DB::table('model_has_roles')->insert([
-            'role_id' => $roleId,
-            'model_type' => 'App\Models\User',
-            'model_id' => $userId,
-        ]);
+        $userId = DB::table('users')->where('email', self::SUPERADMIN_EMAIL)->value('id');
+        if (! $userId) {
+            $userId = DB::table('users')->insertGetId([
+                'first_name' => 'Super',
+                'last_name' => 'Admin',
+                'email' => self::SUPERADMIN_EMAIL,
+                'email_verified_at' => now(),
+                'password' => Hash::make(self::SUPERADMIN_PASSWORD),
+                'company_id' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $hasRole = DB::table('model_has_roles')
+            ->where('role_id', $roleId)
+            ->where('model_type', 'App\\Models\\User')
+            ->where('model_id', $userId)
+            ->exists();
+
+        if (! $hasRole) {
+            DB::table('model_has_roles')->insert([
+                'role_id' => $roleId,
+                'model_type' => 'App\\Models\\User',
+                'model_id' => $userId,
+            ]);
+        }
     }
 }

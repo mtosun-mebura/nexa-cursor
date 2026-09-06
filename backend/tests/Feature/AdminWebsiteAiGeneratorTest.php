@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\AiWebsiteGeneration;
 use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\Module;
 use App\Models\User;
+use App\Models\WebsiteMedia;
 use App\Models\WebsitePage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -41,6 +43,10 @@ class AdminWebsiteAiGeneratorTest extends TestCase
             ->assertSee('Genereer website AI', false)
             ->assertSee('id="source_url"', false)
             ->assertSee('id="max_pages"', false)
+            ->assertSee('id="style"', false)
+            ->assertSee('id="tone"', false)
+            ->assertSee('name="goals[]"', false)
+            ->assertSee('Landwind (thema)', false)
             ->assertSee('Taxi AI Demo', false)
             ->assertSee(route('admin.website-ai.create', [], false), false);
     }
@@ -81,7 +87,18 @@ class AdminWebsiteAiGeneratorTest extends TestCase
             'city' => 'Zwolle',
             'industry' => 'Taxi',
             'phone' => '0381234567',
+            'email' => 'info@taxiroyaal.test',
         ]);
+        $taxi = Module::query()->create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+        ]);
+        $company->modules()->attach($taxi->id);
         $theme = FrontendTheme::query()->create([
             'slug' => 'landwind',
             'name' => 'Landwind',
@@ -89,25 +106,57 @@ class AdminWebsiteAiGeneratorTest extends TestCase
             'settings' => ['primary_color' => '#7e3af2'],
         ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->post(route('admin.website-ai.generate'), $this->validPayload($company, $theme, [
                 'max_pages' => 3,
                 'context' => 'Taxibedrijf in Zwolle: luchthavenvervoer en zakelijke ritten.',
                 'generate_images' => '0',
-            ]))
-            ->assertRedirect(route('admin.website-pages.index', ['tenant_company' => $company->id, 'saved' => 1]));
+            ]));
 
         $this->assertSame(3, WebsitePage::query()->where('company_id', $company->id)->count());
         $home = WebsitePage::query()->where('company_id', $company->id)->where('slug', 'home')->first();
         $this->assertNotNull($home);
+        $response->assertRedirect($this->builderUrl($home, $company));
         $this->assertSame('home', $home->page_type);
+        $this->assertFalse((bool) $home->is_active);
         $this->assertSame($theme->id, (int) $home->frontend_theme_id);
         $this->assertSame($theme->id, (int) $company->fresh()->frontend_theme_id);
         $sections = $home->home_sections;
         $this->assertSame('#1e3a8a', $sections['hero']['cta_primary_bg'] ?? null);
+        $this->assertSame('#1e3a8a', $sections['featured_services']['items'][0]['icon_color'] ?? null);
+        $this->assertSame('#1e3a8a', $sections['component:taxi.boekingsmodule_v2']['style']['primary_color'] ?? null);
+        $company->refresh();
+        $this->assertSame('#1e3a8a', $company->website_theme_settings['primary_color'] ?? null);
+        $this->assertSame('#0f172a', $company->website_theme_settings['secondary_color'] ?? null);
+        $this->assertSame('#7e3af2', $theme->fresh()->settings['primary_color'] ?? null);
+        $this->assertSame('#1e3a8a', $theme->fresh()->getSettings($company)['primary_color'] ?? null);
         $this->assertContains('hero', $sections['section_order']);
+        $this->assertContains('featured_services', $sections['section_order']);
+        $this->assertContains('text_block', $sections['section_order']);
+        $this->assertNotEmpty($sections['featured_services']['items'] ?? []);
+        $this->assertSame('slow', $sections['featured_services']['animation_speed'] ?? null);
+        $this->assertNotEmpty($sections['text_block']['content'] ?? '');
+        $this->assertContains('component:landwind.faq', $sections['section_order']);
+        $this->assertContains('component:website.comparison_table', $sections['section_order']);
+        $this->assertContains('component:vue_material.quote_cards', $sections['section_order']);
+        $heroIndex = array_search('hero', $sections['section_order'], true);
+        $bookingIndex = array_search('component:taxi.boekingsmodule_v2', $sections['section_order'], true);
+        $this->assertNotFalse($heroIndex);
+        $this->assertNotFalse($bookingIndex);
+        $this->assertSame($heroIndex + 1, $bookingIndex);
+        $this->assertNotEmpty($sections['component:taxi.boekingsmodule_v2']['title'] ?? null);
         $this->assertTrue(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'contact')->exists());
         $this->assertTrue(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'over-ons')->exists());
+        $contact = WebsitePage::query()->where('company_id', $company->id)->where('slug', 'contact')->first();
+        $this->assertFalse((bool) $contact->is_active);
+        $this->assertContains('email_template', $contact->home_sections['section_order']);
+        $this->assertNotEmpty($contact->home_sections['email_template']['template_id'] ?? null);
+        $generation = AiWebsiteGeneration::query()->where('company_id', $company->id)->first();
+        $this->assertNotNull($generation);
+        $this->assertSame(AiWebsiteGeneration::STATUS_COMPLETED, $generation->status);
+        $this->assertSame($home->id, (int) $generation->homepage_page_id);
+        $this->assertNotEmpty($generation->sitemap_json);
+        $this->assertNotEmpty($generation->website_brief_json);
     }
 
     #[Test]
@@ -127,17 +176,21 @@ class AdminWebsiteAiGeneratorTest extends TestCase
             'sort_order' => 1,
         ]);
 
+        $home = WebsitePage::query()->where('company_id', $company->id)->where('slug', 'home')->first();
+
         $this->actingAs($admin)
             ->post(route('admin.website-ai.generate'), $this->validPayload($company, $theme, [
                 'max_pages' => 2,
                 'replace_existing' => '0',
                 'generate_images' => '0',
             ]))
-            ->assertRedirect();
+            ->assertRedirect($this->builderUrl($home, $company));
 
         $this->assertSame('Oude home', WebsitePage::query()->where('company_id', $company->id)->where('slug', 'home')->value('title'));
         $this->assertSame(2, WebsitePage::query()->where('company_id', $company->id)->count());
-        $this->assertTrue(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'over-ons')->exists());
+        $this->assertTrue((bool) $home->fresh()->is_active);
+        $this->assertTrue(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'contact')->exists());
+        $this->assertFalse(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'over-ons')->exists());
     }
 
     #[Test]
@@ -168,6 +221,7 @@ class AdminWebsiteAiGeneratorTest extends TestCase
             'is_active' => true,
             'sort_order' => 1,
         ]);
+        $existing = WebsitePage::query()->where('company_id', $company->id)->where('slug', 'home')->first();
 
         $this->actingAs($admin)
             ->post(route('admin.website-ai.generate'), $this->validPayload($company, $theme, [
@@ -175,7 +229,7 @@ class AdminWebsiteAiGeneratorTest extends TestCase
                 'replace_existing' => '0',
                 'generate_images' => '0',
             ]))
-            ->assertRedirect();
+            ->assertRedirect($this->builderUrl($existing, $company));
 
         $homes = WebsitePage::query()
             ->where('company_id', $company->id)
@@ -186,6 +240,8 @@ class AdminWebsiteAiGeneratorTest extends TestCase
         $this->assertCount(1, $homes);
         $this->assertSame('taxi', $homes->first()->module_name);
         $this->assertSame('Taxi home', $homes->first()->title);
+        $this->assertTrue(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'contact')->exists());
+        $this->assertTrue(WebsitePage::query()->where('company_id', $company->id)->where('slug', 'over-ons')->exists());
         $this->assertFalse(
             WebsitePage::query()
                 ->where('company_id', $company->id)
@@ -261,6 +317,7 @@ class AdminWebsiteAiGeneratorTest extends TestCase
     {
         config(['services.openai.api_key' => 'sk-test-website-ai']);
         Storage::fake('public');
+        Storage::fake('local');
         $admin = $this->superAdmin();
         $company = Company::query()->create(['name' => 'OpenAI Taxi', 'is_active' => true, 'city' => 'Apeldoorn']);
         $theme = FrontendTheme::query()->create(['slug' => 'play-tailwind', 'name' => 'Play', 'is_active' => true]);
@@ -309,6 +366,7 @@ class AdminWebsiteAiGeneratorTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.website-ai.generate'), $this->validPayload($company, $theme, [
+                'source_type' => 'url',
                 'source_url' => 'https://oude-site.example',
                 'max_pages' => 1,
                 'generate_images' => '1',
@@ -318,11 +376,62 @@ class AdminWebsiteAiGeneratorTest extends TestCase
 
         $home = WebsitePage::query()->where('company_id', $company->id)->where('slug', 'home')->first();
         $this->assertNotNull($home);
+        $this->assertFalse((bool) $home->is_active);
         $this->assertSame('OpenAI Taxi Apeldoorn', $home->title);
         $this->assertSame('Ritten zonder gedoe', $home->home_sections['hero']['title'] ?? null);
         $this->assertContains('component:taxi.boekingsmodule_v2', $home->home_sections['section_order']);
         $this->assertNotEmpty($home->home_sections['hero']['background_image_url'] ?? '');
-        Storage::disk('public')->assertExists(ltrim(str_replace('/storage/', '', (string) $home->home_sections['hero']['background_image_url']), '/'));
+        $this->assertStringContainsString('/website-media/', (string) $home->home_sections['hero']['background_image_url']);
+        $this->assertSame(1, WebsiteMedia::query()->count());
+        Storage::disk('local')->assertExists(WebsiteMedia::query()->first()->encrypted_path);
+    }
+
+    #[Test]
+    public function generator_accepts_openai_array_fields_in_brief(): void
+    {
+        config(['services.openai.api_key' => 'sk-test-website-ai']);
+        $admin = $this->superAdmin();
+        $company = Company::query()->create(['name' => 'Array Brief Taxi', 'is_active' => true, 'city' => 'Zwolle']);
+        $theme = FrontendTheme::query()->create(['slug' => 'landwind', 'name' => 'Landwind', 'is_active' => true]);
+
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'business_type' => ['Taxi'],
+                            'business_summary' => ['Luchthavenvervoer in Zwolle'],
+                            'primary_cta' => ['Neem contact op'],
+                            'services' => [['title' => 'Schiphol'], ['name' => 'Zakelijk']],
+                            'pages' => [[
+                                'slug' => 'home',
+                                'title' => ['Array Brief Taxi'],
+                                'page_type' => 'home',
+                                'components' => [
+                                    ['id' => 'landwind.faq'],
+                                    ['taxi.boekingsmodule_v2'],
+                                ],
+                                'hero' => [
+                                    'title' => 'Array Brief Taxi',
+                                    'subtitle' => 'Luchthavenvervoer in Zwolle',
+                                ],
+                            ]],
+                        ], JSON_UNESCAPED_UNICODE),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.website-ai.generate'), $this->validPayload($company, $theme, [
+                'generate_images' => '0',
+            ]))
+            ->assertRedirect();
+
+        $home = WebsitePage::query()->where('company_id', $company->id)->where('slug', 'home')->first();
+        $this->assertNotNull($home);
+        $this->assertFalse((bool) $home->is_active);
+        $this->assertSame('Array Brief Taxi', $home->title);
     }
 
     /**
@@ -342,7 +451,25 @@ class AdminWebsiteAiGeneratorTest extends TestCase
             'secondary_color' => '#0f172a',
             'generate_images' => '0',
             'replace_existing' => '0',
+            'source_type' => 'new',
+            'style' => 'professional',
+            'tone' => 'zakelijk',
+            'goals' => ['leads'],
         ], $overrides);
+    }
+
+    private function builderUrl(WebsitePage $page, Company $company): string
+    {
+        $params = [
+            'website_page' => $page->id,
+            'tenant_company' => $company->id,
+            'saved' => 1,
+        ];
+        if (trim((string) $page->module_name) !== '') {
+            $params['module'] = $page->module_name;
+        }
+
+        return route('admin.website-pages.builder-v2.edit', $params);
     }
 
     private function superAdmin(): User

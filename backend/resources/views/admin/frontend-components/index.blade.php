@@ -14,7 +14,7 @@
 
     @forelse($grouped as $moduleName => $components)
     <div class="kt-card mb-6">
-        <div class="kt-card-header flex items-center justify-between gap-2">
+        <div class="kt-card-header flex items-center justify-between gap-2 px-5 py-5">
             <h2 class="kt-card-title text-base">{{ $moduleName }}</h2>
         </div>
         <div class="kt-card-table p-4">
@@ -25,12 +25,13 @@
                             <th class="pb-3 font-medium text-foreground">Component</th>
                             <th class="pb-3 font-medium text-foreground">Thema</th>
                             <th class="pb-3 font-medium text-foreground">Omschrijving</th>
+                            <th class="pb-3 font-medium text-foreground">Status</th>
                             <th class="pb-3 font-medium text-foreground text-center">Demo</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($components as $c)
-                        <tr id="frontend-comp-{{ $c->id }}" class="border-b border-border last:border-0">
+                        <tr id="frontend-comp-{{ $c->id }}" class="border-b border-border last:border-0 {{ !empty($c->disabled) && empty($c->is_section_type) ? 'opacity-70' : '' }}">
                             <td class="py-3 text-foreground font-medium">{{ $c->name }}</td>
                             <td class="py-3">
                                 @if(!empty($c->theme_name))
@@ -40,10 +41,31 @@
                                 @endif
                             </td>
                             <td class="py-3 text-muted-foreground max-w-md">{{ $c->description ?? '—' }}</td>
+                            <td class="py-3">
+                                @if(empty($c->is_section_type))
+                                    <form method="POST" action="{{ route('admin.frontend-components.toggle-disabled') }}" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="component_id" value="{{ $c->id }}">
+                                        <input type="hidden" name="disabled" value="{{ !empty($c->disabled) ? '0' : '1' }}">
+                                        @if(!empty($c->disabled))
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Activeren</button>
+                                            <span class="ms-2 inline-flex items-center rounded-md bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Uitgeschakeld</span>
+                                        @else
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground">Uitschakelen</button>
+                                        @endif
+                                    </form>
+                                @else
+                                    <span class="text-muted-foreground">—</span>
+                                @endif
+                            </td>
                             <td class="py-3 text-center">
+                                @if(empty($c->is_section_type))
                                 <a href="{{ route('admin.frontend-components.demo', ['componentId' => $c->id]) }}" class="js-frontend-component-demo inline-flex items-center text-muted-foreground hover:text-primary transition-colors" aria-label="Demo bekijken">
                                     <i class="ki-filled ki-eye text-base"></i>
                                 </a>
+                                @else
+                                <span class="text-muted-foreground">—</span>
+                                @endif
                             </td>
                         </tr>
                         @endforeach

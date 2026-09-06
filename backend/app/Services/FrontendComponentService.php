@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
  */
 class FrontendComponentService
 {
+    public const SETTING_DISABLED_OVERRIDES = 'frontend_component_disabled_overrides';
+
     protected ?Collection $components = null;
 
     public function all(): Collection
@@ -21,6 +23,7 @@ class FrontendComponentService
             $items = config('frontend_components.components', []);
             $items = $this->appendDiscoveredComponents($items);
             $excluded = $this->excludedComponentIdLookup();
+            $overrides = $this->disabledOverrides();
             $items = array_values(array_filter($items, function ($item) use ($excluded) {
                 if (! is_array($item)) {
                     return false;
@@ -29,10 +32,62 @@ class FrontendComponentService
 
                 return $id !== '' && ! isset($excluded[$id]);
             }));
-            $this->components = collect($items)->map(fn ($c) => (object) $c);
+            $this->components = collect($items)->map(function ($c) use ($overrides) {
+                $obj = (object) $c;
+                $id = strtolower(trim((string) ($obj->id ?? '')));
+                $obj->disabled = array_key_exists($id, $overrides)
+                    ? (bool) $overrides[$id]
+                    : ! empty($obj->disabled);
+
+                return $obj;
+            });
         }
 
         return $this->components;
+    }
+
+    public function forgetCachedComponents(): void
+    {
+        $this->components = null;
+    }
+
+    public function isDisabled(string $id): bool
+    {
+        $found = $this->getById($id);
+
+        return $found !== null && ! empty($found->disabled);
+    }
+
+    public function setDisabled(string $id, bool $disabled): void
+    {
+        $id = strtolower(trim($id));
+        if ($id === '' || $this->getById($id) === null) {
+            return;
+        }
+        $overrides = $this->disabledOverrides();
+        $overrides[$id] = $disabled;
+        \App\Models\GeneralSetting::set(self::SETTING_DISABLED_OVERRIDES, json_encode($overrides));
+        $this->forgetCachedComponents();
+    }
+
+    /** @return array<string, bool> */
+    private function disabledOverrides(): array
+    {
+        $raw = \App\Models\GeneralSetting::get(self::SETTING_DISABLED_OVERRIDES, '{}');
+        $decoded = is_string($raw) ? json_decode($raw, true) : [];
+        if (! is_array($decoded)) {
+            return [];
+        }
+        $out = [];
+        foreach ($decoded as $key => $value) {
+            $componentId = strtolower(trim((string) $key));
+            if ($componentId === '') {
+                continue;
+            }
+            $out[$componentId] = (bool) $value;
+        }
+
+        return $out;
     }
 
     /** Section-order keys voor uitgefaseerde componenten (niet meer toevoegen / tonen). */
@@ -320,10 +375,23 @@ class FrontendComponentService
      */
     public function availableForPage(?string $pageModuleName = null, ?string $tenantThemeSlug = null): Collection
     {
+        return $this->catalogForPage($pageModuleName, $tenantThemeSlug, false);
+    }
+
+    public function disabledForPage(?string $pageModuleName = null, ?string $tenantThemeSlug = null): Collection
+    {
+        return $this->catalogForPage($pageModuleName, $tenantThemeSlug, true);
+    }
+
+    public function catalogForPage(?string $pageModuleName = null, ?string $tenantThemeSlug = null, bool $disabledOnly = false): Collection
+    {
         $all = $this->all();
         $effective = trim((string) ($pageModuleName ?? ''));
         if ($effective === '') {
-            return $this->sortForPagePalette($all, $tenantThemeSlug);
+            return $this->sortForPagePalette(
+                $all->filter(fn ($c) => ((bool) ($c->disabled ?? false)) === $disabledOnly)->values(),
+                $tenantThemeSlug
+            );
         }
         $module = Module::where('installed', true)
             ->whereRaw('LOWER(name) = ?', [strtolower($effective)])
@@ -350,7 +418,12 @@ class FrontendComponentService
         });
         $global = $all->filter(fn ($c) => ! empty($c->available_on_all_pages));
 
-        return $this->sortForPagePalette($forModule->merge($global)->unique('id')->values(), $tenantThemeSlug);
+        return $this->sortForPagePalette(
+            $forModule->merge($global)->unique('id')->filter(
+                fn ($c) => ((bool) ($c->disabled ?? false)) === $disabledOnly
+            )->values(),
+            $tenantThemeSlug
+        );
     }
 
     /**

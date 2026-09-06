@@ -1685,13 +1685,13 @@ class AdminSettingsController extends Controller
             'info_request_success_icon_size' => 'nullable|integer|min:32|max:200',
             'info_request_success_image_size_percent' => 'nullable|integer|min:10|max:100',
             'admin_footer_brand' => 'nullable|string|max:255',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
         ], [
             'logo.image' => 'Logo moet een afbeelding zijn.',
             'logo.mimes' => 'Logo moet een jpeg, png, jpg, gif of svg bestand zijn.',
-            'logo.max' => 'Logo mag maximaal 2MB groot zijn.',
+            'logo.max' => 'Logo mag maximaal 5MB groot zijn.',
             'favicon.image' => 'Favicon moet een afbeelding zijn.',
             'favicon.mimes' => 'Favicon moet een ico, png of jpg bestand zijn.',
             'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
@@ -1860,13 +1860,13 @@ class AdminSettingsController extends Controller
         $this->ensureSuperAdmin();
 
         $request->validate([
-            'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:5120',
             'logo_type' => 'nullable|string|in:light,dark',
         ], [
             'logo.required' => 'Selecteer een logo bestand.',
             'logo.file' => 'Het bestand moet een geldig bestand zijn.',
             'logo.mimes' => 'Alleen JPEG, PNG, JPG, GIF en SVG bestanden zijn toegestaan.',
-            'logo.max' => 'Het bestand mag maximaal 2MB groot zijn.',
+            'logo.max' => 'Het bestand mag maximaal 5MB groot zijn.',
         ]);
 
         $isDark = $request->input('logo_type') === 'dark';

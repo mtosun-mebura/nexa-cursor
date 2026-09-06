@@ -138,4 +138,47 @@ final class TenantPackageAddon
             self::FLEET => filter_var($raw[self::FLEET] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
         ];
     }
+
+    /**
+     * @param  array<string, mixed>  $selections
+     * @param  list<array<string, mixed>>  $catalog
+     * @return list<array{key: string, name: string, quantity: int, unit_price: float, total: float}>
+     */
+    public static function selectedBillingLines(array $selections, array $catalog = []): array
+    {
+        $selections = self::normalizeSelections($selections);
+        $catalogByKey = [];
+        foreach ($catalog as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = trim((string) ($row['key'] ?? ''));
+            if ($key !== '') {
+                $catalogByKey[$key] = $row;
+            }
+        }
+
+        $lines = [];
+        foreach (self::definitions() as $definition) {
+            $key = $definition['key'];
+            $quantity = (int) ($selections[$key] ?? 0);
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $row = $catalogByKey[$key] ?? [];
+            $name = trim((string) ($row['name'] ?? $definition['label']));
+            $unitPrice = round(max(0, (float) ($row['price'] ?? $definition['price'])), 2);
+
+            $lines[] = [
+                'key' => $key,
+                'name' => $name !== '' ? $name : $definition['label'],
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total' => round($unitPrice * $quantity, 2),
+            ];
+        }
+
+        return $lines;
+    }
 }

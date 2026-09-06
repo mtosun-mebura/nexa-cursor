@@ -62,11 +62,11 @@
     .pwa-accent-picker__swatches {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.55rem;
+        gap: 0.45rem;
     }
     .pwa-accent-swatch {
-        width: 2.35rem;
-        height: 2.35rem;
+        width: 1.9rem;
+        height: 1.9rem;
         border-radius: 999px;
         border: 2px solid transparent;
         padding: 0;

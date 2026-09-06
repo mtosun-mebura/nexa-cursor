@@ -98,4 +98,25 @@ class TenantWebsiteHomeTest extends TestCase
         $this->assertStringContainsString('font-size: var(--booking-field-heading-size', $html);
         $this->assertStringNotContainsString('font-size: clamp(0.95rem, 1.8vw + 0.45rem, 1.35rem)', $html);
     }
+
+    #[Test]
+    public function booking_module_uses_title_color_and_default_type_sizes(): void
+    {
+        $html = view('frontend.website.components.nexataxi-boekingsmodule', [
+            'homeSections' => [
+                'component:taxi.boekingsmodule' => [
+                    'title' => 'Boek je rit',
+                    'style' => [
+                        'title_color' => '#2563eb',
+                    ],
+                ],
+            ],
+            'sectionKey' => 'component:taxi.boekingsmodule',
+        ])->render();
+
+        $this->assertStringContainsString('--booking-title-color: #2563eb', $html);
+        $this->assertStringContainsString('--booking-title-size-max: 24px', $html);
+        $this->assertStringContainsString('--booking-step-heading-size-max: 20px', $html);
+        $this->assertStringContainsString('color: var(--booking-title-color, var(--booking-cta, #f97316))', $html);
+    }
 }

@@ -247,15 +247,23 @@ class TransportGroupRouteController extends Controller
         /** @var TransportRouteTemplate $template */
         $template = $context['template'];
 
-        $data = $request->validate([
-            'driver_id' => ['nullable', 'integer'],
-            'vehicle_id' => ['nullable', 'integer'],
+        $request->merge([
+            'driver_id' => $request->filled('driver_id') ? $request->input('driver_id') : null,
+            'vehicle_id' => $request->filled('vehicle_id') ? $request->input('vehicle_id') : null,
         ]);
 
-        $driverId = ! empty($data['driver_id']) ? (int) $data['driver_id'] : null;
-        $vehicleId = ! empty($data['vehicle_id']) ? (int) $data['vehicle_id'] : null;
+        $data = $request->validate([
+            'driver_id' => ['nullable', 'integer', 'required_without:vehicle_id'],
+            'vehicle_id' => ['nullable', 'integer', 'required_without:driver_id'],
+        ], [
+            'driver_id.required_without' => 'Selecteer een chauffeur of een voertuig.',
+            'vehicle_id.required_without' => 'Selecteer een chauffeur of een voertuig.',
+        ]);
 
-        if ($driverId) {
+        $driverId = isset($data['driver_id']) ? (int) $data['driver_id'] : null;
+        $vehicleId = isset($data['vehicle_id']) ? (int) $data['vehicle_id'] : null;
+
+        if ($driverId !== null) {
             $isDriver = $this->driverEligibility->buildChauffeurQuery((int) $template->company_id)
                 ->where('users.id', $driverId)
                 ->exists();
@@ -264,7 +272,7 @@ class TransportGroupRouteController extends Controller
             }
         }
 
-        if ($vehicleId) {
+        if ($vehicleId !== null) {
             $vehicleExists = Vehicle::on($conn)
                 ->where('company_id', $template->company_id)
                 ->where('id', $vehicleId)
@@ -280,16 +288,14 @@ class TransportGroupRouteController extends Controller
                 ->where('assignable_id', $template->id)
                 ->update(['active' => false]);
 
-            if ($driverId || $vehicleId) {
-                TransportAssignment::on($conn)->create([
-                    'company_id' => $template->company_id,
-                    'assignable_type' => TransportRouteTemplate::ASSIGNABLE_TYPE,
-                    'assignable_id' => $template->id,
-                    'driver_id' => $driverId,
-                    'vehicle_id' => $vehicleId,
-                    'active' => true,
-                ]);
-            }
+            TransportAssignment::on($conn)->create([
+                'company_id' => $template->company_id,
+                'assignable_type' => TransportRouteTemplate::ASSIGNABLE_TYPE,
+                'assignable_id' => $template->id,
+                'driver_id' => $driverId,
+                'vehicle_id' => $vehicleId,
+                'active' => true,
+            ]);
         });
 
         $this->occurrenceGenerator->generateForRouteTemplate($conn, (int) $template->id);
@@ -298,7 +304,7 @@ class TransportGroupRouteController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Chauffeur en voertuig opgeslagen.');
+            ->with('success', 'Toewijzing opgeslagen.');
     }
 
     /**

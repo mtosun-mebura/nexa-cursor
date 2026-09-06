@@ -424,6 +424,13 @@
         html.dark .logo-light, body.dark .logo-light, .dark .logo-light { display: none !important; }
         html.dark .logo-dark, body.dark .logo-dark, .dark .logo-dark { display: block !important; }
 
+        /* Sidebar-logo: bij ingeklapte sidebar (en geen hover) moet het volledige
+           logo altijd wijken voor het kleine logo, ook al "wint" de licht/donker-regel
+           hierboven normaal op basis van thema. */
+        .demo1.kt-sidebar-collapse .kt-sidebar:not(:hover) .default-logo {
+            display: none !important;
+        }
+
         /* Flash success: iets donkerder groen (leesbaarder) */
         #content .kt-alert.kt-alert-success {
             background-color: rgba(5, 120, 85, 0.14) !important;
@@ -519,6 +526,63 @@
     </style>
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
+    @php
+        $adminMustChangePassword = ($adminMustChangePassword ?? false) || (bool) (auth()->user()?->must_change_password);
+        $adminTrialDeclined = null;
+        $adminTaxiSetup = null;
+        $adminUser = auth()->user();
+        if (
+            ! $adminMustChangePassword
+            && $adminUser
+            && $adminUser->hasRole('company-admin')
+            && ! $adminUser->hasRole('super-admin')
+            && $adminUser->company
+        ) {
+            $adminTrialProfile = $adminUser->company->billingProfile;
+            $adminTrialSubscriptions = app(\App\Services\PlatformBilling\TenantSubscriptionService::class);
+            if (
+                session('trial_stopped')
+                && $adminTrialProfile
+                && $adminTrialSubscriptions->hasDeclinedTrial($adminTrialProfile)
+                && $adminTrialSubscriptions->isInTrial($adminTrialProfile)
+            ) {
+                $adminTrialDeclined = [
+                    'trial_ends_at' => $adminTrialProfile->trial_ends_at,
+                    'start_date' => $adminTrialSubscriptions->contractStart($adminTrialProfile),
+                ];
+            }
+        }
+        if (
+            ! $adminMustChangePassword
+            && ! $adminTrialDeclined
+            && $adminUser
+        ) {
+            $taxiSetupCompany = $adminUser->company;
+            if (
+                ! $taxiSetupCompany
+                && $adminUser->isSuperAdmin()
+                && session('selected_tenant')
+            ) {
+                $taxiSetupCompany = \App\Models\Company::query()->find((int) session('selected_tenant'));
+            }
+            if ($taxiSetupCompany) {
+                $taxiSetup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
+                if ($taxiSetup->appliesTo($taxiSetupCompany)) {
+                    $taxiStatus = $taxiSetup->status($taxiSetupCompany, $adminUser);
+                    if (! empty($taxiStatus['needs_attention'])) {
+                        $taxiSetup->syncNotification($adminUser, $taxiSetupCompany);
+                        $forceOpen = request()->boolean('taxi_setup') || $taxiSetup->consumePrompt();
+                        $adminTaxiSetup = array_merge($taxiStatus, [
+                            'force_open' => $forceOpen,
+                            'company_name' => $taxiSetupCompany->name,
+                        ]);
+                    } else {
+                        $taxiSetup->clearNotification($adminUser, $taxiSetupCompany);
+                    }
+                }
+            }
+        }
+    @endphp
     <!-- Page -->
     <!-- Main -->
     <div class="flex grow">
@@ -568,6 +632,32 @@
                             {{ $adminBannerWarning }}
                         </div>
                     @endif
+                    @if($adminTaxiSetup && empty($adminMustChangePassword) && empty($adminTrialDeclined))
+                        @php
+                            $taxiIncomplete = (int) ($adminTaxiSetup['incomplete_count'] ?? 0);
+                            $taxiOpenLabel = $taxiIncomplete === 1
+                                ? '1 openstaande stap'
+                                : $taxiIncomplete . ' openstaande stappen';
+                        @endphp
+                        <div class="kt-alert kt-alert-warning mb-5 flex flex-wrap items-center justify-between gap-3" role="status" data-taxi-setup-banner>
+                            <div class="flex min-w-0 items-start gap-2">
+                                <i class="ki-filled ki-information mt-0.5 shrink-0" aria-hidden="true"></i>
+                                <div class="min-w-0">
+                                    <div class="font-semibold">Nexa Taxi is nog niet volledig ingericht</div>
+                                    <div class="text-sm text-secondary-foreground">
+                                        {{ $taxiOpenLabel }} — voertuigen, tarieven en mailserver.
+                                        Zonder actief voertuig werkt de boekingsmodule niet.
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button"
+                                    class="kt-btn kt-btn-sm kt-btn-primary shrink-0"
+                                    data-taxi-setup-open
+                                    onclick="window.adminOpenTaxiSetup && window.adminOpenTaxiSetup()">
+                                Open stappenplan
+                            </button>
+                        </div>
+                    @endif
 
                     @if($adminShowTenantNotice ?? false)
                         @include('admin.partials.tenant-scope-notice', [
@@ -591,11 +681,12 @@
     <!-- End of Main -->
     <!-- End of Page -->
 
-    @php
-        $adminMustChangePassword = ($adminMustChangePassword ?? false) || (bool) (auth()->user()?->must_change_password);
-    @endphp
     @if($adminMustChangePassword)
         @include('admin.partials.force-password-modal')
+    @elseif($adminTrialDeclined)
+        @include('admin.partials.trial-declined-modal', ['adminTrialDeclined' => $adminTrialDeclined])
+    @elseif($adminTaxiSetup)
+        @include('admin.partials.taxi-setup-modal', ['adminTaxiSetup' => $adminTaxiSetup])
     @endif
 
     @include('layouts.partials.scripts')
@@ -812,8 +903,12 @@
         }
         function syncLogoVisibility() {
             var dark = isDark();
-            document.querySelectorAll('.logo-light').forEach(function(el) { el.style.setProperty('display', dark ? 'none' : 'block', 'important'); });
-            document.querySelectorAll('.logo-dark').forEach(function(el) { el.style.setProperty('display', dark ? 'block' : 'none', 'important'); });
+            // Logo's binnen de sidebar-header niet forceren: die moeten ook kunnen
+            // wisselen naar het kleine logo zodra de sidebar is ingeklapt (CSS-gestuurd
+            // via .default-logo/.small-logo). Een inline !important hier zou dat altijd
+            // overschrijven, ook als de sidebar is ingeklapt.
+            document.querySelectorAll('.logo-light:not(#sidebar_header .logo-light)').forEach(function(el) { el.style.setProperty('display', dark ? 'none' : 'block', 'important'); });
+            document.querySelectorAll('.logo-dark:not(#sidebar_header .logo-dark)').forEach(function(el) { el.style.setProperty('display', dark ? 'block' : 'none', 'important'); });
         }
         window.syncAdminLogoVisibility = syncLogoVisibility;
         function initLogoSync() {

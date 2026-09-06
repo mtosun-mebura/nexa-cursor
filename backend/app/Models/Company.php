@@ -18,17 +18,19 @@ class Company extends Model
         'latitude', 'longitude',
         'website', 'email', 'phone',
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
-        'is_active', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
+        'is_active', 'accepts_nexa_suite_bookings', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
         'logo_dark_blob', 'logo_dark_mime_type', 'building_image',
-        'frontend_theme_id', 'package_key', 'package_addons',
+        'frontend_theme_id', 'website_theme_settings', 'package_key', 'package_addons',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'accepts_nexa_suite_bookings' => 'boolean',
         'is_intermediary' => 'boolean',
         'is_main' => 'boolean',
         'building_image' => 'integer',
         'package_addons' => 'array',
+        'website_theme_settings' => 'array',
     ];
 
     protected static function boot()

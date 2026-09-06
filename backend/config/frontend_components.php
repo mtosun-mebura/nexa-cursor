@@ -100,6 +100,7 @@ return [
             'module_key' => 'taxi',
             'view' => 'frontend.website.components.nexataxi-boekingsmodule',
             'description' => 'Meerstaps boekingsmodule met bagage, aanbiedingen, reisgegevens en contactgegevens.',
+            'disabled' => true,
         ],
         [
             'id' => 'taxi.boekingsmodule_v2',
@@ -107,7 +108,16 @@ return [
             'module_name' => 'Nexa Taxi',
             'module_key' => 'taxi',
             'view' => 'frontend.website.components.nexataxi-boekingsmodule-v2',
-            'description' => 'Boekingsmodule met formulier links en live routekaart rechts (zoals taxiprijs.info).',
+            'description' => 'Boekingsmodule met formulier links en live routekaart rechts. Verstuurt alleen naar het taxibedrijf van deze website.',
+        ],
+        [
+            'id' => 'taxi.algemene_boekingsmodule',
+            'name' => 'Algemene boekingsmodule',
+            'module_name' => 'Nexa Taxi',
+            'module_key' => 'taxi',
+            'view' => 'frontend.website.components.nexataxi-algemene-boekingsmodule',
+            'description' => 'Kopie van boekingsmodule v2 voor NEXA Suite: live beschikbare taxi’s op de kaart en ritten naar de dichtstbijzijnde aangesloten tenants.',
+            'available_on_all_pages' => true,
         ],
         [
             'id' => 'landwind.faq',

@@ -84,12 +84,16 @@ class AdminCompanySubscriptionController extends Controller
                 ->withErrors(['trial' => $e->getMessage()]);
         }
 
-        return redirect()->away(rtrim((string) config('app.url'), '/').'/proefperiode/beeindigd');
+        return redirect()->route('admin.subscriptions.show')
+            ->with('trial_stopped', true);
     }
 
     public function withdraw(TenantSubscriptionService $subscriptions): RedirectResponse
     {
         $company = $this->companyAdminCompany();
+        $profile = $subscriptions->ensureProfile($company);
+        $wasTrialDecline = $subscriptions->hasDeclinedTrial($profile);
+        $startDate = $subscriptions->contractStart($profile);
 
         try {
             $subscriptions->withdrawPending($company);
@@ -98,8 +102,12 @@ class AdminCompanySubscriptionController extends Controller
                 ->withErrors(['withdraw' => $e->getMessage()]);
         }
 
+        $message = $wasTrialDecline
+            ? 'Het abonnement is weer geactiveerd. De ingangsdatum blijft '.$startDate->translatedFormat('j F Y').'.'
+            : 'De geplande wijziging is ingetrokken.';
+
         return redirect()->route('admin.subscriptions.show', ['saved' => 1])
-            ->with('success', 'De geplande wijziging is ingetrokken.');
+            ->with('success', $message);
     }
 
     private function companyAdminCompany(): \App\Models\Company

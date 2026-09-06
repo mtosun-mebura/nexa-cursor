@@ -1,5 +1,9 @@
 @once
 <style>
+    [data-theme-component].theme-scroll-reveal {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
     [data-theme-component].theme-scroll-reveal .theme-fade {
         opacity: 0;
         transition: opacity 0.55s ease;
@@ -500,7 +504,7 @@
                     mark(entry.target);
                     window.__nexaThemeScrollRevealIo.unobserve(entry.target);
                 });
-            }, { rootMargin: '0px 0px 18% 0px', threshold: 0.01 });
+            }, { rootMargin: '0px 0px -15% 0px', threshold: 0.25 });
         }
         sections.forEach(function (el) {
             if (el.getAttribute('data-theme-reveal-bound') === '1') return;

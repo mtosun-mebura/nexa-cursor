@@ -116,27 +116,39 @@
     <tr>
         <td class="text-secondary-foreground font-normal">Chauffeur</td>
         <td>
-            <select name="driver_id" class="kt-select w-full max-w-md">
-                <option value="">— Geen vaste chauffeur —</option>
+            <select name="driver_id"
+                    required
+                    data-required-message="Selecteer een vaste chauffeur."
+                    class="kt-select w-full max-w-md @error('driver_id') border-destructive @enderror">
+                <option value="">— Selecteer chauffeur —</option>
                 @foreach($drivers as $driver)
                     <option value="{{ $driver->id }}" @selected(old('driver_id', $booking->driver_id ?? '') == $driver->id)>
                         {{ $driver->first_name }} {{ $driver->last_name }}
                     </option>
                 @endforeach
             </select>
+            @error('driver_id')
+                <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="driver_id" role="alert">{{ $message }}</div>
+            @enderror
         </td>
     </tr>
     <tr>
         <td class="text-secondary-foreground font-normal">Voertuig</td>
         <td>
-            <select name="vehicle_id" class="kt-select w-full max-w-md">
-                <option value="">— Geen vast voertuig —</option>
+            <select name="vehicle_id"
+                    required
+                    data-required-message="Selecteer een vast voertuig."
+                    class="kt-select w-full max-w-md @error('vehicle_id') border-destructive @enderror">
+                <option value="">— Selecteer voertuig —</option>
                 @foreach($vehicles as $vehicle)
                     <option value="{{ $vehicle->id }}" @selected(old('vehicle_id', $booking->vehicle_id ?? '') == $vehicle->id)>
                         {{ $vehicle->name }}@if($vehicle->license_plate) — {{ $vehicle->license_plate }}@endif
                     </option>
                 @endforeach
             </select>
+            @error('vehicle_id')
+                <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="vehicle_id" role="alert">{{ $message }}</div>
+            @enderror
         </td>
     </tr>
     <tr>

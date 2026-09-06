@@ -43,7 +43,7 @@ const SECTION_META: Record<string, PaletteMeta> = {
   featured_services: {
     icon: 'ki-briefcase',
     accent: 'from-blue-500/90 to-indigo-600/90',
-    preview: 'Dienstenblok met animatie',
+    preview: 'Dienstenblok met icoon-uitvouw en hovergloed',
   },
   email_template: {
     icon: 'ki-sms',
@@ -78,6 +78,11 @@ const COMPONENT_META_BY_KEY: Record<string, PaletteMeta> = {
     accent: 'from-amber-500/90 to-orange-600/90',
     preview: 'Boekingsmodule met live kaart',
   },
+  'component:taxi.algemene_boekingsmodule': {
+    icon: 'ki-geolocation',
+    accent: 'from-orange-500/90 to-amber-600/90',
+    preview: 'Algemene boeking met live taxi’s',
+  },
   'component:taxiroyaal.boekingsmodule': {
     icon: 'ki-calendar-tick',
     accent: 'from-yellow-500/90 to-amber-600/90',
@@ -107,6 +112,26 @@ const COMPONENT_META_BY_KEY: Record<string, PaletteMeta> = {
     icon: 'ki-element-11',
     accent: 'from-violet-500/90 to-purple-600/90',
     preview: 'Nexa modules overzicht',
+  },
+  'component:website.screenshot_gallery': {
+    icon: 'ki-slider-horizontal-2',
+    accent: 'from-cyan-500/90 to-sky-600/90',
+    preview: 'Galerij met productafbeeldingen',
+  },
+  'component:website.comparison_table': {
+    icon: 'ki-like',
+    accent: 'from-rose-500/90 to-emerald-600/90',
+    preview: 'Voor- en nadelen naast elkaar',
+  },
+  'component:website.pricing_packages': {
+    icon: 'ki-dollar',
+    accent: 'from-emerald-500/90 to-green-600/90',
+    preview: 'Abonnementen en prijs pakketten',
+  },
+  'component:website.email_template_section': {
+    icon: 'ki-sms',
+    accent: 'from-indigo-500/90 to-blue-600/90',
+    preview: 'Formulier gekoppeld aan e-mailtemplate',
   },
   'component:nexa.recente_vacatures': {
     icon: 'ki-briefcase',

@@ -1,0 +1,22 @@
+---
+description: Scrollbare gebieden zonder achtergrondvlak; scrollbarkleur past bij light/dark
+alwaysApply: true
+---
+
+# Scroll: geen achtergrondvlak
+
+Bij **scrollbare lijsten, kolommen of panels** (tijdkiezer, dropdowns, side panels, enz.) geen aparte achtergrondkleur op het scrollvlak zetten. De scrollinhoud blijft visueel onderdeel van de parent (popover, modal, card).
+
+## Wel
+
+- Scrollcontainer: `overflow-y: auto` / `overflow: auto` **zonder** eigen `background` / `background-color`.
+- Sticky labels in een scrollkolom: transparant of dezelfde tint als de parent, geen contrastblok.
+- **Scrollbar** wél stylen per modus:
+  - Light: subtiel grijs (track licht, thumb mid-grijs)
+  - Dark: track donker/transparant, thumb lichter grijs
+  - Gebruik `scrollbar-width` + `scrollbar-color`, plus `::-webkit-scrollbar*` voor WebKit
+
+## Niet
+
+- Geen grijze/donkere “put” achter alleen de scrollbare uren/minuten of list items.
+- Geen vaste zwarte scrollbar in light mode (of omgekeerd).

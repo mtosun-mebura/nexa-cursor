@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\EnvService;
 use App\Services\ModuleManager;
 use App\Services\NexaPricingService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Services\TenantConfigAccessService;
 use App\Services\TenantOnboardingService;
 use App\Support\ModuleSchemaAvailability;
@@ -239,6 +240,10 @@ class AdminCompanyController extends Controller
         }
 
         $company = Company::create($companyData);
+
+        if (auth()->user()?->isSuperAdmin() && trim((string) ($company->package_key ?? '')) !== '') {
+            app(TenantSubscriptionService::class)->syncBillingPackageFromCompany($company, true);
+        }
 
         // Create locations if provided; eerste vestiging krijgt het contactadres van het bedrijf
         if (! empty($locations)) {
@@ -540,7 +545,17 @@ class AdminCompanyController extends Controller
             $data['logo_dark_mime_type'] = null;
         }
 
+        $previousPackageKey = trim((string) ($company->package_key ?? ''));
         $company->update($data);
+
+        if (auth()->user()?->isSuperAdmin()) {
+            $company->refresh();
+            $newPackageKey = trim((string) ($company->package_key ?? ''));
+            if ($newPackageKey !== '') {
+                app(TenantSubscriptionService::class)
+                    ->syncBillingPackageFromCompany($company, $previousPackageKey !== $newPackageKey);
+            }
+        }
 
         if (auth()->user()?->hasRole('super-admin') && $request->boolean('apply_module_sync')) {
             try {

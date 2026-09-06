@@ -3,8 +3,13 @@
 namespace App\Services;
 
 use App\Models\Company;
+use App\Models\EmailTemplate;
 use App\Models\FrontendTheme;
+use App\Models\WebsiteMedia;
 use App\Models\WebsitePage;
+use App\Services\AiWebsite\AiScalar;
+use App\Services\AiWebsite\ComponentRegistry\AiComponentRegistry;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +30,7 @@ class WebsiteAiGeneratorService
     public function __construct(
         protected WebsiteAiSourceReader $sourceReader,
         protected FrontendComponentService $components,
+        protected AiComponentRegistry $registry,
     ) {}
 
     /**
@@ -47,7 +53,7 @@ class WebsiteAiGeneratorService
         $theme = FrontendTheme::query()->findOrFail((int) $input['frontend_theme_id']);
         $maxPages = max(1, min(self::MAX_PAGES, (int) $input['max_pages']));
         $primary = $this->normalizeHex($input['primary_color'] ?? '') ?: (string) (($theme->settings['primary_color'] ?? null) ?: '#1e3a8a');
-        $secondary = $this->normalizeHex($input['secondary_color'] ?? '') ?: '#0f172a';
+        $secondary = $this->normalizeHex($input['secondary_color'] ?? '') ?: (string) (($theme->settings['secondary_color'] ?? null) ?: FrontendTheme::defaultSecondaryFor($primary));
         $generateImages = (bool) ($input['generate_images'] ?? true);
         $replaceExisting = (bool) ($input['replace_existing'] ?? false);
         $context = trim((string) $input['context']);
@@ -61,7 +67,13 @@ class WebsiteAiGeneratorService
             $maxPages,
         );
 
-        $company->update(['frontend_theme_id' => $theme->id]);
+        $company->update([
+            'frontend_theme_id' => $theme->id,
+            'website_theme_settings' => [
+                'primary_color' => $primary,
+                'secondary_color' => $secondary,
+            ],
+        ]);
 
         $created = [];
         $updated = [];
@@ -145,6 +157,442 @@ class WebsiteAiGeneratorService
             'used_openai' => $fromLlm !== null,
             'source_pages' => count($source['pages'] ?? []),
         ];
+    }
+
+    /**
+     * Schrijf geplande pagina’s als concept (niet publiceren).
+     *
+     * @param  list<array<string, mixed>>  $pages
+     * @param  list<array<string, mixed>>  $sitemap
+     * @return array{created: list<array{id: int, slug: string, title: string}>, updated: list<array{id: int, slug: string, title: string}>, skipped: list<string>, images: int, homepage_page_id: int|null}
+     */
+    public function persistDraftPages(
+        Company $company,
+        FrontendTheme $theme,
+        array $pages,
+        array $sitemap,
+        string $primary,
+        string $secondary,
+        bool $generateImages,
+        bool $replaceExisting,
+    ): array {
+        $primary = $this->normalizeHex($primary) ?: (string) (($theme->settings['primary_color'] ?? null) ?: '#1e3a8a');
+        $secondary = $this->normalizeHex($secondary) ?: (string) (($theme->settings['secondary_color'] ?? null) ?: FrontendTheme::defaultSecondaryFor($primary));
+        $company->update([
+            'frontend_theme_id' => $theme->id,
+            'website_theme_settings' => [
+                'primary_color' => $primary,
+                'secondary_color' => $secondary,
+            ],
+        ]);
+
+        $created = [];
+        $updated = [];
+        $skipped = [];
+        $imageCount = 0;
+        $moduleName = $this->resolveWebsiteModuleName($company);
+        $sort = WebsitePage::nextSortOrderForTenant(null, (int) $company->id);
+        $homePage = $this->findExistingPage($company, 'home', $moduleName);
+        $contactTemplateId = $this->resolveContactEmailTemplateId($company);
+
+        foreach ($pages as $rawPage) {
+            if (! is_array($rawPage)) {
+                continue;
+            }
+            $pagePlan = $this->pagePlanFromArray($rawPage);
+            $slug = (string) $pagePlan['slug'];
+            $isHome = $pagePlan['page_type'] === 'home' || $slug === 'home';
+            $existing = $this->findExistingPage($company, $slug, $moduleName);
+
+            if ($existing && ! $replaceExisting) {
+                $skipped[] = $slug;
+                if ($isHome) {
+                    $homePage = $existing;
+                }
+
+                continue;
+            }
+
+            $sections = $isHome
+                ? WebsitePage::defaultHomeSectionsForTheme((string) $theme->slug)
+                : WebsitePage::defaultPageSectionsForNonHome((string) $theme->slug);
+            $sections = $this->applyPagePlanToSections($sections, $pagePlan, $theme, $isHome, $company);
+            $sections = $this->finalizeSectionLayout($sections, $pagePlan, (string) $theme->slug, $company, $isHome, $contactTemplateId);
+            $sections = $this->applyBrandColors($sections, $primary, $secondary);
+
+            if ($generateImages && $isHome) {
+                $imageCount += $this->applyGeneratedImagesToMediaLibrary(
+                    $sections,
+                    $pagePlan,
+                    trim((string) ($company->slug ?? '')) ?: Str::slug((string) $company->name),
+                    $slug
+                );
+            }
+
+            $payload = [
+                'slug' => $slug,
+                'title' => $pagePlan['title'],
+                'menu_title' => $pagePlan['menu_title'],
+                'meta_description' => $pagePlan['meta_description'],
+                'page_type' => $pagePlan['page_type'],
+                'module_name' => $this->pageModuleName($existing, $moduleName),
+                'frontend_theme_id' => $theme->id,
+                'company_id' => $company->id,
+                'is_active' => false,
+                'show_in_menu' => (bool) $pagePlan['show_in_menu'],
+                'home_sections' => $sections,
+            ];
+
+            if ($existing) {
+                $existing->fill($payload);
+                $existing->save();
+                $page = $existing->fresh();
+                $updated[] = ['id' => (int) $page->id, 'slug' => $page->slug, 'title' => $page->title];
+            } else {
+                $payload['sort_order'] = $isHome ? min($sort, 1) : $sort;
+                $page = WebsitePage::query()->create($payload);
+                $sort++;
+                $created[] = ['id' => (int) $page->id, 'slug' => $page->slug, 'title' => $page->title];
+            }
+            if ($isHome) {
+                $homePage = $page;
+            }
+        }
+
+        $this->collapseDuplicateHomes($company, $moduleName);
+        $homePage = $this->findExistingPage($company, 'home', $moduleName) ?? $homePage;
+
+        $menuPages = [];
+        foreach ($sitemap as $item) {
+            if (! is_array($item) || ! ($item['show_in_menu'] ?? true)) {
+                continue;
+            }
+            $slug = (string) ($item['slug'] ?? '');
+            $type = (string) ($item['type'] ?? 'custom');
+            $menuPages[] = [
+                'label' => (string) ($item['title'] ?? $slug),
+                'url' => $this->publicPath($type === 'home' ? 'home' : $type, $slug !== '' ? $slug : 'pagina'),
+            ];
+        }
+        $first = is_array($pages[0] ?? null) ? $pages[0] : [];
+        $this->syncHomeFooter(
+            $company,
+            ['footer' => is_array($first['footer'] ?? null) ? $first['footer'] : []],
+            $menuPages,
+            $theme,
+            $moduleName
+        );
+
+        return [
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'images' => $imageCount,
+            'homepage_page_id' => $homePage?->id ? (int) $homePage->id : null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $page
+     * @return array<string, mixed>
+     */
+    private function pagePlanFromArray(array $page): array
+    {
+        $title = AiScalar::string($page['title'] ?? '') ?: 'Pagina';
+        $pageType = AiScalar::string($page['page_type'] ?? $page['type'] ?? 'custom');
+        $slug = Str::slug(AiScalar::string($page['slug'] ?? $title));
+        if ($pageType === 'home' || $slug === 'home') {
+            $pageType = 'home';
+            $slug = 'home';
+        } elseif ($pageType === 'about' && $slug === '') {
+            $slug = 'over-ons';
+        } elseif ($pageType === 'contact' && $slug === '') {
+            $slug = 'contact';
+        } elseif ($slug === '') {
+            $slug = 'pagina';
+        }
+
+        return [
+            'slug' => $slug,
+            'title' => mb_substr($title, 0, 255),
+            'menu_title' => mb_substr(AiScalar::string($page['menu_title'] ?? '') ?: $title, 0, 80),
+            'meta_description' => mb_substr(AiScalar::string($page['meta_description'] ?? ''), 0, 500),
+            'page_type' => in_array($pageType, ['home', 'about', 'contact', 'custom'], true) ? $pageType : 'custom',
+            'show_in_menu' => array_key_exists('show_in_menu', $page) ? (bool) $page['show_in_menu'] : true,
+            'hero' => is_array($page['hero'] ?? null) ? $page['hero'] : [],
+            'why_nexa' => is_array($page['why_nexa'] ?? null) ? $page['why_nexa'] : [],
+            'features' => is_array($page['features'] ?? null) ? $page['features'] : [],
+            'stats' => is_array($page['stats'] ?? null) ? $page['stats'] : [],
+            'cta' => is_array($page['cta'] ?? null) ? $page['cta'] : [],
+            'featured_services' => is_array($page['featured_services'] ?? null) ? $page['featured_services'] : [],
+            'text_block' => is_array($page['text_block'] ?? null) ? $page['text_block'] : [],
+            'email_template' => is_array($page['email_template'] ?? null) ? $page['email_template'] : [],
+            'components' => AiScalar::componentIds($page['components'] ?? []),
+            'component_copy' => is_array($page['component_copy'] ?? null) ? $page['component_copy'] : [],
+            'section_order' => is_array($page['section_order'] ?? null) ? $page['section_order'] : [],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $sections
+     * @param  array<string, mixed>  $pagePlan
+     * @return array<string, mixed>
+     */
+    private function finalizeSectionLayout(
+        array $sections,
+        array $pagePlan,
+        string $themeSlug,
+        Company $company,
+        bool $isHome,
+        ?int $contactTemplateId,
+    ): array {
+        $planned = is_array($pagePlan['section_order'] ?? null) ? $pagePlan['section_order'] : [];
+        $order = $this->registry->filterSectionOrder($themeSlug, $planned !== [] ? $planned : ($sections['section_order'] ?? ['hero']));
+
+        if ($this->hasMeaningfulFeaturedServices($sections['featured_services'] ?? [])) {
+            $order = $this->insertBeforeCta($order, 'featured_services');
+        }
+        $text = trim((string) data_get($sections, 'text_block.content', data_get($pagePlan, 'text_block.content', '')));
+        if ($text !== '') {
+            $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
+            $block['content'] = $text;
+            $sections['text_block'] = $block;
+            $order = $this->insertBeforeCta($order, 'text_block');
+        }
+
+        $isContact = ($pagePlan['page_type'] ?? '') === 'contact' || ($pagePlan['slug'] ?? '') === 'contact';
+        if ($isContact && $contactTemplateId) {
+            $email = is_array($sections['email_template'] ?? null)
+                ? $sections['email_template']
+                : WebsitePage::defaultHomeSections()['email_template'];
+            $title = trim((string) ($pagePlan['email_template']['title'] ?? $email['title'] ?? ''));
+            $email['title'] = $title !== '' ? $title : 'Stuur een bericht';
+            $email['template_id'] = $contactTemplateId;
+            $sections['email_template'] = $email;
+            $heroIndex = array_search('text_block', $order, true);
+            if (! in_array('email_template', $order, true)) {
+                if ($heroIndex !== false) {
+                    array_splice($order, (int) $heroIndex + 1, 0, ['email_template']);
+                } else {
+                    $order = $this->insertAfterHero($order, 'email_template');
+                }
+            }
+        }
+
+        foreach ($this->allowedComponentKeys($pagePlan['components'] ?? []) as $componentKey) {
+            if (str_contains($componentKey, 'boekingsmodule')) {
+                continue;
+            }
+            $this->ensureComponentSection($sections, $componentKey, $pagePlan);
+            if (! in_array($componentKey, $order, true)) {
+                $order = $this->insertBeforeCta($order, $componentKey);
+            }
+        }
+
+        $wantsBooking = $company->hasTaxiModule();
+        foreach (AiScalar::componentIds($pagePlan['components'] ?? []) as $id) {
+            if (str_contains($id, 'boekingsmodule')) {
+                $wantsBooking = true;
+                break;
+            }
+        }
+        if ($isHome && $wantsBooking) {
+            $bookingKey = 'component:taxi.boekingsmodule_v2';
+            $this->ensureComponentSection($sections, $bookingKey, $pagePlan);
+            $order = array_values(array_filter(
+                $order,
+                fn ($key) => ! is_string($key) || ! str_contains($key, 'boekingsmodule')
+            ));
+            $order = $this->insertAfterHero($order, $bookingKey);
+        }
+
+        $sections['section_order'] = array_values(array_unique($order));
+        $this->applyComponentCopy($sections, $pagePlan);
+
+        return $sections;
+    }
+
+    /**
+     * @param  array<string, mixed>  $sections
+     * @param  array<string, mixed>  $pagePlan
+     */
+    private function ensureComponentSection(array &$sections, string $componentKey, array $pagePlan): void
+    {
+        $id = FrontendComponentService::componentIdFromKey($componentKey);
+        if ($id === null || $id === '') {
+            return;
+        }
+        if (in_array($id, ['taxi.boekingsmodule_v2', 'taxi.algemene_boekingsmodule', 'taxi.boekingsmodule'], true)) {
+            $current = is_array($sections[$componentKey] ?? null) ? $sections[$componentKey] : [];
+            $sections[$componentKey] = array_replace_recursive(
+                app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
+                $current
+            );
+
+            return;
+        }
+        if (isset($sections[$componentKey]) && is_array($sections[$componentKey]) && $sections[$componentKey] !== []) {
+            return;
+        }
+        $sections[$componentKey] = $this->components->defaultSectionData($id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $sections
+     * @param  array<string, mixed>  $pagePlan
+     */
+    private function applyComponentCopy(array &$sections, array $pagePlan): void
+    {
+        $copy = is_array($pagePlan['component_copy'] ?? null) ? $pagePlan['component_copy'] : [];
+        foreach ($copy as $id => $data) {
+            if (! is_array($data)) {
+                continue;
+            }
+            $key = str_starts_with((string) $id, 'component:') ? (string) $id : 'component:'.$id;
+            if (! isset($sections[$key]) || ! is_array($sections[$key])) {
+                continue;
+            }
+            $sections[$key] = array_replace_recursive($sections[$key], $data);
+        }
+    }
+
+    /**
+     * @param  list<string>  $order
+     * @return list<string>
+     */
+    private function insertAfterHero(array $order, string $key): array
+    {
+        $order = array_values(array_filter($order, fn ($item) => $item !== $key));
+        $heroIndex = array_search('hero', $order, true);
+        $at = $heroIndex === false ? 0 : $heroIndex + 1;
+        array_splice($order, $at, 0, [$key]);
+
+        return array_values($order);
+    }
+
+    private function resolveContactEmailTemplateId(Company $company): ?int
+    {
+        $email = trim((string) ($company->email ?? '')) ?: trim((string) ($company->contact_email ?? ''));
+        $existing = EmailTemplate::query()
+            ->where('company_id', $company->id)
+            ->where('type', 'informatieaanvraag')
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->first();
+        if ($existing) {
+            if ($email !== '' && trim((string) $existing->recipient_email) === '') {
+                $existing->recipient_type = 'email';
+                $existing->recipient_email = $email;
+                $existing->save();
+            }
+
+            return (int) $existing->id;
+        }
+
+        $template = EmailTemplate::query()->create([
+            'name' => 'Contactformulier '.$company->name,
+            'subject' => 'Nieuwe aanvraag via de website van '.$company->name,
+            'type' => 'informatieaanvraag',
+            'html_content' => '<p>Er is een nieuwe aanvraag via de website.</p>{{ DYNAMIC_FORM_FIELDS }}',
+            'is_active' => true,
+            'company_id' => $company->id,
+            'recipient_type' => 'email',
+            'recipient_email' => $email !== '' ? $email : null,
+        ]);
+
+        return (int) $template->id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $sections
+     * @param  array<string, mixed>  $pagePlan
+     */
+    private function applyGeneratedImagesToMediaLibrary(array &$sections, array $pagePlan, string $companySlug, string $slug): int
+    {
+        $prompt = trim((string) data_get($pagePlan, 'hero.image_prompt', ''));
+        if ($prompt === '') {
+            $prompt = 'Photorealistic cinematic photograph for a professional Dutch company website hero, no text, no logos';
+        }
+        $prompt .= '. Brand mood colors, high-end commercial photography, 35mm, sharp focus.';
+        $url = $this->generateAndStoreImageInMediaLibrary($prompt, $companySlug, $slug);
+        if ($url === null) {
+            return 0;
+        }
+        if (isset($sections['hero']) && is_array($sections['hero'])) {
+            $sections['hero']['background_image_url'] = $url;
+        }
+
+        return 1;
+    }
+
+    public function generateAndStoreWebsiteImage(string $prompt, string $companySlug, string $pageSlug): ?string
+    {
+        return $this->generateAndStoreImageInMediaLibrary($prompt, $companySlug, $pageSlug);
+    }
+
+    private function generateAndStoreImageInMediaLibrary(string $prompt, string $companySlug, string $pageSlug): ?string
+    {
+        $apiKey = config('services.openai.api_key');
+        if (! is_string($apiKey) || trim($apiKey) === '') {
+            return null;
+        }
+
+        $model = (string) config('ai_website.image_model', config('services.openai.image_model', 'dall-e-3'));
+        $payload = [
+            'model' => $model,
+            'prompt' => mb_substr($prompt, 0, 3500),
+            'n' => 1,
+            'size' => (string) config('services.openai.image_size', '1792x1024'),
+        ];
+        if ($model === 'dall-e-3') {
+            $payload['quality'] = (string) config('ai_website.image_quality', config('services.openai.image_quality', 'standard'));
+        }
+
+        try {
+            $response = Http::withToken($apiKey)
+                ->timeout(120)
+                ->post('https://api.openai.com/v1/images/generations', $payload);
+            if (! $response->successful()) {
+                Log::warning('Website AI image: OpenAI HTTP-fout', [
+                    'status' => $response->status(),
+                    'body' => mb_substr((string) $response->body(), 0, 500),
+                ]);
+
+                return null;
+            }
+            $b64 = $response->json('data.0.b64_json');
+            $remoteUrl = $response->json('data.0.url');
+            $binary = null;
+            if (is_string($b64) && $b64 !== '') {
+                $decoded = base64_decode($b64, true);
+                $binary = $decoded !== false ? $decoded : null;
+            } elseif (is_string($remoteUrl) && $remoteUrl !== '') {
+                $download = Http::timeout(60)->get($remoteUrl);
+                if ($download->successful()) {
+                    $binary = $download->body();
+                }
+            }
+            if ($binary === null || $binary === '') {
+                return null;
+            }
+
+            $uuid = (string) Str::uuid();
+            $encryptedPath = 'website_media/'.$uuid.'.enc';
+            $media = WebsiteMedia::query()->create([
+                'uuid' => $uuid,
+                'original_filename' => 'ai-'.Str::slug($companySlug.'-'.$pageSlug).'.png',
+                'mime_type' => 'image/png',
+                'encrypted_path' => $encryptedPath,
+                'size' => strlen($binary),
+            ]);
+            Storage::disk('local')->put($encryptedPath, Crypt::encrypt($binary));
+
+            return '/website-media/'.$media->uuid;
+        } catch (Throwable $e) {
+            Log::warning('Website AI image: uitzondering', ['error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     /**
@@ -513,7 +961,7 @@ class WebsiteAiGeneratorService
     {
         $hero = is_array($sections['hero'] ?? null) ? $sections['hero'] : [];
         foreach (['title', 'title_highlight', 'subtitle', 'cta_primary_text', 'cta_primary_url', 'cta_secondary_text', 'cta_secondary_url'] as $field) {
-            $value = trim((string) data_get($pagePlan, 'hero.'.$field, ''));
+            $value = AiScalar::string(data_get($pagePlan, 'hero.'.$field, ''));
             if ($value !== '') {
                 $hero[$field] = $value;
             }
@@ -531,8 +979,15 @@ class WebsiteAiGeneratorService
             if ($this->hasMeaningfulFeaturedServices($sections['featured_services'] ?? [])) {
                 $order = $this->insertBeforeCta($order, 'featured_services');
             }
+            $homeText = AiScalar::string(data_get($pagePlan, 'text_block.content', ''));
+            if ($homeText !== '') {
+                $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
+                $block['content'] = $homeText;
+                $sections['text_block'] = $block;
+                $order = $this->insertBeforeCta($order, 'text_block');
+            }
         } else {
-            $text = trim((string) data_get($pagePlan, 'text_block.content', ''));
+            $text = AiScalar::string(data_get($pagePlan, 'text_block.content', ''));
             if ($text !== '') {
                 $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
                 $block['content'] = $text;
@@ -570,7 +1025,7 @@ class WebsiteAiGeneratorService
     {
         $block = is_array($sections[$key] ?? null) ? $sections[$key] : [];
         foreach ($fields as $field) {
-            $value = trim((string) ($incoming[$field] ?? ''));
+            $value = AiScalar::string($incoming[$field] ?? '');
             if ($value !== '') {
                 $block[$field] = $value;
             }
@@ -585,7 +1040,7 @@ class WebsiteAiGeneratorService
     private function mergeFeatures(array &$sections, array $incoming): void
     {
         $block = is_array($sections['features'] ?? null) ? $sections['features'] : ['items' => []];
-        $title = trim((string) ($incoming['section_title'] ?? ''));
+        $title = AiScalar::string($incoming['section_title'] ?? '');
         if ($title !== '') {
             $block['section_title'] = $title;
         }
@@ -595,14 +1050,14 @@ class WebsiteAiGeneratorService
             if (! is_array($item)) {
                 continue;
             }
-            $itemTitle = trim((string) ($item['title'] ?? ''));
+            $itemTitle = AiScalar::string($item['title'] ?? '');
             if ($itemTitle === '') {
                 continue;
             }
             $mapped[] = [
                 'title' => $itemTitle,
-                'description' => trim((string) ($item['description'] ?? '')),
-                'icon' => $this->normalizeIcon((string) ($item['icon'] ?? 'bolt')),
+                'description' => AiScalar::string($item['description'] ?? ''),
+                'icon' => $this->normalizeIcon(AiScalar::string($item['icon'] ?? 'bolt') ?: 'bolt'),
                 'icon_size' => 'medium',
                 'icon_align' => 'center',
             ];
@@ -629,8 +1084,8 @@ class WebsiteAiGeneratorService
             if (! is_array($item)) {
                 continue;
             }
-            $value = trim((string) ($item['value'] ?? ''));
-            $label = trim((string) ($item['label'] ?? ''));
+            $value = AiScalar::string($item['value'] ?? '');
+            $label = AiScalar::string($item['label'] ?? '');
             if ($value === '' && $label === '') {
                 continue;
             }
@@ -661,10 +1116,16 @@ class WebsiteAiGeneratorService
             ? $sections['featured_services']
             : WebsitePage::defaultHomeSections()['featured_services'];
         foreach (['title', 'subtitle'] as $field) {
-            $value = trim((string) ($incoming[$field] ?? ''));
+            $value = AiScalar::string($incoming[$field] ?? '');
             if ($value !== '') {
                 $block[$field] = $value;
             }
+        }
+        $speed = AiScalar::string($incoming['animation_speed'] ?? '');
+        if (in_array($speed, ['fast', 'normal', 'slow', 'slower'], true)) {
+            $block['animation_speed'] = $speed;
+        } elseif (! isset($block['animation_speed']) || $block['animation_speed'] === '') {
+            $block['animation_speed'] = 'slow';
         }
         $items = is_array($incoming['items'] ?? null) ? array_values($incoming['items']) : [];
         $mapped = [];
@@ -672,14 +1133,14 @@ class WebsiteAiGeneratorService
             if (! is_array($item)) {
                 continue;
             }
-            $title = trim((string) ($item['title'] ?? ''));
+            $title = AiScalar::string($item['title'] ?? '');
             if ($title === '') {
                 continue;
             }
             $mapped[] = [
-                'icon' => $this->normalizeIcon((string) ($item['icon'] ?? 'briefcase')),
+                'icon' => $this->normalizeIcon(AiScalar::string($item['icon'] ?? 'briefcase') ?: 'briefcase'),
                 'title' => $title,
-                'description' => trim((string) ($item['description'] ?? '')),
+                'description' => AiScalar::string($item['description'] ?? ''),
             ];
             if (count($mapped) >= 6) {
                 break;
@@ -739,9 +1200,7 @@ class WebsiteAiGeneratorService
             return [];
         }
         $keys = [];
-        foreach ($components as $id) {
-            $id = strtolower(trim((string) $id));
-            $id = preg_replace('/^component:/', '', $id) ?? $id;
+        foreach (AiScalar::componentIds($components) as $id) {
             if ($id === '' || $this->components->getById($id) === null) {
                 continue;
             }
@@ -760,10 +1219,11 @@ class WebsiteAiGeneratorService
      */
     private function applyBrandColors(array $sections, string $primary, string $secondary): array
     {
+        $onPrimary = $this->contrastingText($primary);
         if (isset($sections['hero']) && is_array($sections['hero'])) {
             $sections['hero']['cta_primary_bg'] = $primary;
             $sections['hero']['cta_primary_border'] = $primary;
-            $sections['hero']['cta_primary_text_color'] = '#ffffff';
+            $sections['hero']['cta_primary_text_color'] = $onPrimary;
             $sections['hero']['cta_secondary_bg'] = 'transparent';
             $sections['hero']['cta_secondary_border'] = '#ffffff';
             $sections['hero']['cta_secondary_text_color'] = '#ffffff';
@@ -776,10 +1236,51 @@ class WebsiteAiGeneratorService
         if (isset($sections['cta']) && is_array($sections['cta'])) {
             $sections['cta']['cta_primary_bg'] = $primary;
             $sections['cta']['cta_primary_border'] = $primary;
-            $sections['cta']['cta_primary_text_color'] = '#ffffff';
+            $sections['cta']['cta_primary_text_color'] = $onPrimary;
+        }
+        if (isset($sections['featured_services']) && is_array($sections['featured_services'])) {
+            $items = is_array($sections['featured_services']['items'] ?? null) ? $sections['featured_services']['items'] : [];
+            foreach ($items as $i => $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $items[$i]['icon_color'] = $primary;
+            }
+            $sections['featured_services']['items'] = $items;
+        }
+        if (isset($sections['stats']) && is_array($sections['stats'])) {
+            $items = is_array($sections['stats']['items'] ?? null) ? $sections['stats']['items'] : [];
+            foreach ($items as $i => $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $items[$i]['value_color'] = $primary;
+            }
+            $sections['stats']['items'] = $items;
+        }
+        foreach ($sections as $key => $block) {
+            if (! is_string($key) || ! str_contains($key, 'boekingsmodule') || ! is_array($block)) {
+                continue;
+            }
+            $style = is_array($block['style'] ?? null) ? $block['style'] : [];
+            $style['primary_color'] = $primary;
+            $style['active_tab_color'] = $primary;
+            $block['style'] = $style;
+            $sections[$key] = $block;
         }
 
         return $sections;
+    }
+
+    private function contrastingText(string $hex): string
+    {
+        $hex = ltrim($this->normalizeHex($hex) ?: '#111827', '#');
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        $luminance = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
+
+        return $luminance > 0.62 ? '#111827' : '#ffffff';
     }
 
     /**
@@ -820,7 +1321,6 @@ class WebsiteAiGeneratorService
         ];
         if ($model === 'dall-e-3') {
             $payload['quality'] = (string) config('services.openai.image_quality', 'hd');
-            $payload['response_format'] = 'b64_json';
         }
 
         try {
@@ -828,7 +1328,10 @@ class WebsiteAiGeneratorService
                 ->timeout(120)
                 ->post('https://api.openai.com/v1/images/generations', $payload);
             if (! $response->successful()) {
-                Log::warning('Website AI image: OpenAI HTTP-fout', ['status' => $response->status()]);
+                Log::warning('Website AI image: OpenAI HTTP-fout', [
+                    'status' => $response->status(),
+                    'body' => mb_substr((string) $response->body(), 0, 500),
+                ]);
 
                 return null;
             }
@@ -1038,7 +1541,6 @@ class WebsiteAiGeneratorService
                 'meta_description' => $contentSource->meta_description,
                 'home_sections' => $contentSource->home_sections,
                 'frontend_theme_id' => $contentSource->frontend_theme_id ?: $canonical->frontend_theme_id,
-                'is_active' => true,
                 'show_in_menu' => true,
             ]);
             $canonical->save();

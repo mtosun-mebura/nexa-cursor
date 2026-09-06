@@ -8,7 +8,7 @@
 
 @section('content')
 <article class="kt-card w-full min-w-0">
-    <div class="kt-card-header border-b border-border py-5">
+    <div class="kt-card-header border-b border-border px-5 py-5">
         <div class="flex flex-wrap items-center gap-4 w-full">
             <span class="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
                 <i class="ki-filled {{ $page['icon'] ?? 'ki-document' }} text-xl"></i>
@@ -16,6 +16,9 @@
             <div class="min-w-0 flex-1">
                 <p class="text-xs uppercase tracking-wide text-muted-foreground mb-1">Handleiding</p>
                 <h1 class="kt-card-title text-2xl mb-1">{{ $page['title'] }}</h1>
+                @if(!empty($page['super_admin_only']))
+                    <span class="kt-badge kt-badge-light text-[10px] mb-1">Alleen super-admin</span>
+                @endif
                 @if(!empty($page['summary']))
                     <p class="text-sm text-muted-foreground mb-0">{{ $page['summary'] }}</p>
                 @endif
@@ -25,7 +28,7 @@
             @endif
         </div>
     </div>
-    <div class="kt-card-content handleiding-prose max-w-none">
+    <div class="kt-card-content handleiding-prose max-w-none p-5 lg:p-6">
         @include('admin.handleiding.pages.' . $slug)
     </div>
 </article>

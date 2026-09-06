@@ -12,7 +12,7 @@
     $primary = $themeSettings['primary_color'] ?? '#7e3af2';
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
-<section class="py-14 md:py-20 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="landwind.faq" data-theme-anim="wipe" data-scroll-reveal>
+<section class="py-10 md:py-14 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="landwind.faq" data-theme-anim="wipe" data-scroll-reveal>
     <div class="website-section-inner max-w-3xl mx-auto">
         <div class="theme-fade" style="--theme-reveal-delay: 0ms;">
             <p class="mb-3 text-sm font-semibold uppercase tracking-[0.2em]" style="color: {{ $primary }}">{{ $data['eyebrow'] ?? 'FAQ' }}</p>

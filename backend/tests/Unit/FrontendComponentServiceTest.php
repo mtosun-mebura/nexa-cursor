@@ -62,6 +62,28 @@ class FrontendComponentServiceTest extends TestCase
         $this->assertContains('website.pricing_packages', $ids);
     }
 
+    public function test_legacy_taxi_booking_module_is_disabled_but_still_renderable(): void
+    {
+        $service = app(FrontendComponentService::class);
+
+        $this->assertNotNull($service->getById('taxi.boekingsmodule'));
+        $this->assertNotNull($service->getById('taxi.boekingsmodule_v2'));
+        $this->assertNotNull($service->getById('taxi.algemene_boekingsmodule'));
+        $this->assertTrue($service->isDisabled('taxi.boekingsmodule'));
+        $this->assertFalse($service->isDisabled('taxi.boekingsmodule_v2'));
+        $this->assertFalse($service->isDisabled('taxi.algemene_boekingsmodule'));
+        $this->assertTrue($service->isPersistableComponentSectionKey('component:taxi.boekingsmodule'));
+        $this->assertTrue($service->isAllowedComponentSectionKey('component:taxi.boekingsmodule'));
+
+        $ids = $service->availableForPage(null)->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertNotContains('taxi.boekingsmodule', $ids);
+        $this->assertContains('taxi.boekingsmodule_v2', $ids);
+        $this->assertContains('taxi.algemene_boekingsmodule', $ids);
+
+        $disabled = $service->disabledForPage(null)->pluck('id')->map(fn ($id) => strtolower((string) $id));
+        $this->assertContains('taxi.boekingsmodule', $disabled);
+    }
+
     public function test_theme_components_are_available_on_any_page_theme(): void
     {
         $service = app(FrontendComponentService::class);

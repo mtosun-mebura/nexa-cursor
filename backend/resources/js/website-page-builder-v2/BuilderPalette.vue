@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { componentMeta, sectionMeta } from './palette-meta'
 import type { ComponentCatalogItem, PaletteDragPayload } from './types'
 import { writeDragPayload } from './builder-state'
@@ -10,8 +10,10 @@ const THEME_GROUP_ORDER = ['Landwind', 'Play Tailwind', 'Vue Material Kit']
 const props = defineProps<{
   sections: Array<{ type: string; label: string }>
   components: ComponentCatalogItem[]
+  disabledComponents?: ComponentCatalogItem[]
   query: string
   blockPreviewUrl: string
+  toggleDisabledUrl?: string
   themeSlug: string
 }>()
 
@@ -26,6 +28,23 @@ const suppressClick = ref(false)
 const previewOpen = ref(false)
 const previewTitle = ref('')
 const previewQuery = ref('')
+const togglingId = ref('')
+const toggleError = ref('')
+const activeComponents = ref<ComponentCatalogItem[]>([...props.components])
+const disabledList = ref<ComponentCatalogItem[]>([...(props.disabledComponents ?? [])])
+
+watch(
+  () => props.components,
+  (value) => {
+    activeComponents.value = [...value]
+  }
+)
+watch(
+  () => props.disabledComponents,
+  (value) => {
+    disabledList.value = [...(value ?? [])]
+  }
+)
 
 const previewUrl = computed(() => {
   if (!props.blockPreviewUrl || !previewQuery.value) {
@@ -62,7 +81,7 @@ function matches(text: string, query: string) {
 }
 
 const componentGroups = computed(() => {
-  const filtered = props.components.filter((c) =>
+  const filtered = activeComponents.value.filter((c) =>
     matches(`${c.name} ${c.description} ${c.themeName || ''} ${c.moduleName}`, props.query)
   )
   const general = filtered.filter((c) => !c.themeName)
@@ -95,6 +114,12 @@ const componentGroups = computed(() => {
   }
   return groups
 })
+
+const filteredDisabled = computed(() =>
+  disabledList.value.filter((c) =>
+    matches(`${c.name} ${c.description} ${c.themeName || ''} ${c.moduleName}`, props.query)
+  )
+)
 
 function currentAdminIsDark(): boolean {
   return (
@@ -140,6 +165,45 @@ function openComponentPreview(
 
 function closePreview() {
   previewOpen.value = false
+}
+
+async function activateComponent(event: Event, component: ComponentCatalogItem) {
+  event.preventDefault()
+  event.stopPropagation()
+  if (!props.toggleDisabledUrl || togglingId.value) {
+    return
+  }
+  togglingId.value = component.id
+  toggleError.value = ''
+  const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+  try {
+    const response = await fetch(props.toggleDisabledUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-CSRF-TOKEN': token,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({
+        component_id: component.id,
+        disabled: false,
+      }),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || !payload?.success) {
+      toggleError.value = payload?.message || 'Activeren is niet gelukt.'
+      return
+    }
+    disabledList.value = disabledList.value.filter((item) => item.id !== component.id)
+    if (!activeComponents.value.some((item) => item.id === component.id)) {
+      activeComponents.value = [...activeComponents.value, { ...component, disabled: false }]
+    }
+  } catch {
+    toggleError.value = 'Activeren is niet gelukt.'
+  } finally {
+    togglingId.value = ''
+  }
 }
 </script>
 
@@ -228,6 +292,35 @@ function closePreview() {
               @dragstart.stop.prevent
             >
               <i class="ki-filled ki-eye" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="filteredDisabled.length" class="builder-palette-group">
+        <h3 class="builder-palette-group__title">Uitgeschakeld</h3>
+        <p class="text-xs text-muted-foreground mb-2">Niet toe te voegen tot je ze weer activeert. Bestaande pagina’s blijven werken.</p>
+        <p v-if="toggleError" class="text-xs text-destructive mb-2">{{ toggleError }}</p>
+        <div class="builder-palette-list">
+          <div
+            v-for="component in filteredDisabled"
+            :key="'disabled-' + component.sectionKey"
+            class="builder-palette-row builder-palette-row--disabled"
+          >
+            <span class="builder-palette-row__icon bg-gradient-to-br from-zinc-400/80 to-zinc-600/80">
+              <i class="ki-filled text-white" :class="componentMeta(component.sectionKey).icon" />
+            </span>
+            <span class="min-w-0 grow">
+              <span class="block text-sm font-medium text-muted-foreground">{{ component.name }}</span>
+              <span class="block text-xs text-muted-foreground">{{ component.themeName ? `Thema: ${component.themeName}` : component.moduleName }}</span>
+            </span>
+            <button
+              type="button"
+              class="builder-palette-activate-btn"
+              :disabled="togglingId === component.id || !toggleDisabledUrl"
+              @click="activateComponent($event, component)"
+            >
+              {{ togglingId === component.id ? 'Bezig…' : 'Activeren' }}
             </button>
           </div>
         </div>

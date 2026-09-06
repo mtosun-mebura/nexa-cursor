@@ -110,6 +110,91 @@ class AdminWebsitePageController extends Controller
             ->with('success', 'Volgorde bijgewerkt.');
     }
 
+    /**
+     * Zet één website-pagina actief of inactief (zichtbaar op de live website).
+     */
+    public function toggleActive(Request $request, WebsitePage $website_page): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $pages = $this->loadWebsitePagesForCurrentAdminContext($request);
+        $inList = $pages->contains(
+            fn ($page) => $page instanceof WebsitePage && $this->websitePagesAreSameAdminRow($page, $website_page)
+        );
+        if (! $inList) {
+            abort(404);
+        }
+
+        $isActive = $request->boolean('is_active');
+        $this->persistWebsitePageActiveState($website_page, $isActive);
+
+        return redirect()
+            ->route('admin.website-pages.index', array_merge($this->websitePagesIndexQuery($request), ['saved' => 1]))
+            ->with('success', $isActive
+                ? 'Pagina is nu actief en zichtbaar op de website.'
+                : 'Pagina is nu inactief (niet zichtbaar op de website).');
+    }
+
+    /**
+     * Zet alle pagina's in de huidige admin-lijst actief of inactief.
+     */
+    public function setListedPagesActive(Request $request): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $indexQuery = $this->websitePagesIndexQuery($request);
+        $pages = $this->loadWebsitePagesForCurrentAdminContext($request);
+        if ($pages->isEmpty()) {
+            return redirect()
+                ->route('admin.website-pages.index', $indexQuery)
+                ->with('error', 'Geen pagina\'s om te wijzigen.');
+        }
+
+        $isActive = $request->boolean('is_active');
+        $updated = 0;
+        foreach ($pages as $page) {
+            if (! $page instanceof WebsitePage) {
+                continue;
+            }
+            if ((bool) $page->is_active === $isActive) {
+                continue;
+            }
+            $this->persistWebsitePageActiveState($page, $isActive);
+            $updated++;
+        }
+
+        if ($updated === 0) {
+            $msg = $isActive
+                ? 'Alle pagina\'s op deze lijst waren al actief.'
+                : 'Alle pagina\'s op deze lijst waren al inactief.';
+        } elseif ($isActive) {
+            $msg = $updated === 1
+                ? '1 pagina is nu actief en zichtbaar op de website.'
+                : $updated." pagina's zijn nu actief en zichtbaar op de website.";
+        } else {
+            $msg = $updated === 1
+                ? '1 pagina is nu inactief (niet zichtbaar op de website).'
+                : $updated." pagina's zijn nu inactief (niet zichtbaar op de website).";
+        }
+
+        return redirect()
+            ->route('admin.website-pages.index', array_merge($indexQuery, ['saved' => 1]))
+            ->with('success', $msg);
+    }
+
+    private function persistWebsitePageActiveState(WebsitePage $page, bool $isActive): void
+    {
+        $page->is_active = $isActive;
+        $page->save();
+        $this->syncWebsitePageMirrorConnection($page, ['is_active' => $isActive]);
+    }
+
     public function create(Request $request)
     {
         $this->ensureSuperAdmin();
@@ -591,6 +676,60 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * Genereer een sectie-afbeelding (bijv. tekstblok) via OpenAI en sla die op in de website-media.
+     */
+    public function generateSectionImage(Request $request, \App\Services\WebsiteAiGeneratorService $aiGenerator): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+        @set_time_limit(180);
+
+        $valid = $request->validate([
+            'prompt' => 'nullable|string|max:2000',
+            'content' => 'nullable|string|max:4000',
+            'page_title' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
+            'company_id' => 'nullable|integer',
+        ]);
+
+        $companyName = trim((string) ($valid['company_name'] ?? ''));
+        $companyId = isset($valid['company_id']) && is_numeric($valid['company_id'])
+            ? (int) $valid['company_id']
+            : $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        if ($companyName === '' && $companyId) {
+            $companyName = (string) (Company::query()->find($companyId)?->name ?? '');
+        }
+        if ($companyName === '') {
+            $companyName = 'een Nederlands bedrijf';
+        }
+
+        $prompt = trim((string) ($valid['prompt'] ?? ''));
+        if ($prompt === '') {
+            $plain = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($valid['content'] ?? ''))) ?? '');
+            $plain = mb_substr($plain, 0, 400);
+            $prompt = 'Photorealistic photograph for a professional Dutch company website text section about '.$companyName.'. ';
+            $prompt .= $plain !== '' ? $plain.' ' : '';
+            $prompt .= 'No text, no logos, no watermarks. Cinematic lighting, 35mm, natural colors.';
+        }
+
+        $url = $aiGenerator->generateAndStoreWebsiteImage(
+            $prompt,
+            \Illuminate\Support\Str::slug($companyName) ?: 'site',
+            \Illuminate\Support\Str::slug((string) ($valid['page_title'] ?? 'section')) ?: 'section'
+        );
+        if ($url === null) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Afbeelding genereren mislukt. Controleer of er een OpenAI-sleutel is ingesteld.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'url' => $url,
+        ]);
+    }
+
+    /**
      * Genereer en sla SEO-titels, meta-omschrijvingen en hero-teksten op voor alle pagina's in de huidige admin-lijst.
      */
     public function generateSeoForAllPages(Request $request, WebsitePageSeoGeneratorService $seoGenerator): RedirectResponse
@@ -882,7 +1021,9 @@ class AdminWebsitePageController extends Controller
         $theme = FrontendTheme::query()->where('slug', $themeSlug)->where('is_active', true)->first()
             ?? $this->websiteBuilder->getActiveTheme();
         $themeSlug = $theme?->slug ?? $themeSlug;
-        $themeSettings = $theme ? $theme->getSettings() : [];
+        $previewCompanyId = (int) ($request->query('tenant_company') ?: session('selected_tenant') ?: 0);
+        $previewCompany = $previewCompanyId > 0 ? Company::query()->find($previewCompanyId) : null;
+        $themeSettings = $theme ? $theme->getSettings($previewCompany) : [];
 
         $defaults = WebsitePage::defaultHomeSectionsForTheme($themeSlug);
         $label = 'Voorbeeld';
@@ -1201,7 +1342,7 @@ class AdminWebsitePageController extends Controller
                 'section_background' => '',
             ];
         }
-        if (in_array($canonicalId, ['taxi.boekingsmodule', 'taxi.boekingsmodule_v2', 'taxiroyaal.boekingsmodule'], true)) {
+        if (in_array($canonicalId, ['taxi.boekingsmodule', 'taxi.boekingsmodule_v2', 'taxi.algemene_boekingsmodule', 'taxiroyaal.boekingsmodule'], true)) {
             $config = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
             $config['style'] = is_array($config['style'] ?? null) ? $config['style'] : [];
             $config['style']['border_radius'] = 16;
@@ -1309,7 +1450,7 @@ class AdminWebsitePageController extends Controller
         $menuPages = $this->websiteBuilder->getActiveMenuPages();
         $branding = $this->websiteBuilder->getSiteBrandingForWebsitePage($website_page);
         $themeSlug = $theme ? $theme->slug : 'modern';
-        $themeSettings = $theme ? $theme->getSettings() : [];
+        $themeSettings = $theme ? $theme->getSettings($website_page->company) : [];
 
         $jobs = collect();
         $isHomePage = $website_page->page_type === 'home' || $website_page->slug === 'home';
@@ -2755,7 +2896,7 @@ class AdminWebsitePageController extends Controller
                     $sections[$sectionKey] = $this->normalizeNexaTaxiTarievenSection(
                         $input[$sectionKey] ?? $input['component:taxiroyaal.tarieven'] ?? []
                     );
-                } elseif ($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2') {
+                } elseif (in_array($sectionKey, ['component:taxi.boekingsmodule', 'component:taxi.boekingsmodule_v2', 'component:taxi.algemene_boekingsmodule'], true)) {
                     $sections[$sectionKey] = $this->normalizeNexaTaxiBoekingsmoduleSection(
                         $input[$sectionKey] ?? ($sectionKey === 'component:taxi.boekingsmodule' ? ($input['component:taxiroyaal.boekingsmodule'] ?? []) : [])
                     );
@@ -3797,8 +3938,8 @@ class AdminWebsitePageController extends Controller
         $moduleNameForComponents = $this->moduleNameForWebsiteComponents($website_page->module_name, $request);
         $tenantThemeSlug = $this->tenantThemeSlugForWebsiteComponents($request, $website_page);
         $componentService = app(FrontendComponentService::class);
-        $catalogComponents = $componentService->availableForPage($moduleNameForComponents, $tenantThemeSlug)
-            ->map(static fn ($c) => [
+        $mapComponent = static function ($c): array {
+            return [
                 'id' => (string) ($c->id ?? ''),
                 'name' => (string) ($c->name ?? $c->id ?? ''),
                 'description' => (string) ($c->description ?? ''),
@@ -3806,9 +3947,31 @@ class AdminWebsitePageController extends Controller
                 'themeName' => (string) ($c->theme_name ?? ''),
                 'themeSlug' => (string) ($c->theme_slug ?? ''),
                 'sectionKey' => 'component:'.(string) ($c->id ?? ''),
-            ])
+                'disabled' => ! empty($c->disabled),
+            ];
+        };
+        $catalogComponents = $componentService->availableForPage($moduleNameForComponents, $tenantThemeSlug)
+            ->map($mapComponent)
             ->values()
             ->all();
+        $disabledCatalogComponents = $componentService->disabledForPage($moduleNameForComponents, $tenantThemeSlug)
+            ->map($mapComponent)
+            ->values()
+            ->all();
+
+        $taxiSetup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
+        $pageCompany = $website_page->company_id
+            ? \App\Models\Company::query()->find((int) $website_page->company_id)
+            : null;
+        $bookingSetupNotice = null;
+        if ($pageCompany && $taxiSetup->appliesTo($pageCompany) && ! $taxiSetup->isBookingModuleAllowed($pageCompany)) {
+            $bookingSetupNotice = $taxiSetup->status($pageCompany, auth()->user())['booking_block_message']
+                ?? 'Voeg eerst een voertuig toe voordat je de boekingsmodule plaatst.';
+            $catalogComponents = array_values(array_filter(
+                $catalogComponents,
+                fn (array $c) => ! $taxiSetup->isBookingComponentId((string) ($c['id'] ?? ''))
+            ));
+        }
 
         $themeComponentDefaults = [];
         foreach ($componentService->all() as $themeComp) {
@@ -3873,18 +4036,26 @@ class AdminWebsitePageController extends Controller
             'catalog' => [
                 'sections' => WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug),
                 'components' => $catalogComponents,
+                'disabledComponents' => $disabledCatalogComponents,
             ],
+            'taxiBookingSetupNotice' => $bookingSetupNotice,
+            'taxiVehiclesUrl' => \Illuminate\Support\Facades\Route::has('admin.taxi.vehicles.index')
+                ? route('admin.taxi.vehicles.index')
+                : null,
             'componentDefaults' => array_merge([
                 'component:taxi.boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
                 'component:taxi.boekingsmodule_v2' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
+                'component:taxi.algemene_boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
                 'component:taxiroyaal.boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
             ], $themeComponentDefaults, $this->googleReviewsComponentDefaultsForBuilder($website_page)),
             'routes' => [
                 'save' => route('admin.website-pages.builder-v2.update', ['website_page' => $website_page]),
                 'updateMeta' => route('admin.website-pages.builder-v2.update-meta', ['website_page' => $website_page]),
                 'generateSeo' => route('admin.website-pages.generate-seo'),
+                'generateSectionImage' => route('admin.website-pages.generate-section-image'),
                 'preview' => $previewUrl,
                 'blockPreview' => route('admin.website-pages.block-preview'),
+                'toggleComponentDisabled' => route('admin.frontend-components.toggle-disabled'),
                 'classicEdit' => $classicEditUrl,
                 'index' => route('admin.website-pages.index', $wizardIndexQuery),
                 'self' => $builderV2EditUrl,
@@ -4161,6 +4332,23 @@ class AdminWebsitePageController extends Controller
             $homeSections = $isHome
                 ? $this->normalizeHomeSections($input, $themeSlug, false, [], $removedSectionKeys, $rawStoredHomeSections)
                 : $this->normalizeHomeSections($input, $themeSlug, true, [], $removedSectionKeys, $rawStoredHomeSections);
+
+            $taxiSetup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
+            $pageCompany = $website_page->company_id
+                ? Company::query()->find((int) $website_page->company_id)
+                : null;
+            if (
+                $pageCompany
+                && $taxiSetup->appliesTo($pageCompany)
+                && ! $taxiSetup->isBookingModuleAllowed($pageCompany)
+                && $taxiSetup->sectionOrderContainsBooking($homeSections['section_order'] ?? [])
+            ) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => $taxiSetup->status($pageCompany, auth()->user())['booking_block_message']
+                        ?? 'Voeg eerst een voertuig toe voordat je de boekingsmodule plaatst.',
+                ], 422);
+            }
 
             $reviewsCompanyId = $this->resolveGoogleReviewsCompanyIdForSave(
                 ['company_id' => $website_page->company_id, 'home_sections' => $homeSections],

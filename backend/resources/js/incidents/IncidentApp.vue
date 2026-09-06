@@ -73,8 +73,13 @@ const search = ref('')
 const statusFilter = ref('')
 const priorityFilter = ref('')
 const showArchived = ref(false)
-const page = ref(1)
-const perPage = ref(10)
+function readListQueryInt(name: string, fallback: number): number {
+  const raw = Number(new URL(window.location.href).searchParams.get(name))
+  return Number.isInteger(raw) && raw > 0 ? raw : fallback
+}
+
+const page = ref(readListQueryInt('page', 1))
+const perPage = ref(readListQueryInt('perpage', 10))
 const selectedIds = ref<number[]>([])
 
 const composerOpen = ref(false)
@@ -270,7 +275,27 @@ watch(perPage, () => {
     page.value = 1
   }
 })
+function syncListQuery() {
+  const url = new URL(window.location.href)
+  if (page.value > 1) {
+    url.searchParams.set('page', String(page.value))
+  } else {
+    url.searchParams.delete('page')
+  }
+  if (perPage.value !== 10) {
+    url.searchParams.set('perpage', String(perPage.value))
+  } else {
+    url.searchParams.delete('perpage')
+  }
+  const query = url.searchParams.toString()
+  const next = url.pathname + (query ? `?${query}` : '') + url.hash
+  if (`${url.pathname}${url.search}${url.hash}` !== next) {
+    window.history.replaceState({}, '', next)
+  }
+}
+
 watch([page, perPage], () => {
+  syncListQuery()
   window.clearTimeout(searchTimer)
   searchTimer = window.setTimeout(() => loadList(), 0)
 })

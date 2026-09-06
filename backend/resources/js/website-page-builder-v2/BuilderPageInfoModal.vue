@@ -585,7 +585,8 @@ onUnmounted(() => {
 .builder-config-modal {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  /* Boven vaste admin-sidebar (z-index 10056) en drawer-backdrop (10040) */
+  z-index: 11000;
   display: flex;
   align-items: center;
   justify-content: center;

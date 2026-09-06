@@ -32,6 +32,8 @@ class TaxiAppFirstLoginService
 
     public const CODE_LENGTH = 6;
 
+    public const FIRST_LOGIN_REQUIRED_MESSAGE = 'Er is nog geen wachtwoord ingesteld. Vraag een inlogcode aan om zelf een wachtwoord te kiezen.';
+
     public function __construct(
         protected TaxiDriverEligibilityService $drivers,
         protected TaxiContractPortalAccessService $contractAccess,

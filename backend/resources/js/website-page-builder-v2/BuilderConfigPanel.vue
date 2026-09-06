@@ -31,6 +31,10 @@ const props = defineProps<{
   googleMapsMapId?: string
   postcodeLookupUrl?: string
   moduleName?: string | null
+  generateImageUrl?: string
+  pageTitle?: string
+  companyName?: string
+  companyId?: number | null
   visibility?: Record<string, unknown>
 }>()
 
@@ -112,6 +116,10 @@ const emailTemplateOptions = computed(() =>
       :google-maps-map-id="googleMapsMapId"
       :postcode-lookup-url="postcodeLookupUrl"
       :module-name="moduleName"
+      :generate-image-url="generateImageUrl"
+      :page-title="pageTitle"
+      :company-name="companyName"
+      :company-id="companyId"
       :visibility="visibility"
       :block-key="blockKey"
       :side-component-options="sideComponentOptions"
@@ -201,6 +209,29 @@ const emailTemplateOptions = computed(() =>
 }
 
 .builder-config-panel--expanded :deep(.builder-config-group) {
+  grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group--row .builder-config-group__body > .builder-config-fields) {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.55rem 0.85rem;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group--row-wide .builder-config-group__body > .builder-config-fields) {
+  grid-template-columns: minmax(16rem, 2.4fr) minmax(10.5rem, 1fr) minmax(10.5rem, 1fr) !important;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group--row .builder-config-group__body > .builder-config-fields > .builder-field) {
+  min-width: 0;
+  max-width: none;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group--row .builder-color-row .kt-input) {
+  max-width: 7.25rem;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group--row .builder-config-group__body > .builder-config-fields > .builder-checkbox) {
   grid-column: 1 / -1;
 }
 

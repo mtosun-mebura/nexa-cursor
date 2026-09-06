@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEarningsAccessService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Modules\NexaTaxi\Support\PwaAccent;
+use App\Modules\NexaTaxi\Support\RideAlertTone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Services\CompanyEntitlementService;
@@ -33,7 +34,7 @@ class DriverAuthController extends Controller
         $firstLogin = app(TaxiAppFirstLoginService::class);
         if ($user && $firstLogin->needsFirstLogin($user) && $firstLogin->userMayUseChannel($user, TaxiAppFirstLoginService::CHANNEL_DRIVER)) {
             return response()->json([
-                'message' => 'Dit account is nog niet geactiveerd. Vraag een inlogcode aan om zelf een wachtwoord te kiezen.',
+                'message' => TaxiAppFirstLoginService::FIRST_LOGIN_REQUIRED_MESSAGE,
                 'error' => 'first_login_required',
             ], 403);
         }
@@ -138,6 +139,19 @@ class DriverAuthController extends Controller
 
         return response()->json([
             'pwa_accent' => $accent,
+        ]);
+    }
+
+    public function updateRideAlertTone(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tone' => ['required', 'string', 'in:'.implode(',', RideAlertTone::KEYS)],
+        ]);
+
+        $tone = RideAlertTone::saveFor($request->user(), $data['tone']);
+
+        return response()->json([
+            'ride_alert_tone' => $tone,
         ]);
     }
 
@@ -249,6 +263,7 @@ class DriverAuthController extends Controller
             'is_online' => $isOnline,
             'vehicle_id' => $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null,
             'pwa_accent' => PwaAccent::fromUser($user),
+            'ride_alert_tone' => RideAlertTone::fromUser($user),
         ];
     }
 

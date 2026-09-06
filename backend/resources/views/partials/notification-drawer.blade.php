@@ -25,6 +25,38 @@
         background-color: var(--kt-body-bg-dark, #1e293b) !important;
         background: var(--kt-body-bg-dark, #1e293b) !important;
     }
+    /* Scroll: geen track-achtergrond; thumb matcht thema (light/dark). */
+    #notifications_drawer .flex-1.overflow-y-auto {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent) transparent;
+    }
+    #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-track,
+    #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-track-piece,
+    #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+    #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+    #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+        background-color: color-mix(in srgb, var(--muted-foreground) 65%, transparent);
+    }
+    .dark #notifications_drawer .flex-1.overflow-y-auto {
+        scrollbar-color: color-mix(in srgb, var(--muted-foreground) 55%, transparent) transparent;
+    }
+    .dark #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+    }
+    .dark #notifications_drawer .flex-1.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+        background-color: color-mix(in srgb, var(--muted-foreground) 75%, transparent);
+    }
     /* Force drawer to be hidden by default on page load */
     #notifications_drawer:not([data-user-opened="true"]) {
         display: none !important;

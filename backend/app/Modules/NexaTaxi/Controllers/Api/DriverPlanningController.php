@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Http\Resources\TaxiDispatchOfferResource;
+use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Services\ModuleDatabaseService;
@@ -47,8 +48,13 @@ class DriverPlanningController extends Controller
         $days = $this->emptyDays($from, $to, $today);
 
         if (Schema::connection($conn)->hasTable('ride_requests')) {
+            $vehicleId = (int) $request->input('vehicle_id', 0);
+            if ($vehicleId <= 0) {
+                $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $user->id) ?? 0;
+            }
+
             $rides = RideRequest::on($conn)
-                ->where('driver_id', $user->id)
+                ->visibleToDriver((int) $user->id, $vehicleId > 0 ? $vehicleId : null)
                 ->whereIn('status', [
                     RideRequest::STATUS_ACCEPTED,
                     RideRequest::STATUS_ASSIGNED,

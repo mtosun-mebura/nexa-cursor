@@ -13,6 +13,7 @@
         'showTaxi' => $showTaxi ?? false,
         'taxiStats' => $taxiStats ?? [],
         'recent_rides' => $recent_rides ?? collect(),
+        'subscriptionSnapshot' => $subscriptionSnapshot ?? null,
     ])
 @elseif($isCompanyView && !$selectedCompany)
     {{-- Tenant geselecteerd maar company niet gevonden --}}

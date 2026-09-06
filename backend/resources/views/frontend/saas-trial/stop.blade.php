@@ -30,7 +30,7 @@
                 @if($trialEndsAt)
                     <p>Zonder deze actie gaat het abonnement in op {{ $trialEndsAt->translatedFormat('j F Y') }} en start de eerste incasso. Het jaarcontract telt vanaf de start van de proef.</p>
                 @endif
-                <p>Als je stopt, zetten we de tenant op inactief. Er wordt niets geïncasseerd.</p>
+                <p>Als je stopt, gaat het jaarcontract niet in en wordt er niets geïncasseerd. Je kunt het pakket blijven gebruiken tot het einde van de proefperiode en het abonnement later weer activeren. De ingangsdatum blijft gelijk.</p>
                 <form method="post" action="{{ route('saas.trial.stop') }}" class="actions">
                     @csrf
                     <button type="submit" class="btn btn-danger">Ja, proefperiode stoppen</button>
