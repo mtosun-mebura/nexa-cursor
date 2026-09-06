@@ -201,8 +201,8 @@ class PlatformBillingInvoicePreviewTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('name="platform_billing_package_id"', false);
         $response->assertDontSee('name="agreed_monthly_amount"', false);
+        $response->assertDontSee('id="agreed_monthly_amount"', false);
         $response->assertSee('id="package_monthly_amount"', false);
-        $response->assertSee('id="agreed_monthly_amount"', false);
         $response->assertSee('149,00', false);
         $response->assertSee('GPS-trackers', false);
         $response->assertSee('19,00', false);
