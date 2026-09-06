@@ -24,6 +24,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#2563eb',
+                    'secondary_color' => '#0f172a',
                     'font_heading' => 'Inter',
                     'font_body' => 'Inter',
                     'footer_text' => '',
@@ -39,6 +40,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#5540af',
+                    'secondary_color' => '#1e1b4b',
                     'font_heading' => 'Raleway',
                     'font_body' => 'Open Sans',
                     'footer_text' => '',
@@ -54,6 +56,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#2563eb',
+                    'secondary_color' => '#0f172a',
                     'font_heading' => 'Inter',
                     'font_body' => 'Inter',
                     'footer_text' => '',
@@ -69,6 +72,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#4f46e5',
+                    'secondary_color' => '#1e1b4b',
                     'font_heading' => 'Inter',
                     'font_body' => 'Inter',
                     'footer_text' => '',
@@ -84,6 +88,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#7e3af2',
+                    'secondary_color' => '#1e1b4b',
                     'font_heading' => 'Inter',
                     'font_body' => 'Inter',
                     'footer_text' => '',
@@ -99,6 +104,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#4a6cf7',
+                    'secondary_color' => '#0f172a',
                     'font_heading' => 'Inter',
                     'font_body' => 'Inter',
                     'footer_text' => '',
@@ -114,6 +120,7 @@ class FrontendThemeSeeder extends Seeder
                 'is_active' => false,
                 'settings' => [
                     'primary_color' => '#e91e63',
+                    'secondary_color' => '#1a1a2e',
                     'font_heading' => 'Roboto',
                     'font_body' => 'Roboto',
                     'footer_text' => '',
@@ -124,6 +131,11 @@ class FrontendThemeSeeder extends Seeder
         ];
 
         foreach ($themes as $theme) {
+            $existing = FrontendTheme::query()->where('slug', $theme['slug'])->first();
+            if ($existing) {
+                // Niet overschrijven: publiceren/depubliceren is een beheeractie, geen seed-default.
+                unset($theme['is_active']);
+            }
             FrontendTheme::updateOrCreate(
                 ['slug' => $theme['slug']],
                 $theme

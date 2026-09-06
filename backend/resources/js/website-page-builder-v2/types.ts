@@ -11,6 +11,7 @@ export type ComponentCatalogItem = {
   sectionKey: string
   themeName?: string
   themeSlug?: string
+  disabled?: boolean
 }
 
 export type PaletteDragPayload =
@@ -90,12 +91,16 @@ export type BuilderBootstrap = {
   catalog: {
     sections: SectionCatalogItem[]
     components: ComponentCatalogItem[]
+    disabledComponents?: ComponentCatalogItem[]
   }
+  taxiBookingSetupNotice?: string | null
+  taxiVehiclesUrl?: string | null
   componentDefaults: Record<string, Record<string, unknown>>
   routes: {
     save: string
     updateMeta: string
     generateSeo: string
+    generateSectionImage: string
     preview: string
     classicEdit: string
     index: string
@@ -107,6 +112,7 @@ export type BuilderBootstrap = {
     postcodeLookup: string
     nexaPricingEdit: string
     blockPreview: string
+    toggleComponentDisabled?: string
   }
   nexaPricing: Record<string, unknown>
   googleMapsApiKey: string

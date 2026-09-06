@@ -74,11 +74,16 @@
                     </div>
                 @endif
                 @if($company->email)
-                    <div class="flex gap-1.25 items-center">
-                        <x-heroicon-o-envelope class="w-4 h-4 text-muted-foreground" />
-                        <a class="text-secondary-foreground font-medium hover:text-primary" href="mailto:{{ $company->email }}">
-                            {{ $company->email }}
-                        </a>
+                    <div class="flex gap-1.25 items-center min-w-0">
+                        <x-heroicon-o-envelope class="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span class="admin-email-text text-secondary-foreground font-medium">{{ $company->email }}</span>
+                        <button type="button"
+                                class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                                data-copy-text="{{ $company->email }}"
+                                title="E-mailadres kopiëren"
+                                aria-label="E-mailadres kopiëren">
+                            <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                        </button>
                     </div>
                 @endif
             </div>
@@ -188,6 +193,67 @@
                         </table>
                     </div>
                 </div>
+
+                @if(! empty($subscriptionSnapshot))
+                <div class="kt-card">
+                    <div class="kt-card-header">
+                        <h3 class="kt-card-title">
+                            Abonnement
+                        </h3>
+                    </div>
+                    <div class="kt-card-content pt-3.5 pb-3.5">
+                        <table class="w-full">
+                            <tbody>
+                                <tr>
+                                    <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
+                                        Pakket:
+                                    </td>
+                                    <td class="text-sm text-mono pb-4 align-top">
+                                        {{ $subscriptionSnapshot['current_name'] }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
+                                        Ingangsdatum:
+                                    </td>
+                                    <td class="text-sm text-mono pb-4 align-top">
+                                        {{ $subscriptionSnapshot['start_date']->translatedFormat('j F Y') }}
+                                    </td>
+                                </tr>
+                                @if(! empty($subscriptionSnapshot['free_months']))
+                                <tr>
+                                    <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
+                                        Gratis periode:
+                                    </td>
+                                    <td class="text-sm text-mono pb-4 align-top">
+                                        {{ (int) $subscriptionSnapshot['free_months'] }} {{ (int) $subscriptionSnapshot['free_months'] === 1 ? 'maand' : 'maanden' }}
+                                    </td>
+                                </tr>
+                                @endif
+                                @if(! empty($subscriptionSnapshot['trial_declined']) && ! empty($subscriptionSnapshot['trial_ends_at']))
+                                <tr>
+                                    <td class="text-sm text-red-500 pb-4 pe-4 lg:pe-10 align-top font-medium" style="min-width: 120px;">
+                                        Stopt per:
+                                    </td>
+                                    <td class="text-sm text-red-500 pb-4 align-top font-medium">
+                                        {{ $subscriptionSnapshot['trial_ends_at']->translatedFormat('j F Y') }}
+                                    </td>
+                                </tr>
+                                @elseif(! empty($subscriptionSnapshot['free_months']))
+                                <tr>
+                                    <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
+                                        Incasso ingangsdatum:
+                                    </td>
+                                    <td class="text-sm text-mono pb-4 align-top">
+                                        {{ $subscriptionSnapshot['billing_start_date']->translatedFormat('j F Y') }}
+                                    </td>
+                                </tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
 
                 @if($showTaxi && $recent_rides->isNotEmpty())
                 <div class="kt-card">

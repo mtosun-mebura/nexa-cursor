@@ -1,7 +1,10 @@
 <?php
 
+use App\Jobs\ProcessNexaSuiteMarketplaceBillingJob;
+use App\Jobs\ProcessNexaSuiteMarketplaceDunningJob;
 use App\Jobs\ProcessPlatformBillingJob;
 use App\Jobs\ProcessPlatformDunningJob;
+use App\Jobs\ProcessSaasTrialNoticeJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
@@ -64,9 +67,24 @@ Schedule::job(new ProcessPlatformBillingJob)
     ->name('platform-billing-monthly')
     ->withoutOverlapping();
 
+Schedule::job(new ProcessSaasTrialNoticeJob)
+    ->dailyAt('07:00')
+    ->name('platform-saas-trial-notice')
+    ->withoutOverlapping();
+
 Schedule::job(new ProcessPlatformDunningJob)
     ->dailyAt('06:00')
     ->name('platform-billing-dunning')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessNexaSuiteMarketplaceBillingJob)
+    ->hourly()
+    ->name('nexa-suite-marketplace-billing')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessNexaSuiteMarketplaceDunningJob)
+    ->dailyAt('06:15')
+    ->name('nexa-suite-marketplace-dunning')
     ->withoutOverlapping();
 
 Schedule::command('database:backup-scheduled')

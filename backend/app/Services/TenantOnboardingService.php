@@ -6,7 +6,6 @@ use App\Models\Company;
 use App\Models\TenantCustomerEmail;
 use App\Models\User;
 use App\Services\PlatformBilling\TenantSubscriptionService;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -23,6 +22,7 @@ class TenantOnboardingService
         protected TenantSubscriptionService $subscriptions,
         protected CompanyEmailLogoService $logos,
         protected TenantCustomerMailService $customerMail,
+        protected AdminFirstLoginService $firstLogin,
     ) {}
 
     /**
@@ -52,25 +52,22 @@ class TenantOnboardingService
             ];
         }
 
-        $password = $this->generateTemporaryPassword();
-        $user = User::query()->create([
+        $user = User::query()->create(array_merge([
             'first_name' => trim((string) ($company->contact_first_name ?: 'Beheerder')) ?: 'Beheerder',
             'last_name' => trim((string) ($company->contact_last_name ?: $company->name)) ?: 'Admin',
             'email' => $email,
             'phone' => $company->phone,
             'company_id' => $company->id,
-            'password' => Hash::make($password),
-            'must_change_password' => true,
+            'password' => $this->firstLogin->unusablePasswordHash(),
             'welcome_handleiding_pending' => false,
-            'email_verified_at' => now(),
-        ]);
+        ], $this->firstLogin->provisionFlags()));
         $this->roles->syncWebRoles($user, ['company-admin']);
         $this->subscriptions->ensureProfile($company);
 
         $mailed = false;
         if ($sendWelcomeMail) {
             try {
-                $this->sendWelcomeMail($company, $user, $password);
+                $this->sendWelcomeMail($company, $user);
                 $mailed = true;
             } catch (\Throwable $e) {
                 Log::warning('Welkomstmail tenant mislukt', [
@@ -83,14 +80,14 @@ class TenantOnboardingService
 
         return [
             'user' => $user,
-            'password' => $password,
+            'password' => null,
             'created' => true,
             'mailed' => $mailed,
         ];
     }
 
     /**
-     * Maak de company-admin aan (indien nodig) en verstuur de welkomstmail met een nieuw tijdelijk wachtwoord.
+     * Maak de company-admin aan (indien nodig) en verstuur de welkomstmail voor de eerste login via een code.
      *
      * @return array{user: User, password: string|null, created: bool, mailed: bool}
      */
@@ -110,17 +107,16 @@ class TenantOnboardingService
             return $this->provisionCompanyAdmin($company, true);
         }
 
-        $password = $this->generateTemporaryPassword();
-        $existing->forceFill([
-            'password' => Hash::make($password),
-            'must_change_password' => true,
-        ])->save();
+        $existing->forceFill(array_merge([
+            'password' => $this->firstLogin->unusablePasswordHash(),
+            'welcome_handleiding_pending' => false,
+        ], $this->firstLogin->provisionFlags()))->save();
         $this->roles->syncWebRoles($existing, ['company-admin']);
         $this->subscriptions->ensureProfile($company);
 
         $mailed = false;
         try {
-            $this->sendWelcomeMail($company, $existing, $password);
+            $this->sendWelcomeMail($company, $existing);
             $mailed = true;
         } catch (\Throwable $e) {
             Log::warning('Welkomstmail tenant mislukt', [
@@ -132,13 +128,13 @@ class TenantOnboardingService
 
         return [
             'user' => $existing,
-            'password' => $password,
+            'password' => null,
             'created' => false,
             'mailed' => $mailed,
         ];
     }
 
-    public function sendWelcomeMail(Company $company, User $user, string $temporaryPassword): void
+    public function sendWelcomeMail(Company $company, User $user): void
     {
         $template = $this->welcomeTemplate->resolveActive();
         if (! $template) {
@@ -160,7 +156,7 @@ class TenantOnboardingService
             [
                 'USER_NAME' => $toName,
                 'USER_EMAIL' => $user->email,
-                'TEMP_PASSWORD' => e($temporaryPassword),
+                'TEMP_PASSWORD' => '',
                 'COMPANY_NAME' => e((string) $company->name),
                 'PACKAGE_NAME' => e($packageName),
                 'PACKAGE_FEATURES_HTML' => $featuresHtml,

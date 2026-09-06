@@ -41,6 +41,7 @@ class RideClaimServiceTest extends TestCase
             $table->string('dropoff_address');
             $table->unsignedSmallInteger('passengers')->default(1);
             $table->dateTime('pickup_at');
+            $table->unsignedInteger('duration_seconds')->nullable();
             $table->dateTime('pickup_proposal_at')->nullable();
             $table->string('pickup_proposal_status', 32)->nullable();
             $table->text('pickup_proposal_customer_remark')->nullable();
@@ -128,6 +129,87 @@ class RideClaimServiceTest extends TestCase
             ->where('driver_id', $other->id)
             ->first();
         $this->assertSame(RideDispatchOffer::STATUS_SUPERSEDED, $otherOffer->status);
+    }
+
+    public function test_accept_rejects_overlapping_planned_ride(): void
+    {
+        $driver = User::factory()->create();
+        $pickup = now()->addHours(2);
+
+        RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'Gepland A',
+            'dropoff_address' => 'Gepland B',
+            'pickup_at' => $pickup->copy(),
+            'duration_seconds' => 30 * 60,
+            'customer_name' => 'Bestaand',
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'Nieuw A',
+            'dropoff_address' => 'Nieuw B',
+            'pickup_at' => $pickup->copy()->addMinutes(10),
+            'duration_seconds' => 30 * 60,
+            'customer_name' => 'Nieuw',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        app(RideClaimService::class)->acceptOffer('module_taxi', $driver, $offer->id);
+    }
+
+    public function test_accept_allows_non_overlapping_planned_ride(): void
+    {
+        $driver = User::factory()->create();
+        $pickup = now()->addHours(2);
+
+        RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'Gepland A',
+            'dropoff_address' => 'Gepland B',
+            'pickup_at' => $pickup->copy(),
+            'duration_seconds' => 30 * 60,
+            'customer_name' => 'Bestaand',
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'Nieuw A',
+            'dropoff_address' => 'Nieuw B',
+            'pickup_at' => $pickup->copy()->addHours(2),
+            'duration_seconds' => 30 * 60,
+            'customer_name' => 'Nieuw',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $result = app(RideClaimService::class)->acceptOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(RideRequest::STATUS_ACCEPTED, $result['ride']->status);
+        $this->assertSame($driver->id, (int) $result['ride']->driver_id);
     }
 
     public function test_start_moves_accepted_ride_to_assigned(): void

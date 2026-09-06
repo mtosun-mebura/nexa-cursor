@@ -103,6 +103,7 @@
                                                 <option value="error" {{ old('category') == 'error' ? 'selected' : '' }}>Fout</option>
                                                 <option value="reminder" {{ old('category') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
                                                 <option value="update" {{ old('category') == 'update' ? 'selected' : '' }}>Update</option>
+                                                <option value="incident" {{ old('category') == 'incident' ? 'selected' : '' }}>Incident</option>
                                             </select>
                                         @error('category')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
@@ -135,6 +136,7 @@
                                                 <option value="email" {{ old('type') == 'email' ? 'selected' : '' }}>E-mail</option>
                                                 <option value="reminder" {{ old('type') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
                                                 <option value="file" {{ old('type') == 'file' ? 'selected' : '' }}>Bestand</option>
+                                                <option value="incident" {{ old('type') == 'incident' ? 'selected' : '' }}>Incident</option>
                                             </select>
                                         @error('type')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">

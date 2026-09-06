@@ -8,7 +8,7 @@ use App\Services\NexaPricingService;
 use Illuminate\Support\Str;
 
 /**
- * Antwoorden voor bezoekers van de NEXA SaaS-website, op basis van de publieke paginateksten.
+ * Antwoorden voor bezoekers van de NEXA Suite-website, op basis van de publieke paginateksten.
  */
 final class AiChatProductFaqService
 {

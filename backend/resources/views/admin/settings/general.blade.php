@@ -89,7 +89,7 @@
 
                                 @if($logoLightUrl)
                                 <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
-                                <div id="settings-live-preview-wrap" class="flex items-center justify-start gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                                <div id="settings-live-preview-wrap" class="flex items-center justify-start gap-3 mb-4 p-3 rounded-lg border border-border">
                                     <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: {{ $logoSize }}px;" src="{{ $logoLightUrl }}" id="settings-live-preview-light" />
                                     <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: {{ $logoSize }}px;" src="{{ $logoDarkUrl }}" id="settings-live-preview-dark" />
                                 </div>
@@ -98,15 +98,17 @@
                                 <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
                                 <div class="max-w-96 w-full flex flex-col gap-3 items-center mb-4">
                                     <div class="flex flex-col items-center gap-2 w-full">
-                                        @if($hasLogo)
-                                            <img alt="Logo Preview" class="h-[35px] w-auto object-contain"
-                                                 src="{{ route('admin.settings.logo') }}"
-                                                 id="logo-preview"/>
-                                        @else
-                                            <img alt="Logo Preview" class="h-[35px] w-auto object-contain hidden"
-                                                 src=""
-                                                 id="logo-preview"/>
-                                        @endif
+                                        <div class="inline-flex items-center justify-center rounded-lg border border-border p-3" style="background-color: #ffffff;">
+                                            @if($hasLogo)
+                                                <img alt="Logo Preview" class="h-[35px] w-auto object-contain"
+                                                     src="{{ route('admin.settings.logo') }}"
+                                                     id="logo-preview"/>
+                                            @else
+                                                <img alt="Logo Preview" class="h-[35px] w-auto object-contain hidden"
+                                                     src=""
+                                                     id="logo-preview"/>
+                                            @endif
+                                        </div>
                                         <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogo ? '' : 'hidden' }}" id="logo-light-remove-btn" title="Light logo verwijderen" aria-label="Light logo verwijderen">
                                             <i class="ki-filled ki-trash text-lg"></i>
                                         </button>
@@ -122,7 +124,7 @@
                                                 Klik of Sleep &amp; Drop
                                             </a>
                                             <span class="text-xs text-muted-foreground">
-                                                SVG, PNG, JPG, GIF (max. 2MB)
+                                                SVG, PNG, JPG, GIF (max. 5MB)
                                             </span>
                                         </div>
                                     </div>
@@ -132,21 +134,23 @@
                                            accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
                                            class="hidden">
                                 </div>
-                                <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
+                                <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
 
                                 <div id="logo-dark-block" class="{{ ($logoMode ?? 'single') === 'light_dark' ? '' : 'hidden' }}">
                                     <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
                                     <div class="max-w-96 w-full flex flex-col gap-3 items-center">
                                         <div class="flex flex-col items-center w-full gap-2">
-                                            @if($hasLogoDark)
-                                                <img alt="Dark logo preview" class="h-[35px] w-auto object-contain"
-                                                     src="{{ route('admin.settings.logo-dark') }}?t={{ time() }}"
-                                                     id="logo-dark-preview"/>
-                                            @else
-                                                <img alt="Dark logo preview" class="h-[35px] w-auto object-contain hidden"
-                                                     src=""
-                                                     id="logo-dark-preview"/>
-                                            @endif
+                                            <div class="inline-flex items-center justify-center rounded-lg border border-border p-3" style="background-color: #0b0f19;">
+                                                @if($hasLogoDark)
+                                                    <img alt="Dark logo preview" class="h-[35px] w-auto object-contain"
+                                                         src="{{ route('admin.settings.logo-dark') }}?t={{ time() }}"
+                                                         id="logo-dark-preview"/>
+                                                @else
+                                                    <img alt="Dark logo preview" class="h-[35px] w-auto object-contain hidden"
+                                                         src=""
+                                                         id="logo-dark-preview"/>
+                                                @endif
+                                            </div>
                                             <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogoDark ? '' : 'hidden' }}" id="logo-dark-remove-btn" title="Dark logo verwijderen" aria-label="Dark logo verwijderen">
                                                 <i class="ki-filled ki-trash text-lg"></i>
                                             </button>
@@ -162,7 +166,7 @@
                                                     Klik of Sleep &amp; Drop
                                                 </a>
                                                 <span class="text-xs text-muted-foreground">
-                                                    SVG, PNG, JPG, GIF (max. 2MB)
+                                                    SVG, PNG, JPG, GIF (max. 5MB)
                                                 </span>
                                             </div>
                                         </div>
@@ -171,7 +175,7 @@
                                                accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
                                                class="hidden">
                                     </div>
-                                    <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
+                                    <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
                                 </div>
                             </div>
                         </td>
@@ -560,9 +564,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Validate file size (max 2MB)
-            if (file.size > 2 * 1024 * 1024) {
-                alert('Het bestand mag maximaal 2MB groot zijn.');
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Het bestand mag maximaal 5MB groot zijn.');
                 logoInput.value = '';
                 return;
             }
@@ -664,8 +668,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 logoDarkInput.value = '';
                 return;
             }
-            if (file.size > 2 * 1024 * 1024) {
-                alert('Het bestand mag maximaal 2MB groot zijn.');
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Het bestand mag maximaal 5MB groot zijn.');
                 logoDarkInput.value = '';
                 return;
             }

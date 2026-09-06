@@ -37,7 +37,7 @@ class Module extends BaseModule
 
     public function getIcon(): string
     {
-        return 'ki-filled ki-briefcase';
+        return 'ki-filled ki-car';
     }
 
     public function registerMenuItems(): array
@@ -88,6 +88,25 @@ class Module extends BaseModule
                     [
                         'title' => 'Uitzonderingen',
                         'route' => 'admin.taxi.transport_schedule_exceptions.index',
+                    ],
+                ],
+            ],
+            [
+                'key' => 'gps_tracking',
+                'title' => 'GPS-tracker',
+                'route' => 'admin.taxi.gps_tracking.index',
+                'icon' => 'ki-filled ki-geolocation',
+                'permission_any' => ['vehicles.view', 'rides.view'],
+                'package_capability' => TenantPackageCapability::GPS_TRACKING,
+                'order' => 24,
+                'children' => [
+                    [
+                        'title' => 'Voertuigen',
+                        'route' => 'admin.taxi.gps_tracking.index',
+                    ],
+                    [
+                        'title' => 'Configuratie',
+                        'route' => 'admin.taxi.gps_tracking.settings',
                     ],
                 ],
             ],

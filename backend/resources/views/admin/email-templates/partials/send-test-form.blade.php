@@ -18,7 +18,7 @@
     </div>
     <div class="kt-card-content">
         <p class="text-sm text-muted-foreground mb-4">
-            De e-mail wordt verstuurd via de <strong>Nexa SaaS-mailserver</strong> naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld.
+            De e-mail wordt verstuurd via de <strong>NEXA Suite-mailserver</strong> naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld.
             De testmail is herkenbaar als voorbeeld: het onderwerp begint met <strong>[Voorbeeld]</strong> en bovenaan staat een gele vermelding dat dit geen echte e-mail is.
             @if($formFields->isNotEmpty())
                 Onderstaande velden komen uit <a href="{{ route('admin.email-templates.form-fields.index') }}" class="text-primary underline">Formulier velden</a>; de waarden worden in de template gebruikt (zelfde variabelen als op de website).

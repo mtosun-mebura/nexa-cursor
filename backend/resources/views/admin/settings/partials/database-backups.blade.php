@@ -89,39 +89,98 @@
             </form>
 
             <div class="rounded-md border border-border overflow-hidden min-w-0" id="database-backups-list">
-                <div class="px-3 sm:px-4 py-3 border-b border-border bg-muted/20 flex items-center justify-between gap-3">
-                    <h4 class="text-sm font-medium text-foreground mb-0">Beschikbare backups</h4>
-                    <div class="flex items-center gap-2 shrink-0">
+                <div class="px-3 sm:px-4 py-3 border-b border-border bg-muted/20 flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h4 class="text-sm font-medium text-foreground mb-0">Beschikbare backups</h4>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button"
+                                    id="database-backups-bulk-delete"
+                                    class="kt-btn kt-btn-sm kt-btn-outline shrink-0 hidden text-destructive"
+                                    data-url="{{ route('admin.settings.database-backups.bulk-delete') }}"
+                                    aria-label="Geselecteerde backups verwijderen"
+                                    title="Geselecteerde backups verwijderen"
+                                    disabled>
+                                <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                                <span class="ms-1.5 hidden sm:inline">Verwijderen</span>
+                                <span id="database-backups-bulk-count" class="ms-1 tabular-nums"></span>
+                            </button>
+                            <button type="button"
+                                    id="database-backups-refresh"
+                                    class="kt-btn kt-btn-sm kt-btn-outline shrink-0"
+                                    data-url="{{ route('admin.settings.database-backups.table') }}"
+                                    aria-label="Lijst vernieuwen"
+                                    title="Lijst vernieuwen">
+                                <i class="ki-filled ki-arrows-circle" aria-hidden="true"></i>
+                                <span class="ms-1.5 hidden sm:inline">Vernieuwen</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2 w-full min-w-0 items-stretch sm:items-center sm:justify-end"
+                         data-admin-live-filter="off">
+                        <label class="kt-input w-full sm:w-56 min-w-0">
+                            <i class="ki-filled ki-magnifier"></i>
+                            <input placeholder="Zoek bestand, database, datum…"
+                                   type="text"
+                                   name="search"
+                                   autocomplete="off"
+                                   data-admin-datatable-search="#database_backups_table">
+                        </label>
+                        <select class="kt-select w-full sm:w-40"
+                                name="status"
+                                data-admin-datatable-filter="status">
+                            <option value="">Alle statussen</option>
+                            <option value="completed">Gereed</option>
+                            <option value="pending">Bezig</option>
+                            <option value="failed">Mislukt</option>
+                        </select>
+                        <select class="kt-select w-full sm:w-40"
+                                name="trigger"
+                                data-admin-datatable-filter="trigger">
+                            <option value="">Alle bronnen</option>
+                            <option value="scheduled">Gepland</option>
+                            <option value="manual">Handmatig</option>
+                        </select>
                         <button type="button"
-                                id="database-backups-bulk-delete"
-                                class="kt-btn kt-btn-sm kt-btn-outline shrink-0 hidden text-destructive"
-                                data-url="{{ route('admin.settings.database-backups.bulk-delete') }}"
-                                aria-label="Geselecteerde backups verwijderen"
-                                title="Geselecteerde backups verwijderen"
-                                disabled>
-                            <i class="ki-filled ki-trash" aria-hidden="true"></i>
-                            <span class="ms-1.5 hidden sm:inline">Verwijderen</span>
-                            <span id="database-backups-bulk-count" class="ms-1 tabular-nums"></span>
-                        </button>
-                        <button type="button"
-                                id="database-backups-refresh"
-                                class="kt-btn kt-btn-sm kt-btn-outline shrink-0"
-                                data-url="{{ route('admin.settings.database-backups.table') }}"
-                                aria-label="Lijst vernieuwen"
-                                title="Lijst vernieuwen">
-                            <i class="ki-filled ki-arrows-circle" aria-hidden="true"></i>
-                            <span class="ms-1.5 hidden sm:inline">Vernieuwen</span>
+                                data-admin-datatable-reset
+                                class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
+                                title="Filters resetten">
+                            <i class="ki-filled ki-arrows-circle text-base"></i>
                         </button>
                     </div>
                 </div>
-                @include('admin.settings.partials.database-backups-table')
+                <div class="grid w-full min-w-0"
+                     data-admin-datatable="true"
+                     data-admin-datatable-page-size="5"
+                     id="database_backups_table"
+                     data-admin-datatable-label="backups"
+                     data-admin-datatable-on-page="initDatabaseBackupsTablePage">
+                    @include('admin.settings.partials.database-backups-table')
+                    <div class="admin-datatable-footer text-secondary-foreground text-sm font-medium px-3 sm:px-4 py-3 min-w-0">
+                        <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
+                            Toon
+                            <select class="kt-select w-24" data-admin-datatable-size="true" name="perpage">
+                                <option value="5" selected>5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            per pagina
+                        </div>
+                        <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
+                        </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 <style>
     #database-backups-list,
-    #database-backups-table {
+    #database-backups-table,
+    #database_backups_table {
         width: 100%;
         min-width: 0;
         max-width: 100%;
@@ -129,6 +188,25 @@
 
     #content #database-backups-table .database-backups-table {
         table-layout: fixed;
+    }
+
+    #content #database-backups-list .database-backups-status {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+    }
+
+    #content #database-backups-list .database-backups-status .kt-badge {
+        display: inline-flex;
+    }
+
+    #content #database-backups-list .database-backups-status__trigger {
+        display: block;
+        width: 100%;
+        font-size: 0.75rem;
+        line-height: 1.2;
+        color: var(--muted-foreground);
     }
 
     #content #database-backups-table col.database-backups-col-select,
@@ -149,11 +227,11 @@
     }
 
     #content #database-backups-table col.database-backups-col-status {
-        width: 9.5rem;
+        width: 6.5rem;
     }
 
     #content #database-backups-table col.database-backups-col-date {
-        width: 8.25rem;
+        width: 9rem;
     }
 
     #content #database-backups-table td.database-backups-col-file {
@@ -180,11 +258,16 @@
         overflow-wrap: normal !important;
         word-break: normal !important;
         vertical-align: middle;
+        white-space: normal;
     }
 
     #database-backups-list > .admin-mobile-list {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
+    }
+
+    #database-backups-list .admin-datatable-footer {
+        border-top: 1px solid var(--border);
     }
 </style>
 <script>
@@ -212,6 +295,61 @@
         const meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') : '';
     }
+
+    function reloadBackupDatatable() {
+        const root = document.getElementById('database_backups_table');
+        if (!root) {
+            return;
+        }
+        const dt = root.__adminDatatable;
+        if (dt && typeof dt.reloadRows === 'function') {
+            dt.reloadRows();
+            return;
+        }
+        if (dt && dt.tbody) {
+            dt.table = root.querySelector('table');
+            dt.tbody = dt.table ? dt.table.querySelector('tbody') : null;
+            if (!dt.tbody) {
+                return;
+            }
+            dt.allRows = Array.prototype.slice.call(dt.tbody.querySelectorAll(':scope > tr')).filter(function (row) {
+                return !row.querySelector('td[colspan]');
+            }).map(function (row) {
+                return {
+                    row: row,
+                    searchText: (row.getAttribute('data-search-text') || row.textContent || '').toLowerCase(),
+                    filters: {
+                        status: row.getAttribute('data-status') || '',
+                        trigger: row.getAttribute('data-trigger') || '',
+                    },
+                };
+            });
+            dt.lastTotalPages = null;
+            if (typeof dt.applyFilter === 'function') {
+                dt.applyFilter();
+            }
+            return;
+        }
+        if (typeof window.initAdminClientDatatables === 'function') {
+            delete root.dataset.adminDatatableInit;
+            window.initAdminClientDatatables(root.parentNode || document);
+        }
+    }
+
+    window.initDatabaseBackupsTablePage = function (dt) {
+        const root = document.getElementById('database_backups_table');
+        if (root && dt) {
+            root.__adminDatatable = dt;
+        }
+        const empty = dt && dt.tbody ? dt.tbody.querySelector('.database-backups-filter-empty') : document.querySelector('#database-backups-table .database-backups-filter-empty');
+        if (empty) {
+            const total = dt && dt.filteredRows ? dt.filteredRows.length : 0;
+            const hasRows = !!(dt && dt.allRows && dt.allRows.length);
+            empty.hidden = !hasRows || total > 0;
+        }
+        initBackupMenus();
+        syncBulkUi();
+    };
 
     function initBackupMenus() {
         if (window.KTMenu && typeof window.KTMenu.init === 'function') {
@@ -247,13 +385,14 @@
     }
 
     function selectableCheckboxes() {
-        return Array.prototype.slice.call(document.querySelectorAll('#database-backups-table .database-backup-checkbox:not(:disabled)'));
+        return Array.prototype.slice.call(document.querySelectorAll('#database-backups-table .database-backup-checkbox:not(:disabled)')).filter(function (cb) {
+            const row = cb.closest('tr');
+            return row && !row.hidden;
+        });
     }
 
     function selectedBackupIds() {
-        return selectableCheckboxes().filter(function (cb) {
-            return cb.checked;
-        }).map(function (cb) {
+        return Array.prototype.slice.call(document.querySelectorAll('#database-backups-table .database-backup-checkbox:checked:not(:disabled)')).map(function (cb) {
             return cb.value;
         });
     }
@@ -363,12 +502,13 @@
                 const selected = selectedBackupIds();
                 const host = document.getElementById('database-backups-list');
                 if (host) {
-                    host.querySelectorAll(':scope > .admin-mobile-list').forEach(function (el) {
+                    host.querySelectorAll('.admin-mobile-list').forEach(function (el) {
                         el.remove();
                     });
                 }
                 wrap.outerHTML = next.outerHTML;
                 initBackupMenus();
+                reloadBackupDatatable();
                 restoreSelection(selected);
                 return true;
             })

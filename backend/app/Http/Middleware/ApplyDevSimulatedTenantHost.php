@@ -53,8 +53,10 @@ class ApplyDevSimulatedTenantHost
     {
         $param = (string) config('tenancy.dev_effective_host_query_param', '');
 
-        if ($request->has($param)) {
-            $raw = $request->query($param);
+        // query->has: lege ?_tenant_host= telt mee. Request::has() negeert lege strings
+        // (en ConvertEmptyStringsToNull zet ze op null), waardoor de sessie anders blijft hangen.
+        if ($request->query->has($param)) {
+            $raw = $request->query->get($param);
             if (! is_string($raw) || $raw === '') {
                 $request->session()->forget(self::SESSION_DEV_EFFECTIVE_HOST);
 

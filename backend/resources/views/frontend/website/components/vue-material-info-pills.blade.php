@@ -12,7 +12,7 @@
     $uid = 'vm-pills-'.substr(md5($sectionKey), 0, 8);
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
-<section class="py-16 md:py-24 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="vue_material.info_pills" data-theme-anim="pills" data-scroll-reveal>
+<section class="py-10 md:py-14 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="vue_material.info_pills" data-theme-anim="pills" data-scroll-reveal>
     <div class="website-section-inner max-w-3xl mx-auto text-center">
         <div class="theme-fade mb-10">
             <p class="mb-2 text-sm font-medium uppercase tracking-widest" style="color: {{ $accent }}">{{ $data['eyebrow'] ?? 'Ontdek' }}</p>

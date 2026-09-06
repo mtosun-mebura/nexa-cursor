@@ -247,6 +247,66 @@ function openPageInfoModal() {
   pageInfoModalOpen.value = true
 }
 
+const togglingActive = ref(false)
+
+function csrfToken(): string {
+  return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+}
+
+async function togglePageActive(event: Event) {
+  const input = event.target as HTMLInputElement
+  const next = input.checked
+  if (pageMeta.value.isActive === next || togglingActive.value) {
+    input.checked = pageMeta.value.isActive
+    return
+  }
+
+  togglingActive.value = true
+  saveError.value = null
+  try {
+    const meta = pageMeta.value
+    const res = await fetch(bootstrap.routes.updateMeta, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-CSRF-TOKEN': csrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({
+        title: meta.title,
+        menu_title: meta.menuTitle,
+        slug: meta.slug,
+        page_type: meta.pageType,
+        module_name: meta.moduleName ?? '',
+        frontend_theme_id: meta.frontendThemeId,
+        is_active: next,
+        show_in_menu: meta.showInMenu,
+        sort_order: meta.sortOrder,
+        meta_description: meta.metaDescription,
+        company_id: meta.companyId,
+      }),
+    })
+    const json = (await res.json()) as {
+      ok?: boolean
+      message?: string
+      pageMeta?: PageMetaForm
+    }
+    if (!res.ok || !json.ok || !json.pageMeta) {
+      throw new Error(json.message ?? 'Activeren mislukt.')
+    }
+    pageMeta.value = json.pageMeta
+    saveMessage.value = next
+      ? 'Pagina is nu actief en zichtbaar op de website.'
+      : 'Pagina is nu inactief (niet zichtbaar op de website).'
+  } catch (e) {
+    input.checked = pageMeta.value.isActive
+    saveError.value = e instanceof Error ? e.message : 'Activeren mislukt.'
+  } finally {
+    togglingActive.value = false
+  }
+}
+
 function onPageInfoSaved(payload: {
   pageMeta: PageMetaForm
   themeName: string
@@ -416,6 +476,21 @@ onUnmounted(() => {
         </div>
 
         <div class="builder-toolbar__actions">
+          <label
+            class="builder-toolbar__active-switch"
+            :class="{ 'builder-toolbar__active-switch--on': pageMeta.isActive }"
+            :title="pageMeta.isActive ? 'Zichtbaar op de website' : 'Concept: niet zichtbaar op de website'"
+          >
+            <input
+              type="checkbox"
+              class="kt-switch kt-switch-sm shrink-0"
+              :checked="pageMeta.isActive"
+              :disabled="togglingActive"
+              aria-label="Actief (zichtbaar op de website)"
+              @change="togglePageActive"
+            />
+            <span>{{ pageMeta.isActive ? 'Actief' : 'Concept' }}</span>
+          </label>
           <a :href="previewUrl" target="_blank" rel="noopener" class="kt-btn kt-btn-outline kt-btn-sm">
             <i class="ki-filled ki-eye me-1" /> Nieuw tabblad
           </a>
@@ -439,6 +514,26 @@ onUnmounted(() => {
     </div>
 
     <div
+      v-if="bootstrap.taxiBookingSetupNotice"
+      class="builder-save-banner"
+      style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border-color: rgba(239, 68, 68, 0.35);"
+      role="status"
+    >
+      <i class="ki-filled ki-information-2" aria-hidden="true" />
+      <span class="flex flex-wrap items-center gap-2">
+        <span>{{ bootstrap.taxiBookingSetupNotice }}</span>
+        <a
+          v-if="bootstrap.taxiVehiclesUrl"
+          :href="bootstrap.taxiVehiclesUrl"
+          class="kt-btn kt-btn-sm kt-btn-outline"
+          style="color: inherit; border-color: currentColor;"
+        >
+          Voertuigen openen
+        </a>
+      </span>
+    </div>
+
+    <div
       class="builder-workspace"
       :class="{ 'builder-workspace--preview': previewMode === 'live' }"
       :style="previewMode === 'build' ? { '--builder-canvas-column-percent': canvasColumnPercent } : undefined"
@@ -446,8 +541,10 @@ onUnmounted(() => {
       <BuilderPalette
         :sections="bootstrap.catalog.sections"
         :components="bootstrap.catalog.components"
+        :disabled-components="bootstrap.catalog.disabledComponents ?? []"
         :query="paletteQuery"
         :block-preview-url="bootstrap.routes.blockPreview"
+        :toggle-disabled-url="bootstrap.routes.toggleComponentDisabled"
         :theme-slug="bootstrap.themeSlug"
         @update:query="paletteQuery = $event"
         @add="handlePaletteAdd"
@@ -515,6 +612,10 @@ onUnmounted(() => {
             :component-info="selectedComponentInfo"
             :component-defaults="bootstrap.componentDefaults"
             :upload-url="bootstrap.routes.uploadHeroImage"
+            :generate-image-url="bootstrap.routes.generateSectionImage"
+            :page-title="pageHeader.title"
+            :company-name="bootstrap.pageMetaOptions.tenant.storedCompanyName || bootstrap.pageMetaOptions.tenant.effectiveCompanyName || ''"
+            :company-id="bootstrap.page.companyId"
             :website-media-upload-url="bootstrap.routes.uploadWebsiteMedia"
             :website-media-serve-base="bootstrap.routes.websiteMediaServeBase"
             :canvas-blocks="canvasBlocks"
@@ -584,6 +685,10 @@ onUnmounted(() => {
               :component-info="selectedComponentInfo"
               :component-defaults="bootstrap.componentDefaults"
               :upload-url="bootstrap.routes.uploadHeroImage"
+            :generate-image-url="bootstrap.routes.generateSectionImage"
+            :page-title="pageHeader.title"
+            :company-name="bootstrap.pageMetaOptions.tenant.storedCompanyName || bootstrap.pageMetaOptions.tenant.effectiveCompanyName || ''"
+            :company-id="bootstrap.page.companyId"
               :website-media-upload-url="bootstrap.routes.uploadWebsiteMedia"
               :website-media-serve-base="bootstrap.routes.websiteMediaServeBase"
               :canvas-blocks="canvasBlocks"
@@ -668,6 +773,25 @@ onUnmounted(() => {
   align-items: flex-end;
   gap: 0.4rem;
   min-width: 0;
+}
+
+.builder-toolbar__active-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.builder-toolbar__active-switch--on {
+  color: var(--foreground);
 }
 
 .builder-toolbar__status {
@@ -1069,6 +1193,32 @@ onUnmounted(() => {
   cursor: grab;
 }
 
+:deep(.builder-palette-row--disabled) {
+  cursor: default;
+  opacity: 0.78;
+  background: color-mix(in srgb, var(--muted) 35%, var(--background));
+}
+
+:deep(.builder-palette-activate-btn) {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+:deep(.builder-palette-activate-btn:hover:not(:disabled)) {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+:deep(.builder-palette-activate-btn:disabled) {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 :deep(.builder-palette-row__icon) {
   width: 2rem;
   height: 2rem;
@@ -1421,7 +1571,8 @@ onUnmounted(() => {
 .builder-config-modal {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  /* Boven vaste admin-sidebar (z-index 10056) en drawer-backdrop (10040) */
+  z-index: 11000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1612,7 +1763,7 @@ onUnmounted(() => {
 .builder-preview-popout {
   position: fixed;
   inset: 0;
-  z-index: 10100;
+  z-index: 11000;
   display: flex;
   flex-direction: column;
   background: var(--background, #fff);

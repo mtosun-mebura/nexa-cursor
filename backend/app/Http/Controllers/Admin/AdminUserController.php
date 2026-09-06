@@ -10,7 +10,9 @@ use App\Models\Company;
 use App\Models\JobTitle;
 use App\Models\User;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
+use App\Modules\NexaTaxi\Services\TaxiAppPresenceService;
 use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeService;
+use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
 use App\Services\UserRoleAssignmentService;
@@ -36,9 +38,6 @@ class AdminUserController extends Controller
 
         $query = User::with(['company.modules', 'roles']);
         $this->applyTenantFilter($query);
-
-        // Exclude de ingelogde gebruiker uit het overzicht
-        $query->where('id', '!=', auth()->id());
 
         // Filter super-admins: alleen super-admins kunnen andere super-admins zien
         if (! auth()->user()->hasRole('super-admin')) {
@@ -97,6 +96,8 @@ class AdminUserController extends Controller
         // Load all users for client-side pagination (like demo1)
         // The KTDataTable library will handle pagination client-side
         $users = $query->get();
+        $appPresence = app(TaxiAppPresenceService::class)->forUsers($users);
+        $displayRoleNames = $this->displayRoleNamesForUsers($users, $appPresence);
 
         // Calculate statistics
         $statsQuery = User::query();
@@ -123,7 +124,7 @@ class AdminUserController extends Controller
         // Get companies for filter
         $companies = Company::orderBy('name')->get();
 
-        return view('admin.users.index', compact('users', 'stats', 'roles', 'companies'));
+        return view('admin.users.index', compact('users', 'stats', 'roles', 'companies', 'appPresence', 'displayRoleNames'));
     }
 
     public function create(\Illuminate\Http\Request $request)
@@ -148,7 +149,7 @@ class AdminUserController extends Controller
         $wizardContextStep = null;
         $wizardCompany = $this->resolveWizardCompanyFromUserCreateRequest($request);
         if ($wizardCompany !== null) {
-            $wizardStep = max(1, min(7, (int) ($request->input('wizard_step') ?: 5)));
+            $wizardStep = \App\Http\Controllers\Admin\AdminCompanyWizardController::clampStep((int) ($request->input('wizard_step') ?: 5));
             $userCreateBackFallback = route('admin.companies.wizard.step', [$wizardCompany, $wizardStep]);
             $wizardContextCompanyId = (int) $wizardCompany->id;
             $wizardContextStep = $wizardStep;
@@ -320,7 +321,7 @@ class AdminUserController extends Controller
         $request->merge([
             'from_wizard' => '1',
             'wizard_company' => (string) (int) $sid,
-            'wizard_step' => (string) max(1, min(7, (int) $request->input('wizard_step', 5))),
+            'wizard_step' => (string) \App\Http\Controllers\Admin\AdminCompanyWizardController::clampStep((int) $request->input('wizard_step', 5)),
         ]);
     }
 
@@ -391,8 +392,10 @@ class AdminUserController extends Controller
         }
 
         $user->loadMissing('company.modules');
+        $appPresence = app(TaxiAppPresenceService::class)->forUsers([$user]);
+        $displayRoleNames = $this->displayRoleNamesForUsers(collect([$user]), $appPresence);
 
-        return view('admin.users.show', compact('user'));
+        return view('admin.users.show', compact('user', 'displayRoleNames'));
     }
 
     public function edit(User $user)
@@ -416,6 +419,7 @@ class AdminUserController extends Controller
         }
 
         $roles = $this->assignableWebRolesForForms($currentUser->hasRole('super-admin'));
+        $canEditRoles = $currentUser->canEditRolesOf($user);
         $skillmatchingCompanyIds = $this->skillmatchingCompanyIds();
         $functionCompanyId = old('company_id', $user->company_id);
         if (! $currentUser->hasRole('super-admin')) {
@@ -423,7 +427,7 @@ class AdminUserController extends Controller
         }
         $showFunctionField = $this->companyHasSkillmatchingModule($functionCompanyId !== null && $functionCompanyId !== '' ? (int) $functionCompanyId : null);
 
-        return view('admin.users.edit', compact('user', 'companies', 'roles', 'skillmatchingCompanyIds', 'showFunctionField'));
+        return view('admin.users.edit', compact('user', 'companies', 'roles', 'canEditRoles', 'skillmatchingCompanyIds', 'showFunctionField'));
     }
 
     public function update(UpdateUserRequest $request, User $user)
@@ -434,6 +438,9 @@ class AdminUserController extends Controller
         }
 
         $validated = $request->validated();
+        if (! auth()->user()->canEditRolesOf($user)) {
+            $validated['roles'] = $user->webRoleNames();
+        }
 
         $userData = [
             'first_name' => $validated['first_name'],
@@ -517,6 +524,10 @@ class AdminUserController extends Controller
 
         if (! $this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        if (! auth()->user()->canEditRolesOf($user)) {
+            return back()->withErrors(['roles' => 'Alleen een super-admin mag rollen wijzigen. Je kunt je eigen rollen niet aanpassen.']);
         }
 
         $roles = $request->input('roles', []);
@@ -909,13 +920,58 @@ class AdminUserController extends Controller
     }
 
     /**
-     * Basisquery voor gebruikersoverzicht (tenant, zonder huidige gebruiker, zonder super-admin voor niet-super-admins).
+     * Rollen in de tabel: web + api, plus chauffeur/contract als de app-status die rol impliceert.
+     *
+     * @param  \Illuminate\Support\Collection<int, User>  $users
+     * @param  array<int, array{chauffeur: array{applicable: bool, online: bool}, contract: array{applicable: bool, online: bool}}>  $appPresence
+     * @return array<int, list<string>>
+     */
+    private function displayRoleNamesForUsers($users, array $appPresence): array
+    {
+        $ids = collect($users)->map(fn (User $user) => (int) $user->id)->all();
+        $map = User::assignedRoleNamesForIds($ids);
+        $eligibility = app(TaxiDriverEligibilityService::class);
+
+        foreach ($users as $user) {
+            $id = (int) $user->id;
+            $names = $map[$id] ?? [];
+            $presence = $appPresence[$id] ?? app(TaxiAppPresenceService::class)->emptyPresence();
+
+            if (! empty($presence['chauffeur']['applicable']) && ! $eligibility->rolesIncludeChauffeur($names)) {
+                $names[] = 'chauffeur';
+            }
+            if (! empty($presence['contract']['applicable']) && ! $this->rolesIncludeContractApp($names)) {
+                $names[] = 'contractant';
+            }
+
+            $map[$id] = collect($names)
+                ->map(fn ($name) => (string) $name)
+                ->unique(fn (string $name) => strtolower(trim($name)))
+                ->sort(fn (string $a, string $b) => strcasecmp($a, $b))
+                ->values()
+                ->all();
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  list<string>  $roleNames
+     */
+    private function rolesIncludeContractApp(array $roleNames): bool
+    {
+        $normalized = array_map(static fn ($name) => strtolower(trim((string) $name)), $roleNames);
+
+        return count(array_intersect($normalized, TaxiAppPresenceService::CONTRACT_ROLE_NAMES)) > 0;
+    }
+
+    /**
+     * Basisquery voor gebruikersoverzicht (tenant, zonder super-admin voor niet-super-admins).
      */
     private function baseUsersIndexQuery(): Builder
     {
         $query = User::query();
         $this->applyTenantFilter($query);
-        $query->where('id', '!=', auth()->id());
 
         if (! auth()->user()->hasRole('super-admin')) {
             $query->whereNot(fn ($q) => $this->applyWebRoleNameFilter($q, 'super-admin'));
@@ -941,8 +997,8 @@ class AdminUserController extends Controller
                 ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivot}.{$rolePivotKey}")
                 ->whereColumn("{$pivot}.{$morphKey}", 'users.id')
                 ->whereIn("{$pivot}.model_type", $morphTypes)
-                ->where("{$rolesTable}.guard_name", 'web')
-                ->where("{$rolesTable}.name", $roleName);
+                ->whereIn("{$rolesTable}.guard_name", ['web', 'api'])
+                ->whereRaw('LOWER(TRIM('.$rolesTable.'.name)) = ?', [strtolower(trim($roleName))]);
         });
     }
 
@@ -981,7 +1037,7 @@ class AdminUserController extends Controller
         $query = DB::table($pivot)
             ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivot}.{$rolePivotKey}")
             ->whereIn("{$pivot}.model_type", $morphTypes)
-            ->where("{$rolesTable}.guard_name", 'web')
+            ->whereIn("{$rolesTable}.guard_name", ['web', 'api'])
             ->whereIn("{$pivot}.{$morphKey}", $this->baseUsersIndexQuery()->select('users.id'));
 
         if (! auth()->user()->hasRole('super-admin')) {
@@ -989,10 +1045,10 @@ class AdminUserController extends Controller
         }
 
         return $query
-            ->distinct()
             ->orderBy("{$rolesTable}.name")
             ->pluck("{$rolesTable}.name")
             ->map(fn ($name) => (string) $name)
+            ->unique(fn (string $name) => strtolower(trim($name)))
             ->values();
     }
 

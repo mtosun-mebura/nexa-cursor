@@ -833,7 +833,7 @@
                 </span>
                 <div>
                     <strong>Persoon — Profiel</strong>
-                    <p>Jouw gegevens (alleen ter inzage), uitloggen, en de link naar deze handleiding.</p>
+                    <p>Jouw gegevens, themakleur, ritgeluid bij een nieuwe rit, uitloggen, en de link naar deze handleiding.</p>
                 </div>
             </li>
         </ul>

@@ -43,7 +43,7 @@ class AdminPlatformBillingSettingsController extends Controller
             'billing_time' => ['required', 'regex:/^\d{2}:\d{2}$/'],
             'sender_name' => 'nullable|string|max:255',
             'sender_email' => 'nullable|email|max:255',
-            'tax_rate_percent' => 'required|numeric|min:0|max:100',
+            'tax_rate_percent' => 'required|integer|min:0|max:100',
             'payment_terms_days' => 'required|integer|min:1|max:365',
             'dunning_first_interval_days' => 'required|integer|min:1|max:365',
             'dunning_interval_days' => 'required|integer|min:1|max:365',

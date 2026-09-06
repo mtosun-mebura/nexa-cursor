@@ -17,6 +17,7 @@ let activeDatePickerInput = null;
 let openCalendarToken = 0;
 let calendarPointerActive = false;
 let deferCalendarHide = false;
+let skipWrapperClick = false;
 
 function getPositionMode(input) {
     return input.getAttribute('data-kt-date-picker-position-to-input') || 'left';
@@ -293,6 +294,27 @@ function forceResetClosedCalendarState(calendarApi, calendarEl) {
     }
 }
 
+function initializeInputModeCalendar(input, calendarApi) {
+    if (!(input instanceof HTMLElement) || !calendarApi) {
+        return;
+    }
+
+    window.setTimeout(() => {
+        skipWrapperClick = true;
+        try {
+            input.click();
+            calendarApi.show?.();
+        } finally {
+            skipWrapperClick = false;
+        }
+
+        const { linkedCalendar } = getLinkedCalendar(input);
+        if (linkedCalendar instanceof HTMLElement && isCalendarOpen(linkedCalendar)) {
+            ensureCalendarVisible(linkedCalendar);
+        }
+    }, 0);
+}
+
 function openDatePickerInput(input) {
     if (!(input instanceof HTMLElement)) {
         return;
@@ -313,7 +335,11 @@ function openDatePickerInput(input) {
         input.focus({ preventScroll: true });
     }
 
-    calendarApi?.show?.();
+    if (!(linkedCalendar instanceof HTMLElement)) {
+        initializeInputModeCalendar(input, calendarApi);
+    } else {
+        calendarApi?.show?.();
+    }
 
     const { linkedCalendar: openedCalendar } = getLinkedCalendar(input);
     if (openedCalendar instanceof HTMLElement && isCalendarOpen(openedCalendar)) {
@@ -382,6 +408,59 @@ function ensureDatePickersInitialized() {
     bindDatePickerInputOpens();
 }
 
+function formatMonthPickerValue(monthIndex, year) {
+    if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11 || !year) {
+        return '';
+    }
+
+    return `${String(monthIndex + 1).padStart(2, '0')}-${year}`;
+}
+
+function applyMonthPickerSelection(input, monthIndex, year) {
+    const value = formatMonthPickerValue(monthIndex, year);
+    if (!value || !(input instanceof HTMLElement)) {
+        return;
+    }
+
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function bindMonthPickerSelection() {
+    document.addEventListener(
+        'click',
+        (event) => {
+            const monthTarget = event.target.closest?.('[data-vc-months-month], .vc-months__month');
+            if (!monthTarget || monthTarget.disabled || monthTarget.getAttribute('aria-disabled') === 'true') {
+                return;
+            }
+
+            const calendar = monthTarget.closest('[data-vc="calendar"][data-vc-input]');
+            const input = calendar ? resolveInputForCalendar(calendar) : null;
+            if (!input || input.getAttribute('data-kt-date-picker-type') !== 'month') {
+                return;
+            }
+
+            const { calendarApi } = getLinkedCalendar(input);
+            const monthIndex = Number(monthTarget.dataset.vcMonthsMonth);
+            const year = Number(calendarApi?.context?.selectedYear);
+
+            window.setTimeout(() => {
+                const { calendarApi: latestApi } = getLinkedCalendar(input);
+                const resolvedMonth = Number.isInteger(monthIndex)
+                    ? monthIndex
+                    : Number(latestApi?.context?.selectedMonth);
+                const resolvedYear = Number(latestApi?.context?.selectedYear) || year;
+
+                applyMonthPickerSelection(input, resolvedMonth, resolvedYear);
+                latestApi?.hide?.();
+            }, 0);
+        },
+        true,
+    );
+}
+
 function bindDatePickerDeferHideOnDayClick() {
     document.addEventListener(
         'pointerdown',
@@ -390,7 +469,9 @@ function bindDatePickerDeferHideOnDayClick() {
                 return;
             }
 
-            const dayTarget = event.target.closest?.('[data-vc-date], .vc-date__btn');
+            const dayTarget = event.target.closest?.(
+                '[data-vc-date], .vc-date__btn, [data-vc-months-month], .vc-months__month',
+            );
             if (!dayTarget) {
                 return;
             }
@@ -505,7 +586,7 @@ function bindDatePickerWrapperClicks() {
         wrapper.addEventListener(
             'click',
             (event) => {
-                if (event.button !== 0) {
+                if (skipWrapperClick || event.button !== 0) {
                     return;
                 }
 
@@ -536,6 +617,7 @@ function bindAdminDatePickerScrollFix() {
 
     bindDatePickerOutsideClickGuard();
     bindDatePickerDeferHideOnDayClick();
+    bindMonthPickerSelection();
     ensureDatePickersInitialized();
     bindDatePickerWrapperClicks();
 

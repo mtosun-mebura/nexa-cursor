@@ -2,6 +2,22 @@
 
 @section('title', 'Bedrijven Beheer')
 
+@push('styles')
+<style>
+    .kt-btn-wizard-start {
+        background-color: #f97316;
+        border-color: #f97316;
+        color: #fff;
+    }
+    .kt-btn-wizard-start:hover,
+    .kt-btn-wizard-start:focus-visible {
+        background-color: #ea580c;
+        border-color: #ea580c;
+        color: #fff;
+    }
+</style>
+@endpush
+
 @section('content')
 
 <div class="kt-container-fixed">
@@ -13,13 +29,13 @@
             @auth
             @if(auth()->user()->canCreateCompanies())
             <div class="flex flex-1 flex-wrap items-center justify-end gap-2 relative z-10 min-w-0" data-company-create-actions="true">
-                <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-primary">
+                <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-wizard-start">
                     <i class="ki-filled ki-element-11 me-2"></i>
                     Nieuwe tenant (wizard)
                 </a>
-                <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-outline">
+                <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
-                    Nieuw bedrijf (formulier)
+                    Nieuw bedrijf
                 </a>
             </div>
             @endif
@@ -258,9 +274,17 @@
                                         <td>
                                             <div class="flex flex-col gap-1">
                                                 @if($company->email)
-                                                    <div class="text-sm text-foreground">
-                                                        <i class="ki-filled ki-sms me-1 text-xs"></i>
-                                                        {{ $company->email }}
+                                                    <div class="flex items-center gap-1 min-w-0">
+                                                        <i class="ki-filled ki-sms shrink-0 text-xs text-muted-foreground" aria-hidden="true"></i>
+                                                        <span class="admin-email-text text-sm text-foreground truncate">{{ $company->email }}</span>
+                                                        <button type="button"
+                                                                class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                                                                data-copy-text="{{ $company->email }}"
+                                                                data-no-row-link
+                                                                title="E-mailadres kopiëren"
+                                                                aria-label="E-mailadres kopiëren">
+                                                            <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                                                        </button>
                                                     </div>
                                                 @endif
                                                 @if($company->phone)
@@ -332,7 +356,7 @@
                                                         @can('create-companies')
                                                         @if(session()->has('company_wizard.'.$company->id.'.max_reachable'))
                                                         @php
-                                                            $wizardResumeStep = max(1, min(7, (int) session('company_wizard.'.$company->id.'.max_reachable')));
+                                                            $wizardResumeStep = \App\Http\Controllers\Admin\AdminCompanyWizardController::clampStep((int) session('company_wizard.'.$company->id.'.max_reachable'));
                                                         @endphp
                                                         <div class="kt-menu-item">
                                                             <a class="kt-menu-link" href="{{ route('admin.companies.wizard.step', [$company, $wizardResumeStep]) }}">
@@ -629,7 +653,7 @@
                 }
                 row._companyRowBound = true;
                 row.addEventListener('click', function(event) {
-                    if (event.target.closest('[data-no-row-link]')) {
+                    if (event.target.closest('[data-no-row-link], .admin-email-copy')) {
                         return;
                     }
                     var href = row.getAttribute('data-row-href');
@@ -666,6 +690,7 @@
                 window.initCompaniesTablePage();
             });
         }
+
     });
 </script>
 @endpush
@@ -709,6 +734,9 @@
     /* Table row hover styling (same as demo) */
     .company-row {
         cursor: pointer !important;
+    }
+    .admin-email-copy {
+        cursor: pointer;
     }
     .company-row:hover {
         background-color: var(--muted) !important;

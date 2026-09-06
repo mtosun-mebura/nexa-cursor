@@ -88,6 +88,8 @@ class AdminNexaPricingTest extends TestCase
             ->assertSee('Maandprijs', false)
             ->assertSee('Aanbiedingsprijs', false)
             ->assertSee('Gratis maanden', false)
+            ->assertSee('name="trial_notice_days"', false)
+            ->assertSee('Proeftijd', false)
             ->assertDontSee('getal, zonder €', false)
             ->assertSee('>€</span>', false)
             ->assertSee('Website (eenmalig)', false)
@@ -173,6 +175,7 @@ class AdminNexaPricingTest extends TestCase
         $payload['packages'][0]['offer'] = '39';
         $payload['website']['price_label'] = '800';
         $payload['website']['offer'] = '499';
+        $payload['trial_notice_days'] = 7;
 
         $this->actingAs($admin)
             ->put(route('admin.nexa-pricing.update'), $payload)
@@ -183,6 +186,7 @@ class AdminNexaPricingTest extends TestCase
         $this->assertSame('59', $saved['packages'][0]['price'] ?? null);
         $this->assertSame('39', $saved['packages'][0]['offer'] ?? null);
         $this->assertSame(0, $saved['packages'][0]['free_months'] ?? null);
+        $this->assertSame(7, $saved['trial_notice_days'] ?? null);
         $this->assertSame('800', $saved['website']['price_label'] ?? null);
         $this->assertSame('499', $saved['website']['offer'] ?? null);
         $billingPackage = PlatformBillingPackage::query()->where('package_key', 'start')->first();
@@ -326,6 +330,7 @@ class AdminNexaPricingTest extends TestCase
             'title' => $pricing['title'],
             'subtitle' => $pricing['subtitle'],
             'vat_note' => $pricing['vat_note'],
+            'trial_notice_days' => $pricing['trial_notice_days'] ?? 5,
             'packages' => $packages,
             'website' => [
                 'title' => $pricing['website']['title'],

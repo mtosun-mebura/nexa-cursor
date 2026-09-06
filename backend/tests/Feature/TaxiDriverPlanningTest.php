@@ -29,6 +29,7 @@ class TaxiDriverPlanningTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('company_id')->nullable();
             $table->unsignedBigInteger('driver_id')->nullable();
+            $table->unsignedBigInteger('vehicle_id')->nullable();
             $table->string('status', 32)->default('offered');
             $table->string('ride_type', 32)->nullable();
             $table->string('payment_method', 32)->nullable();
@@ -40,6 +41,15 @@ class TaxiDriverPlanningTest extends TestCase
             $table->dateTime('pickup_at');
             $table->decimal('quoted_price', 10, 2)->nullable();
             $table->string('customer_name');
+            $table->timestamps();
+        });
+
+        Schema::connection('module_taxi')->create('driver_availability', function (Blueprint $table) {
+            $table->unsignedBigInteger('driver_id')->primary();
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->unsignedBigInteger('vehicle_id')->nullable();
+            $table->boolean('is_online')->default(false);
+            $table->timestamp('last_seen_at')->nullable();
             $table->timestamps();
         });
 
@@ -118,6 +128,54 @@ class TaxiDriverPlanningTest extends TestCase
 
         $this->assertSame(0, $byDate['2026-08-26']['ride_count']);
         $this->assertTrue($byDate['2026-08-26']['is_today']);
+    }
+
+    #[Test]
+    public function week_includes_contract_rides_linked_to_selected_vehicle(): void
+    {
+        $driver = User::factory()->create();
+
+        \App\Modules\NexaTaxi\Models\DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $driver->id,
+            'company_id' => 1,
+            'vehicle_id' => 42,
+            'is_online' => true,
+            'last_seen_at' => now(),
+        ]);
+
+        RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => null,
+            'vehicle_id' => 42,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'ride_type' => RideRequest::RIDE_TYPE_CONTRACT_GROUP,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Schoolplein 1',
+            'dropoff_address' => 'Thuis',
+            'pickup_at' => '2026-08-26 07:30:00',
+            'customer_name' => 'Groep A',
+            'passengers' => 4,
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => null,
+            'vehicle_id' => 99,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'ride_type' => RideRequest::RIDE_TYPE_CONTRACT_GROUP,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Andere auto',
+            'dropoff_address' => 'Elders',
+            'pickup_at' => '2026-08-26 08:00:00',
+            'customer_name' => 'Groep B',
+            'passengers' => 3,
+        ]);
+
+        $payload = $this->planningPayload($driver, '2026-08-24');
+        $byDate = collect($payload['days'])->keyBy('date');
+
+        $this->assertSame(1, $byDate['2026-08-26']['ride_count']);
+        $this->assertSame('Groep A', $byDate['2026-08-26']['rides'][0]['customer_name']);
+        $this->assertSame('Schoolplein 1', $byDate['2026-08-26']['rides'][0]['pickup_address']);
     }
 
     #[Test]

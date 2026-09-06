@@ -112,7 +112,7 @@ class WebsitePageController extends Controller
         $branding = $this->websiteBuilder->getSiteBrandingForWebsitePage($page);
 
         $themeSlug = $theme ? $theme->slug : 'modern';
-        $themeSettings = $theme ? $theme->getSettings() : [];
+        $themeSettings = $theme ? $theme->getSettings($page->company) : [];
 
         $jobs = collect();
         $isHomePage = $page->page_type === 'home' || $page->slug === 'home';

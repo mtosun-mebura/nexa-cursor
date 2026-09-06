@@ -15,15 +15,40 @@
         $catalog = [''];
     }
     $highlightedId = 'package-highlighted-'.$i;
+    $packageTitle = trim((string) ($package['name'] ?? ''));
+    if ($packageTitle === '') {
+        $packageTitle = 'Pakket';
+    }
+    $bodyId = 'nexa-pricing-package-body-'.$i;
+    $startCollapsed = ! collect($errors->keys())->contains(
+        static fn ($key) => str_starts_with((string) $key, 'packages.'.$i.'.')
+    );
 @endphp
-<div class="nexa-pricing-package kt-card w-full min-w-0" data-package-index="{{ $i }}">
-    <div class="kt-card-header flex items-center justify-between gap-2">
-        <h3 class="kt-card-title mb-0">Pakket</h3>
-        <button type="button" class="nexa-pricing-package-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Pakket verwijderen" aria-label="Pakket verwijderen">
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+<div class="nexa-pricing-package kt-card w-full min-w-0{{ $startCollapsed ? ' is-collapsed' : '' }}" data-package-index="{{ $i }}">
+    <div class="kt-card-header flex items-center justify-between gap-2 px-5 py-5">
+        <button type="button"
+                class="nexa-pricing-package-toggle flex min-w-0 flex-1 items-center border-0 bg-transparent p-0 text-start cursor-pointer"
+                aria-expanded="{{ $startCollapsed ? 'false' : 'true' }}"
+                aria-controls="{{ $bodyId }}">
+            <h3 class="kt-card-title mb-0 truncate" data-package-title>{{ $packageTitle }}</h3>
         </button>
+        <div class="flex items-center gap-1 shrink-0">
+            <button type="button"
+                    class="nexa-pricing-package-toggle nexa-pricing-package-chevron-btn kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground"
+                    aria-expanded="{{ $startCollapsed ? 'false' : 'true' }}"
+                    aria-controls="{{ $bodyId }}"
+                    aria-label="Pakket in- of uitklappen">
+                <span class="nexa-pricing-package-chevron" aria-hidden="true">
+                    <i class="ki-filled ki-down nexa-pricing-package-icon-down text-base"></i>
+                    <i class="ki-filled ki-up nexa-pricing-package-icon-up text-base"></i>
+                </span>
+            </button>
+            <button type="button" class="nexa-pricing-package-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Pakket verwijderen" aria-label="Pakket verwijderen">
+                <i class="ki-filled ki-trash"></i>
+            </button>
+        </div>
     </div>
-    <div class="kt-card-content p-0">
+    <div class="kt-card-content p-0 nexa-pricing-package-body" id="{{ $bodyId }}">
         <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
@@ -58,19 +83,19 @@
                     <td class="text-secondary-foreground font-normal">Gratis maanden</td>
                     <td>
                         <input class="kt-input w-28 tabular-nums" type="number" name="packages[{{ $i }}][free_months]" value="{{ (int) ($package['free_months'] ?? 0) }}" min="0" max="24" step="1" inputmode="numeric">
-                        <p class="text-xs text-muted-foreground mt-1">0 = geen. 1 = “1 maand gratis, daarna € …,-”.</p>
+                        <p class="text-xs text-muted-foreground mt-1">0 = geen. 1 = “1 maand gratis, daarna € …,-”. Facturatie start ná deze maanden; het jaarcontract telt vanaf de start van de proef.</p>
                     </td>
                 </tr>
                 <tr>
                     <td class="text-secondary-foreground font-normal">Periode</td>
                     <td>
-                        <input class="kt-input w-full" type="text" name="packages[{{ $i }}][period]" value="{{ $package['period'] ?? 'per maand' }}">
+                        <input class="kt-input w-full" type="text" name="packages[{{ $i }}][period]" value="{{ $package['period'] ?? 'per maand' }}" data-package-period>
                     </td>
                 </tr>
                 <tr>
                     <td class="text-secondary-foreground font-normal">Badge</td>
                     <td>
-                        <input class="kt-input w-full" type="text" name="packages[{{ $i }}][badge]" value="{{ $package['badge'] ?? '' }}">
+                        <input class="kt-input w-full" type="text" name="packages[{{ $i }}][badge]" value="{{ $package['badge'] ?? '' }}" data-package-badge>
                     </td>
                 </tr>
                 <tr>
@@ -90,7 +115,7 @@
                     <td>
                         <input type="hidden" name="packages[{{ $i }}][highlighted]" value="0">
                         <label class="kt-label flex items-center gap-2 mb-0" for="{{ $highlightedId }}">
-                            <input type="checkbox" name="packages[{{ $i }}][highlighted]" id="{{ $highlightedId }}" value="1" class="kt-switch kt-switch-sm shrink-0" @checked(! empty($package['highlighted']))>
+                            <input type="checkbox" name="packages[{{ $i }}][highlighted]" id="{{ $highlightedId }}" value="1" class="kt-switch kt-switch-sm shrink-0" @checked(! empty($package['highlighted'])) data-package-highlighted>
                             <span class="text-sm text-muted-foreground">Uitgelicht in de vergelijkingstabel</span>
                         </label>
                     </td>

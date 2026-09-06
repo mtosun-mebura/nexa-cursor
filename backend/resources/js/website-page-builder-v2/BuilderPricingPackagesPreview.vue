@@ -146,7 +146,7 @@ function toggleFeatures(index: number): void {
         </div>
       </dl>
 
-      <div class="nexa-pricing-package__features">
+      <div class="nexa-pricing-package__features" :class="{ 'is-open': featuresOpen(index) }">
         <button
           type="button"
           class="nexa-pricing-package__features-toggle"
@@ -154,19 +154,19 @@ function toggleFeatures(index: number): void {
           @click="toggleFeatures(index)"
         >
           <span>Kenmerken ({{ packageFeatures(pkg).length }})</span>
-          <i
-            class="ki-filled text-xs"
-            :class="featuresOpen(index) ? 'ki-up' : 'ki-down'"
-            aria-hidden="true"
-          />
+          <i class="ki-filled ki-down nexa-pricing-package__features-chevron" aria-hidden="true" />
         </button>
-        <ul v-if="featuresOpen(index)" class="nexa-pricing-package__feature-list">
-          <li v-if="packageFeatures(pkg).length === 0" class="text-muted-foreground">Geen kenmerken.</li>
-          <li v-for="(feature, featureIndex) in packageFeatures(pkg)" :key="`${index}-${featureIndex}`">
-            <i class="ki-filled ki-check text-green-500 shrink-0" aria-hidden="true" />
-            <span>{{ feature }}</span>
-          </li>
-        </ul>
+        <div class="nexa-smooth-accordion start-closed">
+          <div class="nexa-smooth-accordion__clip">
+            <ul class="nexa-pricing-package__feature-list">
+              <li v-if="packageFeatures(pkg).length === 0" class="text-muted-foreground">Geen kenmerken.</li>
+              <li v-for="(feature, featureIndex) in packageFeatures(pkg)" :key="`${index}-${featureIndex}`">
+                <i class="ki-filled ki-check text-green-500 shrink-0" aria-hidden="true" />
+                <span>{{ feature }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </article>
   </div>
@@ -346,6 +346,16 @@ function toggleFeatures(index: number): void {
   background: color-mix(in oklab, var(--muted) 40%, transparent);
 }
 
+.nexa-pricing-package__features-chevron {
+  display: inline-block;
+  font-size: 0.75rem;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-open > .nexa-pricing-package__features-toggle .nexa-pricing-package__features-chevron {
+  transform: rotate(180deg);
+}
+
 .nexa-pricing-package__feature-list {
   list-style: none;
   margin: 0;
@@ -375,6 +385,12 @@ function toggleFeatures(index: number): void {
   .nexa-pricing-package__row {
     grid-template-columns: 1fr;
     gap: 0.1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexa-pricing-package__features-chevron {
+    transition: none;
   }
 }
 </style>

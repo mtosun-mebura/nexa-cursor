@@ -150,7 +150,7 @@
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">BTW % <span class="text-destructive">*</span></td>
                             <td>
-                                <input type="number" step="0.01" name="tax_rate_percent" class="kt-input @error('tax_rate_percent') border-destructive @enderror" style="width: 13ch;" value="{{ old('tax_rate_percent', $settings->tax_rate_percent) }}" required>
+                                <input type="number" name="tax_rate_percent" class="kt-input @error('tax_rate_percent') border-destructive @enderror" style="width: 13ch;" value="{{ (int) old('tax_rate_percent', $settings->tax_rate_percent) }}" step="1" min="0" max="100" required>
                                 @error('tax_rate_percent')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>

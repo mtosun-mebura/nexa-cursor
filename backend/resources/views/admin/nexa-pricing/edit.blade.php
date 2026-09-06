@@ -39,25 +39,34 @@
         border-color: color-mix(in oklab, rgb(34 197 94) 45%, var(--nexa-pricing-toggle-border));
         background: color-mix(in oklab, rgb(34 197 94) 12%, transparent);
     }
-    #nexa-pricing-summary .nexa-pricing-summary-table-wrap {
-        overflow: hidden;
-        width: 22.875rem;
-        max-width: 100%;
+    #nexa-pricing-summary .nexa-pricing-summary-tile {
         border: 1px solid var(--border);
         border-radius: calc(var(--radius) + 4px);
-    }
-    #nexa-pricing-summary .kt-table {
-        width: 100%;
+        background: var(--background);
         min-width: 0;
-        table-layout: fixed;
+        padding: 1.25rem;
     }
-    #nexa-pricing-summary .kt-table :is(th, td) {
-        border-bottom: 1px solid var(--border);
-        padding-inline: 0.75rem;
-        white-space: nowrap;
+    #nexa-pricing-summary .nexa-pricing-summary-tile.is-highlighted {
+        border-color: color-mix(in oklab, var(--primary) 42%, var(--border));
+        background: color-mix(in oklab, var(--primary) 7%, var(--background));
     }
-    #nexa-pricing-summary .kt-table tbody tr:last-child td {
+    .nexa-pricing-package.is-collapsed > .nexa-pricing-package-body {
+        display: none;
+    }
+    .nexa-pricing-package.is-collapsed > .kt-card-header {
         border-bottom: none;
+    }
+    .nexa-pricing-package .nexa-pricing-package-icon-up {
+        display: none;
+    }
+    .nexa-pricing-package .nexa-pricing-package-icon-down {
+        display: inline-block;
+    }
+    .nexa-pricing-package:not(.is-collapsed) .nexa-pricing-package-icon-down {
+        display: none;
+    }
+    .nexa-pricing-package:not(.is-collapsed) .nexa-pricing-package-icon-up {
+        display: inline-block;
     }
 </style>
 <div class="kt-container-fixed min-w-0">
@@ -115,26 +124,36 @@
                 </div>
             </div>
 
+            <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                    <h3 class="kt-card-title mb-0">Proeftijd</h3>
+                </div>
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-5 min-w-0">
+                        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                            <tr>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top">Aankondiging (dagen)</td>
+                                <td class="min-w-48 w-full">
+                                    <input class="kt-input w-28 tabular-nums" type="number" name="trial_notice_days" value="{{ old('trial_notice_days', $pricing['trial_notice_days'] ?? 5) }}" min="1" max="30" step="1" inputmode="numeric" required>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Aantal dagen vóór het einde van de gratis maanden waarop NEXA de klant mailt: het abonnement gaat beginnen en de eerste incasso volgt. Zonder reactie gaat het jaarcontract in (inclusief de proefperiode). Standaard 5.</p>
+                                    @error('trial_notice_days')
+                                        <div class="text-xs text-destructive mt-1" role="alert">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="space-y-5">
                 <div class="kt-card w-full min-w-0" id="nexa-pricing-summary">
                     <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                         <h3 class="kt-card-title mb-0">Overzicht prijzen</h3>
                     </div>
                     <div class="kt-card-content p-5">
-                        <p class="text-sm text-muted-foreground mb-3">Deze prijzen gelden voor NEXA-facturatie. Wijzigingen in de pakketten hieronder verschijnen direct in deze tabel.</p>
-                        <div class="nexa-pricing-summary-table-wrap">
-                            <div class="kt-scrollable-x-auto">
-                                <table class="kt-table kt-table-border-dashed admin-keep-table-layout align-middle text-sm">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-secondary-foreground font-normal">Pakket</th>
-                                            <th class="text-secondary-foreground font-normal text-end">Maandprijs</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="nexa-pricing-summary-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <p class="text-sm text-muted-foreground mb-4">Deze prijzen gelden voor NEXA-facturatie. Wijzigingen in de pakketten hieronder verschijnen hier direct.</p>
+                        <div id="nexa-pricing-summary-body" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
                     </div>
                 </div>
                 <div class="space-y-5" id="nexa-pricing-packages">
@@ -222,51 +241,63 @@
             </div>
 
             <div class="kt-card w-full min-w-0">
-                <div class="kt-card-header">
+                <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                     <h3 class="kt-card-title mb-0">Aanvullende modules</h3>
                 </div>
-                <div class="kt-card-content p-5 lg:p-6 space-y-3">
-                    <p class="text-sm text-muted-foreground mb-0">Vaste modules die je per bedrijf bij het abonnement kunt zetten. GPS-trackers bouwen we later; de module kun je nu al activeren. Extra contractklanten verhogen het Business-limiet met 10 per bundel. Vloot maakt contractklanten onbeperkt.</p>
-                    @foreach(app(\App\Services\NexaPricingService::class)->modulesCatalog($pricing) as $module)
-                        @php
-                            $posted = old('modules.'.$module['key'], []);
-                            $moduleName = is_array($posted) && isset($posted['name']) ? $posted['name'] : $module['name'];
-                            $modulePrice = is_array($posted) && isset($posted['price']) ? $posted['price'] : $module['price'];
-                            $moduleDescription = is_array($posted) && isset($posted['description']) ? $posted['description'] : $module['description'];
-                        @endphp
-                        <div class="border border-border rounded-lg p-3 space-y-2">
-                            <input type="hidden" name="modules[{{ $module['key'] }}][key]" value="{{ $module['key'] }}">
-                            <div class="flex flex-wrap items-start justify-between gap-2">
-                                <div class="text-sm font-medium text-foreground">{{ $module['label'] }}</div>
-                                <code class="text-[11px] text-muted-foreground">{{ $module['code'] }}</code>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-[1fr_8rem_1.6fr] gap-2">
+                <div class="kt-card-content p-5 lg:p-6">
+                    <p class="text-sm text-muted-foreground mb-0">Vaste modules die je per bedrijf bij het abonnement kunt zetten. GPS-trackers geven een live kaart in de admin. Extra contractklanten verhogen het Business-limiet met 10 per bundel. Vloot maakt contractklanten onbeperkt.</p>
+                </div>
+            </div>
+
+            @foreach(app(\App\Services\NexaPricingService::class)->modulesCatalog($pricing) as $module)
+                @php
+                    $posted = old('modules.'.$module['key'], []);
+                    $moduleName = is_array($posted) && isset($posted['name']) ? $posted['name'] : $module['name'];
+                    $modulePrice = is_array($posted) && isset($posted['price']) ? $posted['price'] : $module['price'];
+                    $moduleDescription = is_array($posted) && isset($posted['description']) ? $posted['description'] : $module['description'];
+                @endphp
+                <div class="kt-card w-full min-w-0">
+                    <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                        <h3 class="kt-card-title mb-0">{{ $module['label'] }}</h3>
+                        <code class="text-[11px] text-muted-foreground">{{ $module['code'] }}</code>
+                    </div>
+                    <div class="kt-card-content p-5 lg:p-6">
+                        <input type="hidden" name="modules[{{ $module['key'] }}][key]" value="{{ $module['key'] }}">
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_8rem_1.6fr] gap-3">
+                            <div>
+                                <label class="mb-1 block text-sm text-muted-foreground">Naam</label>
                                 <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][name]" value="{{ $moduleName }}" placeholder="Naam">
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm text-muted-foreground">Prijs</label>
                                 <div class="flex items-center gap-1">
                                     <span class="text-sm text-muted-foreground">€</span>
                                     <input class="kt-input w-full tabular-nums" type="number" name="modules[{{ $module['key'] }}][price]" value="{{ $modulePrice }}" min="0" max="9999" step="1" inputmode="numeric">
                                 </div>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm text-muted-foreground">Toelichting</label>
                                 <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][description]" value="{{ $moduleDescription }}" placeholder="Toelichting">
                             </div>
                         </div>
-                    @endforeach
+                    </div>
                 </div>
-            </div>
+            @endforeach
 
             <div class="kt-card w-full min-w-0">
-                <div class="kt-card-header">
+                <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                     <h3 class="kt-card-title mb-0">Extra opties</h3>
                 </div>
-                <div class="kt-card-content p-5 lg:p-6 space-y-3" id="nexa-pricing-addons">
+                <div class="kt-card-content p-5 lg:p-6 flex flex-col gap-3" id="nexa-pricing-addons">
                     @foreach($addons as $i => $addon)
-                    <div class="nexa-pricing-addon grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-start border border-border rounded-lg p-3">
+                    <div class="nexa-pricing-addon grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-start">
                         <input class="kt-input w-full" type="text" name="addons[{{ $i }}][name]" value="{{ $addon['name'] ?? '' }}" placeholder="Naam">
                         <input class="kt-input w-full" type="text" name="addons[{{ $i }}][price]" value="{{ $addon['price'] ?? '' }}" placeholder="Prijs">
                         <input class="kt-input w-full" type="text" name="addons[{{ $i }}][description]" value="{{ $addon['description'] ?? '' }}" placeholder="Toelichting">
                         <button type="button" class="nexa-pricing-addon-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Verwijderen" aria-label="Optie verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                     </div>
                     @endforeach
-                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="nexa-pricing-addon-add">+ Optie toevoegen</button>
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary self-end" id="nexa-pricing-addon-add">+ Optie toevoegen</button>
                 </div>
             </div>
         </div>
@@ -285,7 +316,7 @@
 @include('admin.nexa-pricing.partials.feature-row', ['name' => '__NAME__', 'value' => '', 'included' => true])
 </template>
 <template id="nexa-pricing-addon-template">
-<div class="nexa-pricing-addon grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-start border border-border rounded-lg p-3">
+<div class="nexa-pricing-addon grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-start">
     <input class="kt-input w-full" type="text" name="addons[__INDEX__][name]" value="" placeholder="Naam">
     <input class="kt-input w-full" type="text" name="addons[__INDEX__][price]" value="" placeholder="Prijs">
     <input class="kt-input w-full" type="text" name="addons[__INDEX__][description]" value="" placeholder="Toelichting">
@@ -401,15 +432,50 @@ document.addEventListener('DOMContentLoaded', function () {
         const newList = node.querySelector('.nexa-pricing-feature-list');
         copyCatalogToPackageList(newList);
         bindDriverLimit(node);
+        setPackageCollapsed(node, false);
+        syncPackageTitle(node);
+        syncPackageRemoveButtons();
         refreshPricingSummary();
     });
 
+    function setPackageCollapsed(card, collapsed) {
+        if (!card) return;
+        card.classList.toggle('is-collapsed', collapsed);
+        card.querySelectorAll('.nexa-pricing-package-toggle').forEach(function (btn) {
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        });
+    }
+
+    function syncPackageTitle(card) {
+        if (!card) return;
+        var title = card.querySelector('[data-package-title]');
+        if (!title) return;
+        title.textContent = (card.querySelector('[data-package-name]')?.value || '').trim() || 'Pakket';
+    }
+
+    function syncPackageRemoveButtons() {
+        if (!packagesRoot) return;
+        var cards = packagesRoot.querySelectorAll('.nexa-pricing-package');
+        cards.forEach(function (card) {
+            var btn = card.querySelector('.nexa-pricing-package-remove');
+            if (btn) btn.hidden = cards.length <= 1;
+        });
+    }
+
     packagesRoot?.addEventListener('click', function (e) {
+        const toggle = e.target.closest('.nexa-pricing-package-toggle');
+        if (toggle) {
+            const card = toggle.closest('.nexa-pricing-package');
+            if (!card) return;
+            setPackageCollapsed(card, !card.classList.contains('is-collapsed'));
+            return;
+        }
         const removePackage = e.target.closest('.nexa-pricing-package-remove');
         if (removePackage) {
             const card = removePackage.closest('.nexa-pricing-package');
             if (card && packagesRoot.querySelectorAll('.nexa-pricing-package').length > 1) {
                 card.remove();
+                syncPackageRemoveButtons();
                 refreshPricingSummary();
             }
         }
@@ -478,32 +544,51 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!body || !packagesRoot) {
             return;
         }
-        var rows = [];
-        packagesRoot.querySelectorAll('.nexa-pricing-package').forEach(function (card) {
+        var tiles = [];
+        var badgePalette = ['kt-badge-info', 'kt-badge-primary', 'kt-badge-warning', 'kt-badge-yellow'];
+        packagesRoot.querySelectorAll('.nexa-pricing-package').forEach(function (card, index) {
             var name = (card.querySelector('[data-package-name]')?.value || '').trim() || 'Naamloos pakket';
-            var price = card.querySelector('[data-package-price]')?.value || '';
-            rows.push(
-                '<tr>' +
-                    '<td class="text-foreground">' + escapeHtml(name) + '</td>' +
-                    '<td class="text-end tabular-nums text-foreground">' + escapeHtml(formatMonthlyAmount(price)) + '</td>' +
-                '</tr>'
+            var price = formatMonthlyAmount(card.querySelector('[data-package-price]')?.value || '');
+            var period = (card.querySelector('[data-package-period]')?.value || '').trim() || 'per maand';
+            var badge = (card.querySelector('[data-package-badge]')?.value || '').trim();
+            var highlighted = !!card.querySelector('[data-package-highlighted]:checked');
+            var meta = badge || (highlighted ? 'Aanbevolen' : '');
+            var badgeTone = highlighted ? 'kt-badge-success' : badgePalette[index % badgePalette.length];
+            tiles.push(
+                '<article class="nexa-pricing-summary-tile' + (highlighted ? ' is-highlighted' : '') + '">' +
+                    '<div class="flex items-start justify-between gap-2">' +
+                        '<p class="text-sm font-medium text-foreground mb-0">' + escapeHtml(name) + '</p>' +
+                        (meta !== ''
+                            ? '<span class="kt-badge kt-badge-sm shrink-0 ' + badgeTone + '">' + escapeHtml(meta) + '</span>'
+                            : '') +
+                    '</div>' +
+                    '<p class="mt-3 mb-0 text-2xl font-semibold tabular-nums tracking-tight text-mono">' + escapeHtml(price) + '</p>' +
+                    '<p class="mt-1 mb-0 text-xs text-muted-foreground">' + escapeHtml(period) + '</p>' +
+                '</article>'
             );
         });
-        body.innerHTML = rows.join('') || '<tr><td colspan="2" class="p-5 text-muted-foreground">Nog geen pakketten</td></tr>';
+        body.innerHTML = tiles.join('') || '<p class="text-sm text-muted-foreground mb-0">Nog geen pakketten</p>';
     }
 
     packagesRoot?.addEventListener('input', function (e) {
-        if (e.target.matches('[data-package-name], [data-package-price]')) {
+        if (e.target.matches('[data-package-name], [data-package-price], [data-package-period], [data-package-badge]')) {
             refreshPricingSummary();
         }
         if (!e.target.matches('[data-package-name]')) return;
         const card = e.target.closest('.nexa-pricing-package');
+        syncPackageTitle(card);
         const keyInput = card ? card.querySelector('[data-package-key]') : null;
         if (!keyInput || keyInput.dataset.manual === '1') return;
         if (keyInput.value !== '' && keyInput.dataset.autofil !== '1') return;
         const slug = slugifyPackageName(e.target.value);
         keyInput.value = slug;
         keyInput.dataset.autofil = slug ? '1' : '';
+    });
+
+    packagesRoot?.addEventListener('change', function (e) {
+        if (e.target.matches('[data-package-highlighted]')) {
+            refreshPricingSummary();
+        }
     });
 
     packagesRoot?.addEventListener('input', function (e) {
@@ -519,7 +604,16 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     bindDriverLimit(packagesRoot);
+    packagesRoot?.querySelectorAll('.nexa-pricing-package').forEach(syncPackageTitle);
+    syncPackageRemoveButtons();
     refreshPricingSummary();
+
+    form?.addEventListener('invalid', function (e) {
+        const card = e.target.closest?.('.nexa-pricing-package.is-collapsed');
+        if (card) {
+            setPackageCollapsed(card, false);
+        }
+    }, true);
 
     document.getElementById('nexa-pricing-addon-add')?.addEventListener('click', function () {
         if (!addonsRoot || !addonTpl) return;

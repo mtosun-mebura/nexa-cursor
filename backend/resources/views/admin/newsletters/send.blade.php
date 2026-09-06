@@ -75,7 +75,7 @@
         <div class="border-b border-border px-6 py-5">
             <h2 id="send-modal-title" class="text-lg font-semibold text-foreground mb-1">Nieuwsbrief versturen?</h2>
             <p class="text-sm text-muted-foreground mb-0">
-                De mail gaat naar de opt-inlijst via het Nexa SaaS-mailaccount. Elk bericht heeft een afmeldlink. Wie zich afmeldt, krijgt de volgende ronde niet.
+                De mail gaat naar de opt-inlijst via het NEXA Suite-mailaccount. Elk bericht heeft een afmeldlink. Wie zich afmeldt, krijgt de volgende ronde niet.
             </p>
         </div>
         <div class="px-6 py-5 flex justify-end gap-2">

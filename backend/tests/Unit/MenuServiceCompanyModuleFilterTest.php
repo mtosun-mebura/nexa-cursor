@@ -84,20 +84,30 @@ class MenuServiceCompanyModuleFilterTest extends TestCase
         $this->assertContains('ride_requests', $startKeys);
         $this->assertNotContains('transport_customers', $startKeys);
         $this->assertNotContains('dispatch_settings', $startKeys);
+        $this->assertNotContains('gps_tracking', $startKeys);
 
         session(['selected_tenant' => $pro->id]);
         $proKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
         $this->assertContains('dispatch_settings', $proKeys);
         $this->assertNotContains('transport_customers', $proKeys);
+        $this->assertNotContains('gps_tracking', $proKeys);
+
+        $pro->package_addons = [\App\Support\TenantPackageAddon::GPS_TRACKING => 1];
+        $pro->save();
+        session(['selected_tenant' => $pro->id]);
+        $proWithGpsKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
+        $this->assertContains('gps_tracking', $proWithGpsKeys);
 
         session(['selected_tenant' => $business->id]);
         $businessKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
         $this->assertContains('transport_customers', $businessKeys);
         $this->assertContains('dispatch_settings', $businessKeys);
+        $this->assertNotContains('gps_tracking', $businessKeys);
 
         session(['selected_tenant' => $legacy->id]);
         $legacyKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
         $this->assertContains('transport_customers', $legacyKeys);
         $this->assertContains('dispatch_settings', $legacyKeys);
+        $this->assertContains('gps_tracking', $legacyKeys);
     }
 }

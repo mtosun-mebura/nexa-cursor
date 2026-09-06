@@ -126,6 +126,15 @@
                                                     <span class="kt-menu-title">PDF</span>
                                                 </a>
                                             </div>
+                                            <div class="kt-menu-item">
+                                                <form method="POST" action="{{ route('admin.platform-billing.invoices.send', $invoice) }}" class="contents" onsubmit="return confirm('Factuur {{ $invoice->invoice_number }} per e-mail naar de tenant versturen?');">
+                                                    @csrf
+                                                    <button type="submit" class="kt-menu-link w-full text-left">
+                                                        <span class="kt-menu-icon"><i class="ki-filled ki-sms"></i></span>
+                                                        <span class="kt-menu-title">Versturen</span>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -468,10 +477,10 @@
         try {
             stored = sessionStorage.getItem(STORAGE_KEY);
         } catch (e) {}
-        if (stored === '0') {
-            setCollapsed(true);
-        } else if (stored === '1') {
+        if (stored === '1') {
             setCollapsed(false);
+        } else {
+            setCollapsed(true);
         }
         toggles.forEach(function (btn) {
             btn.addEventListener('click', function () {

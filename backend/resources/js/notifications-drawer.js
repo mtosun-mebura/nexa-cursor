@@ -5,6 +5,65 @@ let notifications = [];
 let notificationsPollingInterval = null;
 let lastNotificationCount = 0;
 
+function typedActionButtonsHtml(notification, spacingClass) {
+    if (!notification.action_url) {
+        return '';
+    }
+    const href = String(notification.action_url).replace(/"/g, '&quot;');
+    if (notification.type === 'incident' || notification.category === 'incident') {
+        const label = notification.data && notification.data.event === 'incident_handled'
+            ? 'Bekijk je incident'
+            : 'Open incident';
+        return `
+        <div class="flex flex-wrap gap-2.5 ${spacingClass}">
+            <a href="${href}" class="kt-btn kt-btn-mono kt-btn-sm">
+                ${label}
+            </a>
+        </div>
+    `;
+    }
+    if (notification.type === 'taxi_setup') {
+        let data = notification.data;
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (err) {
+                data = {};
+            }
+        }
+        const buttons = [
+            `<a href="${href}" class="kt-btn kt-btn-primary kt-btn-sm">Open stappenplan</a>`
+        ];
+        const steps = Array.isArray(data?.steps) ? data.steps : [];
+        steps
+            .filter((step) => step && step.done === false && step.url)
+            .forEach((step) => {
+                const label = String(step.button || step.title || 'Openen')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                const stepHref = String(step.url).replace(/"/g, '&quot;');
+                buttons.push(
+                    `<a href="${stepHref}" class="kt-btn kt-btn-outline kt-btn-sm">${label}</a>`
+                );
+            });
+        return `
+        <div class="flex flex-wrap gap-2.5 ${spacingClass}">
+            ${buttons.join('')}
+        </div>
+    `;
+    }
+    if (notification.type !== 'config_access') {
+        return '';
+    }
+    return `
+        <div class="flex flex-wrap gap-2.5 ${spacingClass}">
+            <a href="${href}" class="kt-btn kt-btn-mono kt-btn-sm">
+                Open de admin
+            </a>
+        </div>
+    `;
+}
+
 // Helper function to format message labels as bold
 function formatMessageWithBoldLabels(message) {
     if (!message) return '';
@@ -280,6 +339,10 @@ function createNotificationElement(notification) {
             `;
         }
     }
+
+    if (!actionButtons) {
+        actionButtons = typedActionButtonsHtml(notification, 'mt-2');
+    }
     
     let fileSection = '';
     if (notification.file_path) {
@@ -472,8 +535,7 @@ function createNotificationElement(notification) {
                             return html;
                         })()}
                     ` : `
-                        <div class="text-sm text-muted-foreground whitespace-pre-wrap">
-                            ${(() => {
+                        <div class="text-sm text-muted-foreground text-start">${(() => {
                                 // Check if this is a confirmation notification (new format without response)
                                 if (notification.message && notification.message.includes('heeft de status') && notification.message.includes('gekregen')) {
                                     // New format - only show status message
@@ -484,8 +546,7 @@ function createNotificationElement(notification) {
                                 }
                                 // Default: show full message with bold labels
                                 return `Bericht: ${formatMessageWithBoldLabels(notification.message)}`;
-                            })()}
-                        </div>
+                            })()}</div>
                         ${isInterviewNotification ? `
                             ${(() => {
                                 // Only show Afspraakdetails for new format confirmation notifications
@@ -816,6 +877,10 @@ function showNotificationDetail(notification) {
                 </div>
             `;
         }
+    }
+
+    if (!actionButtons) {
+        actionButtons = typedActionButtonsHtml(notification, 'mt-4');
     }
     
     // Build file section

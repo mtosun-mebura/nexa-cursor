@@ -64,15 +64,48 @@
                         <tr data-billing-field-row="package">
                             <td class="text-secondary-foreground font-normal align-top">Pakket</td>
                             <td>
-                                <select name="platform_billing_package_id" class="kt-select w-full" id="platform_billing_package_id" data-invoice-preview-trigger>
-                                    <option value="">— Kies —</option>
-                                    @foreach($packages as $pkg)
-                                        <option value="{{ $pkg->id }}" @selected((int) old('platform_billing_package_id', $profile->platform_billing_package_id) === $pkg->id)>
-                                            {{ $pkg->name }} (€ {{ number_format((float) $pkg->monthly_amount, 2, ',', '.') }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Prijzen komen uit <a href="{{ route('admin.nexa-pricing.edit') }}" class="underline underline-offset-2">Paketten</a>.</p>
+                                @php
+                                    $companyPackageName = $profile->resolvedPackageName();
+                                    $companyPackageAmount = $profile->subscriptionBaseAmount();
+                                @endphp
+                                <div class="text-sm font-medium text-foreground mb-2">{{ $companyPackageName ?: 'Geen pakket' }}</div>
+                                <div class="inline-flex items-stretch">
+                                    <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
+                                    <input class="kt-input rounded-l-none tabular-nums bg-muted/40"
+                                           type="text"
+                                           readonly
+                                           tabindex="-1"
+                                           id="package_monthly_amount"
+                                           value="{{ number_format($companyPackageAmount, 2, ',', '.') }}"
+                                           style="width: 7.5rem; max-width: 7.5rem;">
+                                </div>
+                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Komt uit het pakket van dit bedrijf. Wijzig het bij <a href="{{ route('admin.companies.edit', $company) }}" class="underline underline-offset-2">Bedrijf bewerken</a>. Prijzen komen uit <a href="{{ route('admin.nexa-pricing.edit') }}" class="underline underline-offset-2">Paketten</a>.</p>
+                            </td>
+                        </tr>
+                        <tr data-billing-field-row="package">
+                            <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
+                            <td>
+                                @php $addonLines = $profile->packageAddonLines(); @endphp
+                                @if($addonLines === [])
+                                    <p class="text-sm text-muted-foreground mb-0">Geen aanvullende modules. Stel ze in bij <a href="{{ route('admin.companies.edit', $company) }}" class="underline underline-offset-2">Bedrijf bewerken</a>.</p>
+                                @else
+                                    <div class="space-y-2">
+                                        @foreach($addonLines as $addonLine)
+                                            <div class="flex flex-wrap items-center justify-between gap-2 border border-border rounded-lg px-3 py-2.5">
+                                                <div class="min-w-0">
+                                                    <div class="text-sm font-medium text-foreground">{{ $addonLine['name'] }}</div>
+                                                    @if((int) $addonLine['quantity'] > 1)
+                                                        <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ (int) $addonLine['quantity'] }} × € {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
+                                                    @else
+                                                        <p class="text-xs text-muted-foreground mt-0.5 mb-0">€ {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
+                                                    @endif
+                                                </div>
+                                                <span class="text-sm font-medium tabular-nums text-foreground">€ {{ number_format((float) $addonLine['total'], 2, ',', '.') }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Deze modules komen als aparte regels op de factuur, bovenop de pakketprijs.</p>
+                                @endif
                             </td>
                         </tr>
                         <tr data-billing-field-row="custom">
@@ -358,31 +391,37 @@
 
     <div class="grid gap-5 lg:gap-7.5 mt-5 lg:mt-7.5">
         <div class="kt-card min-w-full">
-            <div class="kt-card-header flex-wrap gap-2 w-full items-center">
+            <div class="kt-card-header flex-wrap gap-2 w-full items-center px-5 py-5 overflow-visible">
                 <h3 class="kt-card-title mb-0">Factuurvoorbeeld</h3>
                 <span class="text-xs text-muted-foreground" id="invoice-preview-status"></span>
                 <button type="button"
                         class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                         id="invoice-preview-responsive-btn"
-                        title="Mobiele weergave"
+                        data-kt-tooltip="true"
+                        data-kt-tooltip-placement="bottom"
                         aria-label="Factuurvoorbeeld in mobiele weergave tonen"
                         aria-pressed="false">
                     <i class="ki-filled ki-phone"></i>
+                    <span class="kt-tooltip" data-kt-tooltip-content="true">Mobiele weergave: toont het factuurvoorbeeld zoals op een telefoon</span>
                 </button>
                 <div class="flex items-center gap-1 ms-auto shrink-0">
                     <button type="button"
                             class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                             id="invoice-preview-pdf-preview-btn"
-                            title="PDF bekijken"
+                            data-kt-tooltip="true"
+                            data-kt-tooltip-placement="bottom"
                             aria-label="Factuurvoorbeeld als PDF bekijken">
                         <i class="ki-filled ki-eye"></i>
+                        <span class="kt-tooltip" data-kt-tooltip-content="true">PDF bekijken: opent het factuurvoorbeeld als PDF</span>
                     </button>
                     <button type="button"
                             class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                             id="invoice-preview-pdf-download-btn"
-                            title="PDF downloaden"
+                            data-kt-tooltip="true"
+                            data-kt-tooltip-placement="bottom"
                             aria-label="Factuurvoorbeeld als PDF downloaden">
                         <i class="ki-filled ki-file-down"></i>
+                        <span class="kt-tooltip" data-kt-tooltip-content="true">PDF downloaden: slaat het factuurvoorbeeld op als PDF-bestand</span>
                     </button>
                 </div>
             </div>
@@ -438,8 +477,105 @@
                 </form>
             </div>
         </div>
+
+        @if(! empty($canEmergencyTerminate) || ! empty($emergencyCancelAlreadyScheduled))
+            <div class="kt-card min-w-full border border-destructive/40">
+                <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                    <h3 class="kt-card-title mb-0 text-destructive">Noodbeeindiging</h3>
+                </div>
+                <div class="kt-card-content p-5 lg:p-6">
+                    @if(! empty($emergencyCancelAlreadyScheduled))
+                        <p class="text-sm text-secondary-foreground mb-0">
+                            Dit abonnement is al gepland voor beëindiging per
+                            <strong class="text-foreground">{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>.
+                            De volgende Mollie-incasso is gestopt; de tenant behoudt toegang tot die datum.
+                        </p>
+                    @else
+                        <p class="text-sm text-secondary-foreground mb-4">
+                            Alleen gebruiken bij noodzaak. Het abonnement loopt door tot
+                            <strong class="text-foreground">{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>
+                            (einde van de lopende maand). De volgende SEPA-incasso wordt direct gestopt, ook als het jaarcontract nog loopt.
+                        </p>
+                        <form id="tenant-emergency-terminate-form"
+                              method="POST"
+                              action="{{ route('admin.platform-billing.tenants.emergency-terminate', $company) }}">
+                            @csrf
+                            <button type="button" class="kt-btn kt-btn-danger" data-emergency-terminate-open>
+                                Abonnement tussentijds beëindigen
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
 </div>
+
+<div id="invoice-preview-pdf-modal"
+     class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="invoice-preview-pdf-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-invoice-pdf-preview-dismiss></div>
+    <div class="invoice-preview-pdf-modal-panel relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border shadow-2xl"
+         style="height: min(90vh, 56rem);">
+        <div class="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-5">
+            <h2 id="invoice-preview-pdf-title" class="text-lg font-semibold text-foreground mb-0">Factuurvoorbeeld PDF</h2>
+            <button type="button"
+                    class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
+                    data-invoice-pdf-preview-dismiss
+                    aria-label="PDF-voorbeeld sluiten">
+                <i class="ki-filled ki-cross"></i>
+            </button>
+        </div>
+        <div class="relative min-h-0 flex-1">
+            <p id="invoice-preview-pdf-modal-status"
+               class="absolute inset-0 z-10 flex items-center justify-center px-5 text-sm text-muted-foreground mb-0"
+               role="status"
+               aria-live="polite">
+                PDF genereren…
+            </p>
+            <div id="invoice-preview-pdf-pages"
+                 class="absolute inset-0 overflow-y-auto px-5 py-5"
+                 hidden></div>
+        </div>
+    </div>
+</div>
+
+@if(! empty($canEmergencyTerminate))
+<div id="tenant-emergency-terminate-modal"
+     class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="tenant-emergency-terminate-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-emergency-terminate-dismiss></div>
+    <div class="tenant-emergency-modal-panel relative z-10 w-full max-w-lg rounded-2xl border border-border shadow-2xl">
+        <div class="border-b border-border px-6 py-5">
+            <h2 id="tenant-emergency-terminate-title" class="text-lg font-semibold text-foreground mb-1">Noodbeeindiging bevestigen</h2>
+            <p class="text-sm text-muted-foreground mb-0">
+                Dit is een noodactie voor super-admins.
+            </p>
+        </div>
+        <div class="px-6 py-5 space-y-3">
+            <p class="text-sm text-foreground mb-0">
+                Het abonnement van <strong>{{ $company->name }}</strong> wordt beëindigd per
+                <strong>{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>.
+            </p>
+            <p class="text-sm text-muted-foreground mb-0">
+                De volgende maandelijkse incasso wordt gestopt. Tot die einddatum blijft de tenant het abonnement gebruiken.
+            </p>
+        </div>
+        <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
+            <button type="button" class="kt-btn kt-btn-outline" data-emergency-terminate-dismiss>Annuleren</button>
+            <button type="button" class="kt-btn kt-btn-danger" id="tenant-emergency-terminate-confirm">
+                Beëindigen per {{ $emergencyTerminateEffectiveOn->format('d-m-Y') }}
+            </button>
+        </div>
+    </div>
+</div>
+@endif
 
 <script>
 (function initTenantBillingInvoicePreview() {
@@ -507,7 +643,6 @@
     function collectFormSnapshot() {
         return JSON.stringify({
             billing_mode: readSelectValue('billing_mode') || 'package',
-            platform_billing_package_id: readSelectValue('platform_billing_package_id'),
             custom_monthly_amount: readInputValue('custom_monthly_amount'),
             discount_percent: readInputValue('discount_percent'),
             extra_lines_discount_percent: readInputValue('extra_lines_discount_percent'),
@@ -543,7 +678,6 @@
         }
 
         formData.set('billing_mode', readSelectValue('billing_mode') || 'package');
-        formData.set('platform_billing_package_id', readSelectValue('platform_billing_package_id'));
         formData.set('custom_monthly_amount', readInputValue('custom_monthly_amount'));
         formData.set('discount_percent', readInputValue('discount_percent'));
         formData.set('extra_lines_discount_percent', readInputValue('extra_lines_discount_percent'));
@@ -687,6 +821,24 @@
         });
     }
 
+    function asApplicationPdfBlob(blob) {
+        return blob.arrayBuffer().then(function(buffer) {
+            var headerBytes = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
+            var header = '';
+            for (var i = 0; i < headerBytes.length; i++) {
+                header += String.fromCharCode(headerBytes[i]);
+            }
+            if (header !== '%PDF') {
+                throw new Error('Not a PDF');
+            }
+
+            return {
+                blob: new Blob([buffer], { type: 'application/pdf' }),
+                buffer: buffer,
+            };
+        });
+    }
+
     function fetchInvoicePreviewPdf() {
         return fetch(previewPdfUrl, {
             method: 'POST',
@@ -711,9 +863,133 @@
             }
 
             return response.blob().then(function(blob) {
-                return { blob: blob, filename: filename };
+                return asApplicationPdfBlob(blob).then(function(pdf) {
+                    return { blob: pdf.blob, buffer: pdf.buffer, filename: filename };
+                });
             });
         });
+    }
+
+    var pdfJsLoader = null;
+    var pdfModal = document.getElementById('invoice-preview-pdf-modal');
+    var pdfPages = document.getElementById('invoice-preview-pdf-pages');
+    var pdfModalStatus = document.getElementById('invoice-preview-pdf-modal-status');
+
+    function loadPdfJs() {
+        if (window.pdfjsLib) {
+            return Promise.resolve(window.pdfjsLib);
+        }
+        if (pdfJsLoader) {
+            return pdfJsLoader;
+        }
+
+        pdfJsLoader = new Promise(function(resolve, reject) {
+            var script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.async = true;
+            script.onload = function() {
+                if (!window.pdfjsLib) {
+                    reject(new Error('PDF.js missing'));
+                    return;
+                }
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                resolve(window.pdfjsLib);
+            };
+            script.onerror = function() {
+                pdfJsLoader = null;
+                reject(new Error('PDF.js failed to load'));
+            };
+            document.head.appendChild(script);
+        });
+
+        return pdfJsLoader;
+    }
+
+    function clearPdfPreviewPages() {
+        if (pdfPages) {
+            pdfPages.innerHTML = '';
+            pdfPages.setAttribute('hidden', 'hidden');
+        }
+    }
+
+    function renderPdfPages(buffer) {
+        return loadPdfJs().then(function(pdfjsLib) {
+            return pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+        }).then(function(pdf) {
+            if (!pdfPages) {
+                return;
+            }
+
+            pdfPages.innerHTML = '';
+            pdfPages.removeAttribute('hidden');
+
+            var pageStyles = window.getComputedStyle(pdfPages);
+            var paddingX = (parseFloat(pageStyles.paddingLeft) || 0) + (parseFloat(pageStyles.paddingRight) || 0);
+            var availableWidth = Math.max(320, pdfPages.clientWidth - paddingX);
+            var pixelRatio = Math.min(3, Math.max(2, window.devicePixelRatio || 1) * 1.5);
+
+            function renderPage(pageNumber) {
+                if (pageNumber > pdf.numPages) {
+                    return Promise.resolve();
+                }
+
+                return pdf.getPage(pageNumber).then(function(page) {
+                    var unscaled = page.getViewport({ scale: 1 });
+                    var cssScale = availableWidth / unscaled.width;
+                    var viewport = page.getViewport({ scale: cssScale });
+                    var canvas = document.createElement('canvas');
+                    var context = canvas.getContext('2d', { alpha: false });
+                    var cssWidth = Math.floor(viewport.width);
+                    var cssHeight = Math.floor(viewport.height);
+                    canvas.width = Math.floor(cssWidth * pixelRatio);
+                    canvas.height = Math.floor(cssHeight * pixelRatio);
+                    canvas.style.width = cssWidth + 'px';
+                    canvas.style.height = cssHeight + 'px';
+                    canvas.setAttribute('aria-label', 'Factuurvoorbeeld pagina ' + pageNumber);
+                    pdfPages.appendChild(canvas);
+
+                    return page.render({
+                        canvasContext: context,
+                        viewport: viewport,
+                        transform: [pixelRatio, 0, 0, pixelRatio, 0, 0],
+                        intent: 'print',
+                    }).promise.then(function() {
+                        return renderPage(pageNumber + 1);
+                    });
+                });
+            }
+
+            return renderPage(1);
+        });
+    }
+
+    function isPdfPreviewModalOpen() {
+        return pdfModal && !pdfModal.classList.contains('hidden');
+    }
+
+    function openPdfPreviewModal() {
+        if (!pdfModal) {
+            return;
+        }
+        pdfModal.classList.remove('hidden');
+        pdfModal.classList.add('flex');
+        pdfModal.removeAttribute('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePdfPreviewModal() {
+        if (!pdfModal) {
+            return;
+        }
+        pdfModal.classList.add('hidden');
+        pdfModal.classList.remove('flex');
+        pdfModal.setAttribute('hidden', 'hidden');
+        document.body.style.overflow = '';
+        clearPdfPreviewPages();
+        if (pdfModalStatus) {
+            pdfModalStatus.textContent = 'PDF genereren…';
+            pdfModalStatus.classList.remove('hidden');
+        }
     }
 
     function previewInvoicePreviewPdf() {
@@ -721,22 +997,28 @@
         if (previewStatus) {
             previewStatus.textContent = 'PDF genereren…';
         }
+        if (pdfModalStatus) {
+            pdfModalStatus.textContent = 'PDF genereren…';
+            pdfModalStatus.classList.remove('hidden');
+        }
+        clearPdfPreviewPages();
+        openPdfPreviewModal();
 
         fetchInvoicePreviewPdf()
         .then(function(result) {
-            var url = URL.createObjectURL(result.blob);
-            var opened = window.open(url, '_blank');
-            if (!opened) {
-                throw new Error('Popup blocked');
+            return renderPdfPages(result.buffer);
+        })
+        .then(function() {
+            if (pdfModalStatus) {
+                pdfModalStatus.textContent = '';
+                pdfModalStatus.classList.add('hidden');
             }
-            window.setTimeout(function() {
-                URL.revokeObjectURL(url);
-            }, 60000);
             if (previewStatus) {
                 previewStatus.textContent = '';
             }
         })
         .catch(function() {
+            closePdfPreviewModal();
             if (previewStatus) {
                 previewStatus.textContent = 'Kon PDF niet openen';
             }
@@ -837,7 +1119,6 @@
     }, true);
 
     bindKtSelectPreview('billing_mode');
-    bindKtSelectPreview('platform_billing_package_id');
 
     var pdfPreviewButton = document.getElementById('invoice-preview-pdf-preview-btn');
     if (pdfPreviewButton) {
@@ -847,6 +1128,22 @@
     var pdfDownloadButton = document.getElementById('invoice-preview-pdf-download-btn');
     if (pdfDownloadButton) {
         pdfDownloadButton.addEventListener('click', downloadInvoicePreviewPdf);
+    }
+
+    if (pdfModal) {
+        pdfModal.querySelectorAll('[data-invoice-pdf-preview-dismiss]').forEach(function(el) {
+            el.addEventListener('click', function(event) {
+                event.preventDefault();
+                closePdfPreviewModal();
+            });
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && isPdfPreviewModalOpen()) {
+                event.preventDefault();
+                closePdfPreviewModal();
+            }
+        });
     }
 
     var previewViewport = document.getElementById('invoice-preview-viewport');
@@ -882,12 +1179,158 @@
     });
 })();
 </script>
+
+@if(! empty($canEmergencyTerminate))
+<script>
+(function initTenantEmergencyTerminateModal() {
+    var modal = document.getElementById('tenant-emergency-terminate-modal');
+    var form = document.getElementById('tenant-emergency-terminate-form');
+    var confirmBtn = document.getElementById('tenant-emergency-terminate-confirm');
+    if (!modal || !form || !confirmBtn) {
+        return;
+    }
+
+    var lastFocus = null;
+    var submitting = false;
+
+    function isOpen() {
+        return !modal.classList.contains('hidden');
+    }
+
+    function openModal(btn) {
+        lastFocus = btn;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.removeAttribute('hidden');
+        document.body.style.overflow = 'hidden';
+        confirmBtn.focus();
+    }
+
+    function closeModal() {
+        if (submitting) {
+            return;
+        }
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.setAttribute('hidden', 'hidden');
+        document.body.style.overflow = '';
+        if (lastFocus && typeof lastFocus.focus === 'function') {
+            lastFocus.focus();
+        }
+    }
+
+    document.querySelectorAll('[data-emergency-terminate-open]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openModal(btn);
+        });
+    });
+
+    modal.querySelectorAll('[data-emergency-terminate-dismiss]').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            e.preventDefault();
+            closeModal();
+        });
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && isOpen()) {
+            e.preventDefault();
+            closeModal();
+        }
+    });
+
+    confirmBtn.addEventListener('click', function () {
+        if (submitting) {
+            return;
+        }
+        submitting = true;
+        confirmBtn.disabled = true;
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    });
+})();
+</script>
+@endif
 @endsection
 
 @push('styles')
 @include('admin.platform-billing.partials.form-switch-styles')
 @include('admin.platform-billing.partials.invoice-preview-styles')
 <style>
+    .kt-btn-danger {
+        background-color: #ef4444 !important;
+        color: white !important;
+        border-color: #ef4444 !important;
+    }
+    .kt-btn-danger:hover {
+        background-color: #dc2626 !important;
+        border-color: #dc2626 !important;
+    }
+    .dark .kt-btn-danger {
+        background-color: #dc2626 !important;
+        border-color: #dc2626 !important;
+    }
+    .dark .kt-btn-danger:hover {
+        background-color: #b91c1c !important;
+        border-color: #b91c1c !important;
+    }
+    .tenant-emergency-modal-panel,
+    .invoice-preview-pdf-modal-panel {
+        background-color: #ffffff;
+        color: #0f172a;
+        box-shadow:
+            0 25px 50px -12px rgba(2, 6, 23, 0.35),
+            0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+    html.dark .tenant-emergency-modal-panel,
+    .dark .tenant-emergency-modal-panel,
+    html.dark .invoice-preview-pdf-modal-panel,
+    .dark .invoice-preview-pdf-modal-panel {
+        background-color: #0b0f19;
+        color: #f8fafc;
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.65),
+            0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+
+    #invoice-preview-pdf-pages {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(100, 116, 139, 0.55) transparent;
+    }
+    html.dark #invoice-preview-pdf-pages,
+    .dark #invoice-preview-pdf-pages {
+        scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+    }
+    #invoice-preview-pdf-pages::-webkit-scrollbar {
+        width: 8px;
+    }
+    #invoice-preview-pdf-pages::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    #invoice-preview-pdf-pages::-webkit-scrollbar-thumb {
+        background: rgba(100, 116, 139, 0.55);
+        border-radius: 999px;
+    }
+    html.dark #invoice-preview-pdf-pages::-webkit-scrollbar-thumb,
+    .dark #invoice-preview-pdf-pages::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.45);
+    }
+    #invoice-preview-pdf-pages canvas {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+    #invoice-preview-pdf-pages canvas + canvas {
+        margin-top: 1rem;
+    }
+
     .platform-billing-field-hint {
         max-width: 34rem;
         line-height: 1.45;

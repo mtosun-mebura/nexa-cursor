@@ -72,6 +72,134 @@ if (! function_exists('parse_admin_date')) {
     }
 }
 
+if (! function_exists('parse_admin_month')) {
+    /**
+     * Parse admin-maandpicker-waarde (mm-jjjj of jjjj-mm) naar Y-m.
+     */
+    function parse_admin_month(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m');
+        }
+
+        $str = trim((string) $value);
+        if ($str === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})(?:-\d{2})?$/', $str, $m)) {
+            $month = (int) $m[2];
+            if ($month < 1 || $month > 12) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d', (int) $m[1], $month);
+        }
+
+        if (preg_match('/^(\d{1,2})[-\/](\d{4})$/', $str, $m)) {
+            $month = (int) $m[1];
+            if ($month < 1 || $month > 12) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d', (int) $m[2], $month);
+        }
+
+        $date = parse_admin_date($str);
+        if ($date !== null) {
+            return substr($date, 0, 7);
+        }
+
+        return null;
+    }
+}
+
+if (! function_exists('admin_month_picker_display')) {
+    /**
+     * Waarde voor weergave in KT-maandpicker (mm-jjjj).
+     */
+    function admin_month_picker_display(mixed $value): string
+    {
+        $parsed = parse_admin_month($value);
+        if ($parsed === null) {
+            return '';
+        }
+
+        [$year, $month] = explode('-', $parsed);
+
+        return sprintf('%02d-%04d', (int) $month, (int) $year);
+    }
+}
+
+if (! function_exists('admin_datetime_picker_display')) {
+    /**
+     * Waarde voor weergave in KT-datepicker met tijd (dd-mm-jjjj uu:mm).
+     */
+    function admin_datetime_picker_display(mixed $value): string
+    {
+        $parsed = parse_admin_datetime($value);
+
+        if ($parsed === null) {
+            return '';
+        }
+
+        return Carbon::parse($parsed)->format('d-m-Y H:i');
+    }
+}
+
+if (! function_exists('parse_admin_datetime')) {
+    /**
+     * Parse admin-datetimepicker-waarde naar Y-m-d H:i:s.
+     */
+    function parse_admin_datetime(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::parse($value)->format('Y-m-d H:i:s');
+        }
+
+        $str = trim((string) $value);
+        if ($str === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $str, $m)) {
+            return Carbon::create(
+                (int) $m[3],
+                (int) $m[2],
+                (int) $m[1],
+                (int) ($m[4] ?? 0),
+                (int) ($m[5] ?? 0),
+                (int) ($m[6] ?? 0),
+            )->format('Y-m-d H:i:s');
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/', $str, $m)) {
+            return Carbon::create(
+                (int) $m[1],
+                (int) $m[2],
+                (int) $m[3],
+                (int) ($m[4] ?? 0),
+                (int) ($m[5] ?? 0),
+                (int) ($m[6] ?? 0),
+            )->format('Y-m-d H:i:s');
+        }
+
+        try {
+            return Carbon::parse($str)->format('Y-m-d H:i:s');
+        } catch (\Exception) {
+            return null;
+        }
+    }
+}
+
 if (! function_exists('normalize_iban')) {
     /**
      * IBAN normaliseren: hoofdletters, zonder spaties.

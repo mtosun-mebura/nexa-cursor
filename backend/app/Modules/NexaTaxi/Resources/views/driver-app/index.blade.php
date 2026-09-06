@@ -10,6 +10,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     @include('taxi::partials.pwa-accent', ['section' => 'boot'])
+    <link rel="preconnect" href="https://maps.googleapis.com">
+    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://maps.googleapis.com">
     <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.chauffeur.manifest') ? route('taxi.chauffeur.manifest') : url('/taxi/chauffeur/manifest.webmanifest') }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
@@ -17,6 +20,7 @@
     <title>Chauffeur – Nexa Taxi</title>
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
     @include('taxi::partials.pwa-accent', ['section' => 'styles'])
+    @include('taxi::partials.ride-alert-tone', ['section' => 'styles'])
     <style>
         :root {
             --bg: #121214;
@@ -27,6 +31,10 @@
             --muted: #9ca3af;
             --orange: #f97316;
             --orange-hover: #ea580c;
+            --ride-taxi: #f97316;
+            --ride-taxi-rgb: 249, 115, 22;
+            --ride-contract: #3b82f6;
+            --ride-contract-rgb: 59, 130, 246;
             --green: #22c55e;
             --red: #ef4444;
             --line: rgba(255,255,255,0.08);
@@ -202,6 +210,27 @@
         }
         .driver-app-header__online .switch.is-on::after {
             transform: translateX(0.9rem);
+        }
+        .driver-vehicle-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0.35rem 0 0.15rem;
+        }
+        .driver-vehicle-row label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .driver-vehicle-row select {
+            flex: 1;
+            min-width: 0;
+            background: var(--card-elevated);
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 0.6rem;
+            padding: 0.4rem 0.55rem;
+            font-size: 0.8125rem;
         }
         .driver-app-header__center {
             grid-column: 2;
@@ -382,6 +411,9 @@
             min-height: 8rem;
             width: 100%;
             background: #1a1a1c;
+        }
+        html[data-theme="light"] .navigation-map {
+            background: #e2e8f0;
         }
         .navigation-sheet {
             flex: 0 0 auto;
@@ -1138,8 +1170,8 @@
         }
         .contract-ride-badge {
             display: inline-block;
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.45);
+            background: rgba(var(--ride-contract-rgb), 0.2);
+            border: 1px solid rgba(var(--ride-contract-rgb), 0.45);
             color: #bfdbfe;
             border-radius: 999px;
             padding: 0.15rem 0.55rem;
@@ -1148,6 +1180,33 @@
             letter-spacing: 0.03em;
             text-transform: uppercase;
             margin: 0 0 0.5rem;
+        }
+        .taxi-ride-badge {
+            display: inline-block;
+            background: rgba(var(--ride-taxi-rgb), 0.2);
+            border: 1px solid rgba(var(--ride-taxi-rgb), 0.45);
+            color: #fdba74;
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin: 0 0 0.5rem;
+        }
+        .nexa-suite-ride-badge,
+        .offer-badge.is-nexa-suite {
+            display: inline-block;
+            background: rgba(234, 179, 8, 0.22);
+            border: 1px solid rgba(250, 204, 21, 0.55);
+            color: #fde68a;
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin: 0 0.35rem 0.5rem 0;
         }
         .return-ride-badge {
             display: inline-block;
@@ -1332,6 +1391,17 @@
         .scheduled-ride-card.is-contract-ride .scheduled-ride-toggle-text .offer-title {
             display: inline;
             margin-left: 0.35rem;
+        }
+        .scheduled-ride-card.is-taxi-ride,
+        .offer-card.is-taxi-ride {
+            border-color: rgba(var(--ride-taxi-rgb), 0.38);
+            box-shadow: inset 3px 0 0 var(--ride-taxi);
+        }
+        .scheduled-ride-card.is-contract-ride,
+        .offer-card.is-contract-ride,
+        #active-ride-strip.is-contract-ride {
+            border-color: rgba(var(--ride-contract-rgb), 0.45);
+            box-shadow: inset 3px 0 0 var(--ride-contract);
         }
         .active-ride-card { overflow: visible; }
         .offer-price { white-space: nowrap; }
@@ -1870,6 +1940,60 @@
             background: rgba(var(--accent-rgb), 0.18);
             color: var(--orange);
         }
+        .ride-kind-filter {
+            display: inline-flex;
+            align-items: stretch;
+            flex-shrink: 0;
+            border: 1px solid var(--line);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: var(--card-elevated);
+        }
+        .ride-kind-filter__btn {
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 650;
+            padding: 0.38rem 0.7rem;
+            cursor: pointer;
+            min-height: 2rem;
+        }
+        .ride-kind-filter__btn + .ride-kind-filter__btn {
+            border-left: 1px solid var(--line);
+        }
+        .ride-kind-filter__btn[data-ride-kind="taxi"] {
+            color: #fdba74;
+        }
+        .ride-kind-filter__btn[data-ride-kind="contract"] {
+            color: #93c5fd;
+        }
+        .ride-kind-filter__btn.is-active {
+            background: rgba(var(--accent-rgb), 0.18);
+            color: var(--orange);
+        }
+        .ride-kind-filter__btn[data-ride-kind="taxi"].is-active {
+            background: rgba(var(--ride-taxi-rgb), 0.22);
+            color: #fdba74;
+            box-shadow: inset 0 -2px 0 var(--ride-taxi);
+        }
+        .ride-kind-filter__btn[data-ride-kind="contract"].is-active {
+            background: rgba(var(--ride-contract-rgb), 0.22);
+            color: #93c5fd;
+            box-shadow: inset 0 -2px 0 var(--ride-contract);
+        }
+        .ride-kind-filter__btn[data-ride-kind="all"].is-active {
+            background: rgba(148, 163, 184, 0.18);
+            color: #e2e8f0;
+            box-shadow: inset 0 -2px 0 #94a3b8;
+        }
+        .driver-section-head--with-filter {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem;
+        }
         .planning-week-nav {
             display: flex;
             align-items: center;
@@ -2058,24 +2182,29 @@
             display: block;
             width: 100%;
             text-align: left;
-            border: 1px solid rgba(var(--accent-rgb), 0.32);
+            border: 1px solid rgba(var(--ride-taxi-rgb), 0.32);
             background: var(--card-elevated);
-            box-shadow: inset 3px 0 0 var(--orange);
+            box-shadow: inset 3px 0 0 var(--ride-taxi);
             color: inherit;
             border-radius: 0.85rem;
             padding: 0.75rem 0.85rem 0.75rem 1rem;
             margin: 0 0 0.5rem;
             cursor: default;
         }
+        .planning-ride-card.is-taxi {
+            border-color: rgba(var(--ride-taxi-rgb), 0.32);
+            box-shadow: inset 3px 0 0 var(--ride-taxi);
+        }
+        .planning-ride-card.is-contract {
+            border-color: rgba(var(--ride-contract-rgb), 0.42);
+            box-shadow: inset 3px 0 0 var(--ride-contract);
+        }
         .planning-ride-card.is-assigned {
-            border-color: rgba(34, 197, 94, 0.38);
             background: var(--card-elevated);
-            box-shadow: inset 3px 0 0 #4ade80;
         }
         .planning-ride-card.is-completed {
-            border-color: rgba(148, 163, 184, 0.4);
             background: var(--card-elevated);
-            box-shadow: inset 3px 0 0 #94a3b8;
+            opacity: 0.88;
         }
         button.planning-ride-card {
             cursor: pointer;
@@ -2093,9 +2222,15 @@
         .planning-ride-card__time {
             font-size: 1rem;
             font-weight: 700;
-            color: var(--orange);
+            color: var(--ride-taxi);
+        }
+        .planning-ride-card.is-contract .planning-ride-card__time {
+            color: #93c5fd;
         }
         .planning-ride-card.is-assigned .planning-ride-card__time {
+            color: #4ade80;
+        }
+        .planning-ride-card.is-contract.is-assigned .planning-ride-card__time {
             color: #4ade80;
         }
         .planning-ride-card.is-completed .planning-ride-card__time {
@@ -2106,13 +2241,17 @@
             align-items: center;
             padding: 0.18rem 0.5rem;
             border-radius: 999px;
-            background: rgba(var(--accent-rgb), 0.2);
-            color: var(--orange);
+            background: rgba(var(--ride-taxi-rgb), 0.2);
+            color: #fdba74;
             font-size: 0.68rem;
             font-weight: 750;
             letter-spacing: 0.03em;
             text-transform: uppercase;
             flex-shrink: 0;
+        }
+        .planning-ride-card.is-contract .planning-ride-card__status {
+            background: rgba(var(--ride-contract-rgb), 0.22);
+            color: #93c5fd;
         }
         .planning-ride-card.is-assigned .planning-ride-card__status {
             background: rgba(34, 197, 94, 0.2);
@@ -2130,8 +2269,11 @@
             line-height: 1.35;
         }
         .planning-ride-card__arrow {
-            color: var(--orange);
+            color: var(--ride-taxi);
             font-weight: 800;
+        }
+        .planning-ride-card.is-contract .planning-ride-card__arrow {
+            color: #93c5fd;
         }
         .planning-ride-card.is-assigned .planning-ride-card__arrow {
             color: #4ade80;
@@ -2230,6 +2372,8 @@
             flex: 1;
         }
         .scheduled-ride-card .scheduled-ride-toggle-text .contract-ride-badge,
+        .scheduled-ride-card .scheduled-ride-toggle-text .taxi-ride-badge,
+        .scheduled-ride-card .scheduled-ride-toggle-text .nexa-suite-ride-badge,
         .scheduled-ride-card .scheduled-ride-toggle-text .return-ride-badge {
             align-self: flex-start;
             width: auto;
@@ -3014,10 +3158,65 @@
         html[data-theme="light"] .contract-stop-auto-hint {
             color: var(--muted);
         }
+        html[data-theme="light"] .taxi-ride-badge {
+            background: rgba(249, 115, 22, 0.12);
+            border-color: rgba(234, 88, 12, 0.4);
+            color: #c2410c;
+        }
         html[data-theme="light"] .contract-ride-badge {
             background: rgba(37, 99, 235, 0.1);
             border-color: rgba(37, 99, 235, 0.35);
             color: #1d4ed8;
+        }
+        html[data-theme="light"] .ride-kind-filter__btn[data-ride-kind="taxi"] {
+            color: #c2410c;
+        }
+        html[data-theme="light"] .ride-kind-filter__btn[data-ride-kind="contract"] {
+            color: #1d4ed8;
+        }
+        html[data-theme="light"] .ride-kind-filter__btn[data-ride-kind="taxi"].is-active {
+            background: rgba(249, 115, 22, 0.14);
+            color: #c2410c;
+        }
+        html[data-theme="light"] .ride-kind-filter__btn[data-ride-kind="contract"].is-active {
+            background: rgba(37, 99, 235, 0.12);
+            color: #1d4ed8;
+        }
+        html[data-theme="light"] .ride-kind-filter__btn[data-ride-kind="all"].is-active {
+            background: rgba(100, 116, 139, 0.12);
+            color: #334155;
+            box-shadow: inset 0 -2px 0 #64748b;
+        }
+        html[data-theme="light"] .scheduled-ride-card.is-taxi-ride,
+        html[data-theme="light"] .offer-card.is-taxi-ride {
+            border-color: rgba(249, 115, 22, 0.35);
+        }
+        html[data-theme="light"] .scheduled-ride-card.is-contract-ride,
+        html[data-theme="light"] .offer-card.is-contract-ride,
+        html[data-theme="light"] #active-ride-strip.is-contract-ride {
+            border-color: rgba(37, 99, 235, 0.4);
+        }
+        html[data-theme="light"] .planning-ride-card.is-taxi .planning-ride-card__time,
+        html[data-theme="light"] .planning-ride-card:not(.is-contract) .planning-ride-card__time {
+            color: #ea580c;
+        }
+        html[data-theme="light"] .planning-ride-card.is-contract .planning-ride-card__time {
+            color: #1d4ed8;
+        }
+        html[data-theme="light"] .planning-ride-card.is-taxi .planning-ride-card__status,
+        html[data-theme="light"] .planning-ride-card:not(.is-contract) .planning-ride-card__status {
+            background: rgba(249, 115, 22, 0.12);
+            color: #c2410c;
+        }
+        html[data-theme="light"] .planning-ride-card.is-contract .planning-ride-card__status {
+            background: rgba(37, 99, 235, 0.12);
+            color: #1d4ed8;
+        }
+        html[data-theme="light"] .nexa-suite-ride-badge,
+        html[data-theme="light"] .offer-badge.is-nexa-suite {
+            background: rgba(202, 138, 4, 0.12);
+            border-color: rgba(202, 138, 4, 0.4);
+            color: #a16207;
         }
         html[data-theme="light"] .return-ride-badge {
             background: rgba(124, 58, 237, 0.1);
@@ -3226,6 +3425,12 @@
                 <div class="driver-app-header__end" aria-hidden="true"></div>
             </div>
             <div class="dispatch-banners">
+                <div id="driver-vehicle-row" class="driver-vehicle-row" hidden>
+                    <label for="driver-vehicle-select">Voertuig</label>
+                    <select id="driver-vehicle-select" aria-label="Voertuig dat je nu bestuurt">
+                        <option value="">Kies kenteken</option>
+                    </select>
+                </div>
                 <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
                     Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
                 </div>
@@ -3256,8 +3461,13 @@
         </div>
         <div class="dispatch-scroll">
         <div id="tab-panel-requests" class="driver-tab-panel" data-main-tab-panel="requests">
-        <div class="driver-section-head" id="requests-section-head">
+        <div class="driver-section-head driver-section-head--with-filter" id="requests-section-head">
             <h2 id="requests-section-title">Nieuwe ritaanvraag</h2>
+            <div class="ride-kind-filter" role="group" aria-label="Toon rittype">
+                <button type="button" class="ride-kind-filter__btn is-active" data-ride-kind="all" aria-pressed="true">Alles</button>
+                <button type="button" class="ride-kind-filter__btn" data-ride-kind="taxi" aria-pressed="false">Taxi</button>
+                <button type="button" class="ride-kind-filter__btn" data-ride-kind="contract" aria-pressed="false">Contract</button>
+            </div>
             <span class="driver-section-head__icon" id="requests-section-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0"/></svg>
             </span>
@@ -3387,7 +3597,13 @@
         </div>
 
         <div id="tab-panel-trips" class="driver-tab-panel" data-main-tab-panel="trips" hidden>
-        <div class="driver-section-head"><h2>Ritten</h2></div>
+        <div class="driver-section-head driver-section-head--with-filter"><h2>Ritten</h2>
+            <div class="ride-kind-filter" role="group" aria-label="Toon rittype">
+                <button type="button" class="ride-kind-filter__btn is-active" data-ride-kind="all" aria-pressed="true">Alles</button>
+                <button type="button" class="ride-kind-filter__btn" data-ride-kind="taxi" aria-pressed="false">Taxi</button>
+                <button type="button" class="ride-kind-filter__btn" data-ride-kind="contract" aria-pressed="false">Contract</button>
+            </div>
+        </div>
         <div id="parked-assigned-rides-strip" class="parked-assigned-rides-strip" hidden>
             <p class="scheduled-rides-title">Jouw actieve ritten</p>
             <div id="parked-assigned-rides-list"></div>
@@ -3416,8 +3632,13 @@
         </div>
 
         <div id="tab-panel-planning" class="driver-tab-panel" data-main-tab-panel="planning" hidden>
-            <div class="driver-section-head">
+            <div class="driver-section-head driver-section-head--with-filter">
                 <h2>Planning</h2>
+                <div class="ride-kind-filter" role="group" aria-label="Toon rittype">
+                    <button type="button" class="ride-kind-filter__btn is-active" data-ride-kind="all" aria-pressed="true">Alles</button>
+                    <button type="button" class="ride-kind-filter__btn" data-ride-kind="taxi" aria-pressed="false">Taxi</button>
+                    <button type="button" class="ride-kind-filter__btn" data-ride-kind="contract" aria-pressed="false">Contract</button>
+                </div>
                 <div class="planning-view-toggle" role="tablist" aria-label="Planningweergave">
                     <button type="button" class="planning-view-toggle__btn is-active" data-planning-view="day" aria-selected="true">Dag</button>
                     <button type="button" class="planning-view-toggle__btn" data-planning-view="week" aria-selected="false">Week</button>
@@ -3500,6 +3721,7 @@
                     </dl>
                 </div>
                 @include('taxi::partials.pwa-accent', ['section' => 'picker'])
+                @include('taxi::partials.ride-alert-tone', ['section' => 'picker'])
                 <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
                 <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">
                     <strong>Handleiding</strong>
@@ -3708,7 +3930,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=141" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=148" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

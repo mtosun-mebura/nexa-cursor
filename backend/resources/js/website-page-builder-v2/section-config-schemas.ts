@@ -6,7 +6,7 @@ export type FieldVisibleWhen = {
 }
 
 export type ConfigField =
-  | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen; colSpan?: 2 | 3 }
   | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'wysiwyg'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen; defaultValue?: string }
@@ -14,7 +14,7 @@ export type ConfigField =
   | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
   | { type: 'color'; key: string; label: string; hint?: string; defaultValue?: string }
-  | { type: 'image'; key: string; label: string; hint?: string }
+  | { type: 'image'; key: string; label: string; hint?: string; generateImage?: boolean }
   | { type: 'video'; key: string; label: string; hint?: string }
   | { type: 'website-media-image'; key: string; label: string; hint?: string }
   | { type: 'checkbox'; key: string; label: string; hint?: string }
@@ -31,6 +31,8 @@ export type ConfigField =
       accentColorKey?: string
       accentColorFallback?: string
       alwaysOpen?: boolean
+      layout?: 'row'
+      wideStart?: boolean
     }
   | { type: 'footer-logo'; key: string; label: string }
   | { type: 'footer-map'; label: string; subVisibilityKey?: string }
@@ -153,7 +155,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
         { value: 'right', label: 'Rechts' },
         { value: 'full', label: 'Volledige breedte' },
       ],
-      hint: 'Bepaalt hoe de tekst wordt uitgelijnd en of er ruimte is voor een component ernaast.',
+      hint: 'Links/Rechts: ruimte voor een afbeelding ernaast. Midden: tekst in het midden van het scherm.',
     },
     {
       type: 'dynamic-select',
@@ -181,7 +183,8 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       type: 'image',
       key: 'image_url',
       label: 'Afbeelding naast de tekst',
-      hint: 'Optioneel: toon een afbeelding links of rechts van de tekst (zelfde zijde als het component). Alleen bij uitlijning Links of Rechts.',
+      hint: 'Optioneel: toon een afbeelding links of rechts van de tekst. Alleen bij uitlijning Links of Rechts. Kies Midden voor een leeskolom in het midden van het scherm.',
+      generateImage: true,
     },
   ],
   features: [
@@ -294,6 +297,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       { value: 'normal', label: 'Normaal' },
       { value: 'fast', label: 'Snel' },
     ]},
+    { type: 'number', key: 'blocks_row_width_percent', label: 'Blokbreedte (%)', min: 1, max: 100, step: 1, hint: 'Breedte van de kaartenrij t.o.v. de sectie. Standaard 100%.' },
     {
       type: 'item-list',
       key: 'items',
@@ -363,7 +367,7 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
           type: 'wysiwyg',
           key: 'tagline',
           label: 'Tagline',
-          placeholder: 'Ontdek de perfecte match...',
+          placeholder: 'Ontdek wat wij voor u kunnen betekenen...',
           hint: 'Wordt onder het logo in de footer getoond.',
         },
       ],

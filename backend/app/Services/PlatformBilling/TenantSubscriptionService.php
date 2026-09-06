@@ -25,9 +25,11 @@ class TenantSubscriptionService
 
     public function ensureProfile(Company $company): CompanyBillingProfile
     {
-        $start = $company->created_at
-            ? Carbon::parse($company->created_at)->toDateString()
-            : now()->toDateString();
+        $trialStart = $company->created_at
+            ? Carbon::parse($company->created_at)->startOfDay()
+            : now()->startOfDay();
+        $freeMonths = $this->freeMonthsForCompany($company);
+        $trialEnd = $trialStart->copy()->addMonthsNoOverflow($freeMonths);
 
         $profile = CompanyBillingProfile::query()->firstOrCreate(
             ['company_id' => $company->id],
@@ -35,14 +37,14 @@ class TenantSubscriptionService
                 'billing_mode' => CompanyBillingProfile::MODE_PACKAGE,
                 'extra_lines_one_time' => true,
                 'auto_collect_enabled' => true,
-                'subscription_start_date' => $start,
+                'agreed_monthly_amount' => $this->catalogAmountForCompany($company),
+                'trial_started_at' => $trialStart->toDateString(),
+                'trial_ends_at' => $trialEnd->toDateString(),
+                'subscription_start_date' => $trialEnd->toDateString(),
             ]
         );
 
-        if ($profile->subscription_start_date === null) {
-            $profile->subscription_start_date = $start;
-            $profile->save();
-        }
+        $this->backfillTrialDates($profile, $trialStart);
 
         $packageKey = trim((string) ($company->package_key ?? ''));
         if (
@@ -53,7 +55,145 @@ class TenantSubscriptionService
             $this->assignBillingPackage($profile, $packageKey);
         }
 
+        $this->lockAgreedMonthlyAmountIfMissing($profile);
+
         return $profile->fresh(['package', 'company']) ?? $profile;
+    }
+
+    public function syncBillingPackageFromCompany(Company $company, bool $refreshAgreedAmount = false): CompanyBillingProfile
+    {
+        $profile = $this->ensureProfile($company);
+        $packageKey = trim((string) ($company->package_key ?? ''));
+        if ($packageKey === '' || $profile->billing_mode !== CompanyBillingProfile::MODE_PACKAGE) {
+            return $profile->fresh(['package', 'company']) ?? $profile;
+        }
+
+        $billingPackage = $this->ensurePlatformPackage($packageKey);
+        $catalogAmount = round(max(0, (float) ($this->pricing->monthlyAmountForKey($packageKey) ?? $billingPackage->monthly_amount ?? 0)), 2);
+        $packageChanged = (int) ($profile->platform_billing_package_id ?? 0) !== (int) $billingPackage->id;
+        $updates = [
+            'platform_billing_package_id' => $billingPackage->id,
+        ];
+        if ($refreshAgreedAmount || $packageChanged || $profile->agreed_monthly_amount === null) {
+            $updates['agreed_monthly_amount'] = $catalogAmount;
+        }
+
+        $profile->fill($updates);
+        $profile->save();
+        $profile->setRelation('package', $billingPackage);
+        $profile->setRelation('company', $company);
+
+        return $profile;
+    }
+
+    private function backfillTrialDates(CompanyBillingProfile $profile, Carbon $fallbackStart): void
+    {
+        $dirty = false;
+        if ($profile->trial_started_at === null) {
+            $profile->trial_started_at = $profile->subscription_start_date
+                ? Carbon::parse($profile->subscription_start_date)->toDateString()
+                : $fallbackStart->toDateString();
+            $dirty = true;
+        }
+        if ($profile->subscription_start_date === null) {
+            $profile->subscription_start_date = $profile->trial_started_at
+                ? Carbon::parse($profile->trial_started_at)->toDateString()
+                : $fallbackStart->toDateString();
+            $dirty = true;
+        }
+        if ($profile->trial_ends_at === null) {
+            $profile->trial_ends_at = $profile->subscription_start_date
+                ? Carbon::parse($profile->subscription_start_date)->toDateString()
+                : $fallbackStart->toDateString();
+            $dirty = true;
+        }
+        if ($dirty) {
+            $profile->save();
+        }
+    }
+
+    private function freeMonthsForCompany(Company $company): int
+    {
+        $key = trim((string) ($company->package_key ?? ''));
+        if ($key === '') {
+            return 0;
+        }
+        $package = $this->pricing->packageByKey($key);
+        if (! is_array($package)) {
+            return 0;
+        }
+
+        return $this->pricing->packageFreeMonths($package);
+    }
+
+    public function isInTrial(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): bool
+    {
+        if (! $profile->trial_ends_at) {
+            return false;
+        }
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        if ($this->calculator->isEnded($profile, $asOf)) {
+            return false;
+        }
+        $ends = Carbon::parse($profile->trial_ends_at)->startOfDay();
+
+        return $asOf->lt($ends);
+    }
+
+    public function trialDaysRemaining(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): ?int
+    {
+        if (! $this->isInTrial($profile, $asOf)) {
+            return null;
+        }
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $ends = Carbon::parse($profile->trial_ends_at)->startOfDay();
+
+        return max(0, (int) $asOf->diffInDays($ends, false));
+    }
+
+    public function hasDeclinedTrial(CompanyBillingProfile $profile): bool
+    {
+        return trim((string) ($profile->pending_change_type ?? '')) === CompanySubscriptionChange::TYPE_TRIAL_END;
+    }
+
+    /**
+     * Stop het jaarcontract tijdens de proef: geen incasso, toegang blijft tot trial_ends_at.
+     */
+    public function endTrialAndDeactivate(Company $company, ?CarbonInterface $asOf = null): CompanyBillingProfile
+    {
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $profile = $this->ensureProfile($company);
+        if (! $this->isInTrial($profile, $asOf)) {
+            throw new RuntimeException('De proefperiode is al voorbij; het jaarcontract is ingegaan.');
+        }
+        if ($this->hasDeclinedTrial($profile)) {
+            return $profile->fresh(['package', 'company']) ?? $profile;
+        }
+
+        $trialEnd = Carbon::parse($profile->trial_ends_at)->startOfDay();
+        $currentKey = trim((string) ($company->package_key ?? ''));
+        $fromAmount = $profile->resolveMonthlyAmount();
+
+        $this->clearPendingChange($profile, false);
+        $profile->update([
+            'pending_change_type' => CompanySubscriptionChange::TYPE_TRIAL_END,
+            'pending_package_key' => null,
+            'pending_change_effective_on' => $trialEnd->toDateString(),
+        ]);
+
+        $this->recordChange($profile, CompanySubscriptionChange::TYPE_TRIAL_END, [
+            'status' => CompanySubscriptionChange::STATUS_SCHEDULED,
+            'from_package_key' => $currentKey !== '' ? $currentKey : null,
+            'to_package_key' => null,
+            'from_monthly_amount' => $fromAmount,
+            'to_monthly_amount' => 0,
+            'effective_on' => $trialEnd->toDateString(),
+        ]);
+
+        $fresh = $profile->fresh(['package', 'company']) ?? $profile;
+        app(PlatformBillingService::class)->cancelMollieSubscriptionIfNeeded($fresh, $asOf);
+
+        return $fresh->fresh(['package', 'company']) ?? $fresh;
     }
 
     /**
@@ -71,6 +211,12 @@ class TenantSubscriptionService
             $monthlyAmount = (float) ($this->pricing->monthlyAmountForKey($currentKey) ?? 0);
         }
         $start = $this->contractStart($profile);
+        $billingStart = $profile->subscription_start_date
+            ? Carbon::parse($profile->subscription_start_date)->startOfDay()
+            : $start;
+        $freeMonths = $billingStart->greaterThan($start)
+            ? (int) round($start->diffInMonths($billingStart))
+            : 0;
         $anniversary = $this->contractAnniversary($profile);
         $pastFirstYear = $this->isPastFirstYear($profile, $asOf);
         $changeDate = $this->nextAllowedChangeDate($profile, $asOf);
@@ -98,6 +244,14 @@ class TenantSubscriptionService
                 ? Carbon::parse($profile->pending_change_effective_on)->startOfDay()
                 : null,
             'ended' => $this->calculator->isEnded($profile, $asOf),
+            'in_trial' => $this->isInTrial($profile, $asOf),
+            'trial_declined' => $this->hasDeclinedTrial($profile),
+            'trial_ends_at' => $profile->trial_ends_at
+                ? Carbon::parse($profile->trial_ends_at)->startOfDay()
+                : null,
+            'trial_days_remaining' => $this->trialDaysRemaining($profile, $asOf),
+            'billing_start_date' => $billingStart,
+            'free_months' => $freeMonths,
             'packages' => $this->catalogFor($company),
         ];
     }
@@ -137,6 +291,10 @@ class TenantSubscriptionService
 
     public function contractStart(CompanyBillingProfile $profile): Carbon
     {
+        if ($profile->trial_started_at) {
+            return Carbon::parse($profile->trial_started_at)->startOfDay();
+        }
+
         if ($profile->subscription_start_date) {
             return Carbon::parse($profile->subscription_start_date)->startOfDay();
         }
@@ -278,6 +436,62 @@ class TenantSubscriptionService
         return $profile->fresh(['package', 'company']) ?? $profile;
     }
 
+    /**
+     * Super-admin noodbeeindiging: altijd per einde van de lopende maand,
+     * ongeacht het jaarcontract. De volgende Mollie-incasso wordt gestopt.
+     */
+    public function emergencyTerminateAtMonthEnd(Company $company, ?CarbonInterface $asOf = null): CompanyBillingProfile
+    {
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $profile = $this->ensureProfile($company);
+
+        if ($this->calculator->isEnded($profile, $asOf)
+            && trim((string) ($profile->pending_change_type ?? '')) !== CompanySubscriptionChange::TYPE_CANCEL) {
+            throw new RuntimeException('Dit abonnement is al beëindigd.');
+        }
+
+        if ($profile->billing_mode === CompanyBillingProfile::MODE_FREE) {
+            throw new RuntimeException('Een gratis abonnement heeft geen lopende incasso om te beëindigen.');
+        }
+
+        $effectiveOn = $asOf->copy()->endOfMonth()->startOfDay();
+        $currentKey = trim((string) ($company->package_key ?? ''));
+        $fromAmount = $profile->resolveMonthlyAmount();
+
+        $alreadyScheduledForMonthEnd = trim((string) ($profile->pending_change_type ?? '')) === CompanySubscriptionChange::TYPE_CANCEL
+            && $profile->pending_change_effective_on
+            && Carbon::parse($profile->pending_change_effective_on)->startOfDay()->equalTo($effectiveOn)
+            && $profile->subscription_end_date
+            && Carbon::parse($profile->subscription_end_date)->startOfDay()->equalTo($effectiveOn);
+
+        if ($alreadyScheduledForMonthEnd) {
+            $this->syncMolliePlan($profile->fresh(['package', 'company']) ?? $profile);
+
+            return $profile->fresh(['package', 'company']) ?? $profile;
+        }
+
+        $this->clearPendingChange($profile, true);
+        $profile->update([
+            'pending_change_type' => CompanySubscriptionChange::TYPE_CANCEL,
+            'pending_package_key' => null,
+            'pending_change_effective_on' => $effectiveOn->toDateString(),
+            'subscription_end_date' => $effectiveOn->toDateString(),
+        ]);
+
+        $this->recordChange($profile, CompanySubscriptionChange::TYPE_CANCEL, [
+            'status' => CompanySubscriptionChange::STATUS_SCHEDULED,
+            'from_package_key' => $currentKey !== '' ? $currentKey : null,
+            'to_package_key' => null,
+            'from_monthly_amount' => $fromAmount,
+            'to_monthly_amount' => 0,
+            'effective_on' => $effectiveOn->toDateString(),
+        ]);
+
+        $this->syncMolliePlan($profile->fresh(['package', 'company']) ?? $profile);
+
+        return $profile->fresh(['package', 'company']) ?? $profile;
+    }
+
     public function withdrawPending(Company $company): CompanyBillingProfile
     {
         $profile = $this->ensureProfile($company);
@@ -286,7 +500,10 @@ class TenantSubscriptionService
             throw new RuntimeException('Er staat geen wijziging klaar om in te trekken.');
         }
 
-        if ($type === CompanySubscriptionChange::TYPE_CANCEL) {
+        if (in_array($type, [
+            CompanySubscriptionChange::TYPE_CANCEL,
+            CompanySubscriptionChange::TYPE_TRIAL_END,
+        ], true)) {
             $profile->subscription_end_date = null;
         }
 
@@ -357,6 +574,19 @@ class TenantSubscriptionService
             return true;
         }
 
+        if ($type === CompanySubscriptionChange::TYPE_TRIAL_END) {
+            $company->update(['is_active' => false]);
+            $profile->subscription_end_date = $effective->toDateString();
+            $this->markScheduledApplied($profile, $type);
+            $this->clearPendingChange($profile, false);
+            app(PlatformBillingService::class)->cancelMollieSubscriptionIfNeeded(
+                $profile->fresh(['package', 'company']) ?? $profile,
+                $asOf
+            );
+
+            return true;
+        }
+
         return false;
     }
 
@@ -389,14 +619,48 @@ class TenantSubscriptionService
     private function assignBillingPackage(CompanyBillingProfile $profile, string $packageKey): void
     {
         $billingPackage = $this->ensurePlatformPackage($packageKey);
+        $amount = (float) ($this->pricing->monthlyAmountForKey($packageKey) ?? $billingPackage->monthly_amount ?? 0);
         $updates = [
             'billing_mode' => CompanyBillingProfile::MODE_PACKAGE,
             'platform_billing_package_id' => $billingPackage->id,
             'custom_monthly_amount' => null,
+            'agreed_monthly_amount' => round(max(0, $amount), 2),
         ];
         $profile->fill($updates);
         $profile->save();
         $profile->setRelation('package', $billingPackage);
+    }
+
+    private function lockAgreedMonthlyAmountIfMissing(CompanyBillingProfile $profile): void
+    {
+        if ($profile->billing_mode !== CompanyBillingProfile::MODE_PACKAGE) {
+            return;
+        }
+        if ($profile->agreed_monthly_amount !== null) {
+            return;
+        }
+
+        $amount = $this->catalogAmountForCompany($profile->company ?? $profile->company()->first());
+        if ($amount === null && $profile->package) {
+            $amount = round(max(0, (float) $profile->package->monthly_amount), 2);
+        }
+        if ($amount === null) {
+            return;
+        }
+
+        $profile->agreed_monthly_amount = $amount;
+        $profile->save();
+    }
+
+    private function catalogAmountForCompany(?Company $company): ?float
+    {
+        $key = trim((string) ($company?->package_key ?? ''));
+        if ($key === '') {
+            return null;
+        }
+        $amount = $this->pricing->monthlyAmountForKey($key);
+
+        return $amount === null ? null : round(max(0, $amount), 2);
     }
 
     /**
@@ -670,6 +934,9 @@ class TenantSubscriptionService
 
     private function assertChangeable(CompanyBillingProfile $profile, Carbon $asOf): void
     {
+        if ($this->hasDeclinedTrial($profile)) {
+            throw new RuntimeException('Activeer eerst het abonnement voordat je het pakket wijzigt of opzegt.');
+        }
         if ($this->calculator->isEnded($profile, $asOf) && $profile->pending_change_type !== CompanySubscriptionChange::TYPE_CANCEL) {
             throw new RuntimeException('Dit abonnement is beëindigd.');
         }

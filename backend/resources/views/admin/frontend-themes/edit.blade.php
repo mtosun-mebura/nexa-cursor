@@ -4,15 +4,19 @@
 
 @push('styles')
 <style>
-    #primary_color_picker {
+    #primary_color_picker,
+    #secondary_color_picker {
         min-width: 3.5rem;
         min-height: 3.5rem;
         padding: 2px;
         cursor: pointer;
     }
-    #primary_color_picker::-webkit-color-swatch-wrapper { padding: 0; }
-    #primary_color_picker::-webkit-color-swatch { border: none; border-radius: 6px; }
-    #primary_color_picker::-moz-color-swatch { border: none; border-radius: 6px; }
+    #primary_color_picker::-webkit-color-swatch-wrapper,
+    #secondary_color_picker::-webkit-color-swatch-wrapper { padding: 0; }
+    #primary_color_picker::-webkit-color-swatch,
+    #secondary_color_picker::-webkit-color-swatch { border: none; border-radius: 6px; }
+    #primary_color_picker::-moz-color-swatch,
+    #secondary_color_picker::-moz-color-swatch { border: none; border-radius: 6px; }
 </style>
 @endpush
 
@@ -86,6 +90,37 @@
                                     </div>
                                 </div>
                                 @error('primary_color')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                                Secundaire kleur
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <label class="flex flex-col items-center gap-1.5 cursor-pointer" for="secondary_color_picker" title="Klik om kleur te kiezen">
+                                        <input type="color"
+                                               id="secondary_color_picker"
+                                               class="w-14 h-14 rounded-lg border-2 border-input cursor-pointer bg-transparent"
+                                               value="{{ old('secondary_color', $s['secondary_color'] ?? '#0f172a') }}"
+                                               aria-label="Kies secundaire kleur">
+                                        <span class="text-xs text-muted-foreground">Klik om te kiezen</span>
+                                    </label>
+                                    <div class="flex flex-col gap-1">
+                                        <input type="text"
+                                               name="secondary_color"
+                                               id="secondary_color"
+                                               class="kt-input w-32 @error('secondary_color') border-destructive @enderror"
+                                               value="{{ old('secondary_color', $s['secondary_color'] ?? '#0f172a') }}"
+                                               placeholder="#0f172a"
+                                               maxlength="7"
+                                               pattern="^#[0-9A-Fa-f]{6}$">
+                                        <span class="text-xs text-muted-foreground">Hex (bijv. #0f172a)</span>
+                                    </div>
+                                </div>
+                                @error('secondary_color')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
@@ -173,33 +208,37 @@
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var picker = document.getElementById('primary_color_picker');
-    var textInput = document.getElementById('primary_color');
-    if (!picker || !textInput) return;
+    function bindColorPair(pickerId, inputId) {
+        var picker = document.getElementById(pickerId);
+        var textInput = document.getElementById(inputId);
+        if (!picker || !textInput) return;
 
-    function hexValid(val) {
-        return /^#[0-9A-Fa-f]{6}$/.test(val);
+        function hexValid(val) {
+            return /^#[0-9A-Fa-f]{6}$/.test(val);
+        }
+
+        picker.addEventListener('input', function() {
+            textInput.value = picker.value;
+        });
+
+        textInput.addEventListener('input', function() {
+            var val = textInput.value.trim();
+            if (val.indexOf('#') !== 0) val = '#' + val;
+            if (hexValid(val)) {
+                picker.value = val;
+            }
+        });
+        textInput.addEventListener('change', function() {
+            var val = textInput.value.trim();
+            if (val.indexOf('#') !== 0) val = '#' + val;
+            if (hexValid(val)) {
+                picker.value = val;
+                textInput.value = val;
+            }
+        });
     }
-
-    picker.addEventListener('input', function() {
-        textInput.value = picker.value;
-    });
-
-    textInput.addEventListener('input', function() {
-        var val = textInput.value.trim();
-        if (val.indexOf('#') !== 0) val = '#' + val;
-        if (hexValid(val)) {
-            picker.value = val;
-        }
-    });
-    textInput.addEventListener('change', function() {
-        var val = textInput.value.trim();
-        if (val.indexOf('#') !== 0) val = '#' + val;
-        if (hexValid(val)) {
-            picker.value = val;
-            textInput.value = val;
-        }
-    });
+    bindColorPair('primary_color_picker', 'primary_color');
+    bindColorPair('secondary_color_picker', 'secondary_color');
 });
 </script>
 @push('scripts')

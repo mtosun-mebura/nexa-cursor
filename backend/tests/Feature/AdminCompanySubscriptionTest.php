@@ -45,7 +45,18 @@ class AdminCompanySubscriptionTest extends TestCase
             ->assertSee('Huidig abonnement', false)
             ->assertSee('Start', false)
             ->assertSee('Nu upgraden', false)
-            ->assertSee('Opzeggen per 15-03-2027', false);
+            ->assertSee('Opzeggen per 15-03-2027', false)
+            ->assertSee('data-upgrade-open', false)
+            ->assertSee('id="subscription-upgrade-modal"', false)
+            ->assertSee('Upgraden bevestigen', false)
+            ->assertSee('data-cancel-open', false)
+            ->assertSee('id="subscription-cancel-modal"', false)
+            ->assertSee('Opzeggen bevestigen', false)
+            ->assertSee('Direct opzeggen kan alleen tijdens de', false)
+            ->assertSee('proefperiode', false)
+            ->assertSee('einde van het jaarcontract', false)
+            ->assertDontSee('wordt meegenomen in de SEPA-incasso. Doorgaan?', false)
+            ->assertDontSee("onclick=\"return confirm('Opzeggen per", false);
     }
 
     #[Test]

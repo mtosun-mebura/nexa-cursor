@@ -36,6 +36,7 @@ class AdminNexaPricingController extends Controller
             'title' => ['nullable', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:1000'],
             'vat_note' => ['nullable', 'string', 'max:255'],
+            'trial_notice_days' => ['required', 'integer', 'min:1', 'max:30'],
             'packages' => ['required', 'array', 'min:1'],
             'packages.*.name' => ['required', 'string', 'max:80'],
             'packages.*.audience' => ['nullable', 'string', 'max:160'],
@@ -87,6 +88,7 @@ class AdminNexaPricingController extends Controller
         ], [
             'packages.required' => 'Voeg minstens één maandpakket toe.',
             'packages.min' => 'Voeg minstens één maandpakket toe.',
+            'trial_notice_days.required' => 'Vul in hoeveel dagen voor het einde van de proeftijd de aankondiging verstuurd wordt.',
             'packages.*.name.required' => 'Elk pakket heeft een naam nodig.',
             'packages.*.price.required' => 'Elk pakket heeft een maandprijs nodig.',
             'website.price_label.required' => 'Vul de eenmalige websiteprijs in.',

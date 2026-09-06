@@ -3,6 +3,8 @@
 namespace App\Services\PlatformBilling;
 
 use App\Models\CompanyBillingProfile;
+use App\Models\CompanySubscriptionChange;
+use App\Models\PlatformBillingSetting;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -68,17 +70,103 @@ class SubscriptionBillingCalculator
             return 0.0;
         }
 
-        $total = 0.0;
+        $packageGross = 0.0;
+        $addonGross = 0.0;
+        $addonMonthly = $profile->packageAddonMonthlyAmount();
         foreach ($this->advanceCoverageSegments($profile, $asOf) as $segment) {
-            $total += round($profile->subscriptionBaseAmount() * $segment['fraction'], 2);
+            $packageGross += round($profile->subscriptionBaseAmount() * $segment['fraction'], 2);
+            $addonGross += round($addonMonthly * $segment['fraction'], 2);
         }
 
         $discountPercent = $profile->discountPercent();
-        if ($discountPercent > 0) {
-            $total = round($total * (1 - ($discountPercent / 100)), 2);
+        $packageNet = $discountPercent > 0
+            ? round($packageGross * (1 - ($discountPercent / 100)), 2)
+            : $packageGross;
+
+        return round($packageNet + $addonGross, 2);
+    }
+
+    /**
+     * @return array{
+     *     start: Carbon,
+     *     start_label: string,
+     *     coverage_label: string,
+     *     period_lines: array<int, array{label: string, amount: float}>,
+     *     discount_amount: float,
+     *     first_amount_excl: float,
+     *     first_amount_incl: float,
+     *     tax_amount: float,
+     *     monthly_amount: float,
+     *     recurring_from: ?Carbon,
+     *     recurring_from_label: string,
+     *     tax_percent: float
+     * }
+     */
+    public function firstCollectionPresentation(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): array
+    {
+        $start = $this->resolvedStartDate($profile, $asOf) ?? Carbon::parse($asOf ?? now())->startOfDay();
+        $billOn = $start->copy();
+        $segments = $this->advanceCoverageSegments($profile, $billOn);
+        $coverageParts = [];
+        foreach ($segments as $index => $segment) {
+            $month = Carbon::createFromFormat('Y-m', $segment['key'])->startOfMonth();
+            if ($segment['fraction'] < 0.999) {
+                $from = $index === 0 ? $billOn->copy() : $month->copy();
+                $to = $month->copy()->endOfMonth();
+                $coverageParts[] = $from->translatedFormat('j').' t/m '.$to->translatedFormat('j F Y');
+            } else {
+                $coverageParts[] = $month->translatedFormat('F Y');
+            }
         }
 
-        return round($total, 2);
+        $firstExcl = $this->proratedSubscriptionAmount($profile, $billOn);
+        $taxPercent = $this->taxPercent();
+        $taxAmount = round($firstExcl * ($taxPercent / 100), 2);
+        $firstIncl = round($firstExcl + $taxAmount, 2);
+        $recurring = $this->mollieSubscriptionStartDate($profile, $billOn);
+        $recurringDate = $recurring ? Carbon::parse($recurring)->startOfDay() : null;
+        $periodLines = [];
+        foreach ($segments as $index => $segment) {
+            $month = Carbon::createFromFormat('Y-m', $segment['key'])->startOfMonth();
+            if ($segment['fraction'] < 0.999) {
+                $from = $index === 0 ? $billOn->copy() : $month->copy();
+                $to = $month->copy()->endOfMonth();
+                $label = $from->translatedFormat('j').' t/m '.$to->translatedFormat('j F Y');
+            } else {
+                $label = $month->translatedFormat('F Y');
+            }
+            $periodLines[] = [
+                'label' => $label,
+                'amount' => round(
+                    ($profile->subscriptionBaseAmount() + $profile->packageAddonMonthlyAmount()) * $segment['fraction'],
+                    2
+                ),
+            ];
+        }
+
+        return [
+            'start' => $billOn,
+            'start_label' => $billOn->translatedFormat('j F Y'),
+            'coverage_label' => $coverageParts !== [] ? implode(' + ', $coverageParts) : $billOn->translatedFormat('F Y'),
+            'period_lines' => $periodLines,
+            'discount_amount' => $this->proratedSubscriptionDiscountAmount($profile, $billOn),
+            'first_amount_excl' => $firstExcl,
+            'first_amount_incl' => $firstIncl,
+            'tax_amount' => $taxAmount,
+            'monthly_amount' => $profile->resolveMonthlyAmount(),
+            'recurring_from' => $recurringDate,
+            'recurring_from_label' => $recurringDate?->translatedFormat('j F Y') ?? '',
+            'tax_percent' => $taxPercent,
+        ];
+    }
+
+    private function taxPercent(): float
+    {
+        try {
+            return max(0, (float) PlatformBillingSetting::current()->tax_rate_percent);
+        } catch (\Throwable) {
+            return 21.0;
+        }
     }
 
     public function proratedSubscriptionDiscountAmount(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): float
@@ -167,6 +255,10 @@ class SubscriptionBillingCalculator
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
 
         if ($this->isEnded($profile, $asOf)) {
+            return false;
+        }
+
+        if (trim((string) ($profile->pending_change_type ?? '')) === CompanySubscriptionChange::TYPE_TRIAL_END) {
             return false;
         }
 

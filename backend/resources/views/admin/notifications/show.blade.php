@@ -241,6 +241,7 @@
                                     'error' => 'Fout',
                                     'reminder' => 'Herinnering',
                                     'update' => 'Update',
+                                    'incident' => 'Incident',
                                 ];
                                 echo $categoryLabels[$notification->category ?? ''] ?? ucfirst($notification->category ?? 'Onbekend');
                             @endphp
@@ -320,6 +321,8 @@
                                     'email' => 'E-mail',
                                     'reminder' => 'Herinnering',
                                     'file' => 'Bestand',
+                                    'incident' => 'Incident',
+                                    'config_access' => 'Configuratie',
                                 ];
                                 echo $typeLabels[$notification->type ?? ''] ?? ucfirst($notification->type ?? 'Onbekend');
                             @endphp

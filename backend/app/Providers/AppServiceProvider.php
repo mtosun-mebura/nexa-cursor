@@ -6,6 +6,8 @@ use App\Models\Module as ModuleModel;
 use App\Models\User;
 use App\Models\WebsitePage;
 use App\Notifications\Channels\SmsChannel;
+use App\Services\AiWebsite\Providers\AiProviderInterface;
+use App\Services\AiWebsite\Providers\OpenAiProvider;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         require_once app_path('helpers.php');
+        $this->app->bind(AiProviderInterface::class, OpenAiProvider::class);
         $this->usePublishedPostgresWhenDockerHostnameIsUnreachable();
     }
 

@@ -11,7 +11,7 @@
     $accent = $themeSettings['primary_color'] ?? '#e91e63';
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
-<section class="py-16 md:py-24 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="vue_material.quote_cards" data-theme-anim="quote" data-scroll-reveal>
+<section class="py-10 md:py-14 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="vue_material.quote_cards" data-theme-anim="quote" data-scroll-reveal>
     <div class="website-section-inner">
         <div class="mx-auto mb-12 max-w-2xl text-center theme-fade" style="--theme-reveal-delay: 0ms;">
             <p class="mb-2 text-sm font-medium uppercase tracking-widest" style="color: {{ $accent }}">{{ $data['eyebrow'] ?? 'Quotes' }}</p>

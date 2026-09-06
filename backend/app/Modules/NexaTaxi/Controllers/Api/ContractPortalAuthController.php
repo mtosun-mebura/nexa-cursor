@@ -34,7 +34,7 @@ class ContractPortalAuthController extends Controller
         $firstLogin = app(TaxiAppFirstLoginService::class);
         if ($user && $firstLogin->needsFirstLogin($user) && $firstLogin->userMayUseChannel($user, TaxiAppFirstLoginService::CHANNEL_CONTRACT)) {
             return response()->json([
-                'message' => 'Dit account is nog niet geactiveerd. Vraag een inlogcode aan om zelf een wachtwoord te kiezen.',
+                'message' => TaxiAppFirstLoginService::FIRST_LOGIN_REQUIRED_MESSAGE,
                 'error' => 'first_login_required',
             ], 403);
         }

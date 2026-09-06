@@ -482,12 +482,12 @@ class AdminSettingsController extends Controller
                     return;
                 }
                 if (! is_numeric($value) || Company::query()->whereKey((int) $value)->doesntExist()) {
-                    $fail('Kies een bron-tenant (bedrijf) of NEXA SaaS.');
+                    $fail('Kies een bron-tenant (bedrijf) of NEXA Suite.');
                 }
             }],
             'confirm_full_sync' => ['required', 'accepted'],
         ], [
-            'source_company_id.required' => 'Kies een bron-tenant (bedrijf) of NEXA SaaS.',
+            'source_company_id.required' => 'Kies een bron-tenant (bedrijf) of NEXA Suite.',
             'confirm_full_sync.required' => 'Vink de bevestiging aan om de sync te starten.',
             'confirm_full_sync.accepted' => 'Vink de bevestiging aan om de sync te starten.',
         ]);
@@ -530,7 +530,7 @@ class AdminSettingsController extends Controller
 
         $msg = $result['report']['summary'] ?? (
             $isCentral
-                ? 'NEXA SaaS-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                ? 'NEXA Suite-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                 : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
                     .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
         );
@@ -570,7 +570,7 @@ class AdminSettingsController extends Controller
                     'success' => true,
                     'message' => $result['report']['summary'] ?? (
                         $isCentral
-                            ? 'NEXA SaaS-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                            ? 'NEXA Suite-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                             : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
                                 .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
                     ),
@@ -658,7 +658,7 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
-        $label = $isCentral ? 'NEXA SaaS-website geïmporteerd' : 'Tenant-export geïmporteerd';
+        $label = $isCentral ? 'NEXA Suite-website geïmporteerd' : 'Tenant-export geïmporteerd';
 
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
@@ -899,7 +899,7 @@ class AdminSettingsController extends Controller
             }
 
             $success = $companyId === null
-                ? 'Nexa SaaS-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
+                ? 'NEXA Suite-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
                 : 'Mail instellingen van deze tenant opgeslagen.';
 
             return redirect()->route('admin.settings.index')
@@ -1685,13 +1685,13 @@ class AdminSettingsController extends Controller
             'info_request_success_icon_size' => 'nullable|integer|min:32|max:200',
             'info_request_success_image_size_percent' => 'nullable|integer|min:10|max:100',
             'admin_footer_brand' => 'nullable|string|max:255',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
         ], [
             'logo.image' => 'Logo moet een afbeelding zijn.',
             'logo.mimes' => 'Logo moet een jpeg, png, jpg, gif of svg bestand zijn.',
-            'logo.max' => 'Logo mag maximaal 2MB groot zijn.',
+            'logo.max' => 'Logo mag maximaal 5MB groot zijn.',
             'favicon.image' => 'Favicon moet een afbeelding zijn.',
             'favicon.mimes' => 'Favicon moet een ico, png of jpg bestand zijn.',
             'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
@@ -1860,13 +1860,13 @@ class AdminSettingsController extends Controller
         $this->ensureSuperAdmin();
 
         $request->validate([
-            'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:5120',
             'logo_type' => 'nullable|string|in:light,dark',
         ], [
             'logo.required' => 'Selecteer een logo bestand.',
             'logo.file' => 'Het bestand moet een geldig bestand zijn.',
             'logo.mimes' => 'Alleen JPEG, PNG, JPG, GIF en SVG bestanden zijn toegestaan.',
-            'logo.max' => 'Het bestand mag maximaal 2MB groot zijn.',
+            'logo.max' => 'Het bestand mag maximaal 5MB groot zijn.',
         ]);
 
         $isDark = $request->input('logo_type') === 'dark';

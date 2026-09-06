@@ -372,13 +372,13 @@ onUnmounted(() => {
                   </template>
                   <template v-else-if="options.tenant.showCompanyDropdown">
                     <select v-model="form.companyId" class="kt-input">
-                      <option :value="null">Nexa SaaS (geen tenant)</option>
+                      <option :value="null">NEXA Suite (geen tenant)</option>
                       <option v-for="company in options.tenant.companies" :key="company.id" :value="company.id">
                         {{ company.name }}
                       </option>
                     </select>
                     <p class="text-xs text-muted-foreground mt-1 mb-0">
-                      Laat dit op Nexa SaaS staan voor de hoofdwebsite. Kies alleen een bedrijf als deze pagina bij een tenant hoort.
+                      Laat dit op NEXA Suite staan voor de hoofdwebsite. Kies alleen een bedrijf als deze pagina bij een tenant hoort.
                     </p>
                   </template>
                   <template v-else-if="options.tenant.effectiveCompanyName">
@@ -585,7 +585,8 @@ onUnmounted(() => {
 .builder-config-modal {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  /* Boven vaste admin-sidebar (z-index 10056) en drawer-backdrop (10040) */
+  z-index: 11000;
   display: flex;
   align-items: center;
   justify-content: center;

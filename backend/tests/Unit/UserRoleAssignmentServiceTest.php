@@ -44,4 +44,25 @@ class UserRoleAssignmentServiceTest extends TestCase
 
         $this->assertSame(['company-admin'], $user->webRoleNames());
     }
+
+    public function test_assigned_role_names_include_web_and_api_without_duplicates(): void
+    {
+        Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'api']);
+        $company = Company::create(['name' => 'Api Roles BV', 'is_active' => true]);
+        $user = User::factory()->create(['company_id' => $company->id]);
+
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['company-admin']);
+
+        $pivot = config('permission.table_names.model_has_roles');
+        $apiRole = Role::findByName('chauffeur', 'api');
+        \Illuminate\Support\Facades\DB::table($pivot)->insert([
+            'role_id' => $apiRole->id,
+            'model_id' => $user->id,
+            'model_type' => $user->getMorphClass(),
+            'company_id' => $company->id,
+        ]);
+
+        $this->assertSame(['company-admin'], $user->fresh()->webRoleNames());
+        $this->assertSame(['chauffeur', 'company-admin'], $user->fresh()->assignedRoleNames());
+    }
 }

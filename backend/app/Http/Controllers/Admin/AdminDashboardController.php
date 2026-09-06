@@ -15,6 +15,7 @@ use App\Services\AdminDashboardModuleContext;
 use App\Services\AdminPaymentOverviewService;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Services\SystemStackSnapshotService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class AdminDashboardController extends Controller
         protected AdminDashboardModuleContext $dashboardModuleContext,
         protected ModuleDatabaseService $moduleDatabaseService,
         protected SystemStackSnapshotService $stackSnapshots,
+        protected TenantSubscriptionService $subscriptions,
     ) {
         $this->envService = $envService;
     }
@@ -146,6 +148,10 @@ class AdminDashboardController extends Controller
             $isCompanyView = $selectedCompany !== null;
         }
 
+        $subscriptionSnapshot = ($isCompanyView && $selectedCompany)
+            ? $this->subscriptions->snapshot($selectedCompany)
+            : null;
+
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
         $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
@@ -171,6 +177,7 @@ class AdminDashboardController extends Controller
             'revenue_trend' => $revenue_trend,
             'selectedCompany' => $selectedCompany,
             'isCompanyView' => $isCompanyView,
+            'subscriptionSnapshot' => $subscriptionSnapshot,
             'tenantId' => $tenantId,
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsZoom' => $googleMapsZoom,

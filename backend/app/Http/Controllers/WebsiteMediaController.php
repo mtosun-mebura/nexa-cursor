@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WebsiteMedia;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +16,7 @@ class WebsiteMediaController extends Controller
      * Serve encrypted website media by uuid (decrypt on the fly).
      * Publiek bereikbaar zodat frontend-pagina's afbeeldingen kunnen tonen.
      */
-    public function serve(string $uuid): Response
+    public function serve(Request $request, string $uuid): Response
     {
         $media = WebsiteMedia::where('uuid', $uuid)->first();
 
@@ -37,12 +38,20 @@ class WebsiteMediaController extends Controller
 
         $mimeType = $this->resolveMimeType($media->mime_type, $media->original_filename, $content);
 
-        return response($content, 200, [
+        $headers = [
             'Content-Type' => $mimeType,
             'Content-Length' => strlen($content),
             'Cache-Control' => 'public, max-age=86400',
             'X-Content-Type-Options' => 'nosniff',
-        ]);
+        ];
+
+        if ($request->boolean('download')) {
+            $filename = $media->original_filename ?: ($uuid.'.png');
+            $headers['Content-Disposition'] = 'attachment; filename="'.addslashes($filename).'"';
+            $headers['Cache-Control'] = 'private, no-cache';
+        }
+
+        return response($content, 200, $headers);
     }
 
     private function resolveMimeType(?string $storedMime, ?string $originalFilename, string $content): string

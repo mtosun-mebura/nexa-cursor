@@ -125,13 +125,15 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             $isAdmin = $request->is('admin') || $request->is('admin/*');
+            $isFirstLoginJson = ($request->expectsJson() || $request->ajax() || $request->wantsJson())
+                && $request->is('admin/login/first-code', 'admin/login/first-verify');
             $intended = AdminReturnUrl::resolveIntended($request->input('intended'))
                 ?? AdminReturnUrl::resolveIntended($request->query('intended'))
                 ?? AdminReturnUrl::resolveIntended(session('url.intended'));
             if ($intended === null && ! $request->is('admin/login') && ! $request->is('admin/meld/*')) {
                 $intended = AdminReturnUrl::resolveIntended($request->fullUrl());
             }
-            if ($intended !== null && $request->hasSession()) {
+            if (! $isFirstLoginJson && $intended !== null && $request->hasSession()) {
                 $request->session()->put('url.intended', $intended);
                 $request->session()->regenerateToken();
             }
@@ -142,6 +144,14 @@ return Application::configure(basePath: dirname(__DIR__))
             $message = 'Uw sessie is verlopen. Log opnieuw in.';
 
             if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+                if ($isFirstLoginJson) {
+                    return response()->json([
+                        'message' => 'De beveiligingstoken is vernieuwd. Probeer het opnieuw.',
+                        'code' => 'csrf_mismatch',
+                        'csrf_token' => $request->hasSession() ? $request->session()->token() : null,
+                    ], 419);
+                }
+
                 if (! $isAdmin) {
                     return null;
                 }

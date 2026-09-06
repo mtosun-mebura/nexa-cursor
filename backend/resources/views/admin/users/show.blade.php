@@ -77,6 +77,18 @@
         </div>
         <div class="flex items-center gap-2.5">
             @can('edit-users')
+            @if($user->id === auth()->id())
+            <label class="kt-label flex items-center">
+                @php
+                    $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
+                @endphp
+                <input type="checkbox"
+                       class="kt-switch kt-switch-sm"
+                       {{ $isActive ? 'checked' : '' }}
+                       disabled/>
+                <span class="ms-2">Actief</span>
+            </label>
+            @else
             <form action="{{ route('admin.users.toggle-status', $user) }}" method="POST" id="toggle-status-form" class="inline">
                 @csrf
                 <label class="kt-label flex items-center">
@@ -90,6 +102,7 @@
                     <span class="ms-2">Actief</span>
                 </label>
             </form>
+            @endif
             @else
             <label class="kt-label flex items-center">
                 @php
@@ -233,10 +246,29 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
+                            App-wachtwoord
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $needsAppPassword = app(\App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService::class)->needsFirstLogin($user);
+                            @endphp
+                            @if($needsAppPassword)
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">Nog instellen</span>
+                                <span class="text-xs text-secondary-foreground ms-2">Inlogcode in chauffeur- of contract-app</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Ingesteld</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
                             Rollen
                         </td>
                         <td class="text-foreground font-normal">
-                            @foreach($user->webRoleNames() as $roleName)
+                            @php
+                                $showRoleNames = $displayRoleNames[$user->id] ?? $user->assignedRoleNames();
+                            @endphp
+                            @foreach($showRoleNames as $roleName)
                                 @if($roleName === 'super-admin')
                                     @if(auth()->user()->hasRole('super-admin'))
                                         <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
@@ -247,7 +279,7 @@
                                     <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                 @endif
                             @endforeach
-                            @if($user->webRoleNames() === [])
+                            @if($showRoleNames === [])
                                 <span class="text-secondary-foreground text-sm">Geen rollen</span>
                             @endif
                         </td>

@@ -53,7 +53,8 @@ class TenantWelcomeEmailTemplateServiceTest extends TestCase
         $this->assertStringNotContainsString('{{ NEXA_LOGO }}', $result);
         $this->assertStringNotContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $result);
         $this->assertStringContainsString('nexa-email-logo', $result);
-        $this->assertStringContainsString('alt="NEXA"', $result);
+        $this->assertStringContainsString('alt="NEXA Suite"', $result);
+        $this->assertStringContainsString('nexa-logo-dark.png', $result);
         $this->assertStringContainsString('<img', $result);
     }
 
@@ -80,7 +81,7 @@ class TenantWelcomeEmailTemplateServiceTest extends TestCase
         );
 
         $this->assertStringNotContainsString('PACKAGE_FEATURES_HTML', $html);
-        $this->assertStringContainsString('Wat zit er in uw pakket', $html);
+        $this->assertStringContainsString('Wat zit er in je pakket', $html);
         $this->assertStringContainsString('Lisa Vermeer', $html);
         $this->assertStringContainsString('Business', $html);
         $this->assertStringContainsString('Contractvervoer', $html);

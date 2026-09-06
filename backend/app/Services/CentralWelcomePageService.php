@@ -10,6 +10,8 @@ class CentralWelcomePageService
 {
     public const TAXI_SLUG = 'taxi';
 
+    public const BOEK_SLUG = 'boek';
+
     public const CONTRACT_SLUG = 'contractvervoer';
 
     public const WEBSITE_SLUG = 'website';
@@ -25,6 +27,7 @@ class CentralWelcomePageService
     {
         return [
             self::TAXI_SLUG,
+            self::BOEK_SLUG,
             self::CONTRACT_SLUG,
             self::WEBSITE_SLUG,
             self::PRIJZEN_SLUG,
@@ -58,7 +61,7 @@ class CentralWelcomePageService
     }
 
     /**
-     * Zorgt dat home + productpagina's van de Nexa SaaS-hoofdwebsite bestaan.
+     * Zorgt dat home + productpagina's van de NEXA Suite-hoofdwebsite bestaan.
      *
      * @return Collection<int, WebsitePage>
      */
@@ -67,6 +70,7 @@ class CentralWelcomePageService
         $pages = collect([
             $this->ensurePageExists(),
             $this->firstOrCreateCentralPage(self::TAXI_SLUG, $this->taxiPageAttributes()),
+            $this->firstOrCreateCentralPage(self::BOEK_SLUG, $this->boekPageAttributes()),
             $this->firstOrCreateCentralPage(self::CONTRACT_SLUG, $this->contractPageAttributes()),
             $this->firstOrCreateCentralPage(self::WEBSITE_SLUG, $this->websiteBuilderPageAttributes()),
             $this->firstOrCreateCentralPage(self::PRIJZEN_SLUG, $this->prijzenPageAttributes()),
@@ -235,6 +239,7 @@ class CentralWelcomePageService
         return [
             WebsitePage::CENTRAL_WELCOME_SLUG => $this->welcomePageAttributes($themeSlug),
             self::TAXI_SLUG => $this->taxiPageAttributes($themeSlug),
+            self::BOEK_SLUG => $this->boekPageAttributes($themeSlug),
             self::CONTRACT_SLUG => $this->contractPageAttributes($themeSlug),
             self::WEBSITE_SLUG => $this->websiteBuilderPageAttributes($themeSlug),
             self::PRIJZEN_SLUG => $this->prijzenPageAttributes($themeSlug),
@@ -280,6 +285,28 @@ class CentralWelcomePageService
             'meta_description' => 'Van telefoon naar online boeking en chauffeur-app. Website, dispatch, betaling en chauffeur-PWA in één stack.',
             'content' => null,
             'home_sections' => $this->defaultTaxiSections($themeSlug),
+            'is_active' => true,
+            'show_in_menu' => true,
+            'sort_order' => 1,
+            'frontend_theme_id' => $theme?->id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function boekPageAttributes(?string $themeSlug = null): array
+    {
+        $theme = $this->websiteBuilder->getActiveTheme();
+        $themeSlug = $themeSlug ?? ($theme?->slug ?? 'modern');
+
+        return [
+            'title' => 'Taxi boeken',
+            'menu_title' => 'Boeken',
+            'page_type' => 'custom',
+            'meta_description' => 'Boek een taxi via NEXA Suite. We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrale.',
+            'content' => null,
+            'home_sections' => $this->defaultBoekSections($themeSlug),
             'is_active' => true,
             'show_in_menu' => true,
             'sort_order' => 1,
@@ -579,8 +606,8 @@ class CentralWelcomePageService
         $sections['hero']['title'] = 'Laat klanten 24/7 zelf boeken.';
         $sections['hero']['title_highlight'] = 'zelf boeken';
         $sections['hero']['subtitle'] = 'Website, dispatch en chauffeur-app in één systeem.';
-        $sections['hero']['cta_primary_text'] = 'Neem contact op';
-        $sections['hero']['cta_primary_url'] = '/contact';
+        $sections['hero']['cta_primary_text'] = 'Boek een taxi';
+        $sections['hero']['cta_primary_url'] = '/boek';
         $sections['hero']['cta_secondary_text'] = 'Bekijk prijzen';
         $sections['hero']['cta_secondary_url'] = '/prijzen';
         $sections['hero']['overlay'] = true;
@@ -656,6 +683,12 @@ class CentralWelcomePageService
             ],
         ];
 
+        $bookingKey = 'component:taxi.algemene_boekingsmodule';
+        $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+        $bookingDefaults['title'] = 'Boek via NEXA Suite';
+        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrale.';
+        $sections[$bookingKey] = $bookingDefaults;
+
         $sections['cta'] = [
             'title' => 'Klaar voor meer online boekingen?',
             'subtitle' => 'We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.',
@@ -676,13 +709,55 @@ class CentralWelcomePageService
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
-        $sections['section_order'] = ['hero', 'text_block', 'features', $galleryKey, $checklistKey, $faqKey, 'cta'];
+        $sections['section_order'] = ['hero', $bookingKey, 'text_block', 'features', $galleryKey, $checklistKey, $faqKey, 'cta'];
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility']['features'] = true;
         $sections['visibility']['text_block'] = true;
+        $sections['visibility'][$bookingKey] = true;
         $sections['visibility'][$checklistKey] = true;
         $sections['visibility'][$faqKey] = true;
         $sections['visibility']['cta'] = true;
+
+        return $sections;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultBoekSections(string $themeSlug): array
+    {
+        $sections = WebsitePage::defaultPageSectionsForNonHome($themeSlug);
+        $bookingKey = 'component:taxi.algemene_boekingsmodule';
+        $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+        $bookingDefaults['title'] = 'Boek een taxi';
+        $bookingDefaults['subtitle'] = 'Algemene boeking via NEXA Suite. We koppelen je rit aan de dichtstbijzijnde aangesloten taxicentrale.';
+        $sections[$bookingKey] = $bookingDefaults;
+
+        $sections['hero']['title'] = 'Boek een taxi. Wij zoeken de dichtstbijzijnde centrale.';
+        $sections['hero']['title_highlight'] = 'dichtstbijzijnde centrale';
+        $sections['hero']['subtitle'] = 'Eén boeking op nexasuite.nl. De rit gaat naar een aangesloten taxibedrijf bij jou in de buurt.';
+        $sections['hero']['cta_primary_text'] = '';
+        $sections['hero']['cta_primary_url'] = '';
+        $sections['hero']['cta_secondary_text'] = '';
+        $sections['hero']['cta_secondary_url'] = '';
+        $sections['hero']['overlay'] = true;
+        $sections['hero']['background_image_url'] = $this->marketingImage('feature-taxi-booking.png');
+
+        $faqKey = 'component:landwind.faq';
+        $sections[$faqKey] = $this->nexaMarketingFaq([
+            'eyebrow' => 'Algemene boeking',
+            'title' => 'Hoe werkt boeken via NEXA Suite?',
+            'subtitle' => 'Je rit gaat naar de dichtstbijzijnde aangesloten taxicentrale.',
+        ]);
+        $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
+        $sections['footer']['inherit_from_home'] = true;
+        $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
+        $sections['section_order'] = ['hero', $bookingKey, $faqKey];
+        $sections['visibility'][$bookingKey] = true;
+        $sections['visibility'][$faqKey] = true;
+        $sections['visibility']['cta'] = false;
+        $sections['visibility']['features'] = false;
+        $sections['visibility']['text_block'] = false;
 
         return $sections;
     }

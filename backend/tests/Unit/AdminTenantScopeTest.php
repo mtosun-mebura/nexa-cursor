@@ -117,11 +117,50 @@ class AdminTenantScopeTest extends TestCase
         $this->assertFalse($scope->shouldHideContent());
     }
 
+    public function test_super_admin_without_tenant_can_open_website_ai_generator(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/website-ai', 'admin.website-ai.create');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
     public function test_super_admin_without_tenant_can_manage_newsletters(): void
     {
         $user = $this->superAdminWithoutTenant();
         $this->actingAs($user);
         $this->bindRoute('/admin/newsletters', 'admin.newsletters.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_super_admin_without_tenant_can_view_notifications(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/notifications', 'admin.notifications.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
+    public function test_super_admin_without_tenant_can_view_incidents(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/incidents', 'admin.incidents.index');
 
         $scope = app(AdminTenantScope::class);
 

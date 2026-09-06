@@ -110,6 +110,56 @@
 
                         <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
                             <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
+                                <i class="ki-filled ki-code text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                                <span class="flex-1 min-w-0">Laravel bijwerken</span>
+                                <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                            </summary>
+                            <div class="mt-3 space-y-4 text-secondary-foreground">
+                                <p class="mb-0">
+                                    Deze knop voert <code>composer update</code> uit <strong>binnen de huidige constraint</strong>
+                                    (<code>laravel/framework: ^12.0</code>). Dat is een 12.x-patch of -minor, geen sprong naar Laravel 13.
+                                    Een major-upgrade wijzigt Composer-constraints en volgt de officiële upgrade-guide; dat kan deze pagina niet veilig alleen.
+                                </p>
+
+                                <div>
+                                    <p class="mb-1 font-semibold text-mono">1. Binnen Laravel 12 (via deze pagina)</p>
+                                    <p class="mb-1">Vink Laravel aan in de lijst hierboven, bevestig, en start de upgrade. Er gebeurt dan o.a.:</p>
+                                    <pre class="upgrade-docker-code">composer update laravel/framework --with-all-dependencies
+php artisan migrate --force
+php artisan test</pre>
+                                    <p class="mb-0">
+                                        <code>--with-all-dependencies</code> is nodig omdat nieuwere 12.x-releases ook lock-pins van
+                                        transitieve packages (zoals <code>league/commonmark</code>) moeten meenemen.
+                                        Voer dit eerst lokaal of op staging uit en laat de testdoorloop aanstaan.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p class="mb-1 font-semibold text-mono">2. Naar Laravel 13 (handmatig, niet via deze knop)</p>
+                                    <p class="mb-1">
+                                        Laravel 13 vereist PHP 8.3+ (deze Docker-image is al 8.3). Werk op een aparte git-branch en
+                                        volg <a href="https://laravel.com/docs/13.x/upgrade" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2">laravel.com/docs/13.x/upgrade</a>.
+                                        Pas daarna de constraints in <code>backend/composer.json</code> aan:
+                                    </p>
+                                    <pre class="upgrade-docker-code">- "php": "^8.2"
++ "php": "^8.3"
+- "laravel/framework": "^12.0"
++ "laravel/framework": "^13.0"</pre>
+                                    <p class="mb-1">Controleer blockers en werk gerelateerde packages mee (vaak tinker, phpunit, livewire, scout, guzzle):</p>
+                                    <pre class="upgrade-docker-code">composer why-not laravel/framework:^13.0
+composer update laravel/framework --with-all-dependencies
+php artisan migrate --force
+php artisan test</pre>
+                                    <p class="mb-0">
+                                        Als 13 eenmaal in de constraint staat, houdt deze pagina Laravel daarna bij met 13.x-patches.
+                                        Doe de major eerst lokaal, met groene tests, vóór productie.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
+                            <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
                                 <i class="ki-filled ki-docker text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
                                 <span class="flex-1 min-w-0">PHP &amp; PostgreSQL bijwerken (via Docker)</span>
                                 <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
@@ -236,12 +286,29 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     .upgrade-progress-list {
         list-style: none;
         margin: 0.75rem 0 0;
-        padding: 0;
+        padding: 0 0.35rem 0 0;
         display: flex;
         flex-direction: column;
         gap: 0.45rem;
         max-height: 18rem;
         overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--foreground) 55%, transparent) transparent;
+    }
+    .upgrade-progress-list::-webkit-scrollbar {
+        width: 8px;
+    }
+    .upgrade-progress-list::-webkit-scrollbar-track,
+    .upgrade-progress-list::-webkit-scrollbar-track-piece,
+    .upgrade-progress-list::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+    .upgrade-progress-list::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--foreground) 55%, transparent);
+        border-radius: 9999px;
+    }
+    .upgrade-progress-list::-webkit-scrollbar-thumb:hover {
+        background-color: color-mix(in srgb, var(--foreground) 75%, transparent);
     }
     .upgrade-progress-item {
         display: flex;

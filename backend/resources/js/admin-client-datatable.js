@@ -1,6 +1,57 @@
 const FILTER_DELAY_MS = 120;
 const PAGE_MORE_LIMIT = 5;
-const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
+const PAGE_QUERY = 'page';
+const PERPAGE_QUERY = 'perpage';
+
+export function adminDatatableQueryKeys(root, documentRoot = document) {
+    const tables = documentRoot.querySelectorAll('[data-admin-datatable="true"]');
+    const usePrefixed = tables.length > 1 && Boolean(root?.id);
+    const prefix = usePrefixed ? `${root.id}_` : '';
+
+    return {
+        page: `${prefix}${PAGE_QUERY}`,
+        perPage: `${prefix}${PERPAGE_QUERY}`,
+    };
+}
+
+export function readPositiveIntQueryParam(name, search = window.location.search) {
+    const raw = new URLSearchParams(search).get(name);
+    const value = Number(raw);
+
+    return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+export function replaceAdminDatatableQueryParams(updates, locationLike = window.location, historyLike = window.history) {
+    const params = new URLSearchParams(locationLike.search);
+    let changed = false;
+
+    Object.entries(updates).forEach(([key, value]) => {
+        const current = params.get(key);
+        if (value === null || value === undefined || value === '') {
+            if (current !== null) {
+                params.delete(key);
+                changed = true;
+            }
+
+            return;
+        }
+
+        const next = String(value);
+        if (current !== next) {
+            params.set(key, next);
+            changed = true;
+        }
+    });
+
+    if (!changed) {
+        return;
+    }
+
+    const qs = params.toString();
+    const url = `${locationLike.pathname}${qs ? `?${qs}` : ''}${locationLike.hash || ''}`;
+    historyLike.replaceState(historyLike.state, '', url);
+}
 
 function ensureAdminDatatableSizeSelectOptions(select, pageSize) {
     if (!select) {
@@ -124,14 +175,23 @@ export class AdminClientDatatable {
             || root.querySelectorAll('[data-admin-datatable-info]');
         this.sizeSelect = root.querySelector('[data-admin-datatable-size]');
         this.itemLabel = root.dataset.adminDatatableLabel || 'items';
-        this.pageSize = Number(root.dataset.adminDatatablePageSize || this.sizeSelect?.value) || 10;
+        this.queryKeys = adminDatatableQueryKeys(root);
+        this.defaultPageSize = Number(root.dataset.adminDatatablePageSize || this.sizeSelect?.value) || 10;
+        this.pageSize = this.defaultPageSize;
+        const storedPageSize = readPositiveIntQueryParam(this.queryKeys.perPage);
+        if (storedPageSize && DEFAULT_PAGE_SIZE_OPTIONS.includes(storedPageSize)) {
+            this.pageSize = storedPageSize;
+        }
         ensureAdminDatatableSizeSelectOptions(this.sizeSelect, this.pageSize);
         this.pageSize = Number(this.sizeSelect?.value) || this.pageSize;
         this.allRows = [];
         this.filteredRows = [];
-        this.page = 1;
+        this.initialPage = readPositiveIntQueryParam(this.queryKeys.page) || 1;
+        this.page = this.initialPage;
+        this.restorePageOnce = true;
         this.filterTimer = null;
         this.lastTotalPages = null;
+        this.columnWidthsLocked = false;
         this.afterPageRender = typeof window[root.dataset.adminDatatableOnPage] === 'function'
             ? window[root.dataset.adminDatatableOnPage]
             : null;
@@ -230,8 +290,98 @@ export class AdminClientDatatable {
             this.updateResetButton();
         });
 
+        this.root.__adminDatatable = this;
+        this.lockColumnWidths();
         this.applyFilter();
+        if (!this.columnWidthsLocked) {
+            requestAnimationFrame(() => {
+                this.lockColumnWidths();
+                if (this.columnWidthsLocked) {
+                    this.renderPage();
+                }
+            });
+        }
         setTimeout(initAdminDatatableMenus, 200);
+    }
+
+    lockColumnWidths() {
+        if (!this.table || this.columnWidthsLocked) {
+            return;
+        }
+
+        if (this.table.classList.contains('admin-fluid-table')) {
+            this.table.classList.add('admin-datatable-cols-locked');
+            this.columnWidthsLocked = true;
+            return;
+        }
+
+        const headerCells = this.table.tHead?.rows?.[0]
+            ? Array.from(this.table.tHead.rows[0].cells)
+            : [];
+        if (headerCells.length === 0) {
+            return;
+        }
+
+        this.allRows.forEach(({ row }) => {
+            row.hidden = false;
+        });
+
+        this.table.classList.remove('table-auto');
+        this.table.style.tableLayout = 'auto';
+        this.table.style.width = '';
+
+        const tableWidth = this.table.getBoundingClientRect().width;
+        const widths = headerCells.map((cell) => cell.getBoundingClientRect().width);
+        if (tableWidth <= 0 || widths.some((width) => width <= 0)) {
+            return;
+        }
+
+        let colgroup = this.table.querySelector(':scope > colgroup[data-admin-datatable-cols]');
+        if (!colgroup) {
+            colgroup = document.createElement('colgroup');
+            colgroup.setAttribute('data-admin-datatable-cols', '');
+            this.table.insertBefore(colgroup, this.table.firstChild);
+        }
+
+        colgroup.replaceChildren(
+            ...widths.map((width) => {
+                const col = document.createElement('col');
+                col.style.width = `${(width / tableWidth) * 100}%`;
+
+                return col;
+            })
+        );
+
+        this.table.style.tableLayout = 'fixed';
+        this.table.style.width = '100%';
+        this.table.classList.add('admin-datatable-cols-locked');
+        this.columnWidthsLocked = true;
+    }
+
+    reloadRows() {
+        const previousPage = this.page;
+        this.table = this.root.querySelector('table');
+        this.tbody = this.table?.querySelector('tbody');
+        if (!this.tbody) {
+            return;
+        }
+
+        this.allRows = Array.from(this.tbody.querySelectorAll(':scope > tr'))
+            .filter((row) => !row.querySelector('td[colspan]'))
+            .map((row) => ({
+                row,
+                searchText: normalizeAdminDatatableSearchValue(
+                    row.getAttribute('data-search-text') || row.textContent
+                ),
+                filters: this.readRowFilters(row),
+            }));
+
+        this.lastTotalPages = null;
+        this.columnWidthsLocked = false;
+        this.lockColumnWidths();
+        this.applyFilter();
+        this.goToPage(previousPage);
+        this.updateResetButton();
     }
 
     readRowFilters(row) {
@@ -281,7 +431,12 @@ export class AdminClientDatatable {
             return true;
         });
 
-        this.page = 1;
+        if (this.restorePageOnce) {
+            this.restorePageOnce = false;
+            this.page = this.initialPage;
+        } else {
+            this.page = 1;
+        }
         this.renderPage();
     }
 
@@ -292,6 +447,8 @@ export class AdminClientDatatable {
         if (this.page > totalPages) {
             this.page = totalPages;
         }
+
+        this.syncQueryState();
 
         const start = (this.page - 1) * this.pageSize;
         const end = start + this.pageSize;
@@ -448,6 +605,13 @@ export class AdminClientDatatable {
         this.renderPage();
     }
 
+    syncQueryState() {
+        replaceAdminDatatableQueryParams({
+            [this.queryKeys.page]: this.page > 1 ? this.page : null,
+            [this.queryKeys.perPage]: this.pageSize !== this.defaultPageSize ? this.pageSize : null,
+        });
+    }
+
     updateResetButton() {
         if (!this.resetBtn || this.resetBtn.tagName === 'A') {
             return;
@@ -468,7 +632,12 @@ export function initAdminClientDatatables(root = document) {
         element.dataset.adminDatatableInit = '1';
         const datatable = new AdminClientDatatable(element);
         datatable.init();
+        element.__adminDatatable = datatable;
     });
+}
+
+if (typeof window !== 'undefined') {
+    window.initAdminClientDatatables = initAdminClientDatatables;
 }
 
 if (document.readyState === 'loading') {

@@ -8,6 +8,7 @@ use App\Enums\AiChat\AiChatIntent;
 use App\Enums\AiChat\AiChatResponseMode;
 use App\Models\User;
 use App\Services\AiChat\AiChatIntentDetector;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -177,9 +178,7 @@ class AiChatIntentDetectorTest extends TestCase
         $this->assertSame('ophaaltijd', $result['query_hint']);
     }
 
-    /**
-     * @dataProvider mijnTaxiOwnRideQuestionsProvider
-     */
+    #[DataProvider('mijnTaxiOwnRideQuestionsProvider')]
     public function test_mijn_taxi_own_ride_questions_map_correctly(string $message, string $expectedHint, AiChatResponseMode $expectedMode): void
     {
         $result = $this->detector->detect($message, new AiChatRequestContext(
@@ -209,9 +208,7 @@ class AiChatIntentDetectorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider adminOperationalQuestionsProvider
-     */
+    #[DataProvider('adminOperationalQuestionsProvider')]
     public function test_admin_operational_questions_map_correctly(
         string $message,
         AiChatIntent $expectedIntent,

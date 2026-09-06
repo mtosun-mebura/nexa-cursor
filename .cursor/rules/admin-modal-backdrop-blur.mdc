@@ -1,23 +1,29 @@
 ---
-description: Admin-modals altijd met geblurde achtergrond zodat de focus op de overlay blijft
+description: Admin-modals met blur, lichte overlay-tint (niet pechzwart) en lichter paneel
 alwaysApply: true
 ---
 
-# Admin: achtergrond blur bij modals
+# Admin: modal overlay en paneel
 
-Elke **modal / dialog / overlay** in de admin moet de pagina erachter **blurren**, zodat de aandacht op het venster blijft. Dit geldt voor nieuwe én bestaande modals.
+Elke **modal / dialog / overlay** in de admin moet de pagina erachter **blurren**, met een **lichte sluier** (geen pechzwart) en een **paneel dat niet helemaal zwart** is in dark mode.
 
-## Gewenst patroon
+## Overlay (achtergrond)
 
 - Overlay dekt het hele scherm (`fixed inset-0`).
-- Donkere sluier **plus** blur, bijvoorbeeld `bg-zinc-950/70 backdrop-blur-md` of CSS:
-  - `background: rgba(15, 23, 42, 0.55);`
-  - `backdrop-filter: blur(12px);`
-  - `-webkit-backdrop-filter: blur(12px);`
-- Het modal-paneel zelf niet blurren (alleen de laag achter het paneel).
-- Voorbeeld: `backend/resources/views/admin/partials/force-password-modal.blade.php`.
+- Lichte donkere sluier **plus** blur, bijvoorbeeld:
+  - `bg-slate-900/45 backdrop-blur-md`
+  - of CSS: `background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(12px);`
+- Geen `bg-zinc-950/70` of zwaardere zwarte sluier.
+
+## Paneel
+
+- Paneel strak en modern: **wit** in light (`#ffffff`), **bijna-zwart** in dark (`#0b0f19`) — geen mid-grijs.
+- Lichte rand/shadow i.p.v. zware grijze vlakken; overlay blijft `bg-slate-900/45 backdrop-blur-md`.
+- Alleen de overlay blurt; het paneel zelf niet.
+- Voorbeeld: `backend/resources/views/admin/partials/taxi-setup-modal.blade.php`.
 
 ## Niet doen
 
 - Geen overlay met alleen een donkere kleur zonder blur.
+- Geen pechzwart paneel in dark mode.
 - Geen `filter: blur()` op de hele pagina (dat blurt ook de modal).

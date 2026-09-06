@@ -33,7 +33,7 @@ class AdminCompanySubscriptionController extends Controller
         }
 
         return redirect()->route('admin.subscriptions.show', ['saved' => 1])
-            ->with('success', 'Je pakket is per direct geüpgraded. De nieuwe prijs geldt vanaf vandaag en gaat mee in de maandelijkse SEPA-incasso.');
+            ->with('success', 'Je pakket is per direct geüpgraded. De nieuwe prijs geldt vanaf vandaag en gaat mee in de maandelijkse incasso.');
     }
 
     public function downgrade(Request $request, TenantSubscriptionService $subscriptions): RedirectResponse
@@ -53,7 +53,7 @@ class AdminCompanySubscriptionController extends Controller
         $when = $profile->pending_change_effective_on?->translatedFormat('j F Y') ?? 'het einde van het contract';
 
         return redirect()->route('admin.subscriptions.show', ['saved' => 1])
-            ->with('success', 'Downgrade ingepland per '.$when.'. Tot die datum blijft je huidige pakket en prijs actief; daarna geldt de lagere prijs in de SEPA-incasso.');
+            ->with('success', 'Downgrade ingepland per '.$when.'. Tot die datum blijft je huidige pakket en prijs actief; daarna geldt de lagere prijs in de incasso.');
     }
 
     public function cancel(TenantSubscriptionService $subscriptions): RedirectResponse
@@ -73,9 +73,27 @@ class AdminCompanySubscriptionController extends Controller
             ->with('success', 'Opzegging ingepland per '.$when.'. De SEPA-incasso stopt vanaf die datum.');
     }
 
+    public function endTrial(TenantSubscriptionService $subscriptions): RedirectResponse
+    {
+        $company = $this->companyAdminCompany();
+
+        try {
+            $subscriptions->endTrialAndDeactivate($company);
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.subscriptions.show')
+                ->withErrors(['trial' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.subscriptions.show')
+            ->with('trial_stopped', true);
+    }
+
     public function withdraw(TenantSubscriptionService $subscriptions): RedirectResponse
     {
         $company = $this->companyAdminCompany();
+        $profile = $subscriptions->ensureProfile($company);
+        $wasTrialDecline = $subscriptions->hasDeclinedTrial($profile);
+        $startDate = $subscriptions->contractStart($profile);
 
         try {
             $subscriptions->withdrawPending($company);
@@ -84,8 +102,12 @@ class AdminCompanySubscriptionController extends Controller
                 ->withErrors(['withdraw' => $e->getMessage()]);
         }
 
+        $message = $wasTrialDecline
+            ? 'Het abonnement is weer geactiveerd. De ingangsdatum blijft '.$startDate->translatedFormat('j F Y').'.'
+            : 'De geplande wijziging is ingetrokken.';
+
         return redirect()->route('admin.subscriptions.show', ['saved' => 1])
-            ->with('success', 'De geplande wijziging is ingetrokken.');
+            ->with('success', $message);
     }
 
     private function companyAdminCompany(): \App\Models\Company

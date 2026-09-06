@@ -3,6 +3,7 @@
 @section('title', 'Bedrijf Bewerken')
 
 @section('content')
+@include('admin.settings.partials.collapsible-section-assets')
 
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
@@ -14,6 +15,14 @@
             Terug
         </a>
     </div>
+
+    @include('admin.companies.wizard.partials.tabs', [
+        'company' => $company,
+        'currentStep' => $currentStep ?? 1,
+        'maxReachable' => $maxReachable ?? \App\Http\Controllers\Admin\AdminCompanyWizardController::TOTAL_STEPS,
+        'wizardSteps' => $wizardSteps ?? \App\Http\Controllers\Admin\AdminCompanyWizardController::stepMeta(),
+        'wizardBrowse' => $wizardBrowse ?? true,
+    ])
 
     <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
         @csrf
@@ -69,7 +78,24 @@
                             <td class="min-w-48 w-full align-top">
                                 <input type="hidden" name="company_logo_mode" id="company-form-logo-mode-input" value="{{ $formLogoMode }}">
 
-                                <div class="mb-0">
+                                <div id="company-edit-logo-collapsible-root">
+                                <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="company-edit-logo-collapsible">
+                                    <div class="settings-collapsible-header">
+                                        <button type="button" class="settings-collapsible-toggle flex w-full items-center justify-between gap-3 border-0 bg-transparent p-0 text-start cursor-pointer min-h-[2.25rem]" aria-expanded="false">
+                                            <span class="flex items-center gap-3 flex-1 min-w-0">
+                                                @if($formLightUrl)
+                                                    <img alt="Logo" class="w-auto max-w-[130px] object-contain" style="height: 28px;" src="{{ $formLightUrl }}">
+                                                @else
+                                                    <span class="text-sm text-muted-foreground">Geen logo geüpload</span>
+                                                @endif
+                                            </span>
+                                            <span class="settings-collapsible-chevron shrink-0 self-center text-muted-foreground" aria-hidden="true">
+                                                <i class="ki-filled ki-down settings-collapsible-icon-down text-base" aria-hidden="true"></i>
+                                                <i class="ki-filled ki-up settings-collapsible-icon-up text-base" aria-hidden="true"></i>
+                                            </span>
+                                        </button>
+                                    </div>
+                                    <div class="settings-collapsible-body pt-3">
                                     <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
                                     <div class="flex flex-col gap-2 mb-4">
                                         <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Eén logo voor beide modi</span>
@@ -81,7 +107,7 @@
 
                                     @if($formLightUrl)
                                         <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
-                                        <div class="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30 min-w-0">
+                                        <div class="flex flex-wrap items-center gap-3 mb-4 p-3 min-w-0">
                                             <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $formLightUrl }}" id="company-form-live-preview-light" />
                                             <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $formDarkUrl }}" id="company-form-live-preview-dark" />
                                         </div>
@@ -138,6 +164,8 @@
                                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                         @enderror
                                     </div>
+                                    </div>
+                                </div>
                                 </div>
                             </td>
                         </tr>
@@ -463,12 +491,13 @@
 
             @if(auth()->user()?->isSuperAdmin())
             <div class="kt-card w-full min-w-0">
-                <div class="kt-card-header">
+                <div class="kt-card-header px-5 py-5">
                     <h3 class="kt-card-title mb-0">Pakket</h3>
                 </div>
-                <div class="kt-card-content flex flex-col gap-4">
+                <div class="kt-card-content flex flex-col gap-4 p-5">
                     <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
-                        Bepaalt welke functies dit bedrijf mag gebruiken, zoals het maximum aantal chauffeurs en of Mollie aan mag. Functies stel je in bij Systeem → Paketten.
+                        Dit pakket en de aanvullende modules zijn leidend voor Tenant-abonnementen en de maandfactuur.
+                        Functies stel je in bij Systeem → <a href="{{ route('admin.nexa-pricing.edit') }}" class="text-primary underline underline-offset-2">Paketten</a>.
                     </p>
                     <div class="min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
@@ -533,6 +562,7 @@
                 </div>
             </div>
 
+            @if(auth()->user()?->hasRole('super-admin'))
             <div class="kt-card w-full min-w-0 @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title mb-0">Modules voor deze tenant</h3>
@@ -607,6 +637,7 @@
                 @endif
                 </div>
             </div>
+            @endif
             @endcan
         </div>
 

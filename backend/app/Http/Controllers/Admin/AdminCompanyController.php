@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Services\EnvService;
 use App\Services\ModuleManager;
 use App\Services\NexaPricingService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
+use App\Services\TenantConfigAccessService;
 use App\Services\TenantOnboardingService;
 use App\Support\ModuleSchemaAvailability;
 use App\Support\TenantPackageAddon;
@@ -239,6 +241,10 @@ class AdminCompanyController extends Controller
 
         $company = Company::create($companyData);
 
+        if (auth()->user()?->isSuperAdmin() && trim((string) ($company->package_key ?? '')) !== '') {
+            app(TenantSubscriptionService::class)->syncBillingPackageFromCompany($company, true);
+        }
+
         // Create locations if provided; eerste vestiging krijgt het contactadres van het bedrijf
         if (! empty($locations)) {
             $hasMainLocation = false;
@@ -402,8 +408,29 @@ class AdminCompanyController extends Controller
 
         $publishedFrontendThemes = FrontendTheme::active()->orderBy('name')->get();
         $nexaPackages = $this->nexaPackagesForSelect();
+        $wizardSteps = AdminCompanyWizardController::stepMeta();
+        $maxReachable = AdminCompanyWizardController::reachableStep($company);
+        $currentStep = 1;
+        $wizardBrowse = true;
+        $wizardAccessLockedSteps = app(TenantConfigAccessService::class)->lockedWizardSteps(auth()->user(), $company);
 
-        return view('admin.companies.edit', compact('company', 'branches', 'allModules', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes', 'nexaPackages'));
+        return view('admin.companies.edit', compact(
+            'company',
+            'branches',
+            'allModules',
+            'googleMapsApiKey',
+            'googleMapsZoom',
+            'googleMapsCenterLat',
+            'googleMapsCenterLng',
+            'googleMapsType',
+            'publishedFrontendThemes',
+            'nexaPackages',
+            'wizardSteps',
+            'maxReachable',
+            'currentStep',
+            'wizardBrowse',
+            'wizardAccessLockedSteps'
+        ));
     }
 
     public function update(Request $request, Company $company)
@@ -447,7 +474,7 @@ class AdminCompanyController extends Controller
             'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
-            'module_ids' => [Rule::requiredIf(ModuleModel::query()->exists()), 'array', 'min:1'],
+            'module_ids' => [Rule::requiredIf(auth()->user()?->hasRole('super-admin') && ModuleModel::query()->exists()), 'array', 'min:1'],
             'module_ids.*' => 'integer|exists:modules,id',
             'apply_module_sync' => 'nullable|boolean',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
@@ -518,9 +545,19 @@ class AdminCompanyController extends Controller
             $data['logo_dark_mime_type'] = null;
         }
 
+        $previousPackageKey = trim((string) ($company->package_key ?? ''));
         $company->update($data);
 
-        if ($request->boolean('apply_module_sync')) {
+        if (auth()->user()?->isSuperAdmin()) {
+            $company->refresh();
+            $newPackageKey = trim((string) ($company->package_key ?? ''));
+            if ($newPackageKey !== '') {
+                app(TenantSubscriptionService::class)
+                    ->syncBillingPackageFromCompany($company, $previousPackageKey !== $newPackageKey);
+            }
+        }
+
+        if (auth()->user()?->hasRole('super-admin') && $request->boolean('apply_module_sync')) {
             try {
                 $this->syncCompanyModulesFromWizardSelection($company, $request->input('module_ids', []));
             } catch (\Throwable $e) {

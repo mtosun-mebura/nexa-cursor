@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\CompanyDomain;
 use App\Models\FrontendTheme;
 use App\Models\User;
 use App\Models\WebsitePage;
@@ -80,10 +81,57 @@ class WebsitePageCrudAndPreviewTest extends TestCase
         $response = $this->actingAs($user)->get(route('admin.website-pages.index'));
 
         $response->assertStatus(200);
-        $response->assertSee('hoofdwebsite van Nexa SaaS', false);
+        $response->assertSee('hoofdwebsite van NEXA Suite', false);
         $response->assertSee('Central Saas Home Unique');
         $response->assertDontSee('Hidden Without Tenant');
         $response->assertDontSee('voordat u website-pagina');
+    }
+
+    #[Test]
+    public function website_pages_index_without_tenant_preview_clears_simulated_host(): void
+    {
+        config([
+            'app.url' => 'http://localhost:8085',
+            'tenancy.dev_effective_host_query_param' => '_tenant_host',
+            'tenancy.central_domains' => ['localhost'],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(route('admin.website-pages.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Website voorbeeld', false);
+        $response->assertDontSee('>Pagina voorbeeld<', false);
+        $response->assertSee('_tenant_host=', false);
+        $this->assertStringNotContainsString('_tenant_host=tax', $response->getContent());
+    }
+
+    #[Test]
+    public function website_pages_index_with_tenant_preview_keeps_tenant_host(): void
+    {
+        config([
+            'app.url' => 'http://localhost:8085',
+            'tenancy.dev_effective_host_query_param' => '_tenant_host',
+            'tenancy.central_domains' => ['localhost'],
+        ]);
+
+        $tenant = Company::query()->create(['name' => 'Preview Taxi', 'slug' => 'preview-taxi-'.uniqid()]);
+        CompanyDomain::query()->create([
+            'company_id' => $tenant->id,
+            'host' => 'previewtaxi.nexasuite.nl',
+            'is_primary' => true,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)
+            ->withSession(['selected_tenant' => $tenant->id])
+            ->get(route('admin.website-pages.index', ['tenant_company' => $tenant->id]));
+        $response->assertStatus(200);
+        $response->assertSee('_tenant_host=previewtaxi.nexasuite.nl', false);
+        $response->assertSee('Website voorbeeld', false);
     }
 
     #[Test]
@@ -421,7 +469,7 @@ class WebsitePageCrudAndPreviewTest extends TestCase
                 'is_active' => true,
                 'show_in_menu' => true,
                 'sort_order' => 1,
-                'meta_description' => 'Centrale Nexa SaaS-pagina',
+                'meta_description' => 'Centrale NEXA Suite-pagina',
                 'company_id' => null,
             ])
             ->assertOk()
@@ -550,5 +598,145 @@ class WebsitePageCrudAndPreviewTest extends TestCase
         ]);
         $response->assertRedirect(route('admin.website-pages.index'));
         $this->assertSame($original, (int) $first->fresh()->sort_order);
+    }
+
+    #[Test]
+    public function website_pages_index_shows_active_switch(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(route('admin.website-pages.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Pagina\'s actief', false);
+        $response->assertSee(route('admin.website-pages.set-listed-active', [], false), false);
+    }
+
+    #[Test]
+    public function super_admin_can_toggle_website_page_active_from_index(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('website_pages', 'company_id')) {
+            $this->markTestSkipped('website_pages.company_id column required');
+        }
+
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+        $page = WebsitePage::query()->create([
+            'slug' => 'toggle-active-'.uniqid(),
+            'title' => 'Toggle Active Unique',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => null,
+            'is_active' => false,
+            'sort_order' => 80,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $this->actingAs($user)
+            ->from(route('admin.website-pages.index'))
+            ->post(route('admin.website-pages.toggle-active', $page), [
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('admin.website-pages.index', ['saved' => 1]))
+            ->assertSessionHas('success');
+
+        $this->assertTrue((bool) $page->fresh()->is_active);
+
+        $this->actingAs($user)
+            ->from(route('admin.website-pages.index'))
+            ->post(route('admin.website-pages.toggle-active', $page), [
+                'is_active' => '0',
+            ])
+            ->assertRedirect(route('admin.website-pages.index', ['saved' => 1]));
+
+        $this->assertFalse((bool) $page->fresh()->is_active);
+    }
+
+    #[Test]
+    public function super_admin_can_activate_all_listed_website_pages_for_tenant(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('website_pages', 'company_id')) {
+            $this->markTestSkipped('website_pages.company_id column required');
+        }
+
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+        $tenant = Company::query()->create([
+            'name' => 'Publish All Tenant',
+            'slug' => 'publish-all-'.uniqid(),
+        ]);
+
+        $home = WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Publish All Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $tenant->id,
+            'is_active' => false,
+            'sort_order' => 0,
+        ]);
+        $about = WebsitePage::query()->create([
+            'slug' => 'over-ons',
+            'title' => 'Publish All About',
+            'page_type' => 'about',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $tenant->id,
+            'is_active' => false,
+            'sort_order' => 1,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $this->actingAs($user)
+            ->from(route('admin.website-pages.index', ['tenant_company' => $tenant->id]))
+            ->post(route('admin.website-pages.set-listed-active'), [
+                'is_active' => '1',
+                'tenant_company' => $tenant->id,
+            ])
+            ->assertRedirect(route('admin.website-pages.index', [
+                'tenant_company' => $tenant->id,
+                'saved' => 1,
+            ]))
+            ->assertSessionHas('success');
+
+        $this->assertTrue((bool) $home->fresh()->is_active);
+        $this->assertTrue((bool) $about->fresh()->is_active);
+    }
+
+    #[Test]
+    public function super_admin_can_generate_text_block_image(): void
+    {
+        config(['services.openai.api_key' => 'sk-test-section-image']);
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.openai.com/v1/images/generations' => \Illuminate\Support\Facades\Http::response([
+                'data' => [['b64_json' => base64_encode('fake-png-bytes')]],
+            ], 200),
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)
+            ->postJson(route('admin.website-pages.generate-section-image'), [
+                'content' => 'Taxi Tosun zit in Enschede.',
+                'page_title' => 'Over ons',
+                'company_name' => 'Taxi Tosun',
+            ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $url = (string) $response->json('url');
+        $this->assertStringContainsString('/website-media/', $url);
+        $this->assertSame(1, \App\Models\WebsiteMedia::query()->count());
     }
 }

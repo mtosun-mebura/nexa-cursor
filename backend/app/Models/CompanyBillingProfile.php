@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\NexaPricingService;
+use App\Support\TenantPackageAddon;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,7 @@ class CompanyBillingProfile extends Model
         'billing_mode',
         'platform_billing_package_id',
         'custom_monthly_amount',
+        'agreed_monthly_amount',
         'discount_percent',
         'billing_email',
         'billing_contact_name',
@@ -33,6 +35,9 @@ class CompanyBillingProfile extends Model
         'access_restricted_invoice_id',
         'subscription_start_date',
         'subscription_end_date',
+        'trial_started_at',
+        'trial_ends_at',
+        'trial_notice_sent_at',
         'pending_change_type',
         'pending_package_key',
         'pending_change_effective_on',
@@ -50,11 +55,15 @@ class CompanyBillingProfile extends Model
 
     protected $casts = [
         'custom_monthly_amount' => 'decimal:2',
+        'agreed_monthly_amount' => 'decimal:2',
         'discount_percent' => 'integer',
         'auto_collect_enabled' => 'boolean',
         'access_restricted_at' => 'datetime',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
+        'trial_started_at' => 'date',
+        'trial_ends_at' => 'date',
+        'trial_notice_sent_at' => 'datetime',
         'pending_change_effective_on' => 'date',
         'pending_proration_amount' => 'decimal:2',
         'pending_proration_applied_at' => 'datetime',
@@ -132,6 +141,10 @@ class CompanyBillingProfile extends Model
         }
 
         if ($this->billing_mode === self::MODE_PACKAGE) {
+            if ($this->agreed_monthly_amount !== null) {
+                return round(max(0, (float) $this->agreed_monthly_amount), 2);
+            }
+
             $fromPricing = $this->nexaMonthlyAmount();
             if ($fromPricing !== null) {
                 return $fromPricing;
@@ -147,7 +160,11 @@ class CompanyBillingProfile extends Model
 
     public function subscriptionDiscountAmount(): float
     {
-        return round(max(0, $this->subscriptionBaseAmount() - $this->resolveMonthlyAmount()), 2);
+        $base = $this->subscriptionBaseAmount();
+        $discount = $this->discountPercent();
+        $packageNet = round(max(0, $base * (1 - ($discount / 100))), 2);
+
+        return round(max(0, $base - $packageNet), 2);
     }
 
     public function extraLinesDiscountPercent(): int
@@ -190,8 +207,63 @@ class CompanyBillingProfile extends Model
     {
         $base = $this->subscriptionBaseAmount();
         $discount = $this->discountPercent();
+        $packageNet = round(max(0, $base * (1 - ($discount / 100))), 2);
 
-        return round(max(0, $base * (1 - ($discount / 100))), 2);
+        if ($this->billing_mode !== self::MODE_PACKAGE) {
+            return $packageNet;
+        }
+
+        return round($packageNet + $this->packageAddonMonthlyAmount(), 2);
+    }
+
+    /**
+     * @return list<array{key: string, name: string, quantity: int, unit_price: float, total: float}>
+     */
+    public function packageAddonLines(): array
+    {
+        if ($this->billing_mode !== self::MODE_PACKAGE) {
+            return [];
+        }
+
+        $company = $this->relatedCompany();
+        if (! $company) {
+            return [];
+        }
+
+        $selections = is_array($company->package_addons) ? $company->package_addons : [];
+
+        return TenantPackageAddon::selectedBillingLines(
+            $selections,
+            app(NexaPricingService::class)->modulesCatalog()
+        );
+    }
+
+    public function packageAddonMonthlyAmount(): float
+    {
+        return round(array_sum(array_map(
+            fn (array $line) => (float) ($line['total'] ?? 0),
+            $this->packageAddonLines()
+        )), 2);
+    }
+
+    public function resolvedPackageName(): ?string
+    {
+        return $this->nexaPackageName() ?? $this->package?->name;
+    }
+
+    public function packageAddonSummary(): string
+    {
+        $parts = [];
+        foreach ($this->packageAddonLines() as $line) {
+            $name = trim((string) ($line['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $quantity = (int) ($line['quantity'] ?? 1);
+            $parts[] = $quantity > 1 ? $name.' ×'.$quantity : $name;
+        }
+
+        return implode(', ', $parts);
     }
 
     public function billingEmailForCompany(): ?string
@@ -221,18 +293,23 @@ class CompanyBillingProfile extends Model
             && in_array($this->mollie_subscription_status, ['pending', 'active'], true);
     }
 
-    private function nexaPackageKey(): string
+    private function relatedCompany(): ?Company
     {
-        $key = trim((string) ($this->package?->package_key ?? ''));
-        if ($key !== '') {
-            return $key;
+        if ($this->relationLoaded('company')) {
+            return $this->company;
         }
 
-        $company = $this->relationLoaded('company')
-            ? $this->company
-            : $this->company()->first();
+        return $this->company()->first();
+    }
 
-        return trim((string) ($company?->package_key ?? ''));
+    private function nexaPackageKey(): string
+    {
+        $fromCompany = trim((string) ($this->relatedCompany()?->package_key ?? ''));
+        if ($fromCompany !== '') {
+            return $fromCompany;
+        }
+
+        return trim((string) ($this->package?->package_key ?? ''));
     }
 
     private function nexaMonthlyAmount(): ?float

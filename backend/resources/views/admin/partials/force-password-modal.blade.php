@@ -1,10 +1,25 @@
 {{-- Blokkerende overlay: tijdelijk wachtwoord moet eerst gewijzigd worden. --}}
-<div class="fixed inset-0 z-[100000] flex items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-md"
+<style>
+    [data-admin-force-password] .admin-modal-panel {
+        background-color: #ffffff;
+        box-shadow:
+            0 25px 50px -12px rgba(2, 6, 23, 0.35),
+            0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+    html.dark [data-admin-force-password] .admin-modal-panel,
+    .dark [data-admin-force-password] .admin-modal-panel {
+        background-color: #0b0f19;
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.65),
+            0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+</style>
+<div class="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-md"
      role="dialog"
      aria-modal="true"
      aria-labelledby="force-password-title"
      data-admin-force-password="1">
-    <div class="w-full max-w-lg rounded-2xl border border-border bg-background shadow-2xl">
+    <div class="admin-modal-panel w-full max-w-lg rounded-2xl border border-border shadow-2xl">
         <div class="border-b border-border px-6 py-5">
             <h2 id="force-password-title" class="text-lg font-semibold text-foreground mb-1">Wachtwoord wijzigen</h2>
             <p class="text-sm text-muted-foreground mb-0">

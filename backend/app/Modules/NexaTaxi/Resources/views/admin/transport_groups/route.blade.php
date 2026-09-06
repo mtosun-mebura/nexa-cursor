@@ -257,36 +257,44 @@
         {{-- Chauffeur + voertuig --}}
         @can('rides.update')
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header"><h3 class="kt-card-title mb-0">Vaste chauffeur & voertuig</h3></div>
+            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Vaste chauffeur & voertuig</h3></div>
             <div class="kt-card-content p-0">
-                <form method="POST" action="{{ route('admin.taxi.transport_groups.route.assignment', [$customer->id, $contract->id, $group->id]) }}" class="px-3 sm:px-5 pb-5">
+                <form method="POST" action="{{ route('admin.taxi.transport_groups.route.assignment', [$customer->id, $contract->id, $group->id]) }}" class="px-3 sm:px-5 pb-5" data-validate="true" novalidate data-assignment-either="1">
                     @csrf
                     @method('PUT')
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full transport-route-assignment-table">
                         <tr>
                             <td class="transport-route-assignment-table__label text-secondary-foreground font-medium">Chauffeur</td>
                             <td>
-                                <select name="driver_id" class="kt-select w-full max-w-md">
-                                    <option value="">— Geen vaste chauffeur —</option>
+                                <select name="driver_id"
+                                        class="kt-select w-full max-w-md @error('driver_id') border-destructive @enderror">
+                                    <option value="">— Selecteer chauffeur —</option>
                                     @foreach($drivers as $driver)
                                         <option value="{{ $driver->id }}" @selected(old('driver_id', $assignment?->driver_id) == $driver->id)>
                                             {{ $driver->first_name }} {{ $driver->last_name }}
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('driver_id')
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="driver_id" role="alert">{{ $message }}</div>
+                                @enderror
                             </td>
                         </tr>
                         <tr>
                             <td class="transport-route-assignment-table__label text-secondary-foreground font-medium">Voertuig</td>
                             <td>
-                                <select name="vehicle_id" class="kt-select w-full max-w-md">
-                                    <option value="">— Geen vast voertuig —</option>
+                                <select name="vehicle_id"
+                                        class="kt-select w-full max-w-md @error('vehicle_id') border-destructive @enderror">
+                                    <option value="">— Selecteer voertuig —</option>
                                     @foreach($vehicles as $vehicle)
                                         <option value="{{ $vehicle->id }}" @selected(old('vehicle_id', $assignment?->vehicle_id) == $vehicle->id)>
                                             {{ $vehicle->name }}@if($vehicle->license_plate) — {{ $vehicle->license_plate }}@endif
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('vehicle_id')
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="vehicle_id" role="alert">{{ $message }}</div>
+                                @enderror
                             </td>
                         </tr>
                     </table>
@@ -321,8 +329,81 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 (function () {
+    var assignmentForm = document.querySelector('form[data-assignment-either="1"]');
+    if (assignmentForm) {
+        var eitherMessage = 'Selecteer een chauffeur of een voertuig.';
+        var driverSelect = assignmentForm.querySelector('[name="driver_id"]');
+        var vehicleSelect = assignmentForm.querySelector('[name="vehicle_id"]');
+
+        function feedbackEl(select) {
+            if (!select) return null;
+            var td = select.closest('td');
+            if (!td) return null;
+            var existing = td.querySelector('.field-feedback[data-assignment-either], [data-laravel-field="' + select.name + '"]');
+            if (existing) return existing;
+            var el = document.createElement('div');
+            el.className = 'field-feedback text-xs text-destructive mt-1';
+            el.setAttribute('data-assignment-either', '1');
+            el.setAttribute('data-field', select.name);
+            td.appendChild(el);
+            return el;
+        }
+
+        function clearEitherErrors() {
+            [driverSelect, vehicleSelect].forEach(function (select) {
+                if (!select) return;
+                select.classList.remove('border-destructive', 'border-red-500');
+                var fb = feedbackEl(select);
+                if (fb) {
+                    fb.classList.add('hidden');
+                    fb.textContent = '';
+                    fb.style.display = 'none';
+                }
+            });
+        }
+
+        function showEitherErrors() {
+            [driverSelect, vehicleSelect].forEach(function (select) {
+                if (!select) return;
+                select.classList.add('border-destructive');
+                var fb = feedbackEl(select);
+                if (fb) {
+                    fb.className = 'field-feedback text-xs text-destructive mt-1';
+                    fb.setAttribute('data-assignment-either', '1');
+                    fb.textContent = eitherMessage;
+                    fb.classList.remove('hidden');
+                    fb.style.display = 'block';
+                }
+            });
+        }
+
+        function hasEither() {
+            return !!(driverSelect && driverSelect.value) || !!(vehicleSelect && vehicleSelect.value);
+        }
+
+        assignmentForm.addEventListener('submit', function (event) {
+            if (hasEither()) {
+                clearEitherErrors();
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            showEitherErrors();
+        }, true);
+
+        [driverSelect, vehicleSelect].forEach(function (select) {
+            if (!select) return;
+            select.addEventListener('change', function () {
+                if (hasEither()) {
+                    clearEitherErrors();
+                }
+            });
+        });
+    }
+
     var modeSelect = document.getElementById('driver_start_mode');
     var depotRow = document.getElementById('depot-address-row');
 

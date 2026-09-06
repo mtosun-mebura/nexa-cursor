@@ -44,7 +44,7 @@
         @endif
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-            <p>Dit bericht is automatisch verzonden door {{ config('app.name', 'NEXA') }}.</p>
+            <p>Dit bericht is automatisch verzonden door NEXA Suite.</p>
         </div>
     </div>
 </body>

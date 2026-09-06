@@ -23,8 +23,8 @@
                 src="{{ $defaultUserAvatarUrl }}" />
         @endif
     </div>
-    <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
-        <div class="flex items-start gap-2 px-2.5 py-1.5">
+    <div class="kt-dropdown-menu admin-user-dropdown overflow-hidden" data-kt-dropdown-menu="true">
+        <div class="flex items-start gap-2 px-2.5 py-1.5 min-w-0">
             <div class="size-9 shrink-0 overflow-hidden rounded-full border-2 border-green-500">
             @if(auth()->user()->photo_blob)
                 <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
@@ -42,18 +42,21 @@
                     src="{{ $defaultUserAvatarUrl }}" />
             @endif
             </div>
-            <div class="flex flex-col gap-1.5">
+            <div class="admin-user-dropdown-meta flex flex-col gap-1.5">
                 <span class="text-sm font-semibold leading-none text-foreground">
                     {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
                 </span>
-                <a class="hover:text-primary text-xs font-medium leading-none text-secondary-foreground"
+                <a class="hover:text-primary text-xs font-medium leading-snug text-secondary-foreground"
                     href="{{ route('admin.profile') }}">
                     {{ auth()->user()->email }}
                 </a>
-                @if(auth()->user()->roles->count() > 0)
-                    @foreach(auth()->user()->roles as $role)
+                @php
+                    $dropdownRoleNames = auth()->user()->webRoleNames();
+                @endphp
+                @if(count($dropdownRoleNames) > 0)
+                    @foreach($dropdownRoleNames as $roleName)
                         <span class="kt-badge kt-badge-sm kt-badge-primary me-1">
-                            {{ ucfirst(str_replace('-', ' ', $role->name)) }}
+                            {{ ucfirst(str_replace('-', ' ', $roleName)) }}
                         </span>
                     @endforeach
                 @else
@@ -88,6 +91,15 @@
                     <i class="ki-filled ki-calendar">
                     </i>
                     Agenda
+                </a>
+            </li>
+            @endif
+            @if(auth()->user()->hasRole('company-admin') && ! auth()->user()->hasRole('super-admin'))
+            <li>
+                <a class="kt-dropdown-menu-link" href="{{ route('admin.subscriptions.show') }}">
+                    <i class="ki-filled ki-bill">
+                    </i>
+                    Abonnement
                 </a>
             </li>
             @endif

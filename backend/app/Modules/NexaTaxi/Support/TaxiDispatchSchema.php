@@ -85,4 +85,20 @@ final class TaxiDispatchSchema
             });
         }
     }
+
+    public static function ensureVehicleIdColumn(string $connection): void
+    {
+        $schema = Schema::connection($connection);
+        if (! $schema->hasTable('driver_availability')) {
+            return;
+        }
+
+        if ($schema->hasColumn('driver_availability', 'vehicle_id')) {
+            return;
+        }
+
+        $schema->table('driver_availability', function ($table) {
+            $table->unsignedBigInteger('vehicle_id')->nullable()->index();
+        });
+    }
 }

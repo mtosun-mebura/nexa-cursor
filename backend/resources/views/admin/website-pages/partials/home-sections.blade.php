@@ -74,7 +74,7 @@
             'cta' => 'CTA',
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
-            'featured_services' => 'Dienstenblok (scroll-animatie)',
+            'featured_services' => 'Dienstenblok (icoon-uitvouw)',
             'email_template' => 'E-mailtemplate (informatieaanvraag)',
             'text_block' => 'Tekstblok (rich text + component)',
             default => $base,
@@ -1185,7 +1185,7 @@
                         <option value="right" {{ $textBlockAlignment === 'right' ? 'selected' : '' }}>Rechts</option>
                         <option value="full" {{ $textBlockAlignment === 'full' ? 'selected' : '' }}>Volledige breedte</option>
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Bepaalt hoe de tekst wordt uitgelijnd en of er ruimte is voor een component ernaast.</p>
+                    <p class="text-xs text-muted-foreground mt-1">Links/Rechts: ruimte voor een afbeelding ernaast. Midden: tekst in het midden van het scherm.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Component naast de tekst</label>
@@ -1824,8 +1824,12 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg" data-panel-title="Uiterlijk & titel">
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div>
+                    <label class="text-sm text-muted-foreground">Kleur titel</label>
+                    <input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][title_color]" value="{{ old('home_sections.'.$sectionKey.'.style.title_color', $bookingData['style']['title_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}">
+                </div>
+                <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte titel</label>
-                    @php $bookingTitleFontPx = old('home_sections.'.$sectionKey.'.style.title_font_size_px', $bookingData['style']['title_font_size_px'] ?? '36'); @endphp
+                    @php $bookingTitleFontPx = old('home_sections.'.$sectionKey.'.style.title_font_size_px', $bookingData['style']['title_font_size_px'] ?? '24'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][title_font_size_px]">
                         @foreach(range(16, 72, 2) as $px)
                             <option value="{{ $px }}" {{ (string) $bookingTitleFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
@@ -1846,10 +1850,19 @@
                 </div>
                 <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte stapkop (Reisgegevens e.d.)</label>
-                    @php $bookingStepHeadingFontPx = old('home_sections.'.$sectionKey.'.style.step_heading_font_size_px', $bookingData['style']['step_heading_font_size_px'] ?? '30'); @endphp
+                    @php $bookingStepHeadingFontPx = old('home_sections.'.$sectionKey.'.style.step_heading_font_size_px', $bookingData['style']['step_heading_font_size_px'] ?? '20'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][step_heading_font_size_px]">
                         @foreach(range(16, 48, 2) as $px)
                             <option value="{{ $px }}" {{ (string) $bookingStepHeadingFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Tekstgrootte veldkoppen (Waar wil je heen? e.d.)</label>
+                    @php $bookingFieldHeadingFontPx = old('home_sections.'.$sectionKey.'.style.field_heading_font_size_px', $bookingData['style']['field_heading_font_size_px'] ?? '16'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][field_heading_font_size_px]">
+                        @foreach(range(12, 28, 2) as $px)
+                            <option value="{{ $px }}" {{ (string) $bookingFieldHeadingFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
                         @endforeach
                     </select>
                 </div>
@@ -2546,7 +2559,7 @@
                     <input type="hidden" name="home_sections[visibility][footer_tagline]" id="visibility-footer_tagline" value="{{ ($visibility['footer_tagline'] ?? true) ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_tagline" aria-label="Tagline tonen/verbergen">@if($visibility['footer_tagline'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-footer-tagline', 'name' => 'home_sections[footer][tagline]', 'value' => old('home_sections.footer.tagline', $footer['tagline'] ?? ''), 'placeholder' => 'Ontdek de perfecte match...', 'textareaId' => 'home-footer-tagline'])
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-footer-tagline', 'name' => 'home_sections[footer][tagline]', 'value' => old('home_sections.footer.tagline', $footer['tagline'] ?? ''), 'placeholder' => 'Ontdek wat wij voor u kunnen betekenen...', 'textareaId' => 'home-footer-tagline'])
                 <p class="text-xs text-muted-foreground mt-1">Wordt onder het logo in de footer getoond. Gebruik de werkbalk voor bold, italic, lijsten, etc.</p>
             </div>
             <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Snelle Links">
@@ -4208,20 +4221,20 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     document.querySelectorAll('input[id^="visibility-"]').forEach(function(input) { applyVisibilityTargets(input.id); });
 
     // Collapse/expand sectie-kaarten (rechts van het oogje in de header)
-    var chevronDownSvg = '<svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>';
-    var chevronUpSvg = '<svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>';
     function setSectionCollapsed(card, collapsed) {
         var body = card && card.querySelector('.home-section-card-body');
         var btn = card && card.querySelector('.home-section-collapse-toggle');
         if (!card) return;
         if (collapsed) {
             card.classList.add('home-section-card--collapsed');
-            if (body) body.style.display = 'none';
-            if (btn) { btn.setAttribute('title', 'Uitklappen'); btn.setAttribute('aria-label', 'Sectie uitklappen'); btn.innerHTML = chevronDownSvg; }
+            if (btn) { btn.setAttribute('title', 'Uitklappen'); btn.setAttribute('aria-label', 'Sectie uitklappen'); }
         } else {
             card.classList.remove('home-section-card--collapsed');
-            if (body) body.style.display = '';
-            if (btn) { btn.setAttribute('title', 'Inklappen'); btn.setAttribute('aria-label', 'Sectie inklappen'); btn.innerHTML = chevronUpSvg; }
+            if (btn) { btn.setAttribute('title', 'Inklappen'); btn.setAttribute('aria-label', 'Sectie inklappen'); }
+        }
+        if (body) {
+            body.removeAttribute('hidden');
+            body.style.removeProperty('display');
         }
     }
     function updateCollapseAllButton() {
@@ -5868,8 +5881,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .tox-tinymce { border-radius: var(--radius, 0.375rem) !important; border-color: var(--color-input, #e5e7eb) !important; }
     .dark .tox-tinymce { border-color: var(--color-input) !important; background-color: #1f2937 !important; }
     .dark .tox .tox-edit-area__iframe { background: #1f2937 !important; }
-    /* Home-sectie inklappen: body verbergen wanneer ingeklapt */
-    .home-section-card--collapsed .home-section-card-body { display: none !important; }
+    /* Home-sectie inklappen: body verbergen wanneer ingeklapt (tot de smooth-accordion-wrapper klaar is) */
+    .home-section-card--collapsed > .home-section-card-body { display: none !important; }
     /* NEXA modules overzicht: heroicon picker (details/summary) */
     .nexa-module-icon-details > summary { list-style: none; }
     .nexa-module-icon-details > summary::-webkit-details-marker { display: none; }

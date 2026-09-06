@@ -163,6 +163,8 @@ class RideRequest extends Model
 
     public const SOURCE_MANUAL = 'manual';
 
+    public const SOURCE_NEXA_SUITE = 'nexa_suite';
+
     public const RETURN_LEG_OUTBOUND = 'outbound';
 
     public const RETURN_LEG_WAITING = 'waiting';
@@ -272,6 +274,26 @@ class RideRequest extends Model
         return (int) ($this->company_id ?? 0) > 0;
     }
 
+    public function isNexaSuiteBooking(): bool
+    {
+        if ($this->source === self::SOURCE_NEXA_SUITE) {
+            return true;
+        }
+
+        $payload = $this->booking_payload;
+        if (is_array($payload) && (($payload['channel'] ?? null) === self::SOURCE_NEXA_SUITE
+            || (($payload['marketplace']['source'] ?? null) === self::SOURCE_NEXA_SUITE))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function nexaSuiteLabel(): string
+    {
+        return 'NEXA Suite';
+    }
+
     public function isContractRide(): bool
     {
         if ($this->payment_method === self::PAYMENT_METHOD_CONTRACT) {
@@ -290,6 +312,56 @@ class RideRequest extends Model
             self::RIDE_TYPE_CONTRACT_GROUP,
             self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
         ], true);
+    }
+
+    /**
+     * Ritten zichtbaar voor een chauffeur: toegewezen op chauffeur, of
+     * contractrit gekoppeld aan het geselecteerde voertuig (zonder andere chauffeur).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
+     */
+    public function scopeVisibleToDriver($query, int $driverId, ?int $vehicleId = null)
+    {
+        return $query->where(function ($q) use ($driverId, $vehicleId) {
+            $q->where('driver_id', $driverId);
+
+            if ($vehicleId && $vehicleId > 0) {
+                $q->orWhere(function ($vehicleQuery) use ($driverId, $vehicleId) {
+                    $vehicleQuery->where('vehicle_id', $vehicleId)
+                        ->where(function ($owner) use ($driverId) {
+                            $owner->whereNull('driver_id')
+                                ->orWhere('driver_id', $driverId);
+                        })
+                        ->where(function ($contract) {
+                            $contract->where('source', self::SOURCE_CONTRACT)
+                                ->orWhere('payment_method', self::PAYMENT_METHOD_CONTRACT)
+                                ->orWhereNotNull('transport_contract_id')
+                                ->orWhereIn('ride_type', [
+                                    self::RIDE_TYPE_CONTRACT_GROUP,
+                                    self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
+                                ]);
+                        });
+                });
+            }
+        });
+    }
+
+    public function isVisibleToDriver(int $driverId, ?int $vehicleId = null): bool
+    {
+        if ((int) $this->driver_id === $driverId) {
+            return true;
+        }
+
+        if (! $vehicleId || $vehicleId <= 0 || (int) $this->vehicle_id !== $vehicleId) {
+            return false;
+        }
+
+        if ($this->driver_id !== null && (int) $this->driver_id !== $driverId) {
+            return false;
+        }
+
+        return $this->isContractRide();
     }
 
     /** Rit duur in minuten (afgerond). */

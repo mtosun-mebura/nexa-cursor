@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Models;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 
 class DriverAvailability extends Model
 {
@@ -19,6 +20,7 @@ class DriverAvailability extends Model
     protected $fillable = [
         'driver_id',
         'company_id',
+        'vehicle_id',
         'is_online',
         'lat',
         'lng',
@@ -37,5 +39,16 @@ class DriverAvailability extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public static function vehicleIdForDriver(string $connection, int $driverId): ?int
+    {
+        if (! Schema::connection($connection)->hasColumn('driver_availability', 'vehicle_id')) {
+            return null;
+        }
+
+        $vehicleId = self::on($connection)->whereKey($driverId)->value('vehicle_id');
+
+        return $vehicleId ? (int) $vehicleId : null;
     }
 }

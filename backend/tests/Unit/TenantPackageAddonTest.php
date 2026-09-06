@@ -41,4 +41,21 @@ class TenantPackageAddonTest extends TestCase
         $this->assertSame(249, $catalog[2]['price']);
         $this->assertSame(10, TenantPackageAddon::EXTRA_CLIENTS_PER_PACK);
     }
+
+    public function test_selected_billing_lines_skip_empty_and_price_quantity(): void
+    {
+        $lines = TenantPackageAddon::selectedBillingLines([
+            TenantPackageAddon::EXTRA_CLIENTS => 2,
+            TenantPackageAddon::GPS_TRACKING => 1,
+            TenantPackageAddon::FLEET => 0,
+        ], TenantPackageAddon::normalizeCatalog([]));
+
+        $this->assertCount(2, $lines);
+        $this->assertSame(TenantPackageAddon::EXTRA_CLIENTS, $lines[0]['key']);
+        $this->assertSame(2, $lines[0]['quantity']);
+        $this->assertSame(49.0, $lines[0]['unit_price']);
+        $this->assertSame(98.0, $lines[0]['total']);
+        $this->assertSame(TenantPackageAddon::GPS_TRACKING, $lines[1]['key']);
+        $this->assertSame(19.0, $lines[1]['total']);
+    }
 }

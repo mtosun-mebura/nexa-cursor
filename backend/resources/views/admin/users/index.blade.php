@@ -191,11 +191,11 @@
             <div class="kt-card-content">
                 @if($users->count() > 0)
                     <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="users_table" data-admin-datatable-label="gebruikers">
-                        <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border">
+                        <div class="kt-scrollable-x-auto admin-table-scroll-wrap users-table-wrap">
+                            <table class="kt-table kt-table-border admin-fluid-table w-full">
                             <thead>
                                 <tr>
-                                    <th class="min-w-[250px]">
+                                    <th data-label="Gebruiker">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Gebruiker</span>
                                             <span class="kt-table-col-sort">
@@ -216,19 +216,19 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Rol">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Rol</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Bedrijf">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Bedrijf</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[120px]">
+                                    <th data-label="Status">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Status</span>
                                             <span class="kt-table-col-sort">
@@ -247,7 +247,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Aangemaakt">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Aangemaakt</span>
                                             <span class="kt-table-col-sort">
@@ -270,7 +270,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="text-center" data-label="Acties">Acties</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -288,12 +288,24 @@
                                                     </div>
                                                 @endif
                                                 <div class="flex flex-col">
-                                                    <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $user) }}" data-user-id="{{ $user->id }}">
-                                                        {{ $user->first_name }} {{ $user->last_name }}
-                                                    </a>
-                                                    <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $user->email }}">
-                                                        {{ $user->email }}
-                                                    </a>
+                                                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                                                        <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $user) }}" data-user-id="{{ $user->id }}">
+                                                            {{ $user->first_name }} {{ $user->last_name }}
+                                                        </a>
+                                                        @if($user->id === auth()->id())
+                                                            <span class="kt-badge kt-badge-sm kt-badge-secondary shrink-0">Jij</span>
+                                                        @endif
+                                                    </div>
+                                                    <div class="flex items-center gap-1 min-w-0">
+                                                        <span class="user-email-text text-sm text-secondary-foreground font-normal truncate">{{ $user->email }}</span>
+                                                        <button type="button"
+                                                                class="user-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                                                                data-copy-text="{{ $user->email }}"
+                                                                title="E-mailadres kopiëren"
+                                                                aria-label="E-mailadres kopiëren">
+                                                            <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                                                        </button>
+                                                    </div>
                                                     @if($user->function && $user->company?->hasSkillmatchingModule())
                                                         <span class="text-xs text-muted-foreground font-normal mt-0.5">
                                                             {{ $user->function }}
@@ -303,10 +315,15 @@
                                             </div>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            @if(count($user->webRoleNames()) > 0)
-                                                @foreach($user->webRoleNames() as $roleName)
-                                                    <span class="kt-badge kt-badge-info me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
-                                                @endforeach
+                                            @php
+                                                $userRoleNames = $displayRoleNames[$user->id] ?? $user->assignedRoleNames();
+                                            @endphp
+                                            @if(count($userRoleNames) > 0)
+                                                <div class="flex flex-wrap gap-1">
+                                                    @foreach($userRoleNames as $roleName)
+                                                        <span class="kt-badge kt-badge-info">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
+                                                    @endforeach
+                                                </div>
                                             @else
                                                 <span class="text-sm text-muted-foreground">Geen rol</span>
                                             @endif
@@ -321,17 +338,27 @@
                                         <td class="user-status-cell">
                                             @php
                                                 $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
+                                                $presence = ($appPresence[$user->id] ?? null) ?: ['chauffeur' => ['applicable' => false, 'online' => false], 'contract' => ['applicable' => false, 'online' => false]];
                                             @endphp
-                                            @if($isActive)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
-                                            @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
-                                            @endif
+                                            <div class="flex flex-col items-start gap-1">
+                                                <span class="user-account-status">
+                                                    @if($isActive)
+                                                        <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                    @else
+                                                        <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                    @endif
+                                                </span>
+                                                @if(!empty($presence['chauffeur']['applicable']))
+                                                    <span class="kt-badge kt-badge-sm {{ !empty($presence['chauffeur']['online']) ? 'kt-badge-success' : 'kt-badge-secondary' }}" title="Status in de chauffeur-app">
+                                                        Chauffeur · {{ !empty($presence['chauffeur']['online']) ? 'Online' : 'Offline' }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="text-foreground font-normal">
                                             <span class="text-sm">{{ $user->created_at->format('d-m-Y') }}</span>
                                         </td>
-                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                        <td class="users-table__actions-col" onclick="event.stopPropagation();" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
@@ -358,6 +385,7 @@
                                                             </a>
                                                         </div>
                                                         @endcan
+                                                        @if($user->id !== auth()->id())
                                                         @if(auth()->user()->can('view-users') || auth()->user()->can('edit-users'))
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
@@ -401,6 +429,7 @@
                                                             </form>
                                                         </div>
                                                         @endcan
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>
@@ -437,6 +466,109 @@
 </div>
 
 @push('scripts')
+<script>
+(function () {
+    function copyWithSelection(text) {
+        var span = document.createElement('span');
+        span.textContent = text;
+        span.style.cssText = 'position:fixed;top:0;left:0;white-space:pre;';
+        document.body.appendChild(span);
+        var selection = window.getSelection();
+        var range = document.createRange();
+        range.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        var copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (err) {
+            copied = false;
+        }
+        selection.removeAllRanges();
+        span.remove();
+        return copied;
+    }
+
+    function copyFromVisibleEmail(button) {
+        var label = button.parentElement ? button.parentElement.querySelector('.user-email-text') : null;
+        if (!label) {
+            return false;
+        }
+        var selection = window.getSelection();
+        var range = document.createRange();
+        range.selectNodeContents(label);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        var copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (err) {
+            copied = false;
+        }
+        selection.removeAllRanges();
+        return copied;
+    }
+
+    function markEmailCopied(button) {
+        var icon = button.querySelector('i');
+        button.setAttribute('title', 'Gekopieerd');
+        button.setAttribute('aria-label', 'Gekopieerd');
+        if (icon) {
+            icon.classList.remove('ki-copy');
+            icon.classList.add('ki-check');
+        }
+        window.setTimeout(function () {
+            button.setAttribute('title', 'E-mailadres kopiëren');
+            button.setAttribute('aria-label', 'E-mailadres kopiëren');
+            if (icon) {
+                icon.classList.remove('ki-check');
+                icon.classList.add('ki-copy');
+            }
+        }, 1500);
+    }
+
+    document.addEventListener('click', function (e) {
+        var button = e.target && e.target.closest ? e.target.closest('.user-email-copy') : null;
+        if (!button) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        var text = button.getAttribute('data-copy-text') || '';
+        if (!text) {
+            return;
+        }
+
+        try {
+            window.focus();
+            button.focus();
+        } catch (err) {}
+
+        var clipboardPromise = null;
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            clipboardPromise = navigator.clipboard.writeText(text);
+        }
+
+        var copiedNow = copyFromVisibleEmail(button) || copyWithSelection(text);
+        if (copiedNow) {
+            markEmailCopied(button);
+        }
+
+        if (clipboardPromise) {
+            clipboardPromise.then(function () {
+                markEmailCopied(button);
+            }).catch(function () {
+                if (!copiedNow) {
+                    window.prompt('Kopieer dit e-mailadres:', text);
+                }
+            });
+        } else if (!copiedNow) {
+            window.prompt('Kopieer dit e-mailadres:', text);
+        }
+    }, true);
+})();
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Replace "of" with "van" in pagination info
@@ -585,10 +717,10 @@
                         return;
                     }
                     
-                    // Update status badge
-                    const statusCell = userRow.querySelector('.user-status-cell');
-                    if (statusCell) {
-                        statusCell.innerHTML = data.is_active 
+                    // Update account status badge; laat chauffeur-/contract-app status staan
+                    const accountStatus = userRow.querySelector('.user-account-status');
+                    if (accountStatus) {
+                        accountStatus.innerHTML = data.is_active
                             ? '<span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>'
                             : '<span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>';
                     }
@@ -667,10 +799,11 @@
                 const actionsTd = row.querySelector('td:last-child');
                 const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
                 const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isCopyEmail = !!clickedElement.closest('.user-email-copy');
                 const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
                 const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
                 
-                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                if (isCopyEmail || isInActionsColumn || isInMenu || isButton || isLink) {
                     return;
                 }
                 
@@ -734,6 +867,49 @@
 
 @push('styles')
 <style>
+    #content #users_table .admin-fluid-table th:nth-child(1),
+    #content #users_table .admin-fluid-table td:nth-child(1) {
+        width: 32%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(2),
+    #content #users_table .admin-fluid-table td:nth-child(2) {
+        width: 16%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(3),
+    #content #users_table .admin-fluid-table td:nth-child(3) {
+        width: 16%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(4),
+    #content #users_table .admin-fluid-table td:nth-child(4) {
+        width: 16%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(5),
+    #content #users_table .admin-fluid-table td:nth-child(5) {
+        width: 12%;
+    }
+
+    #content #users_table .admin-fluid-table th:last-child,
+    #content #users_table .admin-fluid-table td:last-child,
+    #content #users_table .users-table__actions-col {
+        width: 4.5rem !important;
+        min-width: 4.5rem !important;
+        max-width: 4.5rem !important;
+        padding-inline: 0.375rem !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+        white-space: nowrap;
+        overflow: visible !important;
+    }
+
+    #users_table .users-table-wrap {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+    }
+
     /* Table column sorting */
     .kt-table-col {
         display: flex !important;
@@ -771,6 +947,9 @@
     /* Table row hover styling (same as demo) */
     .user-row {
         cursor: pointer !important;
+    }
+    .user-email-copy {
+        cursor: pointer;
     }
     .user-row:hover {
         background-color: var(--muted) !important;

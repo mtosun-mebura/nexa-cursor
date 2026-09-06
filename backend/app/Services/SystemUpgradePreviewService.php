@@ -64,7 +64,7 @@ class SystemUpgradePreviewService
         }
 
         $process = Process::fromShellCommandline(
-            'composer outdated --direct --format=json --no-ansi',
+            'composer outdated --direct --minor-only --format=json --no-ansi',
             base_path(),
             null,
             null,
@@ -196,7 +196,7 @@ class SystemUpgradePreviewService
             }
 
             $latest = isset($outdated[$name])
-                ? $this->normalizeVersion((string) ($outdated[$name]['latest'] ?? ''))
+                ? $this->normalizeVersion((string) ($outdated[$name]['wanted'] ?? $outdated[$name]['latest'] ?? ''))
                 : '';
             $hasUpdate = $latest !== '' && $latest !== $current;
 
@@ -219,7 +219,7 @@ class SystemUpgradePreviewService
             }
 
             $current = $this->normalizeVersion((string) ($info['current'] ?? ''));
-            $latest = $this->normalizeVersion((string) ($info['latest'] ?? ''));
+            $latest = $this->normalizeVersion((string) ($info['wanted'] ?? $info['latest'] ?? ''));
             $hasUpdate = $latest !== '' && $latest !== $current;
             if (! $hasUpdate) {
                 continue;

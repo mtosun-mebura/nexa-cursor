@@ -95,4 +95,43 @@ class EmailTemplateSampleNoticeTest extends TestCase
         $this->assertStringNotContainsString(EmailTemplateService::TEMPLATE_SAMPLE_NOTICE, (string) $message->getHtmlBody());
         $this->assertStringNotContainsString('[Voorbeeld]', $message->getSubject());
     }
+
+    #[Test]
+    public function billing_start_sample_mail_attaches_invoice_pdf(): void
+    {
+        $this->keepArrayMailer();
+        \Carbon\Carbon::setTestNow('2026-09-04 10:00:00');
+        $start = app(\App\Services\SaasBillingStartEmailTemplateService::class);
+
+        app(EmailTemplateService::class)->sendTestEmail(
+            $start->ensureExists(),
+            'test@example.com',
+            'Horizon Taxi',
+            $start->previewVariables(),
+            asTemplateSample: true
+        );
+
+        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $this->assertNotEmpty($messages);
+        $message = $messages->last()->getOriginalMessage();
+        $html = (string) $message->getHtmlBody();
+        $this->assertStringContainsString('factuur in de bijlage', $html);
+        $this->assertStringContainsString('€ 342,55', $html);
+        $this->assertStringNotContainsString('AMOUNT_TABLE', $html);
+        $attachments = $message->getAttachments();
+        $this->assertNotEmpty($attachments);
+        $pdfNames = [];
+        foreach ($attachments as $attachment) {
+            $pdfNames[] = $attachment->getName().'|'.$attachment->getContentType();
+            $name = (string) $attachment->getName();
+            $type = (string) $attachment->getContentType();
+            if (str_contains($name, 'saas-factuur') || str_contains($type, 'pdf')) {
+                $this->assertTrue(true);
+                \Carbon\Carbon::setTestNow();
+
+                return;
+            }
+        }
+        $this->fail('Geen factuur-PDF bijlage gevonden: '.implode(', ', $pdfNames));
+    }
 }

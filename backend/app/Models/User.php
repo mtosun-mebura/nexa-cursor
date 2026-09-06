@@ -81,6 +81,18 @@ class User extends Authenticatable
     }
 
     /**
+     * Eigen rollen mag de gebruiker niet wijzigen; alleen een super-admin mag rollen aanpassen (ook van zichzelf).
+     */
+    public function canEditRolesOf(User $target): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return (int) $this->getKey() !== (int) $target->getKey();
+    }
+
+    /**
      * Spatie teams: als de super-admin-rol niet via de gefilterde relatie matcht, alsnog true
      * wanneer {@see isSuperAdmin()} dat aangeeft — gelijk aan {@see hasRole()} met rolnaam `super-admin`.
      */
@@ -179,17 +191,72 @@ class User extends Authenticatable
             static::class,
         ])));
 
-        return DB::table($pivot)
+        return self::assignedRoleNamesForIds([(int) $this->getKey()], ['web'])[(int) $this->getKey()] ?? [];
+    }
+
+    /**
+     * Unieke rollen voor weergave (web + api, team-onafhankelijk).
+     * Zelfde naam op beide guards telt één keer; de web-naam wint.
+     *
+     * @return list<string>
+     */
+    public function assignedRoleNames(): array
+    {
+        return self::assignedRoleNamesForIds([(int) $this->getKey()])[(int) $this->getKey()] ?? [];
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @param  list<string>|null  $guards  null = web + api
+     * @return array<int, list<string>>
+     */
+    public static function assignedRoleNamesForIds(array $userIds, ?array $guards = null): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), fn (int $id) => $id > 0)));
+        if ($userIds === []) {
+            return [];
+        }
+
+        $guards ??= ['web', 'api'];
+        $pivot = config('permission.table_names.model_has_roles');
+        $rolesTable = config('permission.table_names.roles');
+        $morphKey = config('permission.column_names.model_morph_key') ?: 'model_id';
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $morphTypes = array_values(array_unique(array_filter([
+            (new static)->getMorphClass(),
+            static::class,
+            'App\\Models\\User',
+        ])));
+
+        $rows = DB::table($pivot)
             ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivot}.{$rolePivotKey}")
-            ->where("{$pivot}.{$morphKey}", $this->getKey())
+            ->whereIn("{$pivot}.{$morphKey}", $userIds)
             ->whereIn("{$pivot}.model_type", $morphTypes)
-            ->where("{$rolesTable}.guard_name", 'web')
+            ->whereIn("{$rolesTable}.guard_name", $guards)
+            ->orderByRaw("CASE WHEN {$rolesTable}.guard_name = 'web' THEN 0 ELSE 1 END")
             ->orderBy("{$rolesTable}.name")
-            ->pluck("{$rolesTable}.name")
-            ->map(fn ($name) => (string) $name)
-            ->unique()
-            ->values()
-            ->all();
+            ->get(["{$pivot}.{$morphKey} as user_id", "{$rolesTable}.name as role_name"]);
+
+        $map = [];
+        $seen = [];
+        foreach ($rows as $row) {
+            $id = (int) $row->user_id;
+            $name = (string) $row->role_name;
+            $key = $id."\0".strtolower(trim($name));
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $map[$id] ??= [];
+            $map[$id][] = $name;
+        }
+
+        foreach ($map as $id => $names) {
+            usort($names, static fn (string $a, string $b) => strcasecmp($a, $b));
+            $map[$id] = array_values($names);
+        }
+
+        return $map;
     }
 
     /**
@@ -318,6 +385,7 @@ class User extends Authenticatable
         'job_title_id',
         'agenda_color',
         'pwa_accent',
+        'ride_alert_tone',
     ];
 
     /**

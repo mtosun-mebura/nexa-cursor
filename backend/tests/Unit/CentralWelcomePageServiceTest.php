@@ -29,9 +29,10 @@ class CentralWelcomePageServiceTest extends TestCase
 
         $pages = app(CentralWelcomePageService::class)->ensureMarketingPagesExist();
 
-        $this->assertGreaterThanOrEqual(6, $pages->count());
+        $this->assertGreaterThanOrEqual(7, $pages->count());
         $this->assertNotNull(WebsitePage::query()->where('slug', WebsitePage::CENTRAL_WELCOME_SLUG)->first());
         $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::TAXI_SLUG)->first());
+        $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::BOEK_SLUG)->first());
         $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::CONTRACT_SLUG)->first());
         $this->assertNotNull(WebsitePage::query()->where('slug', CentralWelcomePageService::WEBSITE_SLUG)->first());
         $comparison = WebsitePage::query()->where('slug', CentralWelcomePageService::COMPARISON_SLUG)->first();

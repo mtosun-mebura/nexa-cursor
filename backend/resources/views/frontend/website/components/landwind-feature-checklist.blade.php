@@ -12,7 +12,7 @@
     $image = trim((string) ($data['image_url'] ?? $defaults['image_url'] ?? ''));
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
-<section class="py-14 md:py-20 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="landwind.feature_checklist" data-theme-anim="check" data-scroll-reveal>
+<section class="py-10 md:py-14 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="landwind.feature_checklist" data-theme-anim="check" data-scroll-reveal>
     <div class="website-section-inner grid items-center gap-10 md:grid-cols-2">
         <div class="theme-reveal-left">
             @if($image !== '')

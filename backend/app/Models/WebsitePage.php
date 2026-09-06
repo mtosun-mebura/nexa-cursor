@@ -16,6 +16,38 @@ class WebsitePage extends Model
      */
     public const CENTRAL_WELCOME_SLUG = 'nexa-centraal-welkom';
 
+    /** Neutrale footer-tagline voor alle modules (niet Skillmatching-specifiek). */
+    public const DEFAULT_FOOTER_TAGLINE = 'Ontdek wat wij voor u kunnen betekenen. Bekijk onze diensten of neem contact op; we helpen u graag verder.';
+
+    public const DEFAULT_HERO_TITLE = 'Welkom';
+
+    public const DEFAULT_HERO_TITLE_HIGHLIGHT = '';
+
+    public const DEFAULT_HERO_SUBTITLE = 'Ontdek onze diensten of neem contact op. We helpen u graag verder.';
+
+    public const DEFAULT_CTA_PRIMARY_TEXT = 'Neem contact op';
+
+    public const DEFAULT_CTA_PRIMARY_URL = '/contact';
+
+    public const DEFAULT_CTA_SECONDARY_TEXT = 'Over ons';
+
+    public const DEFAULT_CTA_SECONDARY_URL = '/over-ons';
+
+    public const DEFAULT_WHY_TITLE = 'Waarom kiezen voor ons?';
+
+    public const DEFAULT_WHY_SUBTITLE = 'Wij helpen u verder met duidelijke informatie, persoonlijk contact en betrouwbare dienstverlening.';
+
+    public const DEFAULT_FEATURES_SECTION_TITLE = 'Kenmerken';
+
+    public const DEFAULT_CTA_TITLE = 'Klaar om te starten?';
+
+    public const DEFAULT_CTA_SUBTITLE = 'Neem contact op of bekijk wat wij voor u kunnen betekenen.';
+
+    public const DEFAULT_COPYRIGHT = '© {year} Alle rechten voorbehouden.';
+
+    /** Oude Skillmatching-default; op Taxi e.d. vervangen we deze bij weergave. */
+    public const LEGACY_SKILLMATCHING_FOOTER_TAGLINE = 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.';
+
     public static function isCentralMarketingWelcomeSlug(?string $slug): bool
     {
         return $slug !== null && $slug !== '' && strtolower($slug) === strtolower(self::CENTRAL_WELCOME_SLUG);
@@ -247,21 +279,21 @@ class WebsitePage extends Model
 
         return [
             'hero' => [
-                'title' => 'Vind je droombaan met AI',
-                'title_highlight' => 'droombaan',
+                'title' => self::DEFAULT_HERO_TITLE,
+                'title_highlight' => self::DEFAULT_HERO_TITLE_HIGHLIGHT,
                 'title_highlight_color' => '',
                 'subtitle_color' => '',
                 'title_font_size_px' => 44,
                 'subtitle_font_size_px' => 22,
                 'text_bg_width_percent' => 70,
-                'subtitle' => 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.',
-                'cta_primary_text' => 'Gratis account aanmaken',
-                'cta_primary_url' => '/register',
+                'subtitle' => self::DEFAULT_HERO_SUBTITLE,
+                'cta_primary_text' => self::DEFAULT_CTA_PRIMARY_TEXT,
+                'cta_primary_url' => self::DEFAULT_CTA_PRIMARY_URL,
                 'cta_primary_bg' => '',
                 'cta_primary_border' => '',
                 'cta_primary_text_color' => '',
-                'cta_secondary_text' => 'Vacatures bekijken',
-                'cta_secondary_url' => '/jobs',
+                'cta_secondary_text' => self::DEFAULT_CTA_SECONDARY_TEXT,
+                'cta_secondary_url' => self::DEFAULT_CTA_SECONDARY_URL,
                 'cta_secondary_bg' => '',
                 'cta_secondary_border' => '',
                 'cta_secondary_text_color' => '',
@@ -269,36 +301,36 @@ class WebsitePage extends Model
             ],
             'stats' => [
                 'items' => [
-                    ['value' => '10,000+', 'label' => 'Actieve vacatures', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '5,000+', 'label' => 'Succesvolle matches', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '500+', 'label' => 'Partner bedrijven', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '95%', 'label' => 'Match accuracy', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '100+', 'label' => 'Tevreden klanten', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '10+', 'label' => 'Jaar ervaring', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '24/7', 'label' => 'Bereikbaar', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '98%', 'label' => 'Aanbevolen', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
                 ],
                 'background' => '',
                 'background_image' => '',
             ],
             'why_nexa' => [
-                'title' => 'Waarom kiezen voor Nexa?',
+                'title' => self::DEFAULT_WHY_TITLE,
                 'title_color' => '',
                 'subtitle_color' => '',
-                'subtitle' => 'Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.',
+                'subtitle' => self::DEFAULT_WHY_SUBTITLE,
                 'background' => '',
                 'background_image' => '',
                 'background_image_dark' => '',
             ],
             'features' => [
-                'section_title' => 'Kenmerken',
+                'section_title' => self::DEFAULT_FEATURES_SECTION_TITLE,
                 'items' => [
                     [
-                        'title' => 'AI-Powered Matching',
-                        'description' => 'Onze geavanceerde algoritmes analyseren je vaardigheden en vinden de perfecte match met 95% accuracy.',
+                        'title' => 'Duidelijke afspraken',
+                        'description' => 'U weet waar u aan toe bent, van het eerste contact tot de afronding.',
                         'icon' => 'light-bulb',
                         'icon_size' => 'medium',
                         'icon_align' => 'center',
                     ],
                     [
-                        'title' => 'Snelle Resultaten',
-                        'description' => 'Vind relevante vacatures in seconden. Ons platform filtert en rangschikt resultaten op basis van jouw profiel.',
+                        'title' => 'Snel schakelen',
+                        'description' => 'We reageren snel, houden u op de hoogte en denken met u mee.',
                         'icon' => 'bolt',
                         'icon_size' => 'medium',
                         'icon_align' => 'center',
@@ -306,16 +338,16 @@ class WebsitePage extends Model
                 ],
             ],
             'cta' => [
-                'title' => 'Klaar om je carrière te starten?',
+                'title' => self::DEFAULT_CTA_TITLE,
                 'subtitle_color' => '',
-                'subtitle' => 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.',
-                'cta_primary_text' => 'Gratis account aanmaken',
-                'cta_primary_url' => '/register',
+                'subtitle' => self::DEFAULT_CTA_SUBTITLE,
+                'cta_primary_text' => self::DEFAULT_CTA_PRIMARY_TEXT,
+                'cta_primary_url' => self::DEFAULT_CTA_PRIMARY_URL,
                 'cta_primary_bg' => '',
                 'cta_primary_border' => '',
                 'cta_primary_text_color' => '',
-                'cta_secondary_text' => 'Vacatures bekijken',
-                'cta_secondary_url' => '/jobs',
+                'cta_secondary_text' => self::DEFAULT_CTA_SECONDARY_TEXT,
+                'cta_secondary_url' => self::DEFAULT_CTA_SECONDARY_URL,
                 'cta_secondary_bg' => '',
                 'cta_secondary_border' => '',
                 'cta_secondary_text_color' => '',
@@ -347,9 +379,9 @@ class WebsitePage extends Model
                 'card_bg_color' => '',
                 'animation_speed' => 'slow',
                 'items' => [
-                    ['icon' => 'briefcase', 'title' => 'Business Collaboration', 'description' => 'Morbi sagittis hendrerit nulla ultricies. Cras in diam ipsum, elementum pretium hendrerit ultricies.'],
-                    ['icon' => 'cog-6-tooth', 'title' => 'Engineering & Services', 'description' => 'Proin scelerisque magna at porttitor tristique.'],
-                    ['icon' => 'user-group', 'title' => 'Consulting', 'description' => 'Samen werken we aan het beste resultaat.'],
+                    ['icon' => 'briefcase', 'title' => 'Advies', 'description' => 'We kijken naar wat u nodig heeft en denken met u mee.'],
+                    ['icon' => 'cog-6-tooth', 'title' => 'Uitvoering', 'description' => 'Van eerste contact tot afronding, overzichtelijk en betrouwbaar.'],
+                    ['icon' => 'user-group', 'title' => 'Contact', 'description' => 'Vragen? We zijn bereikbaar en reageren snel.'],
                 ],
             ],
             'email_template' => [
@@ -365,7 +397,7 @@ class WebsitePage extends Model
                 'width_percent' => 100,
             ],
             'footer' => [
-                'tagline' => 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.',
+                'tagline' => self::DEFAULT_FOOTER_TAGLINE,
                 'logo_url' => '',
                 'logo_alt' => '',
                 'logo_height' => 12,
@@ -374,7 +406,6 @@ class WebsitePage extends Model
                 'quick_links_title' => 'Snelle Links',
                 'quick_links' => [
                     ['label' => 'Home', 'url' => '/'],
-                    ['label' => 'Vacatures', 'url' => '/jobs'],
                     ['label' => 'Over Ons', 'url' => '/over-ons'],
                     ['label' => 'Contact', 'url' => '/contact'],
                 ],
@@ -397,7 +428,7 @@ class WebsitePage extends Model
                 'map_zoom' => 17,
                 'map_show_address_balloon' => false,
             ],
-            'copyright' => '© {year} Nexa Skillmatching. Alle rechten voorbehouden.',
+            'copyright' => self::DEFAULT_COPYRIGHT,
             'section_order' => $sectionOrder,
             'admin_collapsed' => self::defaultAdminCollapsedKeys($sectionOrder),
             'visibility' => [
@@ -624,13 +655,13 @@ class WebsitePage extends Model
         switch ($themeSlug) {
             case 'atom-v2':
                 $base['section_order'] = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
-                $base['hero']['title'] = 'Welkom bij Nexa';
-                $base['hero']['title_highlight'] = 'Nexa';
-                $base['hero']['subtitle'] = 'Ontdek hoe ons platform jouw carrière vooruit helpt.';
+                $base['hero']['title'] = 'Welkom bij ons';
+                $base['hero']['title_highlight'] = 'ons';
+                $base['hero']['subtitle'] = 'Ontdek wat wij voor u kunnen betekenen.';
                 $base['hero']['background_image_url'] = '';
                 $base['hero']['author_image_url'] = '';
                 $base['why_nexa']['title'] = 'Over ons';
-                $base['why_nexa']['subtitle'] = 'Wij verbinden talent met kansen.';
+                $base['why_nexa']['subtitle'] = 'Wij staan voor u klaar met persoonlijke aandacht en betrouwbare dienstverlening.';
                 $base['features']['section_title'] = 'Onze diensten';
                 break;
             case 'nextly-template':
@@ -639,32 +670,32 @@ class WebsitePage extends Model
                 $base['hero']['title_highlight'] = 'ons';
                 $base['hero']['subtitle'] = 'Een korte introductie over wat wij bieden.';
                 $base['why_nexa']['title'] = 'Voordelen';
-                $base['why_nexa']['subtitle'] = 'Ontdek de voordelen van ons platform.';
+                $base['why_nexa']['subtitle'] = 'Ontdek de voordelen van een duidelijke aanpak.';
                 $base['features']['section_title'] = 'Wat wij bieden';
                 break;
             case 'next-landing-vpn':
                 $base['section_order'] = ['hero', 'features', 'cta', 'carousel'];
-                $base['hero']['title'] = 'Jouw carrière begint hier';
+                $base['hero']['title'] = 'Uw volgende stap begint hier';
                 $base['hero']['title_highlight'] = 'hier';
-                $base['hero']['subtitle'] = 'Match met de beste vacatures via ons AI-platform.';
+                $base['hero']['subtitle'] = 'Ontdek onze diensten of neem contact op.';
                 $base['features']['section_title'] = 'Kenmerken';
                 break;
             case 'landwind':
                 $base['section_order'] = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
-                $base['hero']['title'] = 'Boekingen, ritten en klanten in één platform';
-                $base['hero']['title_highlight'] = 'één platform';
-                $base['hero']['subtitle'] = 'Landwind: een SaaS-landing met hero, features, FAQ-stijl uitleg en een sterke CTA.';
+                $base['hero']['title'] = 'Een duidelijke website voor uw bedrijf';
+                $base['hero']['title_highlight'] = 'uw bedrijf';
+                $base['hero']['subtitle'] = 'Hero, uitleg en een sterke call-to-action in één overzichtelijke landing.';
                 $base['why_nexa']['title'] = 'Waarom dit thema';
-                $base['why_nexa']['subtitle'] = 'Gebouwd op Tailwind en Flowbite. Geschikt voor taxi- en dienstverleningssites.';
+                $base['why_nexa']['subtitle'] = 'Gebouwd op Tailwind en Flowbite. Geschikt voor dienstverleningssites.';
                 $base['features']['section_title'] = 'Onderdelen';
                 break;
             case 'play-tailwind':
                 $base['section_order'] = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
-                $base['hero']['title'] = 'Start uw digitale taxi-onderneming';
-                $base['hero']['title_highlight'] = 'taxi-onderneming';
+                $base['hero']['title'] = 'Start uw digitale aanwezigheid';
+                $base['hero']['title_highlight'] = 'aanwezigheid';
                 $base['hero']['subtitle'] = 'Play Tailwind: hero, diensten, cijfers en een duidelijke call-to-action.';
                 $base['why_nexa']['title'] = 'Over ons';
-                $base['why_nexa']['subtitle'] = 'Een complete landing voor startups en dienstverleners.';
+                $base['why_nexa']['subtitle'] = 'Een complete landing voor ondernemers en dienstverleners.';
                 $base['features']['section_title'] = 'Diensten';
                 break;
             case 'vue-material-kit':
@@ -712,6 +743,196 @@ class WebsitePage extends Model
         $base['footer']['inherit_from_home'] = true;
 
         return $base;
+    }
+
+    public static function footerPlainText(?string $html): string
+    {
+        $plain = html_entity_decode(strip_tags((string) $html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string) preg_replace('/\s+/u', ' ', $plain));
+    }
+
+    public static function isLegacySkillmatchingFooterTagline(?string $html): bool
+    {
+        return self::footerPlainText($html) === self::LEGACY_SKILLMATCHING_FOOTER_TAGLINE;
+    }
+
+    /**
+     * @param  array<string, mixed>  $link
+     */
+    public static function isSkillmatchingOnlyFooterLink(array $link): bool
+    {
+        $label = mb_strtolower(trim(strip_tags((string) ($link['label'] ?? ''))));
+        if ($label === 'vacatures') {
+            return true;
+        }
+
+        $url = trim((string) ($link['url'] ?? ''));
+        if ($url === '') {
+            return false;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+        $path = is_string($path) && $path !== '' ? $path : $url;
+        $path = strtolower(rtrim($path, '/'));
+
+        return $path === '/jobs' || $path === 'jobs';
+    }
+
+    /**
+     * Verberg Skillmatching-only footerlinks en vervang de oude vacature-tagline
+     * wanneer de actieve frontend-module geen Skillmatching is.
+     *
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public static function prepareFooterForPublicDisplay(array $homeSections, bool $showSkillmatchingLinks): array
+    {
+        $footer = is_array($homeSections['footer'] ?? null) ? $homeSections['footer'] : [];
+        $links = is_array($footer['quick_links'] ?? null) ? $footer['quick_links'] : [];
+
+        if (! $showSkillmatchingLinks) {
+            $footer['quick_links'] = array_values(array_filter(
+                $links,
+                static fn ($link) => is_array($link) && ! self::isSkillmatchingOnlyFooterLink($link)
+            ));
+            $tagline = is_string($footer['tagline'] ?? null) ? $footer['tagline'] : '';
+            if (self::isLegacySkillmatchingFooterTagline($tagline)) {
+                $footer['tagline'] = self::DEFAULT_FOOTER_TAGLINE;
+            }
+            $homeSections['footer'] = $footer;
+            $homeSections = self::replaceLegacySkillmatchingCopy($homeSections);
+        } else {
+            $homeSections['footer'] = $footer;
+        }
+
+        return $homeSections;
+    }
+
+    /**
+     * Vervang oude Skillmatching-standaardteksten (hero, CTA, stats, …) door neutrale copy.
+     *
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public static function replaceLegacySkillmatchingCopy(array $homeSections): array
+    {
+        $hero = is_array($homeSections['hero'] ?? null) ? $homeSections['hero'] : [];
+        $hero = self::replaceLegacyFields($hero, [
+            'title' => ['Vind je droombaan met AI' => self::DEFAULT_HERO_TITLE],
+            'title_highlight' => ['droombaan' => self::DEFAULT_HERO_TITLE_HIGHLIGHT],
+            'subtitle' => ['Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' => self::DEFAULT_HERO_SUBTITLE],
+            'cta_primary_text' => ['Gratis account aanmaken' => self::DEFAULT_CTA_PRIMARY_TEXT],
+            'cta_primary_url' => ['/register' => self::DEFAULT_CTA_PRIMARY_URL],
+            'cta_secondary_text' => ['Vacatures bekijken' => self::DEFAULT_CTA_SECONDARY_TEXT],
+            'cta_secondary_url' => ['/jobs' => self::DEFAULT_CTA_SECONDARY_URL],
+        ]);
+        $homeSections['hero'] = $hero;
+
+        $cta = is_array($homeSections['cta'] ?? null) ? $homeSections['cta'] : [];
+        $cta = self::replaceLegacyFields($cta, [
+            'title' => ['Klaar om je carrière te starten?' => self::DEFAULT_CTA_TITLE],
+            'subtitle' => ['Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.' => self::DEFAULT_CTA_SUBTITLE],
+            'cta_primary_text' => ['Gratis account aanmaken' => self::DEFAULT_CTA_PRIMARY_TEXT],
+            'cta_primary_url' => ['/register' => self::DEFAULT_CTA_PRIMARY_URL],
+            'cta_secondary_text' => ['Vacatures bekijken' => self::DEFAULT_CTA_SECONDARY_TEXT],
+            'cta_secondary_url' => ['/jobs' => self::DEFAULT_CTA_SECONDARY_URL],
+        ]);
+        $homeSections['cta'] = $cta;
+
+        $why = is_array($homeSections['why_nexa'] ?? null) ? $homeSections['why_nexa'] : [];
+        $why = self::replaceLegacyFields($why, [
+            'title' => ['Waarom kiezen voor Nexa?' => self::DEFAULT_WHY_TITLE],
+            'subtitle' => ['Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.' => self::DEFAULT_WHY_SUBTITLE],
+        ]);
+        $homeSections['why_nexa'] = $why;
+
+        $features = is_array($homeSections['features'] ?? null) ? $homeSections['features'] : [];
+        $features = self::replaceLegacyFields($features, [
+            'section_title' => ['Kenmerken' => self::DEFAULT_FEATURES_SECTION_TITLE],
+        ]);
+        if (is_array($features['items'] ?? null)) {
+            $features['items'] = array_map(static function ($item) {
+                if (! is_array($item)) {
+                    return $item;
+                }
+
+                return self::replaceLegacyFields($item, [
+                    'title' => [
+                        'AI-Powered Matching' => 'Duidelijke afspraken',
+                        'Snelle Resultaten' => 'Snel schakelen',
+                    ],
+                    'description' => [
+                        'Onze geavanceerde algoritmes analyseren je vaardigheden en vinden de perfecte match met 95% accuracy.' => 'U weet waar u aan toe bent, van het eerste contact tot de afronding.',
+                        'Vind relevante vacatures in seconden. Ons platform filtert en rangschikt resultaten op basis van jouw profiel.' => 'We reageren snel, houden u op de hoogte en denken met u mee.',
+                    ],
+                ]);
+            }, $features['items']);
+        }
+        $homeSections['features'] = $features;
+
+        $stats = is_array($homeSections['stats'] ?? null) ? $homeSections['stats'] : [];
+        if (is_array($stats['items'] ?? null)) {
+            $statLabelMap = [
+                'Actieve vacatures' => 'Tevreden klanten',
+                'Succesvolle matches' => 'Jaar ervaring',
+                'Partner bedrijven' => 'Bereikbaar',
+                'Match accuracy' => 'Aanbevolen',
+            ];
+            $statValueMap = [
+                '10,000+' => '100+',
+                '5,000+' => '10+',
+                '500+' => '24/7',
+                '95%' => '98%',
+            ];
+            $stats['items'] = array_map(static function ($item) use ($statLabelMap, $statValueMap) {
+                if (! is_array($item)) {
+                    return $item;
+                }
+                $label = (string) ($item['label'] ?? '');
+                if (isset($statLabelMap[$label])) {
+                    $item['label'] = $statLabelMap[$label];
+                }
+                $value = (string) ($item['value'] ?? '');
+                if (isset($statValueMap[$value])) {
+                    $item['value'] = $statValueMap[$value];
+                }
+
+                return $item;
+            }, $stats['items']);
+        }
+        $homeSections['stats'] = $stats;
+
+        $copyright = is_string($homeSections['copyright'] ?? null) ? $homeSections['copyright'] : '';
+        if (self::footerPlainText($copyright) === '© {year} Nexa Skillmatching. Alle rechten voorbehouden.') {
+            $homeSections['copyright'] = self::DEFAULT_COPYRIGHT;
+        }
+
+        return $homeSections;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, array<string, string>>  $fieldMap
+     * @return array<string, mixed>
+     */
+    private static function replaceLegacyFields(array $data, array $fieldMap): array
+    {
+        foreach ($fieldMap as $key => $replacements) {
+            $current = $data[$key] ?? null;
+            if (! is_string($current)) {
+                continue;
+            }
+            $plain = self::footerPlainText($current);
+            foreach ($replacements as $legacy => $replacement) {
+                if ($plain === $legacy) {
+                    $data[$key] = $replacement;
+                    break;
+                }
+            }
+        }
+
+        return $data;
     }
 
     private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
@@ -1007,13 +1228,12 @@ class WebsitePage extends Model
                         'image_fade_duration' => $imageFadeDuration,
                         'items' => array_values($items),
                     ];
-                } elseif ($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2') {
-                    $canonicalKey = $sectionKey === 'component:taxi.boekingsmodule_v2'
-                        ? 'component:taxi.boekingsmodule_v2'
-                        : 'component:taxi.boekingsmodule';
-                    $raw = $sectionKey === 'component:taxi.boekingsmodule_v2'
-                        ? ($stored[$canonicalKey] ?? [])
-                        : ($stored[$canonicalKey] ?? $stored['component:taxiroyaal.boekingsmodule'] ?? []);
+                } elseif (in_array($sectionKey, ['component:taxi.boekingsmodule', 'component:taxi.boekingsmodule_v2', 'component:taxi.algemene_boekingsmodule'], true)) {
+                    $canonicalKey = $sectionKey;
+                    $raw = $stored[$canonicalKey] ?? [];
+                    if ($sectionKey === 'component:taxi.boekingsmodule') {
+                        $raw = $raw !== [] ? $raw : ($stored['component:taxiroyaal.boekingsmodule'] ?? []);
+                    }
                     if (! is_array($raw)) {
                         $raw = [];
                     }

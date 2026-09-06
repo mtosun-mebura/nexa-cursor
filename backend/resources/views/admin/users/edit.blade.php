@@ -211,6 +211,7 @@
                                 @include('admin.users.partials.role-checkboxes', [
                                     'roles' => $roles,
                                     'selectedRoles' => old('roles', $user->webRoleNames()),
+                                    'readonly' => ! ($canEditRoles ?? true),
                                 ])
                             </td>
                         </tr>

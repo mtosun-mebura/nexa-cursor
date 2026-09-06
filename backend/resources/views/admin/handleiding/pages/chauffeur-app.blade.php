@@ -7,6 +7,7 @@
     <div class="max-w-[220px] mx-auto rounded-[1.5rem] border-4 border-border bg-background p-3 shadow-sm">
         <div class="text-[10px] text-muted-foreground mb-2 text-center">Inbox</div>
         <div class="rounded-lg border border-border p-2 text-[11px] mb-2">
+            <span class="inline-block rounded-full border border-amber-400 bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 mb-1">NEXA Suite</span>
             <div class="font-medium">09:15 · Amsterdam CS</div>
             <div class="text-muted-foreground">Naar Schiphol</div>
         </div>
@@ -25,4 +26,8 @@
 <div class="handleiding-step">
     <span class="handleiding-step-num">3</span>
     <div>Onder <strong>Navigatie</strong> staat de naam van de klant boven Ophalen; Afzetten heeft geen naam erachter. <strong>Start navigatie</strong> opent Google Maps met de route van de actieve rit.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">4</span>
+    <div>Ritten vanaf nexasuite.nl hebben in de inbox en bij een aanbod het gele label <strong>NEXA Suite</strong>. Verder werkt de rit hetzelfde.</div>
 </div>

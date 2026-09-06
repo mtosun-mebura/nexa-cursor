@@ -30,9 +30,12 @@
 
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header px-5 py-5 flex-wrap gap-3 justify-between items-center">
-            <h3 class="kt-card-title text-sm mb-0">
-                Tenants
-            </h3>
+            <div class="min-w-0">
+                <h3 class="kt-card-title text-sm mb-0">
+                    Tenants
+                </h3>
+                <p class="text-xs text-muted-foreground mt-1 mb-0">Facturen gebruiken het pakket en de aanvullende modules van het bedrijf.</p>
+            </div>
             <form method="GET" action="{{ route('admin.platform-billing.tenants.index') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
                 <select class="kt-select w-full sm:w-48" name="company_id" data-label="Tenant">
                     <option value="">Alle tenants</option>
@@ -82,7 +85,12 @@
                     @forelse($companies as $company)
                         @php
                             $profile = $profiles->get($company->id);
+                            if ($profile) {
+                                $profile->setRelation('company', $company);
+                            }
                             $mandate = $mandates->get($company->id);
+                            $packageName = $profile?->resolvedPackageName() ?: '—';
+                            $addonSummary = $profile?->packageAddonSummary() ?? '';
                         @endphp
                         <tr data-row-href="{{ route('admin.platform-billing.tenants.edit', $company) }}">
                             <td class="platform-billing-tenants__name font-medium">
@@ -93,7 +101,12 @@
                                     </span>
                                 @endif
                             </td>
-                            <td class="platform-billing-tenants__package whitespace-nowrap" @if($profile?->package?->name) title="{{ $profile->package->name }}" @endif>{{ $profile?->package?->name ?: '—' }}</td>
+                            <td class="platform-billing-tenants__package" @if($packageName !== '—') title="{{ trim($packageName.($addonSummary !== '' ? ' — '.$addonSummary : '')) }}" @endif>
+                                <div class="whitespace-nowrap">{{ $packageName }}</div>
+                                @if($addonSummary !== '')
+                                    <div class="text-xs font-normal text-muted-foreground mt-0.5">{{ $addonSummary }}</div>
+                                @endif
+                            </td>
                             <td class="platform-billing-tenants__amount whitespace-nowrap tabular-nums">@if($profile) € {{ number_format($profile->resolveMonthlyAmount(), 2, ',', '.') }} @else — @endif</td>
                             <td class="platform-billing-tenants__mandate whitespace-nowrap">{{ $mandate?->status ?? 'geen' }}</td>
                             <td class="admin-table__actions-col" data-no-row-link>

@@ -2,58 +2,65 @@
 
 @push('styles')
 <style>
-    /* Actief thema: Website tonen (oranje), Publiceren (groen), Instellingen (grijs) */
-    .kt-btn-warning {
-        background-color: #ea580c;
-        color: white;
-        --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-        box-shadow: var(--tw-shadow);
+    .theme-card-icon {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        padding: 0;
+        border: none;
+        border-radius: 0.5rem;
+        background: transparent;
+        color: var(--muted-foreground);
+        text-decoration: none;
+        cursor: pointer;
+        line-height: 1;
     }
-    .kt-btn-warning:hover {
-        background-color: #c2410c;
-        color: white;
+    .theme-card-icon i {
+        font-size: 1.25rem;
     }
-    .kt-btn-success {
-        background-color: #16a34a;
-        color: white;
-        --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-        box-shadow: var(--tw-shadow);
+    .theme-card-icon:hover,
+    .theme-card-icon:focus-visible {
+        color: var(--foreground);
+        background: color-mix(in oklab, var(--muted) 80%, transparent);
+        outline: none;
     }
-    .kt-btn-success:hover {
-        background-color: #15803d;
-        color: white;
+    .theme-card-icon--preview:hover,
+    .theme-card-icon--preview:focus-visible { color: #ea580c; }
+    .theme-card-icon--unpublish:hover,
+    .theme-card-icon--unpublish:focus-visible { color: var(--destructive); }
+    .theme-card-icon--activate:hover,
+    .theme-card-icon--activate:focus-visible { color: #16a34a; }
+    .theme-card-icon::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 0.5rem);
+        transform: translateX(-50%) translateY(0.25rem);
+        padding: 0.3rem 0.55rem;
+        border-radius: 0.375rem;
+        background: #111827;
+        color: #f9fafb;
+        font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1.2;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
+        transition: opacity 0.12s ease, transform 0.12s ease;
+        z-index: 20;
     }
-    /* Instellingen-knop: lichtgrijs, goed zichtbaar op donkere achtergrond */
-    .kt-card-content .kt-btn-ghost.text-muted-foreground,
-    a.kt-btn-ghost.text-muted-foreground {
-        background-color: #e5e7eb !important;
-        color: #374151 !important;
-        border: 1px solid #d1d5db !important;
+    .theme-card-icon:hover::after,
+    .theme-card-icon:focus-visible::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
     }
-    .kt-card-content .kt-btn-ghost.text-muted-foreground:hover,
-    a.kt-btn-ghost.text-muted-foreground:hover {
-        background-color: #d1d5db !important;
-        color: #1f2937 !important;
-        border-color: #9ca3af !important;
-    }
-    .dark .kt-card-content .kt-btn-ghost.text-muted-foreground,
-    .dark a.kt-btn-ghost.text-muted-foreground {
-        background-color: #4b5563 !important;
-        color: #e5e7eb !important;
-        border-color: #6b7280 !important;
-    }
-    .dark .kt-card-content .kt-btn-ghost.text-muted-foreground:hover,
-    .dark a.kt-btn-ghost.text-muted-foreground:hover {
-        background-color: #6b7280 !important;
-        color: #f3f4f6 !important;
-        border-color: #9ca3af !important;
-    }
-
-    /* Thema-kaart knoppen iets groter */
-    .theme-card-actions .kt-btn {
-        min-height: 2.25rem;
-        padding: 0.375rem 0.875rem;
-        font-size: 0.875rem;
+    .dark .theme-card-icon::after {
+        background: #f3f4f6;
+        color: #111827;
     }
 </style>
 @endpush
@@ -96,9 +103,9 @@
             @php
                 $isThemeActive = ((string)($activeThemeId ?? '') === (string)$theme->id) || (bool)$theme->is_active;
             @endphp
-            <div class="kt-card overflow-hidden {{ $isThemeActive ? 'ring-2 ring-primary' : '' }}">
+            <div class="kt-card h-full">
                 {{-- Screenshot / preview van het thema --}}
-                <div class="aspect-video w-full bg-muted flex items-center justify-center overflow-hidden">
+                <div class="aspect-video w-full bg-muted flex items-center justify-center overflow-hidden rounded-t-[calc(var(--radius)+4px)]">
                     @if($theme->preview_path && file_exists(public_path($theme->preview_path)))
                         @php
                             $previewSrc = str_ends_with(strtolower($theme->preview_path), '.svg')
@@ -115,28 +122,36 @@
                         </div>
                     @endif
                 </div>
-                <div class="kt-card-header flex items-center justify-between">
-                    <h3 class="kt-card-title">{{ $theme->name }}</h3>
+                <div class="kt-card-header flex items-center justify-between px-5 py-5">
+                    <h3 class="kt-card-title mb-0">{{ $theme->name }}</h3>
                     @if($isThemeActive)
                         <span class="kt-badge kt-badge-success">Actief</span>
                     @endif
                 </div>
-                <div class="kt-card-content">
-                    <p class="text-sm text-muted-foreground mb-4">{{ $theme->description }}</p>
-                    <div class="flex flex-wrap gap-2 theme-card-actions">
+                <div class="kt-card-content p-5 flex flex-1 flex-col">
+                    <p class="text-sm text-muted-foreground mb-0">{{ $theme->description }}</p>
+                    <div class="theme-card-actions mt-auto pt-4 flex w-full items-center {{ $isThemeActive ? 'justify-between' : 'justify-center' }}">
                         @if(!$isThemeActive)
-                            <form action="{{ route('admin.frontend-themes.set-active', $theme) }}" method="POST" class="inline">
+                            <form action="{{ route('admin.frontend-themes.set-active', $theme) }}" method="POST" class="inline-flex">
                                 @csrf
-                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Activeren</button>
+                                <button type="submit" class="theme-card-icon theme-card-icon--activate" data-tooltip="Activeren" aria-label="Thema activeren">
+                                    <i class="ki-filled ki-check-circle" aria-hidden="true"></i>
+                                </button>
                             </form>
                         @else
-                            <a href="{{ $themeStagingUrls[$theme->id] ?? route('admin.frontend-themes.staging', ['theme_id' => $theme->id]) }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-warning" title="Geconfigureerde website van dit thema tonen">Website tonen</a>
-                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline" onsubmit="return confirm('Thema de-publiceren? Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.');">
+                            <a href="{{ $themeStagingUrls[$theme->id] ?? route('admin.frontend-themes.staging', ['theme_id' => $theme->id]) }}" target="_blank" rel="noopener noreferrer" class="theme-card-icon theme-card-icon--preview" data-tooltip="Website tonen" aria-label="Website van dit thema tonen">
+                                <i class="ki-filled ki-eye" aria-hidden="true"></i>
+                            </a>
+                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline-flex" onsubmit="return confirm('Thema de-publiceren? Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.');">
                                 @csrf
                                 <input type="hidden" name="theme_id" value="{{ $theme->id }}">
-                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-muted-foreground hover:text-destructive" title="Thema niet meer beschikbaar maken">De-publiceren</button>
+                                <button type="submit" class="theme-card-icon theme-card-icon--unpublish" data-tooltip="De-publiceren" aria-label="Thema de-publiceren">
+                                    <i class="ki-filled ki-cross-circle" aria-hidden="true"></i>
+                                </button>
                             </form>
-                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground" title="Kleur, lettertypen en footer aanpassen">Instellingen</a>
+                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="theme-card-icon" data-tooltip="Instellingen" aria-label="Thema-instellingen">
+                                <i class="ki-filled ki-setting-2" aria-hidden="true"></i>
+                            </a>
                         @endif
                     </div>
                 </div>

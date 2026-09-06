@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="mb-6 text-center">
             <a href="{{ url('/') }}" class="inline-block">
-                @include('partials.nexa-brand-logo', ['class' => 'mx-auto h-10 w-auto object-contain dark:brightness-0 dark:invert'])
+                @include('partials.nexa-brand-logo', ['class' => 'mx-auto h-10 w-auto object-contain'])
             </a>
         </div>
         @include('partials.redirect-message')
