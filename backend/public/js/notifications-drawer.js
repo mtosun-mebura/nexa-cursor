@@ -22,6 +22,36 @@ function typedActionButtonsHtml(notification, spacingClass) {
         </div>
     `;
     }
+    if (notification.type === 'taxi_setup') {
+        let data = notification.data;
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (err) {
+                data = {};
+            }
+        }
+        const buttons = [
+            `<a href="${href}" class="kt-btn kt-btn-primary kt-btn-sm">Open stappenplan</a>`
+        ];
+        const steps = Array.isArray(data?.steps) ? data.steps : [];
+        steps
+            .filter((step) => step && step.done === false && step.url)
+            .forEach((step) => {
+                const label = String(step.button || step.title || 'Openen')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                const stepHref = String(step.url).replace(/"/g, '&quot;');
+                buttons.push(
+                    `<a href="${stepHref}" class="kt-btn kt-btn-outline kt-btn-sm">${label}</a>`
+                );
+            });
+        return `
+        <div class="flex flex-wrap gap-2.5 ${spacingClass}">
+            ${buttons.join('')}
+        </div>
+    `;
+    }
     if (notification.type !== 'config_access') {
         return '';
     }

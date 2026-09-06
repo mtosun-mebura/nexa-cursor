@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import WebsitePageBuilderV2 from './WebsitePageBuilderV2.vue'
 import type { BuilderBootstrap } from './website-page-builder-v2/types'
+import '../css/nexa-smooth-accordion.css'
 
 declare global {
   interface Window {

@@ -30,6 +30,9 @@
             <div class="text-lg leading-5 font-semibold text-mono text-center">
                 Rit #{{ $ride->id }}
             </div>
+            @if($ride->isNexaSuiteBooking())
+                <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] mt-1">Algemene boeking via NEXA Suite</span>
+            @endif
 
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
                 <div class="flex gap-1.25 items-center">
@@ -106,6 +109,9 @@
                 @endif
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Passagiers:</span><span class="flex-1">{{ $ride->passengers }}</span></p>
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Status:</span><span class="flex-1">{{ $ride->status_label }}</span></p>
+                @if($ride->isNexaSuiteBooking())
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Bron:</span><span class="flex-1">Algemene boeking via NEXA Suite (niet via de eigen website)</span></p>
+                @endif
                 @if($ride->quoted_price !== null)
                     <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Offerteprijs:</span><span class="flex-1">€ {{ number_format($ride->quoted_price, 2, ',', '.') }}</span></p>
                 @endif

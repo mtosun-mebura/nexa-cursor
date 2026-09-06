@@ -56,7 +56,6 @@ class PlatformMollieRequestBuilder
                 ],
                 'customerId' => $customerId,
                 'sequenceType' => 'first',
-                'method' => 'directdebit',
                 'description' => mb_substr($this->billing->firstCollectionDescription($profile, $asOf), 0, 255),
                 'redirectUrl' => $redirectUrl,
                 'metadata' => [
@@ -72,7 +71,7 @@ class PlatformMollieRequestBuilder
                 'Eerste betaling (mandaat + vooruitfacturatie)',
                 'POST',
                 '/v2/payments',
-                'SEPA-mandaat via eerste incasso. Bedrag = restant startmaand + volledige volgende maand (+ eventuele extra regels).',
+                'Mandaat via eerste checkout-betaling (iDEAL e.d.; geen method=directdebit). Bedrag = restant startmaand + volledige volgende maand (+ eventuele extra regels).',
                 $firstPayload,
             );
         } elseif ($profile->auto_collect_enabled && ! $mandate?->isActive()) {
@@ -83,7 +82,6 @@ class PlatformMollieRequestBuilder
                 ],
                 'customerId' => $customerId,
                 'sequenceType' => 'first',
-                'method' => 'directdebit',
                 'description' => 'SEPA-mandaat bevestigen (€0,01)',
                 'redirectUrl' => $redirectUrl,
                 'metadata' => [
@@ -99,7 +97,7 @@ class PlatformMollieRequestBuilder
                 'Mandaatverificatie (€0,01)',
                 'POST',
                 '/v2/payments',
-                'Alternatief pad zonder directe vooruitfacturatie: alleen mandaat vastleggen.',
+                'Alternatief pad zonder directe vooruitfacturatie: alleen mandaat vastleggen via checkout (niet via method=directdebit).',
                 $verifyPayload,
             );
         }

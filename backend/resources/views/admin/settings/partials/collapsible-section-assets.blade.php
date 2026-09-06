@@ -217,7 +217,8 @@
         font-size: 0.8125rem;
         font-weight: 600;
     }
-    #tenant-sync-tables:not(.settings-collapsible-card--collapsed) > .settings-collapsible-body {
+    #tenant-sync-tables:not(.settings-collapsible-card--collapsed) > .settings-collapsible-body,
+    #tenant-sync-tables:not(.settings-collapsible-card--collapsed) > .nexa-smooth-accordion .settings-collapsible-body {
         border-top: 1px solid var(--border);
         padding-top: 0.75rem;
     }
@@ -233,7 +234,11 @@
     }
 </style>
 @endpush
-@push('scripts')
+{{-- @push('scripts') i.p.v. hier: sommige admin-layouts (o.a. admin.layouts.app) hebben geen
+     @stack('scripts'), waardoor dit blok daar nooit gerenderd werd en de toggle niets deed.
+     De 'styles'-stack rendert wél overal (in <head>), en dit script stelt zijn eigen boot()
+     al uit tot DOMContentLoaded, dus is het veilig om hier mee te liften. --}}
+@push('styles')
 <script>
 (function () {
     var STORAGE_KEY = 'admin-settings-collapsible-open';
@@ -243,6 +248,9 @@
         'dispatch-settings-collapsible-root',
         'wizard-integrations-collapsible-root',
         'wizard-google-collapsible-root',
+        'company-config-access-collapsible-root',
+        'wizard-logo-collapsible-root',
+        'company-edit-logo-collapsible-root',
     ];
 
     function sectionStorageKey(card, root) {
@@ -351,6 +359,13 @@
         if (!root) {
             return;
         }
+        // Idempotent: als dit script (om welke reden dan ook) meer dan één keer voor dezelfde
+        // root draait, zorgt dit ervoor dat er nooit twee click-listeners op elkaar gestapeld
+        // worden — dat zou een klik laten voelen als "niets doet" (open + meteen weer dicht).
+        if (root.getAttribute('data-settings-collapsible-bound') === '1') {
+            return;
+        }
+        root.setAttribute('data-settings-collapsible-bound', '1');
         restoreCollapsibleState(root);
         root.querySelectorAll('.settings-collapsible-card, .settings-collapsible-section').forEach(function (card) {
             var btn = card.querySelector(':scope > .settings-collapsible-header .settings-collapsible-toggle');
@@ -412,6 +427,9 @@
         initSettingsCollapsible(document.getElementById('dispatch-settings-collapsible-root'));
         initSettingsCollapsible(document.getElementById('wizard-integrations-collapsible-root'));
         initSettingsCollapsible(document.getElementById('wizard-google-collapsible-root'));
+        initSettingsCollapsible(document.getElementById('company-config-access-collapsible-root'));
+        initSettingsCollapsible(document.getElementById('wizard-logo-collapsible-root'));
+        initSettingsCollapsible(document.getElementById('company-edit-logo-collapsible-root'));
         bindCollapsiblePersistOnSubmit();
 
         var hash = (window.location.hash || '').replace(/^#/, '');
@@ -423,10 +441,13 @@
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot);
-    } else {
+    // 'load' i.p.v. 'DOMContentLoaded': andere init-scripts (o.a. het Metronic-thema) herbouwen
+    // bepaalde DOM-subtrees nog na DOMContentLoaded, waardoor een click-listener die daarvóór
+    // werd aangehecht verloren ging. Bij 'load' is al die initialisatie al klaar.
+    if (document.readyState === 'complete') {
         boot();
+    } else {
+        window.addEventListener('load', boot);
     }
 })();
 </script>

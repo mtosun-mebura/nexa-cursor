@@ -3,6 +3,7 @@
 @section('title', 'Stap 1 — Bedrijf & logo')
 
 @section('wizard_content')
+@include('admin.settings.partials.collapsible-section-assets')
 <form method="post" enctype="multipart/form-data" data-validate="true" novalidate action="{{ $company ? route('admin.companies.wizard.submit-step', [$company, 1]) : route('admin.companies.wizard.store-step1') }}">
     @csrf
 
@@ -36,7 +37,24 @@
                     <td class="min-w-48 w-full align-top">
                         <input type="hidden" name="company_logo_mode" id="company-wizard-logo-mode-input" value="{{ $wizardLogoMode }}">
 
-                        <div class="mb-0">
+                        <div id="wizard-logo-collapsible-root">
+                        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="wizard-logo-collapsible">
+                            <div class="settings-collapsible-header">
+                                <button type="button" class="settings-collapsible-toggle flex w-full items-center justify-between gap-3 border-0 bg-transparent p-0 text-start cursor-pointer min-h-[2.25rem]" aria-expanded="false">
+                                    <span class="flex items-center gap-3 flex-1 min-w-0">
+                                        @if($wizLightUrl)
+                                            <img alt="Logo" class="w-auto max-w-[130px] object-contain" style="height: 28px;" src="{{ $wizLightUrl }}">
+                                        @else
+                                            <span class="text-sm text-muted-foreground">Geen logo geüpload</span>
+                                        @endif
+                                    </span>
+                                    <span class="settings-collapsible-chevron shrink-0 self-center text-muted-foreground" aria-hidden="true">
+                                        <i class="ki-filled ki-down settings-collapsible-icon-down text-base" aria-hidden="true"></i>
+                                        <i class="ki-filled ki-up settings-collapsible-icon-up text-base" aria-hidden="true"></i>
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="settings-collapsible-body pt-3">
                                 <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
                                 <div class="flex flex-col gap-2 mb-4">
                                     <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
@@ -48,7 +66,7 @@
 
                                 @if($wizLightUrl)
                                     <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
-                                    <div class="flex items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                                    <div class="flex items-center gap-3 mb-4 p-3">
                                         <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $wizLightUrl }}" id="company-wizard-settings-live-preview-light" />
                                         <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $wizDarkUrl }}" id="company-wizard-settings-live-preview-dark" />
                                     </div>
@@ -96,6 +114,8 @@
                                     <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
                                     @error('logo_dark')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="logo_dark">{{ $message }}</div>@enderror
                                 </div>
+                            </div>
+                        </div>
                         </div>
                     </td>
                 </tr>
@@ -320,7 +340,7 @@
             <h3 class="kt-card-title">Abonnement *</h3>
         </div>
         <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Kies het pakket dat deze klant afneemt. De handleiding en beschikbare functies volgen dit pakket.
+            Kies het pakket en de aanvullende modules die deze klant afneemt. Die zijn leidend voor Tenant-abonnementen en de maandfactuur.
         </p>
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">

@@ -161,7 +161,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-content p-0">
-                    <div class="px-3 sm:px-5 pb-3 min-w-0 flex flex-col gap-3">
+                    <div class="px-3 sm:px-5 pt-3 pb-3 min-w-0 flex flex-col gap-3">
                     <p class="text-xs text-muted-foreground mb-0">Optioneel. Leeglaten = algemene standaardtarieven worden gebruikt.</p>
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>

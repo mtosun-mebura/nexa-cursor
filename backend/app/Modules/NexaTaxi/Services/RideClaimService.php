@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\User;
+use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
@@ -79,6 +80,31 @@ class RideClaimService
                 ]);
             }
 
+            // Nieuw ophaalmoment gaat via rit_ophaal_voorstel (klant moet bevestigen),
+            // niet direct als pickup_at — conflictcheck gebruikt wel dit voorstelmoment.
+            $proposePickupAt = null;
+            if ($pickupAt !== null && trim($pickupAt) !== '') {
+                $instant = Carbon::parse($pickupAt);
+                if ($instant->lte($now)) {
+                    throw ValidationException::withMessages([
+                        'pickup_at' => ['Kies een ophaalmoment in de toekomst.'],
+                    ]);
+                }
+                $proposePickupAt = trim($pickupAt);
+            }
+
+            $effectivePickup = $proposePickupAt
+                ? Carbon::parse($proposePickupAt)
+                : ($ride->pickup_at ? $ride->pickup_at->copy() : $now->copy());
+
+            $this->assertNoScheduleConflict(
+                $conn,
+                (int) $driver->id,
+                $effectivePickup,
+                $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
+                (int) $ride->id
+            );
+
             RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $ride->id)
                 ->where('id', '!=', $offer->id)
@@ -98,19 +124,6 @@ class RideClaimService
                 'status' => RideRequest::STATUS_ACCEPTED,
                 'company_id' => $ride->company_id ?: $offer->company_id,
             ];
-
-            // Nieuw ophaalmoment gaat via rit_ophaal_voorstel (klant moet bevestigen),
-            // niet direct als pickup_at.
-            $proposePickupAt = null;
-            if ($pickupAt !== null && trim($pickupAt) !== '') {
-                $instant = Carbon::parse($pickupAt);
-                if ($instant->lte($now)) {
-                    throw ValidationException::withMessages([
-                        'pickup_at' => ['Kies een ophaalmoment in de toekomst.'],
-                    ]);
-                }
-                $proposePickupAt = trim($pickupAt);
-            }
 
             $ride->update($rideUpdates);
 
@@ -161,7 +174,14 @@ class RideClaimService
             }
 
             $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
-            if (! $ride || (int) $ride->driver_id !== (int) $driver->id) {
+            if (! $ride) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Rit niet gevonden.'],
+                ]);
+            }
+
+            $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+            if (! $ride->isVisibleToDriver((int) $driver->id, $vehicleId)) {
                 throw ValidationException::withMessages([
                     'ride' => ['Rit niet gevonden.'],
                 ]);
@@ -193,6 +213,9 @@ class RideClaimService
             }
 
             $updates = ['status' => RideRequest::STATUS_ASSIGNED];
+            if (! $ride->driver_id) {
+                $updates['driver_id'] = $driver->id;
+            }
             if ($ride->isReturnTrip() && $ride->hasOutboundCompleted() && ! $ride->hasReturnLegStarted()) {
                 $updates['return_started_at'] = now();
             }
@@ -756,5 +779,57 @@ class RideClaimService
         return $query->get()->contains(
             fn (RideRequest $ride) => $ride->blocksDriverFromOtherRides()
         );
+    }
+
+    /**
+     * Blokkeer accepteren als het ophaalmoment overlapt met een al geplande/lopende rit.
+     */
+    private function assertNoScheduleConflict(
+        string $conn,
+        int $driverId,
+        Carbon $newStart,
+        ?int $newDurationSeconds,
+        ?int $exceptRideId = null,
+    ): void {
+        $defaultDuration = 45 * 60;
+        $bufferSeconds = 10 * 60;
+        $newDuration = ($newDurationSeconds !== null && $newDurationSeconds > 0)
+            ? $newDurationSeconds
+            : $defaultDuration;
+        $newEnd = $newStart->copy()->addSeconds($newDuration + $bufferSeconds);
+
+        $query = RideRequest::on($conn)
+            ->where('driver_id', $driverId)
+            ->whereIn('status', [
+                RideRequest::STATUS_ACCEPTED,
+                RideRequest::STATUS_ASSIGNED,
+            ])
+            ->whereNotNull('pickup_at');
+
+        if ($exceptRideId !== null) {
+            $query->whereKeyNot($exceptRideId);
+        }
+
+        foreach ($query->get() as $existing) {
+            /** @var RideRequest $existing */
+            $existingStart = $existing->pickup_at?->copy();
+            if (! $existingStart) {
+                continue;
+            }
+            $existingDuration = $existing->duration_seconds !== null && (int) $existing->duration_seconds > 0
+                ? (int) $existing->duration_seconds
+                : $defaultDuration;
+            $existingEnd = $existingStart->copy()->addSeconds($existingDuration + $bufferSeconds);
+
+            if ($newStart->lt($existingEnd) && $newEnd->gt($existingStart)) {
+                $label = $existingStart->timezone(config('app.timezone'))->format('d-m-Y H:i');
+                throw ValidationException::withMessages([
+                    'offer' => [
+                        'Je hebt al een rit gepland rond dit tijdstip ('.$label.'). '.
+                        'Accepteer geen overlapping — bekijk eerst je geplande ritten.',
+                    ],
+                ]);
+            }
+        }
     }
 }

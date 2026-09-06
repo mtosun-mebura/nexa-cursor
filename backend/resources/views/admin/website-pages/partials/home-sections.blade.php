@@ -74,7 +74,7 @@
             'cta' => 'CTA',
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
-            'featured_services' => 'Dienstenblok (scroll-animatie)',
+            'featured_services' => 'Dienstenblok (icoon-uitvouw)',
             'email_template' => 'E-mailtemplate (informatieaanvraag)',
             'text_block' => 'Tekstblok (rich text + component)',
             default => $base,
@@ -1185,7 +1185,7 @@
                         <option value="right" {{ $textBlockAlignment === 'right' ? 'selected' : '' }}>Rechts</option>
                         <option value="full" {{ $textBlockAlignment === 'full' ? 'selected' : '' }}>Volledige breedte</option>
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Bepaalt hoe de tekst wordt uitgelijnd en of er ruimte is voor een component ernaast.</p>
+                    <p class="text-xs text-muted-foreground mt-1">Links/Rechts: ruimte voor een afbeelding ernaast. Midden: tekst in het midden van het scherm.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Component naast de tekst</label>
@@ -1824,8 +1824,12 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg" data-panel-title="Uiterlijk & titel">
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div>
+                    <label class="text-sm text-muted-foreground">Kleur titel</label>
+                    <input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][title_color]" value="{{ old('home_sections.'.$sectionKey.'.style.title_color', $bookingData['style']['title_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}">
+                </div>
+                <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte titel</label>
-                    @php $bookingTitleFontPx = old('home_sections.'.$sectionKey.'.style.title_font_size_px', $bookingData['style']['title_font_size_px'] ?? '36'); @endphp
+                    @php $bookingTitleFontPx = old('home_sections.'.$sectionKey.'.style.title_font_size_px', $bookingData['style']['title_font_size_px'] ?? '24'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][title_font_size_px]">
                         @foreach(range(16, 72, 2) as $px)
                             <option value="{{ $px }}" {{ (string) $bookingTitleFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
@@ -1846,7 +1850,7 @@
                 </div>
                 <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte stapkop (Reisgegevens e.d.)</label>
-                    @php $bookingStepHeadingFontPx = old('home_sections.'.$sectionKey.'.style.step_heading_font_size_px', $bookingData['style']['step_heading_font_size_px'] ?? '30'); @endphp
+                    @php $bookingStepHeadingFontPx = old('home_sections.'.$sectionKey.'.style.step_heading_font_size_px', $bookingData['style']['step_heading_font_size_px'] ?? '20'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][step_heading_font_size_px]">
                         @foreach(range(16, 48, 2) as $px)
                             <option value="{{ $px }}" {{ (string) $bookingStepHeadingFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
@@ -4217,20 +4221,20 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     document.querySelectorAll('input[id^="visibility-"]').forEach(function(input) { applyVisibilityTargets(input.id); });
 
     // Collapse/expand sectie-kaarten (rechts van het oogje in de header)
-    var chevronDownSvg = '<svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>';
-    var chevronUpSvg = '<svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>';
     function setSectionCollapsed(card, collapsed) {
         var body = card && card.querySelector('.home-section-card-body');
         var btn = card && card.querySelector('.home-section-collapse-toggle');
         if (!card) return;
         if (collapsed) {
             card.classList.add('home-section-card--collapsed');
-            if (body) body.style.display = 'none';
-            if (btn) { btn.setAttribute('title', 'Uitklappen'); btn.setAttribute('aria-label', 'Sectie uitklappen'); btn.innerHTML = chevronDownSvg; }
+            if (btn) { btn.setAttribute('title', 'Uitklappen'); btn.setAttribute('aria-label', 'Sectie uitklappen'); }
         } else {
             card.classList.remove('home-section-card--collapsed');
-            if (body) body.style.display = '';
-            if (btn) { btn.setAttribute('title', 'Inklappen'); btn.setAttribute('aria-label', 'Sectie inklappen'); btn.innerHTML = chevronUpSvg; }
+            if (btn) { btn.setAttribute('title', 'Inklappen'); btn.setAttribute('aria-label', 'Sectie inklappen'); }
+        }
+        if (body) {
+            body.removeAttribute('hidden');
+            body.style.removeProperty('display');
         }
     }
     function updateCollapseAllButton() {
@@ -5877,8 +5881,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .tox-tinymce { border-radius: var(--radius, 0.375rem) !important; border-color: var(--color-input, #e5e7eb) !important; }
     .dark .tox-tinymce { border-color: var(--color-input) !important; background-color: #1f2937 !important; }
     .dark .tox .tox-edit-area__iframe { background: #1f2937 !important; }
-    /* Home-sectie inklappen: body verbergen wanneer ingeklapt */
-    .home-section-card--collapsed .home-section-card-body { display: none !important; }
+    /* Home-sectie inklappen: body verbergen wanneer ingeklapt (tot de smooth-accordion-wrapper klaar is) */
+    .home-section-card--collapsed > .home-section-card-body { display: none !important; }
     /* NEXA modules overzicht: heroicon picker (details/summary) */
     .nexa-module-icon-details > summary { list-style: none; }
     .nexa-module-icon-details > summary::-webkit-details-marker { display: none; }

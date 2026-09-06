@@ -85,24 +85,45 @@ class AdminHandleidingTest extends TestCase
         $this->assertArrayHasKey('ritten', $pages);
         $this->assertArrayHasKey('website-en-boekingen', $pages);
         $this->assertArrayHasKey('facturen', $pages);
+        $this->assertArrayHasKey('incidenten', $pages);
+        $this->assertArrayNotHasKey('gps-tracker', $pages);
         $this->assertArrayNotHasKey('betalingen', $pages);
         $this->assertArrayNotHasKey('dispatch', $pages);
         $this->assertArrayNotHasKey('chauffeur-app', $pages);
         $this->assertArrayNotHasKey('contractvervoer', $pages);
         $this->assertArrayNotHasKey('contractportaal', $pages);
+        $this->assertArrayNotHasKey('nexa-suite-ritten', $pages);
+        $this->assertArrayNotHasKey('frontend-en-ai', $pages);
+        $this->assertArrayNotHasKey('nexa-facturatie', $pages);
+        $this->assertArrayNotHasKey('paketten', $pages);
+        $this->assertArrayNotHasKey('bedrijven', $pages);
 
         $this->actingAs($user)
             ->get(route('admin.handleiding.index'))
             ->assertOk()
             ->assertSee('Aan de slag')
+            ->assertSee('Incidenten')
             ->assertDontSee('Dispatch')
             ->assertDontSee('Chauffeur-app')
             ->assertDontSee('Contractvervoer')
-            ->assertDontSee('Betalingen via Mollie');
+            ->assertDontSee('Betalingen via Mollie')
+            ->assertDontSee('Alleen super-admin')
+            ->assertDontSee('NEXA Suite ritten')
+            ->assertDontSee('Front-end en AI-website');
 
         $this->actingAs($user)
             ->get(route('admin.handleiding.show', 'dispatch'))
             ->assertNotFound();
+
+        $this->actingAs($user)
+            ->get(route('admin.handleiding.show', 'nexa-suite-ritten'))
+            ->assertNotFound();
+
+        $this->actingAs($user)
+            ->get(route('admin.handleiding.show', 'incidenten'))
+            ->assertOk()
+            ->assertSee('Incidenten')
+            ->assertDontSee('Voor super-admins');
     }
 
     #[Test]
@@ -148,6 +169,9 @@ class AdminHandleidingTest extends TestCase
             ->get(route('admin.handleiding.index'))
             ->assertOk()
             ->assertSee('Aan de slag')
+            ->assertSee('NEXA Suite ritten')
+            ->assertSee('Front-end en AI-website')
+            ->assertSee('Alleen super-admin')
             ->assertDontSee('Dispatch')
             ->assertDontSee('Contractvervoer');
     }
@@ -162,7 +186,38 @@ class AdminHandleidingTest extends TestCase
             ->get(route('admin.handleiding.index'))
             ->assertOk()
             ->assertSee('Dispatch')
-            ->assertSee('Contractvervoer');
+            ->assertSee('Contractvervoer')
+            ->assertSee('NEXA Suite ritten')
+            ->assertSee('GPS-tracker')
+            ->assertSee('Paketten');
+
+        $this->actingAs($super)
+            ->get(route('admin.handleiding.show', 'nexa-suite-ritten'))
+            ->assertOk()
+            ->assertSee('Betalingen → NEXA Suite ritten');
+
+        $this->actingAs($super)
+            ->get(route('admin.handleiding.show', 'incidenten'))
+            ->assertOk()
+            ->assertSee('Voor super-admins');
+    }
+
+    #[Test]
+    public function gps_handleiding_is_visible_when_the_addon_is_enabled(): void
+    {
+        $user = $this->createCompanyAdmin('pro');
+        $user->company->forceFill([
+            'package_addons' => [\App\Support\TenantPackageAddon::GPS_TRACKING => 1],
+        ])->save();
+
+        $pages = AdminHandleiding::pagesForUser($user->fresh());
+        $this->assertArrayHasKey('gps-tracker', $pages);
+
+        $this->actingAs($user->fresh())
+            ->get(route('admin.handleiding.show', 'gps-tracker'))
+            ->assertOk()
+            ->assertSee('GPS-tracker')
+            ->assertSee('images/handleiding/gps-tracker.jpg', false);
     }
 
     #[Test]

@@ -32,3 +32,15 @@
     <span class="handleiding-step-num">2</span>
     <div>Controleer de tarieven zodat de prijsindicatie op de website klopt.</div>
 </div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">3</span>
+    <div>
+        Stel bij voorkeur een eigen <strong>mailserver</strong> in. Zonder eigen SMTP gaan klantmails via NEXA Suite
+        (dat zien klanten als afzender).
+    </div>
+</div>
+<p class="text-sm text-muted-foreground mt-4 mb-0">
+    Na het inloggen krijg je een stappenplan-popup als voertuigen of tarieven nog ontbreken.
+    Dat stappenplan blijft ook beschikbaar via je <strong>notificaties</strong>.
+    Zonder voertuig kun je de boekingsmodule niet op de website plaatsen.
+</p>

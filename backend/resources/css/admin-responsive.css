@@ -1,5 +1,17 @@
 /* Admin: responsive overzichten, filters, formulieren en detailpagina's */
 
+/* Taxi-setup warning: zwart op geel (theme default is wit op yellow-500) */
+[data-taxi-setup-banner],
+[data-taxi-setup-banner] i,
+[data-taxi-setup-banner] i::before,
+[data-taxi-setup-banner] .font-semibold {
+    color: #111827 !important;
+}
+
+[data-taxi-setup-banner] .text-sm {
+    color: #4b5563 !important;
+}
+
 /* --- Layout: volledige viewporthoogte/breedte (geen zwarte rand rechts) --- */
 html {
     width: 100%;
@@ -147,32 +159,125 @@ body.dark #header [data-ai-chat-toggle] svg,
 
 /* Desktop: inklap-knop sidebar blijft zichtbaar en klikbaar (niet alleen bij hover) */
 @media (min-width: 1024px) {
+    /* Knop zit tegen de sidebarrand; overflow zichtbaar houden voor collapsed states. */
+    #sidebar,
     .demo1.kt-sidebar-collapse #sidebar {
-        z-index: 10055;
         overflow: visible;
     }
 
-    .demo1.kt-sidebar-collapse #sidebar .kt-sidebar-header {
-        overflow: visible;
+    /* De togglepijl zit tegen de sidebarrand. #header heeft een INLINE
+       style="z-index:9999" voor sticky-gedrag — ver boven de Tailwind-klasse
+       z-[99]. Een hogere z-index op de knop alléén helpt niet: #sidebar heeft
+       zijn eigen stacking context, dus moet de SIDEBAR ZELF al boven de header
+       uitkomen, anders blijft elke afstammeling er visueel achter hangen. */
+    #sidebar {
+        z-index: 10056;
     }
 
-    .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle {
-        z-index: 2;
+    /* Fullscreen admin-modals (page builder e.d.) moeten boven de sidebar liggen.
+       Sidebar blijft 10056; bij open modal tijdelijk lager zodat blur/backdrop dekt. */
+    body:has(.builder-config-modal) #sidebar,
+    body:has(.builder-preview-popout) #sidebar,
+    body:has(.builder-image-lightbox) #sidebar,
+    body:has(.builder-block-preview-modal) #sidebar {
+        z-index: 40 !important;
+    }
+
+    /* Rechterkant van de knop altijd exact tegen de sidebarrand; rechterrand
+       open zodat de verticale lijn visueel om het pijltje heen loopt.
+       1px naar rechts zodat het blokje op de sidebarrand staat.
+       Verticaal: top/bottom + auto-margins =zelfde midden als flex-logo. */
+    #sidebar_toggle {
         pointer-events: auto;
+        z-index: 2;
+        inset-inline-end: -1px !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        margin-block: auto !important;
+        transform: none !important;
+        width: 18px !important;
+        min-width: 18px !important;
+        height: 22px !important;
+        padding: 0 !important;
         background-color: var(--background);
-        border-color: var(--border);
-        box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+        border-right: 0 !important;
+        border-inline-end: 0 none transparent !important;
+        border-inline-end-width: 0 !important;
+        border-inline-end-style: none !important;
+        border-inline-end-color: transparent !important;
+        border-start-end-radius: 0 !important;
+        border-end-end-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
     }
 
-    html.dark .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle,
-    body.dark .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle,
-    .dark.demo1.kt-sidebar-collapse #sidebar #sidebar_toggle {
-        box-shadow: 0 1px 6px rgb(0 0 0 / 0.45);
+    #sidebar_toggle .sidebar-toggle-caret {
+        display: block;
+        flex-shrink: 0;
+        width: 11px;
+        height: 11px;
+        color: var(--muted-foreground);
+    }
+
+    /* Ingeklapt: volledige logo-padding weg zodat favicon gecentreerd blijft;
+       pijl blijft op de rand (zelfde dock als uitgeklapt). */
+    .demo1.kt-sidebar-collapse #sidebar:not(:hover) .kt-sidebar-header > a {
+        padding-inline-end: 0;
+        justify-content: center;
+    }
+    .demo1.kt-sidebar-collapse #sidebar:not(:hover) .kt-sidebar-header .small-logo {
+        display: block !important;
+        width: 26px;
+        height: 26px;
+        margin-inline: auto;
+    }
+
+    /* De knop krijgt via Metronic's ".active"-status normaal een geaccentueerde
+       achtergrond (bedoeld als "ingedrukt"-stijl voor knoppen). Voor de in-/uitklap-
+       pijl willen we dat de ingeklapte (rechter) pijl er precies zo rustig en
+       geïntegreerd uitziet als de uitgeklapte (linker) pijl, dus die accentkleur
+       hier neutraliseren naar dezelfde kleuren als de niet-actieve staat. */
+    .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle.active {
+        background-color: var(--background);
+        border-color: var(--input);
+        border-right: 0 !important;
+        border-inline-end: 0 none transparent !important;
+        border-inline-end-width: 0 !important;
+        border-inline-end-style: none !important;
+        border-inline-end-color: transparent !important;
+        color: var(--secondary-foreground);
+        inset-inline-end: -1px !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        margin-block: auto !important;
+        transform: none !important;
+    }
+
+    .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle.active .sidebar-toggle-caret {
+        color: var(--muted-foreground);
     }
 }
 
-/* Admin content: volle breedte naast sidebar, één dunne pagina-inset */
-#content .kt-container-fixed {
+/* Footer blijft altijd zichtbaar onderin het scherm (scrollt niet mee), net als de
+   fixed header. Extra padding zodat de onderste kaarten niet tegen de footer plakken. */
+#content {
+    padding-bottom: 6.5rem;
+}
+
+@media (min-width: 1024px) {
+    .demo1.kt-sidebar-fixed .kt-footer {
+        transition: inset-inline-start var(--sidebar-transition-duration) var(--sidebar-transition-timing);
+        inset-inline-start: var(--sidebar-width) !important;
+    }
+}
+
+/* Admin content: volle breedte naast sidebar, één dunne pagina-inset.
+   Ook de footer-container krijgt dit (zelfde inset), anders lijnt "2026© NEXA Suite"
+   niet uit met de kaarten/koppen in #content erboven. */
+#content .kt-container-fixed,
+.kt-footer .kt-container-fixed {
     min-width: 0;
     max-width: none !important;
     width: 100% !important;
@@ -187,7 +292,8 @@ body.dark #header [data-ai-chat-toggle] svg,
 }
 
 @media (min-width: 1024px) {
-    #content > .kt-container-fixed {
+    #content > .kt-container-fixed,
+    .kt-footer > .kt-container-fixed {
         padding-inline: max(1rem, env(safe-area-inset-left, 0px))
             max(1rem, env(safe-area-inset-right, 0px)) !important;
     }
@@ -224,12 +330,31 @@ body.dark #header [data-ai-chat-toggle] svg,
     min-width: 0;
 }
 
-#content .kt-scrollable-x-auto .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table),
-#content .kt-card-table .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table),
-#content .kt-table-responsive .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table),
-#content .admin-table-scroll-wrap .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table) {
+#content .kt-scrollable-x-auto .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table):not(.admin-datatable-cols-locked),
+#content .kt-card-table .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table):not(.admin-datatable-cols-locked),
+#content .kt-table-responsive .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table):not(.admin-datatable-cols-locked),
+#content .admin-table-scroll-wrap .kt-table:not(.admin-keep-table-layout):not(.admin-fluid-table):not(.admin-datatable-cols-locked) {
     width: max-content;
     min-width: 100%;
+}
+
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked {
+    table-layout: fixed;
+    width: 100% !important;
+    min-width: 100%;
+}
+
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked td {
+    overflow-wrap: anywhere;
+}
+
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked td:last-child {
+    overflow-wrap: normal;
+    overflow: visible;
+}
+
+#content .admin-email-copy {
+    cursor: pointer;
 }
 
 /* Algemene instellingen: formulier-tabellen binnen de kaart */
@@ -2189,7 +2314,7 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 }
 
 .home-section-field-panel-chevron {
-    transition: transform 0.15s ease;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .home-section-field-panel--collapsed .home-section-field-panel-chevron {
@@ -2214,7 +2339,7 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     background: rgb(17 24 39 / 0.15);
 }
 
-.home-section-field-panel--collapsed .home-section-field-panel-body {
+.home-section-field-panel--collapsed > .home-section-field-panel-body {
     display: none !important;
 }
 
@@ -2603,6 +2728,39 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     font-size: 0.6875rem;
 }
 
+/* --- Pagina-tabs (echte links, geen KT tab-JS) --- */
+.kt-tabs.kt-tabs-line.admin-page-tabs {
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    overflow-x: auto;
+}
+
+.kt-tabs.kt-tabs-line.admin-page-tabs a.kt-tab-toggle {
+    text-decoration: none;
+    white-space: nowrap;
+    padding-block: 0.75rem;
+}
+
+.kt-tabs.kt-tabs-line.admin-page-tabs a.kt-tab-toggle i {
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--muted-foreground);
+}
+
+.kt-tabs.kt-tabs-line.admin-page-tabs a.kt-tab-toggle:hover {
+    color: var(--primary);
+}
+
+.kt-tabs.kt-tabs-line.admin-page-tabs a.kt-tab-toggle:hover i,
+.kt-tabs.kt-tabs-line.admin-page-tabs a.kt-tab-toggle.active i {
+    color: var(--primary);
+}
+
+.kt-tabs.kt-tabs-line.admin-page-tabs a.kt-tab-toggle.active {
+    border-bottom-color: var(--primary);
+    color: var(--primary);
+}
+
 /* --- KT datepicker: popup aan input, omhoog bij weinig ruimte onder --- */
 [data-vc='calendar'][data-vc-input] {
     transition: none !important;
@@ -2626,6 +2784,17 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 
 [data-vc='calendar'][data-vc-input].admin-date-picker-floating[data-admin-date-picker-placement='bottom'] {
     transform-origin: top left;
+}
+
+.kt-input.admin-month-picker {
+    cursor: pointer;
+}
+
+.kt-input.admin-month-picker i.ki-calendar {
+    color: var(--foreground);
+    font-size: 1.25rem;
+    line-height: 1;
+    opacity: 1;
 }
 
 /* Voorkom dat kaarten/formulieren de open calendar afsnijden */

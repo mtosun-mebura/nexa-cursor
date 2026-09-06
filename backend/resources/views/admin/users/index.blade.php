@@ -191,11 +191,11 @@
             <div class="kt-card-content">
                 @if($users->count() > 0)
                     <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="users_table" data-admin-datatable-label="gebruikers">
-                        <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border">
+                        <div class="kt-scrollable-x-auto admin-table-scroll-wrap users-table-wrap">
+                            <table class="kt-table kt-table-border admin-fluid-table w-full">
                             <thead>
                                 <tr>
-                                    <th class="min-w-[250px]">
+                                    <th data-label="Gebruiker">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Gebruiker</span>
                                             <span class="kt-table-col-sort">
@@ -216,19 +216,19 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Rol">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Rol</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Bedrijf">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Bedrijf</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[120px]">
+                                    <th data-label="Status">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Status</span>
                                             <span class="kt-table-col-sort">
@@ -247,7 +247,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Aangemaakt">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Aangemaakt</span>
                                             <span class="kt-table-col-sort">
@@ -270,7 +270,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="text-center" data-label="Acties">Acties</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -315,10 +315,15 @@
                                             </div>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            @if(count($user->webRoleNames()) > 0)
-                                                @foreach($user->webRoleNames() as $roleName)
-                                                    <span class="kt-badge kt-badge-info me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
-                                                @endforeach
+                                            @php
+                                                $userRoleNames = $displayRoleNames[$user->id] ?? $user->assignedRoleNames();
+                                            @endphp
+                                            @if(count($userRoleNames) > 0)
+                                                <div class="flex flex-wrap gap-1">
+                                                    @foreach($userRoleNames as $roleName)
+                                                        <span class="kt-badge kt-badge-info">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
+                                                    @endforeach
+                                                </div>
                                             @else
                                                 <span class="text-sm text-muted-foreground">Geen rol</span>
                                             @endif
@@ -333,17 +338,27 @@
                                         <td class="user-status-cell">
                                             @php
                                                 $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
+                                                $presence = ($appPresence[$user->id] ?? null) ?: ['chauffeur' => ['applicable' => false, 'online' => false], 'contract' => ['applicable' => false, 'online' => false]];
                                             @endphp
-                                            @if($isActive)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
-                                            @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
-                                            @endif
+                                            <div class="flex flex-col items-start gap-1">
+                                                <span class="user-account-status">
+                                                    @if($isActive)
+                                                        <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                    @else
+                                                        <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                    @endif
+                                                </span>
+                                                @if(!empty($presence['chauffeur']['applicable']))
+                                                    <span class="kt-badge kt-badge-sm {{ !empty($presence['chauffeur']['online']) ? 'kt-badge-success' : 'kt-badge-secondary' }}" title="Status in de chauffeur-app">
+                                                        Chauffeur · {{ !empty($presence['chauffeur']['online']) ? 'Online' : 'Offline' }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="text-foreground font-normal">
                                             <span class="text-sm">{{ $user->created_at->format('d-m-Y') }}</span>
                                         </td>
-                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                        <td class="users-table__actions-col" onclick="event.stopPropagation();" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
@@ -702,10 +717,10 @@
                         return;
                     }
                     
-                    // Update status badge
-                    const statusCell = userRow.querySelector('.user-status-cell');
-                    if (statusCell) {
-                        statusCell.innerHTML = data.is_active 
+                    // Update account status badge; laat chauffeur-/contract-app status staan
+                    const accountStatus = userRow.querySelector('.user-account-status');
+                    if (accountStatus) {
+                        accountStatus.innerHTML = data.is_active
                             ? '<span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>'
                             : '<span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>';
                     }
@@ -852,6 +867,49 @@
 
 @push('styles')
 <style>
+    #content #users_table .admin-fluid-table th:nth-child(1),
+    #content #users_table .admin-fluid-table td:nth-child(1) {
+        width: 32%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(2),
+    #content #users_table .admin-fluid-table td:nth-child(2) {
+        width: 16%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(3),
+    #content #users_table .admin-fluid-table td:nth-child(3) {
+        width: 16%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(4),
+    #content #users_table .admin-fluid-table td:nth-child(4) {
+        width: 16%;
+    }
+
+    #content #users_table .admin-fluid-table th:nth-child(5),
+    #content #users_table .admin-fluid-table td:nth-child(5) {
+        width: 12%;
+    }
+
+    #content #users_table .admin-fluid-table th:last-child,
+    #content #users_table .admin-fluid-table td:last-child,
+    #content #users_table .users-table__actions-col {
+        width: 4.5rem !important;
+        min-width: 4.5rem !important;
+        max-width: 4.5rem !important;
+        padding-inline: 0.375rem !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+        white-space: nowrap;
+        overflow: visible !important;
+    }
+
+    #users_table .users-table-wrap {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+    }
+
     /* Table column sorting */
     .kt-table-col {
         display: flex !important;

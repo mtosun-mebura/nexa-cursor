@@ -22,9 +22,12 @@
     [data-vc-theme="light"].vc[data-vc-input] {
         z-index: 9999 !important;
     }
-    /* Ensure accordion content is visible when active */
-    .kt-accordion-item.active .kt-accordion-content {
-        display: block !important;
+    /* Ensure accordion content is visible when active (tot de smooth-accordion-wrapper klaar is) */
+    .kt-accordion-item:not(.active) > .kt-accordion-content {
+        display: none !important;
+    }
+    .kt-accordion-item.active > .kt-accordion-content {
+        display: block;
     }
 </style>
 
@@ -2368,16 +2371,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const isExpanded = item.getAttribute('aria-expanded') === 'true';
         
         if (isExpanded) {
-            // Close
-            content.style.display = 'none';
             item.setAttribute('aria-expanded', 'false');
             item.classList.remove('active');
         } else {
-            // Open
-            content.style.display = 'block';
             item.setAttribute('aria-expanded', 'true');
             item.classList.add('active');
         }
+        content.classList.remove('hidden');
+        content.style.removeProperty('display');
     }
     
     function initAppointmentAccordion() {

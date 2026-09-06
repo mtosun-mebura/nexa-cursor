@@ -35,9 +35,10 @@ class NexaTaxiBookingPricingService
             'style' => [
                 'primary_color' => self::DEFAULT_BRAND_ACCENT_HEX,
                 'active_tab_color' => self::DEFAULT_BRAND_ACCENT_HEX,
+                'title_color' => self::DEFAULT_BRAND_ACCENT_HEX,
                 'tab_font_size_px' => '14',
-                'title_font_size_px' => '36',
-                'step_heading_font_size_px' => '30',
+                'title_font_size_px' => '24',
+                'step_heading_font_size_px' => '20',
                 'field_heading_font_size_px' => '16',
                 'route_map_zoom' => '14',
                 'live_map_position' => 'beside_card',
@@ -156,6 +157,11 @@ class NexaTaxiBookingPricingService
             ? $tabFontPx
             : (int) $defaults['style']['tab_font_size_px'];
         $section['style']['tab_font_size_px'] = (string) $tabFontPx;
+
+        $titleColor = trim((string) ($section['style']['title_color'] ?? ''));
+        $section['style']['title_color'] = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $titleColor)
+            ? $titleColor
+            : $defaults['style']['title_color'];
 
         $titleFontPx = (int) ($section['style']['title_font_size_px'] ?? $defaults['style']['title_font_size_px']);
         $titleFontPx = ($titleFontPx >= 16 && $titleFontPx <= 72 && $titleFontPx % 2 === 0)
@@ -348,16 +354,18 @@ class NexaTaxiBookingPricingService
                 if (empty($features)) {
                     $features = $this->resolveVehicleFeatures($vehicleForDisplay);
                 }
+                $offerTitle = $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding '.($idx + 1)));
+                $imageVehicle = $this->resolveVehicleForOfferImage($vehicleForDisplay, $allVehicleMap, $offerTitle);
                 $resultOffers[] = [
                     'id' => $id !== '' ? $id : ('offer_'.($idx + 1)),
-                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding '.($idx + 1))),
+                    'title' => $offerTitle,
                     'badge' => $rawBadge,
                     'button_text' => $offer['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
                     'features' => $features,
                     'vehicle_id' => $vehicleForDisplay?->id,
                     'vehicle_name' => $vehicleForDisplay?->name,
                     'seats' => $vehicleForDisplay ? max(0, (int) ($vehicleForDisplay->seats ?? 0)) : null,
-                    'image_url' => $this->resolveVehicleImageUrlForOffer($vehicleForDisplay),
+                    'image_url' => $this->resolveVehicleImageUrlForOffer($imageVehicle),
                     'price' => $total,
                     'old_price' => $oldTotal > $total ? $oldTotal : null,
                     'currency' => 'EUR',
@@ -804,6 +812,28 @@ class NexaTaxiBookingPricingService
     }
 
     /**
+     * Koppel een voertuigfoto ook als de aanbieding geen vehicle_id heeft, via de titel.
+     *
+     * @param  array<int, Vehicle>  $allVehicleMap
+     */
+    private function resolveVehicleForOfferImage(?Vehicle $preferred, array $allVehicleMap, string $title): ?Vehicle
+    {
+        if ($preferred && ! empty($preferred->image_url)) {
+            return $preferred;
+        }
+        $needle = strtolower(trim($title));
+        if ($needle !== '') {
+            foreach ($allVehicleMap as $vehicle) {
+                if (strtolower(trim((string) $vehicle->name)) === $needle && ! empty($vehicle->image_url)) {
+                    return $vehicle;
+                }
+            }
+        }
+
+        return $preferred;
+    }
+
+    /**
      * @param  array<int, Vehicle>  $vehicleMap
      */
     private function resolvePersonRangeImageUrl(array $vehicleMap): ?string
@@ -860,6 +890,14 @@ class NexaTaxiBookingPricingService
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /**
+     * Of er minstens één actief voertuig is voor de boekingsmodule (tenant of platform).
+     */
+    public function hasActiveVehiclesForBooking(?int $tenantCompanyId = null): bool
+    {
+        return ! empty($this->getAllActiveVehiclesById($tenantCompanyId));
     }
 
     /**

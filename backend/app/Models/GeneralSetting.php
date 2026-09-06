@@ -74,6 +74,7 @@ class GeneralSetting extends Model
         'info_request_success_image_size_percent',
         'info_request_success_image',
         'nexa_pricing',
+        'frontend_component_disabled_overrides',
     ];
 
     /** Tenant-mailserver; leeg = NEXA Suite-mailserver (`company_id` null) of `.env`. */

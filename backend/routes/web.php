@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\AdminIncidentController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminModuleController;
 use App\Http\Controllers\Admin\AdminNewsletterController;
+use App\Http\Controllers\Admin\AdminNexaSuiteMarketplaceController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentProviderController;
@@ -703,6 +704,23 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::get('payments/openstaand', [AdminPaymentController::class, 'openstaand'])->name('payments.openstaand');
         Route::get('payments/voldaan', [AdminPaymentController::class, 'voldaan'])->name('payments.voldaan');
 
+        Route::prefix('nexa-suite-bookings')->name('nexa-suite-bookings.')->group(function () {
+            Route::get('/', [AdminNexaSuiteMarketplaceController::class, 'index'])->name('index');
+            Route::get('ritten', [AdminNexaSuiteMarketplaceController::class, 'rides'])->name('rides');
+            Route::get('invoices', [AdminNexaSuiteMarketplaceController::class, 'invoices'])->name('invoices');
+            Route::get('invoices/{invoice}/pdf', [AdminNexaSuiteMarketplaceController::class, 'downloadPdf'])->name('invoices.pdf');
+            Route::get('invoices/{invoice}', [AdminNexaSuiteMarketplaceController::class, 'showInvoice'])->name('invoices.show');
+            Route::post('invoices/{invoice}/send', [AdminNexaSuiteMarketplaceController::class, 'send'])->name('invoices.send');
+            Route::post('invoices/{invoice}/mark-paid', [AdminNexaSuiteMarketplaceController::class, 'markPaid'])->name('invoices.mark-paid');
+            Route::post('invoices/{invoice}/status', [AdminNexaSuiteMarketplaceController::class, 'updateStatus'])->name('invoices.status');
+            Route::post('invoices/{invoice}/reminder', [AdminNexaSuiteMarketplaceController::class, 'sendReminder'])->name('invoices.reminder');
+            Route::get('settings', [AdminNexaSuiteMarketplaceController::class, 'settings'])->name('settings');
+            Route::put('settings', [AdminNexaSuiteMarketplaceController::class, 'updateSettings'])->name('settings.update');
+            Route::post('generate', [AdminNexaSuiteMarketplaceController::class, 'generate'])->name('generate');
+            Route::post('run-now', [AdminNexaSuiteMarketplaceController::class, 'runNow'])->name('run-now');
+            Route::post('run-dunning', [AdminNexaSuiteMarketplaceController::class, 'runDunning'])->name('run-dunning');
+        });
+
         // Invoices (Super Admin only)
         // Settings routes moeten vóór resource route staan om route conflict te voorkomen
         Route::get('invoices/settings', [AdminInvoiceController::class, 'settings'])->name('invoices.settings');
@@ -730,10 +748,12 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
             Route::post('tenants/{company}/mollie-request-preview', [AdminCompanyBillingProfileController::class, 'mollieRequestPreview'])->name('tenants.mollie-request-preview');
             Route::post('tenants/{company}/invoice-preview-pdf', [AdminCompanyBillingProfileController::class, 'invoicePreviewPdf'])->name('tenants.invoice-preview-pdf');
             Route::post('tenants/{company}/mandate', [AdminCompanyBillingProfileController::class, 'requestMandate'])->name('tenants.mandate');
+            Route::post('tenants/{company}/emergency-terminate', [AdminCompanyBillingProfileController::class, 'emergencyTerminate'])->name('tenants.emergency-terminate');
             Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', 'Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.'))->name('mandates.return');
             Route::get('invoices', [AdminPlatformInvoiceController::class, 'index'])->name('invoices.index');
             Route::post('invoices/run-now', [AdminPlatformInvoiceController::class, 'runNow'])->name('invoices.run-now');
             Route::post('invoices/run-dunning', [AdminPlatformInvoiceController::class, 'runDunningNow'])->name('invoices.run-dunning');
+            Route::post('invoices/{invoice}/send', [AdminPlatformInvoiceController::class, 'send'])->name('invoices.send');
             Route::get('invoices/{invoice}/pdf', [AdminPlatformInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
             Route::get('invoices/{invoice}/edit', [AdminPlatformInvoiceController::class, 'edit'])->name('invoices.edit');
             Route::put('invoices/{invoice}', [AdminPlatformInvoiceController::class, 'update'])->name('invoices.update');
@@ -820,6 +840,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
             Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
             Route::get('website-ai', [App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController::class, 'create'])->name('website-ai.create');
             Route::post('website-ai', [App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController::class, 'generate'])->name('website-ai.generate');
+
+            Route::get('ai-images', [App\Http\Controllers\Admin\AdminAiImageGeneratorController::class, 'index'])->name('ai-images.index');
+            Route::post('ai-images/generate', [App\Http\Controllers\Admin\AdminAiImageGeneratorController::class, 'generate'])->name('ai-images.generate');
+            Route::delete('ai-images/{aiGeneratedImage}', [App\Http\Controllers\Admin\AdminAiImageGeneratorController::class, 'destroy'])->name('ai-images.destroy');
         });
 
         Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
@@ -834,6 +858,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::get('frontend-themes/{frontend_theme}/edit', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'edit'])->name('frontend-themes.edit');
         Route::put('frontend-themes/{frontend_theme}', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'update'])->name('frontend-themes.update');
         Route::get('frontend-components', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'index'])->name('frontend-components.index');
+        Route::post('frontend-components/toggle-disabled', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'toggleDisabled'])->name('frontend-components.toggle-disabled');
         Route::get('frontend-components/{componentId}/demo', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'demo'])->name('frontend-components.demo');
 
         // Postcode lookup (for address autocomplete)
@@ -848,12 +873,15 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('website-pages/upload-hero-image', [AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
     Route::post('website-pages/upload-wysiwyg-document', [AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
     Route::post('website-pages/generate-seo', [AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
+    Route::post('website-pages/generate-section-image', [AdminWebsitePageController::class, 'generateSectionImage'])->name('website-pages.generate-section-image');
     Route::post('website-pages/generate-seo-all', [AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
+    Route::post('website-pages/set-listed-active', [AdminWebsitePageController::class, 'setListedPagesActive'])->name('website-pages.set-listed-active');
     Route::get('website-pages/{website_page}/preview', [AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
     Route::get('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
     Route::put('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
     Route::patch('website-pages/{website_page}/builder-v2/meta', [AdminWebsitePageController::class, 'updatePageMetaV2'])->name('website-pages.builder-v2.update-meta');
     Route::post('website-pages/{website_page}/reorder', [AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
+    Route::post('website-pages/{website_page}/toggle-active', [AdminWebsitePageController::class, 'toggleActive'])->name('website-pages.toggle-active');
     Route::resource('website-pages', AdminWebsitePageController::class)->names('website-pages');
     Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
     Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
@@ -1131,6 +1159,9 @@ Route::get('/terms', function () {
 // Nexa Taxi website booking (JSON; CSRF via meta op frontend-pagina's)
 Route::prefix('nexa-taxi/booking')->group(function () {
     Route::get('address-search', [NexaTaxiBookingController::class, 'addressSearch'])->name('nexataxi.booking.address-search');
+    Route::get('nearby-taxis', [NexaTaxiBookingController::class, 'nearbyTaxis'])
+        ->middleware('throttle:30,1')
+        ->name('nexataxi.booking.nearby-taxis');
     Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
     Route::get('pending', [NexaTaxiBookingController::class, 'pending'])->name('nexataxi.booking.pending');
     Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');

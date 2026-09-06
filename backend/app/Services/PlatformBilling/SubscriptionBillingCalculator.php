@@ -3,6 +3,7 @@
 namespace App\Services\PlatformBilling;
 
 use App\Models\CompanyBillingProfile;
+use App\Models\CompanySubscriptionChange;
 use App\Models\PlatformBillingSetting;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -69,17 +70,20 @@ class SubscriptionBillingCalculator
             return 0.0;
         }
 
-        $total = 0.0;
+        $packageGross = 0.0;
+        $addonGross = 0.0;
+        $addonMonthly = $profile->packageAddonMonthlyAmount();
         foreach ($this->advanceCoverageSegments($profile, $asOf) as $segment) {
-            $total += round($profile->subscriptionBaseAmount() * $segment['fraction'], 2);
+            $packageGross += round($profile->subscriptionBaseAmount() * $segment['fraction'], 2);
+            $addonGross += round($addonMonthly * $segment['fraction'], 2);
         }
 
         $discountPercent = $profile->discountPercent();
-        if ($discountPercent > 0) {
-            $total = round($total * (1 - ($discountPercent / 100)), 2);
-        }
+        $packageNet = $discountPercent > 0
+            ? round($packageGross * (1 - ($discountPercent / 100)), 2)
+            : $packageGross;
 
-        return round($total, 2);
+        return round($packageNet + $addonGross, 2);
     }
 
     /**
@@ -133,7 +137,10 @@ class SubscriptionBillingCalculator
             }
             $periodLines[] = [
                 'label' => $label,
-                'amount' => round($profile->subscriptionBaseAmount() * $segment['fraction'], 2),
+                'amount' => round(
+                    ($profile->subscriptionBaseAmount() + $profile->packageAddonMonthlyAmount()) * $segment['fraction'],
+                    2
+                ),
             ];
         }
 
@@ -248,6 +255,10 @@ class SubscriptionBillingCalculator
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
 
         if ($this->isEnded($profile, $asOf)) {
+            return false;
+        }
+
+        if (trim((string) ($profile->pending_change_type ?? '')) === CompanySubscriptionChange::TYPE_TRIAL_END) {
             return false;
         }
 

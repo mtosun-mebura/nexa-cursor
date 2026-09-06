@@ -1,0 +1,113 @@
+/**
+ * Shared in/uitklap-animatie (zelfde patroon als FAQ / page builder v2).
+ * JS wikkelt de body in .nexa-smooth-accordion > .nexa-smooth-accordion__clip.
+ */
+.nexa-smooth-accordion {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nexa-smooth-accordion__clip {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.nexa-smooth-accordion__clip > * {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.32s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: 0.06s;
+}
+
+:is(
+    .portal-user-block--collapsed,
+    .home-section-card--collapsed,
+    .settings-collapsible-card--collapsed,
+    .home-section-field-panel--collapsed,
+    .nexa-werkwijze--collapsed,
+    .nexa-pricing-package.is-collapsed,
+    .kt-accordion-item:not(.active)
+) > .nexa-smooth-accordion {
+    grid-template-rows: 0fr;
+}
+
+:is(
+    .portal-user-block--collapsed,
+    .home-section-card--collapsed,
+    .settings-collapsible-card--collapsed,
+    .home-section-field-panel--collapsed,
+    .nexa-werkwijze--collapsed,
+    .nexa-pricing-package.is-collapsed,
+    .kt-accordion-item:not(.active)
+) > .nexa-smooth-accordion > .nexa-smooth-accordion__clip {
+    pointer-events: none;
+}
+
+:is(
+    .portal-user-block--collapsed,
+    .home-section-card--collapsed,
+    .settings-collapsible-card--collapsed,
+    .home-section-field-panel--collapsed,
+    .nexa-werkwijze--collapsed,
+    .nexa-pricing-package.is-collapsed,
+    .kt-accordion-item:not(.active)
+) > .nexa-smooth-accordion > .nexa-smooth-accordion__clip > * {
+    opacity: 0;
+    transform: translateY(-8px);
+    transition-delay: 0s;
+}
+
+.nexa-smooth-accordion.start-closed {
+    grid-template-rows: 0fr;
+}
+
+.nexa-smooth-accordion.start-closed > .nexa-smooth-accordion__clip {
+    pointer-events: none;
+}
+
+.nexa-smooth-accordion.start-closed > .nexa-smooth-accordion__clip > * {
+    opacity: 0;
+    transform: translateY(-8px);
+    transition-delay: 0s;
+}
+
+.is-open > .nexa-smooth-accordion.start-closed {
+    grid-template-rows: 1fr;
+}
+
+.is-open > .nexa-smooth-accordion.start-closed > .nexa-smooth-accordion__clip {
+    pointer-events: auto;
+}
+
+.is-open > .nexa-smooth-accordion.start-closed > .nexa-smooth-accordion__clip > * {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.06s;
+}
+
+html.nexa-smooth-accordion--boot .nexa-smooth-accordion,
+html.nexa-smooth-accordion--boot .nexa-smooth-accordion__clip > * {
+    transition: none !important;
+}
+
+.home-section-collapse-icon,
+.portal-user-block-chevron i,
+.home-section-field-panel-chevron {
+    display: inline-block;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-section-card--collapsed .home-section-collapse-icon {
+    transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nexa-smooth-accordion,
+    .nexa-smooth-accordion__clip > *,
+    .home-section-collapse-icon,
+    .portal-user-block-chevron i,
+    .home-section-field-panel-chevron {
+        transition: none !important;
+    }
+}

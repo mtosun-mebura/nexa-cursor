@@ -1228,13 +1228,12 @@ class WebsitePage extends Model
                         'image_fade_duration' => $imageFadeDuration,
                         'items' => array_values($items),
                     ];
-                } elseif ($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2') {
-                    $canonicalKey = $sectionKey === 'component:taxi.boekingsmodule_v2'
-                        ? 'component:taxi.boekingsmodule_v2'
-                        : 'component:taxi.boekingsmodule';
-                    $raw = $sectionKey === 'component:taxi.boekingsmodule_v2'
-                        ? ($stored[$canonicalKey] ?? [])
-                        : ($stored[$canonicalKey] ?? $stored['component:taxiroyaal.boekingsmodule'] ?? []);
+                } elseif (in_array($sectionKey, ['component:taxi.boekingsmodule', 'component:taxi.boekingsmodule_v2', 'component:taxi.algemene_boekingsmodule'], true)) {
+                    $canonicalKey = $sectionKey;
+                    $raw = $stored[$canonicalKey] ?? [];
+                    if ($sectionKey === 'component:taxi.boekingsmodule') {
+                        $raw = $raw !== [] ? $raw : ($stored['component:taxiroyaal.boekingsmodule'] ?? []);
+                    }
                     if (! is_array($raw)) {
                         $raw = [];
                     }

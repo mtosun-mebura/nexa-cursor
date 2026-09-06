@@ -31,7 +31,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('admin.taxi.transport_individual_bookings.store', [$customer->id, $contract->id]) }}">
+    <form method="POST" action="{{ route('admin.taxi.transport_individual_bookings.store', [$customer->id, $contract->id]) }}" data-validate="true" novalidate>
         @csrf
         <input type="hidden" name="return" value="{{ old('return', $backUrl) }}">
         <div class="kt-card w-full min-w-0">
@@ -49,3 +49,7 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush

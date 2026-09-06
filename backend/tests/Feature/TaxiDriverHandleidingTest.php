@@ -90,6 +90,8 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('data-main-tab="navigation"', $html);
         $this->assertStringContainsString('data-main-tab-panel="navigation"', $html);
         $this->assertStringContainsString('id="btn-start-navigation"', $html);
+        $this->assertStringContainsString('maps.googleapis.com', $html);
+        $this->assertStringContainsString('rel="preconnect"', $html);
         $this->assertStringContainsString('Inlogcode aanvragen', $html);
         $this->assertStringContainsString('data-planning-view="day"', $html);
         $this->assertStringContainsString('data-planning-view="week"', $html);

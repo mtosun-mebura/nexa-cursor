@@ -90,11 +90,11 @@
                                        id="postal_code"
                                        class="kt-input @error('postal_code') border-destructive @enderror" 
                                        name="postal_code" 
-                                       value="{{ old('postal_code') }}"
+                                       value="{{ old('postal_code', $company->postal_code) }}"
                                        pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
                                        placeholder="1234AB"
                                        maxlength="8"
-                                       style="text-transform: uppercase; width: 12ch;"
+                                       style="text-transform: uppercase; width: calc(12ch + 2.75rem);"
                                        required>
                                 <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB)</div>
                                 @error('postal_code')
@@ -183,11 +183,11 @@
                                 <input type="tel" 
                                        class="kt-input @error('phone') border-destructive @enderror" 
                                        name="phone" 
-                                       value="{{ old('phone') }}"
+                                       value="{{ old('phone', $company->phone) }}"
                                        pattern="(\+31|0)[1-9][0-9]{8}"
                                        placeholder="0612345678 of +31612345678"
                                        maxlength="13"
-                                       style="width: 15ch;">
+                                       style="width: calc(15ch + 2.75rem);">
                                 <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
                                 @error('phone')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>

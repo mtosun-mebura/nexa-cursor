@@ -125,7 +125,6 @@ class NexaDemoAccountService
         $userAttrs = [
             'first_name' => (string) config('nexa_demo.first_name', 'Demo'),
             'last_name' => (string) config('nexa_demo.last_name', 'Gebruiker'),
-            'password' => Hash::make($password),
             'email_verified_at' => now(),
             'company_id' => $company->id,
         ];
@@ -135,6 +134,9 @@ class NexaDemoAccountService
 
         $user = User::query()->firstOrNew(['email' => $email]);
         $created = ! $user->exists;
+        if ($created) {
+            $userAttrs['password'] = Hash::make($password);
+        }
         $user->fill($userAttrs);
         $user->save();
 
@@ -155,6 +157,10 @@ class NexaDemoAccountService
         if ($result['company'] === null || $result['user'] === null) {
             return $result;
         }
+
+        $password = (string) config('nexa_demo.password', 'DemoTaxi2026!');
+        $result['user']->password = $password;
+        $result['user']->save();
 
         $this->purgeOperationalData($result['company']);
         $this->removeExtraUsers($result['company'], $result['user']);

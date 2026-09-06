@@ -124,8 +124,12 @@ class SubscriptionBillingCalculatorTest extends TestCase
         $html = app(\App\Services\SaasBillingStartEmailTemplateService::class)->ensureExists()->html_content;
         $this->assertStringNotContainsString('AMOUNT_TABLE', $html);
         $this->assertStringContainsString('factuur in de bijlage', $html);
-        $this->assertStringContainsString('Via de knop hieronder kan de eerste betaling voldaan worden', $html);
+        $this->assertStringContainsString('Via de knop hierboven kan de eerste betaling voldaan worden', $html);
         $this->assertStringContainsString('overige maanden via automatische incasso', $html);
+        $this->assertTrue(
+            strpos($html, 'Eerste betaling voldoen') < strpos($html, 'Via de knop hierboven'),
+            'CTA-knop moet vóór de toelichtende zinnen staan'
+        );
     }
 
     private function profileWithPackage(float $monthlyAmount, string $startDate): CompanyBillingProfile

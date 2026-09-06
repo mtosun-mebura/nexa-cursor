@@ -274,9 +274,17 @@
                                         <td>
                                             <div class="flex flex-col gap-1">
                                                 @if($company->email)
-                                                    <div class="text-sm text-foreground">
-                                                        <i class="ki-filled ki-sms me-1 text-xs"></i>
-                                                        {{ $company->email }}
+                                                    <div class="flex items-center gap-1 min-w-0">
+                                                        <i class="ki-filled ki-sms shrink-0 text-xs text-muted-foreground" aria-hidden="true"></i>
+                                                        <span class="admin-email-text text-sm text-foreground truncate">{{ $company->email }}</span>
+                                                        <button type="button"
+                                                                class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                                                                data-copy-text="{{ $company->email }}"
+                                                                data-no-row-link
+                                                                title="E-mailadres kopiëren"
+                                                                aria-label="E-mailadres kopiëren">
+                                                            <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                                                        </button>
                                                     </div>
                                                 @endif
                                                 @if($company->phone)
@@ -645,7 +653,7 @@
                 }
                 row._companyRowBound = true;
                 row.addEventListener('click', function(event) {
-                    if (event.target.closest('[data-no-row-link]')) {
+                    if (event.target.closest('[data-no-row-link], .admin-email-copy')) {
                         return;
                     }
                     var href = row.getAttribute('data-row-href');
@@ -682,6 +690,7 @@
                 window.initCompaniesTablePage();
             });
         }
+
     });
 </script>
 @endpush
@@ -725,6 +734,9 @@
     /* Table row hover styling (same as demo) */
     .company-row {
         cursor: pointer !important;
+    }
+    .admin-email-copy {
+        cursor: pointer;
     }
     .company-row:hover {
         background-color: var(--muted) !important;

@@ -102,7 +102,8 @@ class SaasTrialEndingEmailTemplateService
             || str_contains($html, 'gaat het abonnement in. Je ontvangt')
             || str_contains($html, '({{ TRIAL_ENDS_AT }})')
             || str_contains($html, 'Je ontvangt dan een aparte e-mail')
-            || str_contains($html, 'Na die betaling wordt de automatische incasso');
+            || str_contains($html, 'Na die betaling wordt de automatische incasso')
+            || str_contains($html, 'Je tenant wordt inactief gezet');
     }
 
     private function defaultSubject(): string
@@ -139,7 +140,7 @@ class SaasTrialEndingEmailTemplateService
                             <p style="margin:0 0 24px;">Daarover zal een aparte mail worden verstuurd met de ingangsdatum en een link om de eerste betaling te voldoen.</p>
                             <p style="margin:0 0 16px;">Het jaarcontract telt vanaf de start van de proefperiode.</p>
                             <p style="margin:0;color:#64748b;font-size:13px;">Vragen? Mail <a href="mailto:info@nexasuite.nl" style="color:#2563eb;">info@nexasuite.nl</a>.</p>
-                            <p style="margin:28px 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">Geen abonnement afnemen? Dan kun je de proefperiode tot {{ START_DATE }} beëindigen. Je tenant wordt inactief gezet en er wordt niets geïncasseerd.<br>
+                            <p style="margin:28px 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">Geen abonnement afnemen? Dan kun je de proefperiode tot {{ START_DATE }} beëindigen. Je blijft tot die datum toegang houden, er wordt niets geïncasseerd en je kunt het abonnement later weer activeren.<br>
                             <a href="{{ STOP_TRIAL_URL }}" style="color:#94a3b8;text-decoration:underline;">Proefperiode beëindigen</a></p>
                         </td>
                     </tr>
@@ -169,7 +170,7 @@ Vragen? Mail info@nexasuite.nl.
 
 Geen abonnement afnemen? Beëindig de proefperiode tot {{ START_DATE }} via:
 {{ STOP_TRIAL_URL }}
-Je tenant wordt dan inactief gezet en er wordt niets geïncasseerd.
+Je blijft tot die datum toegang houden, er wordt niets geïncasseerd en je kunt het abonnement later weer activeren.
 TEXT;
     }
 }

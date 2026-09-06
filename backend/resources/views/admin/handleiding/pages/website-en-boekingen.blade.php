@@ -25,3 +25,8 @@
     <span class="handleiding-step-num">3</span>
     <div>Publiceer de pagina en test een boeking op uw domein.</div>
 </div>
+
+<div class="handleiding-tip">
+    <strong class="text-foreground">Ook via NEXA Suite:</strong> reizigers kunnen op <strong>nexasuite.nl/boek</strong> (en op <strong>/taxi</strong>) een rit aanvragen.
+    Die boeking komt bij het dichtstbijzijnde taxibedrijf terecht en staat in uw rittenlijst met het label NEXA Suite.
+</div>

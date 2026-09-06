@@ -791,12 +791,12 @@
     }
     #content .portal-user-block-chevron i {
         display: inline-block;
-        transition: transform 0.15s ease;
+        transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
     #content .portal-user-block:not(.portal-user-block--collapsed) .portal-user-block-chevron i {
         transform: rotate(180deg);
     }
-    #content .portal-user-block--collapsed .portal-user-block-body {
+    #content .portal-user-block--collapsed > .portal-user-block-body {
         display: none !important;
     }
 
@@ -1202,17 +1202,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    document.querySelectorAll('[data-portal-user-block]').forEach(function(block) {
-        var toggle = block.querySelector('.portal-user-block-toggle');
-        if (!toggle) {
-            return;
-        }
-        toggle.addEventListener('click', function() {
-            var collapsed = block.classList.toggle('portal-user-block--collapsed');
-            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        });
-    });
 
     document.querySelectorAll('.portal-users-stack select[name="portal_role"]').forEach(function(select) {
         select.addEventListener('change', function() {

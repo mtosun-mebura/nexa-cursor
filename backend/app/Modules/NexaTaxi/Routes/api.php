@@ -45,6 +45,8 @@ Route::prefix('v1/driver')
         Route::get('me', [DriverAuthController::class, 'me']);
         Route::put('accent', [DriverAuthController::class, 'updateAccent'])
             ->middleware('throttle:60,1');
+        Route::put('ride-alert-tone', [DriverAuthController::class, 'updateRideAlertTone'])
+            ->middleware('throttle:60,1');
 
         Route::get('earnings', [DriverEarningsController::class, 'show'])
             ->middleware('throttle:60,1');

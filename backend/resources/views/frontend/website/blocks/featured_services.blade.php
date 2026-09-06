@@ -48,9 +48,13 @@
     if (!in_array($animationSpeed, ['fast', 'normal', 'slow', 'slower'], true)) {
         $animationSpeed = 'slow';
     }
-    $revealDuration = match($animationSpeed) { 'fast' => '0.5s', 'normal' => '0.65s', 'slow' => '0.8s', 'slower' => '1s', default => '0.8s' };
-    $revealFirstCardDelayMs = 90;
-    $revealDelayStepMs = match($animationSpeed) { 'fast' => 100, 'normal' => 150, 'slow' => 200, 'slower' => 260, default => 200 };
+    $revealDurationMs = match($animationSpeed) { 'fast' => 560, 'normal' => 720, 'slow' => 900, 'slower' => 1100, default => 900 };
+    $revealDuration = ($revealDurationMs / 1000).'s';
+    $revealEasing = 'cubic-bezier(0.16, 1, 0.3, 1)';
+    $revealFirstCardDelayMs = 120;
+    $revealDelayStepMs = match($animationSpeed) { 'fast' => 90, 'normal' => 130, 'slow' => 170, 'slower' => 220, default => 170 };
+    $lastCardDelayMs = count($items) > 0 ? $revealFirstCardDelayMs + (count($items) - 1) * $revealDelayStepMs : 0;
+    $hoverReadyMs = $revealDurationMs + $lastCardDelayMs + 80;
     $blocksRowWidthPctRaw = $data['blocks_row_width_percent'] ?? null;
     $blocksRowWidthPct = ($blocksRowWidthPctRaw === null || $blocksRowWidthPctRaw === '') ? 100 : (int) $blocksRowWidthPctRaw;
     $blocksRowWidthPct = max(1, min(100, $blocksRowWidthPct));
@@ -64,14 +68,14 @@
     $itemDescFontPx = isset($data['item_description_font_size_px']) && $data['item_description_font_size_px'] !== '' ? (int) $data['item_description_font_size_px'] : 14;
     $itemDescFontPx = in_array($itemDescFontPx, $allowedSectionFsPx, true) ? $itemDescFontPx : 14;
 @endphp
-<section class="website-block website-block-featured-services pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section" data-scroll-reveal>
+<section class="website-block website-block-featured-services pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section" data-scroll-reveal data-fs-hover-ready-ms="{{ $hoverReadyMs }}">
     <div class="website-section-inner">
-        <div class="w-full max-w-4xl mx-auto text-center mb-6 md:mb-8 px-0 scroll-reveal-item" style="transition: opacity {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94), transform {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 0ms; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
+        <div class="featured-services-heading w-full max-w-4xl mx-auto text-center mb-6 md:mb-8 px-0 scroll-reveal-item" style="--fs-reveal-duration: {{ $revealDuration }}; --fs-reveal-ease: {{ $revealEasing }}; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
             @if($title !== '')
                 <h2 class="featured-services-title font-bold text-gray-900 dark:text-white mb-3 leading-tight" style="font-family: var(--theme-font-heading, inherit);">{!! e($title) !!}</h2>
             @endif
             @if($subtitle !== '')
-                <p class="featured-services-subtitle text-gray-600 dark:text-gray-300 leading-relaxed">{!! e($subtitle) !!}</p>
+                <div class="featured-services-subtitle text-gray-600 dark:text-gray-300 leading-relaxed">{!! $subtitle !!}</div>
             @endif
         </div>
         @if(count($items) > 0)
@@ -91,10 +95,11 @@
                     @endphp
                     @php
                         $cardRevealDelayMs = $revealFirstCardDelayMs + $index * $revealDelayStepMs;
-                        $revealStyle = 'transition: opacity ' . $revealDuration . ' cubic-bezier(0.25, 0.46, 0.45, 0.94), transform ' . $revealDuration . ' cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: ' . $cardRevealDelayMs . 'ms;';
+                        $iconRevealDelayMs = $cardRevealDelayMs + (int) round($revealDurationMs * 0.28);
+                        $revealStyle = '--fs-card-delay: '.$cardRevealDelayMs.'ms; --fs-icon-delay: '.$iconRevealDelayMs.'ms; --fs-reveal-duration: '.$revealDuration.'; --fs-reveal-ease: '.$revealEasing.';';
                     @endphp
-                    <div class="featured-service-item min-w-0">
-                        <div class="scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-delay="{{ $index }}">
+                    <div class="featured-service-item min-w-0" data-fs-index="{{ $index }}">
+                        <div class="featured-service-reveal scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-delay="{{ $index }}">
                         <div class="featured-service-card min-w-0 h-full rounded-xl border border-gray-200 dark:border-gray-700 {{ $cardPadding }} shadow-sm w-full {{ $cardBgColor ? '' : 'bg-white dark:bg-gray-800/50' }}" @if($cardBgColor) style="background-color: {{ $cardBgColor }};" @endif>
                         <div class="flex {{ $iconAlignClass }} gap-4 min-w-0">
                             @php
@@ -108,7 +113,7 @@
                                     <h3 class="featured-service-item-title font-semibold text-gray-900 dark:text-white mb-2 break-words [overflow-wrap:anywhere] leading-snug" style="--fs-item-title-max: {{ $itemTitleFontPx }}px;">{!! e($itemTitle) !!}</h3>
                                 @endif
                                 @if($itemDesc !== '')
-                                    <p class="featured-service-item-desc text-gray-600 dark:text-gray-300 leading-relaxed break-words [overflow-wrap:anywhere]" style="--fs-item-desc-max: {{ $itemDescFontPx }}px;">{!! nl2br(e($itemDesc)) !!}</p>
+                                    <div class="featured-service-item-desc text-gray-600 dark:text-gray-300 leading-relaxed break-words [overflow-wrap:anywhere]" style="--fs-item-desc-max: {{ $itemDescFontPx }}px;">{!! $itemDesc !!}</div>
                                 @endif
                             </div>
                             </div>
@@ -223,42 +228,213 @@
             max-width: calc((100% - 6rem) / 4);
         }
     }
-    /* Zelfde invliegen als Elementor Overige Diensten: van beneden, lichte scale, cards duidelijk na elkaar */
-    .website-block-featured-services.scroll-reveal-section .scroll-reveal-item {
+    .website-block-featured-services.scroll-reveal-section .featured-services-heading.scroll-reveal-item {
         opacity: 0;
-        transform: translateY(48px) scale(0.98);
-        transform-origin: center center;
-        will-change: opacity, transform;
+        transform: scaleY(0.12);
+        transform-origin: center top;
+        filter: blur(8px);
+        will-change: opacity, transform, filter;
+        transition: opacity var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+            transform var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+            filter var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1));
     }
-    .website-block-featured-services.scroll-reveal-section.is-in-view .scroll-reveal-item {
+    .website-block-featured-services.scroll-reveal-section.is-in-view .featured-services-heading.scroll-reveal-item {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        filter: blur(0);
+        transform: scaleY(1);
+    }
+    .website-block-featured-services .featured-services-title {
+        position: relative;
+        display: inline-block;
+        letter-spacing: 0.01em;
+    }
+    .website-block-featured-services .featured-services-title::after {
+        content: '';
+        display: block;
+        width: 3.25rem;
+        height: 3px;
+        margin: 0.7rem auto 0;
+        border-radius: 999px;
+        background: var(--theme-primary, #2563eb);
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
+    }
+    .website-block-featured-services.is-in-view .featured-services-title::after {
+        transform: scaleX(1);
+    }
+    .website-block-featured-services.scroll-reveal-section .featured-service-reveal.scroll-reveal-item {
+        opacity: 0;
+        filter: saturate(0.15) blur(6px);
+        transform: scale(0.38) rotate(-16deg);
+        transform-origin: 1.75rem 1.75rem;
+        will-change: opacity, transform, filter;
+        transition: opacity var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)) var(--fs-card-delay, 0ms),
+            transform var(--fs-reveal-duration, 0.9s) cubic-bezier(0.34, 1.45, 0.64, 1) var(--fs-card-delay, 0ms),
+            filter var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)) var(--fs-card-delay, 0ms);
+    }
+    .website-block-featured-services.scroll-reveal-section.is-in-view .featured-service-reveal.scroll-reveal-item {
+        opacity: 1;
+        filter: saturate(1) blur(0);
+        transform: scale(1) rotate(0);
     }
     .website-block-featured-services .featured-service-card {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
         overflow-wrap: anywhere;
         word-break: break-word;
-        transition: transform 0.25s ease-out, box-shadow 0.25s ease-out;
+        transform: translateZ(0);
+        transition: box-shadow 0.4s ease, border-color 0.35s ease, background-color 0.4s ease;
     }
-    .website-block-featured-services.is-in-view .featured-service-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.15), 0 4px 8px -4px rgb(0 0 0 / 0.08);
+    .website-block-featured-services .featured-service-card::before {
+        content: '';
+        position: absolute;
+        inset: auto auto 0 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, var(--theme-primary, #2563eb), color-mix(in srgb, var(--theme-primary, #2563eb) 20%, transparent));
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        z-index: 3;
+        pointer-events: none;
     }
-    /* Icon: ruststand iets links; bij hover soepel terug naar 0, bij loslaten weer naar ruststand */
+    .website-block-featured-services .featured-service-card::after {
+        content: '';
+        position: absolute;
+        width: 9rem;
+        height: 9rem;
+        top: -3.5rem;
+        left: -3.5rem;
+        border-radius: 999px;
+        background: radial-gradient(circle, color-mix(in srgb, var(--theme-primary, #2563eb) 28%, transparent) 0%, transparent 70%);
+        opacity: 0;
+        transform: scale(0.4);
+        transition: opacity 0.45s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        pointer-events: none;
+        z-index: 1;
+    }
     .website-block-featured-services .featured-service-icon {
-        transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+        position: relative;
+        z-index: 2;
+        transform: scale(0) rotate(-170deg);
+        transform-origin: center;
+        transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) var(--fs-icon-delay, 180ms);
     }
-    .website-block-featured-services.is-in-view .featured-service-card:hover .featured-service-icon {
-        animation: featured-service-icon-spring 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+    .website-block-featured-services.scroll-reveal-section.is-in-view .featured-service-icon {
+        transform: scale(1) rotate(0);
     }
-    @keyframes featured-service-icon-spring {
-        0%   { transform: translateX(0); }
-        32%  { transform: translateX(-8px); }
-        58%  { transform: translateX(5px); }
-        78%  { transform: translateX(-1px); }
-        100% { transform: translateX(-3px); }
+    .website-block-featured-services.is-hover-ready .featured-service-card:hover {
+        border-color: color-mix(in srgb, var(--theme-primary, #2563eb) 62%, rgb(209 213 219));
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--theme-primary, #2563eb) 32%, transparent),
+            0 18px 34px -18px color-mix(in srgb, var(--theme-primary, #2563eb) 45%, rgb(0 0 0 / 0.28));
     }
-    .dark .website-block-featured-services.is-in-view .featured-service-card:hover {
-        box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.25), 0 4px 8px -4px rgb(0 0 0 / 0.15);
+    .website-block-featured-services.is-hover-ready .featured-service-card:hover::before {
+        transform: scaleX(1);
+    }
+    .website-block-featured-services.is-hover-ready .featured-service-card:hover::after {
+        opacity: 1;
+        transform: scale(1);
+    }
+    .website-block-featured-services.is-hover-ready .featured-service-card:hover .featured-service-icon {
+        animation: featured-service-icon-orbit 1.7s ease-in-out infinite;
+    }
+    .website-block-featured-services.is-hover-ready .featured-service-card:hover .featured-service-item-title {
+        color: var(--theme-primary, #2563eb);
+        transition: color 0.3s ease;
+    }
+    @keyframes featured-service-icon-orbit {
+        0%, 100% { transform: translate(0, 0) rotate(0) scale(1.04); }
+        25% { transform: translate(3px, -5px) rotate(-9deg) scale(1.08); }
+        50% { transform: translate(-2px, -7px) rotate(7deg) scale(1.06); }
+        75% { transform: translate(-5px, -2px) rotate(-4deg) scale(1.08); }
+    }
+    .dark .website-block-featured-services.is-hover-ready .featured-service-card:hover {
+        border-color: color-mix(in srgb, var(--theme-primary, #60a5fa) 55%, rgb(55 65 81));
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--theme-primary, #60a5fa) 38%, transparent),
+            0 20px 38px -16px rgb(0 0 0 / 0.55);
+    }
+    .dark .website-block-featured-services.is-hover-ready .featured-service-card:hover .featured-service-item-title {
+        color: var(--theme-primary, #60a5fa);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .website-block-featured-services.scroll-reveal-section .featured-services-heading.scroll-reveal-item,
+        .website-block-featured-services.scroll-reveal-section .featured-service-reveal.scroll-reveal-item,
+        .website-block-featured-services .featured-service-icon {
+            opacity: 1;
+            filter: none;
+            transform: none;
+            transition: none;
+        }
+        .website-block-featured-services .featured-services-title::after,
+        .website-block-featured-services .featured-service-card,
+        .website-block-featured-services .featured-service-card::before,
+        .website-block-featured-services .featured-service-card::after {
+            animation: none !important;
+            transition: none !important;
+            transform: none !important;
+        }
+        .website-block-featured-services.is-hover-ready .featured-service-card:hover .featured-service-icon {
+            animation: none !important;
+        }
     }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+(function () {
+    function bindFeaturedServicesHover(section) {
+        if (section.getAttribute('data-fs-hover-bound') === '1') {
+            return;
+        }
+        section.setAttribute('data-fs-hover-bound', '1');
+        var timer = null;
+        var wasInView = false;
+        function readyMs() {
+            return parseInt(section.getAttribute('data-fs-hover-ready-ms') || '900', 10);
+        }
+        function arm() {
+            if (timer) {
+                window.clearTimeout(timer);
+            }
+            timer = window.setTimeout(function () {
+                section.classList.add('is-hover-ready');
+            }, Math.max(0, readyMs()));
+        }
+        function disarm() {
+            if (timer) {
+                window.clearTimeout(timer);
+                timer = null;
+            }
+            section.classList.remove('is-hover-ready');
+        }
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            section.classList.add('is-hover-ready');
+            return;
+        }
+        // Alleen reageren op een echte wissel van is-in-view, anders triggert het
+        // toevoegen/verwijderen van is-hover-ready hierbeneden de observer opnieuw
+        // (oneindige lus die de main thread blokkeert zodra de sectie in beeld komt).
+        function syncFromInView() {
+            var inView = section.classList.contains('is-in-view');
+            if (inView === wasInView) {
+                return;
+            }
+            wasInView = inView;
+            if (inView) {
+                arm();
+            } else {
+                disarm();
+            }
+        }
+        syncFromInView();
+        new MutationObserver(syncFromInView).observe(section, { attributes: true, attributeFilter: ['class'] });
+    }
+    document.querySelectorAll('.website-block-featured-services').forEach(bindFeaturedServicesHover);
+})();
+</script>
 @endpush

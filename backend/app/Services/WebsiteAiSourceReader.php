@@ -29,6 +29,11 @@ class WebsiteAiSourceReader
         protected DomainService $domains,
     ) {}
 
+    private function maxPages(): int
+    {
+        return max(1, min(25, (int) config('ai_website.crawl_max_pages', self::MAX_PAGES)));
+    }
+
     /**
      * @return array{url: string, pages: list<array{url: string, title: string, headings: list<string>, text: string}>, summary: string}
      */
@@ -56,7 +61,7 @@ class WebsiteAiSourceReader
             $urls[] = $origin.$path;
         }
 
-        $urls = array_values(array_unique(array_slice($urls, 0, self::MAX_PAGES)));
+        $urls = array_values(array_unique(array_slice($urls, 0, $this->maxPages())));
         $pages = [];
         $delayMs = app()->environment('testing') ? 0 : 120;
         foreach ($urls as $index => $url) {

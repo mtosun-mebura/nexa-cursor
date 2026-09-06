@@ -40,6 +40,7 @@
     <style>
         :root {
             --theme-primary: {{ $themeSettings['primary_color'] ?? '#2563eb' }};
+            --theme-secondary: {{ $themeSettings['secondary_color'] ?? '#0f172a' }};
             --theme-font-heading: {{ $themeSettings['font_heading'] ?? 'Inter' }}, sans-serif;
             --theme-font-body: {{ $themeSettings['font_body'] ?? 'Inter' }}, sans-serif;
         }
@@ -49,6 +50,16 @@
     </style>
     @include('frontend.layouts.partials.vite-frontend-assets')
     <style>
+        /* Voorkom horizontale scroll door reveal-/Ken Burns-animaties die buiten de viewport schuiven */
+        html,
+        body {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        #main-content {
+            max-width: 100%;
+            overflow-x: clip;
+        }
         /* Eén grootte voor alle paginatitels (h1) */
         .kt-page-title { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
         @media (min-width: 768px) { .kt-page-title { font-size: 2.25rem; } }
@@ -366,7 +377,28 @@
 @endif
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">Spring naar hoofdinhoud</a>
     @php
-        $previewThemeSuffix = !empty($theme->name ?? null) ? ': thema: '.$theme->name : '';
+        $previewThemeName = trim((string) ($theme->name ?? ''));
+        $previewTenantName = '';
+        if (isset($page) && $page) {
+            $previewTenantName = trim((string) (optional($page->company)->name ?? ''));
+            if ($previewTenantName === '' && ! empty($page->company_id)) {
+                $previewTenantName = trim((string) (\App\Models\Company::query()->whereKey((int) $page->company_id)->value('name') ?? ''));
+            }
+        }
+        if ($previewTenantName === '' && ! empty(session('selected_tenant'))) {
+            $previewTenantName = trim((string) (\App\Models\Company::query()->whereKey((int) session('selected_tenant'))->value('name') ?? ''));
+        }
+        if ($previewTenantName === '') {
+            $previewTenantName = trim((string) ($branding['site_name'] ?? ''));
+        }
+        $previewBarParts = ['Dit is een voorbeeld'];
+        if ($previewTenantName !== '') {
+            $previewBarParts[] = 'voor '.$previewTenantName;
+        }
+        if ($previewThemeName !== '') {
+            $previewBarParts[] = 'met thema '.$previewThemeName;
+        }
+        $previewBarText = implode(' ', $previewBarParts).'.';
         $hidePreviewChrome = request()->boolean('embed');
     @endphp
     @if(isset($isPreview) && $isPreview && isset($previewEditUrl) && ! $hidePreviewChrome)
@@ -375,7 +407,7 @@
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
             Terug naar admin
         </a>
-        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
+        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">{{ $previewBarText }}</span>
     </div>
     @endif
     @if(isset($isPreview) && $isPreview && !empty($previewPageInactive))
@@ -389,7 +421,7 @@
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
             Terug naar admin
         </a>
-        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
+        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">{{ $previewBarText }}</span>
     </div>
     @endif
 
@@ -898,7 +930,7 @@
                 }
             );
             if (!sections.length) return;
-            var opts = { rootMargin: '0px 0px 22% 0px', threshold: 0.04 };
+            var opts = { rootMargin: '0px 0px -15% 0px', threshold: 0.25 };
             function onSectionInView(el) {
                 el.classList.add('is-in-view');
                 if (el.classList.contains('site-footer-reveal') && typeof window.resizeFooterMap === 'function') {

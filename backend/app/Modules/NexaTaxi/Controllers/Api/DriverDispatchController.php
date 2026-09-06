@@ -49,6 +49,7 @@ class DriverDispatchController extends Controller
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
         $pickupCutoff = $dispatchSettings->pickupQueueCutoffAt($companyId);
+        $vehicleId = $this->resolveDriverVehicleId($request, $conn, (int) $user->id);
 
         $offers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
@@ -92,7 +93,7 @@ class DriverDispatchController extends Controller
         $unclaimedRides = $dispatch->unclaimedRidesForCompany($conn, $companyId);
 
         $assignedRides = RideRequest::on($conn)
-            ->where('driver_id', $user->id)
+            ->visibleToDriver((int) $user->id, $vehicleId)
             ->where('status', RideRequest::STATUS_ASSIGNED)
             ->orderBy('pickup_at')
             ->get();
@@ -148,7 +149,7 @@ class DriverDispatchController extends Controller
             ->all();
 
         $acceptedRides = RideRequest::on($conn)
-            ->where('driver_id', $user->id)
+            ->visibleToDriver((int) $user->id, $vehicleId)
             ->where('status', RideRequest::STATUS_ACCEPTED)
             ->orderBy('pickup_at')
             ->get()
@@ -616,5 +617,15 @@ class DriverDispatchController extends Controller
                 'deleted' => $deleted,
             ],
         ]);
+    }
+
+    private function resolveDriverVehicleId(Request $request, string $conn, int $driverId): ?int
+    {
+        $fromRequest = (int) $request->input('vehicle_id', 0);
+        if ($fromRequest > 0) {
+            return $fromRequest;
+        }
+
+        return DriverAvailability::vehicleIdForDriver($conn, $driverId);
     }
 }

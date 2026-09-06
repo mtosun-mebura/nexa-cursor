@@ -103,13 +103,19 @@ class PlatformBillingIndexFilterTest extends TestCase
             ->assertDontSee(route('admin.platform-billing.tenants.edit', $beta), false);
     }
 
-    public function test_tenant_subscriptions_show_linked_package_name(): void
+    public function test_tenant_subscriptions_show_company_package_and_addons(): void
     {
         $admin = $this->superAdmin();
-        $company = Company::query()->create(['name' => 'Pakket Tenant BV', 'is_active' => true]);
+        $company = Company::query()->create([
+            'name' => 'Pakket Tenant BV',
+            'is_active' => true,
+            'package_key' => 'pro',
+            'package_addons' => [\App\Support\TenantPackageAddon::GPS_TRACKING => 1],
+        ]);
         $package = PlatformBillingPackage::query()->create([
             'name' => 'Pro Taxi Pakket',
-            'monthly_amount' => 99,
+            'package_key' => 'pro',
+            'monthly_amount' => 149,
             'currency' => 'EUR',
             'is_active' => true,
         ]);
@@ -117,13 +123,15 @@ class PlatformBillingIndexFilterTest extends TestCase
             'company_id' => $company->id,
             'billing_mode' => CompanyBillingProfile::MODE_PACKAGE,
             'platform_billing_package_id' => $package->id,
+            'agreed_monthly_amount' => 149,
         ]);
 
         $this->actingAs($admin)
             ->get(route('admin.platform-billing.tenants.index', ['company_id' => $company->id]))
             ->assertOk()
             ->assertSee('data-label="Pakket"', false)
-            ->assertSee('Pro Taxi Pakket', false)
+            ->assertSee('GPS-trackers', false)
+            ->assertSee('168,00', false)
             ->assertDontSee('>package</td>', false)
             ->assertDontSee('>Modus</th>', false);
     }

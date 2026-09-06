@@ -4,14 +4,14 @@
 
 @section('content')
 @php
-    $presetKey = old('color_preset', 'navy-gold');
-    $primary = old('primary_color', '#1e3a8a');
-    $secondary = old('secondary_color', '#0f172a');
+    $presetKey = old('color_preset', 'theme-'.($defaultTheme?->slug ?? 'custom'));
+    $primary = old('primary_color', $defaultPrimary ?? '#2563eb');
+    $secondary = old('secondary_color', $defaultSecondary ?? '#0f172a');
 @endphp
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col items-start gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Genereer website AI</h1>
-        <p class="text-sm text-muted-foreground mb-0">Zet een professionele tenant-website op met de bestaande thema’s en componenten van de website builder. Alleen super-admin.</p>
+        <p class="text-sm text-muted-foreground mb-0">Zet een professionele tenant-website op met bestaande thema’s, geanimeerde componenten en de boekingsmodule. Pagina’s worden als concept aangemaakt (niet gepubliceerd). Alleen super-admin.</p>
         <a href="{{ route('admin.website-pages.index') }}" class="kt-btn kt-btn-outline">
             <i class="ki-filled ki-arrow-left me-2"></i>
             Naar pagina’s
@@ -61,9 +61,49 @@
                         </p>
                     </div>
                     <div>
+                        <span class="kt-form-label mb-2 block">Startpunt</span>
+                        <div class="flex flex-col gap-2">
+                            <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
+                                <input type="radio" class="kt-radio" name="source_type" value="new" @checked(old('source_type', 'new') === 'new')>
+                                <span>Nieuwe website</span>
+                            </label>
+                            <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
+                                <input type="radio" class="kt-radio" name="source_type" value="url" @checked(old('source_type') === 'url')>
+                                <span>Bestaande website als bron</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
                         <label class="kt-form-label mb-1.5" for="source_url">Huidige / oude website</label>
                         <input type="url" class="kt-input @error('source_url') border-destructive @enderror" id="source_url" name="source_url" value="{{ old('source_url') }}" placeholder="https://www.bedrijf.nl" maxlength="500">
                         <p class="text-xs text-muted-foreground mt-1.5 mb-0">Optioneel. We nemen home, over-ons, diensten en contact door en gebruiken die informatie in de nieuwe site.</p>
+                    </div>
+                    <div>
+                        <label class="kt-form-label mb-1.5" for="style">Stijl</label>
+                        <select class="kt-select @error('style') border-destructive @enderror" id="style" name="style">
+                            @foreach($styles as $styleKey => $styleLabel)
+                                <option value="{{ $styleKey }}" @selected(old('style', 'professional') === $styleKey)>{{ $styleLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="kt-form-label mb-1.5" for="tone">Toon</label>
+                        <select class="kt-select @error('tone') border-destructive @enderror" id="tone" name="tone">
+                            @foreach($tones as $toneKey => $toneLabel)
+                                <option value="{{ $toneKey }}" @selected(old('tone', 'zakelijk') === $toneKey)>{{ $toneLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <span class="kt-form-label mb-2 block">Doel van de website</span>
+                        <div class="flex flex-wrap gap-x-5 gap-y-2">
+                            @foreach($goals as $goalKey => $goalLabel)
+                                <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
+                                    <input type="checkbox" class="kt-checkbox" name="goals[]" value="{{ $goalKey }}" @checked(in_array($goalKey, old('goals', ['leads']), true))>
+                                    <span>{{ $goalLabel }}</span>
+                                </label>
+                            @endforeach
+                        </div>
                     </div>
                     <div class="lg:col-span-2">
                         <label class="kt-form-label mb-1.5" for="context">Waar moet de website over gaan? *</label>
@@ -82,18 +122,25 @@
                     <div>
                         <label class="kt-form-label mb-1.5" for="max_pages">Maximaal aantal pagina’s *</label>
                         <input type="number" class="kt-input @error('max_pages') border-destructive @enderror" id="max_pages" name="max_pages" min="1" max="12" value="{{ old('max_pages', 3) }}" required>
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Gelijk aan het aantal pagina’s dat de klant heeft afgenomen (standaard 3: home, over ons, contact). Maximum 12.</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Aantal pagina’s dat we aanmaken (standaard 3: home, over ons, contact). Maximum 12. Pagina’s blijven concept tot u ze publiceert.</p>
                     </div>
                     <div>
                         <label class="kt-form-label mb-1.5" for="frontend_theme_id">Thema *</label>
                         <select class="kt-select @error('frontend_theme_id') border-destructive @enderror" id="frontend_theme_id" name="frontend_theme_id" required>
                             @foreach($themes as $theme)
-                                <option value="{{ $theme->id }}" @selected((int) $defaultThemeId === (int) $theme->id)>
+                                @php
+                                    $palette = $themePalettes[(string) $theme->id] ?? ['primary' => '#2563eb', 'secondary' => '#0f172a'];
+                                @endphp
+                                <option value="{{ $theme->id }}"
+                                    data-primary="{{ $palette['primary'] }}"
+                                    data-secondary="{{ $palette['secondary'] }}"
+                                    data-slug="{{ $theme->slug }}"
+                                    @selected((int) $defaultThemeId === (int) $theme->id)>
                                     {{ $theme->name }}{{ $theme->is_active ? '' : ' (niet gepubliceerd)' }}
                                 </option>
                             @endforeach
                         </select>
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Bestaande builder-thema’s en hun componenten (hero, diensten, CTA, boekingsmodule, …).</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Bestaande builder-thema’s en hun kleurstelling. Bij wisselen van thema nemen we de themakleuren over; u kunt die daarna nog aanpassen.</p>
                     </div>
                     <div class="lg:col-span-2">
                         <span class="kt-form-label mb-2 block">Kleurstelling</span>
@@ -126,12 +173,12 @@
                                 </div>
                             </div>
                         </div>
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Wordt toegepast op knoppen, overlays en highlights. Het thema bepaalt layout en componenten.</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Gaat in het thema van deze tenant: knoppen, overlays, geanimeerde componenten, boekingsmodule en de CSS-accentkleur. Andere tenants houden hun eigen kleuren.</p>
                     </div>
                     <div>
                         <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                             <input type="checkbox" class="kt-checkbox" name="generate_images" value="1" @checked(old('generate_images', true))>
-                            <span>Hoge-kwaliteit AI-afbeeldingen genereren (hero per pagina)</span>
+                            <span>Hero-afbeelding genereren (mediabibliotheek)</span>
                         </label>
                     </div>
                     <div>
@@ -147,7 +194,7 @@
         <div class="flex flex-wrap items-center gap-3">
             <button type="submit" class="kt-btn kt-btn-primary" id="website-ai-submit">
                 <i class="ki-filled ki-technology-4 me-2"></i>
-                Website genereren
+                Homepage als concept genereren
             </button>
             <p class="text-xs text-muted-foreground mb-0">Dit kan 1–2 minuten duren (bronwebsite + OpenAI + afbeeldingen).</p>
         </div>
@@ -169,19 +216,46 @@
     var primaryPicker = document.getElementById('primary_color_picker');
     var secondaryPicker = document.getElementById('secondary_color_picker');
 
+    var themeSelect = document.getElementById('frontend_theme_id');
+
+    function applyColors(primaryHex, secondaryHex, presetKey) {
+        if (primaryHex) {
+            primary.value = primaryHex;
+            primaryPicker.value = primaryHex;
+        }
+        if (secondaryHex) {
+            secondary.value = secondaryHex;
+            secondaryPicker.value = secondaryHex;
+        }
+        if (presetKey) {
+            presetInput.value = presetKey;
+            document.querySelectorAll('.website-ai-preset').forEach(function (btn) {
+                btn.classList.toggle('is-active', btn.getAttribute('data-key') === presetKey);
+            });
+        }
+    }
+
     document.querySelectorAll('.website-ai-preset').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            document.querySelectorAll('.website-ai-preset').forEach(function (other) {
-                other.classList.remove('is-active');
-            });
-            btn.classList.add('is-active');
-            presetInput.value = btn.getAttribute('data-key') || 'custom';
-            primary.value = btn.getAttribute('data-primary') || primary.value;
-            secondary.value = btn.getAttribute('data-secondary') || secondary.value;
-            primaryPicker.value = primary.value;
-            secondaryPicker.value = secondary.value;
+            applyColors(
+                btn.getAttribute('data-primary'),
+                btn.getAttribute('data-secondary'),
+                btn.getAttribute('data-key') || 'custom'
+            );
         });
     });
+
+    if (themeSelect) {
+        themeSelect.addEventListener('change', function () {
+            var option = themeSelect.options[themeSelect.selectedIndex];
+            if (!option) return;
+            applyColors(
+                option.getAttribute('data-primary'),
+                option.getAttribute('data-secondary'),
+                'theme-' + (option.getAttribute('data-slug') || 'custom')
+            );
+        });
+    }
 
     function bindPicker(picker, field) {
         picker.addEventListener('input', function () {

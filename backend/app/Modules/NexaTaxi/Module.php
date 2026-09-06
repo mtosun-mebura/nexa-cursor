@@ -37,7 +37,7 @@ class Module extends BaseModule
 
     public function getIcon(): string
     {
-        return 'ki-filled ki-briefcase';
+        return 'ki-filled ki-car';
     }
 
     public function registerMenuItems(): array

@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
 use App\Services\EnvService;
 use App\Services\FrontendComponentService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
@@ -116,6 +119,8 @@ class AdminFrontendComponentController extends Controller
             'component:website.pricing_packages' => [],
             'component:taxi.tarieven' => [],
             'component:taxi.boekingsmodule' => [],
+            'component:taxi.boekingsmodule_v2' => [],
+            'component:taxi.algemene_boekingsmodule' => [],
             'component:website.email_template_section' => [
                 'title' => 'Vraag direct een demo aan',
             ],
@@ -138,6 +143,35 @@ class AdminFrontendComponentController extends Controller
             'formFields' => $demoFormFields,
             'emailTemplateBySectionKey' => ['component:website.email_template_section' => $demoEmailTemplate],
         ]);
+    }
+
+    public function toggleDisabled(Request $request): JsonResponse|RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $data = $request->validate([
+            'component_id' => 'required|string|max:120',
+            'disabled' => 'required|boolean',
+        ]);
+        $component = $this->componentService->getById((string) $data['component_id']);
+        if (! $component || ! empty($component->is_section_type)) {
+            return response()->json(['success' => false, 'message' => 'Component niet gevonden.'], 404);
+        }
+
+        $this->componentService->setDisabled((string) $component->id, $request->boolean('disabled'));
+        $fresh = $this->componentService->getById((string) $component->id);
+        $isDisabled = ! empty($fresh?->disabled);
+        $payload = [
+            'success' => true,
+            'component_id' => (string) $component->id,
+            'disabled' => $isDisabled,
+        ];
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json($payload);
+        }
+
+        return redirect()
+            ->route('admin.frontend-components.index')
+            ->with('success', $isDisabled ? 'Component uitgeschakeld.' : 'Component geactiveerd.');
     }
 
     private function catalogItems(): Collection

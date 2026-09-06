@@ -76,6 +76,52 @@ class AdminUserEditRolesTest extends TestCase
     }
 
     #[Test]
+    public function users_index_shows_chauffeur_app_offline_status(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+        $driver = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Dirk',
+            'last_name' => 'Rijder',
+            'email' => 'dirk.rijder@example.com',
+            'is_active' => true,
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($driver, ['chauffeur']);
+
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->assertSee('Chauffeur · Offline', false);
+    }
+
+    #[Test]
+    public function users_index_shows_web_and_api_roles_together(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+        $driver = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Api',
+            'last_name' => 'Chauffeur',
+            'email' => 'api.chauffeur@example.com',
+            'is_active' => true,
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($driver, ['company-admin']);
+        $apiRole = Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'api']);
+        $this->attachWebRole($driver, $apiRole, $company->id);
+
+        $html = $this->actingAs($admin, 'web')
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->getContent();
+
+        $pos = strpos($html, 'api.chauffeur@example.com');
+        $this->assertNotFalse($pos);
+        $snippet = substr($html, $pos, 8000);
+        $this->assertStringContainsString('>Chauffeur<', $snippet);
+        $this->assertStringContainsString('Company admin', $snippet);
+    }
+
+    #[Test]
     public function company_admin_cannot_edit_own_roles_in_the_form_or_via_post(): void
     {
         [$company, $admin] = $this->makeCompanyAdmin();

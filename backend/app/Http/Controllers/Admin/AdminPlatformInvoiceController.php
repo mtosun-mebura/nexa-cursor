@@ -117,6 +117,21 @@ class AdminPlatformInvoiceController extends Controller
         return view('admin.platform-billing.invoices.edit', compact('invoice', 'taxRate', 'catalogLineItems'));
     }
 
+    public function send(PlatformInvoice $invoice, PlatformBillingService $billing): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $billing->sendInvoiceToTenant($invoice);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Factuur versturen mislukt: '.$e->getMessage());
+        }
+
+        return back()->with('success', 'Factuur '.$invoice->invoice_number.' is naar de tenant verstuurd.');
+    }
+
     public function downloadPdf(PlatformInvoice $invoice, PlatformInvoicePdfService $pdfService): Response
     {
         $this->ensureSuperAdmin();

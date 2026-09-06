@@ -47,8 +47,28 @@
                     'nexa_admin_preview' => 1,
                     'admin_back' => route('admin.website-pages.index', $wizardIndexQuery ?? [], false),
                 ]);
-                $websitePagesSeoCount = ($pages ?? collect())->count();
+                $listedPages = $pages ?? collect();
+                $websitePagesSeoCount = $listedPages->count();
+                $allListedPagesActive = $websitePagesSeoCount > 0 && $listedPages->every(fn ($listedPage) => (bool) $listedPage->is_active);
             @endphp
+            <form method="POST" action="{{ route('admin.website-pages.set-listed-active', $wizardIndexQuery ?? []) }}" class="website-pages-live-switch m-0">
+                @csrf
+                @foreach ($wizardIndexQuery ?? [] as $wizKey => $wizVal)
+                    <input type="hidden" name="{{ $wizKey }}" value="{{ $wizVal }}">
+                @endforeach
+                <input type="hidden" name="is_active" value="0">
+                <label class="website-pages-live-switch__label inline-flex items-center gap-2 mb-0 {{ $websitePagesSeoCount < 1 ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer' }}" title="Alleen actieve pagina's zijn zichtbaar op de website, ook in Website voorbeeld.">
+                    <input type="checkbox"
+                           name="is_active"
+                           value="1"
+                           class="kt-switch kt-switch-sm shrink-0"
+                           {{ $allListedPagesActive ? 'checked' : '' }}
+                           @disabled($websitePagesSeoCount < 1)
+                           aria-label="Pagina's actief (zichtbaar op de website)"
+                           onchange="this.form.submit()">
+                    <span class="text-sm font-medium text-secondary-foreground whitespace-nowrap">Pagina's actief</span>
+                </label>
+            </form>
             <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn website-pages-btn-preview">
                 <i class="ki-filled ki-eye me-2"></i>
                 Website voorbeeld
@@ -94,7 +114,7 @@
                             <th class="website-pages-col-company" data-label="Bedrijf">Bedrijf</th>
                         @endif
                         <th class="website-pages-col-theme" data-label="Thema">Thema</th>
-                        <th class="website-pages-col-status" data-label="Status">Status</th>
+                        <th class="website-pages-col-status text-center" data-label="Status">Status</th>
                         <th class="website-pages-col-actions text-center" data-label="Acties">Acties</th>
                     </tr>
                 </thead>
@@ -177,12 +197,38 @@
                                 </td>
                             @endif
                             <td>{{ $activeTheme?->name ?? '—' }}</td>
-                            <td>
-                                @if($page->is_active)
-                                    <span class="kt-badge kt-badge-success">Actief</span>
-                                @else
-                                    <span class="kt-badge kt-badge-secondary">Inactief</span>
-                                @endif
+                            <td class="website-page-status-cell text-center" onclick="event.stopPropagation()">
+                                @php
+                                    $toggleActiveUrl = route('admin.website-pages.toggle-active', $page);
+                                    $toggleActiveQuery = $wizardIndexQuery ?? [];
+                                    if ($page->module_name) {
+                                        $toggleActiveQuery['module'] = $page->module_name;
+                                    }
+                                    if ($toggleActiveQuery !== []) {
+                                        $toggleActiveUrl .= '?'.http_build_query($toggleActiveQuery);
+                                    }
+                                @endphp
+                                <form method="POST" action="{{ $toggleActiveUrl }}" class="m-0 flex items-center justify-center">
+                                    @csrf
+                                    @foreach ($wizardIndexQuery ?? [] as $wizKey => $wizVal)
+                                        <input type="hidden" name="{{ $wizKey }}" value="{{ $wizVal }}">
+                                    @endforeach
+                                    @if($page->module_name)
+                                        <input type="hidden" name="module" value="{{ $page->module_name }}">
+                                        <input type="hidden" name="module_name" value="{{ $page->module_name }}">
+                                    @endif
+                                    <input type="hidden" name="is_active" value="0">
+                                    <label class="inline-flex items-center gap-2 mb-0 cursor-pointer" title="{{ $page->is_active ? 'Zichtbaar op de website' : 'Concept: niet zichtbaar op de website' }}">
+                                        <input type="checkbox"
+                                               name="is_active"
+                                               value="1"
+                                               class="kt-switch kt-switch-sm shrink-0"
+                                               {{ $page->is_active ? 'checked' : '' }}
+                                               aria-label="Actief (zichtbaar op de website)"
+                                               onchange="this.form.submit()">
+                                        <span class="sr-only">{{ $page->is_active ? 'Actief' : 'Inactief' }}</span>
+                                    </label>
+                                </form>
                             </td>
                             <td class="text-center relative website-page-actions-cell" onclick="event.stopPropagation()">
                                 <div class="website-pages-actions-menu flex justify-center">
@@ -198,6 +244,25 @@
                                                     </span>
                                                     <span class="kt-menu-title">Voorbeeld</span>
                                                 </a>
+                                            </div>
+                                            <div class="kt-menu-item">
+                                                <form action="{{ $toggleActiveUrl }}" method="POST" class="block">
+                                                    @csrf
+                                                    @foreach ($wizardIndexQuery ?? [] as $wizKey => $wizVal)
+                                                        <input type="hidden" name="{{ $wizKey }}" value="{{ $wizVal }}">
+                                                    @endforeach
+                                                    @if($page->module_name)
+                                                        <input type="hidden" name="module" value="{{ $page->module_name }}">
+                                                        <input type="hidden" name="module_name" value="{{ $page->module_name }}">
+                                                    @endif
+                                                    <input type="hidden" name="is_active" value="{{ $page->is_active ? '0' : '1' }}">
+                                                    <button type="submit" class="kt-menu-link w-full text-left">
+                                                        <span class="kt-menu-icon">
+                                                            <i class="ki-filled {{ $page->is_active ? 'ki-cross-circle' : 'ki-check-circle' }}"></i>
+                                                        </span>
+                                                        <span class="kt-menu-title">{{ $page->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                    </button>
+                                                </form>
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
@@ -218,7 +283,11 @@
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
-                                                <form action="{{ route('admin.website-pages.destroy', $page) }}{{ $pageModule }}{{ $wizSuffix }}" method="POST" class="block" onsubmit="return confirm('Pagina verwijderen?');">
+                                                <form action="{{ route('admin.website-pages.destroy', $page) }}{{ $pageModule }}{{ $wizSuffix }}"
+                                                      method="POST"
+                                                      class="website-page-delete-form block"
+                                                      data-confirm-title="Pagina verwijderen"
+                                                      data-confirm-message="Weet je zeker dat je de pagina “{{ $page->publicNavLabel() }}” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-destructive">
@@ -246,9 +315,75 @@
     </div>
 </div>
 
+<div id="website-page-delete-modal"
+     class="hidden fixed inset-0 z-[100000] items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-md"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="website-page-delete-modal-title"
+     hidden>
+    <div class="website-page-delete-panel relative w-full max-w-md rounded-2xl border border-border shadow-2xl">
+        <button type="button"
+                class="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                data-website-page-delete-dismiss
+                aria-label="Sluiten">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+        <div class="website-page-delete-panel__header px-5 py-5 pr-12">
+            <h3 id="website-page-delete-modal-title" class="text-lg font-semibold text-foreground mb-0">Pagina verwijderen</h3>
+        </div>
+        <div class="px-5 py-5">
+            <p class="text-sm text-muted-foreground mb-0" data-website-page-delete-message>
+                Weet je zeker dat je deze pagina wilt verwijderen?
+            </p>
+        </div>
+        <div class="px-5 py-5 flex flex-wrap justify-end gap-2">
+            <button type="button" class="kt-btn website-page-delete-cancel" data-website-page-delete-dismiss>Annuleren</button>
+            <button type="button" class="kt-btn kt-btn-destructive" data-website-page-delete-confirm>Verwijderen</button>
+        </div>
+    </div>
+</div>
+
 @push('styles')
 <style>
     .website-pages-actions-dropdown.is-open { display: block !important; }
+
+    .website-page-delete-panel {
+        background-color: var(--color-zinc-100);
+    }
+    .dark .website-page-delete-panel {
+        background-color: var(--color-zinc-800);
+    }
+    .website-page-delete-panel__header {
+        border-bottom: 1px solid var(--color-zinc-300);
+    }
+    .dark .website-page-delete-panel__header {
+        border-bottom: 1px solid var(--color-zinc-500);
+    }
+    .website-page-delete-cancel {
+        background-color: transparent !important;
+        border: 1px solid var(--color-zinc-400) !important;
+        color: var(--color-zinc-700) !important;
+        box-shadow: none !important;
+    }
+    .website-page-delete-cancel:hover,
+    .website-page-delete-cancel:focus {
+        background-color: transparent !important;
+        border-color: var(--color-zinc-500) !important;
+        color: var(--color-zinc-900) !important;
+    }
+    .dark .website-page-delete-cancel {
+        background-color: transparent !important;
+        border: 1px solid var(--color-zinc-400) !important;
+        color: var(--color-zinc-200) !important;
+    }
+    .dark .website-page-delete-cancel:hover,
+    .dark .website-page-delete-cancel:focus {
+        background-color: transparent !important;
+        border-color: var(--color-zinc-300) !important;
+        color: #fff !important;
+    }
 
     #content .website-pages-btn-preview {
         background-color: #ea580c;
@@ -276,6 +411,10 @@
         width: 7.5rem;
     }
 
+    #content #website-pages-table.website-pages-table :is(th, td) {
+        vertical-align: middle !important;
+    }
+
     #content #website-pages-table.website-pages-table .website-page-order-cell .kt-btn-icon {
         width: 1.75rem;
         height: 1.5rem;
@@ -286,8 +425,20 @@
         width: 5.5rem;
     }
 
-    #content #website-pages-table.website-pages-table .website-pages-col-status {
-        width: 6.5rem;
+    #content .website-pages-live-switch {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.5rem;
+        padding: 0;
+        border: none;
+        background: transparent;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-status,
+    #content #website-pages-table.website-pages-table .website-page-status-cell {
+        width: 5.5rem;
+        text-align: center !important;
+        vertical-align: middle !important;
     }
 
     #content #website-pages-table.website-pages-table .website-pages-col-actions,
@@ -392,6 +543,75 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function() { closeAll(); });
+
+    var deleteModal = document.getElementById('website-page-delete-modal');
+    var deleteTitleEl = document.getElementById('website-page-delete-modal-title');
+    var deleteMessageEl = deleteModal ? deleteModal.querySelector('[data-website-page-delete-message]') : null;
+    var pendingDeleteForm = null;
+
+    function openDeleteModal(form) {
+        pendingDeleteForm = form;
+        if (deleteTitleEl) {
+            deleteTitleEl.textContent = form.getAttribute('data-confirm-title') || 'Pagina verwijderen';
+        }
+        if (deleteMessageEl) {
+            deleteMessageEl.textContent = form.getAttribute('data-confirm-message')
+                || 'Weet je zeker dat je deze pagina wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+        }
+        closeAll();
+        if (deleteModal.parentElement !== document.body) {
+            document.body.appendChild(deleteModal);
+        }
+        deleteModal.hidden = false;
+        deleteModal.classList.remove('hidden');
+        deleteModal.classList.add('flex');
+        var cancelBtn = deleteModal.querySelector('[data-website-page-delete-dismiss].kt-btn');
+        if (cancelBtn) {
+            cancelBtn.focus();
+        }
+    }
+
+    function closeDeleteModal() {
+        pendingDeleteForm = null;
+        deleteModal.hidden = true;
+        deleteModal.classList.add('hidden');
+        deleteModal.classList.remove('flex');
+    }
+
+    if (deleteModal) {
+        document.addEventListener('submit', function(e) {
+            var form = e.target.closest('.website-page-delete-form');
+            if (!form) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            openDeleteModal(form);
+        });
+
+        deleteModal.addEventListener('click', function(e) {
+            if (e.target.closest('[data-website-page-delete-confirm]')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (pendingDeleteForm) {
+                    pendingDeleteForm.submit();
+                }
+                return;
+            }
+            if (e.target === deleteModal || e.target.closest('[data-website-page-delete-dismiss]')) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeDeleteModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !deleteModal.hidden) {
+                e.preventDefault();
+                closeDeleteModal();
+            }
+        });
+    }
 });
 </script>
 @endpush

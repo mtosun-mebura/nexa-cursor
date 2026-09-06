@@ -116,6 +116,9 @@
                         </td>
                         <td class="rides-list-table__customer">
                             <span class="block truncate">{{ $r->customer_name }}</span>
+                            @if($r->isNexaSuiteBooking())
+                                <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] text-[11px] mt-1">NEXA Suite</span>
+                            @endif
                             @if($r->customer_phone)<span class="text-muted-foreground text-xs block truncate">{{ $r->customer_phone }}</span>@endif
                         </td>
                         <td class="rides-list-table__route" title="{{ $r->pickup_address }} → {{ $r->dropoff_address }}">

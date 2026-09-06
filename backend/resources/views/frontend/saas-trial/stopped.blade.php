@@ -11,9 +11,16 @@
         h1 { margin: 0 0 12px; font-size: 1.25rem; }
         p { margin: 0 0 12px; font-size: 0.95rem; line-height: 1.55; color: #334155; }
         .error { color: #b91c1c; }
+        a { color: #2563eb; }
     </style>
 </head>
 <body>
+    @php
+        $trialEnds = session('trial_ends_at');
+        $startDate = session('start_date');
+        $trialEndsLabel = $trialEnds ? \Carbon\Carbon::parse($trialEnds)->translatedFormat('j F Y') : null;
+        $startLabel = $startDate ? \Carbon\Carbon::parse($startDate)->translatedFormat('j F Y') : null;
+    @endphp
     <div class="wrap">
         <div class="card">
             @if(session('error'))
@@ -21,8 +28,26 @@
                 <p class="error">{{ session('error') }}</p>
             @else
                 <h1>Proefperiode beëindigd</h1>
-                <p>Het abonnement is niet ingegaan. De tenant is inactief gezet en er volgt geen incasso.</p>
+                <p>Het abonnement is niet ingegaan. Er volgt geen incasso.</p>
+                <p>
+                    Je kunt het pakket blijven gebruiken
+                    @if($trialEndsLabel)
+                        tot <strong>{{ $trialEndsLabel }}</strong>
+                    @else
+                        tot het einde van de proefperiode
+                    @endif.
+                    Daarna wordt het account op inactief gezet.
+                </p>
+                <p>
+                    Je kunt het abonnement altijd weer activeren.
+                    @if($startLabel)
+                        De ingangsdatum blijft <strong>{{ $startLabel }}</strong>.
+                    @else
+                        De ingangsdatum blijft gelijk.
+                    @endif
+                </p>
             @endif
+            <p><a href="{{ route('admin.login') }}">Inloggen om het abonnement te activeren</a></p>
             <p>Vragen? Mail <a href="mailto:info@nexasuite.nl">info@nexasuite.nl</a>.</p>
         </div>
     </div>

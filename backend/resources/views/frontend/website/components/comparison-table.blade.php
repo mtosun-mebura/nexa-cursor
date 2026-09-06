@@ -88,7 +88,7 @@
     $ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
 @endphp
 @if($cons !== [] || $pros !== [])
-<section class="nexa-comparison-table nexa-pros-cons pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section" data-scroll-reveal>
+<section class="nexa-comparison-table nexa-pros-cons pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section overflow-x-hidden" data-scroll-reveal>
     <div class="website-section-inner">
         @if($title !== '' || $subtitle !== '')
         <div class="text-center mb-8 max-w-3xl mx-auto nexa-pros-cons__intro">
@@ -152,25 +152,28 @@
         <style>
             .nexa-pros-cons {
                 background: #f8fafc;
-            }
-            .nexa-pros-cons__title {
-                color: #0f172a !important;
-            }
-            .nexa-pros-cons__subtitle {
-                color: #475569 !important;
+                overflow-x: hidden;
+                max-width: 100%;
             }
             .nexa-pros-cons__columns {
                 --track-width: 100%;
                 --left-fr: 1fr;
                 --right-fr: 1fr;
                 display: grid;
-                width: var(--track-width);
+                width: min(100%, var(--track-width));
                 max-width: 100%;
                 margin-left: auto;
                 margin-right: auto;
                 gap: 1.25rem;
                 align-items: stretch;
                 box-sizing: border-box;
+                overflow-x: hidden;
+            }
+            .nexa-pros-cons__title {
+                color: #0f172a !important;
+            }
+            .nexa-pros-cons__subtitle {
+                color: #475569 !important;
             }
             /* fr mag niet in calc(); --left-fr/--right-fr zijn daarom volledige track-maten (bijv. 30fr). */
             .nexa-pros-cons__columns--both:not(.nexa-pros-cons__columns--stack) {

@@ -23,6 +23,9 @@
     ];
     $moduleAlign = $sectionStyle['align'] ?? 'center';
     $moduleAlignClass = $moduleAlign === 'left' ? 'justify-start' : ($moduleAlign === 'right' ? 'justify-end' : 'justify-center');
+    $moduleSplitAlignClass = $moduleAlign === 'left'
+        ? 'booking-module-v2-split--align-left'
+        : ($moduleAlign === 'right' ? 'booking-module-v2-split--align-right' : 'booking-module-v2-split--align-center');
     $moduleOuterStyleParts = ['width: 100%'];
     if (! empty($sectionStyle['container_min_height'])) {
         $moduleOuterStyleParts[] = 'min-height: '.$sectionStyle['container_min_height'];
@@ -47,6 +50,16 @@
         $bookingAccessCompany = \App\Models\Company::query()->find($bookingTenantCompanyId);
         $bookingAccessBlocked = app(\App\Services\PlatformBilling\TenantBillingAccessService::class)
             ->isBookingBlocked($bookingAccessCompany);
+    }
+    $bookingNoVehicles = false;
+    if (empty($bookingAccessBlocked)) {
+        try {
+            $bookingNoVehicles = ! app(\App\Services\NexaTaxiBookingPricingService::class)
+                ->hasActiveVehiclesForBooking($bookingTenantCompanyId);
+        } catch (\Throwable $e) {
+            report($e);
+            $bookingNoVehicles = true;
+        }
     }
     $whatsappClickToChatNumber = '';
     $whatsappServerAutoSend = false;
@@ -82,10 +95,14 @@
         $moduleOuterStyle = implode('; ', $moduleOuterStyleParts).';';
     }
     $tabFontPxVal = (int) ($sectionStyle['tab_font_size_px'] ?? 14);
-    $titleFontPxVal = (int) ($sectionStyle['title_font_size_px'] ?? 36);
+    $titleFontPxVal = (int) ($sectionStyle['title_font_size_px'] ?? 24);
     $titleFontPxVal = max(16, min(72, $titleFontPxVal));
-    $stepHeadingFontPxVal = (int) ($sectionStyle['step_heading_font_size_px'] ?? 30);
+    $stepHeadingFontPxVal = (int) ($sectionStyle['step_heading_font_size_px'] ?? 20);
     $stepHeadingFontPxVal = max(16, min(48, $stepHeadingFontPxVal));
+    $titleColorRaw = trim((string) ($sectionStyle['title_color'] ?? ''));
+    $titleColor = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $titleColorRaw)
+        ? $titleColorRaw
+        : $bookingDefaultAccent;
     $fieldHeadingFontPxVal = (int) ($sectionStyle['field_heading_font_size_px'] ?? 16);
     $fieldHeadingFontPxVal = max(12, min(28, $fieldHeadingFontPxVal));
     $stepHeadingStyle = 'color: '.e($sectionStyle['primary_color'] ?? $bookingDefaultAccent).';';
@@ -96,6 +113,15 @@
         ? ''
         : route('login', ['intended' => route('taxi.portal.dashboard')]);
     $bookingSplitMapV2 = ! empty($bookingSplitMapV2) && ! $bookingPortalMode;
+    $bookingMarketplaceFleet = ! empty($bookingMarketplaceFleet) && $bookingSplitMapV2;
+    $bookingTaxiCarUrls = $bookingMarketplaceFleet
+        ? [
+            'sedan' => asset('images/gps/car-sedan.png'),
+            'van' => asset('images/gps/car-van.png'),
+            'bus' => asset('images/gps/car-bus.png'),
+        ]
+        : [];
+    $nearbyTaxisUrl = $bookingMarketplaceFleet ? route('nexataxi.booking.nearby-taxis') : '';
     $bookingLiveMapPosition = 'beside_card';
     if ($bookingSplitMapV2) {
         $rawLiveMapPosition = strtolower(trim((string) ($sectionStyle['live_map_position'] ?? 'beside_card')));
@@ -109,6 +135,7 @@
         '--booking-tab-font-size: '.$tabFontPxVal.'px',
         '--booking-route-map-img-scale: '.$routeMapImgScale,
         '--booking-title-size-max: '.$titleFontPxVal.'px',
+        '--booking-title-color: '.$titleColor,
         '--booking-step-heading-size-max: '.$stepHeadingFontPxVal.'px',
         '--booking-field-heading-size: '.$fieldHeadingFontPxVal.'px',
         '--booking-card-radius: '.$bookingCardRadiusPx.'px',
@@ -132,7 +159,7 @@
 </section>
 @else
 
-<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-skin="{{ $bookingSkinInitial }}" data-scroll-reveal data-booking-module-scroll-reveal @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
+<section id="boek-rit" class="booking-module-scroll-reveal scroll-reveal-section is-in-view w-full {{ $bookingPortalMode ? 'booking-module--portal py-0' : 'py-6 md:py-12' }}" data-nexataxi-booking-module data-booking-skin="{{ $bookingSkinInitial }}" data-scroll-reveal data-booking-module-scroll-reveal @if(!empty($bookingNoVehicles)) data-booking-no-vehicles="1" @endif @if($bookingSplitMapV2) data-booking-split-map-v2 data-booking-map-position="{{ $bookingLiveMapPosition }}" @endif @if($bookingMarketplaceFleet) data-booking-marketplace-fleet @endif @unless(auth()->check()) data-portal-login-url="{{ $bookingPortalLoginUrl }}" @endunless style="{{ $bookingSectionStyle }}">
     {{-- Direct sync met website-theme om flits van verkeerde skin te voorkomen --}}
     <script>
     (function () {
@@ -145,16 +172,32 @@
     </script>
     <div class="booking-module-layout w-full max-w-full {{ $bookingPortalMode ? 'booking-module-layout--portal' : 'website-section-inner website-section-inner--flush' }}">
     @if($bookingSplitMapBesideCard)
-    <div class="booking-module-v2-split">
+    <div class="booking-module-v2-split {{ $moduleSplitAlignClass }}">
     <div class="booking-module-v2-form-col min-w-0">
     @endif
     <div class="flex {{ $moduleAlignClass }} w-full">
     <div class="booking-module-outer w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
     <div class="booking-module-card booking-module-reveal-item rounded-xl border p-0 shadow-sm bg-neutral-primary text-heading"
         style="{{ $moduleShellStyle }}">
+        @if(! empty($bookingNoVehicles))
+        <div class="booking-no-vehicles-modal" data-booking-no-vehicles-modal role="alertdialog" aria-modal="true" aria-labelledby="booking-no-vehicles-title" aria-describedby="booking-no-vehicles-text">
+            <div class="booking-no-vehicles-modal__backdrop" aria-hidden="true"></div>
+            <div class="booking-no-vehicles-modal__panel">
+                <div class="booking-no-vehicles-modal__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M3.5 16.5h17M5 16.5V10l2.2-4.5h9.6L19 10v6.5M7.5 16.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm9 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM5 10h14"/>
+                    </svg>
+                </div>
+                <h4 id="booking-no-vehicles-title" class="booking-no-vehicles-modal__title">Geen voertuigen beschikbaar</h4>
+                <p id="booking-no-vehicles-text" class="booking-no-vehicles-modal__text">
+                    Er zijn momenteel geen voertuigen opgevoerd in het systeem. Online boeken is daardoor niet mogelijk.
+                </p>
+            </div>
+        </div>
+        @endif
         <div class="booking-module-header px-4 py-3 sm:px-5 sm:py-3.5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}33;">
             <div class="min-w-0">
-                <h2 class="booking-module-title font-bold leading-tight" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
+                <h2 class="booking-module-title font-bold leading-tight" style="color: {{ e($titleColor) }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
                 @if(!empty($bookingConfig['subtitle']))
                 <p class="mt-1 text-sm text-body">{{ e($bookingConfig['subtitle']) }}</p>
                 @endif
@@ -233,9 +276,76 @@
                         </button>
                     </li>
                     @endforeach
+                    <span class="booking-step-tab-indicator" aria-hidden="true"></span>
                 </ul>
             </div>
         </div>
+        <style>
+            /* Tabbladen: gladde kleur/rand-overgang + een schuivende accent-streep die van tab
+               naar tab beweegt, plus een korte "pop" op de nieuw actieve tab. Eigen, losstaande
+               choreografie t.o.v. de rest van de site — dit is interactie, geen scroll-reveal. */
+            [data-nexataxi-booking-module] [data-booking-steps-nav] {
+                position: relative;
+            }
+            [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab {
+                transition: color 0.35s ease, border-color 0.35s ease, transform 0.15s ease;
+                color: var(--booking-skin-muted, #9aa8bd) !important;
+            }
+            /* Ingevulde/bereikbare stappen: wit (skin-tekst), altijd klikbaar */
+            [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab.booking-step-tab--reachable,
+            [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab.booking-step-tab--filled,
+            [data-nexataxi-booking-module][data-booking-skin="dark"] [data-booking-steps-nav] .booking-step-tab.booking-step-tab--reachable,
+            [data-nexataxi-booking-module][data-booking-skin="dark"] [data-booking-steps-nav] .booking-step-tab.booking-step-tab--filled,
+            [data-nexataxi-booking-module][data-booking-skin="dark"] [data-booking-steps-nav] .booking-step-tab.booking-step-tab--reachable.text-body,
+            [data-nexataxi-booking-module][data-booking-skin="dark"] [data-booking-steps-nav] .booking-step-tab.booking-step-tab--reachable.text-heading {
+                color: var(--booking-skin-text, #f3f6fb) !important;
+            }
+            [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab:not(.booking-step-tab--reachable),
+            [data-nexataxi-booking-module][data-booking-skin="dark"] [data-booking-steps-nav] .booking-step-tab:not(.booking-step-tab--reachable),
+            [data-nexataxi-booking-module][data-booking-skin="dark"] [data-booking-steps-nav] .booking-step-tab:not(.booking-step-tab--reachable).text-body {
+                color: var(--booking-skin-muted, #9aa8bd) !important;
+                opacity: 0.85;
+            }
+            [data-nexataxi-booking-module] [data-booking-steps-nav] .booking-step-tab:active {
+                transform: scale(0.96);
+            }
+            [data-nexataxi-booking-module] .booking-step-panels-shell {
+                min-height: var(--booking-panels-min-height, 0px);
+            }
+            @keyframes booking-step-tab-pop {
+                0% { transform: scale(1); }
+                40% { transform: scale(1.07); }
+                100% { transform: scale(1); }
+            }
+            [data-nexataxi-booking-module] .booking-step-tab.active {
+                animation: booking-step-tab-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            [data-nexataxi-booking-module] .booking-step-tab-indicator {
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 2.5px;
+                width: 0;
+                border-radius: 999px;
+                background: var(--booking-cta, #f97316);
+                box-shadow: 0 0 10px 1px color-mix(in srgb, var(--booking-cta, #f97316) 65%, transparent);
+                opacity: 0;
+                transform: translate(0, 0);
+                transition: transform 0.4s cubic-bezier(0.65, 0, 0.35, 1), width 0.4s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.25s ease;
+                pointer-events: none;
+            }
+            [data-nexataxi-booking-module] .booking-step-tab-indicator.is-ready {
+                opacity: 1;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                [data-nexataxi-booking-module] .booking-step-tab.active {
+                    animation: none;
+                }
+                [data-nexataxi-booking-module] .booking-step-tab-indicator {
+                    transition: opacity 0.2s ease;
+                }
+            }
+        </style>
 
         @if($bookingSplitMapInsideContent)
         <div class="booking-module-body p-4 sm:p-5 bg-neutral-secondary-soft booking-module-v2-card-content-pad">
@@ -246,6 +356,32 @@
         @endif
             <div class="booking-module-body-main">
             <div class="space-y-4">
+                <style>
+                    /* Stap-wissel: het nieuw getoonde paneel vliegt in vanaf de richting waarin
+                       genavigeerd wordt (vooruit = van rechts, terug = van links). Werkt puur op
+                       CSS-animatie i.p.v. transition, omdat een paneel van display:none naar
+                       zichtbaar gaat (transitions kunnen daar niet overheen animeren, een
+                       @keyframes-animatie start wél opnieuw zodra het element gerenderd wordt). */
+                    @keyframes booking-step-panel-in-forward {
+                        from { opacity: 0; transform: translateX(26px); }
+                        to { opacity: 1; transform: translateX(0); }
+                    }
+                    @keyframes booking-step-panel-in-backward {
+                        from { opacity: 0; transform: translateX(-26px); }
+                        to { opacity: 1; transform: translateX(0); }
+                    }
+                    [data-nexataxi-booking-module] [data-step-panel]:not(.hidden) {
+                        animation: booking-step-panel-in-forward 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+                    }
+                    [data-nexataxi-booking-module] [data-booking-step-panels-shell][data-step-direction="backward"] [data-step-panel]:not(.hidden) {
+                        animation-name: booking-step-panel-in-backward;
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        [data-nexataxi-booking-module] [data-step-panel]:not(.hidden) {
+                            animation: none !important;
+                        }
+                    }
+                </style>
                 <div class="booking-step-panels-shell w-full" data-booking-step-panels-shell>
                 <div class="hidden" id="booking-panel-baggage" role="tabpanel" aria-labelledby="booking-tab-baggage" data-step-panel="baggage">
                     <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['baggage'] ?? 'Bagage') }}</h3>
@@ -303,6 +439,7 @@
                         <div class="text-sm text-slate-600 dark:text-slate-300">Passagiers: <span data-summary-passengers>1</span></div>
                     </div>
                     <p class="hidden mb-4 text-sm font-bold text-yellow-400 dark:text-yellow-300" data-baggage-van-upgrade-notice role="status"></p>
+                    <p class="hidden mb-4 text-sm text-slate-600 dark:text-slate-300" data-marketplace-note role="status"></p>
                     <div class="space-y-4" data-offers-list></div>
                     <p class="text-sm mt-3 text-slate-600 dark:text-slate-300 hidden" data-offers-empty>Geen aanbiedingen beschikbaar voor de huidige invoer.</p>
                 </div>
@@ -424,13 +561,30 @@
                         </div>
                         <div class="booking-trip-right space-y-5">
                             <div>
-                                <label class="booking-module-field-heading block mb-2.5 font-semibold text-heading">Ophaalmoment taxi</label>
-                                <div class="relative mt-1 booking-datetime-wrap">
-                                    <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 2v3m8-3v3M3 9h18M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
-                                    </svg>
-                                    <input type="datetime-local" style="padding-left: 50px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer" data-field="pickup_at" data-datetime-input data-placeholder-target="pickup_at" placeholder="{{ e($texts['pickup_datetime_placeholder'] ?? '') }}">
-                                    <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="pickup_at">{{ e($texts['pickup_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
+                                <label class="booking-module-field-heading block mb-2.5 font-semibold text-heading" for="booking-field-pickup_at">Ophaalmoment taxi</label>
+                                <div class="relative mt-1 booking-datetime-wrap" data-datetime-wrap="pickup_at">
+                                    <div class="booking-datetime-control" aria-hidden="true">
+                                        <span class="booking-datetime-icon-wrap">
+                                            <svg class="booking-datetime-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 2v3m8-3v3M3.5 9.5h17M6 5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 5Z"/>
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-width="1.6" d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01"/>
+                                            </svg>
+                                        </span>
+                                        <span class="booking-datetime-copy">
+                                            <span class="booking-datetime-placeholder" data-datetime-placeholder-for="pickup_at">{{ e($texts['pickup_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
+                                            <span class="booking-datetime-filled hidden" data-datetime-filled-for="pickup_at">
+                                                <span class="booking-datetime-date" data-datetime-date-for="pickup_at"></span>
+                                                <span class="booking-datetime-sep" aria-hidden="true"></span>
+                                                <span class="booking-datetime-time" data-datetime-time-for="pickup_at"></span>
+                                            </span>
+                                        </span>
+                                        <span class="booking-datetime-meta">
+                                            <svg class="booking-datetime-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m5.5 7.5 4.5 4.5 4.5-4.5"/>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                    <input id="booking-field-pickup_at" type="text" inputmode="none" autocomplete="off" readonly class="booking-datetime-input" data-field="pickup_at" data-datetime-input data-placeholder-target="pickup_at" placeholder="{{ e($texts['pickup_datetime_placeholder'] ?? '') }}" aria-label="Ophaalmoment taxi" aria-haspopup="dialog" aria-expanded="false">
                                 </div>
                                 <p class="hidden mt-2 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="pickup_at" role="alert"></p>
                                 <div class="hidden mt-2 text-sm text-red-600 dark:text-red-400" data-pickup-datetime-future-error role="alert">
@@ -442,12 +596,29 @@
                                     <input type="checkbox" role="switch" class="kt-switch kt-switch-sm shrink-0" data-field="return_trip" {{ !empty($logic['return_enabled_by_default']) ? 'checked' : '' }}>
                                     <span class="booking-module-field-heading text-heading font-semibold">Retour</span>
                                 </label>
-                                <div class="relative mt-3 booking-datetime-wrap booking-return-datetime-wrap">
-                                    <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 2v3m8-3v3M3 9h18M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
-                                    </svg>
-                                    <input type="datetime-local" style="padding-left: 70px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="Selecteer datum en tijd" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
-                                    <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="return_at">Selecteer datum en tijd</span>
+                                <div class="relative mt-3 booking-datetime-wrap booking-return-datetime-wrap" data-datetime-wrap="return_at">
+                                    <div class="booking-datetime-control" aria-hidden="true">
+                                        <span class="booking-datetime-icon-wrap">
+                                            <svg class="booking-datetime-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 2v3m8-3v3M3.5 9.5h17M6 5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 5Z"/>
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-width="1.6" d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01"/>
+                                            </svg>
+                                        </span>
+                                        <span class="booking-datetime-copy">
+                                            <span class="booking-datetime-placeholder" data-datetime-placeholder-for="return_at">Selecteer datum en tijd</span>
+                                            <span class="booking-datetime-filled hidden" data-datetime-filled-for="return_at">
+                                                <span class="booking-datetime-date" data-datetime-date-for="return_at"></span>
+                                                <span class="booking-datetime-sep" aria-hidden="true"></span>
+                                                <span class="booking-datetime-time" data-datetime-time-for="return_at"></span>
+                                            </span>
+                                        </span>
+                                        <span class="booking-datetime-meta">
+                                            <svg class="booking-datetime-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m5.5 7.5 4.5 4.5 4.5-4.5"/>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                    <input id="booking-field-return_at" type="text" inputmode="none" autocomplete="off" readonly class="booking-datetime-input" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="Selecteer datum en tijd" aria-label="Retourmoment" aria-haspopup="dialog" aria-expanded="false" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
                                 </div>
                                 <p class="hidden mt-2 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="return_at" role="alert"></p>
                             </div>
@@ -558,8 +729,8 @@
                                             <div class="booking-confirm-label text-slate-500 dark:text-slate-400">Voertuig / aanbieding</div>
                                         </div>
                                         <div class="hidden w-full" data-summary-vehicle-image-wrap>
-                                            <div class="flex items-center justify-center bg-stone-50/90 dark:bg-slate-900/40 min-h-[5rem] sm:min-h-[5.5rem]">
-                                                <img src="" alt="" class="w-full max-h-24 sm:max-h-28 h-auto object-contain object-center block" data-summary-vehicle-image>
+                                            <div class="flex items-center justify-center px-2 py-1.5 min-h-[6.5rem] sm:min-h-[7.5rem]">
+                                                <img src="" alt="" class="w-full max-h-32 sm:max-h-36 h-auto object-contain object-center block" data-summary-vehicle-image>
                                             </div>
                                         </div>
                                         <div class="px-2.5 py-1.5">
@@ -770,27 +941,46 @@
     }
 }
 
-/* Mobiel: volle breedte; desktop: optionele max-breedte uit admin */
+/* Mobiel: volle breedte; desktop: optionele max-breedte uit admin (hele module: form + kaart) */
 [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-split {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 0;
     align-items: stretch;
-}
-@media (min-width: 1024px) {
-    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-split {
-        grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
-        gap: 1.25rem;
-    }
+    overflow-x: hidden;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
 }
 @media (min-width: 768px) {
+    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-split,
     [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-split {
         width: 100%;
         max-width: var(--booking-module-max-width, 100%);
         margin-left: auto;
         margin-right: auto;
+    }
+    [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-split--align-left {
+        margin-left: 0;
+        margin-right: auto;
+    }
+    [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-split--align-right {
+        margin-left: auto;
+        margin-right: 0;
+    }
+    [data-nexataxi-booking-module][data-booking-split-map-v2] .booking-module-v2-split--align-center {
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+@media (min-width: 1024px) {
+    [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-split {
+        grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+        gap: 1.25rem;
     }
 }
 [data-nexataxi-booking-module][data-booking-split-map-v2][data-booking-map-position="beside_card"] .booking-module-v2-form-col,
@@ -947,6 +1137,36 @@
     line-height: 1.45;
     color: #94a3b8;
 }
+[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-module-v2-map-legend {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 12;
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(234, 88, 12, 0.45);
+    color: #fed7aa;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+}
+.booking-live-taxi-marker {
+    position: absolute;
+    width: 28px;
+    height: 52px;
+    margin-left: -14px;
+    margin-top: -26px;
+    transform-origin: center center;
+    pointer-events: none;
+}
+.booking-live-taxi-marker img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
 [data-nexataxi-booking-module][data-booking-split-map-v2] [data-trip-route-map-wrap] {
     display: none !important;
 }
@@ -993,10 +1213,10 @@
     }
 }
 .booking-module-title {
-    font-size: var(--booking-title-size-max, 2.25rem);
+    font-size: var(--booking-title-size-max, 1.5rem);
 }
 .booking-module-step-heading {
-    font-size: var(--booking-step-heading-size-max, 1.875rem);
+    font-size: var(--booking-step-heading-size-max, 1.25rem);
 }
 .booking-module-field-heading {
     font-size: var(--booking-field-heading-size, 1rem);
@@ -1026,6 +1246,83 @@
 
 [data-nexataxi-booking-module] .booking-module-card {
     overflow: hidden;
+    position: relative;
+}
+
+[data-nexataxi-booking-module] .booking-no-vehicles-modal {
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    border-radius: inherit;
+}
+[data-nexataxi-booking-module] .booking-no-vehicles-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-no-vehicles-modal__backdrop {
+    background: rgba(15, 23, 42, 0.42);
+}
+[data-nexataxi-booking-module] .booking-no-vehicles-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 22rem);
+    padding: 1.35rem 1.25rem 1.4rem;
+    border-radius: 1rem;
+    text-align: center;
+    background: var(--booking-skin-card, #121a2b);
+    color: var(--booking-skin-text, #f3f6fb);
+    border: 1px solid var(--booking-skin-line, rgba(148, 163, 184, 0.28));
+    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.35);
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-no-vehicles-modal__panel {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+[data-nexataxi-booking-module] .booking-no-vehicles-modal__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto 0.85rem;
+    border-radius: 999px;
+    color: var(--booking-cta, #f97316);
+    background: color-mix(in srgb, var(--booking-cta, #f97316) 16%, transparent);
+}
+[data-nexataxi-booking-module] .booking-no-vehicles-modal__icon svg {
+    width: 1.45rem;
+    height: 1.45rem;
+}
+[data-nexataxi-booking-module] .booking-no-vehicles-modal__title {
+    margin: 0 0 0.45rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+[data-nexataxi-booking-module] .booking-no-vehicles-modal__text {
+    margin: 0;
+    font-size: 0.925rem;
+    line-height: 1.45;
+    color: var(--booking-skin-muted, #9aa8bd);
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-no-vehicles-modal__text {
+    color: #64748b;
+}
+[data-nexataxi-booking-module][data-booking-no-vehicles="1"] .booking-module-body,
+[data-nexataxi-booking-module][data-booking-no-vehicles="1"] .booking-module-tabs,
+[data-nexataxi-booking-module][data-booking-no-vehicles="1"] .booking-module-v2-card-footer,
+[data-nexataxi-booking-module][data-booking-no-vehicles="1"] .booking-module-header {
+    pointer-events: none;
+    user-select: none;
 }
 
 [data-nexataxi-booking-module]:not(.booking-module--portal) .booking-module-body {
@@ -1233,6 +1530,12 @@ html.dark [data-nexataxi-booking-module] .booking-confirm-label,
     border-style: solid !important;
     border-color: rgb(241 245 249) !important;
 }
+[data-nexataxi-booking-module] [data-summary-vehicle-image-wrap] img[data-summary-vehicle-image] {
+    max-height: 9.5rem;
+    width: auto;
+    max-width: 100%;
+    margin-inline: auto;
+}
 [data-nexataxi-booking-module] [data-booking-payment-block].booking-confirm-surface {
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;
@@ -1432,8 +1735,10 @@ html.dark [data-nexataxi-booking-module] .booking-offer-card[aria-pressed="false
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
+/* Sticky website-header (h-16/h-20) dekt anders de titel bij #boek-rit. */
+#boek-rit,
 [data-nexataxi-booking-module] .booking-module-card {
-    scroll-margin-top: 5.5rem;
+    scroll-margin-top: 6.5rem;
 }
 [data-nexataxi-booking-module] .booking-step-panels-shell {
     overflow-anchor: none;
@@ -1445,10 +1750,13 @@ html.dark [data-nexataxi-booking-module] .booking-offer-card[aria-pressed="false
 }
 
 [data-nexataxi-booking-module] .booking-return-datetime-wrap.booking-return-readonly {
-    opacity: 0.7;
+    opacity: 0.62;
     pointer-events: none;
 }
 [data-nexataxi-booking-module] .booking-return-datetime-wrap.booking-return-readonly .booking-datetime-input {
+    cursor: default;
+}
+[data-nexataxi-booking-module] .booking-return-datetime-wrap.booking-return-readonly .booking-datetime-control {
     cursor: default;
 }
 
@@ -1948,15 +2256,6 @@ body.booking-modal-open {
     -webkit-text-fill-color: #ffffff !important;
 }
 
-[data-nexataxi-booking-module] .booking-datetime-input {
-    border-color: rgba(148, 163, 184, 0.45) !important;
-}
-
-[data-nexataxi-booking-module] .booking-datetime-input:focus {
-    border-color: rgba(148, 163, 184, 0.45) !important;
-    box-shadow: none !important;
-}
-
 @media (min-width: 1024px) {
     [data-nexataxi-booking-module] .booking-trip-layout {
         grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
@@ -1988,35 +2287,164 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
 [data-nexataxi-booking-module][data-booking-skin="light"] [data-step-panel] .rounded-lg {
     color: #0f172a;
 }
-[data-nexataxi-booking-module] .booking-datetime-input::-webkit-calendar-picker-indicator {
-    opacity: 0;
-    width: 0;
-    margin: 0;
+
+[data-nexataxi-booking-module] .booking-datetime-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+}
+[data-nexataxi-booking-module] .booking-datetime-control {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.45rem 0.7rem 0.45rem 0.45rem;
+    border: 1px solid var(--booking-skin-line, rgba(148, 163, 184, 0.35));
+    border-radius: 0.85rem;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 68%),
+        var(--booking-skin-input, #1e293b);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
     pointer-events: none;
 }
+[data-nexataxi-booking-module] .booking-datetime-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.15rem;
+    height: 2.15rem;
+    flex-shrink: 0;
+    border-radius: 0.65rem;
+    color: var(--booking-cta, #f97316);
+    background: color-mix(in srgb, var(--booking-cta, #f97316) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--booking-cta, #f97316) 22%, transparent);
+}
+[data-nexataxi-booking-module] .booking-datetime-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+}
+[data-nexataxi-booking-module] .booking-datetime-copy {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+[data-nexataxi-booking-module] .booking-datetime-placeholder {
+    color: var(--booking-skin-muted, #94a3b8);
+    font-size: 0.875rem;
+    line-height: 1.25;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-nexataxi-booking-module] .booking-datetime-filled {
+    display: none;
+    align-items: baseline;
+    gap: 0.55rem;
+    min-width: 0;
+    color: var(--booking-skin-text, #f8fafc);
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap.is-filled .booking-datetime-placeholder {
+    display: none;
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap.is-filled .booking-datetime-filled {
+    display: inline-flex;
+}
+[data-nexataxi-booking-module] .booking-datetime-date {
+    font-size: 0.92rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+[data-nexataxi-booking-module] .booking-datetime-sep {
+    width: 0.28rem;
+    height: 0.28rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--booking-cta, #f97316) 72%, transparent);
+    flex-shrink: 0;
+    align-self: center;
+}
+[data-nexataxi-booking-module] .booking-datetime-time {
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    color: color-mix(in srgb, var(--booking-cta, #f97316) 88%, #fff);
+    white-space: nowrap;
+}
+[data-nexataxi-booking-module] .booking-datetime-meta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    color: var(--booking-skin-muted, #94a3b8);
+    background: color-mix(in srgb, var(--booking-skin-muted, #94a3b8) 12%, transparent);
+}
+[data-nexataxi-booking-module] .booking-datetime-chevron {
+    width: 0.95rem;
+    height: 0.95rem;
+    transition: transform 0.18s ease;
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap:hover .booking-datetime-control {
+    border-color: color-mix(in srgb, var(--booking-cta, #f97316) 42%, var(--booking-skin-line, rgba(148, 163, 184, 0.45)));
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap:focus-within .booking-datetime-control {
+    border-color: color-mix(in srgb, var(--booking-cta, #f97316) 75%, transparent);
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--booking-cta, #f97316) 22%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap:focus-within .booking-datetime-chevron {
+    transform: translateY(1px);
+}
 [data-nexataxi-booking-module] .booking-datetime-input {
-    border-color: rgba(148, 163, 184, 0.45) !important;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 0.85rem;
+    opacity: 0.011;
+    background: transparent !important;
     color: transparent !important;
     -webkit-text-fill-color: transparent !important;
     caret-color: transparent;
-    text-shadow: none;
-    color-scheme: light;
-}
-.dark [data-nexataxi-booking-module] .booking-datetime-input,
-html.dark [data-nexataxi-booking-module] .booking-datetime-input,
-[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-datetime-input {
-    border-color: rgba(148, 163, 184, 0.55) !important;
+    box-shadow: none !important;
+    cursor: pointer;
     color-scheme: dark;
 }
 [data-nexataxi-booking-module][data-booking-skin="light"] .booking-datetime-input {
-    border-color: rgba(148, 163, 184, 0.45) !important;
     color-scheme: light;
+}
+[data-nexataxi-booking-module] .booking-datetime-input:disabled {
+    cursor: not-allowed;
+}
+[data-nexataxi-booking-module] .booking-datetime-input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+[data-nexataxi-booking-module] .booking-datetime-input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
 }
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-clear-button,
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-inner-spin-button {
     display: none;
 }
-[data-nexataxi-booking-module] .booking-datetime-input,
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-datetime-edit,
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-datetime-edit-fields-wrapper,
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-datetime-edit-text,
@@ -2032,27 +2460,345 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
 [data-nexataxi-booking-module] .booking-datetime-input::-webkit-datetime-edit {
     display: none;
 }
-.dark [data-nexataxi-booking-module] .booking-datetime-input::-webkit-calendar-picker-indicator {
-    opacity: 0;
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-datetime-control {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98)),
+        #f8fafc;
+    border-color: rgba(148, 163, 184, 0.42);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
-
-[data-nexataxi-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid {
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-datetime-placeholder {
+    color: #94a3b8;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-datetime-filled {
+    color: #0f172a;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-datetime-meta {
+    color: #64748b;
+    background: rgba(100, 116, 139, 0.1);
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap.is-picker-open .booking-datetime-chevron {
+    transform: rotate(180deg);
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap.is-picker-open .booking-datetime-control {
+    border-color: color-mix(in srgb, var(--booking-cta, #f97316) 75%, transparent);
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--booking-cta, #f97316) 22%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+[data-nexataxi-booking-module] .booking-dt-popover {
+    position: absolute;
+    z-index: 80;
+    left: auto;
+    right: 0;
+    top: calc(100% + 0.45rem);
+    width: max(100%, 23rem);
+    min-width: 23rem;
+    max-width: min(28rem, calc(100vw - 1.5rem));
+    padding: 0.85rem;
+    border-radius: 1.05rem;
+    border: 1px solid color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 90%, transparent);
+    background:
+        linear-gradient(165deg, color-mix(in srgb, var(--booking-cta, #f97316) 10%, transparent), transparent 42%),
+        var(--booking-skin-card, #0f172a);
+    color: var(--booking-skin-text, #f8fafc);
+    box-shadow:
+        0 18px 40px rgba(2, 6, 23, 0.38),
+        0 2px 8px rgba(2, 6, 23, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: booking-dt-pop-in 0.16s ease-out;
+}
+[data-nexataxi-booking-module] .booking-dt-popover[hidden] {
+    display: none !important;
+}
+[data-nexataxi-booking-module] .booking-dt-popover.is-above {
+    top: auto;
+    bottom: calc(100% + 0.45rem);
+    animation-name: booking-dt-pop-in-above;
+}
+@keyframes booking-dt-pop-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes booking-dt-pop-in-above {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-popover {
+    background:
+        linear-gradient(165deg, color-mix(in srgb, var(--booking-cta, #f97316) 8%, #fff), #fff 46%),
+        #ffffff;
+    color: #0f172a;
+    border-color: rgba(148, 163, 184, 0.35);
+    box-shadow:
+        0 18px 40px rgba(15, 23, 42, 0.14),
+        0 2px 8px rgba(15, 23, 42, 0.06);
+}
+[data-nexataxi-booking-module] .booking-dt-popover__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.7rem;
+}
+[data-nexataxi-booking-module] .booking-dt-popover__month {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: capitalize;
+}
+[data-nexataxi-booking-module] .booking-dt-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 85%, transparent);
+    background: color-mix(in srgb, var(--booking-skin-input, #1e293b) 88%, transparent);
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-nav {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #334155;
+}
+[data-nexataxi-booking-module] .booking-dt-nav:hover {
+    border-color: color-mix(in srgb, var(--booking-cta, #f97316) 55%, transparent);
+    color: var(--booking-cta, #f97316);
+}
+[data-nexataxi-booking-module] .booking-dt-nav:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+[data-nexataxi-booking-module] .booking-dt-popover__body {
+    display: grid;
+    grid-template-columns: minmax(15.75rem, 1fr) minmax(6.25rem, auto);
+    gap: 0.85rem;
+    align-items: stretch;
+}
+[data-nexataxi-booking-module] .booking-dt-cal {
+    min-width: 15.75rem;
+}
+[data-nexataxi-booking-module] .booking-dt-weekdays,
+[data-nexataxi-booking-module] .booking-dt-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.2rem;
+}
+[data-nexataxi-booking-module] .booking-dt-weekdays {
+    margin-bottom: 0.35rem;
+}
+[data-nexataxi-booking-module] .booking-dt-weekday {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--booking-skin-muted, #94a3b8);
+    padding: 0.15rem 0;
+}
+[data-nexataxi-booking-module] .booking-dt-day {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    aspect-ratio: 1;
+    border-radius: 0.72rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+[data-nexataxi-booking-module] .booking-dt-day:hover:not(:disabled):not(.is-selected) {
+    background: color-mix(in srgb, var(--booking-cta, #f97316) 14%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-day.is-outside {
+    color: var(--booking-skin-muted, #64748b);
+    opacity: 0.45;
+}
+[data-nexataxi-booking-module] .booking-dt-day.is-today:not(.is-selected) {
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--booking-cta, #f97316) 55%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-day.is-selected {
+    background: var(--booking-cta, #f97316);
+    color: #fff;
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--booking-cta, #f97316) 35%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-day:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+}
+[data-nexataxi-booking-module] .booking-dt-time {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+    min-height: 11.5rem;
+    padding: 0.15rem 0;
+    border: 0;
+    background: transparent;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time {
+    background: transparent;
+}
+[data-nexataxi-booking-module] .booking-dt-time-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 12.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: transparent;
+    gap: 0.15rem;
+    padding: 0.1rem 0.15rem;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--booking-skin-muted, #94a3b8) 55%, transparent) transparent;
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time-col {
+    scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar {
+    width: 0.35rem;
+}
+[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar-track {
+    background: transparent;
+}
+[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--booking-skin-muted, #94a3b8) 55%, transparent);
+}
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time-col::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.45);
+}
+[data-nexataxi-booking-module] .booking-dt-time-label {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: center;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--booking-skin-muted, #94a3b8);
+    padding: 0.2rem 0 0.35rem;
+    background: transparent;
+}
+[data-nexataxi-booking-module] .booking-dt-time-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    border-radius: 0.55rem;
+    min-height: 1.85rem;
+    font-size: 0.84rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+}
+[data-nexataxi-booking-module] .booking-dt-time-btn:hover:not(:disabled):not(.is-selected) {
+    background: color-mix(in srgb, var(--booking-cta, #f97316) 14%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-time-btn.is-selected {
+    background: var(--booking-cta, #f97316);
+    color: #fff;
+}
+[data-nexataxi-booking-module] .booking-dt-time-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+[data-nexataxi-booking-module] .booking-dt-popover__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 75%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-footer-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--booking-cta, #f97316);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.55rem;
+    transition: background-color 0.14s ease;
+}
+[data-nexataxi-booking-module] .booking-dt-footer-btn:hover {
+    background: color-mix(in srgb, var(--booking-cta, #f97316) 12%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-footer-btn--done {
+    background: var(--booking-cta, #f97316);
+    color: #fff;
+    padding: 0.45rem 0.85rem;
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--booking-cta, #f97316) 28%, transparent);
+}
+[data-nexataxi-booking-module] .booking-dt-footer-btn--done:hover {
+    background: var(--booking-cta-hover, #ea580c);
+}
+[data-nexataxi-booking-module] .booking-dt-footer-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+@media (max-width: 639px) {
+    [data-nexataxi-booking-module] .booking-dt-popover {
+        left: 0;
+        right: 0;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+    [data-nexataxi-booking-module] .booking-dt-cal {
+        min-width: 0;
+    }
+}
+@media (max-width: 420px) {
+    [data-nexataxi-booking-module] .booking-dt-popover__body {
+        grid-template-columns: 1fr;
+    }
+    [data-nexataxi-booking-module] .booking-dt-time {
+        min-height: 0;
+        max-height: none;
+        grid-template-columns: 1fr 1fr;
+    }
+    [data-nexataxi-booking-module] .booking-dt-time-col {
+        max-height: 8.5rem;
+    }
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap:has(.booking-datetime-input--past-invalid) .booking-datetime-control {
     border-color: rgb(239 68 68) !important;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.28);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22);
 }
-[data-nexataxi-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid:focus {
-    border-color: rgb(239 68 68) !important;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
-}
-.dark [data-nexataxi-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid {
+.dark [data-nexataxi-booking-module] .booking-datetime-wrap:has(.booking-datetime-input--past-invalid) .booking-datetime-control {
     border-color: rgb(248 113 113) !important;
-    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3);
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.28);
 }
-
+[data-nexataxi-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid,
+[data-nexataxi-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid:focus {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
 [data-nexataxi-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid) {
     border-color: rgb(239 68 68) !important;
     border-width: 1px !important;
     box-shadow: none !important;
+}
+[data-nexataxi-booking-module] .booking-datetime-wrap:has(input.booking-field-input--error:not(.booking-datetime-input--past-invalid)) .booking-datetime-control {
+    border-color: rgb(239 68 68) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
 }
 [data-nexataxi-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid):focus {
     border-color: rgb(239 68 68) !important;
@@ -2062,6 +2808,9 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     border-color: rgb(248 113 113) !important;
     border-width: 1px !important;
     box-shadow: none !important;
+}
+.dark [data-nexataxi-booking-module] .booking-datetime-wrap:has(input.booking-field-input--error:not(.booking-datetime-input--past-invalid)) .booking-datetime-control {
+    border-color: rgb(248 113 113) !important;
 }
 .dark [data-nexataxi-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid):focus {
     border-color: rgb(248 113 113) !important;
@@ -2131,7 +2880,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     border-color: var(--booking-skin-line) !important;
 }
 [data-nexataxi-booking-module] .booking-module-title {
-    color: var(--booking-cta) !important;
+    color: var(--booking-title-color, var(--booking-cta, #f97316)) !important;
 }
 [data-nexataxi-booking-module] .text-body,
 [data-nexataxi-booking-module] .text-heading {
@@ -2144,7 +2893,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     color: var(--booking-skin-text) !important;
 }
 [data-nexataxi-booking-module] .booking-route-input-short,
-[data-nexataxi-booking-module] input[data-field]:not(.kt-switch),
+[data-nexataxi-booking-module] input[data-field]:not(.kt-switch):not(.booking-datetime-input),
 [data-nexataxi-booking-module] textarea[data-field],
 [data-nexataxi-booking-module] select,
 [data-nexataxi-booking-module] .booking-step-select-btn,
@@ -2387,6 +3136,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     var submitUrl = @json(route('nexataxi.booking.submit'));
     var pendingUrl = @json(route('nexataxi.booking.pending'));
     var pageId = @json($bookingPageId);
+    var bookingVehiclePlaceholderUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder.png'));
     var sectionKey = @json($sectionKey ?? 'component:taxi.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var bookingReturnUrl = @json($bookingReturnUrl !== '' ? $bookingReturnUrl : null);
@@ -2395,6 +3145,10 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     var bookingCustomerPrefill = @json($bookingCustomerPrefill);
     var mapsApiKey = @json($mapsApiKey);
     var bookingSplitMapV2 = @json($bookingSplitMapV2);
+    var bookingMarketplaceFleet = @json($bookingMarketplaceFleet);
+    var bookingNoVehicles = @json(!empty($bookingNoVehicles));
+    var nearbyTaxisUrl = @json($nearbyTaxisUrl);
+    var bookingTaxiCarUrls = @json($bookingTaxiCarUrls);
     var bookingMapInsideContent = @json($bookingSplitMapInsideContent);
     var activeTabColor = @json($sectionStyle['active_tab_color'] ?? $bookingDefaultAccent);
     var bookingPrimaryHex = @json($sectionStyle['primary_color'] ?? $bookingDefaultAccent);
@@ -2653,7 +3407,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             }
 
             if (window.location.hash === '#boek-rit' && !chatPrefillOpenConfirm) {
-                root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                scrollToBookingModuleAnchor();
             }
         } catch (e) {}
     }
@@ -2682,7 +3436,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             window.requestAnimationFrame(function() {
                 updateSummaryRouteMap();
                 if (window.location.hash === '#boek-rit') {
-                    root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    scrollToBookingModuleAnchor();
                 }
             });
         });
@@ -3357,15 +4111,20 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
                 var opt = stepSelect.querySelector('option[value="' + key + '"]');
                 var disabled = !!(opt && opt.disabled);
                 var hidden = !!(opt && opt.hidden);
+                var reachable = isStepReachable(key);
                 item.disabled = disabled;
                 item.hidden = hidden;
                 item.setAttribute('aria-selected', key === currentStepKey ? 'true' : 'false');
+                item.classList.toggle('booking-step-select-menu-item--filled', reachable);
+                item.style.color = reachable
+                    ? 'var(--booking-skin-text, #f3f6fb)'
+                    : 'var(--booking-skin-muted, #9aa8bd)';
             });
         }
     }
 
     function getBookingScrollOffset() {
-        var offset = 12;
+        var offset = 24;
         var headers = document.querySelectorAll('header.sticky, header.fixed, .preview-bar.sticky');
         headers.forEach(function(header) {
             if (!header || typeof header.getBoundingClientRect !== 'function') return;
@@ -3376,11 +4135,22 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     }
 
     function scrollConfiguratorIntoView() {
+        if (!getBookingModuleRoot() || typeof root.getBoundingClientRect !== 'function') return;
         var anchor = root.querySelector('.booking-module-card') || root;
         if (!anchor || typeof anchor.getBoundingClientRect !== 'function') return;
         var top = window.scrollY + anchor.getBoundingClientRect().top - getBookingScrollOffset();
         if (top < 0) top = 0;
         window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+
+    function scrollToBookingModuleAnchor() {
+        if (typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(function() {
+                scrollConfiguratorIntoView();
+            });
+            return;
+        }
+        scrollConfiguratorIntoView();
     }
 
     function setStepByKey(stepKey, options) {
@@ -3492,13 +4262,52 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         banner.setAttribute('aria-busy', 'false');
     }
 
+    function moveBookingStepIndicator() {
+        var nav = root.querySelector('[data-booking-steps-nav]');
+        var indicator = root.querySelector('.booking-step-tab-indicator');
+        if (!nav || !indicator) return;
+        var activeTab = nav.querySelector('.booking-step-tab[data-step-index="' + state.step + '"]');
+        if (!activeTab || activeTab.offsetParent === null) {
+            indicator.classList.remove('is-ready');
+            return;
+        }
+        var navRect = nav.getBoundingClientRect();
+        var tabRect = activeTab.getBoundingClientRect();
+        var x = tabRect.left - navRect.left;
+        var y = tabRect.bottom - navRect.top - 3;
+        indicator.style.width = tabRect.width + 'px';
+        indicator.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+        indicator.classList.add('is-ready');
+    }
+    var bookingStepIndicatorResizeQueued = false;
+    window.addEventListener('resize', function() {
+        if (bookingStepIndicatorResizeQueued) return;
+        bookingStepIndicatorResizeQueued = true;
+        window.requestAnimationFrame(function() {
+            bookingStepIndicatorResizeQueued = false;
+            moveBookingStepIndicator();
+        });
+    });
+
     function setStep(nextStep, options) {
         options = options || {};
+        if (bookingNoVehicles) {
+            nextStep = 1;
+        }
+        var previousStep = state.step;
         state.step = Math.max(1, Math.min(stepOrder.length, nextStep));
+        if (bookingNoVehicles) {
+            state.maxStep = 1;
+        }
+        var stepDirection = state.step >= previousStep ? 'forward' : 'backward';
         if (typeof root._hideAllBookingSuggestionPanels === 'function') {
             root._hideAllBookingSuggestionPanels();
         }
         var currentStepKey = getCurrentStepKey();
+        var panelsShell = root.querySelector('[data-booking-step-panels-shell]');
+        if (panelsShell) {
+            panelsShell.setAttribute('data-step-direction', stepDirection);
+        }
         root.querySelectorAll('[data-step-panel]').forEach(function(panel) {
             panel.classList.toggle('hidden', panel.getAttribute('data-step-panel') !== currentStepKey);
         });
@@ -3506,14 +4315,15 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             var tabStepIndex = parseInt(tab.getAttribute('data-step-index'), 10);
             var active = tabStepIndex === state.step;
             var reachable = tabStepIndex <= state.maxStep;
-            tab.classList.toggle('font-semibold', active);
-            tab.classList.toggle('text-heading', active);
-            tab.classList.toggle('text-fg-brand', active);
+            tab.classList.toggle('font-semibold', active || reachable);
+            tab.classList.toggle('text-heading', reachable);
+            tab.classList.toggle('text-fg-brand', false);
             tab.classList.toggle('active', active);
-            tab.classList.toggle('font-medium', !active);
-            tab.classList.toggle('text-body', !active);
+            tab.classList.toggle('font-medium', !active && !reachable);
+            tab.classList.toggle('text-body', !reachable);
             tab.classList.toggle('booking-step-tab--reachable', reachable);
-            tab.classList.toggle('hover:text-fg-brand', reachable);
+            tab.classList.toggle('booking-step-tab--filled', reachable);
+            tab.classList.toggle('hover:text-fg-brand', false);
             tab.classList.toggle('transition-colors', reachable);
             tab.style.backgroundColor = 'transparent';
             tab.style.cursor = reachable ? 'pointer' : 'default';
@@ -3521,16 +4331,19 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             if (active) {
                 tab.style.borderBottomColor = activeTabColor;
                 tab.style.borderColor = activeTabColor;
-                tab.style.color = activeTabColor;
             } else {
                 tab.style.borderBottomColor = 'transparent';
                 tab.style.borderColor = 'transparent';
-                tab.style.color = '';
             }
+            // Ingevuld = wit (skin-tekst); niet bereikt = grijs. Navigatie tussen ingevulde tabs blijft mogelijk.
+            tab.style.color = reachable
+                ? 'var(--booking-skin-text, #f3f6fb)'
+                : 'var(--booking-skin-muted, #9aa8bd)';
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
             tab.setAttribute('aria-disabled', reachable ? 'false' : 'true');
         });
         updateBookingStepSelectOptions();
+        syncBookingPanelsMinHeight();
         var nextBtn = root.querySelector('[data-booking-next]');
         if (nextBtn && !bookingSubmitted) {
             if (currentStepKey === 'confirm') {
@@ -3584,7 +4397,90 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
                 triggerLiveRouteMapResize();
             });
         }
+        moveBookingStepIndicator();
+        window.requestAnimationFrame(function() {
+            moveBookingStepIndicator();
+            syncBookingPanelsMinHeight();
+        });
     }
+
+    /**
+     * Zorg dat elk stap-paneel minstens zo hoog is als de hoogste formulierstap
+     * (Contactgegevens is vaak iets hoger dan Reisgegevens). Bevestiging mag
+     * groeien; die telt niet mee als basis, anders wordt de kaart te hoog.
+     * Kortere stappen krijgen dus geen kleinere boekingskaart; langere mogen groeien.
+     */
+    function syncBookingPanelsMinHeight() {
+        var shell = root.querySelector('[data-booking-step-panels-shell]');
+        if (!shell) {
+            return;
+        }
+
+        var panels = root.querySelectorAll('[data-step-panel]');
+        if (!panels.length) {
+            return;
+        }
+
+        var maxHeight = 0;
+        var measured = [];
+
+        panels.forEach(function(panel) {
+            var key = panel.getAttribute('data-step-panel') || '';
+            // Bevestiging heeft o.a. kaart/samenvatting en mag de basis-minhoogte niet opblazen.
+            if (key === 'confirm') {
+                return;
+            }
+            var wasHidden = panel.classList.contains('hidden');
+            var restore = null;
+            if (wasHidden) {
+                restore = {
+                    visibility: panel.style.visibility,
+                    position: panel.style.position,
+                    left: panel.style.left,
+                    right: panel.style.right,
+                    pointerEvents: panel.style.pointerEvents,
+                    zIndex: panel.style.zIndex,
+                };
+                panel.classList.remove('hidden');
+                panel.style.visibility = 'hidden';
+                panel.style.position = 'absolute';
+                panel.style.left = '0';
+                panel.style.right = '0';
+                panel.style.pointerEvents = 'none';
+                panel.style.zIndex = '-1';
+            }
+            measured.push({ panel: panel, wasHidden: wasHidden, restore: restore });
+            maxHeight = Math.max(maxHeight, Math.ceil(panel.getBoundingClientRect().height));
+        });
+
+        measured.forEach(function(entry) {
+            if (!entry.wasHidden || !entry.restore) {
+                return;
+            }
+            entry.panel.classList.add('hidden');
+            entry.panel.style.visibility = entry.restore.visibility;
+            entry.panel.style.position = entry.restore.position;
+            entry.panel.style.left = entry.restore.left;
+            entry.panel.style.right = entry.restore.right;
+            entry.panel.style.pointerEvents = entry.restore.pointerEvents;
+            entry.panel.style.zIndex = entry.restore.zIndex;
+        });
+
+        if (maxHeight > 0) {
+            shell.style.setProperty('--booking-panels-min-height', maxHeight + 'px');
+            shell.style.minHeight = maxHeight + 'px';
+        }
+    }
+
+    var bookingPanelsMinHeightResizeQueued = false;
+    window.addEventListener('resize', function() {
+        if (bookingPanelsMinHeightResizeQueued) return;
+        bookingPanelsMinHeightResizeQueued = true;
+        window.requestAnimationFrame(function() {
+            bookingPanelsMinHeightResizeQueued = false;
+            syncBookingPanelsMinHeight();
+        });
+    });
 
     function updateQty(target, delta, max) {
         var chunks = (target || '').split('.');
@@ -4019,6 +4915,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         list.appendChild(createStopoverRow(initialValue || ''));
         syncStateFromFields();
         setupStopoverAutocompletes();
+        window.requestAnimationFrame(syncBookingPanelsMinHeight);
         return true;
     }
 
@@ -4100,6 +4997,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
                 returnPlaceholder.textContent = returnInput.getAttribute('placeholder') || 'Selecteer datum en tijd';
             }
         }
+        syncDateTimePlaceholder();
         renderTripDistanceSummary();
     }
 
@@ -4107,26 +5005,410 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         root.querySelectorAll('[data-datetime-input]').forEach(function(input) {
             var targetKey = input.getAttribute('data-placeholder-target');
             if (!targetKey) return;
+            var wrap = input.closest('[data-datetime-wrap]') || input.closest('.booking-datetime-wrap');
             var placeholder = root.querySelector('[data-datetime-placeholder-for="' + targetKey + '"]');
+            var filled = root.querySelector('[data-datetime-filled-for="' + targetKey + '"]');
+            var dateEl = root.querySelector('[data-datetime-date-for="' + targetKey + '"]');
+            var timeEl = root.querySelector('[data-datetime-time-for="' + targetKey + '"]');
+            var inputValue = String(input.value || '').trim();
+            var hasValue = !!inputValue;
+            var ms = hasValue ? parseLocalDateTimeMs(inputValue) : NaN;
+            var valid = !isNaN(ms);
+            var parsed = valid ? new Date(ms) : null;
+
+            if (wrap) {
+                wrap.classList.toggle('is-filled', valid);
+            }
             if (placeholder) {
-                var inputValue = String(input.value || '').trim();
-                if (!inputValue) {
-                    placeholder.textContent = input.getAttribute('placeholder') || 'Selecteer datum en tijd';
-                } else {
-                    var parsed = new Date(inputValue);
-                    if (!isNaN(parsed.getTime())) {
-                        placeholder.textContent = parsed.toLocaleString('nl-NL', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                    } else {
-                        placeholder.textContent = inputValue;
+                placeholder.textContent = input.getAttribute('placeholder') || 'Selecteer datum en tijd';
+                placeholder.classList.toggle('hidden', valid);
+            }
+            if (filled) {
+                filled.classList.toggle('hidden', !valid);
+            }
+            if (valid && parsed) {
+                var dd = String(parsed.getDate()).padStart(2, '0');
+                var mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                var yyyy = String(parsed.getFullYear());
+                var hh = String(parsed.getHours()).padStart(2, '0');
+                var mi = String(parsed.getMinutes()).padStart(2, '0');
+                if (dateEl) dateEl.textContent = dd + '-' + mm + '-' + yyyy;
+                if (timeEl) timeEl.textContent = hh + ':' + mi;
+            } else {
+                if (dateEl) dateEl.textContent = '';
+                if (timeEl) timeEl.textContent = '';
+            }
+        });
+    }
+
+    function setupBookingDateTimePickers() {
+        if (root._bookingDtPickerReady) return;
+        root._bookingDtPickerReady = true;
+
+        var MONTH_NAMES = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+        var WEEKDAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+        var MINUTE_STEP = 5;
+        var activeInput = null;
+        var viewYear = 0;
+        var viewMonth = 0;
+        var draftDate = null;
+        var draftHour = 12;
+        var draftMinute = 0;
+
+        function pad2(n) {
+            return n < 10 ? '0' + n : '' + n;
+        }
+
+        function startOfDay(d) {
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+        }
+
+        function roundUpToStep(date) {
+            var stepMs = MINUTE_STEP * 60 * 1000;
+            var rounded = Math.ceil((date.getTime() + 1) / stepMs) * stepMs;
+            return new Date(rounded);
+        }
+
+        function minAllowedDate(input) {
+            var now = roundUpToStep(new Date());
+            if (input && input.getAttribute('data-field') === 'return_at') {
+                var pickup = root.querySelector('[data-field="pickup_at"]');
+                var pickupMs = pickup ? parseLocalDateTimeMs(String(pickup.value || '').trim()) : NaN;
+                if (!isNaN(pickupMs)) {
+                    var afterPickup = new Date(pickupMs + 15 * 60 * 1000);
+                    if (afterPickup.getTime() > now.getTime()) {
+                        return afterPickup;
                     }
                 }
             }
+            return now;
+        }
+
+        function ensurePopover(wrap) {
+            var pop = wrap.querySelector('[data-booking-dt-popover]');
+            if (pop) return pop;
+            pop = document.createElement('div');
+            pop.className = 'booking-dt-popover';
+            pop.setAttribute('data-booking-dt-popover', '');
+            pop.setAttribute('role', 'dialog');
+            pop.setAttribute('aria-modal', 'false');
+            pop.hidden = true;
+            pop.innerHTML =
+                '<div class="booking-dt-popover__header">' +
+                    '<button type="button" class="booking-dt-nav" data-dt-prev aria-label="Vorige maand">' +
+                        '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12.5 4.5 7 10l5.5 5.5"/></svg>' +
+                    '</button>' +
+                    '<div class="booking-dt-popover__month" data-dt-month></div>' +
+                    '<button type="button" class="booking-dt-nav" data-dt-next aria-label="Volgende maand">' +
+                        '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="m7.5 4.5 5.5 5.5-5.5 5.5"/></svg>' +
+                    '</button>' +
+                '</div>' +
+                '<div class="booking-dt-popover__body">' +
+                    '<div class="booking-dt-cal">' +
+                        '<div class="booking-dt-weekdays">' + WEEKDAYS.map(function(d) {
+                            return '<div class="booking-dt-weekday">' + d + '</div>';
+                        }).join('') + '</div>' +
+                        '<div class="booking-dt-days" data-dt-days></div>' +
+                    '</div>' +
+                    '<div class="booking-dt-time">' +
+                        '<div class="booking-dt-time-col" data-dt-hours>' +
+                            '<div class="booking-dt-time-label">Uur</div>' +
+                        '</div>' +
+                        '<div class="booking-dt-time-col" data-dt-minutes>' +
+                            '<div class="booking-dt-time-label">Min</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="booking-dt-popover__footer">' +
+                    '<div class="booking-dt-footer-actions">' +
+                        '<button type="button" class="booking-dt-footer-btn" data-dt-clear>Wissen</button>' +
+                        '<button type="button" class="booking-dt-footer-btn" data-dt-now>Nu</button>' +
+                    '</div>' +
+                    '<button type="button" class="booking-dt-footer-btn booking-dt-footer-btn--done" data-dt-done>Klaar</button>' +
+                '</div>';
+            wrap.appendChild(pop);
+            return pop;
+        }
+
+        function closePicker() {
+            if (!activeInput) return;
+            var wrap = activeInput.closest('.booking-datetime-wrap');
+            var pop = wrap ? wrap.querySelector('[data-booking-dt-popover]') : null;
+            if (pop) pop.hidden = true;
+            if (wrap) wrap.classList.remove('is-picker-open');
+            activeInput.setAttribute('aria-expanded', 'false');
+            activeInput = null;
+        }
+
+        function commitDraft(input) {
+            if (!input || !draftDate) return;
+            var value = draftDate.getFullYear() + '-' + pad2(draftDate.getMonth() + 1) + '-' + pad2(draftDate.getDate()) +
+                'T' + pad2(draftHour) + ':' + pad2(draftMinute);
+            if (input.value === value) {
+                syncDateTimePlaceholder();
+                syncPickupDatetimeFutureValidation();
+                return;
+            }
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function positionPopover(wrap, pop) {
+            pop.classList.remove('is-above');
+            var rect = wrap.getBoundingClientRect();
+            var spaceBelow = window.innerHeight - rect.bottom;
+            var approxHeight = Math.min(420, Math.max(320, pop.offsetHeight || 360));
+            if (spaceBelow < approxHeight && rect.top > spaceBelow) {
+                pop.classList.add('is-above');
+            }
+        }
+
+        function renderCalendar(pop, input) {
+            var daysEl = pop.querySelector('[data-dt-days]');
+            var monthEl = pop.querySelector('[data-dt-month]');
+            if (!daysEl || !monthEl) return;
+            monthEl.textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
+            var first = new Date(viewYear, viewMonth, 1);
+            var startOffset = (first.getDay() + 6) % 7; // Monday-first
+            var gridStart = new Date(viewYear, viewMonth, 1 - startOffset);
+            var today = startOfDay(new Date());
+            var minDay = startOfDay(minAllowedDate(input));
+            var selectedKey = draftDate
+                ? draftDate.getFullYear() + '-' + pad2(draftDate.getMonth() + 1) + '-' + pad2(draftDate.getDate())
+                : '';
+            var html = '';
+            for (var i = 0; i < 42; i++) {
+                var cell = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+                var y = cell.getFullYear();
+                var m = cell.getMonth();
+                var d = cell.getDate();
+                var key = y + '-' + pad2(m + 1) + '-' + pad2(d);
+                var outside = m !== viewMonth;
+                var isToday = startOfDay(cell).getTime() === today.getTime();
+                var disabled = startOfDay(cell).getTime() < minDay.getTime();
+                var selected = key === selectedKey;
+                html += '<button type="button" class="booking-dt-day'
+                    + (outside ? ' is-outside' : '')
+                    + (isToday ? ' is-today' : '')
+                    + (selected ? ' is-selected' : '')
+                    + '" data-dt-day="' + key + '"'
+                    + (disabled ? ' disabled' : '')
+                    + ' aria-label="' + d + ' ' + MONTH_NAMES[m] + ' ' + y + '">'
+                    + d
+                    + '</button>';
+            }
+            daysEl.innerHTML = html;
+
+            var prevBtn = pop.querySelector('[data-dt-prev]');
+            if (prevBtn) {
+                var prevMonthEnd = new Date(viewYear, viewMonth, 0);
+                prevBtn.disabled = startOfDay(prevMonthEnd).getTime() < minDay.getTime();
+            }
+        }
+
+        function isTimeDisabled(input, hour, minute) {
+            if (!draftDate) return true;
+            var candidate = new Date(draftDate.getFullYear(), draftDate.getMonth(), draftDate.getDate(), hour, minute, 0, 0);
+            return candidate.getTime() < minAllowedDate(input).getTime();
+        }
+
+        function renderTime(pop, input) {
+            var hoursEl = pop.querySelector('[data-dt-hours]');
+            var minutesEl = pop.querySelector('[data-dt-minutes]');
+            if (!hoursEl || !minutesEl) return;
+
+            var hourHtml = '<div class="booking-dt-time-label">Uur</div>';
+            for (var h = 0; h < 24; h++) {
+                var hourDisabled = true;
+                for (var probe = 0; probe < 60; probe += MINUTE_STEP) {
+                    if (!isTimeDisabled(input, h, probe)) {
+                        hourDisabled = false;
+                        break;
+                    }
+                }
+                hourHtml += '<button type="button" class="booking-dt-time-btn'
+                    + (h === draftHour ? ' is-selected' : '')
+                    + '" data-dt-hour="' + h + '"'
+                    + (hourDisabled ? ' disabled' : '')
+                    + '>' + pad2(h) + '</button>';
+            }
+            hoursEl.innerHTML = hourHtml;
+
+            var minuteValues = [];
+            for (var m = 0; m < 60; m += MINUTE_STEP) minuteValues.push(m);
+            if (minuteValues.indexOf(draftMinute) === -1) {
+                minuteValues.push(draftMinute);
+                minuteValues.sort(function(a, b) { return a - b; });
+            }
+            var minuteHtml = '<div class="booking-dt-time-label">Min</div>';
+            minuteValues.forEach(function(m) {
+                minuteHtml += '<button type="button" class="booking-dt-time-btn'
+                    + (m === draftMinute ? ' is-selected' : '')
+                    + '" data-dt-minute="' + m + '"'
+                    + (isTimeDisabled(input, draftHour, m) ? ' disabled' : '')
+                    + '>' + pad2(m) + '</button>';
+            });
+            minutesEl.innerHTML = minuteHtml;
+
+            window.requestAnimationFrame(function() {
+                var selH = hoursEl.querySelector('.booking-dt-time-btn.is-selected');
+                var selM = minutesEl.querySelector('.booking-dt-time-btn.is-selected');
+                if (selH && typeof selH.scrollIntoView === 'function') {
+                    selH.scrollIntoView({ block: 'nearest' });
+                }
+                if (selM && typeof selM.scrollIntoView === 'function') {
+                    selM.scrollIntoView({ block: 'nearest' });
+                }
+            });
+        }
+
+        function renderAll(pop, input) {
+            renderCalendar(pop, input);
+            renderTime(pop, input);
+            positionPopover(input.closest('.booking-datetime-wrap'), pop);
+        }
+
+        function openPicker(input) {
+            if (!input || input.disabled) return;
+            var wrap = input.closest('.booking-datetime-wrap');
+            if (!wrap || wrap.classList.contains('booking-return-readonly')) return;
+            if (activeInput === input) {
+                closePicker();
+                return;
+            }
+            closePicker();
+            refreshPickupDatetimeMin();
+            var pop = ensurePopover(wrap);
+            activeInput = input;
+            input.setAttribute('aria-expanded', 'true');
+            wrap.classList.add('is-picker-open');
+
+            var ms = parseLocalDateTimeMs(String(input.value || '').trim());
+            var base = !isNaN(ms) ? new Date(ms) : minAllowedDate(input);
+            if (base.getTime() < minAllowedDate(input).getTime()) {
+                base = minAllowedDate(input);
+            }
+            draftDate = startOfDay(base);
+            draftHour = base.getHours();
+            draftMinute = base.getMinutes();
+            viewYear = draftDate.getFullYear();
+            viewMonth = draftDate.getMonth();
+            pop.hidden = false;
+            renderAll(pop, input);
+            if (!String(input.value || '').trim()) {
+                commitDraft(input);
+            }
+        }
+
+        root._openBookingDateTimePicker = openPicker;
+        root._closeBookingDateTimePicker = closePicker;
+
+        root.addEventListener('click', function(e) {
+            var popBtn = e.target.closest('[data-booking-dt-popover] button');
+            if (popBtn && activeInput) {
+                e.preventDefault();
+                e.stopPropagation();
+                var pop = activeInput.closest('.booking-datetime-wrap').querySelector('[data-booking-dt-popover]');
+                if (!pop) return;
+
+                if (popBtn.hasAttribute('data-dt-prev')) {
+                    viewMonth -= 1;
+                    if (viewMonth < 0) { viewMonth = 11; viewYear -= 1; }
+                    renderAll(pop, activeInput);
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-next')) {
+                    viewMonth += 1;
+                    if (viewMonth > 11) { viewMonth = 0; viewYear += 1; }
+                    renderAll(pop, activeInput);
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-day')) {
+                    var parts = String(popBtn.getAttribute('data-dt-day') || '').split('-');
+                    if (parts.length === 3) {
+                        draftDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0, 0);
+                        if (isTimeDisabled(activeInput, draftHour, draftMinute)) {
+                            var bumped = minAllowedDate(activeInput);
+                            if (startOfDay(bumped).getTime() === draftDate.getTime()) {
+                                draftHour = bumped.getHours();
+                                draftMinute = bumped.getMinutes();
+                            } else {
+                                draftHour = 0;
+                                draftMinute = 0;
+                                while (isTimeDisabled(activeInput, draftHour, draftMinute) && draftHour < 24) {
+                                    draftMinute += MINUTE_STEP;
+                                    if (draftMinute >= 60) { draftMinute = 0; draftHour += 1; }
+                                }
+                            }
+                        }
+                        commitDraft(activeInput);
+                        renderAll(pop, activeInput);
+                    }
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-hour')) {
+                    draftHour = parseInt(popBtn.getAttribute('data-dt-hour'), 10) || 0;
+                    if (isTimeDisabled(activeInput, draftHour, draftMinute)) {
+                        draftMinute = 0;
+                        while (isTimeDisabled(activeInput, draftHour, draftMinute) && draftMinute < 60) {
+                            draftMinute += MINUTE_STEP;
+                        }
+                    }
+                    commitDraft(activeInput);
+                    renderAll(pop, activeInput);
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-minute')) {
+                    draftMinute = parseInt(popBtn.getAttribute('data-dt-minute'), 10) || 0;
+                    commitDraft(activeInput);
+                    renderAll(pop, activeInput);
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-clear')) {
+                    activeInput.value = '';
+                    activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    closePicker();
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-now')) {
+                    var now = minAllowedDate(activeInput);
+                    draftDate = startOfDay(now);
+                    draftHour = now.getHours();
+                    draftMinute = now.getMinutes();
+                    viewYear = draftDate.getFullYear();
+                    viewMonth = draftDate.getMonth();
+                    commitDraft(activeInput);
+                    renderAll(pop, activeInput);
+                    return;
+                }
+                if (popBtn.hasAttribute('data-dt-done')) {
+                    commitDraft(activeInput);
+                    closePicker();
+                }
+                return;
+            }
+
+            if (e.target.closest('[data-booking-dt-popover]')) {
+                return;
+            }
+            if (!e.target.closest('.booking-datetime-wrap') && activeInput) {
+                closePicker();
+            }
+        }, true);
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && activeInput) {
+                closePicker();
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            if (!activeInput) return;
+            var wrap = activeInput.closest('.booking-datetime-wrap');
+            var pop = wrap ? wrap.querySelector('[data-booking-dt-popover]') : null;
+            if (wrap && pop && !pop.hidden) positionPopover(wrap, pop);
         });
     }
 
@@ -4653,6 +5935,62 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         }
     }
 
+    function resolveSelectedOfferImageUrl(selected) {
+        var url = '';
+        if (selected && selected.image_url) {
+            url = String(selected.image_url).trim();
+        }
+        if (!url && selected && selected.vehicle_id) {
+            var selectedVehicleId = String(selected.vehicle_id);
+            var matchByVehicle = (state.offers || []).find(function(offer) {
+                return String(offer && offer.vehicle_id ? offer.vehicle_id : '') === selectedVehicleId
+                    && offer.image_url
+                    && String(offer.image_url).trim() !== '';
+            });
+            if (matchByVehicle && matchByVehicle.image_url) {
+                url = String(matchByVehicle.image_url).trim();
+            }
+        }
+        if (!url && selected) {
+            var name = String(selected.title || selected.vehicle_name || '').trim().toLowerCase();
+            if (name) {
+                var matchByName = (state.offers || []).find(function(offer) {
+                    return offer
+                        && offer.image_url
+                        && String(offer.image_url).trim() !== ''
+                        && (String(offer.title || '').trim().toLowerCase() === name
+                            || String(offer.vehicle_name || '').trim().toLowerCase() === name);
+                });
+                if (matchByName && matchByName.image_url) {
+                    url = String(matchByName.image_url).trim();
+                }
+            }
+        }
+        if (!url) {
+            var firstOfferWithImage = (state.offers || []).find(function(offer) {
+                return offer && offer.image_url && String(offer.image_url).trim() !== '';
+            });
+            if (firstOfferWithImage && firstOfferWithImage.image_url) {
+                url = String(firstOfferWithImage.image_url).trim();
+            }
+        }
+        if (!url && selected && String(selected.id || '').indexOf('person_range_') === 0) {
+            var vehicleBackedOffer = (state.offers || []).find(function(offer) {
+                return offer
+                    && String(offer.id || '').indexOf('person_range_') !== 0
+                    && offer.image_url
+                    && String(offer.image_url).trim() !== '';
+            });
+            if (vehicleBackedOffer && vehicleBackedOffer.image_url) {
+                url = String(vehicleBackedOffer.image_url).trim();
+            }
+        }
+        if (!url && selected && bookingVehiclePlaceholderUrl) {
+            url = String(bookingVehiclePlaceholderUrl).trim();
+        }
+        return url;
+    }
+
     function updateSummary() {
         var selected = state.offers.find(function(offer) { return offer.id === state.selected_offer_id; }) || null;
         var hasPickup = String(state.pickup_address || '').trim() !== '';
@@ -4725,49 +6063,18 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
 
         var vehicleImageWrapEl = root.querySelector('[data-summary-vehicle-image-wrap]');
         var vehicleImageEl = root.querySelector('[data-summary-vehicle-image]');
-        var selectedImageUrl = '';
-        if (selected && selected.image_url) {
-            selectedImageUrl = String(selected.image_url).trim();
-        }
-        if (!selectedImageUrl && selected && selected.vehicle_id) {
-            var selectedVehicleId = String(selected.vehicle_id);
-            var matchByVehicle = (state.offers || []).find(function(offer) {
-                return String(offer && offer.vehicle_id ? offer.vehicle_id : '') === selectedVehicleId
-                    && offer.image_url
-                    && String(offer.image_url).trim() !== '';
-            });
-            if (matchByVehicle && matchByVehicle.image_url) {
-                selectedImageUrl = String(matchByVehicle.image_url).trim();
-            }
-        }
-        if (!selectedImageUrl) {
-            var firstOfferWithImage = (state.offers || []).find(function(offer) {
-                return offer && offer.image_url && String(offer.image_url).trim() !== '';
-            });
-            if (firstOfferWithImage && firstOfferWithImage.image_url) {
-                selectedImageUrl = String(firstOfferWithImage.image_url).trim();
-            }
-        }
-        if (!selectedImageUrl && selected && String(selected.id || '').indexOf('person_range_') === 0) {
-            var vehicleBackedOffer = (state.offers || []).find(function(offer) {
-                return offer
-                    && String(offer.id || '').indexOf('person_range_') !== 0
-                    && offer.image_url
-                    && String(offer.image_url).trim() !== '';
-            });
-            if (vehicleBackedOffer && vehicleBackedOffer.image_url) {
-                selectedImageUrl = String(vehicleBackedOffer.image_url).trim();
-            }
-        }
+        var selectedImageUrl = resolveSelectedOfferImageUrl(selected);
         if (vehicleImageWrapEl && vehicleImageEl) {
-            if (selectedImageUrl) {
+            if (selected && hasCompleteRoute && selectedImageUrl) {
                 vehicleImageEl.src = selectedImageUrl;
-                vehicleImageEl.alt = selected && selected.title ? ('Voertuig: ' + selected.title) : 'Gekozen voertuig';
+                vehicleImageEl.alt = selected.title ? ('Voertuig: ' + selected.title) : 'Gekozen voertuig';
                 vehicleImageWrapEl.classList.remove('hidden');
+                vehicleImageWrapEl.removeAttribute('hidden');
             } else {
                 vehicleImageEl.src = '';
                 vehicleImageEl.alt = '';
                 vehicleImageWrapEl.classList.add('hidden');
+                vehicleImageWrapEl.setAttribute('hidden', '');
             }
         }
 
@@ -4898,12 +6205,13 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             if (personMode || String(selected.id || '').indexOf('person_range_') === 0) {
                 note = '(het voertuig kan afwijken van het weergegeven plaatje)';
             }
-            if (selected.image_url) imageUrl = String(selected.image_url).trim();
+            imageUrl = resolveSelectedOfferImageUrl(selected);
         } else if (personMode && hasCompleteRoute) {
             title = (estimateOffer && estimateOffer.title)
                 ? String(estimateOffer.title)
                 : ((state.person_range || (passengers <= 4 ? '1-4' : '5-8')) + ' personen');
             note = '(het voertuig kan afwijken van het weergegeven plaatje)';
+            imageUrl = resolveSelectedOfferImageUrl(estimateOffer);
         }
 
         cards.forEach(function(card) {
@@ -5027,6 +6335,9 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     }
 
     function requestQuotes() {
+        if (bookingNoVehicles) {
+            return Promise.resolve();
+        }
         clearError();
         return fetch(quoteUrl, {
             method: 'POST',
@@ -5047,7 +6358,9 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
                 waiting_minutes: 0,
                 baggage: state.baggage || {},
                 special_baggage: state.special_baggage || {},
-                stopovers: state.stopovers || []
+                stopovers: state.stopovers || [],
+                pickup_lat: state.pickup_lat,
+                pickup_lng: state.pickup_lng
             })
         })
         .then(function(response) {
@@ -5067,6 +6380,16 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             }
             state.person_range = data.person_range || (state.passengers <= 4 ? '1-4' : '5-8');
             state.baggage_van_upgrade = !!data.baggage_van_upgrade;
+            var marketplaceNote = root.querySelector('[data-marketplace-note]');
+            if (marketplaceNote) {
+                if (payload && payload.marketplace && payload.marketplace.label) {
+                    marketplaceNote.textContent = 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxicentrale.';
+                    marketplaceNote.classList.remove('hidden');
+                } else {
+                    marketplaceNote.textContent = '';
+                    marketplaceNote.classList.add('hidden');
+                }
+            }
             var visible = offersForDisplayMode();
             if (!visible.some(function(offer) { return offer.id === state.selected_offer_id; })) {
                 state.selected_offer_id = visible[0] ? visible[0].id : null;
@@ -5260,6 +6583,145 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     var liveMapAddressSnapshotByKey = {};
     var liveRouteMapPendingRefreshOptions = null;
     var confirmWireframeResizeObserver = null;
+    var liveTaxiOverlays = {};
+    var liveTaxiPrevPositions = {};
+    var liveTaxiPollTimer = null;
+    var liveTaxiDidFit = false;
+    var liveTaxiFittedWithPickup = false;
+    var liveTaxiCount = 0;
+    var BookingTaxiOverlay = null;
+
+    function bookingTaxiHeading(from, to) {
+        if (!from || !to) return 0;
+        var dLng = (to.lng - from.lng) * Math.PI / 180;
+        var lat1 = from.lat * Math.PI / 180;
+        var lat2 = to.lat * Math.PI / 180;
+        var y = Math.sin(dLng) * Math.cos(lat2);
+        var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    function ensureBookingTaxiOverlayClass() {
+        if (BookingTaxiOverlay || !window.google || !google.maps || !google.maps.OverlayView) return BookingTaxiOverlay;
+        BookingTaxiOverlay = function (map, taxi, heading, iconUrl) {
+            this.taxiId = taxi.id;
+            this.position = new google.maps.LatLng(taxi.lat, taxi.lng);
+            this.heading = heading || 0;
+            this.iconUrl = iconUrl;
+            this.setMap(map);
+        };
+        BookingTaxiOverlay.prototype = new google.maps.OverlayView();
+        BookingTaxiOverlay.prototype.onAdd = function () {
+            this.div = document.createElement('div');
+            this.div.className = 'booking-live-taxi-marker';
+            var img = document.createElement('img');
+            img.src = this.iconUrl;
+            img.alt = '';
+            this.div.appendChild(img);
+            var panes = this.getPanes();
+            if (panes && panes.overlayMouseTarget) {
+                panes.overlayMouseTarget.appendChild(this.div);
+            }
+        };
+        BookingTaxiOverlay.prototype.draw = function () {
+            if (!this.div) return;
+            var proj = this.getProjection();
+            if (!proj) return;
+            var point = proj.fromLatLngToDivPixel(this.position);
+            if (!point) return;
+            this.div.style.left = point.x + 'px';
+            this.div.style.top = point.y + 'px';
+            this.div.style.transform = 'rotate(' + this.heading + 'deg)';
+        };
+        BookingTaxiOverlay.prototype.onRemove = function () {
+            if (this.div && this.div.parentNode) {
+                this.div.parentNode.removeChild(this.div);
+            }
+            this.div = null;
+        };
+        BookingTaxiOverlay.prototype.updateTaxi = function (taxi, heading) {
+            this.position = new google.maps.LatLng(taxi.lat, taxi.lng);
+            this.heading = heading || this.heading || 0;
+            this.draw();
+        };
+        return BookingTaxiOverlay;
+    }
+
+    function taxiIconUrl(style) {
+        var key = String(style || 'sedan');
+        return bookingTaxiCarUrls[key] || bookingTaxiCarUrls.sedan || '';
+    }
+
+    function syncLiveMapEmptyState() {
+        if (!getBookingModuleRoot()) return;
+        var emptyEl = root.querySelector('[data-booking-live-map-empty]');
+        if (!emptyEl) return;
+        var hasRoute = liveRouteMarkers.length > 0 || !!liveRoutePolyline;
+        emptyEl.classList.toggle('hidden', hasRoute || liveTaxiCount > 0);
+    }
+
+    function upsertLiveTaxis(vehicles) {
+        if (!bookingMarketplaceFleet || !liveRouteMap) return;
+        var Overlay = ensureBookingTaxiOverlayClass();
+        if (!Overlay) return;
+        var nextIds = {};
+        var points = [];
+        (Array.isArray(vehicles) ? vehicles : []).forEach(function (taxi) {
+            if (!taxi || !taxi.id || !isValidMapCoord(taxi.lat, taxi.lng)) return;
+            nextIds[taxi.id] = true;
+            var pos = { lat: Number(taxi.lat), lng: Number(taxi.lng) };
+            points.push(pos);
+            var prev = liveTaxiPrevPositions[taxi.id];
+            var heading = prev ? bookingTaxiHeading(prev, pos) : 0;
+            liveTaxiPrevPositions[taxi.id] = pos;
+            if (liveTaxiOverlays[taxi.id]) {
+                liveTaxiOverlays[taxi.id].updateTaxi(taxi, heading);
+            } else {
+                liveTaxiOverlays[taxi.id] = new Overlay(liveRouteMap, taxi, heading, taxiIconUrl(taxi.car_style));
+            }
+        });
+        Object.keys(liveTaxiOverlays).forEach(function (id) {
+            if (!nextIds[id]) {
+                liveTaxiOverlays[id].setMap(null);
+                delete liveTaxiOverlays[id];
+                delete liveTaxiPrevPositions[id];
+            }
+        });
+        liveTaxiCount = Object.keys(liveTaxiOverlays).length;
+        syncLiveMapEmptyState();
+        var hasPickup = isValidMapCoord(state.pickup_lat, state.pickup_lng);
+        if ((!liveTaxiDidFit || (hasPickup && !liveTaxiFittedWithPickup)) && points.length) {
+            liveTaxiDidFit = true;
+            liveTaxiFittedWithPickup = !!hasPickup;
+            var fitPoints = points.slice();
+            if (hasPickup) {
+                fitPoints.push({ lat: Number(state.pickup_lat), lng: Number(state.pickup_lng) });
+            }
+            fitLiveRouteViewport(fitPoints);
+        }
+    }
+
+    function fetchNearbyTaxis() {
+        if (!bookingMarketplaceFleet || !nearbyTaxisUrl) return;
+        var params = new URLSearchParams({ section_key: String(sectionKey || '') });
+        if (isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
+            params.set('lat', String(state.pickup_lat));
+            params.set('lng', String(state.pickup_lng));
+        }
+        fetch(nearbyTaxisUrl + '?' + params.toString(), { headers: { Accept: 'application/json' } })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (payload) {
+                upsertLiveTaxis(payload && payload.vehicles ? payload.vehicles : []);
+            })
+            .catch(function () { /* ignore */ });
+    }
+
+    function startLiveTaxiPolling() {
+        if (!bookingMarketplaceFleet) return;
+        fetchNearbyTaxis();
+        if (liveTaxiPollTimer) return;
+        liveTaxiPollTimer = setInterval(fetchNearbyTaxis, 5000);
+    }
 
     function bindConfirmWireframeHeightSync() {
         if (!bookingSplitMapV2 || confirmWireframeResizeObserver || typeof ResizeObserver === 'undefined') return;
@@ -5704,6 +7166,10 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             if (fieldName === 'pickup_address') {
                 state.pickup_lat = coords.lat;
                 state.pickup_lng = coords.lng;
+                if (bookingMarketplaceFleet) {
+                    liveTaxiFittedWithPickup = false;
+                    fetchNearbyTaxis();
+                }
             } else if (fieldName === 'dropoff_address') {
                 state.dropoff_lat = coords.lat;
                 state.dropoff_lng = coords.lng;
@@ -5837,7 +7303,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             }
         }
 
-        var hasMapContent = markerCount > 0 || drewPolyline;
+        var hasMapContent = markerCount > 0 || drewPolyline || liveTaxiCount > 0;
         if (emptyEl) {
             emptyEl.classList.toggle('hidden', hasMapContent);
         }
@@ -5894,6 +7360,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             }, liveRouteMapAppearanceOptions());
             liveRouteMap = new google.maps.Map(mapEl, mapOptions);
             bindLiveRouteMapThemeSync();
+            startLiveTaxiPolling();
             var pendingRefreshOptions = liveRouteMapPendingRefreshOptions;
             liveRouteMapPendingRefreshOptions = null;
             refreshLiveRouteMap(pendingRefreshOptions || undefined);
@@ -6395,6 +7862,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
     }
 
     function submitBooking(sendToWhatsapp) {
+        if (bookingNoVehicles) return;
         if (bookingSubmitInFlight || bookingSubmitted) return;
         bookingSubmitInFlight = true;
         clearError();
@@ -7792,13 +9260,16 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             return;
         }
         var dtInput = e.target.closest('.booking-datetime-input');
-        if (dtInput) {
-            if (typeof dtInput.showPicker === 'function') {
-                try {
-                    dtInput.showPicker();
-                } catch (err) {
-                    // Ignore security/user-gesture errors; native behavior still applies.
-                }
+        if (!dtInput) {
+            var dtWrap = e.target.closest('.booking-datetime-wrap');
+            if (dtWrap && !e.target.closest('[data-booking-dt-popover]')) {
+                dtInput = dtWrap.querySelector('.booking-datetime-input');
+            }
+        }
+        if (dtInput && !dtInput.disabled && !e.target.closest('[data-booking-dt-popover]')) {
+            e.preventDefault();
+            if (typeof root._openBookingDateTimePicker === 'function') {
+                root._openBookingDateTimePicker(dtInput);
             }
         }
         var stopoverBtn = e.target.closest('.booking-stopover-toggle');
@@ -7816,6 +9287,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             liveRouteCalcLastSignature = '';
             liveRouteMapRenderSignature = '';
             snapshotRouteAddressInputs();
+            window.requestAnimationFrame(syncBookingPanelsMinHeight);
             if (bookingSplitMapV2) {
                 ensureLiveMapRouteReady();
             }
@@ -8034,6 +9506,7 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         applyStateToFields();
         syncStateFromFields();
         refreshPickupDatetimeMin();
+        setupBookingDateTimePickers();
         var pickupAtInput = root.querySelector('[data-field="pickup_at"]');
         if (pickupAtInput) {
             pickupAtInput.addEventListener('focus', function() {
@@ -8047,6 +9520,9 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
         if (bookingSplitMapV2 && mapsApiKey && window.google && google.maps) {
             initLiveRouteMap();
         }
+        if (bookingMarketplaceFleet) {
+            startLiveTaxiPolling();
+        }
         if (bookingSplitMapV2) {
             bindConfirmWireframeHeightSync();
         }
@@ -8054,7 +9530,47 @@ html.dark [data-nexataxi-booking-module] .booking-datetime-input,
             ensureLiveMapRouteReady();
         }
         recalculateRouteOrQuote();
+        if (window.location.hash === '#boek-rit') {
+            scrollToBookingModuleAnchor();
+        }
     }
+
+    function isSamePageBookingHashLink(href) {
+        if (!href) return false;
+        try {
+            var url = new URL(href, window.location.href);
+            return url.hash === '#boek-rit'
+                && url.pathname === window.location.pathname;
+        } catch (e) {
+            return href === '#boek-rit' || href === '/#boek-rit';
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        var link = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!link || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+            return;
+        }
+        if (!isSamePageBookingHashLink(link.getAttribute('href'))) {
+            return;
+        }
+        e.preventDefault();
+        if (window.location.hash !== '#boek-rit') {
+            try {
+                window.history.pushState(null, '', '#boek-rit');
+            } catch (err) {
+                window.location.hash = 'boek-rit';
+            }
+        }
+        scrollToBookingModuleAnchor();
+    });
+
+    window.addEventListener('hashchange', function() {
+        if (window.location.hash === '#boek-rit') {
+            scrollToBookingModuleAnchor();
+        }
+    });
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initBookingModule);
     } else {

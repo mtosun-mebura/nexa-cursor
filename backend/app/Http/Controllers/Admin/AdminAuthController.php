@@ -140,6 +140,7 @@ class AdminAuthController extends Controller
 
         // Mark that user has logged in before
         $request->session()->put('has_logged_in_before', true);
+        $this->maybePromptTaxiSetup($user);
 
         $path = $intendedUrl ? (AdminReturnUrl::pathFrom($intendedUrl) ?? '') : '';
         $isUtilityPath = $path && preg_match('#/admin/(chat|notifications)/unread-count#', $path);
@@ -242,11 +243,34 @@ class AdminAuthController extends Controller
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
         $request->session()->put('has_logged_in_before', true);
+        $this->maybePromptTaxiSetup($user);
 
         return response()->json([
             'message' => $result['message'],
             'redirect' => route('admin.handleiding.index', ['saved' => 1]),
         ]);
+    }
+
+    private function maybePromptTaxiSetup(\App\Models\User $user): void
+    {
+        $company = $user->company;
+        if (! $company) {
+            return;
+        }
+
+        try {
+            $setup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
+            if (! $setup->appliesTo($company)) {
+                return;
+            }
+            $status = $setup->status($company, $user);
+            if (! empty($status['needs_login_prompt'])) {
+                $setup->markPromptPending();
+                $setup->syncNotification($user, $company);
+            }
+        } catch (\Throwable) {
+            // Inrichtingsprompt mag login nooit blokkeren.
+        }
     }
 
     public function logout(Request $request)

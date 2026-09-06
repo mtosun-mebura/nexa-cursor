@@ -57,6 +57,9 @@ class SaasTrialNoticeService
         if (! $this->subscriptions->isInTrial($profile, $asOf)) {
             return false;
         }
+        if ($this->subscriptions->hasDeclinedTrial($profile)) {
+            return false;
+        }
         if ($profile->trial_notice_sent_at) {
             return false;
         }

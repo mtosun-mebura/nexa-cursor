@@ -83,6 +83,19 @@
     @keyframes company-welcome-spin {
         to { transform: rotate(360deg); }
     }
+    .company-show-section-nav {
+        top: var(--kt-header-height, 4.375rem);
+        z-index: 40;
+        background: var(--background);
+        border-bottom: 1px solid var(--border);
+    }
+    .company-show-section {
+        scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 4.5rem);
+    }
+    .company-show-scroll-end {
+        height: min(50vh, 28rem);
+        pointer-events: none;
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -129,11 +142,16 @@
                     </div>
                 @endif
                 @if($company->email)
-                    <div class="flex gap-1.25 items-center">
-                        <x-heroicon-o-envelope class="w-4 h-4 text-muted-foreground" />
-                        <a class="text-secondary-foreground font-medium hover:text-primary" href="mailto:{{ $company->email }}">
-                            {{ $company->email }}
-                        </a>
+                    <div class="flex gap-1.25 items-center min-w-0">
+                        <x-heroicon-o-envelope class="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span class="admin-email-text text-secondary-foreground font-medium">{{ $company->email }}</span>
+                        <button type="button"
+                                class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                                data-copy-text="{{ $company->email }}"
+                                title="E-mailadres kopiëren"
+                                aria-label="E-mailadres kopiëren">
+                            <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                        </button>
                     </div>
                 @endif
             </div>
@@ -197,12 +215,38 @@
 </div>
 <!-- End of Container -->
 
+@php
+    $companyShowUser = auth()->user();
+    $companyShowIsSuperAdmin = $companyShowUser?->hasRole('super-admin') || $companyShowUser?->isSuperAdmin();
+    $companyShowCanSeeDomains = $companyShowIsSuperAdmin
+        || app(\App\Services\TenantConfigAccessService::class)->can($companyShowUser, $company, \App\Support\TenantConfigCapability::DOMAIN);
+    $companyShowTabs = array_values(array_filter([
+        ['id' => 'company-info', 'label' => 'Bedrijfsinformatie', 'icon' => 'ki-filled ki-shop'],
+        ['id' => 'company-contact', 'label' => 'Contact', 'icon' => 'ki-filled ki-geolocation'],
+        $companyShowIsSuperAdmin ? ['id' => 'company-modules', 'label' => 'Modules', 'icon' => 'ki-filled ki-element-11'] : null,
+        ['id' => 'company-users-website', 'label' => 'Gebruikers', 'icon' => 'ki-filled ki-people'],
+        $companyShowIsSuperAdmin ? ['id' => 'config-access', 'label' => 'Configuraties', 'icon' => 'ki-filled ki-setting-2'] : null,
+        $companyShowCanSeeDomains ? ['id' => 'company-domains', 'label' => 'Domeinen', 'icon' => 'ki-filled ki-abstract-26'] : null,
+        ['id' => 'company-locations', 'label' => 'Vestigingen', 'icon' => 'ki-filled ki-home-2'],
+    ]));
+@endphp
+<div class="kt-container-fixed company-show-section-nav sticky mb-5 lg:mb-7.5">
+    <nav class="kt-tabs kt-tabs-line admin-page-tabs min-w-0" aria-label="Onderdelen op deze pagina" id="company-show-tabs">
+        @foreach($companyShowTabs as $tab)
+            <a href="#{{ $tab['id'] }}" class="kt-tab-toggle{{ $loop->first ? ' active' : '' }}" data-company-show-tab="{{ $tab['id'] }}" @if($loop->first) aria-current="page" @endif>
+                <i class="{{ $tab['icon'] }}" aria-hidden="true"></i>
+                <span class="kt-tab-title">{{ $tab['label'] }}</span>
+            </a>
+        @endforeach
+    </nav>
+</div>
+
 <!-- Container -->
 <div class="kt-container-fixed">
     <!-- begin: grid — bedrijfsinfo eerst, contact eronder (volle breedte i.p.v. smalle kolom) -->
     <div class="flex flex-col gap-5 lg:gap-7.5 items-stretch">
         <!-- Bedrijfsinformatie -->
-        <div class="kt-card w-full flex flex-col">
+        <div class="kt-card w-full flex flex-col company-show-section" id="company-info">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Bedrijfsinformatie
@@ -351,7 +395,7 @@
         </div>
 
         <!-- Contact Informatie -->
-        <div class="kt-card w-full flex flex-col">
+        <div class="kt-card w-full flex flex-col company-show-section" id="company-contact">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Contact Informatie
@@ -533,7 +577,7 @@
 <!-- Container -->
 @if(auth()->user()?->hasRole('super-admin'))
 <div class="kt-container-fixed">
-    <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5">
+    <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5 company-show-section" id="company-modules">
         <div class="kt-card-header items-center justify-between gap-3">
             <h3 class="kt-card-title mb-0">
                 Gekoppelde modules
@@ -556,18 +600,29 @@
             @else
                 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach($company->modules->sortBy('display_name') as $mod)
-                        <div class="flex flex-col gap-2 rounded-xl border border-input bg-muted/15 px-4 py-3.5 min-w-0">
-                            <div class="flex items-start justify-between gap-2 min-w-0">
-                                <span class="font-semibold text-sm text-foreground leading-snug">{{ $mod->display_name }}</span>
-                                @if($mod->installed && $mod->active)
-                                    <span class="kt-badge kt-badge-sm kt-badge-success shrink-0">Actief</span>
-                                @elseif($mod->installed)
-                                    <span class="kt-badge kt-badge-sm kt-badge-warning shrink-0">Geïnstalleerd</span>
-                                @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-outline shrink-0">Niet geïnstalleerd</span>
-                                @endif
+                        @php
+                            $moduleKey = strtolower(trim((string) $mod->name));
+                            $moduleIcon = $moduleKey === 'taxi'
+                                ? 'ki-filled ki-car'
+                                : (trim((string) ($mod->icon ?? '')) !== '' ? $mod->icon : 'ki-filled ki-abstract-26');
+                        @endphp
+                        <div class="flex w-fit max-w-full items-center gap-3 rounded-xl border border-input bg-muted/15 px-3 py-3.5 min-w-0">
+                            <span class="flex shrink-0 items-center justify-center text-primary" aria-hidden="true">
+                                <i class="{{ $moduleIcon }} text-5xl leading-none"></i>
+                            </span>
+                            <div class="flex flex-col gap-2 min-w-0 flex-1">
+                                <div class="flex items-start justify-between gap-2 min-w-0">
+                                    <span class="font-semibold text-sm text-foreground leading-snug">{{ $mod->display_name }}</span>
+                                    @if($mod->installed && $mod->active)
+                                        <span class="kt-badge kt-badge-sm kt-badge-success shrink-0">Actief</span>
+                                    @elseif($mod->installed)
+                                        <span class="kt-badge kt-badge-sm kt-badge-warning shrink-0">Geïnstalleerd</span>
+                                    @else
+                                        <span class="kt-badge kt-badge-sm kt-badge-outline shrink-0">Niet geïnstalleerd</span>
+                                    @endif
+                                </div>
+                                <code class="text-xs text-secondary-foreground break-all">{{ $mod->name }}</code>
                             </div>
-                            <code class="text-xs text-secondary-foreground break-all">{{ $mod->name }}</code>
                         </div>
                     @endforeach
                 </div>
@@ -580,7 +635,7 @@
 
 <!-- Container -->
 <div class="kt-container-fixed">
-    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5 company-show-section" id="company-users-website">
         <div class="kt-card-header">
             <h3 class="kt-card-title">
                 Gebruikers &amp; website
@@ -649,7 +704,7 @@
 <!-- Container -->
 @if(auth()->user()?->hasRole('super-admin') || app(\App\Services\TenantConfigAccessService::class)->can(auth()->user(), $company, \App\Support\TenantConfigCapability::DOMAIN))
 <div class="kt-container-fixed">
-    <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5">
+    <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5 company-show-section" id="company-domains">
         <div class="kt-card-header">
             <h3 class="kt-card-title mb-0">
                 Tenant domeinen (SaaS)
@@ -721,7 +776,7 @@
 <!-- Container -->
 <div class="kt-container-fixed">
     <!-- Vestigingen -->
-    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5 company-show-section" id="company-locations">
         <div class="kt-card-header">
             <h3 class="kt-card-title">
                 Vestigingen
@@ -887,8 +942,119 @@
     </div>
 </div>
 <!-- End of Container -->
+<div class="company-show-scroll-end" aria-hidden="true"></div>
 
 @push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var nav = document.getElementById('company-show-tabs');
+    if (!nav) {
+        return;
+    }
+
+    var links = Array.prototype.slice.call(nav.querySelectorAll('[data-company-show-tab]'));
+    var sections = links.map(function (link) {
+        return document.getElementById(link.getAttribute('data-company-show-tab'));
+    }).filter(Boolean);
+
+    var programmaticScroll = false;
+    var programmaticTimer = null;
+
+    function navOffset() {
+        var sticky = document.querySelector('.company-show-section-nav');
+        if (!sticky) {
+            return 120;
+        }
+        return Math.max(0, sticky.getBoundingClientRect().bottom) + 8;
+    }
+
+    function setActiveTab(id) {
+        links.forEach(function (link) {
+            var on = link.getAttribute('data-company-show-tab') === id;
+            link.classList.toggle('active', on);
+            if (on) {
+                link.setAttribute('aria-current', 'page');
+            } else {
+                link.removeAttribute('aria-current');
+            }
+        });
+    }
+
+    function openCollapsibleIfNeeded(target) {
+        if (!target || !target.classList.contains('settings-collapsible-card--collapsed')) {
+            return;
+        }
+        var btn = target.querySelector(':scope > .settings-collapsible-header .settings-collapsible-toggle');
+        if (btn) {
+            btn.click();
+        }
+    }
+
+    function scrollToSection(id, updateHash) {
+        var target = document.getElementById(id);
+        if (!target) {
+            return;
+        }
+        openCollapsibleIfNeeded(target);
+        setActiveTab(id);
+        if (updateHash) {
+            if (history.replaceState) {
+                history.replaceState(null, '', '#' + id);
+            } else {
+                window.location.hash = id;
+            }
+        }
+        programmaticScroll = true;
+        clearTimeout(programmaticTimer);
+        var top = window.scrollY + target.getBoundingClientRect().top - navOffset();
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        programmaticTimer = setTimeout(function () {
+            programmaticScroll = false;
+        }, 900);
+    }
+
+    nav.addEventListener('click', function (e) {
+        var link = e.target.closest('[data-company-show-tab]');
+        if (!link || !nav.contains(link)) {
+            return;
+        }
+        e.preventDefault();
+        scrollToSection(link.getAttribute('data-company-show-tab'), true);
+    });
+
+    var initialHash = (window.location.hash || '').replace(/^#/, '');
+    if (initialHash && document.getElementById(initialHash)) {
+        setTimeout(function () {
+            scrollToSection(initialHash, false);
+        }, 50);
+    }
+
+    if (!('IntersectionObserver' in window) || sections.length === 0) {
+        return;
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+        if (programmaticScroll) {
+            return;
+        }
+        var visible = entries
+            .filter(function (entry) { return entry.isIntersecting; })
+            .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; });
+        if (!visible.length) {
+            return;
+        }
+        setActiveTab(visible[0].target.id);
+    }, {
+        root: null,
+        rootMargin: '-30% 0px -55% 0px',
+        threshold: [0.1, 0.25, 0.5]
+    });
+
+    sections.forEach(function (section) {
+        observer.observe(section);
+    });
+});
+</script>
 @can('edit-companies')
 <script>
     document.addEventListener('DOMContentLoaded', function() {

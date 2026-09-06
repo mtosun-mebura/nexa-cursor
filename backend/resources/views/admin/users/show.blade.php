@@ -246,10 +246,29 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
+                            App-wachtwoord
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $needsAppPassword = app(\App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService::class)->needsFirstLogin($user);
+                            @endphp
+                            @if($needsAppPassword)
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">Nog instellen</span>
+                                <span class="text-xs text-secondary-foreground ms-2">Inlogcode in chauffeur- of contract-app</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Ingesteld</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
                             Rollen
                         </td>
                         <td class="text-foreground font-normal">
-                            @foreach($user->webRoleNames() as $roleName)
+                            @php
+                                $showRoleNames = $displayRoleNames[$user->id] ?? $user->assignedRoleNames();
+                            @endphp
+                            @foreach($showRoleNames as $roleName)
                                 @if($roleName === 'super-admin')
                                     @if(auth()->user()->hasRole('super-admin'))
                                         <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
@@ -260,7 +279,7 @@
                                     <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                 @endif
                             @endforeach
-                            @if($user->webRoleNames() === [])
+                            @if($showRoleNames === [])
                                 <span class="text-secondary-foreground text-sm">Geen rollen</span>
                             @endif
                         </td>

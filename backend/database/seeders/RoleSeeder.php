@@ -75,15 +75,7 @@ class RoleSeeder extends Seeder
         $apiPerms = Permission::on($conn)->whereIn('name', $permissionNames)->where('guard_name', 'api')->get();
         $apiSuperAdmin->syncPermissions($apiPerms);
 
-        $superAdminUser = User::on($conn)->updateOrCreate(
-            ['email' => ModuleSchemaService::SUPERADMIN_EMAIL],
-            [
-                'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
-                'first_name' => 'Mehmet',
-                'last_name' => 'Tosun',
-                'email_verified_at' => now(),
-            ]
-        );
+        $superAdminUser = $this->ensureSuperAdminUser($conn);
         $superAdminUser->assignRole($superAdmin, null);
     }
 
@@ -295,8 +287,22 @@ class RoleSeeder extends Seeder
             'view-agenda',
         ]);
 
-        // Create Super Admin user (wachtwoord uit ModuleSchemaService)
-        $superAdminUser = User::updateOrCreate(
+        $superAdminUser = $this->ensureSuperAdminUser();
+
+        // Assign role with null team (global super admin)
+        $superAdminUser->assignRole($superAdmin, null);
+    }
+
+    /**
+     * Super-admin alleen aanmaken als die nog niet bestaat.
+     * Nooit het wachtwoord (of de naam) van een bestaande gebruiker overschrijven:
+     * deze seeder draait bij elke container-start via nexa:ensure-bootstrap.
+     */
+    protected function ensureSuperAdminUser(?string $connection = null): User
+    {
+        $query = $connection ? User::on($connection) : User::query();
+
+        return $query->firstOrCreate(
             ['email' => ModuleSchemaService::SUPERADMIN_EMAIL],
             [
                 'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
@@ -305,8 +311,5 @@ class RoleSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-
-        // Assign role with null team (global super admin)
-        $superAdminUser->assignRole($superAdmin, null);
     }
 }

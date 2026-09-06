@@ -357,7 +357,8 @@
                 }
                 // For select fields, only validate if required
                 if (isRequired && (!value || value === '')) {
-                    this.setInvalid(input, feedbackElement, 'Selecteer een optie.', forceShow);
+                    const selectRequiredMessage = input.getAttribute('data-required-message') || 'Selecteer een optie.';
+                    this.setInvalid(input, feedbackElement, selectRequiredMessage, forceShow);
                     return false;
                 }
                 // Optional select fields are always valid (even if empty)
@@ -963,6 +964,7 @@
                 );
                 const inCarouselHexWrap = inputWrapper.classList.contains('carousel-slide-hex-input-wrap') ||
                     inputWrapper.closest('.carousel-slide-hex-input-wrap');
+                const compactChWidth = /^\d+(\.\d+)?ch$/.test(String(input.style.width || '').trim());
                 if (!inputWrapper.classList.contains('relative')) {
                     inputWrapper.classList.add('relative');
                 }
@@ -971,6 +973,9 @@
                     inputWrapper.style.width = '';
                     inputWrapper.style.maxWidth = '';
                     inputWrapper.classList.add('flex-none');
+                } else if (compactChWidth) {
+                    inputWrapper.style.width = 'fit-content';
+                    inputWrapper.style.maxWidth = '100%';
                 } else if (!inputWrapper.style.width || inputWrapper.style.width === '') {
                     inputWrapper.style.width = '100%';
                 }
@@ -994,6 +999,11 @@
             if (input.type !== 'checkbox' && input.type !== 'radio') {
                 if (!input.style.paddingRight || input.style.paddingRight === '') {
                     input.style.paddingRight = '2.75rem';
+                    // Compact fields (width: 12ch / 15ch) otherwise clip prefill and placeholder.
+                    const compactWidth = String(input.style.width || '').trim();
+                    if (/^\d+(\.\d+)?ch$/.test(compactWidth)) {
+                        input.style.width = 'calc(' + compactWidth + ' + 2.75rem)';
+                    }
                 }
             }
             iconWrapper.setAttribute('data-field', input.name || input.id);

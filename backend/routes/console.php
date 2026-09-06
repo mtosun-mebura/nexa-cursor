@@ -1,5 +1,7 @@
 <?php
 
+use App\Jobs\ProcessNexaSuiteMarketplaceBillingJob;
+use App\Jobs\ProcessNexaSuiteMarketplaceDunningJob;
 use App\Jobs\ProcessPlatformBillingJob;
 use App\Jobs\ProcessPlatformDunningJob;
 use App\Jobs\ProcessSaasTrialNoticeJob;
@@ -73,6 +75,16 @@ Schedule::job(new ProcessSaasTrialNoticeJob)
 Schedule::job(new ProcessPlatformDunningJob)
     ->dailyAt('06:00')
     ->name('platform-billing-dunning')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessNexaSuiteMarketplaceBillingJob)
+    ->hourly()
+    ->name('nexa-suite-marketplace-billing')
+    ->withoutOverlapping();
+
+Schedule::job(new ProcessNexaSuiteMarketplaceDunningJob)
+    ->dailyAt('06:15')
+    ->name('nexa-suite-marketplace-dunning')
     ->withoutOverlapping();
 
 Schedule::command('database:backup-scheduled')

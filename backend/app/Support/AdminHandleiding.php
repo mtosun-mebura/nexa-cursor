@@ -37,7 +37,9 @@ class AdminHandleiding
     public static function pagesForUser(?User $user): array
     {
         if (! $user) {
-            return self::pages();
+            return collect(self::pages())
+                ->filter(fn (array $page) => empty($page['super_admin_only']))
+                ->all();
         }
 
         $company = self::companyForUser($user);
@@ -45,7 +47,19 @@ class AdminHandleiding
             return self::pages();
         }
 
-        return self::visiblePages($company);
+        $visible = self::visiblePages($company);
+        if (! $user->isSuperAdmin()) {
+            return $visible;
+        }
+
+        $platform = collect(self::pages())
+            ->filter(fn (array $page) => ! empty($page['super_admin_only']))
+            ->all();
+
+        return collect($visible)
+            ->union($platform)
+            ->sortBy(fn (array $page) => $page['order'] ?? 999)
+            ->all();
     }
 
     /**
@@ -63,6 +77,10 @@ class AdminHandleiding
      */
     public static function pageVisible(array $page, ?Company $company): bool
     {
+        if (! empty($page['super_admin_only'])) {
+            return false;
+        }
+
         $packages = $page['packages'] ?? null;
         $capabilities = $page['capabilities'] ?? null;
         $hasPackageGate = is_array($packages) && $packages !== [];

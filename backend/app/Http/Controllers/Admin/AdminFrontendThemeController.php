@@ -515,6 +515,7 @@ class AdminFrontendThemeController extends Controller
         $this->ensureSuperAdmin();
         $settings = $frontend_theme->settings ?? [];
         $settings['primary_color'] = $request->input('primary_color', $settings['primary_color'] ?? '#2563eb');
+        $settings['secondary_color'] = $request->input('secondary_color', $settings['secondary_color'] ?? FrontendTheme::defaultSecondaryFor((string) $settings['primary_color']));
         $settings['font_heading'] = $request->input('font_heading', $settings['font_heading'] ?? 'Inter');
         $settings['font_body'] = $request->input('font_body', $settings['font_body'] ?? 'Inter');
         $settings['footer_text'] = $request->input('footer_text', $settings['footer_text'] ?? '');

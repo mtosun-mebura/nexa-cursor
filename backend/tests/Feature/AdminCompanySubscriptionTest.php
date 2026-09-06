@@ -49,7 +49,14 @@ class AdminCompanySubscriptionTest extends TestCase
             ->assertSee('data-upgrade-open', false)
             ->assertSee('id="subscription-upgrade-modal"', false)
             ->assertSee('Upgraden bevestigen', false)
-            ->assertDontSee('wordt meegenomen in de SEPA-incasso. Doorgaan?', false);
+            ->assertSee('data-cancel-open', false)
+            ->assertSee('id="subscription-cancel-modal"', false)
+            ->assertSee('Opzeggen bevestigen', false)
+            ->assertSee('Direct opzeggen kan alleen tijdens de', false)
+            ->assertSee('proefperiode', false)
+            ->assertSee('einde van het jaarcontract', false)
+            ->assertDontSee('wordt meegenomen in de SEPA-incasso. Doorgaan?', false)
+            ->assertDontSee("onclick=\"return confirm('Opzeggen per", false);
     }
 
     #[Test]

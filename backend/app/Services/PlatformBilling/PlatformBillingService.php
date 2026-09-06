@@ -107,7 +107,7 @@ class PlatformBillingService
             $profile->setRelation('package', null);
         }
 
-        $profile->loadMissing(['package', 'lineItems']);
+        $profile->loadMissing(['package', 'lineItems', 'company']);
         $asOf ??= now();
         $lines = [];
 
@@ -123,6 +123,7 @@ class PlatformBillingService
                     'type' => 'subscription',
                     'billing_period' => $billingPeriod,
                 ];
+                $this->appendPackageAddonChargeLines($lines, $profile, $billingPeriod, null);
             } else {
                 foreach ($segments as $segment) {
                     $baseAmount = round($profile->subscriptionBaseAmount() * $segment['fraction'], 2);
@@ -137,6 +138,9 @@ class PlatformBillingService
                         'type' => 'subscription',
                         'billing_period' => $segment['key'],
                     ];
+                }
+                foreach ($segments as $segment) {
+                    $this->appendPackageAddonChargeLines($lines, $profile, $segment['key'], $segment);
                 }
             }
         }
@@ -173,6 +177,37 @@ class PlatformBillingService
         }
 
         return $lines;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $lines
+     * @param  array{key?: string, label?: string, fraction?: float}|null  $segment
+     */
+    private function appendPackageAddonChargeLines(array &$lines, CompanyBillingProfile $profile, string $billingPeriod, ?array $segment): void
+    {
+        $fraction = $segment === null ? 1.0 : (float) ($segment['fraction'] ?? 1);
+        foreach ($profile->packageAddonLines() as $addon) {
+            $quantity = max(1, (int) ($addon['quantity'] ?? 1));
+            $total = round((float) ($addon['total'] ?? 0) * $fraction, 2);
+            if ($total <= 0) {
+                continue;
+            }
+            $unitPrice = round($total / $quantity, 2);
+            $name = trim((string) ($addon['name'] ?? 'Aanvullende module'));
+            $description = $segment === null
+                ? $name
+                : $this->subscriptionCalculator->subscriptionLineDescriptionForSegment($name, $segment);
+
+            $lines[] = [
+                'description' => $description,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total' => $total,
+                'type' => 'addon',
+                'addon_key' => $addon['key'] ?? null,
+                'billing_period' => $billingPeriod,
+            ];
+        }
     }
 
     /**
@@ -740,11 +775,87 @@ class PlatformBillingService
 
     public function sendPaymentLink(PlatformInvoice $invoice, ?CompanyBillingProfile $profile): PlatformInvoice
     {
+        $checkoutUrl = $this->ensurePaymentCheckoutUrl($invoice, $profile);
+        $this->sendInvoiceEmail($invoice->fresh(), $profile, $checkoutUrl);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Verstuur (of herverstuur) de NEXA-factuur per e-mail naar de tenant.
+     * Werkt altijd: concept, openstaand én betaald. Bij openstaande facturen
+     * wordt een betaallink meegestuurd indien beschikbaar of nieuw aangemaakt.
+     */
+    public function sendInvoiceToTenant(PlatformInvoice $invoice): PlatformInvoice
+    {
+        $invoice->loadMissing(['company', 'latestPayment']);
+        $profile = CompanyBillingProfile::query()
+            ->with('company')
+            ->where('company_id', $invoice->company_id)
+            ->first();
+
+        if (! $profile) {
+            $profile = CompanyBillingProfile::query()->firstOrCreate(
+                ['company_id' => $invoice->company_id],
+                ['billing_mode' => CompanyBillingProfile::MODE_PACKAGE]
+            );
+            $profile->loadMissing('company');
+        }
+
+        $email = $profile->billingEmailForCompany();
+        if (! $email) {
+            throw new \InvalidArgumentException('Geen facturatie-e-mailadres voor deze tenant.');
+        }
+
+        $checkoutUrl = null;
+        if (! $invoice->isPaid() && (float) $invoice->total_amount > 0) {
+            $checkoutUrl = $this->ensurePaymentCheckoutUrl($invoice, $profile);
+        }
+
+        $updates = ['sent_at' => now()];
+        if (! $invoice->isPaid() && $invoice->status === 'draft') {
+            $updates['status'] = 'sent';
+        }
+        $invoice->update($updates);
+
+        $this->sendInvoiceEmail($invoice->fresh(['company']), $profile, $checkoutUrl);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Zorg voor een bruikbare Mollie-checkout-URL zonder e-mail te versturen.
+     */
+    public function ensurePaymentCheckoutUrl(PlatformInvoice $invoice, ?CompanyBillingProfile $profile): ?string
+    {
+        if ($invoice->isPaid() || (float) $invoice->total_amount <= 0) {
+            return null;
+        }
+
+        $invoice->loadMissing('latestPayment');
+        $existing = $invoice->latestPayment;
+        if ($existing && in_array((string) $existing->status, ['pending', 'open'], true) && is_array($existing->mollie_payload)) {
+            $existingUrl = $this->mollie->checkoutUrl($existing->mollie_payload);
+            if ($existingUrl) {
+                return $existingUrl;
+            }
+        }
+
         $redirectUrl = route('admin.platform-billing.invoices.show', $invoice);
         $mandate = PlatformPaymentMandate::query()->where('company_id', $invoice->company_id)->first();
 
         if ($profile?->auto_collect_enabled && ! $mandate?->isActive()) {
-            return $this->sendFirstPaymentWithMandateSetup($invoice, $profile, $mandate, $redirectUrl);
+            try {
+                $this->sendFirstPaymentWithMandateSetup($invoice, $profile, $mandate, $redirectUrl, sendEmail: false);
+
+                return $this->checkoutUrlFromLatestPayment($invoice->fresh(['latestPayment']));
+            } catch (\Throwable $e) {
+                Log::warning('Eerste-betaling/mandaat mislukt; val terug op eenmalige betaallink', [
+                    'invoice_id' => $invoice->id,
+                    'company_id' => $invoice->company_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         $payment = $this->mollie->createOneOffPayment(
@@ -775,13 +886,21 @@ class PlatformBillingService
         $invoice->update([
             'mollie_payment_id' => $mollieId,
             'collection_method' => 'payment_link',
-            'status' => 'sent',
-            'sent_at' => now(),
+            'status' => $invoice->isPaid() ? $invoice->status : 'sent',
+            'sent_at' => $invoice->sent_at ?? now(),
         ]);
 
-        $this->sendInvoiceEmail($invoice, $profile, $checkoutUrl);
+        return $checkoutUrl;
+    }
 
-        return $invoice->fresh();
+    private function checkoutUrlFromLatestPayment(PlatformInvoice $invoice): ?string
+    {
+        $payment = $invoice->latestPayment;
+        if (! $payment || ! is_array($payment->mollie_payload)) {
+            return null;
+        }
+
+        return $this->mollie->checkoutUrl($payment->mollie_payload);
     }
 
     public function requestMandate(Company $company, ?string $recipientEmail = null): array
@@ -1069,6 +1188,7 @@ class PlatformBillingService
         CompanyBillingProfile $profile,
         ?PlatformPaymentMandate $mandate,
         string $redirectUrl,
+        bool $sendEmail = true,
     ): PlatformInvoice {
         $email = $profile->billingEmailForCompany();
         if (! $email) {
@@ -1122,7 +1242,9 @@ class PlatformBillingService
             'sent_at' => now(),
         ]);
 
-        $this->sendInvoiceEmail($invoice->fresh(), $profile, $checkoutUrl);
+        if ($sendEmail) {
+            $this->sendInvoiceEmail($invoice->fresh(), $profile, $checkoutUrl);
+        }
 
         return $invoice->fresh();
     }
@@ -1161,8 +1283,12 @@ class PlatformBillingService
             return;
         }
 
+        $statusLine = $invoice->isPaid()
+            ? "Hierbij ontvangt u uw NEXA-factuur {$invoice->invoice_number} (periode {$invoice->billing_period})."
+            : "Uw NEXA-factuur {$invoice->invoice_number} (periode {$invoice->billing_period}) staat open.";
+
         $body = "Beste {$invoice->company->name},\n\n".
-            "Uw NEXA-factuur {$invoice->invoice_number} (periode {$invoice->billing_period}) staat open.\n".
+            $statusLine."\n".
             'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.')."\n\n";
         if ($checkoutUrl) {
             $body .= "Betaal direct via:\n{$checkoutUrl}\n\n";

@@ -32,6 +32,19 @@ class IncidentTicketTest extends TestCase
     }
 
     #[Test]
+    public function super_admin_can_open_incidents_without_selected_tenant(): void
+    {
+        $super = $this->superAdmin();
+        session()->forget('selected_tenant');
+
+        $this->actingAs($super)
+            ->get(route('admin.incidents.index'))
+            ->assertOk()
+            ->assertSee('window.__INCIDENT_APP__', false)
+            ->assertDontSee('Kies links in de zijbalk een tenant', false);
+    }
+
+    #[Test]
     public function company_admin_can_submit_incident_and_super_admin_is_notified(): void
     {
         [$company, $admin] = $this->companyAdmin();
