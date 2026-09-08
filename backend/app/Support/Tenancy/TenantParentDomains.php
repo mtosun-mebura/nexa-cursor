@@ -102,6 +102,66 @@ final class TenantParentDomains
         return null;
     }
 
+    /**
+     * Eerste geconfigureerde ouder-domein (zonder inferentie vanaf de huidige request-host).
+     */
+    public static function firstConfiguredParent(): ?string
+    {
+        $hosts = config('tenancy.tenant_parent_domains', []);
+        if (! is_array($hosts)) {
+            return null;
+        }
+
+        foreach ($hosts as $h) {
+            if (! is_string($h) || $h === '') {
+                continue;
+            }
+            $normalized = strtolower(trim(explode(':', $h, 2)[0]));
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * DNS-label waarmee dit bedrijf op {label}.{ouder} wordt herkend.
+     */
+    public static function subdomainLabelForCompany(Company $company): ?string
+    {
+        $label = '';
+        if (filled($company->slug)) {
+            $label = strtolower(trim((string) $company->slug));
+        }
+        if ($label === '') {
+            $label = Str::slug((string) $company->name);
+        }
+        $label = trim($label, '-.');
+        if ($label === '' || in_array($label, self::RESERVED_SUBDOMAIN_LABELS, true)) {
+            return null;
+        }
+        if (strlen($label) > 63 || ! preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/', $label)) {
+            return null;
+        }
+
+        return $label;
+    }
+
+    /**
+     * Preview-/dev-host wanneer er geen rij in company_domains is: {slug}.{TENANCY_TENANT_PARENT_DOMAINS}.
+     */
+    public static function syntheticHostForCompany(Company $company): ?string
+    {
+        $parent = self::firstConfiguredParent();
+        $label = self::subdomainLabelForCompany($company);
+        if ($parent === null || $label === null) {
+            return null;
+        }
+
+        return $label.'.'.$parent;
+    }
+
     private static function findActiveCompanyBySubdomainLabel(string $subdomainLabel): ?Company
     {
         $subKey = self::normalizeSubdomainKey($subdomainLabel);

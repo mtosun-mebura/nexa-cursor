@@ -102,7 +102,7 @@ class PlatformMollieRequestBuilder
             );
         }
 
-        $subscriptionAmount = $profile->resolveMonthlyAmount();
+        $subscriptionAmount = $profile->mollieRecurringAmount($asOf);
         $subscriptionStart = $this->calculator->mollieSubscriptionStartDate($profile, $asOf);
         if ($profile->auto_collect_enabled && $subscriptionAmount > 0 && $subscriptionStart && $this->calculator->isBillable($profile, $asOf)) {
             $subscriptionPayload = [

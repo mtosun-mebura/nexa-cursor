@@ -4,11 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
-use App\Models\CompanyDomain;
 use App\Models\FrontendTheme;
+use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
+use App\Services\CompanyEntitlementService;
 use App\Services\FrontendComponentService;
 use App\Services\GoogleReviewsService;
 use App\Services\GoogleSeoSettingsService;
@@ -21,6 +22,7 @@ use App\Services\WebsiteBuilderService;
 use App\Services\WebsitePageSeoGeneratorService;
 use App\Services\WebsiteStructuredDataService;
 use App\Support\ModuleSchemaAvailability;
+use App\Support\Tenancy\TenantFrontendUrl;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -63,8 +65,12 @@ class AdminWebsitePageController extends Controller
 
         $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, null);
         $websitePagesManagingCentralSite = ! $websitePagesTenantScopedActive;
+        $websiteLogoSize = $websitePagesTenantScopedActive && $tenantCompanyId !== null
+            ? $this->websiteBuilder->resolveLogoSizePx($tenantCompanyId)
+            : null;
+        $websiteLogoSizeChoices = $this->websiteBuilder->websiteLogoSizeChoices();
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive', 'websitePagesManagingCentralSite'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive', 'websitePagesManagingCentralSite', 'websiteLogoSize', 'websiteLogoSizeChoices'));
     }
 
     public function reorder(Request $request, WebsitePage $website_page): RedirectResponse
@@ -186,6 +192,40 @@ class AdminWebsitePageController extends Controller
         return redirect()
             ->route('admin.website-pages.index', array_merge($indexQuery, ['saved' => 1]))
             ->with('success', $msg);
+    }
+
+    /**
+     * Hoogte van het tenantlogo op de website (los van het NEXA Suite-logo).
+     */
+    public function updateWebsiteLogoSize(Request $request): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $tenantCompanyId = $this->resolveTenantCompanyIdForWebsitePagesList($request);
+        $indexQuery = $this->websitePagesIndexQuery($request);
+        if ($tenantCompanyId === null || $tenantCompanyId <= 0) {
+            return redirect()
+                ->route('admin.website-pages.index', $indexQuery)
+                ->with('error', 'Kies eerst een tenant om de logogrootte in te stellen.');
+        }
+
+        $allowed = $this->websiteBuilder->websiteLogoSizeChoices();
+        $data = $request->validate([
+            'website_logo_size' => ['required', 'integer', Rule::in($allowed)],
+        ], [
+            'website_logo_size.required' => 'Kies een logogrootte.',
+            'website_logo_size.integer' => 'Logo grootte moet een getal zijn.',
+            'website_logo_size.in' => 'Kies een geldige logogrootte.',
+        ]);
+
+        GeneralSetting::set(
+            WebsiteBuilderService::WEBSITE_LOGO_SIZE_KEY,
+            (string) $data['website_logo_size'],
+            $tenantCompanyId
+        );
+
+        return redirect()
+            ->route('admin.website-pages.index', array_merge($indexQuery, ['saved' => 1]))
+            ->with('success', 'Logogrootte voor de website opgeslagen.');
     }
 
     private function persistWebsitePageActiveState(WebsitePage $page, bool $isActive): void
@@ -1447,7 +1487,7 @@ class AdminWebsitePageController extends Controller
     {
         $this->ensureSuperAdmin();
         $theme = $this->websiteBuilder->getThemeForPage($website_page);
-        $menuPages = $this->websiteBuilder->getActiveMenuPages();
+        $menuPages = $this->websiteBuilder->getActiveMenuPagesForWebsitePage($website_page);
         $branding = $this->websiteBuilder->getSiteBrandingForWebsitePage($website_page);
         $themeSlug = $theme ? $theme->slug : 'modern';
         $themeSettings = $theme ? $theme->getSettings($website_page->company) : [];
@@ -4067,6 +4107,7 @@ class AdminWebsitePageController extends Controller
                 'nexaPricingEdit' => route('admin.nexa-pricing.edit'),
             ],
             'nexaPricing' => app(\App\Services\NexaPricingService::class)->get(),
+            'capabilities' => $this->builderCapabilitiesForPage($request, $website_page),
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
             'siteBrandingLogoUrl' => (string) ($siteBranding['logo_url'] ?? ''),
@@ -4453,6 +4494,20 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * @return array{gpsTracking: bool, superAdmin: bool}
+     */
+    private function builderCapabilitiesForPage(Request $request, WebsitePage $page): array
+    {
+        $companyId = (int) ($page->company_id ?: $this->resolveTenantCompanyIdForWebsitePagesList($request) ?: 0);
+        $company = $companyId > 0 ? Company::query()->find($companyId) : null;
+
+        return [
+            'gpsTracking' => app(CompanyEntitlementService::class)->allows($company, \App\Support\TenantPackageCapability::GPS_TRACKING),
+            'superAdmin' => (bool) auth()->user()?->hasRole('super-admin'),
+        ];
+    }
+
+    /**
      * Tenant/wizard-context voor de lijst website-pagina's: gekozen bedrijf in sidebar of wizard_company in URL.
      */
     private function resolveTenantCompanyIdForWebsitePagesList(Request $request): ?int
@@ -4787,20 +4842,7 @@ class AdminWebsitePageController extends Controller
             return null;
         }
 
-        $company->loadMissing('domains');
-        $primaryDomain = $company->domains->firstWhere('is_primary', true);
-        $host = $primaryDomain?->host ?? $company->domains->sortBy('id')->first()?->host;
-        if (is_string($host) && $host !== '') {
-            return CompanyDomain::normalizeHost($host);
-        }
-
-        foreach (config('tenancy.dev_host_company_map', []) as $mapHost => $mapCompanyId) {
-            if ((int) $mapCompanyId === (int) $company->id) {
-                return CompanyDomain::normalizeHost((string) $mapHost);
-            }
-        }
-
-        return null;
+        return TenantFrontendUrl::resolvePrimaryHostForCompany((int) $company->id);
     }
 
     private function buildWebsitePageCompanyContext(Request $request, ?WebsitePage $page): array

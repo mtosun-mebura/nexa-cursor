@@ -12,6 +12,18 @@ class WebsiteAiSiteCopy
     public const BOOKING_COMPONENT = 'taxi.boekingsmodule_v2';
 
     /** @var list<string> */
+    public const HOME_COMPONENT_POOL = [
+        'landwind.stats_strip',
+        'landwind.feature_checklist',
+        'website.comparison_table',
+        'vue_material.info_pills',
+        'landwind.faq',
+        'vue_material.quote_cards',
+        'play.contact_split',
+        'vue_material.elevated_cards',
+    ];
+
+    /** @deprecated Gebruik HOME_COMPONENT_POOL + pickAnimatedComponents(); blijft als volledige kandidaatlijst. */
     public const HOME_ANIMATED_COMPONENTS = [
         'landwind.stats_strip',
         'landwind.feature_checklist',
@@ -30,9 +42,9 @@ class WebsiteAiSiteCopy
     {
         $p = $this->profile($company, $context, $source);
         $pages = [
-            $this->homePage($p),
-            $this->aboutPage($p),
-            $this->contactPage($p),
+            $this->homePage($p, $company),
+            $this->aboutPage($p, $company),
+            $this->contactPage($p, $company),
             $this->servicesPage($p),
             $this->ratesPage($p),
         ];
@@ -95,14 +107,68 @@ class WebsiteAiSiteCopy
             'brief' => $brief,
             'tagline' => mb_substr($tagline, 0, 140),
             'source' => $sourceText,
+            'company_id' => (string) ((int) $company->id),
+            'company_slug' => trim((string) ($company->slug ?? '')),
         ];
+    }
+
+    /**
+     * Kies per tenant een andere subset, zodat gegenereerde sites niet altijd dezelfde blokken krijgen.
+     *
+     * @param  list<string>  $candidates
+     * @return list<string>
+     */
+    public function pickAnimatedComponents(Company $company, array $candidates, string $pageType = 'home', string $varietyKey = ''): array
+    {
+        $candidates = array_values(array_unique(array_filter(
+            $candidates,
+            fn ($id) => is_string($id) && $id !== ''
+        )));
+        $booking = array_values(array_filter(
+            $candidates,
+            fn (string $id) => str_contains($id, 'boekingsmodule')
+        ));
+        $pool = array_values(array_filter(
+            $candidates,
+            fn (string $id) => ! str_contains($id, 'boekingsmodule') && $id !== 'taxi.tarieven'
+        ));
+        if ($pool === []) {
+            $pool = self::HOME_COMPONENT_POOL;
+        }
+
+        $seed = $this->layoutSeed($company, $pageType, $varietyKey);
+        $max = $pageType === 'home' ? 4 : 2;
+        $min = $pageType === 'home' ? 3 : 1;
+        if (count($pool) <= $max) {
+            $picked = $pool;
+        } else {
+            $offset = $seed % count($pool);
+            $rotated = array_merge(array_slice($pool, $offset), array_slice($pool, 0, $offset));
+            $count = $min + ($seed % (1 + $max - $min));
+            $picked = array_slice($rotated, 0, $count);
+        }
+
+        return array_values(array_unique(array_merge($booking, $picked)));
+    }
+
+    public function layoutSeed(Company $company, string $pageType = 'home', string $varietyKey = ''): int
+    {
+        $raw = implode('|', [
+            (string) $company->id,
+            trim((string) ($company->slug ?? '')),
+            trim((string) $company->name),
+            $pageType,
+            $varietyKey,
+        ]);
+
+        return abs((int) crc32($raw));
     }
 
     /**
      * @param  array<string, string>  $p
      * @return array<string, mixed>
      */
-    public function homePage(array $p): array
+    public function homePage(array $p, ?Company $company = null): array
     {
         $brand = $p['brand'];
         $city = $p['city'];
@@ -123,7 +189,7 @@ class WebsiteAiSiteCopy
                 'cta_primary_url' => '#boek-rit',
                 'cta_secondary_text' => 'Onze diensten',
                 'cta_secondary_url' => '/diensten',
-                'image_prompt' => 'Photorealistic premium taxi waiting at a Dutch city curb at golden hour, cinematic, no text no logos',
+                'image_prompt' => 'Photorealistic photograph of a premium taxi waiting at a Dutch city curb at golden hour, cinematic live-action, no text no logos',
             ],
             'why_nexa' => [
                 'title' => 'Waarom reizigers voor '.$brand.' kiezen',
@@ -131,6 +197,8 @@ class WebsiteAiSiteCopy
             ],
             'text_block' => [
                 'content' => $this->homeStoryHtml($p),
+                'alignment' => 'left',
+                'image_prompt' => 'Photorealistic cinematic still of a professional chauffeur opening the door of a luxury taxi for a passenger on a Dutch city street, golden hour, real photography, no text no logos',
             ],
             'features' => [
                 'section_title' => 'Wat u van ons mag verwachten',
@@ -168,7 +236,7 @@ class WebsiteAiSiteCopy
                     ['icon' => 'star', 'title' => 'Privé en evenementen', 'description' => 'Diner, bruiloft, concert of een dagje weg. Extra bagage of een grotere wagen: geef het aan bij het boeken.'],
                 ],
             ],
-            'components' => self::HOME_ANIMATED_COMPONENTS,
+            'components' => array_values(array_unique(array_merge([self::BOOKING_COMPONENT], self::HOME_COMPONENT_POOL))),
             'component_copy' => $this->homeComponentCopy($p),
         ];
     }
@@ -177,10 +245,11 @@ class WebsiteAiSiteCopy
      * @param  array<string, string>  $p
      * @return array<string, mixed>
      */
-    public function aboutPage(array $p): array
+    public function aboutPage(array $p, ?Company $company = null): array
     {
         $brand = $p['brand'];
         $city = $p['city'];
+        $aboutPool = ['play.about_overlap', 'landwind.faq', 'vue_material.quote_cards', 'play.team', 'landwind.feature_checklist'];
 
         return [
             'slug' => 'over-ons',
@@ -197,10 +266,12 @@ class WebsiteAiSiteCopy
                 'cta_primary_url' => '/#boek-rit',
                 'cta_secondary_text' => 'Contact',
                 'cta_secondary_url' => '/contact',
-                'image_prompt' => 'Photorealistic Dutch taxi drivers and dispatcher in a small office, warm daylight, no text',
+                'image_prompt' => 'Photorealistic photograph of Dutch taxi drivers and a dispatcher in a small office, warm natural daylight, live-action, no text no logos',
             ],
             'text_block' => [
                 'content' => $this->aboutStoryHtml($p),
+                'alignment' => 'right',
+                'image_prompt' => 'Photorealistic cinematic still of a taxi fleet parked at a Dutch depot at dawn, real photography, subtle motion, no text no logos',
             ],
             'featured_services' => [
                 'title' => 'Hoe wij werken',
@@ -212,7 +283,7 @@ class WebsiteAiSiteCopy
                     ['icon' => 'shield-check', 'title' => 'U blijft op de hoogte', 'description' => 'Status terug naar u, zonder dat u de centrale hoeft te belasten voor “waar is de auto”.'],
                 ],
             ],
-            'components' => ['play.about_overlap', 'landwind.faq', 'vue_material.quote_cards'],
+            'components' => $aboutPool,
             'component_copy' => [
                 'play.about_overlap' => [
                     'eyebrow' => 'Ons verhaal',
@@ -232,10 +303,11 @@ class WebsiteAiSiteCopy
      * @param  array<string, string>  $p
      * @return array<string, mixed>
      */
-    public function contactPage(array $p): array
+    public function contactPage(array $p, ?Company $company = null): array
     {
         $brand = $p['brand'];
         $phone = $p['phone'];
+        $contactPool = ['play.contact_split', 'landwind.faq', 'vue_material.info_pills'];
 
         return [
             'slug' => 'contact',
@@ -252,14 +324,16 @@ class WebsiteAiSiteCopy
                 'cta_primary_url' => $phone !== '' ? 'tel:'.preg_replace('/\s+/', '', $phone) : '#boek-rit',
                 'cta_secondary_text' => 'Over ons',
                 'cta_secondary_url' => '/over-ons',
-                'image_prompt' => 'Photorealistic taxi dispatch desk with screens and a city map, daylight, no text',
+                'image_prompt' => 'Photorealistic photograph of a taxi dispatch desk with screens and a city map, daylight, live-action, no text no logos',
             ],
             'text_block' => [
                 'content' => '<p>U bereikt '.$this->e($brand).' het snelst via de boekingsmodule op deze pagina: ophaaladres, bestemming en tijdstip zijn genoeg voor een ritvoorstel.</p>'
                     .'<p>Voor contracten, maandfactuur of een offerte voor een evenement mailt u ons'.($p['email'] !== '' ? ' op '.$this->e($p['email']) : '').' of belt u de centrale'.($phone !== '' ? ' op '.$this->e($phone) : '').'. We reageren op werkdagen meestal dezelfde dag.</p>'
                     .'<p>Bezoekadres: '.$this->e($p['address']).'. Standplaats '.$this->e($p['city']).'.</p>',
+                'alignment' => 'left',
+                'image_prompt' => 'Photorealistic cinematic still of a receptionist taking a taxi booking call at a modern Dutch office desk, natural light, real photography, no text no logos',
             ],
-            'components' => [self::BOOKING_COMPONENT, 'play.contact_split'],
+            'components' => array_values(array_unique(array_merge([self::BOOKING_COMPONENT], $contactPool))),
             'component_copy' => [
                 'play.contact_split' => [
                     'eyebrow' => 'Centrale',
@@ -298,12 +372,14 @@ class WebsiteAiSiteCopy
                 'cta_primary_url' => '/#boek-rit',
                 'cta_secondary_text' => 'Tarieven',
                 'cta_secondary_url' => '/tarieven',
-                'image_prompt' => 'Photorealistic luxury people carrier and sedan at a Dutch airport curb, golden hour, no text',
+                'image_prompt' => 'Photorealistic photograph of a luxury people carrier and sedan at a Dutch airport curb, golden hour, live-action, no text no logos',
             ],
             'text_block' => [
                 'content' => '<p>'.$this->e($brand).' rijdt luchthavenritten, zakelijke transfers, privévervoer en contractritten in '.$this->e($p['city']).' en de regio. U boekt alles via dezelfde module: één adres, één chauffeur, één afspraak.</p>'
                     .'<p>Voor groepen tot acht personen plannen we een grotere wagen. Voor zorg- of schoolvervoer maken we vaste routes en contactpersonen. '.$this->e($p['brief']).'</p>'
                     .'<p>Twijfelt u welk voertuig past? Kies bij het boeken het aantal personen en bagage; wij schalen op als dat nodig is.</p>',
+                'alignment' => 'left',
+                'image_prompt' => 'Photorealistic cinematic still of airport taxi pickup with luggage at a Dutch terminal curb, golden hour, real photography, no text no logos',
             ],
             'featured_services' => [
                 'title' => 'Onze ritten',
@@ -408,6 +484,26 @@ class WebsiteAiSiteCopy
             ],
             'vue_material.info_pills' => $this->pillsCopy($p),
             'vue_material.quote_cards' => $this->quotesCopy($p),
+            'vue_material.elevated_cards' => [
+                'eyebrow' => 'Drie stappen',
+                'title' => 'Van klik tot chauffeur',
+                'subtitle' => 'Zo boekt u bij '.$p['brand'].'.',
+                'items' => [
+                    ['title' => 'Adres invullen', 'text' => 'Ophaal, bestemming en tijdstip op de site van '.$p['brand'].'.', 'accent' => '#1e3a8a'],
+                    ['title' => 'Route zien', 'text' => 'U ziet de rit op de kaart voordat u bevestigt.', 'accent' => '#0f172a'],
+                    ['title' => 'Chauffeur onderweg', 'text' => 'De centrale wijst toe; u blijft op de hoogte tot aankomst.', 'accent' => '#0369a1'],
+                ],
+            ],
+            'play.contact_split' => [
+                'eyebrow' => 'Centrale',
+                'title' => 'Plan een rit of een kennismaking',
+                'subtitle' => 'Vragen over een luchthavenrit, een vast contract of een groepsvervoer? We denken mee.',
+                'address' => $p['address'],
+                'phone' => $p['phone'] !== '' ? $p['phone'] : 'via het boekingsformulier',
+                'email' => $p['email'] !== '' ? $p['email'] : 'via het contactformulier',
+                'hours' => 'Boeken kan 24/7 online. Centrale: ma–zo volgens dienstregeling.',
+                'cta_label' => 'Verstuur bericht',
+            ],
             self::BOOKING_COMPONENT => [
                 'title' => 'Boek uw rit bij '.$p['brand'],
                 'subtitle' => 'Ophaal, bestemming en tijdstip. De route verschijnt naast het formulier.',

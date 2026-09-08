@@ -76,6 +76,10 @@ const toolbarTitleText = computed(() => {
 provide('nexaPricing', computed(() => props.bootstrap.nexaPricing ?? { packages: [] }))
 provide('nexaPricingEditUrl', computed(() => props.bootstrap.routes.nexaPricingEdit ?? ''))
 provide('builderHeroicons', computed(() => props.bootstrap.heroicons ?? []))
+provide('builderCapabilities', computed(() => ({
+  gpsTracking: !!props.bootstrap.capabilities?.gpsTracking,
+  superAdmin: !!props.bootstrap.capabilities?.superAdmin,
+})))
 
 const previewUrl = computed(() => {
   const base = bootstrap.routes.preview

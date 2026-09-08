@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class GeneralSetting extends Model
@@ -54,12 +55,14 @@ class GeneralSetting extends Model
         'GOOGLE_MAPS_CENTER_LAT',
         'GOOGLE_MAPS_CENTER_LNG',
         'GOOGLE_MAPS_TYPE',
+        'POSTCODE_PDOK_FALLBACK',
         // Algemene configuraties (admin.settings.general) — platform-breed
         'logo',
         'logo_dark',
         'logo_mode',
         'logo_size',
         'favicon',
+        'nexa_suite_avatar',
         'site_name',
         'site_description',
         'ai_chat_enabled',
@@ -111,6 +114,24 @@ class GeneralSetting extends Model
         self::$tableExistsCache = [];
         self::$resolvedScopeCompanyId = null;
         self::$resolvedScopeCompanyIdComputed = false;
+    }
+
+    public static function defaultSystemAvatarUrl(): string
+    {
+        return asset('assets/media/avatars/300-2.png');
+    }
+
+    /**
+     * Avatar voor NEXA Suite-systeemmeldingen (notificatiepaneel zonder afzender).
+     */
+    public static function nexaSuiteAvatarUrl(): string
+    {
+        $path = trim((string) self::get('nexa_suite_avatar', ''));
+        if ($path === '' || ! Storage::disk('public')->exists($path)) {
+            return self::defaultSystemAvatarUrl();
+        }
+
+        return Storage::url($path);
     }
 
     public static function isGlobalPlatformKey(string $key): bool

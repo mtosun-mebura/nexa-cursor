@@ -68,7 +68,7 @@
             $logoDarkUrl = ($hasLogo && $useLightDark && $hasLogoDark) ? route('admin.settings.logo-dark') : $logoLightUrl;
         @endphp
         <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Logo & Favicon'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Logo, favicon &amp; avatar'])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
@@ -227,6 +227,46 @@
                                        class="hidden">
                             </div>
                             <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: ICO, PNG, JPG (max. 2MB)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">NEXA Suite-avatar</td>
+                        <td class="min-w-48 w-full align-top">
+                            @php
+                                $hasNexaSuiteAvatar = !empty($nexaSuiteAvatar) && Storage::disk('public')->exists($nexaSuiteAvatar);
+                            @endphp
+                            <p class="text-sm text-muted-foreground mb-3">Wordt getoond bij systeemmeldingen in het notificatiepaneel (afzender <span class="font-medium text-foreground">Systeem</span>).</p>
+                            <div class="max-w-96 w-full flex flex-col gap-3">
+                                <div class="flex items-center gap-3">
+                                    <img alt="NEXA Suite-avatar" class="size-16 rounded-full object-cover shrink-0 ring-1 ring-border"
+                                         src="{{ $nexaSuiteAvatarUrl ?? asset('assets/media/avatars/300-2.png') }}"
+                                         id="nexa-suite-avatar-preview"/>
+                                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasNexaSuiteAvatar ? '' : 'hidden' }}" id="nexa-suite-avatar-remove-btn" title="Avatar verwijderen" aria-label="Avatar verwijderen">
+                                        <i class="ki-filled ki-trash text-lg"></i>
+                                    </button>
+                                </div>
+                                <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="nexa-suite-avatar-upload-area" role="button" tabindex="0">
+                                    <div class="flex flex-col place-items-center place-content-center text-center w-full pointer-events-none">
+                                        <div class="flex items-center mb-2.5">
+                                            <div class="relative size-11 shrink-0 flex items-center justify-center">
+                                                <i class="ki-filled ki-picture text-2xl text-primary"></i>
+                                            </div>
+                                        </div>
+                                        <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="nexa-suite-avatar-upload-link">
+                                            Klik of Sleep &amp; Drop
+                                        </a>
+                                        <span class="text-xs text-muted-foreground">
+                                            JPG, PNG, WebP (max. 5MB)
+                                        </span>
+                                    </div>
+                                </div>
+                                <input type="file"
+                                       name="nexa_suite_avatar"
+                                       id="nexa-suite-avatar-input"
+                                       accept="image/jpeg,image/png,image/gif,image/webp"
+                                       class="hidden">
+                            </div>
+                            <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPG, PNG, GIF, WebP (max. 5MB). Zonder upload wordt het standaardplaatje gebruikt.</p>
                         </td>
                     </tr>
                     <tr>
@@ -905,6 +945,133 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Keep the preview even if upload fails
             });
         }
+    }
+
+    const nexaSuiteAvatarInput = document.getElementById('nexa-suite-avatar-input');
+    const nexaSuiteAvatarUploadArea = document.getElementById('nexa-suite-avatar-upload-area');
+    const nexaSuiteAvatarUploadLink = document.getElementById('nexa-suite-avatar-upload-link');
+    const nexaSuiteAvatarPreview = document.getElementById('nexa-suite-avatar-preview');
+    const nexaSuiteAvatarRemoveBtn = document.getElementById('nexa-suite-avatar-remove-btn');
+    const nexaSuiteAvatarDefaultUrl = @json(asset('assets/media/avatars/300-2.png'));
+
+    if (nexaSuiteAvatarInput && nexaSuiteAvatarUploadArea && nexaSuiteAvatarUploadLink && typeof window.bindAdminDropzoneClick === 'function') {
+        window.bindAdminDropzoneClick(nexaSuiteAvatarUploadArea, nexaSuiteAvatarInput, nexaSuiteAvatarUploadLink, { clearInputFirst: false });
+    }
+
+    if (nexaSuiteAvatarInput && nexaSuiteAvatarUploadArea && nexaSuiteAvatarUploadLink) {
+        nexaSuiteAvatarUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            nexaSuiteAvatarUploadArea.classList.add('border-primary');
+        });
+
+        nexaSuiteAvatarUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            nexaSuiteAvatarUploadArea.classList.remove('border-primary');
+        });
+
+        nexaSuiteAvatarUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            nexaSuiteAvatarUploadArea.classList.remove('border-primary');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleNexaSuiteAvatarFile(files[0]);
+            }
+        });
+
+        nexaSuiteAvatarInput.addEventListener('change', function() {
+            if (this.files && this.files.length > 0) {
+                handleNexaSuiteAvatarFile(this.files[0]);
+            }
+        });
+
+        function handleNexaSuiteAvatarFile(file) {
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Alleen JPG, PNG, GIF en WebP bestanden zijn toegestaan.');
+                nexaSuiteAvatarInput.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Het bestand mag maximaal 5MB groot zijn.');
+                nexaSuiteAvatarInput.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (nexaSuiteAvatarPreview) {
+                    nexaSuiteAvatarPreview.src = e.target.result;
+                }
+            };
+            reader.readAsDataURL(file);
+
+            const formData = new FormData();
+            formData.append('nexa_suite_avatar', file);
+            const csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (csrfToken) {
+                formData.append('_token', csrfToken.getAttribute('content'));
+            } else {
+                alert('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.');
+                return;
+            }
+
+            fetch('{{ route("admin.settings.upload-nexa-suite-avatar") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().then(function(data) {
+                        throw new Error(data.message || 'Network response was not ok');
+                    });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success && nexaSuiteAvatarPreview) {
+                    nexaSuiteAvatarPreview.src = data.avatar_url + '?t=' + new Date().getTime();
+                    if (nexaSuiteAvatarRemoveBtn) {
+                        nexaSuiteAvatarRemoveBtn.classList.remove('hidden');
+                    }
+                } else {
+                    alert(data.message || 'Er is een fout opgetreden bij het uploaden van de avatar.');
+                }
+            })
+            .catch(function(error) {
+                console.error('Error uploading NEXA Suite avatar:', error);
+                alert(error.message || 'Er is een fout opgetreden bij het uploaden van de avatar.');
+            });
+        }
+    }
+
+    if (nexaSuiteAvatarRemoveBtn) {
+        nexaSuiteAvatarRemoveBtn.addEventListener('click', function() {
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            if (!csrf) return;
+            const fd = new FormData();
+            fd.append('_token', csrf.getAttribute('content'));
+            fetch('{{ route("admin.settings.remove-nexa-suite-avatar") }}', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                if (nexaSuiteAvatarPreview) {
+                    nexaSuiteAvatarPreview.src = data.avatar_url || nexaSuiteAvatarDefaultUrl;
+                }
+                nexaSuiteAvatarRemoveBtn.classList.add('hidden');
+                if (nexaSuiteAvatarInput) nexaSuiteAvatarInput.value = '';
+            });
+        });
     }
     
     // Success image upload (formulier succesbericht)

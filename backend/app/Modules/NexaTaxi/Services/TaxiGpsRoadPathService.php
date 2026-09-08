@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Services\EnvService;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -12,32 +13,78 @@ class TaxiGpsRoadPathService
      * @param  list<array{0: float, 1: float}>  $waypoints
      * @return list<array{0: float, 1: float}>
      */
-    public function loopPoints(array $waypoints): array
+    public function loopPoints(array $waypoints, bool $allowRemoteFetch = true, float $maxMeters = 5.0): array
     {
-        $clean = [];
-        foreach ($waypoints as $point) {
-            if (! isset($point[0], $point[1]) || ! is_numeric($point[0]) || ! is_numeric($point[1])) {
+        return $this->loopPointsMany([$waypoints], $allowRemoteFetch, $maxMeters)[0];
+    }
+
+    /**
+     * @param  list<list<array{0: float, 1: float}>>  $waypointSets
+     * @return list<list<array{0: float, 1: float}>>
+     */
+    public function loopPointsMany(array $waypointSets, bool $allowRemoteFetch = true, float $maxMeters = 5.0): array
+    {
+        $cleaned = [];
+        foreach ($waypointSets as $index => $waypoints) {
+            $clean = $this->cleanWaypoints(is_array($waypoints) ? $waypoints : []);
+            if ($clean === []) {
+                $cleaned[$index] = [[52.3728, 4.8936]];
+            } elseif (count($clean) === 1) {
+                $cleaned[$index] = $clean;
+            } else {
+                $cleaned[$index] = $clean;
+            }
+        }
+
+        $out = [];
+        $pending = [];
+        foreach ($cleaned as $index => $clean) {
+            if (count($clean) < 2) {
+                $out[$index] = $clean;
                 continue;
             }
-            $clean[] = [(float) $point[0], (float) $point[1]];
-        }
-        if ($clean === []) {
-            return [[52.3728, 4.8936]];
-        }
-        if (count($clean) === 1) {
-            return $clean;
-        }
-
-        $cacheKey = 'gps_road_loop:'.md5(json_encode($clean));
-        $cached = Cache::get($cacheKey);
-        if (is_array($cached) && $cached !== []) {
-            return $cached;
+            $cached = Cache::get($this->cacheKey($clean, $maxMeters));
+            if (is_array($cached) && count($cached) >= 2) {
+                $out[$index] = $cached;
+                continue;
+            }
+            if (! $allowRemoteFetch) {
+                $out[$index] = $this->fallbackDensify($clean, $maxMeters);
+                continue;
+            }
+            $pending[$index] = $clean;
         }
 
-        $path = $this->fetchOsrmLoop($clean) ?? $this->fetchGoogleLoop($clean) ?? $this->fallbackDensify($clean);
-        Cache::put($cacheKey, $path, now()->addDay());
+        if ($pending !== []) {
+            $fetchedGoogle = $this->fetchGoogleLoopsParallel($pending);
+            $needOsrm = [];
+            foreach ($pending as $index => $clean) {
+                if (isset($fetchedGoogle[$index])) {
+                    $path = $this->densifyAlongPath($fetchedGoogle[$index], $maxMeters);
+                    Cache::put($this->cacheKey($clean, $maxMeters), $path, now()->addDay());
+                    $out[$index] = $path;
+                } else {
+                    $needOsrm[$index] = $clean;
+                }
+            }
+            if ($needOsrm !== []) {
+                $fetchedOsrm = $this->fetchOsrmLoopsParallel($needOsrm);
+                foreach ($needOsrm as $index => $clean) {
+                    $path = $fetchedOsrm[$index] ?? null;
+                    if (is_array($path) && count($path) >= 2) {
+                        $path = $this->densifyAlongPath($path, $maxMeters);
+                        Cache::put($this->cacheKey($clean, $maxMeters), $path, now()->addDay());
+                        $out[$index] = $path;
+                    } else {
+                        $out[$index] = $this->fallbackDensify($clean, $maxMeters);
+                    }
+                }
+            }
+        }
 
-        return $path;
+        ksort($out);
+
+        return array_values($out);
     }
 
     /**
@@ -111,9 +158,72 @@ class TaxiGpsRoadPathService
 
     /**
      * @param  list<array{0: float, 1: float}>  $waypoints
-     * @return list<array{0: float, 1: float}>|null
+     * @return list<array{0: float, 1: float}>
      */
-    private function fetchOsrmLoop(array $waypoints): ?array
+    private function cleanWaypoints(array $waypoints): array
+    {
+        $clean = [];
+        foreach ($waypoints as $point) {
+            if (! isset($point[0], $point[1]) || ! is_numeric($point[0]) || ! is_numeric($point[1])) {
+                continue;
+            }
+            $clean[] = [(float) $point[0], (float) $point[1]];
+        }
+
+        return $clean;
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $waypoints
+     */
+    private function cacheKey(array $waypoints, float $maxMeters = 5.0): string
+    {
+        return 'gps_road_snap:v5:'.number_format($maxMeters, 1, '.', '').':'.md5((string) json_encode($waypoints));
+    }
+
+    /**
+     * @param  array<int, list<array{0: float, 1: float}>>  $pending
+     * @return array<int, list<array{0: float, 1: float}>>
+     */
+    private function fetchOsrmLoopsParallel(array $pending): array
+    {
+        $urls = [];
+        foreach ($pending as $index => $waypoints) {
+            $urls[$index] = $this->osrmLoopUrl($waypoints);
+        }
+
+        try {
+            $responses = Http::pool(function (Pool $pool) use ($urls) {
+                foreach ($urls as $index => $url) {
+                    $pool->as((string) $index)
+                        ->timeout(5)
+                        ->connectTimeout(2)
+                        ->get($url, [
+                            'overview' => 'full',
+                            'geometries' => 'polyline',
+                        ]);
+                }
+            });
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($pending as $index => $waypoints) {
+            $response = $responses[(string) $index] ?? null;
+            $path = $this->pathFromOsrmResponse($response);
+            if ($path !== null) {
+                $out[$index] = $path;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $waypoints
+     */
+    private function osrmLoopUrl(array $waypoints): string
     {
         $coords = [];
         foreach ($waypoints as $point) {
@@ -121,16 +231,15 @@ class TaxiGpsRoadPathService
         }
         $coords[] = $coords[0];
 
-        try {
-            $response = Http::timeout(10)->get(
-                'https://router.project-osrm.org/route/v1/driving/'.implode(';', $coords),
-                ['overview' => 'full', 'geometries' => 'polyline']
-            );
-        } catch (\Throwable) {
-            return null;
-        }
+        return 'https://router.project-osrm.org/route/v1/driving/'.implode(';', $coords);
+    }
 
-        if (! $response->successful()) {
+    /**
+     * @return list<array{0: float, 1: float}>|null
+     */
+    private function pathFromOsrmResponse(mixed $response): ?array
+    {
+        if (! is_object($response) || ! method_exists($response, 'successful') || ! $response->successful()) {
             return null;
         }
 
@@ -151,36 +260,108 @@ class TaxiGpsRoadPathService
      * @param  list<array{0: float, 1: float}>  $waypoints
      * @return list<array{0: float, 1: float}>|null
      */
+    private function fetchOsrmLoop(array $waypoints): ?array
+    {
+        $fetched = $this->fetchOsrmLoopsParallel([0 => $waypoints]);
+
+        return $fetched[0] ?? null;
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $waypoints
+     * @return list<array{0: float, 1: float}>|null
+     */
     private function fetchGoogleLoop(array $waypoints): ?array
     {
-        $apiKey = trim((string) app(EnvService::class)->getGoogleMapsApiKey());
-        if ($apiKey === '' || count($waypoints) < 2) {
-            return null;
-        }
+        $fetched = $this->fetchGoogleLoopsParallel([0 => $waypoints]);
 
-        $origin = $waypoints[0][0].','.$waypoints[0][1];
-        $via = [];
-        for ($i = 1; $i < count($waypoints); $i++) {
-            $via[] = $waypoints[$i][0].','.$waypoints[$i][1];
+        return $fetched[0] ?? null;
+    }
+
+    /**
+     * @param  array<int, list<array{0: float, 1: float}>>  $pending
+     * @return array<int, list<array{0: float, 1: float}>>
+     */
+    private function fetchGoogleLoopsParallel(array $pending): array
+    {
+        $apiKey = trim((string) app(EnvService::class)->getGoogleMapsApiKey());
+        if ($apiKey === '') {
+            return [];
         }
 
         try {
-            $response = Http::timeout(12)->get('https://maps.googleapis.com/maps/api/directions/json', [
-                'origin' => $origin,
-                'destination' => $origin,
-                'waypoints' => implode('|', $via),
-                'mode' => 'driving',
-                'key' => $apiKey,
-            ]);
+            $responses = Http::pool(function (Pool $pool) use ($pending, $apiKey) {
+                foreach ($pending as $index => $waypoints) {
+                    $pool->as((string) $index)
+                        ->timeout(5)
+                        ->connectTimeout(2)
+                        ->withHeaders([
+                            'X-Goog-Api-Key' => $apiKey,
+                            'X-Goog-FieldMask' => 'routes.polyline.encodedPolyline',
+                        ])
+                        ->post('https://routes.googleapis.com/directions/v2:computeRoutes', $this->googleRoutesBody($waypoints));
+                }
+            });
         } catch (\Throwable) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($pending as $index => $waypoints) {
+            $path = $this->pathFromGoogleRoutesResponse($responses[(string) $index] ?? null);
+            if ($path !== null) {
+                $out[$index] = $path;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $waypoints
+     * @return array<string, mixed>
+     */
+    private function googleRoutesBody(array $waypoints): array
+    {
+        $origin = [
+            'location' => [
+                'latLng' => [
+                    'latitude' => $waypoints[0][0],
+                    'longitude' => $waypoints[0][1],
+                ],
+            ],
+        ];
+        $intermediates = [];
+        for ($i = 1; $i < count($waypoints); $i++) {
+            $intermediates[] = [
+                'location' => [
+                    'latLng' => [
+                        'latitude' => $waypoints[$i][0],
+                        'longitude' => $waypoints[$i][1],
+                    ],
+                ],
+            ];
+        }
+
+        return [
+            'origin' => $origin,
+            'destination' => $origin,
+            'intermediates' => $intermediates,
+            'travelMode' => 'DRIVE',
+            'polylineQuality' => 'HIGH_QUALITY',
+        ];
+    }
+
+    /**
+     * @return list<array{0: float, 1: float}>|null
+     */
+    private function pathFromGoogleRoutesResponse(mixed $response): ?array
+    {
+        if (! is_object($response) || ! method_exists($response, 'successful') || ! $response->successful()) {
             return null;
         }
 
-        if (! $response->successful() || ($response->json('status') !== 'OK')) {
-            return null;
-        }
-
-        $encoded = $response->json('routes.0.overview_polyline.points');
+        $encoded = $response->json('routes.0.polyline.encodedPolyline');
         if (! is_string($encoded) || $encoded === '') {
             return null;
         }
@@ -194,19 +375,30 @@ class TaxiGpsRoadPathService
     }
 
     /**
-     * @param  list<array{0: float, 1: float}>  $waypoints
+     * Extra punten op de al gesnapte weg, zodat de auto de bocht volgt i.p.v. af te snijden.
+     *
+     * @param  list<array{0: float, 1: float}>  $points
      * @return list<array{0: float, 1: float}>
      */
-    private function fallbackDensify(array $waypoints): array
+    private function densifyAlongPath(array $points, float $maxMeters): array
     {
+        $count = count($points);
+        if ($count < 2 || $maxMeters <= 0) {
+            return $points;
+        }
+
         $out = [];
-        $count = count($waypoints);
         for ($i = 0; $i < $count; $i++) {
-            $from = $waypoints[$i];
-            $to = $waypoints[($i + 1) % $count];
-            $steps = 12;
-            for ($s = 0; $s < $steps; $s++) {
-                $t = $s / $steps;
+            $from = $points[$i];
+            $to = $points[($i + 1) % $count];
+            $out[] = $from;
+            $len = $this->haversineMeters($from[0], $from[1], $to[0], $to[1]);
+            if ($len <= $maxMeters) {
+                continue;
+            }
+            $steps = (int) floor($len / $maxMeters);
+            for ($s = 1; $s <= $steps; $s++) {
+                $t = $s / ($steps + 1);
                 $out[] = [
                     $from[0] + ($to[0] - $from[0]) * $t,
                     $from[1] + ($to[1] - $from[1]) * $t,
@@ -214,7 +406,16 @@ class TaxiGpsRoadPathService
             }
         }
 
-        return $out;
+        return $this->dropNearDuplicates($out);
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $waypoints
+     * @return list<array{0: float, 1: float}>
+     */
+    private function fallbackDensify(array $waypoints, float $maxMeters = 12.0): array
+    {
+        return $this->densifyAlongPath($waypoints, max(8.0, $maxMeters));
     }
 
     /**

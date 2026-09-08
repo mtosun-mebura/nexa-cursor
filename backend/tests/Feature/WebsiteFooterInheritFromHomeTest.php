@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\User;
 use App\Models\WebsitePage;
@@ -165,5 +166,189 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
 
         $page->refresh();
         $this->assertNotContains($key, $page->getHomeSections()['section_order'] ?? []);
+    }
+
+    #[Test]
+    public function tenant_footer_map_uses_company_contact_address_instead_of_cms_city(): void
+    {
+        $theme = FrontendTheme::query()->where('slug', 'modern')->first();
+        $this->assertNotNull($theme);
+
+        $company = Company::query()->create([
+            'name' => 'Map Taxi Enschede',
+            'street' => 'Deurningerstraat',
+            'house_number' => '240',
+            'postal_code' => '7522 CA',
+            'city' => 'Enschede',
+            'country' => 'Nederland',
+            'is_active' => true,
+        ]);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'home-map-'.uniqid(),
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $html = view('frontend.layouts.partials.website-footer', [
+            'page' => $page,
+            'homeSections' => [
+                'footer' => [
+                    'map_city' => 'Amsterdam',
+                    'map_street' => '',
+                    'map_huisnummer' => '',
+                    'map_postcode' => '',
+                    'map_city_only' => false,
+                    'map_lat' => '52.3676',
+                    'map_lng' => '4.9041',
+                ],
+                'visibility' => ['footer' => true, 'footer_map' => true],
+            ],
+            'branding' => ['site_name' => $company->name],
+            'googleMapsApiKey' => 'test-maps-key',
+            'websiteBuilder' => app(WebsiteBuilderService::class),
+        ])->render();
+
+        $this->assertStringContainsString('data-address="Deurningerstraat 240, 7522CA Enschede, Nederland"', $html);
+        $this->assertStringContainsString('data-show-address-balloon="1"', $html);
+        $this->assertStringNotContainsString('data-lat="52.3676"', $html);
+        $this->assertStringNotContainsString('data-address="Amsterdam"', $html);
+    }
+
+    #[Test]
+    public function tenant_footer_hides_support_links_when_those_pages_do_not_exist(): void
+    {
+        $theme = FrontendTheme::query()->where('slug', 'modern')->first();
+        $this->assertNotNull($theme);
+
+        $company = Company::query()->create([
+            'name' => 'Footer Taxi',
+            'is_active' => true,
+            'city' => 'Enschede',
+        ]);
+        $home = WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 0,
+            'show_in_menu' => true,
+        ]);
+        WebsitePage::query()->create([
+            'slug' => 'contact',
+            'title' => 'Contact',
+            'page_type' => 'contact',
+            'frontend_theme_id' => $theme->id,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 2,
+            'show_in_menu' => true,
+        ]);
+
+        $html = view('frontend.layouts.partials.website-footer', [
+            'page' => $home,
+            'homeSections' => [
+                'footer' => [
+                    'quick_links' => [
+                        ['label' => 'Home', 'url' => '/'],
+                        ['label' => 'Contact', 'url' => '/contact'],
+                        ['label' => 'Over Ons', 'url' => '/over-ons'],
+                    ],
+                    'support_links' => [
+                        ['label' => 'Help & FAQ', 'url' => '/help'],
+                        ['label' => 'Privacy', 'url' => '/privacy'],
+                        ['label' => 'Voorwaarden', 'url' => '/voorwaarden'],
+                        ['label' => 'Cookies', 'url' => '/privacy#cookies'],
+                    ],
+                    'support_links_title' => 'Ondersteuning',
+                ],
+                'visibility' => [
+                    'footer' => true,
+                    'footer_map' => false,
+                    'footer_quick_links' => true,
+                    'footer_support_links' => true,
+                ],
+            ],
+            'branding' => ['site_name' => $company->name],
+            'googleMapsApiKey' => '',
+            'websiteBuilder' => app(WebsiteBuilderService::class),
+        ])->render();
+
+        $this->assertStringNotContainsString('Help & FAQ', $html);
+        $this->assertStringNotContainsString('Voorwaarden', $html);
+        $this->assertStringNotContainsString('Cookies', $html);
+        $this->assertStringNotContainsString('Ondersteuning', $html);
+        $this->assertStringNotContainsString('Over Ons', $html);
+        $this->assertStringContainsString('Contact', $html);
+
+        WebsitePage::query()->create([
+            'slug' => 'privacy',
+            'title' => 'Privacy',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 8,
+            'show_in_menu' => false,
+        ]);
+
+        $htmlWithPrivacy = view('frontend.layouts.partials.website-footer', [
+            'page' => $home->fresh(),
+            'homeSections' => [
+                'footer' => [
+                    'support_links' => [
+                        ['label' => 'Help & FAQ', 'url' => '/help'],
+                        ['label' => 'Privacy', 'url' => '/privacy'],
+                        ['label' => 'Cookies', 'url' => '/privacy#cookies'],
+                    ],
+                    'support_links_title' => 'Ondersteuning',
+                ],
+                'visibility' => [
+                    'footer' => true,
+                    'footer_map' => false,
+                    'footer_support_links' => true,
+                ],
+            ],
+            'branding' => ['site_name' => $company->name],
+            'googleMapsApiKey' => '',
+            'websiteBuilder' => app(WebsiteBuilderService::class),
+        ])->render();
+
+        $this->assertStringContainsString('Ondersteuning', $htmlWithPrivacy);
+        $this->assertStringContainsString('Privacy', $htmlWithPrivacy);
+        $this->assertStringContainsString('Cookies', $htmlWithPrivacy);
+        $this->assertStringNotContainsString('Help & FAQ', $htmlWithPrivacy);
+    }
+
+    #[Test]
+    public function tenant_footer_map_uses_stored_company_coordinates(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Coord Taxi',
+            'street' => 'Kalverstraat',
+            'house_number' => '1',
+            'postal_code' => '1012 NX',
+            'city' => 'Amsterdam',
+            'country' => 'Nederland',
+            'latitude' => 52.3702,
+            'longitude' => 4.8952,
+            'is_active' => true,
+        ]);
+
+        $location = app(WebsiteBuilderService::class)->footerMapLocationForPage(null);
+        $this->assertNull($location);
+
+        app()->instance('resolved_tenant_id', $company->id);
+        $location = app(WebsiteBuilderService::class)->footerMapLocationForPage(null);
+        $this->assertNotNull($location);
+        $this->assertSame('Kalverstraat', $location['street']);
+        $this->assertSame(52.3702, $location['lat']);
+        $this->assertSame(4.8952, $location['lng']);
     }
 }

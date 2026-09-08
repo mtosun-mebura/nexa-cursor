@@ -52,9 +52,17 @@ class PlatformBillingService
         $existing = PlatformInvoice::query()
             ->where('company_id', $company->id)
             ->where('billing_period', $billingPeriod)
-            ->first();
-        if ($existing) {
-            return $existing;
+            ->orderBy('id')
+            ->get();
+
+        $subscriptionInvoice = $existing->first(fn (PlatformInvoice $invoice) => $this->invoiceHasSubscriptionLines($invoice));
+        if ($subscriptionInvoice) {
+            return $subscriptionInvoice;
+        }
+
+        $draft = $existing->first(fn (PlatformInvoice $invoice) => $invoice->status === 'draft' && ! $invoice->isPaid());
+        if ($draft) {
+            return $this->mergeMonthlyChargesIntoInvoice($draft, $profile, $billingPeriod, $asOf, $settings);
         }
 
         $lineItems = $this->buildInvoiceLineItems($profile, $billingPeriod, $asOf);
@@ -85,6 +93,191 @@ class PlatformBillingService
         $this->markExtraLinesAppliedIfNeeded($profile, $lineItems);
 
         return $invoice;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $charges
+     */
+    public function issueAddonChargeInvoice(CompanyBillingProfile $profile, array $charges): ?PlatformInvoice
+    {
+        $charges = array_values(array_filter($charges, fn (array $charge) => round((float) ($charge['amount'] ?? 0), 2) > 0));
+        if ($charges === []) {
+            return null;
+        }
+
+        $settings = PlatformBillingSetting::current();
+        $profile->loadMissing('company');
+        $company = $profile->company;
+        if (! $company) {
+            return null;
+        }
+
+        $period = (string) ($charges[0]['period'] ?? now()->format('Y-m'));
+        $lines = [];
+        foreach ($charges as $charge) {
+            $quantity = max(1, (int) ($charge['quantity'] ?? 1));
+            $total = round((float) ($charge['amount'] ?? 0), 2);
+            $lines[] = [
+                'description' => (string) ($charge['description'] ?? 'Aanvullende module'),
+                'quantity' => $quantity,
+                'unit_price' => round($total / $quantity, 2),
+                'total' => $total,
+                'type' => 'addon',
+                'addon_key' => $charge['key'] ?? null,
+                'billing_period' => $charge['period'] ?? $period,
+                'activation' => true,
+            ];
+        }
+
+        $draft = PlatformInvoice::query()
+            ->where('company_id', $company->id)
+            ->where('billing_period', $period)
+            ->where('status', 'draft')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($draft && ! $draft->isPaid()) {
+            $existingLines = is_array($draft->line_items) ? $draft->line_items : [];
+            $merged = $existingLines;
+            foreach ($lines as $line) {
+                if (! $this->invoiceHasEquivalentLine($existingLines, $line)) {
+                    $merged[] = $line;
+                }
+            }
+            $lineItems = $this->appendDiscountRows($merged, $profile);
+            $this->recalculateInvoiceTotals($draft, $profile, $lineItems, $settings);
+
+            return $this->collectAddonInvoice($draft->fresh());
+        }
+
+        $lineItems = $this->appendDiscountRows($lines, $profile);
+        $taxRate = (float) $settings->tax_rate_percent;
+        $totals = $this->calculateInvoiceTotals($profile, $lineItems, $taxRate);
+        $paymentTermsDays = max(1, (int) $settings->payment_terms_days);
+
+        $invoice = PlatformInvoice::query()->create([
+            'company_id' => $company->id,
+            'invoice_number' => $settings->generateInvoiceNumber(),
+            'billing_period' => $period,
+            'amount' => $totals['amount'],
+            'tax_amount' => $totals['tax_amount'],
+            'total_amount' => $totals['total_amount'],
+            'currency' => 'EUR',
+            'status' => $totals['total_amount'] <= 0 ? 'paid' : 'draft',
+            'invoice_date' => now()->toDateString(),
+            'payment_terms_days' => $paymentTermsDays,
+            'due_date' => now()->addDays($paymentTermsDays)->toDateString(),
+            'paid_at' => $totals['total_amount'] <= 0 ? now() : null,
+            'line_items' => $lineItems,
+            'issuer_details' => $settings->issuerDetailsSnapshot(),
+            'recipient_details' => $settings->recipientDetailsSnapshot($company, $profile),
+            'collection_method' => $totals['total_amount'] <= 0 ? 'free' : null,
+        ]);
+
+        return $this->collectAddonInvoice($invoice);
+    }
+
+    private function collectAddonInvoice(PlatformInvoice $invoice): PlatformInvoice
+    {
+        if ($invoice->isPaid() || (float) $invoice->total_amount <= 0) {
+            return $invoice;
+        }
+
+        try {
+            return $this->processInvoiceCollection($invoice);
+        } catch (\Throwable $e) {
+            Log::warning('Incasso aanvullende module mislukt; factuur blijft open', [
+                'invoice_id' => $invoice->id,
+                'company_id' => $invoice->company_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $invoice->fresh() ?? $invoice;
+        }
+    }
+
+    private function mergeMonthlyChargesIntoInvoice(
+        PlatformInvoice $invoice,
+        CompanyBillingProfile $profile,
+        string $billingPeriod,
+        Carbon $asOf,
+        PlatformBillingSetting $settings,
+    ): PlatformInvoice {
+        $existing = is_array($invoice->line_items) ? $invoice->line_items : [];
+        $monthly = $this->buildChargeLineItems($profile, $billingPeriod, $asOf);
+        $merged = $existing;
+        foreach ($monthly as $line) {
+            if (! $this->invoiceHasEquivalentLine($existing, $line)) {
+                $merged[] = $line;
+            }
+        }
+        $lineItems = $this->appendDiscountRows($merged, $profile);
+        $this->recalculateInvoiceTotals($invoice, $profile, $lineItems, $settings);
+        $this->markExtraLinesAppliedIfNeeded($profile, $lineItems);
+
+        return $invoice->fresh() ?? $invoice;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $lineItems
+     */
+    private function recalculateInvoiceTotals(
+        PlatformInvoice $invoice,
+        CompanyBillingProfile $profile,
+        array $lineItems,
+        PlatformBillingSetting $settings,
+    ): void {
+        $taxRate = (float) $settings->tax_rate_percent;
+        $totals = $this->calculateInvoiceTotals($profile, $lineItems, $taxRate);
+        $invoice->update([
+            'line_items' => $lineItems,
+            'amount' => $totals['amount'],
+            'tax_amount' => $totals['tax_amount'],
+            'total_amount' => $totals['total_amount'],
+            'status' => $totals['total_amount'] <= 0 ? 'paid' : $invoice->status,
+            'paid_at' => $totals['total_amount'] <= 0 ? ($invoice->paid_at ?? now()) : $invoice->paid_at,
+        ]);
+    }
+
+    private function invoiceHasSubscriptionLines(PlatformInvoice $invoice): bool
+    {
+        return collect($invoice->line_items ?? [])->contains(
+            fn ($line) => is_array($line) && ($line['type'] ?? '') === 'subscription'
+        );
+    }
+
+    /**
+     * @param  array<int, mixed>  $lines
+     * @param  array<string, mixed>  $candidate
+     */
+    private function invoiceHasEquivalentLine(array $lines, array $candidate): bool
+    {
+        $candidateKey = $this->invoiceLineIdentity($candidate);
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            if ($this->invoiceLineIdentity($line) === $candidateKey) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function invoiceLineIdentity(array $line): string
+    {
+        return implode('|', [
+            (string) ($line['type'] ?? ''),
+            (string) ($line['addon_key'] ?? ''),
+            (string) ($line['billing_period'] ?? ''),
+            ! empty($line['activation']) ? 'activation' : 'recurring',
+            (string) ($line['platform_billing_line_item_id'] ?? ''),
+            (string) ($line['description'] ?? ''),
+        ]);
     }
 
     /**
@@ -186,7 +379,11 @@ class PlatformBillingService
     private function appendPackageAddonChargeLines(array &$lines, CompanyBillingProfile $profile, string $billingPeriod, ?array $segment): void
     {
         $fraction = $segment === null ? 1.0 : (float) ($segment['fraction'] ?? 1);
-        foreach ($profile->packageAddonLines() as $addon) {
+        $asOf = isset($segment['key'])
+            ? Carbon::createFromFormat('Y-m', $segment['key'])->startOfMonth()
+            : Carbon::createFromFormat('Y-m', $billingPeriod)->startOfMonth();
+        $skipPrepaid = $segment['key'] ?? $billingPeriod;
+        foreach ($profile->packageAddonLines($asOf, false, $skipPrepaid) as $addon) {
             $quantity = max(1, (int) ($addon['quantity'] ?? 1));
             $total = round((float) ($addon['total'] ?? 0) * $fraction, 2);
             if ($total <= 0) {
@@ -634,7 +831,7 @@ class PlatformBillingService
             return false;
         }
 
-        $monthlyAmount = $profile->resolveMonthlyAmount();
+        $monthlyAmount = $profile->mollieRecurringAmount();
         if ($monthlyAmount <= 0) {
             return false;
         }
@@ -1146,11 +1343,13 @@ class PlatformBillingService
                     }
                     DB::transaction(function () use ($profile, $period, $now, &$count) {
                         $invoice = $this->generateInvoiceForCompany($profile->company, $period, null, $now);
-                        if (! $invoice || $invoice->status !== 'draft') {
-                            return;
+                        if ($invoice && $invoice->status === 'draft') {
+                            $this->processInvoiceCollection($invoice);
+                            $count++;
                         }
-                        $this->processInvoiceCollection($invoice);
-                        $count++;
+                        app(TenantSubscriptionService::class)->syncMolliePlan(
+                            $profile->fresh(['package', 'company']) ?? $profile
+                        );
                     });
                 }
             });

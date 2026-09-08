@@ -10,6 +10,8 @@ use App\Services\WebsiteAiSiteCopy;
 
 class AiSitemapPlanner
 {
+    private string $varietyKey = '';
+
     public function __construct(
         protected AiProviderInterface $provider,
         protected AiComponentRegistry $registry,
@@ -24,6 +26,11 @@ class AiSitemapPlanner
      */
     public function make(Company $company, array $brief, array $input, string $themeSlug, array $source = []): array
     {
+        $this->varietyKey = implode('|', [
+            (string) ($input['style'] ?? ''),
+            (string) ($input['tone'] ?? ''),
+            implode(',', array_map('strval', (array) ($input['goals'] ?? []))),
+        ]);
         $maxPages = max(1, min(12, (int) ($input['max_pages'] ?? 3)));
         $fallback = $this->fallbackPack($company, $brief, $maxPages, $themeSlug, $source);
         $fromLlm = $this->provider->generateStructured(
@@ -43,7 +50,7 @@ class AiSitemapPlanner
                     'homepage' => $fallback['homepage'],
                 ],
             ],
-            'Je bent een Nederlandse information architect en copywriter voor de NEXA PageBuilder. Antwoord uitsluitend met JSON. Maak precies het gevraagde aantal pagina’s. Eerste pagina is altijd home. Pagina 2 is over-ons als er minstens 3 pagina’s zijn, contact als er 2 pagina’s zijn. Bij 3+ pagina’s: home, over-ons, contact. Schrijf rijke, concrete Nederlandse teksten (diensten, werkwijze, waarom-wij). Gebruik geanimeerde componenten uit de toegestane lijst (FAQ, quotes, comparison, checklist, stats_strip). Zet taxi.boekingsmodule_v2 altijd direct onder de hero als dat component is toegestaan. Interne URL’s alleen naar slugs uit pages. Geen em-dash. Verzin geen feiten.'
+            'Je bent een Nederlandse information architect en copywriter voor de NEXA PageBuilder. Antwoord uitsluitend met JSON. Maak precies het gevraagde aantal pagina’s. Eerste pagina is altijd home. Pagina 2 is over-ons als er minstens 3 pagina’s zijn, contact als er 2 pagina’s zijn. Bij 3+ pagina’s: home, over-ons, contact. Schrijf rijke, concrete Nederlandse teksten (diensten, werkwijze, waarom-wij). Kies per site een ANDERE subset van 3 tot 4 geanimeerde componenten uit de toegestane lijst; gebruik niet altijd dezelfde combinatie (FAQ, quotes, comparison, checklist, stats_strip, pills, contact_split). Wissel ook de volgorde van why_nexa, featured_services, features, stats en text_block. Zet taxi.boekingsmodule_v2 altijd direct onder de hero als dat component is toegestaan. Voeg image_prompt toe bij hero én text_block: fotorealistische live-action of hoogwaardige cinematic still, géén schets, géén illustratie, géén tekst in beeld. Footer support-links (Help, Privacy, Voorwaarden, Cookies) alleen als die pagina’s in pages staan. Interne URL’s alleen naar slugs uit pages. Geen em-dash. Verzin geen feiten.'
         );
 
         if (is_array($fromLlm)) {
@@ -100,12 +107,16 @@ class AiSitemapPlanner
             $page['slug'] = 'home';
         }
         $components = AiScalar::componentIds($page['components'] ?? []);
+        $pageType = (string) ($page['page_type'] ?? 'custom');
         if (! $company->hasTaxiModule()) {
             $components = array_values(array_filter(
                 $components,
                 fn (string $id) => ! str_contains($id, 'boekingsmodule') && $id !== 'taxi.tarieven'
             ));
-        } elseif (($page['page_type'] ?? '') === 'home' && ! in_array(WebsiteAiSiteCopy::BOOKING_COMPONENT, $components, true)) {
+        }
+        $pool = $components !== [] ? $components : WebsiteAiSiteCopy::HOME_COMPONENT_POOL;
+        $components = $this->siteCopy->pickAnimatedComponents($company, $pool, $pageType, $this->varietyKey);
+        if ($company->hasTaxiModule() && $pageType === 'home' && ! in_array(WebsiteAiSiteCopy::BOOKING_COMPONENT, $components, true)) {
             array_unshift($components, WebsiteAiSiteCopy::BOOKING_COMPONENT);
         }
         $page['components'] = $components;
@@ -140,11 +151,33 @@ class AiSitemapPlanner
             if ($includeBooking) {
                 $order[] = 'component:'.WebsiteAiSiteCopy::BOOKING_COMPONENT;
             }
-            $order = array_merge($order, ['why_nexa', 'featured_services', 'features', 'stats', 'text_block'], $componentKeys, ['cta']);
+            $nativeSets = [
+                ['why_nexa', 'featured_services', 'text_block', 'features'],
+                ['text_block', 'featured_services', 'why_nexa', 'stats'],
+                ['featured_services', 'text_block', 'features', 'why_nexa'],
+                ['why_nexa', 'stats', 'text_block', 'featured_services'],
+                ['text_block', 'features', 'stats', 'featured_services'],
+                ['featured_services', 'why_nexa', 'features', 'text_block'],
+                ['why_nexa', 'featured_services', 'stats', 'text_block'],
+                ['features', 'text_block', 'why_nexa'],
+            ];
+            $seed = $this->siteCopy->layoutSeed($company, 'home', $this->varietyKey);
+            $natives = $nativeSets[$seed % count($nativeSets)];
+            if ($componentKeys !== []) {
+                $rot = $seed % count($componentKeys);
+                $componentKeys = array_merge(array_slice($componentKeys, $rot), array_slice($componentKeys, 0, $rot));
+            }
+            $order = array_merge($order, $natives, $componentKeys, ['cta']);
         } elseif ($type === 'contact') {
             $order = array_merge(['hero', 'text_block', 'email_template'], $componentKeys);
         } elseif ($type === 'about') {
-            $order = array_merge(['hero', 'text_block', 'featured_services'], $componentKeys);
+            $aboutSets = [
+                ['hero', 'text_block', 'featured_services'],
+                ['hero', 'featured_services', 'text_block'],
+                ['hero', 'text_block'],
+            ];
+            $seed = $this->siteCopy->layoutSeed($company, 'about', $this->varietyKey);
+            $order = array_merge($aboutSets[$seed % count($aboutSets)], $componentKeys);
         } else {
             $order = array_merge(['hero', 'featured_services', 'text_block'], $componentKeys);
         }
@@ -161,10 +194,10 @@ class AiSitemapPlanner
     {
         $has = fn (string $type) => collect($pages)->contains(fn (array $p) => ($p['page_type'] ?? '') === $type || ($p['slug'] ?? '') === ($type === 'about' ? 'over-ons' : $type));
         if ($maxPages >= 3 && ! $has('about')) {
-            $pages[] = $this->decoratePage($this->siteCopy->aboutPage($this->siteCopy->profile($company, AiScalar::string($brief['business_summary'] ?? ''), [])), $company, $themeSlug, []);
+            $pages[] = $this->decoratePage($this->siteCopy->aboutPage($this->siteCopy->profile($company, AiScalar::string($brief['business_summary'] ?? ''), []), $company), $company, $themeSlug, []);
         }
         if ($maxPages >= 2 && ! $has('contact')) {
-            $pages[] = $this->decoratePage($this->siteCopy->contactPage($this->siteCopy->profile($company, AiScalar::string($brief['business_summary'] ?? ''), [])), $company, $themeSlug, []);
+            $pages[] = $this->decoratePage($this->siteCopy->contactPage($this->siteCopy->profile($company, AiScalar::string($brief['business_summary'] ?? ''), []), $company), $company, $themeSlug, []);
         }
 
         $home = [];
@@ -352,7 +385,17 @@ class AiSitemapPlanner
             }
         }
         if (is_array($raw['components'] ?? null) && $raw['components'] !== []) {
-            $base['components'] = AiScalar::componentIds($raw['components']);
+            $requested = AiScalar::componentIds($raw['components']);
+            $pageType = AiScalar::string($base['page_type'] ?? 'custom');
+            $base['components'] = $this->siteCopy->pickAnimatedComponents(
+                $company,
+                $requested !== [] ? $requested : WebsiteAiSiteCopy::HOME_COMPONENT_POOL,
+                $pageType,
+                $this->varietyKey
+            );
+            if ($company->hasTaxiModule() && $pageType === 'home' && ! in_array(WebsiteAiSiteCopy::BOOKING_COMPONENT, $base['components'], true)) {
+                array_unshift($base['components'], WebsiteAiSiteCopy::BOOKING_COMPONENT);
+            }
         }
         if (is_array($raw['component_copy'] ?? null)) {
             $base['component_copy'] = array_replace_recursive(is_array($base['component_copy'] ?? null) ? $base['component_copy'] : [], $raw['component_copy']);

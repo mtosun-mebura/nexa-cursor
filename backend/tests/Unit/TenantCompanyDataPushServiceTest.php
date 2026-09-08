@@ -39,7 +39,10 @@ class TenantCompanyDataPushServiceTest extends TestCase
             $this->assertContains('model_has_roles', $tables);
             $this->assertNotContains('model_has_roles', $excluded);
         }
-        $this->assertContains('permissions', $excluded);
+        $this->assertNotContains('permissions', $excluded);
+        if (Schema::hasTable('company_billing_profiles') && Schema::hasColumn('company_billing_profiles', 'company_id')) {
+            $this->assertContains('company_billing_profiles', $tables);
+        }
     }
 
     #[Test]
@@ -112,6 +115,15 @@ class TenantCompanyDataPushServiceTest extends TestCase
             if ($themePos !== false && $modulePos !== false) {
                 $this->assertLessThan($modulePos, $themePos, 'frontend_themes must sync before modules');
             }
+        }
+        if (Schema::hasTable('permissions')) {
+            $this->assertContains('permissions', $prerequisite);
+        }
+        if (Schema::hasTable('platform_billing_packages')) {
+            $this->assertContains('platform_billing_packages', $prerequisite);
+        }
+        if (Schema::hasTable('platform_billing_line_items')) {
+            $this->assertContains('platform_billing_line_items', $prerequisite);
         }
     }
 
@@ -404,6 +416,11 @@ class TenantCompanyDataPushServiceTest extends TestCase
         $this->assertContains('general_settings', $tables);
         $this->assertContains('company_module', $tables);
         $this->assertContains('modules', $tables);
+        $this->assertContains('permissions', $tables);
+        $this->assertContains('platform_billing_packages', $tables);
+        $this->assertContains('platform_billing_line_items', $tables);
+        $this->assertContains('company_billing_profiles', $tables);
+        $this->assertContains('company_subscription_changes', $tables);
     }
 
     #[Test]
@@ -585,6 +602,7 @@ class TenantCompanyDataPushServiceTest extends TestCase
 
         $this->assertContains('WHATSAPP_WIDGET_ENABLED', $keys);
         $this->assertContains('WHATSAPP_WIDGET_PHONE', $keys);
+        $this->assertContains('nexa_pricing', $keys);
     }
 
     #[Test]
@@ -673,5 +691,83 @@ class TenantCompanyDataPushServiceTest extends TestCase
         $this->assertSame(42, (int) $payload['company_id']);
         $this->assertSame('2026-006', $payload['invoice_number']);
         $this->assertArrayNotHasKey('id', $payload);
+    }
+
+    #[Test]
+    public function sync_scope_includes_packages_pricing_and_permission_links(): void
+    {
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $this->assertContains('nexa_pricing', $scope['global_general_setting_keys'] ?? []);
+        $this->assertContains('role_has_permissions', $scope['post_sync_tables'] ?? []);
+        $this->assertContains('model_has_permissions', $scope['post_sync_tables'] ?? []);
+        $this->assertContains('company_billing_profile_line_item', $scope['post_sync_tables'] ?? []);
+        $this->assertStringContainsString('package_addons', (string) ($scope['company_row'] ?? ''));
+        $this->assertStringContainsString('permissions', (string) ($scope['package_and_roles_note'] ?? ''));
+
+        if (Schema::hasTable('permissions')) {
+            $this->assertContains('permissions', $scope['package_catalog_tables'] ?? []);
+            $this->assertContains('permissions', $scope['prerequisite_tables'] ?? []);
+        }
+        if (Schema::hasTable('platform_billing_packages')) {
+            $this->assertContains('platform_billing_packages', $scope['package_catalog_tables'] ?? []);
+        }
+    }
+
+    #[Test]
+    public function find_existing_platform_billing_package_matches_package_key(): void
+    {
+        if (! Schema::hasTable('platform_billing_packages')
+            || ! Schema::hasColumn('platform_billing_packages', 'package_key')) {
+            $this->markTestSkipped('platform_billing_packages.package_key required');
+        }
+
+        $id = DB::table('platform_billing_packages')->insertGetId([
+            'name' => 'Start Sync Test',
+            'package_key' => 'start-sync-'.uniqid(),
+            'monthly_amount' => 29,
+            'currency' => 'EUR',
+            'is_active' => true,
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'findExistingPlatformBillingPackageId');
+        $method->setAccessible(true);
+        $service = app(TenantCompanyDataPushService::class);
+        $conn = (string) config('database.default');
+
+        $found = $method->invoke($service, $conn, [
+            'package_key' => DB::table('platform_billing_packages')->where('id', $id)->value('package_key'),
+            'name' => 'Other name',
+        ]);
+
+        $this->assertSame((int) $id, $found);
+    }
+
+    #[Test]
+    public function resolve_remote_permission_id_maps_permission_by_name(): void
+    {
+        if (! Schema::hasTable('permissions')) {
+            $this->markTestSkipped('permissions table required');
+        }
+
+        $sourceId = DB::table('permissions')->insertGetId([
+            'name' => 'taxi.gps.sync-test-'.uniqid(),
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'resolveRemotePermissionId');
+        $method->setAccessible(true);
+        $service = app(TenantCompanyDataPushService::class);
+        $conn = (string) config('database.default');
+        $idMaps = [];
+        $args = [$conn, $conn, $sourceId, &$idMaps];
+        $found = $method->invokeArgs($service, $args);
+
+        $this->assertSame((int) $sourceId, (int) $found);
+        $this->assertSame((int) $sourceId, $idMaps['permissions'][$sourceId] ?? null);
     }
 }

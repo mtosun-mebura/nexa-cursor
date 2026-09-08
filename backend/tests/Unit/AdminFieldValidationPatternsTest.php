@@ -66,6 +66,8 @@ class AdminFieldValidationPatternsTest extends TestCase
         $this->assertSame('invalid', AdminFieldValidationPatterns::evaluateWizardStep1Field('postal_code', '0000AA'));
         $this->assertSame('invalid', AdminFieldValidationPatterns::evaluateWizardStep1Field('kvk_number', '123'));
         $this->assertSame('invalid', AdminFieldValidationPatterns::evaluateWizardStep1Field('website', 'ftp://x.nl'));
+        $this->assertSame('valid', AdminFieldValidationPatterns::evaluateWizardStep1Field('house_number', '1'));
+        $this->assertSame('empty', AdminFieldValidationPatterns::evaluateWizardStep1Field('house_number', ''));
     }
 
     #[Test]

@@ -5,19 +5,21 @@ export type FieldVisibleWhen = {
   notEmpty?: boolean
 }
 
+export type FieldVisibleContext = 'gpsTracking' | 'superAdmin'
+
 export type ConfigField =
   | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen; colSpan?: 2 | 3 }
   | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'wysiwyg'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen; defaultValue?: string }
   | { type: 'dynamic-select'; key: string; label: string; source: 'sideComponents' | 'emailTemplates'; hint?: string; visibleWhen?: FieldVisibleWhen }
-  | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen }
+  | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen; inputWidth?: 'digits' }
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
-  | { type: 'color'; key: string; label: string; hint?: string; defaultValue?: string }
+  | { type: 'color'; key: string; label: string; hint?: string; defaultValue?: string; presets?: { hex: string; label: string }[]; colSpan?: 2 | 3 }
   | { type: 'image'; key: string; label: string; hint?: string; generateImage?: boolean }
   | { type: 'video'; key: string; label: string; hint?: string }
   | { type: 'website-media-image'; key: string; label: string; hint?: string }
-  | { type: 'checkbox'; key: string; label: string; hint?: string }
+  | { type: 'checkbox'; key: string; label: string; hint?: string; control?: 'switch'; visibleWhenContext?: FieldVisibleContext | FieldVisibleContext[] }
   | { type: 'star-rating'; key: string; label: string; min?: number; max?: number; hint?: string }
   | { type: 'heroicon'; key: string; label: string; hint?: string }
   | { type: 'step-order'; key: string; label: string; options: SelectOption[] }
@@ -33,6 +35,7 @@ export type ConfigField =
       alwaysOpen?: boolean
       layout?: 'row'
       wideStart?: boolean
+      visibleWhenContext?: FieldVisibleContext | FieldVisibleContext[]
     }
   | { type: 'footer-logo'; key: string; label: string }
   | { type: 'footer-map'; label: string; subVisibilityKey?: string }

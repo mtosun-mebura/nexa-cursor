@@ -15,6 +15,8 @@ class CompanySubscriptionChange extends Model
 
     public const TYPE_TRIAL_END = 'trial_end';
 
+    public const TYPE_ADDON = 'addon';
+
     public const STATUS_SCHEDULED = 'scheduled';
 
     public const STATUS_APPLIED = 'applied';

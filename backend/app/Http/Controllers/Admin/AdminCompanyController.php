@@ -170,10 +170,7 @@ class AdminCompanyController extends Controller
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'package_key' => $this->packageKeyRules(),
-            'package_addons' => ['nullable', 'array'],
-            'package_addons.'.TenantPackageAddon::EXTRA_CLIENTS => ['nullable', 'integer', 'min:0', 'max:50'],
-            'package_addons.'.TenantPackageAddon::GPS_TRACKING => ['nullable'],
-            'package_addons.'.TenantPackageAddon::FLEET => ['nullable'],
+            ...$this->packageAddonValidationRules(),
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -242,7 +239,9 @@ class AdminCompanyController extends Controller
         $company = Company::create($companyData);
 
         if (auth()->user()?->isSuperAdmin() && trim((string) ($company->package_key ?? '')) !== '') {
-            app(TenantSubscriptionService::class)->syncBillingPackageFromCompany($company, true);
+            $subscription = app(TenantSubscriptionService::class);
+            $subscription->syncBillingPackageFromCompany($company, true);
+            $subscription->syncPackageAddonsFromCompany($company, []);
         }
 
         // Create locations if provided; eerste vestiging krijgt het contactadres van het bedrijf
@@ -295,7 +294,7 @@ class AdminCompanyController extends Controller
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
-        $eagerLoad = ['users', 'locations', 'mainLocation', 'domains', 'modules'];
+        $eagerLoad = ['users', 'locations', 'mainLocation', 'domains', 'modules', 'billingProfile'];
         if (ModuleSchemaAvailability::vacanciesTableExists()) {
             $eagerLoad[] = 'vacancies.branch';
         }
@@ -314,7 +313,9 @@ class AdminCompanyController extends Controller
         $devTenantHostQueryParam = (string) config('tenancy.dev_effective_host_query_param', '');
         if (! app()->isProduction() && $devTenantHostQueryParam !== '') {
             $primaryDomain = $company->domains->firstWhere('is_primary', true);
-            $previewHost = $primaryDomain?->host ?? $company->domains->sortBy('id')->first()?->host;
+            $previewHost = $primaryDomain?->host
+                ?? $company->domains->sortBy('id')->first()?->host
+                ?? \App\Support\Tenancy\TenantFrontendUrl::resolvePrimaryHostForCompany((int) $company->id);
             if ($previewHost !== null && $previewHost !== '') {
                 $companyWebsiteDevPreviewHost = $previewHost;
                 $companyWebsiteDevPreviewUrl = url('/').'?'.http_build_query(
@@ -397,7 +398,7 @@ class AdminCompanyController extends Controller
         }
 
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        $company->load(['mainLocation', 'modules']);
+        $company->load(['mainLocation', 'modules', 'billingProfile']);
         $allModules = ModuleModel::query()->orderBy('display_name')->get();
 
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
@@ -479,10 +480,7 @@ class AdminCompanyController extends Controller
             'apply_module_sync' => 'nullable|boolean',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'package_key' => $this->packageKeyRules(),
-            'package_addons' => ['nullable', 'array'],
-            'package_addons.'.TenantPackageAddon::EXTRA_CLIENTS => ['nullable', 'integer', 'min:0', 'max:50'],
-            'package_addons.'.TenantPackageAddon::GPS_TRACKING => ['nullable'],
-            'package_addons.'.TenantPackageAddon::FLEET => ['nullable'],
+            ...$this->packageAddonValidationRules(),
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -525,7 +523,7 @@ class AdminCompanyController extends Controller
         unset($data['logo'], $data['logo_dark'], $data['company_logo_mode'], $data['module_ids'], $data['apply_module_sync']);
         $data['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
         $this->applyPackageKeyFromRequest($request, $data);
-        $this->applyPackageAddonsFromRequest($request, $data);
+        $this->applyPackageAddonsFromRequest($request, $data, $company);
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
@@ -546,15 +544,17 @@ class AdminCompanyController extends Controller
         }
 
         $previousPackageKey = trim((string) ($company->package_key ?? ''));
+        $previousAddons = is_array($company->package_addons) ? $company->package_addons : [];
         $company->update($data);
 
         if (auth()->user()?->isSuperAdmin()) {
             $company->refresh();
             $newPackageKey = trim((string) ($company->package_key ?? ''));
+            $subscription = app(TenantSubscriptionService::class);
             if ($newPackageKey !== '') {
-                app(TenantSubscriptionService::class)
-                    ->syncBillingPackageFromCompany($company, $previousPackageKey !== $newPackageKey);
+                $subscription->syncBillingPackageFromCompany($company, $previousPackageKey !== $newPackageKey);
             }
+            $subscription->syncPackageAddonsFromCompany($company, $previousAddons);
         }
 
         if (auth()->user()?->hasRole('super-admin') && $request->boolean('apply_module_sync')) {
@@ -818,9 +818,29 @@ class AdminCompanyController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function packageAddonValidationRules(): array
+    {
+        $rules = [
+            'package_addons' => ['nullable', 'array'],
+        ];
+        foreach (TenantPackageAddon::definitions() as $definition) {
+            $key = $definition['key'];
+            $rules['package_addons.'.$key] = ['nullable'];
+            $rules['package_addons.'.$key.'.quantity'] = $definition['type'] === TenantPackageAddon::TYPE_QUANTITY
+                ? ['nullable', 'integer', 'min:0', 'max:50']
+                : ['nullable'];
+            $rules['package_addons.'.$key.'.starts_at'] = ['nullable', 'date'];
+        }
+
+        return $rules;
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
-    private function applyPackageAddonsFromRequest(Request $request, array &$data): void
+    private function applyPackageAddonsFromRequest(Request $request, array &$data, ?Company $company = null): void
     {
         if (! auth()->user()?->isSuperAdmin()) {
             unset($data['package_addons']);
@@ -829,7 +849,15 @@ class AdminCompanyController extends Controller
         }
 
         $raw = $request->input('package_addons', []);
-        $data['package_addons'] = TenantPackageAddon::normalizeSelections(is_array($raw) ? $raw : []);
+        $previous = is_array($company?->package_addons) ? $company->package_addons : [];
+        $cancelImmediately = $company === null;
+        if ($company) {
+            $profile = app(TenantSubscriptionService::class)->ensureProfile($company);
+            $cancelImmediately = app(TenantSubscriptionService::class)->isInTrial($profile);
+        }
+        $records = TenantPackageAddon::normalizeRecords(is_array($raw) ? $raw : [], $previous, $cancelImmediately);
+        TenantPackageAddon::assertStartDates($records, $previous);
+        $data['package_addons'] = $records;
     }
 
     private function normalizePackageKeyInput(mixed $value): ?string

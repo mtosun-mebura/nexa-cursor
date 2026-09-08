@@ -56,7 +56,11 @@
         <h1 class="text-xl font-medium leading-none text-mono">GPS-configuratie</h1>
         <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
             Kies hoe auto’s en kentekens op de live kaart worden getoond, en hoe vaak posities worden ververst.
+            @if($canManage && empty($noTenantSelected))
+                Wijzigingen worden automatisch opgeslagen.
+            @endif
         </p>
+        <p id="gps-save-status" class="text-xs text-muted-foreground mt-1 mb-0 min-h-4" aria-live="polite"></p>
         <a href="{{ $mapUrl }}" class="kt-btn kt-btn-outline mt-3">
             <i class="ki-filled ki-arrow-left me-2"></i>
             Terug naar kaart
@@ -214,7 +218,7 @@
                     </div>
                     <div class="kt-card-content p-5 lg:p-6">
                         <label class="kt-label mb-1" for="gps-refresh-seconds">Aantal seconden tussen positie-updates</label>
-                        <input type="number" name="refresh_seconds" id="gps-refresh-seconds" class="kt-input w-full max-w-xs @error('refresh_seconds') border-destructive @enderror" min="{{ $minRefresh }}" max="{{ $maxRefresh }}" step="1" required value="{{ old('refresh_seconds', $appearance['refresh_seconds']) }}">
+                        <input type="number" name="refresh_seconds" id="gps-refresh-seconds" class="kt-input w-20 tabular-nums @error('refresh_seconds') border-destructive @enderror" min="{{ $minRefresh }}" max="{{ $maxRefresh }}" step="1" inputmode="numeric" maxlength="4" required value="{{ old('refresh_seconds', $appearance['refresh_seconds']) }}">
                         <p class="text-xs text-muted-foreground mt-1">Tussen {{ $minRefresh }} en {{ $maxRefresh }} seconden. 1 seconde geeft de soepelste beweging op de kaart.</p>
                         @error('refresh_seconds')
                             <p class="text-xs text-destructive mt-1">{{ $message }}</p>
@@ -235,12 +239,6 @@
                 </div>
             </div>
         </div>
-
-        @if($canManage && empty($noTenantSelected))
-            <div class="flex justify-end">
-                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-            </div>
-        @endif
     </form>
 </div>
 
@@ -288,6 +286,69 @@ window.NexaGpsFleet = @json($fleet ?? []);
     var preview = document.getElementById('gps-live-preview');
     var singleControls = document.getElementById('gps-single-color-controls');
     var perVehicleControls = document.getElementById('gps-per-vehicle-controls');
+    var saveStatus = document.getElementById('gps-save-status');
+    var canAutosave = @json($canManage && empty($noTenantSelected));
+    var saveTimer = null;
+    var saveRequest = null;
+    var lastSaved = '';
+    var hexOk = /^#?[0-9A-Fa-f]{6}$/;
+    var minRefresh = {{ (int) $minRefresh }};
+    var maxRefresh = {{ (int) $maxRefresh }};
+    function setSaveStatus(text) {
+        if (saveStatus) saveStatus.textContent = text || '';
+    }
+    function formPayload() {
+        return new URLSearchParams(new FormData(form)).toString();
+    }
+    function refreshIsValid() {
+        var seconds = document.getElementById('gps-refresh-seconds');
+        if (!seconds) return false;
+        var n = parseInt(seconds.value, 10);
+        return Number.isInteger(n) && n >= minRefresh && n <= maxRefresh;
+    }
+    function colorsAreValid() {
+        var ok = true;
+        form.querySelectorAll('input[data-gps-preview][type="text"]').forEach(function (el) {
+            if (el.value && !hexOk.test(el.value)) ok = false;
+        });
+        return ok;
+    }
+    function saveNow() {
+        if (!canAutosave || !form) return;
+        if (!refreshIsValid() || !colorsAreValid()) return;
+        var payload = formPayload();
+        if (payload === lastSaved) return;
+        if (saveRequest) saveRequest.abort();
+        lastSaved = payload;
+        setSaveStatus('Opslaan…');
+        saveRequest = new AbortController();
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new FormData(form),
+            signal: saveRequest.signal,
+            credentials: 'same-origin'
+        }).then(function (res) {
+            if (!res.ok) throw res;
+            setSaveStatus('Opgeslagen');
+        }).catch(function (err) {
+            if (err && err.name === 'AbortError') return;
+            lastSaved = '';
+            setSaveStatus('Opslaan mislukt. Probeer het opnieuw.');
+        });
+    }
+    function scheduleSave(delay) {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveNow, delay || 0);
+    }
+    function clampRefreshDigits(el) {
+        if (!el) return;
+        var digits = String(el.value || '').replace(/\D/g, '').slice(0, 4);
+        if (el.value !== digits) el.value = digits;
+    }
     function val(name) {
         var el = form.querySelector('[name="' + name + '"]');
         if (!el) return '';
@@ -389,11 +450,19 @@ window.NexaGpsFleet = @json($fleet ?? []);
             input.value = picker.value;
             renderPreview();
         });
+        picker.addEventListener('change', function () {
+            input.value = picker.value;
+            renderPreview();
+            saveNow();
+        });
         input.addEventListener('input', function () {
-            if (/^#?[0-9A-Fa-f]{6}$/.test(input.value)) {
+            if (hexOk.test(input.value)) {
                 picker.value = input.value.charAt(0) === '#' ? input.value : '#' + input.value;
             }
             renderPreview();
+        });
+        input.addEventListener('change', function () {
+            if (hexOk.test(input.value)) saveNow();
         });
     }
     bindPair('gps-plate-bg-picker', 'gps-plate-bg');
@@ -405,29 +474,49 @@ window.NexaGpsFleet = @json($fleet ?? []);
     (window.NexaGpsFleet || []).forEach(function (v) {
         bindPair('gps-vehicle-color-picker-' + v.id, 'gps-vehicle-color-' + v.id);
     });
-    document.querySelectorAll('[data-gps-type-color]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var style = btn.getAttribute('data-gps-type-color');
-            var hex = btn.getAttribute('data-gps-color');
+    form.addEventListener('click', function (event) {
+        var typeBtn = event.target.closest('[data-gps-type-color]');
+        if (typeBtn) {
+            var style = typeBtn.getAttribute('data-gps-type-color');
+            var hex = typeBtn.getAttribute('data-gps-color');
             var input = document.getElementById('gps-type-color-' + style);
             var picker = document.getElementById('gps-type-color-picker-' + style);
             if (input) input.value = hex;
             if (picker) picker.value = hex;
             renderPreview();
-        });
+            saveNow();
+            return;
+        }
+        var vehicleBtn = event.target.closest('[data-gps-vehicle-color]');
+        if (!vehicleBtn) return;
+        var id = vehicleBtn.getAttribute('data-gps-vehicle-color');
+        var vehicleHex = vehicleBtn.getAttribute('data-gps-color');
+        var vehicleInput = document.getElementById('gps-vehicle-color-' + id);
+        var vehiclePicker = document.getElementById('gps-vehicle-color-picker-' + id);
+        if (vehicleInput) vehicleInput.value = vehicleHex;
+        if (vehiclePicker) vehiclePicker.value = vehicleHex;
+        renderPreview();
+        saveNow();
     });
-    document.querySelectorAll('[data-gps-vehicle-color]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var id = btn.getAttribute('data-gps-vehicle-color');
-            var hex = btn.getAttribute('data-gps-color');
-            var input = document.getElementById('gps-vehicle-color-' + id);
-            var picker = document.getElementById('gps-vehicle-color-picker-' + id);
-            if (input) input.value = hex;
-            if (picker) picker.value = hex;
-            renderPreview();
+    var refreshInput = document.getElementById('gps-refresh-seconds');
+    if (refreshInput) {
+        refreshInput.addEventListener('input', function () {
+            clampRefreshDigits(refreshInput);
+            scheduleSave(400);
         });
+    }
+    form.addEventListener('change', function (event) {
+        renderPreview();
+        if (event.target && event.target.id === 'gps-refresh-seconds') {
+            clampRefreshDigits(event.target);
+        }
+        saveNow();
     });
-    form.addEventListener('change', renderPreview);
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        saveNow();
+    });
+    lastSaved = formPayload();
     renderPreview();
 })();
 </script>

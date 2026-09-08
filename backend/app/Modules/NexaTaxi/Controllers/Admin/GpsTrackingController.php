@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Services\TaxiGpsLiveMapDemoService;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingService;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
 use App\Modules\NexaTaxi\Support\NexaTaxiSchema;
@@ -26,6 +27,7 @@ class GpsTrackingController extends Controller
     public function __construct(
         protected TaxiGpsTrackingService $tracking,
         protected TaxiGpsTrackingSettingsService $settings,
+        protected TaxiGpsLiveMapDemoService $liveDemo,
         protected CompanyEntitlementService $entitlements,
         protected EnvService $env
     ) {}
@@ -37,12 +39,11 @@ class GpsTrackingController extends Controller
         $this->assertGpsAddon($company);
 
         $maps = $this->env->mapsFormSettings();
-        $centerLat = $company && $company->latitude !== null && $company->latitude !== ''
-            ? (float) $company->latitude
-            : (float) $maps['GOOGLE_MAPS_CENTER_LAT'];
-        $centerLng = $company && $company->longitude !== null && $company->longitude !== ''
-            ? (float) $company->longitude
-            : (float) $maps['GOOGLE_MAPS_CENTER_LNG'];
+        [$centerLat, $centerLng] = $this->liveDemo->centerForCompany(
+            $company,
+            (float) $maps['GOOGLE_MAPS_CENTER_LAT'],
+            (float) $maps['GOOGLE_MAPS_CENTER_LNG']
+        );
 
         $companyId = $company?->id ? (int) $company->id : null;
 
@@ -59,9 +60,12 @@ class GpsTrackingController extends Controller
             'positionsUrl' => route('admin.taxi.gps_tracking.positions'),
             'unlockUrl' => route('admin.taxi.gps_tracking.unlock'),
             'lockUrl' => route('admin.taxi.gps_tracking.lock'),
+            'demoUrl' => route('admin.taxi.gps_tracking.demo'),
             'codeUrl' => route('admin.taxi.gps_tracking.code'),
             'settingsUrl' => route('admin.taxi.gps_tracking.settings'),
             'canManageCode' => $this->canManageGps(),
+            'canUseLiveDemo' => $this->canUseLiveDemo(),
+            'liveDemoEnabled' => $companyId !== null && $this->canUseLiveDemo() && $this->liveDemo->isEnabled($companyId),
             'appearance' => $this->settings->appearance($companyId),
         ]);
     }
@@ -76,16 +80,17 @@ class GpsTrackingController extends Controller
         }
 
         $conn = $this->moduleConnection();
-        if (! NexaTaxiSchema::coreTablesExist($conn)) {
-            return response()->json([
-                'vehicles' => [],
-                'include_offline' => false,
-                'offline_code_set' => $this->settings->hasOfflineCode((int) $company->id),
-                'offline_unlocked' => false,
-            ]);
-        }
-
         $view = $request->query('view') === 'offline' ? 'offline' : 'online';
+        if (! NexaTaxiSchema::coreTablesExist($conn)) {
+            return response()->json($this->withLiveDemoPayload([
+                'vehicles' => [],
+                'view' => $view,
+                'include_offline' => $view === 'offline',
+                'offline_code_set' => $this->settings->hasOfflineCode((int) $company->id),
+                'offline_unlocked' => $this->settings->isOfflineUnlocked((int) $company->id),
+                'server_now' => now()->toIso8601String(),
+            ], $company, $view));
+        }
         if ($view === 'offline' && ! $this->settings->isOfflineUnlocked((int) $company->id)) {
             return response()->json([
                 'message' => 'Voer eerst de veiligheidscode in om offline voertuigen te zien.',
@@ -97,7 +102,47 @@ class GpsTrackingController extends Controller
             ], 422);
         }
 
-        return response()->json($this->tracking->positions((int) $company->id, $conn, $view));
+        $payload = $this->tracking->positions((int) $company->id, $conn, $view);
+
+        return response()->json($this->withLiveDemoPayload($payload, $company, $view));
+    }
+
+    public function demo(Request $request): JsonResponse|RedirectResponse
+    {
+        $this->authorizeGpsView();
+        if (! $this->canUseLiveDemo()) {
+            abort(403, 'Alleen een super-admin mag de GPS-demo gebruiken.');
+        }
+        $company = $this->tenantCompany();
+        $this->assertGpsAddon($company);
+        if ($company === null) {
+            return $this->missingTenantResponse($request);
+        }
+
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $enabled = (bool) $validated['enabled'];
+        $this->liveDemo->setEnabled((int) $company->id, $enabled);
+        if ($enabled) {
+            $maps = $this->env->mapsFormSettings();
+            [$centerLat, $centerLng] = $this->liveDemo->centerForCompany(
+                $company,
+                (float) $maps['GOOGLE_MAPS_CENTER_LAT'],
+                (float) $maps['GOOGLE_MAPS_CENTER_LNG']
+            );
+            $fleetCount = 4;
+            try {
+                $fleetCount = max(1, count($this->tracking->configuredFleetForDemo((int) $company->id, $this->moduleConnection())));
+            } catch (\Throwable) {
+                $fleetCount = 4;
+            }
+            $this->liveDemo->prefetchLoops($centerLat, $centerLng, $fleetCount);
+        }
+
+        return response()->json([
+            'enabled' => $enabled,
+        ]);
     }
 
     public function unlock(Request $request): JsonResponse|RedirectResponse
@@ -241,12 +286,16 @@ class GpsTrackingController extends Controller
         ]);
     }
 
-    public function updateSettings(Request $request): RedirectResponse
+    public function updateSettings(Request $request): RedirectResponse|JsonResponse
     {
         $this->authorizeGpsManage();
         $company = $this->tenantCompany();
         $this->assertGpsAddon($company);
         if ($company === null) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => 'Selecteer eerst een bedrijf om de GPS-configuratie op te slaan.'], 422);
+            }
+
             return redirect()
                 ->route('admin.taxi.gps_tracking.settings')
                 ->withErrors(['tenant' => 'Selecteer eerst een bedrijf om de GPS-configuratie op te slaan.']);
@@ -281,6 +330,10 @@ class GpsTrackingController extends Controller
         ]);
 
         $this->settings->setAppearance($validated, (int) $company->id);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'GPS-configuratie is opgeslagen.']);
+        }
 
         return redirect()
             ->route('admin.taxi.gps_tracking.settings', ['saved' => 1])
@@ -340,6 +393,43 @@ class GpsTrackingController extends Controller
         }
 
         return $user->can('vehicles.update') || $user->can('rides.update');
+    }
+
+    private function canUseLiveDemo(): bool
+    {
+        return (bool) auth()->user()?->hasRole('super-admin');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withLiveDemoPayload(array $payload, Company $company, string $view): array
+    {
+        $payload['live_demo'] = false;
+        if ($view !== 'online' || ! $this->canUseLiveDemo() || ! $this->liveDemo->isEnabled((int) $company->id)) {
+            return $payload;
+        }
+
+        $maps = $this->env->mapsFormSettings();
+        [$centerLat, $centerLng] = $this->liveDemo->centerForCompany(
+            $company,
+            (float) $maps['GOOGLE_MAPS_CENTER_LAT'],
+            (float) $maps['GOOGLE_MAPS_CENTER_LNG']
+        );
+        $source = [];
+        try {
+            $source = $this->tracking->configuredFleetForDemo((int) $company->id, $this->moduleConnection());
+        } catch (\Throwable) {
+            $source = [];
+        }
+        if ($source === []) {
+            $source = is_array($payload['vehicles'] ?? null) ? $payload['vehicles'] : [];
+        }
+        $payload['vehicles'] = $this->liveDemo->apply($source, $centerLat, $centerLng);
+        $payload['live_demo'] = true;
+
+        return $payload;
     }
 
     /**

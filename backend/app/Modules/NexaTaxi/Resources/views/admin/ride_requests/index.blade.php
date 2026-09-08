@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('title', 'Ritten')
 
 @section('content')
@@ -15,12 +17,15 @@
         <div class="kt-alert kt-alert-danger mb-5"><i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}</div>
     @endif
 
+    @include('taxi::admin.ride_requests.partials.monthly-stats')
+
     <div class="kt-card w-full min-w-0">
-        <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
+        <div class="kt-card-header py-5 px-5 flex-wrap gap-2 min-w-0">
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Overzicht ritten</h3>
             <div class="flex flex-col sm:flex-row flex-wrap gap-2 gap-2.5 w-full sm:justify-end items-stretch sm:items-center min-w-0">
                 <form method="GET" action="{{ route('admin.taxi.ride_requests.index') }}" id="ride-filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
                     @if(request('per_page'))<input type="hidden" name="per_page" value="{{ request('per_page') }}">@endif
+                    @if(!empty($monthlyStats['month']))<input type="hidden" name="stats_month" value="{{ $monthlyStats['month'] }}">@endif
                     <select name="status" id="ride-status-filter" class="kt-select w-full sm:w-40">
                         <option value="">Alle statussen</option>
                         @foreach($statusLabels as $value => $label)
@@ -54,7 +59,7 @@
                     <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full sm:w-auto shrink-0">Filter</button>
                 </form>
                 @if(request('status') !== null && request('status') !== '' || request('vehicle_id') !== null && request('vehicle_id') !== '' || request('from') || request('to'))
-                <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline kt-btn-icon rides-filter-reset-btn shrink-0 w-full sm:w-auto" title="Filters resetten">
+                <a href="{{ route('admin.taxi.ride_requests.index', array_filter(['stats_month' => $monthlyStats['month'] ?? null])) }}" class="kt-btn kt-btn-outline kt-btn-icon rides-filter-reset-btn shrink-0 w-full sm:w-auto" title="Filters resetten">
                     <i class="ki-filled ki-arrows-circle text-base"></i>
                 </a>
                 @endif
@@ -213,6 +218,7 @@
                     @if(request('vehicle_id'))<input type="hidden" name="vehicle_id" value="{{ request('vehicle_id') }}">@endif
                     @if(request('from'))<input type="hidden" name="from" value="{{ request('from') }}">@endif
                     @if(request('to'))<input type="hidden" name="to" value="{{ request('to') }}">@endif
+                    @if(!empty($monthlyStats['month']))<input type="hidden" name="stats_month" value="{{ $monthlyStats['month'] }}">@endif
                     <select class="kt-select w-24" name="per_page" onchange="this.form.submit()">
                         @foreach([10, 15, 25, 50] as $n)
                             <option value="{{ $n }}" {{ (int) request('per_page', 15) === $n ? 'selected' : '' }}>{{ $n }}</option>
@@ -231,6 +237,10 @@
 </div>
 @push('styles')
 <style>
+    #ride-stats-collapsible-root .settings-collapsible-toggle:hover .kt-card-title {
+        color: var(--mono);
+    }
+
     .rides-list-table-wrap .kt-scrollable-x-auto,
     .rides-list-table-wrap .admin-table-scroll-wrap,
     .rides-list-table-wrap .admin-desktop-table-wrap {
@@ -358,9 +368,207 @@
     }
 </style>
 @endpush
+@push('styles')
+<script>
+(function () {
+    var STATS_COLLAPSE_KEY = 'ride-stats-collapsible';
+    window.rideStatsCharts = window.rideStatsCharts || [];
+
+    function persistRideStatsCollapse() {
+        var root = document.getElementById('ride-stats-collapsible-root');
+        if (!root) return;
+        var state = {};
+        root.querySelectorAll('.settings-collapsible-card[id]').forEach(function (card) {
+            state[card.id] = !card.classList.contains('settings-collapsible-card--collapsed');
+        });
+        try {
+            sessionStorage.setItem(STATS_COLLAPSE_KEY, JSON.stringify(state));
+        } catch (e) {}
+    }
+
+    function setRideStatsCollapsed(card, collapsed) {
+        card.classList.toggle('settings-collapsible-card--collapsed', collapsed);
+        var btn = card.querySelector('.settings-collapsible-toggle');
+        if (btn) {
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
+        persistRideStatsCollapse();
+        if (!collapsed && card.id === 'ride-stats-verloop') {
+            window.setTimeout(function () {
+                (window.rideStatsCharts || []).forEach(function (chart) {
+                    if (chart && typeof chart.resize === 'function') {
+                        chart.resize();
+                    }
+                });
+            }, 480);
+        }
+    }
+
+    function restoreRideStatsCollapse() {
+        var root = document.getElementById('ride-stats-collapsible-root');
+        if (!root) return;
+        try {
+            var stored = JSON.parse(sessionStorage.getItem(STATS_COLLAPSE_KEY) || 'null');
+            if (!stored || typeof stored !== 'object') return;
+            root.querySelectorAll('.settings-collapsible-card[id]').forEach(function (card) {
+                if (Object.prototype.hasOwnProperty.call(stored, card.id)) {
+                    setRideStatsCollapsed(card, stored[card.id] === false);
+                }
+            });
+        } catch (e) {}
+    }
+
+    function bindRideStatsCollapse() {
+        if (window.__rideStatsCollapseBound) {
+            restoreRideStatsCollapse();
+            return;
+        }
+        window.__rideStatsCollapseBound = true;
+        document.addEventListener('click', function (e) {
+            var root = document.getElementById('ride-stats-collapsible-root');
+            if (!root || !root.contains(e.target)) {
+                return;
+            }
+            if (e.target.closest('#ride-stats-month-form')) {
+                return;
+            }
+            var btn = e.target.closest('.settings-collapsible-toggle');
+            if (!btn) {
+                var header = e.target.closest('.settings-collapsible-header');
+                if (!header || !root.contains(header)) {
+                    return;
+                }
+                btn = header.querySelector('.settings-collapsible-toggle');
+            }
+            if (!btn || !root.contains(btn)) {
+                return;
+            }
+            var card = btn.closest('.settings-collapsible-card');
+            if (!card || !root.contains(card)) {
+                return;
+            }
+            e.preventDefault();
+            setRideStatsCollapsed(card, !card.classList.contains('settings-collapsible-card--collapsed'));
+        });
+        restoreRideStatsCollapse();
+    }
+
+    window.toggleRideStatsCard = function (btn) {
+        var card = btn && btn.closest ? btn.closest('.settings-collapsible-card') : null;
+        if (!card) return;
+        setRideStatsCollapsed(card, !card.classList.contains('settings-collapsible-card--collapsed'));
+    };
+
+    if (document.readyState === 'complete') {
+        bindRideStatsCollapse();
+    } else {
+        window.addEventListener('load', bindRideStatsCollapse);
+    }
+})();
+</script>
+@endpush
 @push('scripts')
 <script>
+
 document.addEventListener('DOMContentLoaded', function() {
+    var monthForm = document.getElementById('ride-stats-month-form');
+    var monthInput = document.getElementById('ride-stats-month');
+    if (monthForm && monthInput) {
+        monthInput.addEventListener('change', function () {
+            monthForm.submit();
+        });
+    }
+
+    var stats = @json($monthlyStats ?? []);
+    var isDark = document.documentElement.classList.contains('dark');
+    var labelColor = isDark ? '#94a3b8' : '#64748b';
+    var gridColor = 'var(--border)';
+    var primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#3b82f6';
+    var success = getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#22c55e';
+    var warning = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#f59e0b';
+
+    function euro(value) {
+        return '€ ' + Number(value || 0).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    if (typeof ApexCharts !== 'undefined') {
+        var daily = stats.daily || [];
+        var trendEl = document.querySelector('#ride-stats-trend-chart');
+        if (trendEl) {
+            var trendChart = new ApexCharts(trendEl, {
+                series: [
+                    { name: 'Voltooid', type: 'column', data: daily.map(function (d) { return d.completed; }) },
+                    { name: 'Omzet', type: 'line', data: daily.map(function (d) { return d.revenue; }) }
+                ],
+                chart: { height: 280, type: 'line', toolbar: { show: false }, fontFamily: 'inherit', zoom: { enabled: false } },
+                stroke: { width: [0, 3], curve: 'smooth' },
+                colors: [primary, success],
+                plotOptions: { bar: { columnWidth: '42%', borderRadius: 3 } },
+                dataLabels: { enabled: false },
+                xaxis: {
+                    categories: daily.map(function (d) { return d.label; }),
+                    labels: { style: { colors: labelColor, fontSize: '11px' } },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: [
+                    { labels: { style: { colors: labelColor, fontSize: '11px' } }, min: 0, forceNiceScale: true },
+                    { opposite: true, labels: { style: { colors: labelColor, fontSize: '11px' }, formatter: euro }, min: 0 }
+                ],
+                legend: { position: 'top', horizontalAlign: 'left', labels: { colors: labelColor } },
+                grid: { borderColor: gridColor, strokeDashArray: 4, xaxis: { lines: { show: false } } },
+                tooltip: {
+                    shared: true,
+                    y: [
+                        { formatter: function (val) { return val + ' ritten'; } },
+                        { formatter: euro }
+                    ]
+                }
+            });
+            trendChart.render();
+            window.rideStatsCharts.push(trendChart);
+        }
+
+        var paymentEl = document.querySelector('#ride-stats-payment-chart');
+        if (paymentEl) {
+            var cash = Number(stats.revenue_cash || 0);
+            var mollie = Number(stats.revenue_mollie || 0);
+            var paymentChart = new ApexCharts(paymentEl, {
+                series: (cash === 0 && mollie === 0) ? [1] : [cash, mollie],
+                labels: (cash === 0 && mollie === 0) ? ['Geen omzet'] : ['Cash', 'Mollie'],
+                chart: { type: 'donut', height: 220, fontFamily: 'inherit' },
+                colors: (cash === 0 && mollie === 0) ? ['#94a3b8'] : [warning, primary],
+                legend: { position: 'bottom', labels: { colors: labelColor } },
+                dataLabels: { enabled: cash + mollie > 0 },
+                stroke: { width: 0 },
+                tooltip: {
+                    y: { formatter: function (val) { return (cash === 0 && mollie === 0) ? '—' : euro(val); } }
+                },
+                plotOptions: {
+                    pie: { donut: { size: '68%', labels: { show: true, total: { show: true, label: 'Totaal', formatter: function () { return euro(cash + mollie); } } } } }
+                }
+            });
+            paymentChart.render();
+            window.rideStatsCharts.push(paymentChart);
+        }
+
+        var statusEl = document.querySelector('#ride-stats-status-chart');
+        if (statusEl) {
+            var statusRows = stats.status_chart || [];
+            var statusChart = new ApexCharts(statusEl, {
+                series: statusRows.length ? statusRows.map(function (row) { return row.value; }) : [1],
+                labels: statusRows.length ? statusRows.map(function (row) { return row.label; }) : ['Geen ritten'],
+                chart: { type: 'donut', height: 220, fontFamily: 'inherit' },
+                legend: { position: 'bottom', labels: { colors: labelColor } },
+                dataLabels: { enabled: statusRows.length > 0 },
+                stroke: { width: 0 },
+                plotOptions: { pie: { donut: { size: '68%' } } }
+            });
+            statusChart.render();
+            window.rideStatsCharts.push(statusChart);
+        }
+    }
+
     var filterForm = document.getElementById('ride-filters-form');
     var statusFilter = document.getElementById('ride-status-filter');
     var vehicleFilter = document.getElementById('ride-vehicle-filter');

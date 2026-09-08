@@ -138,6 +138,23 @@ class AdminLoginTest extends TestCase
         $response->assertRedirect('/admin/settings');
         $this->assertAuthenticatedAs($user);
     }
+
+    #[Test]
+    public function nearby_taxi_polling_does_not_block_admin_login(): void
+    {
+        for ($i = 0; $i < 8; $i++) {
+            $this->getJson(route('nexataxi.booking.nearby-taxis', [
+                'lat' => 52.22,
+                'lng' => 6.89,
+                'section_key' => 'component:taxi.boekingsmodule_v2',
+            ]))->assertOk();
+        }
+
+        $this->post('/admin/login', [
+            'email' => 'wrong@test.com',
+            'password' => 'wrongpassword',
+        ])->assertStatus(302)->assertSessionHasErrors();
+    }
 }
 
 

@@ -17,6 +17,20 @@
             color: var(--muted-foreground);
         }
 
+        #taxi-portal-app .taxi-portal-profile-value {
+            display: block;
+            margin: 0;
+            min-height: 1.25rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            color: var(--foreground);
+            word-break: break-word;
+        }
+
+        #taxi-portal-app .taxi-portal-profile-value.is-empty {
+            color: var(--muted-foreground);
+        }
+
         #taxi-portal-app .taxi-portal-profile-input {
             display: block;
             width: 100%;
@@ -55,6 +69,10 @@
         html.dark #taxi-portal-app .taxi-portal-profile-input:focus {
             border-color: #60a5fa;
             box-shadow: 0 0 0 2px rgb(96 165 250 / 0.25);
+        }
+
+        #taxi-portal-app .kt-btn.kt-btn-outline:not(.kt-btn-primary) {
+            background-color: transparent;
         }
 
         #taxi-portal-app .taxi-portal-chart-period-select {
@@ -104,8 +122,33 @@
 
         @media (min-width: 640px) {
             #taxi-portal-app .taxi-portal-table-wrap .taxi-portal-responsive-table {
-                width: max-content;
+                width: 100%;
                 min-width: 100%;
+                table-layout: auto !important;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table th,
+            #taxi-portal-app .taxi-portal-responsive-table td {
+                min-width: 0 !important;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table th.taxi-portal-col-route,
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-route {
+                width: 99%;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            #taxi-portal-app .taxi-portal-responsive-table th.taxi-portal-col-meta,
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-col-meta,
+            #taxi-portal-app .taxi-portal-responsive-table th.taxi-portal-col-actions,
+            #taxi-portal-app .taxi-portal-responsive-table td.taxi-portal-table-actions,
+            #taxi-portal-app .taxi-portal-responsive-table thead tr:has(> :last-child:nth-child(5)) > :nth-child(n+2),
+            #taxi-portal-app .taxi-portal-responsive-table tbody tr:has(> :last-child:nth-child(5)) > :nth-child(n+2),
+            #taxi-portal-app .taxi-portal-responsive-table thead tr:has(> :last-child:nth-child(6)) > :not(:nth-child(2)),
+            #taxi-portal-app .taxi-portal-responsive-table tbody tr:has(> :last-child:nth-child(6)) > :not(:nth-child(2)) {
+                width: 1%;
+                white-space: nowrap;
             }
         }
 
@@ -376,16 +419,19 @@
 
         #taxi-portal-app .taxi-portal-datatable-filters {
             display: flex;
-            flex: 1 1 auto;
+            flex: 0 1 auto;
             flex-wrap: wrap;
             align-items: center;
+            justify-content: flex-end;
             gap: 0.5rem;
             min-width: 0;
+            margin-inline-start: auto;
         }
 
         #taxi-portal-app .taxi-portal-datatable-count {
+            order: -1;
             flex: 0 0 auto;
-            margin: 0;
+            margin: 0 auto 0 0;
             font-size: 0.8125rem;
             line-height: 1.25;
             color: var(--muted-foreground);
@@ -561,6 +607,11 @@
                 width: auto;
             }
 
+            #taxi-portal-app .taxi-portal-datatable-filters {
+                justify-content: flex-start;
+                margin-inline-start: 0;
+            }
+
             #taxi-portal-app .taxi-portal-datatable-count {
                 width: 100%;
             }
@@ -645,12 +696,12 @@
             }
         }
 
-        /* Boekingsmodule: volle breedte binnen contentpaneel (buiten container-padding) */
+        /* Boekingsmodule: dezelfde inhoudsbreedte als de overige portaal-kaarten */
         #taxi-portal-app .taxi-portal-booking-slot {
-            width: calc(100% + 20px);
+            width: 100%;
             max-width: none;
-            margin-left: -10px;
-            margin-right: -10px;
+            margin-left: 0;
+            margin-right: 0;
         }
     </style>
 @endpush

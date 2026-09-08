@@ -28,6 +28,7 @@ class MapsPlatformSettingsTest extends TestCase
         $response->assertSee('id="maps"', false);
         $response->assertSee(route('admin.settings.maps.update'), false);
         $response->assertSee('GOOGLE_MAPS_API_KEY', false);
+        $response->assertSee('PDOK Locatieserver', false);
     }
 
     #[Test]
@@ -64,6 +65,49 @@ class MapsPlatformSettingsTest extends TestCase
         $this->assertSame('52.1', GeneralSetting::get('GOOGLE_MAPS_CENTER_LAT'));
         $this->assertSame('5.1', GeneralSetting::get('GOOGLE_MAPS_CENTER_LNG'));
         $this->assertSame('satellite', GeneralSetting::get('GOOGLE_MAPS_TYPE'));
+    }
+
+    #[Test]
+    public function super_admin_can_toggle_pdok_postcode_fallback(): void
+    {
+        try {
+            GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'probe');
+        } catch (\RuntimeException $e) {
+            $this->markTestSkipped($e->getMessage());
+        }
+        Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $this->actingAs($admin, 'web')
+            ->post(route('admin.settings.maps.update'), [
+                'GOOGLE_MAPS_API_KEY' => 'PLATFORM_MAPS_KEY',
+                'GOOGLE_MAPS_MAP_ID' => '',
+                'GOOGLE_MAPS_ZOOM' => 12,
+                'GOOGLE_MAPS_CENTER_LAT' => '52.3676',
+                'GOOGLE_MAPS_CENTER_LNG' => '4.9041',
+                'GOOGLE_MAPS_TYPE' => 'roadmap',
+                'POSTCODE_PDOK_FALLBACK' => '0',
+            ])
+            ->assertRedirect(route('admin.settings.general.index').'#maps');
+
+        GeneralSetting::clearRequestCache();
+        $this->assertSame('0', GeneralSetting::get('POSTCODE_PDOK_FALLBACK'));
+
+        $this->actingAs($admin, 'web')
+            ->post(route('admin.settings.maps.update'), [
+                'GOOGLE_MAPS_API_KEY' => 'PLATFORM_MAPS_KEY',
+                'GOOGLE_MAPS_MAP_ID' => '',
+                'GOOGLE_MAPS_ZOOM' => 12,
+                'GOOGLE_MAPS_CENTER_LAT' => '52.3676',
+                'GOOGLE_MAPS_CENTER_LNG' => '4.9041',
+                'GOOGLE_MAPS_TYPE' => 'roadmap',
+                'POSTCODE_PDOK_FALLBACK' => '1',
+            ])
+            ->assertRedirect();
+
+        GeneralSetting::clearRequestCache();
+        $this->assertSame('1', GeneralSetting::get('POSTCODE_PDOK_FALLBACK'));
     }
 
     #[Test]

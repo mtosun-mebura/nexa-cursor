@@ -7,7 +7,7 @@ import BuilderFooterSocialIcon from './BuilderFooterSocialIcon.vue'
 import BuilderHeroiconPicker from './BuilderHeroiconPicker.vue'
 import BuilderPricingPackagesPreview from './BuilderPricingPackagesPreview.vue'
 import BuilderWysiwygField from './BuilderWysiwygField.vue'
-import type { ConfigField, FieldVisibleWhen, SelectOption } from './section-config-schemas'
+import type { ConfigField, FieldVisibleContext, FieldVisibleWhen, SelectOption } from './section-config-schemas'
 import { buildPatchForPath, getByPath } from './nested-data'
 import { websiteMediaPreviewUrl } from './section-data-normalize'
 
@@ -59,6 +59,10 @@ const generatingImageKey = ref<string | null>(null)
 
 const injectedLightbox = inject<ImageLightboxApi | null>(IMAGE_LIGHTBOX_KEY, null)
 const ownLightboxSrc = ref<string | null>(null)
+const builderCapabilities = inject<Ref<{ gpsTracking: boolean; superAdmin: boolean }>>(
+  'builderCapabilities',
+  ref({ gpsTracking: false, superAdmin: false }),
+)
 
 function openImagePreview(src: string) {
   const url = src.trim()
@@ -156,6 +160,9 @@ function str(key: string, fallback = ''): string {
 }
 
 function fieldVisible(field: ConfigField): boolean {
+  if (!matchesVisibleContext(field)) {
+    return false
+  }
   const when = (field as { visibleWhen?: FieldVisibleWhen }).visibleWhen
   if (!when) {
     return true
@@ -165,6 +172,24 @@ function fieldVisible(field: ConfigField): boolean {
     return value !== ''
   }
   return true
+}
+
+function matchesVisibleContext(field: ConfigField): boolean {
+  const raw = (field as { visibleWhenContext?: FieldVisibleContext | FieldVisibleContext[] }).visibleWhenContext
+  if (!raw) {
+    return true
+  }
+  const keys = Array.isArray(raw) ? raw : [raw]
+  const caps = builderCapabilities.value
+  return keys.some((key) => {
+    if (key === 'gpsTracking') {
+      return !!caps.gpsTracking
+    }
+    if (key === 'superAdmin') {
+      return !!caps.superAdmin
+    }
+    return false
+  })
 }
 
 function dynamicSelectOptions(field: Extract<ConfigField, { type: 'dynamic-select' }>): SelectOption[] {
@@ -1419,7 +1444,11 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </div>
 
-      <label v-else-if="field.type === 'number'" class="builder-field">
+      <label
+        v-else-if="field.type === 'number'"
+        class="builder-field"
+        :class="{ 'builder-field--digits': field.inputWidth === 'digits' }"
+      >
         <span>{{ field.label }}</span>
         <input
           type="number"
@@ -1427,7 +1456,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           :min="field.min"
           :max="field.max"
           :step="field.step ?? 1"
-          :value="num(field.key)"
+          :value="num(field.key, field.min ?? 0)"
           @input="updateField(field.key, Number(($event.target as HTMLInputElement).value))"
         />
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
@@ -1451,7 +1480,14 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </div>
 
-      <div v-else-if="field.type === 'color'" class="builder-field">
+      <div
+        v-else-if="field.type === 'color'"
+        class="builder-field"
+        :class="{
+          'builder-field--span-2': field.colSpan === 2,
+          'builder-field--span-3': field.colSpan === 3,
+        }"
+      >
         <span>{{ field.label }}</span>
         <div class="builder-color-row">
           <input
@@ -1465,6 +1501,21 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
             :value="str(field.key, field.defaultValue ?? '')"
             :placeholder="field.defaultValue ?? '#hex (leeg = standaard)'"
             @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+        <div v-if="field.presets?.length" class="builder-color-swatches">
+          <button
+            v-for="preset in field.presets"
+            :key="preset.hex"
+            type="button"
+            class="builder-color-swatch"
+            :class="{
+              'is-active': hexForPicker(str(field.key), field.defaultValue ?? '#2563eb').toLowerCase() === preset.hex.toLowerCase(),
+            }"
+            :style="{ background: preset.hex }"
+            :title="preset.label"
+            :aria-label="preset.label"
+            @click="updateField(field.key, preset.hex)"
           />
         </div>
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
@@ -1622,10 +1673,11 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         </div>
       </div>
 
-      <label v-else-if="field.type === 'checkbox'" class="builder-checkbox">
+      <label v-else-if="field.type === 'checkbox'" class="builder-checkbox" :class="{ 'builder-checkbox--switch': field.control === 'switch' }">
         <input
           type="checkbox"
-          class="kt-checkbox"
+          :class="field.control === 'switch' ? 'kt-switch kt-switch-sm shrink-0' : 'kt-checkbox'"
+          :role="field.control === 'switch' ? 'switch' : undefined"
           :checked="bool(field.key)"
           @change="updateField(field.key, ($event.target as HTMLInputElement).checked)"
         />
@@ -2249,6 +2301,33 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   flex-shrink: 0;
 }
 
+.builder-field--digits .kt-input {
+  width: 4.75rem;
+  max-width: 4.75rem;
+}
+
+.builder-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.builder-color-swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.2);
+  cursor: pointer;
+  padding: 0;
+}
+
+.builder-color-swatch.is-active {
+  box-shadow: 0 0 0 2px #2563eb;
+}
+
 .builder-hero-image-remove {
   flex-shrink: 0;
 }
@@ -2448,6 +2527,11 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   gap: 0.5rem;
   font-size: 0.875rem;
   cursor: pointer;
+}
+
+.builder-checkbox--switch {
+  gap: 0.75rem;
+  min-height: 2rem;
 }
 
 .builder-range-row {
