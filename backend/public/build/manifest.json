@@ -2184,7 +2184,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Cwyih7fJ.css",
+    "file": "assets/app-VgXS8lOx.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2236,7 +2236,7 @@
     ]
   },
   "resources/js/taxi-portal-app.ts": {
-    "file": "assets/taxi-portal-app-DjVR2GmV.js",
+    "file": "assets/taxi-portal-app-ScvYNCC_.js",
     "name": "taxi-portal-app",
     "src": "resources/js/taxi-portal-app.ts",
     "isEntry": true,
@@ -2248,7 +2248,7 @@
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-D6KePCS1.js",
+    "file": "assets/website-page-builder-v2-DoxZTC1v.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
@@ -2257,7 +2257,7 @@
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-DE6PGwFH.css",
+      "assets/website-page-builder-v2-BnebUnHO.css",
       "assets/nexa-smooth-accordion-CT5NIOwF.css"
     ]
   }

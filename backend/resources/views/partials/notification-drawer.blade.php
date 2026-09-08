@@ -337,13 +337,6 @@
         object-fit: cover !important;
         border-radius: 50% !important;
     }
-    /* Avatar indicator positioning */
-    #notifications_drawer .kt-avatar-indicator {
-        position: absolute !important;
-        bottom: -0.25rem !important;
-        right: -0.25rem !important;
-        z-index: 10 !important;
-    }
     /* Unread notification indicator */
     #notifications_drawer .notification-item:not(.opacity-75) {
         position: relative !important;
@@ -403,6 +396,7 @@
 <div class="hidden kt-drawer kt-drawer-end card flex-col max-w-[90%] w-[500px] top-5 bottom-5 end-5 rounded-xl border border-border bg-background"
      data-kt-drawer="true"
      data-kt-drawer-container="body"
+     data-system-avatar="{{ \App\Models\GeneralSetting::nexaSuiteAvatarUrl() }}"
      id="notifications_drawer">
 	<div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-2.5 border-b border-border bg-background" id="notifications_header">
 		Notificaties

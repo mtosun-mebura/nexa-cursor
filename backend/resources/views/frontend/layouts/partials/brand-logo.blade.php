@@ -5,7 +5,7 @@
     $logoHref = ($logoHrefTenantAware ?? true)
         ? \App\Support\Tenancy\TenantFrontendUrl::for($logoHrefRaw)
         : $logoHrefRaw;
-    $logoAlt = $branding['site_name'] ?? config('app.name', 'Nexa');
+    $logoAlt = $branding['logo_alt'] ?? $branding['site_name'] ?? config('app.name', 'Nexa');
     $logoSizePx = isset($logoSizePx)
         ? max(10, min(100, (int) $logoSizePx))
         : (int) ($branding['logo_size_px'] ?? $websiteBuilder->resolveLogoSizePx());

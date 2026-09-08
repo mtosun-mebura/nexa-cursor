@@ -68,6 +68,7 @@ type PortalInvoice = {
   ride_id: number | null
   date: string
   date_iso?: string | null
+  status?: string
   status_label: string
   status_badge: string
   amount: string
@@ -247,6 +248,10 @@ const invoicesSortDir = ref<SortDir>('desc')
 const invoicesLoading = ref(false)
 const invoicesError = ref<string | null>(null)
 const invoicesLoaded = ref(false)
+const invoicesSearchQuery = ref('')
+const invoicesStatusFilter = ref('')
+const invoicesAmountMin = ref('')
+const invoicesAmountMax = ref('')
 const invoicesPage = ref(1)
 const invoicesPerPage = ref(10)
 
@@ -256,6 +261,13 @@ const profile = ref<PortalProfile>({
   email: '',
   phone: '',
 })
+const profileSnapshot = ref<PortalProfile>({
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: '',
+})
+const profileEditing = ref(false)
 const profileLoading = ref(false)
 const profileSaving = ref(false)
 const profileError = ref<string | null>(null)
@@ -270,6 +282,7 @@ const passwordForm = ref({
 const passwordSaving = ref(false)
 const passwordError = ref<string | null>(null)
 const passwordSuccess = ref<string | null>(null)
+const passwordEditing = ref(false)
 
 const rideDetailOpen = ref(false)
 const rideDetailLoading = ref(false)
@@ -507,6 +520,83 @@ function invoiceRouteSortValue(invoice: PortalInvoice): string {
   return (invoice.route || (invoice.ride_id ? `rit #${invoice.ride_id}` : '')).toLowerCase()
 }
 
+function invoiceMatchesSearch(invoice: PortalInvoice, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+
+  const haystack = [
+    invoice.invoice_number,
+    invoice.from,
+    invoice.to,
+    invoice.route,
+    invoice.date,
+    invoice.status_label,
+    invoice.amount,
+    invoice.ride_id ? String(invoice.ride_id) : '',
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return haystack.includes(q)
+}
+
+function invoiceMatchesAmountFilter(
+  invoice: PortalInvoice,
+  min: number | null,
+  max: number | null
+): boolean {
+  if (min === null && max === null) return true
+  if (invoice.amount_raw === null || invoice.amount_raw === undefined) return false
+
+  if (min !== null && invoice.amount_raw < min) return false
+  if (max !== null && invoice.amount_raw > max) return false
+
+  return true
+}
+
+const invoiceStatusOptions = computed(() => {
+  const seen = new Map<string, string>()
+  for (const invoice of invoices.value) {
+    const status = invoice.status || ''
+    if (!status || seen.has(status)) continue
+    seen.set(status, invoice.status_label || status)
+  }
+
+  return [...seen.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'nl', { sensitivity: 'base' }))
+})
+
+const invoicesHasActiveFilters = computed(
+  () =>
+    invoicesSearchQuery.value.trim() !== '' ||
+    invoicesStatusFilter.value !== '' ||
+    invoicesAmountMin.value.trim() !== '' ||
+    invoicesAmountMax.value.trim() !== ''
+)
+
+const filteredInvoices = computed(() => {
+  const min = parseAmountFilter(invoicesAmountMin.value)
+  const max = parseAmountFilter(invoicesAmountMax.value)
+
+  return invoices.value.filter((invoice) => {
+    if (!invoiceMatchesSearch(invoice, invoicesSearchQuery.value)) return false
+    if (invoicesStatusFilter.value !== '' && invoice.status !== invoicesStatusFilter.value) {
+      return false
+    }
+    if (!invoiceMatchesAmountFilter(invoice, min, max)) return false
+    return true
+  })
+})
+
+function resetInvoicesFilters(): void {
+  invoicesSearchQuery.value = ''
+  invoicesStatusFilter.value = ''
+  invoicesAmountMin.value = ''
+  invoicesAmountMax.value = ''
+  invoicesPage.value = 1
+}
+
 function invoicesSortAria(key: InvoicesSortKey): 'asc' | 'desc' | 'none' {
   return invoicesSortKey.value === key ? invoicesSortDir.value : 'none'
 }
@@ -522,7 +612,7 @@ function toggleInvoicesSort(key: InvoicesSortKey): void {
 
 const sortedInvoices = computed(() => {
   const dir = invoicesSortDir.value === 'asc' ? 1 : -1
-  const list = [...invoices.value]
+  const list = [...filteredInvoices.value]
 
   list.sort((a, b) => {
     let cmp = 0
@@ -573,25 +663,25 @@ const sortedInvoices = computed(() => {
   return list
 })
 
-const invoicesTotal = computed(() => sortedInvoices.value.length)
+const invoicesTotalFiltered = computed(() => sortedInvoices.value.length)
 
 const invoicesTotalPages = computed(() =>
-  invoicesTotal.value === 0 ? 0 : Math.ceil(invoicesTotal.value / invoicesPerPage.value)
+  invoicesTotalFiltered.value === 0 ? 0 : Math.ceil(invoicesTotalFiltered.value / invoicesPerPage.value)
 )
 
 const paginatedInvoices = computed(() => {
-  if (invoicesTotal.value === 0) return []
+  if (invoicesTotalFiltered.value === 0) return []
   const start = (invoicesPage.value - 1) * invoicesPerPage.value
   return sortedInvoices.value.slice(start, start + invoicesPerPage.value)
 })
 
 const invoicesPageRangeStart = computed(() => {
-  if (invoicesTotal.value === 0) return 0
+  if (invoicesTotalFiltered.value === 0) return 0
   return (invoicesPage.value - 1) * invoicesPerPage.value + 1
 })
 
 const invoicesPageRangeEnd = computed(() =>
-  Math.min(invoicesPage.value * invoicesPerPage.value, invoicesTotal.value)
+  Math.min(invoicesPage.value * invoicesPerPage.value, invoicesTotalFiltered.value)
 )
 
 const invoicesVisiblePages = computed(() => {
@@ -615,9 +705,12 @@ function goToInvoicesPage(page: number): void {
   invoicesPage.value = Math.min(Math.max(1, page), total)
 }
 
-watch(invoicesPerPage, () => {
-  invoicesPage.value = 1
-})
+watch(
+  [invoicesSearchQuery, invoicesStatusFilter, invoicesAmountMin, invoicesAmountMax, invoicesPerPage],
+  () => {
+    invoicesPage.value = 1
+  }
+)
 
 watch(invoicesTotalPages, (total) => {
   if (total < 1) {
@@ -858,12 +951,61 @@ async function loadProfile(force = false) {
   try {
     const res = await portalFetch<{ data: PortalProfile }>(apiProfileUrl)
     profile.value = res.data
+    profileSnapshot.value = { ...res.data }
     profileLoaded.value = true
   } catch (e) {
     profileError.value = e instanceof Error ? e.message : 'Gegevens laden mislukt.'
   } finally {
     profileLoading.value = false
   }
+}
+
+function displayProfileValue(value: string | null | undefined): string {
+  const trimmed = String(value ?? '').trim()
+  return trimmed === '' ? '—' : trimmed
+}
+
+function cloneProfile(data: PortalProfile): PortalProfile {
+  return {
+    first_name: data.first_name || '',
+    last_name: data.last_name || '',
+    email: data.email || '',
+    phone: data.phone || '',
+  }
+}
+
+function startProfileEdit(): void {
+  profileError.value = null
+  profileSuccess.value = null
+  profileSnapshot.value = cloneProfile(profile.value)
+  profileEditing.value = true
+}
+
+function cancelProfileEdit(): void {
+  profile.value = cloneProfile(profileSnapshot.value)
+  profileError.value = null
+  profileEditing.value = false
+}
+
+function emptyPasswordForm() {
+  return {
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+  }
+}
+
+function startPasswordEdit(): void {
+  passwordError.value = null
+  passwordSuccess.value = null
+  passwordForm.value = emptyPasswordForm()
+  passwordEditing.value = true
+}
+
+function cancelPasswordEdit(): void {
+  passwordForm.value = emptyPasswordForm()
+  passwordError.value = null
+  passwordEditing.value = false
 }
 
 async function saveProfile() {
@@ -880,7 +1022,9 @@ async function saveProfile() {
       }),
     })
     profile.value = res.data
+    profileSnapshot.value = { ...res.data }
     profileSuccess.value = res.message || 'Gegevens opgeslagen.'
+    profileEditing.value = false
   } catch (e) {
     profileError.value = e instanceof Error ? e.message : 'Opslaan mislukt.'
   } finally {
@@ -914,6 +1058,7 @@ async function savePassword() {
       password_confirmation: '',
     }
     passwordSuccess.value = res.message || 'Wachtwoord succesvol gewijzigd.'
+    passwordEditing.value = false
   } catch (e) {
     passwordError.value = e instanceof Error ? e.message : 'Wachtwoord wijzigen mislukt.'
   } finally {
@@ -1040,6 +1185,10 @@ function onPortalRefreshRides() {
 watch([tab, showNewRide], syncPortalUrl)
 
 watch(tab, (next) => {
+  if (next !== 'profile') {
+    cancelProfileEdit()
+    cancelPasswordEdit()
+  }
   if (showNewRide.value) return
   if (next === 'dashboard') {
     void loadDashboard()
@@ -1286,6 +1435,10 @@ onUnmounted(() => {
                 <p v-else-if="rides.length === 0" class="text-sm text-muted-foreground">Je hebt nog geen ritten.</p>
                 <template v-else>
                   <div class="taxi-portal-datatable-toolbar">
+                    <p class="taxi-portal-datatable-count">
+                      {{ ridesTotalFiltered }} {{ ridesTotalFiltered === 1 ? 'rit' : 'ritten' }}
+                      <span v-if="ridesHasActiveFilters">gevonden</span>
+                    </p>
                     <div class="taxi-portal-datatable-filters">
                       <label class="taxi-portal-datatable-search">
                         <span class="sr-only">Zoeken in ritten</span>
@@ -1337,10 +1490,6 @@ onUnmounted(() => {
                         <i class="ki-filled ki-arrows-circle"></i>
                       </button>
                     </div>
-                    <p class="taxi-portal-datatable-count">
-                      {{ ridesTotalFiltered }} {{ ridesTotalFiltered === 1 ? 'rit' : 'ritten' }}
-                      <span v-if="ridesHasActiveFilters">gevonden</span>
-                    </p>
                   </div>
 
                   <p v-if="ridesTotalFiltered === 0" class="text-sm text-muted-foreground">
@@ -1348,12 +1497,11 @@ onUnmounted(() => {
                   </p>
 
                   <div v-else class="taxi-portal-table-wrap kt-scrollable-x-auto">
-                  <table class="kt-table table-auto kt-table-border taxi-portal-responsive-table">
+                  <table class="kt-table table-auto w-full kt-table-border taxi-portal-responsive-table">
                     <thead>
                       <tr>
                         <th
-                          class="taxi-portal-th-sort min-w-[220px]"
-                          :aria-sort="ridesSortAria('route')"
+                          class="taxi-portal-th-sort taxi-portal-col-route"
                           tabindex="0"
                           role="columnheader"
                           @click="toggleRidesSort('route')"
@@ -1366,7 +1514,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[180px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="ridesSortAria('date')"
                           tabindex="0"
                           role="columnheader"
@@ -1380,7 +1528,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[140px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="ridesSortAria('status')"
                           tabindex="0"
                           role="columnheader"
@@ -1394,7 +1542,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[120px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="ridesSortAria('amount')"
                           tabindex="0"
                           role="columnheader"
@@ -1407,7 +1555,7 @@ onUnmounted(() => {
                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                           </span>
                         </th>
-                        <th class="min-w-[80px] text-center">Acties</th>
+                        <th class="taxi-portal-col-actions text-center">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1428,13 +1576,13 @@ onUnmounted(() => {
                           </div>
                           <span v-else>{{ r.route || '—' }}</span>
                         </td>
-                        <td data-label="Datum">{{ r.at }}</td>
-                        <td data-label="Status">
+                        <td class="taxi-portal-col-meta" data-label="Datum">{{ r.at }}</td>
+                        <td class="taxi-portal-col-meta" data-label="Status">
                           <span class="kt-badge" :class="rideBadgeClass(r.status_badge)">
                             {{ r.status_label }}
                           </span>
                         </td>
-                        <td class="tabular-nums" data-label="Bedrag">{{ r.amount }}</td>
+                        <td class="tabular-nums taxi-portal-col-meta" data-label="Bedrag">{{ r.amount }}</td>
                         <td class="text-center align-middle taxi-portal-table-actions" data-label="">
                           <div class="inline-flex items-center justify-center">
                             <button
@@ -1524,12 +1672,74 @@ onUnmounted(() => {
                   Er zijn nog geen facturen voor jouw ritten.
                 </p>
                 <template v-else>
-                <div class="taxi-portal-table-wrap kt-scrollable-x-auto">
-                  <table class="kt-table table-auto kt-table-border taxi-portal-responsive-table">
+                  <div class="taxi-portal-datatable-toolbar">
+                    <p class="taxi-portal-datatable-count">
+                      {{ invoicesTotalFiltered }} {{ invoicesTotalFiltered === 1 ? 'factuur' : 'facturen' }}
+                      <span v-if="invoicesHasActiveFilters">gevonden</span>
+                    </p>
+                    <div class="taxi-portal-datatable-filters">
+                      <label class="taxi-portal-datatable-search">
+                        <span class="sr-only">Zoeken in facturen</span>
+                        <span class="taxi-portal-datatable-search-inner">
+                          <i class="ki-filled ki-magnifier" aria-hidden="true"></i>
+                          <input
+                            v-model="invoicesSearchQuery"
+                            class="taxi-portal-datatable-input"
+                            type="search"
+                            placeholder="Zoeken…"
+                            autocomplete="off"
+                          />
+                        </span>
+                      </label>
+                      <select
+                        v-model="invoicesStatusFilter"
+                        class="taxi-portal-datatable-select taxi-portal-datatable-field-status"
+                        aria-label="Filter op status"
+                      >
+                        <option value="">Alle statussen</option>
+                        <option v-for="opt in invoiceStatusOptions" :key="opt.value" :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                      <input
+                        v-model="invoicesAmountMin"
+                        class="taxi-portal-datatable-input taxi-portal-datatable-field-amount"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="Min €"
+                        aria-label="Minimum bedrag"
+                      />
+                      <input
+                        v-model="invoicesAmountMax"
+                        class="taxi-portal-datatable-input taxi-portal-datatable-field-amount"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="Max €"
+                        aria-label="Maximum bedrag"
+                      />
+                      <button
+                        v-if="invoicesHasActiveFilters"
+                        type="button"
+                        class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-datatable-reset"
+                        title="Filters resetten"
+                        aria-label="Filters resetten"
+                        @click="resetInvoicesFilters"
+                      >
+                        <i class="ki-filled ki-arrows-circle"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <p v-if="invoicesTotalFiltered === 0" class="text-sm text-muted-foreground">
+                    Geen facturen gevonden voor deze filters.
+                  </p>
+
+                  <div v-else class="taxi-portal-table-wrap kt-scrollable-x-auto">
+                  <table class="kt-table table-auto w-full kt-table-border taxi-portal-responsive-table">
                     <thead>
                       <tr>
                         <th
-                          class="taxi-portal-th-sort min-w-[160px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="invoicesSortAria('invoice_number')"
                           tabindex="0"
                           role="columnheader"
@@ -1543,7 +1753,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[220px]"
+                          class="taxi-portal-th-sort taxi-portal-col-route"
                           :aria-sort="invoicesSortAria('route')"
                           tabindex="0"
                           role="columnheader"
@@ -1557,7 +1767,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[120px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="invoicesSortAria('date')"
                           tabindex="0"
                           role="columnheader"
@@ -1571,7 +1781,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[120px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="invoicesSortAria('status')"
                           tabindex="0"
                           role="columnheader"
@@ -1585,7 +1795,7 @@ onUnmounted(() => {
                           </span>
                         </th>
                         <th
-                          class="taxi-portal-th-sort min-w-[120px]"
+                          class="taxi-portal-th-sort taxi-portal-col-meta"
                           :aria-sort="invoicesSortAria('amount')"
                           tabindex="0"
                           role="columnheader"
@@ -1598,12 +1808,12 @@ onUnmounted(() => {
                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                           </span>
                         </th>
-                        <th class="min-w-[80px] text-center">Acties</th>
+                        <th class="taxi-portal-col-actions text-center">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="inv in paginatedInvoices" :key="inv.id">
-                        <td class="font-medium whitespace-nowrap min-w-[160px]" data-label="Factuurnr.">{{ inv.invoice_number }}</td>
+                        <td class="font-medium taxi-portal-col-meta" data-label="Factuurnr.">{{ inv.invoice_number }}</td>
                         <td
                           class="align-top whitespace-normal leading-snug taxi-portal-table-route"
                           data-label="Rit"
@@ -1622,13 +1832,13 @@ onUnmounted(() => {
                             {{ inv.route || (inv.ride_id ? 'Rit #' + inv.ride_id : '—') }}
                           </template>
                         </td>
-                        <td data-label="Datum">{{ inv.date }}</td>
-                        <td data-label="Status">
+                        <td class="taxi-portal-col-meta" data-label="Datum">{{ inv.date }}</td>
+                        <td class="taxi-portal-col-meta" data-label="Status">
                           <span class="kt-badge" :class="rideBadgeClass(inv.status_badge)">
                             {{ inv.status_label }}
                           </span>
                         </td>
-                        <td class="tabular-nums" data-label="Bedrag">{{ inv.amount }}</td>
+                        <td class="tabular-nums taxi-portal-col-meta" data-label="Bedrag">{{ inv.amount }}</td>
                         <td class="text-center align-middle taxi-portal-table-actions" data-label="">
                           <div class="inline-flex items-center justify-center">
                             <a
@@ -1698,7 +1908,7 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <span class="admin-datatable-footer__info">
-                    {{ invoicesPageRangeStart }}-{{ invoicesPageRangeEnd }} van {{ invoicesTotal }}
+                    {{ invoicesPageRangeStart }}-{{ invoicesPageRangeEnd }} van {{ invoicesTotalFiltered }}
                   </span>
                 </div>
                 </template>
@@ -1707,8 +1917,19 @@ onUnmounted(() => {
 
             <!-- Profile -->
             <section v-else-if="tab === 'profile'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
-              <div class="kt-card-header">
+              <div class="kt-card-header flex items-center justify-between gap-3">
                 <h3 class="kt-card-title">Mijn gegevens</h3>
+                <button
+                  v-if="!profileEditing"
+                  type="button"
+                  class="kt-btn kt-btn-icon kt-btn-ghost shrink-0"
+                  title="Bewerken"
+                  aria-label="Gegevens bewerken"
+                  :disabled="profileLoading"
+                  @click="startProfileEdit"
+                >
+                  <i class="ki-filled ki-pencil"></i>
+                </button>
               </div>
               <div class="kt-card-content min-w-0">
                 <p v-if="profileLoading && !profileLoaded" class="text-sm text-muted-foreground mb-4">Gegevens laden…</p>
@@ -1722,26 +1943,35 @@ onUnmounted(() => {
                   <div class="taxi-portal-profile-field min-w-0">
                     <label class="taxi-portal-profile-label" for="taxi-portal-first_name">Voornaam</label>
                     <input
+                      v-if="profileEditing"
                       id="taxi-portal-first_name"
                       v-model="profile.first_name"
                       class="taxi-portal-profile-input"
                       type="text"
                       autocomplete="given-name"
                     />
+                    <p v-else class="taxi-portal-profile-value" :class="{ 'is-empty': displayProfileValue(profile.first_name) === '—' }">
+                      {{ displayProfileValue(profile.first_name) }}
+                    </p>
                   </div>
                   <div class="taxi-portal-profile-field min-w-0">
                     <label class="taxi-portal-profile-label" for="taxi-portal-last_name">Achternaam</label>
                     <input
+                      v-if="profileEditing"
                       id="taxi-portal-last_name"
                       v-model="profile.last_name"
                       class="taxi-portal-profile-input"
                       type="text"
                       autocomplete="family-name"
                     />
+                    <p v-else class="taxi-portal-profile-value" :class="{ 'is-empty': displayProfileValue(profile.last_name) === '—' }">
+                      {{ displayProfileValue(profile.last_name) }}
+                    </p>
                   </div>
                   <div class="taxi-portal-profile-field min-w-0">
                     <label class="taxi-portal-profile-label" for="taxi-portal-email">E-mail</label>
                     <input
+                      v-if="profileEditing"
                       id="taxi-portal-email"
                       v-model="profile.email"
                       class="taxi-portal-profile-input opacity-80"
@@ -1750,10 +1980,14 @@ onUnmounted(() => {
                       inputmode="email"
                       readonly
                     />
+                    <p v-else class="taxi-portal-profile-value" :class="{ 'is-empty': displayProfileValue(profile.email) === '—' }">
+                      {{ displayProfileValue(profile.email) }}
+                    </p>
                   </div>
                   <div class="taxi-portal-profile-field min-w-0">
                     <label class="taxi-portal-profile-label" for="taxi-portal-phone">Telefoon</label>
                     <input
+                      v-if="profileEditing"
                       id="taxi-portal-phone"
                       v-model="profile.phone"
                       class="taxi-portal-profile-input"
@@ -1761,10 +1995,21 @@ onUnmounted(() => {
                       autocomplete="tel"
                       inputmode="tel"
                     />
+                    <p v-else class="taxi-portal-profile-value" :class="{ 'is-empty': displayProfileValue(profile.phone) === '—' }">
+                      {{ displayProfileValue(profile.phone) }}
+                    </p>
                   </div>
                 </div>
               </div>
-              <div class="kt-card-footer flex justify-center">
+              <div v-if="profileEditing" class="kt-card-footer flex justify-end gap-2">
+                <button
+                  class="kt-btn kt-btn-outline"
+                  type="button"
+                  :disabled="profileSaving"
+                  @click="cancelProfileEdit"
+                >
+                  Annuleren
+                </button>
                 <button
                   class="kt-btn kt-btn-primary px-8 justify-center shrink-0"
                   type="button"
@@ -1780,8 +2025,18 @@ onUnmounted(() => {
               v-if="tab === 'profile'"
               class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600 mt-5"
             >
-              <div class="kt-card-header">
+              <div class="kt-card-header flex items-center justify-between gap-3">
                 <h3 class="kt-card-title">Wachtwoord wijzigen</h3>
+                <button
+                  v-if="!passwordEditing"
+                  type="button"
+                  class="kt-btn kt-btn-icon kt-btn-ghost shrink-0"
+                  title="Bewerken"
+                  aria-label="Wachtwoord wijzigen"
+                  @click="startPasswordEdit"
+                >
+                  <i class="ki-filled ki-pencil"></i>
+                </button>
               </div>
               <div class="kt-card-content min-w-0">
                 <div v-if="passwordError" class="kt-alert kt-alert-danger mb-4" role="alert">
@@ -1790,43 +2045,56 @@ onUnmounted(() => {
                 <div v-if="passwordSuccess" class="kt-alert kt-alert-success mb-4" role="alert">
                   <div class="kt-alert-description">{{ passwordSuccess }}</div>
                 </div>
-                <div class="taxi-portal-profile-form grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-x-6 md:gap-y-5">
-                  <div class="taxi-portal-profile-field min-w-0 md:col-span-2">
-                    <label class="taxi-portal-profile-label" for="taxi-portal-current_password">Huidig wachtwoord</label>
-                    <input
-                      id="taxi-portal-current_password"
-                      v-model="passwordForm.current_password"
-                      class="taxi-portal-profile-input"
-                      type="password"
-                      autocomplete="current-password"
-                    />
+                <template v-if="passwordEditing">
+                  <div class="taxi-portal-profile-form grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-x-6 md:gap-y-5">
+                    <div class="taxi-portal-profile-field min-w-0 md:col-span-2">
+                      <label class="taxi-portal-profile-label" for="taxi-portal-current_password">Huidig wachtwoord</label>
+                      <input
+                        id="taxi-portal-current_password"
+                        v-model="passwordForm.current_password"
+                        class="taxi-portal-profile-input"
+                        type="password"
+                        autocomplete="current-password"
+                      />
+                    </div>
+                    <div class="taxi-portal-profile-field min-w-0">
+                      <label class="taxi-portal-profile-label" for="taxi-portal-password">Nieuw wachtwoord</label>
+                      <input
+                        id="taxi-portal-password"
+                        v-model="passwordForm.password"
+                        class="taxi-portal-profile-input"
+                        type="password"
+                        autocomplete="new-password"
+                      />
+                    </div>
+                    <div class="taxi-portal-profile-field min-w-0">
+                      <label class="taxi-portal-profile-label" for="taxi-portal-password_confirmation">Herhaal nieuw wachtwoord</label>
+                      <input
+                        id="taxi-portal-password_confirmation"
+                        v-model="passwordForm.password_confirmation"
+                        class="taxi-portal-profile-input"
+                        type="password"
+                        autocomplete="new-password"
+                      />
+                    </div>
                   </div>
-                  <div class="taxi-portal-profile-field min-w-0">
-                    <label class="taxi-portal-profile-label" for="taxi-portal-password">Nieuw wachtwoord</label>
-                    <input
-                      id="taxi-portal-password"
-                      v-model="passwordForm.password"
-                      class="taxi-portal-profile-input"
-                      type="password"
-                      autocomplete="new-password"
-                    />
-                  </div>
-                  <div class="taxi-portal-profile-field min-w-0">
-                    <label class="taxi-portal-profile-label" for="taxi-portal-password_confirmation">Herhaal nieuw wachtwoord</label>
-                    <input
-                      id="taxi-portal-password_confirmation"
-                      v-model="passwordForm.password_confirmation"
-                      class="taxi-portal-profile-input"
-                      type="password"
-                      autocomplete="new-password"
-                    />
-                  </div>
-                </div>
-                <p class="text-xs text-muted-foreground mt-4">
-                  Minimaal 8 tekens, met hoofdletters, kleine letters, een cijfer en een speciaal teken.
+                  <p class="text-xs text-muted-foreground mt-4">
+                    Minimaal 8 tekens, met hoofdletters, kleine letters, een cijfer en een speciaal teken.
+                  </p>
+                </template>
+                <p v-else class="text-sm text-muted-foreground mb-0">
+                  Je wachtwoord is ingesteld. Klik op bewerken om het te wijzigen.
                 </p>
               </div>
-              <div class="kt-card-footer flex justify-center">
+              <div v-if="passwordEditing" class="kt-card-footer flex justify-end gap-2">
+                <button
+                  class="kt-btn kt-btn-outline"
+                  type="button"
+                  :disabled="passwordSaving"
+                  @click="cancelPasswordEdit"
+                >
+                  Annuleren
+                </button>
                 <button
                   class="kt-btn kt-btn-primary px-8 justify-center shrink-0"
                   type="button"

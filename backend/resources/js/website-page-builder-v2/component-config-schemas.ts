@@ -157,8 +157,81 @@ export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
   },
 ]
 
+const GPS_FLEET_CAR_COLOR_PRESETS = [
+  { hex: '#ea580c', label: 'Oranje' },
+  { hex: '#1d4ed8', label: 'Blauw' },
+  { hex: '#15803d', label: 'Groen' },
+  { hex: '#dc2626', label: 'Rood' },
+  { hex: '#111827', label: 'Zwart' },
+  { hex: '#9ca3af', label: 'Zilver' },
+  { hex: '#ca8a04', label: 'Geel' },
+  { hex: '#f8fafc', label: 'Wit' },
+]
+
+const GPS_FLEET_GROUP: ConfigField = {
+  type: 'group',
+  label: 'GPS-voertuigen',
+  alwaysOpen: true,
+  layout: 'row',
+  visibleWhenContext: ['gpsTracking', 'superAdmin'],
+  hint: 'Toon de taxi’s van deze tenant live op de boekingskaart. Alleen beschikbaar met de aanvullende module GPS-trackers.',
+  fields: [
+    {
+      type: 'checkbox',
+      control: 'switch',
+      key: 'logic.show_live_fleet',
+      label: 'Live voertuigen op de website',
+      hint: 'Toont alle echte GPS-locaties van de online taxi’s van dit bedrijf (vrij of bezet).',
+      visibleWhenContext: 'gpsTracking',
+    },
+    {
+      type: 'checkbox',
+      control: 'switch',
+      key: 'logic.show_live_fleet_demo',
+      label: 'Tijdelijke demo (3 voertuigen)',
+      hint: 'Alleen voor super-admin. Toont drie voorbeeldtaxi’s (vrij/bezet) zodat je de kaart kunt beoordelen zonder echte trackers.',
+      visibleWhenContext: 'superAdmin',
+    },
+    {
+      type: 'number',
+      key: 'logic.live_fleet_refresh_seconds',
+      label: 'Aantal seconden tussen positie-updates',
+      min: 1,
+      max: 30,
+      step: 1,
+      inputWidth: 'digits',
+      hint: 'Tussen 1 en 30 seconden. 1 seconde geeft de soepelste beweging op de kaart.',
+    },
+    {
+      type: 'color',
+      key: 'logic.live_fleet_car_color',
+      label: 'Kleur auto',
+      defaultValue: '#ea580c',
+      colSpan: 3,
+      presets: GPS_FLEET_CAR_COLOR_PRESETS,
+      hint: 'Kleur van de taxi’s op de boekingskaart.',
+    },
+  ],
+}
+
+function withGpsFleetGroup(schema: ConfigField[]): ConfigField[] {
+  return schema.map((field) => {
+    if (field.type !== 'group' || field.label !== 'Uiterlijk & titel') {
+      return field
+    }
+    const fields = [...field.fields]
+    const blokIndex = fields.findIndex((item) => item.type === 'group' && item.label === 'Blok')
+    if (blokIndex >= 0) {
+      fields.splice(blokIndex + 1, 0, GPS_FLEET_GROUP)
+    } else {
+      fields.push(GPS_FLEET_GROUP)
+    }
+    return { ...field, fields }
+  })
+}
+
 export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
-  ...TAXI_BOOKING_MODULE_SCHEMA,
+  ...withGpsFleetGroup(TAXI_BOOKING_MODULE_SCHEMA),
   { type: 'group', label: 'Live kaart (v2)', fields: [
     { type: 'select', key: 'style.live_map_position', label: 'Kaartpositie', options: [
       { value: 'beside_card', label: 'Rechts naast het blok' },

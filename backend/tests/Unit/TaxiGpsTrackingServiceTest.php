@@ -259,4 +259,52 @@ class TaxiGpsTrackingServiceTest extends TestCase
         $this->assertSame('van', $online['vehicles'][0]['car_style']);
         $this->assertSame('#15803d', $online['vehicles'][0]['color']);
     }
+
+    #[Test]
+    public function configured_fleet_for_demo_uses_all_active_plates(): void
+    {
+        $company = Company::query()->create(['name' => 'Demo Vloot Co', 'is_active' => true, 'package_key' => 'pro']);
+        $driver = User::factory()->create(['company_id' => $company->id, 'first_name' => 'Soraya', 'last_name' => 'El Idrissi']);
+        $first = Vehicle::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'E-Klasse',
+            'type' => 'car',
+            'license_plate' => 'G-111-AB',
+            'active' => true,
+        ]);
+        Vehicle::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'Vito',
+            'type' => 'van',
+            'license_plate' => 'H-222-CD',
+            'active' => true,
+        ]);
+        Vehicle::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'Oude bus',
+            'type' => 'bus',
+            'license_plate' => 'K-333-EF',
+            'active' => false,
+        ]);
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $first->id,
+            'is_online' => true,
+            'lat' => 52.22,
+            'lng' => 6.89,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $online = app(TaxiGpsTrackingService::class)->positions((int) $company->id, $this->conn, 'online');
+        $this->assertCount(1, $online['vehicles']);
+
+        $fleet = app(TaxiGpsTrackingService::class)->configuredFleetForDemo((int) $company->id, $this->conn);
+        $this->assertCount(2, $fleet);
+        $this->assertSame(['G-111-AB', 'H-222-CD'], array_column($fleet, 'license_plate'));
+        $this->assertSame('Soraya El Idrissi', $fleet[0]['driver_name']);
+        $this->assertSame('Vito', $fleet[1]['driver_name']);
+        $this->assertSame('vehicle-'.$first->id, $fleet[0]['id']);
+    }
 }

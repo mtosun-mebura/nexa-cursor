@@ -79,6 +79,63 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertSame('nexa', $config['module']);
         $this->assertSame('NEXA-assistent', $config['title']);
         $this->assertStringContainsString('NEXA Suite', $config['greeting']);
+        $this->assertSame('ai-chat-messages-public-nexa-central-guest', $config['storageKey']);
+    }
+
+    public function test_frontend_config_storage_key_is_unique_per_tenant(): void
+    {
+        $websiteBuilder = Mockery::mock(WebsiteBuilderService::class);
+        $websiteBuilder->shouldReceive('resolvePublicFrontendModuleName')->andReturn('taxi');
+        $service = new AiChatAssistantService($websiteBuilder);
+
+        $royaal = $service->frontendConfig('taxi', 1);
+        $tosun = $service->frontendConfig('taxi', 21);
+
+        $this->assertNotSame($royaal['storageKey'], $tosun['storageKey']);
+        $this->assertStringContainsString('-c1-', $royaal['storageKey']);
+        $this->assertStringContainsString('-c21-', $tosun['storageKey']);
+        $this->assertStringContainsString('-guest', $royaal['storageKey']);
+    }
+
+    public function test_tenant_preview_on_central_host_keeps_tenant_chat_storage(): void
+    {
+        config()->set('tenancy.central_domains', ['localhost']);
+        $this->app->instance('request', \Illuminate\Http\Request::create(
+            'http://localhost:8085/admin/website-pages/2/preview?module=taxi',
+            'GET'
+        ));
+        GeneralSetting::clearRequestCache();
+
+        $websiteBuilder = Mockery::mock(WebsiteBuilderService::class);
+        $websiteBuilder->shouldReceive('resolvePublicFrontendModuleName')->andReturn('taxi');
+        $service = new AiChatAssistantService($websiteBuilder);
+
+        $royaal = $service->frontendConfig('taxi', 1);
+        $tosun = $service->frontendConfig('taxi', 21);
+
+        $this->assertSame('taxi', $royaal['module']);
+        $this->assertSame('taxi', $tosun['module']);
+        $this->assertNotSame($royaal['storageKey'], $tosun['storageKey']);
+        $this->assertStringContainsString('-c1-', $royaal['storageKey']);
+        $this->assertStringContainsString('-c21-', $tosun['storageKey']);
+    }
+
+    public function test_chat_storage_key_is_unique_per_person_and_tenant(): void
+    {
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+
+        $this->assertNotSame(
+            $service->chatStorageKey('public', 'taxi', 1, null),
+            $service->chatStorageKey('public', 'taxi', 21, null)
+        );
+        $this->assertNotSame(
+            $service->chatStorageKey('mijn-taxi', 'taxi', 21, 10),
+            $service->chatStorageKey('mijn-taxi', 'taxi', 21, 11)
+        );
+        $this->assertSame(
+            'ai-chat-messages-admin-taxi-c1-u5',
+            $service->chatStorageKey('admin', 'taxi', 1, 5)
+        );
     }
 
     public function test_webhook_setting_key_is_normalized_per_module(): void

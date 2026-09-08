@@ -228,12 +228,17 @@ class TaxiTenantSetupService
             return;
         }
 
+        $owner = $this->notificationOwner($company, $user);
+        if ($owner === null) {
+            return;
+        }
+
         $title = 'Nexa Taxi inrichten';
         $message = $this->notificationMessage($status);
         $actionUrl = route('admin.dashboard', ['taxi_setup' => 1]);
 
         $payload = [
-            'user_id' => $user->id,
+            'user_id' => $owner->id,
             'company_id' => $company->id,
             'type' => self::NOTIFICATION_TYPE,
             'category' => 'warning',
@@ -253,27 +258,31 @@ class TaxiTenantSetupService
             ]),
         ];
 
-        // Eén notificatie is genoeg (ook als die al gelezen is). Daarna volstaat
-        // de gele banner; geen nieuwe melding bij elke page refresh.
+        // Eén melding per tenant, ook als een super-admin later inschakelt
+        // of meerdere company-admins inloggen. Geen nieuwe copy bij refresh.
         $existing = Notification::query()
-            ->where('user_id', $user->id)
             ->where('company_id', $company->id)
             ->where('type', self::NOTIFICATION_TYPE)
-            ->latest('id')
-            ->first();
+            ->orderBy('id')
+            ->get();
 
-        if ($existing) {
-            if ($existing->read_at === null) {
-                $existing->fill($payload)->save();
+        $keep = $existing->first();
+        if ($keep) {
+            $reassignFromSuperAdmin = $this->userIsSuperAdmin((int) $keep->user_id);
+            if ($keep->read_at === null) {
+                $keep->fill($payload)->save();
+            } elseif ($reassignFromSuperAdmin) {
+                $keep->user_id = $owner->id;
+                $keep->save();
             }
 
-            Notification::query()
-                ->where('user_id', $user->id)
-                ->where('company_id', $company->id)
-                ->where('type', self::NOTIFICATION_TYPE)
-                ->where('id', '!=', $existing->id)
-                ->whereNull('read_at')
-                ->update(['read_at' => now()]);
+            if ($existing->count() > 1) {
+                Notification::query()
+                    ->where('company_id', $company->id)
+                    ->where('type', self::NOTIFICATION_TYPE)
+                    ->where('id', '!=', $keep->id)
+                    ->delete();
+            }
 
             return;
         }
@@ -284,11 +293,44 @@ class TaxiTenantSetupService
     public function clearNotification(User $user, Company $company): void
     {
         Notification::query()
-            ->where('user_id', $user->id)
             ->where('company_id', $company->id)
             ->where('type', self::NOTIFICATION_TYPE)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+    }
+
+    /**
+     * Tenant-gebruikers die de inrichtingsmelding mogen ontvangen (geen super-admins).
+     *
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    public function tenantRecipients(Company $company): \Illuminate\Support\Collection
+    {
+        return User::query()
+            ->where('company_id', $company->id)
+            ->orderBy('id')
+            ->get()
+            ->reject(fn (User $candidate) => $this->userIsSuperAdmin((int) $candidate->id))
+            ->values();
+    }
+
+    private function notificationOwner(Company $company, User $actor): ?User
+    {
+        $recipients = $this->tenantRecipients($company);
+        if ($recipients->isEmpty()) {
+            return null;
+        }
+
+        $preferred = $recipients->firstWhere('id', $actor->id);
+
+        return $preferred instanceof User ? $preferred : $recipients->first();
+    }
+
+    private function userIsSuperAdmin(int $userId): bool
+    {
+        $candidate = User::query()->find($userId);
+
+        return $candidate !== null && ($candidate->isSuperAdmin() || $candidate->hasRole('super-admin'));
     }
 
     /**

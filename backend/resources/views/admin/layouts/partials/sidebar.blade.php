@@ -64,7 +64,7 @@
                 </span>
                 <i class="ki-filled ki-down text-xs ms-2"></i>
             </button>
-            <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
+            <div class="kt-dropdown-menu tenant-switcher-menu w-[250px]" data-kt-dropdown-menu="true">
                 <a href="#"
                    onclick="event.preventDefault(); switchTenant('');"
                    class="kt-dropdown-menu-link {{ !$selectedTenant ? 'kt-menu-item-active' : '' }}">
@@ -174,7 +174,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Bedrijven
+                            {{ auth()->user()?->isSuperAdmin() ? 'Bedrijven' : 'Bedrijf' }}
                         </span>
                     </a>
                 </div>
@@ -749,7 +749,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
+                @if(auth()->user()?->canManageCompanySubscription())
                 <div class="kt-menu-item {{ request()->routeIs('admin.subscriptions.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" href="{{ route('admin.subscriptions.show') }}">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
@@ -760,6 +760,8 @@
                         </span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" href="{{ route('admin.tenant-customer-invoices.index') }}">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
@@ -1018,6 +1020,40 @@
         height: 34px;
         align-items: center;
         justify-content: center;
+    }
+    .tenant-switcher-menu {
+        max-height: min(70vh, calc(100vh - 8rem));
+        overflow-y: auto;
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #e2e8f0;
+    }
+    html.dark .tenant-switcher-menu,
+    .dark .tenant-switcher-menu {
+        background-color: #1c2430;
+        border-color: #334155;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+        scrollbar-color: #64748b transparent;
+    }
+    .tenant-switcher-menu::-webkit-scrollbar {
+        width: 8px;
+    }
+    .tenant-switcher-menu::-webkit-scrollbar-track {
+        background: #e2e8f0;
+    }
+    .tenant-switcher-menu::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+    }
+    html.dark .tenant-switcher-menu::-webkit-scrollbar-track,
+    .dark .tenant-switcher-menu::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    html.dark .tenant-switcher-menu::-webkit-scrollbar-thumb,
+    .dark .tenant-switcher-menu::-webkit-scrollbar-thumb {
+        background: #64748b;
     }
 </style>
 

@@ -160,6 +160,7 @@
                 'homeSections' => $layoutHomeSections,
                 'branding' => $layoutBranding,
                 'themeSettings' => $layoutThemeSettings,
+                'page' => $page ?? null,
             ])
         @else
             @include('frontend.layouts.partials.footer', ['branding' => $layoutBranding])

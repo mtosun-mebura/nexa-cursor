@@ -85,7 +85,7 @@
                         <tr data-billing-field-row="package">
                             <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
                             <td>
-                                @php $addonLines = $profile->packageAddonLines(); @endphp
+                                @php $addonLines = $profile->packageAddonLines(now(), false); @endphp
                                 @if($addonLines === [])
                                     <p class="text-sm text-muted-foreground mb-0">Geen aanvullende modules. Stel ze in bij <a href="{{ route('admin.companies.edit', $company) }}" class="underline underline-offset-2">Bedrijf bewerken</a>.</p>
                                 @else
@@ -93,12 +93,15 @@
                                         @foreach($addonLines as $addonLine)
                                             <div class="flex flex-wrap items-center justify-between gap-2 border border-border rounded-lg px-3 py-2.5">
                                                 <div class="min-w-0">
-                                                    <div class="text-sm font-medium text-foreground">{{ $addonLine['name'] }}</div>
-                                                    @if((int) $addonLine['quantity'] > 1)
-                                                        <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ (int) $addonLine['quantity'] }} × € {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
-                                                    @else
-                                                        <p class="text-xs text-muted-foreground mt-0.5 mb-0">€ {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
-                                                    @endif
+                                            <div class="text-sm font-medium text-foreground">{{ $addonLine['name'] }}</div>
+                                            @if((int) $addonLine['quantity'] > 1)
+                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ (int) $addonLine['quantity'] }} × € {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
+                                            @else
+                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">€ {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
+                                            @endif
+                                            @if(! empty($addonLine['starts_at']) && (int) ($addonLine['quantity'] ?? 0) > 0)
+                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">Ingang {{ \Carbon\Carbon::parse($addonLine['starts_at'])->translatedFormat('j F Y') }}</p>
+                                            @endif
                                                 </div>
                                                 <span class="text-sm font-medium tabular-nums text-foreground">€ {{ number_format((float) $addonLine['total'], 2, ',', '.') }}</span>
                                             </div>

@@ -568,6 +568,7 @@
         'homeSections' => $homeSections,
         'branding' => $branding,
         'themeSettings' => $themeSettings ?? [],
+        'page' => $page ?? null,
     ])
 
 

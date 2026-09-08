@@ -340,9 +340,9 @@ Route::get('/jobs/{job}', fn () => redirect()->route('home'))->name('jobs.show')
 
 // Admin Authentication Routes (without admin middleware)
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
-Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
-Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:8,1')->name('admin.login.first-code');
-Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:8,1')->name('admin.login.first-verify');
+Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login')->name('admin.login.post');
+Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-code');
+Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-verify');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 Route::get('/admin/manifest.webmanifest', App\Http\Controllers\Admin\AdminWebManifestController::class)->name('admin.manifest');
 
@@ -397,6 +397,12 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('abonnementen/opzeggen', [AdminCompanySubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
     Route::post('abonnementen/proef-stoppen', [AdminCompanySubscriptionController::class, 'endTrial'])->name('subscriptions.end-trial');
     Route::post('abonnementen/intrekken', [AdminCompanySubscriptionController::class, 'withdraw'])->name('subscriptions.withdraw');
+    Route::post('abonnementen/modules/{addon}/opzeggen', [AdminCompanySubscriptionController::class, 'cancelAddon'])
+        ->where('addon', 'extra_clients|gps_tracking|vloot')
+        ->name('subscriptions.addons.cancel');
+    Route::post('abonnementen/modules/{addon}/intrekken', [AdminCompanySubscriptionController::class, 'withdrawAddon'])
+        ->where('addon', 'extra_clients|gps_tracking|vloot')
+        ->name('subscriptions.addons.withdraw');
 
     Route::get('email-communicatie', [AdminTenantCustomerEmailController::class, 'index'])->name('customer-emails.index');
     Route::get('email-communicatie/{customerEmail}/voorbeeld', [AdminTenantCustomerEmailController::class, 'preview'])->name('customer-emails.preview');
@@ -821,6 +827,9 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::post('settings/remove-logo-light', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
         Route::post('settings/remove-logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');
         Route::post('settings/upload-favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadFavicon'])->name('settings.upload-favicon');
+        Route::post('settings/upload-nexa-suite-avatar', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadNexaSuiteAvatar'])->name('settings.upload-nexa-suite-avatar');
+        Route::post('settings/remove-nexa-suite-avatar', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeNexaSuiteAvatar'])->name('settings.remove-nexa-suite-avatar');
+        Route::get('settings/nexa-suite-avatar', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getNexaSuiteAvatar'])->name('settings.nexa-suite-avatar');
         Route::post('settings/logo-size', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateLogoSize'])->name('settings.logo-size.update');
         Route::get('settings/logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogo'])->name('settings.logo');
         Route::get('settings/logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogoDark'])->name('settings.logo-dark');
@@ -876,6 +885,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('website-pages/generate-section-image', [AdminWebsitePageController::class, 'generateSectionImage'])->name('website-pages.generate-section-image');
     Route::post('website-pages/generate-seo-all', [AdminWebsitePageController::class, 'generateSeoForAllPages'])->name('website-pages.generate-seo-all');
     Route::post('website-pages/set-listed-active', [AdminWebsitePageController::class, 'setListedPagesActive'])->name('website-pages.set-listed-active');
+    Route::post('website-pages/logo-size', [AdminWebsitePageController::class, 'updateWebsiteLogoSize'])->name('website-pages.logo-size.update');
     Route::get('website-pages/{website_page}/preview', [AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
     Route::get('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
     Route::put('website-pages/{website_page}/builder-v2', [AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
@@ -1160,7 +1170,7 @@ Route::get('/terms', function () {
 Route::prefix('nexa-taxi/booking')->group(function () {
     Route::get('address-search', [NexaTaxiBookingController::class, 'addressSearch'])->name('nexataxi.booking.address-search');
     Route::get('nearby-taxis', [NexaTaxiBookingController::class, 'nearbyTaxis'])
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:booking-nearby-taxis')
         ->name('nexataxi.booking.nearby-taxis');
     Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
     Route::get('pending', [NexaTaxiBookingController::class, 'pending'])->name('nexataxi.booking.pending');

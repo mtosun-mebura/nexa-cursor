@@ -204,6 +204,7 @@
                             minlength="1"
                             @error('house_number') data-server-error="1" @enderror>
                         <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld worden straat en plaats automatisch ingevuld.</div>
+                        @include('admin.partials.postcode-lookup-status', ['id' => 'wizard_house_number_lookup_loading'])
                         @error('house_number')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="house_number">{{ $message }}</div>@enderror
                     </td>
                 </tr>
@@ -220,10 +221,6 @@
                             minlength="2"
                             maxlength="255"
                             @error('street') data-server-error="1" @enderror>
-                        <div id="wizard_street_lookup_loading" class="hidden items-center gap-2 text-xs text-muted-foreground mt-1.5" role="status" aria-live="polite" aria-busy="false">
-                            <span class="wizard-postcode-spinner shrink-0" aria-hidden="true"></span>
-                            <span class="wizard-street-loading-label">Adres zoeken…</span>
-                        </div>
                         <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.</div>
                         @error('street')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="street">{{ $message }}</div>@enderror
                     </td>
@@ -372,28 +369,7 @@
     </div>
 </form>
 
-<style>
-    @keyframes wizard-postcode-spin {
-        to { transform: rotate(360deg); }
-    }
-    .wizard-postcode-spinner {
-        display: inline-block;
-        width: 1rem;
-        height: 1rem;
-        border: 2px solid var(--border, #e5e7eb);
-        border-top-color: var(--primary, #3b82f6);
-        border-radius: 9999px;
-        animation: wizard-postcode-spin 0.65s linear infinite;
-    }
-    .dark .wizard-postcode-spinner {
-        border-color: rgba(255, 255, 255, 0.2);
-        border-top-color: var(--primary, #60a5fa);
-    }
-    #wizard_street_lookup_loading:not(.hidden) {
-        display: flex;
-    }
-</style>
-
+<script src="{{ asset('js/admin-postcode-lookup.js') }}"></script>
 <script>
 document.getElementById('branch_select')?.addEventListener('change', function() {
     const custom = document.getElementById('industry_custom');
@@ -426,74 +402,17 @@ document.getElementById('branch_select')?.addEventListener('change', function() 
     }
 })();
 
-(function() {
-    var postalCodeInput = document.getElementById('wizard_postal_code');
-    var houseNumberInput = document.getElementById('wizard_house_number');
-    var streetInput = document.getElementById('wizard_street');
-    var cityInput = document.getElementById('wizard_city');
-    var countryInput = document.getElementById('wizard_country');
-    if (!postalCodeInput || !houseNumberInput || !streetInput || !cityInput) return;
-    var csrf = document.querySelector('meta[name="csrf-token"]');
-    if (!csrf) return;
-
-    var lookupTimeout;
-    var streetLoadingEl = document.getElementById('wizard_street_lookup_loading');
-
-    function setStreetLookupLoading(on) {
-        if (!streetLoadingEl) return;
-        streetLoadingEl.classList.toggle('hidden', !on);
-        streetLoadingEl.setAttribute('aria-busy', on ? 'true' : 'false');
-    }
-
-    function lookupContactAddress() {
-        clearTimeout(lookupTimeout);
-        setStreetLookupLoading(false);
-
-        var postcode = postalCodeInput.value.trim().toUpperCase().replace(/\s+/g, '');
-        var huisnummer = houseNumberInput.value.trim();
-        if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode) || !huisnummer) return;
-
-        lookupTimeout = setTimeout(function() {
-            setStreetLookupLoading(true);
-            fetch(@json(route('admin.postcode.lookup')), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrf.getAttribute('content')
-                },
-                body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    streetInput.value = data.street || '';
-                    cityInput.value = data.city || '';
-                    if (countryInput) countryInput.value = data.country || 'Nederland';
-                    streetInput.setAttribute('readonly', 'readonly');
-                    cityInput.setAttribute('readonly', 'readonly');
-                    if (countryInput) countryInput.setAttribute('readonly', 'readonly');
-                    streetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-                } else {
-                    streetInput.removeAttribute('readonly');
-                    cityInput.removeAttribute('readonly');
-                    if (countryInput) countryInput.removeAttribute('readonly');
-                }
-            })
-            .catch(function() {
-                streetInput.removeAttribute('readonly');
-                cityInput.removeAttribute('readonly');
-                if (countryInput) countryInput.removeAttribute('readonly');
-            })
-            .finally(function() {
-                setStreetLookupLoading(false);
-            });
-        }, 300);
-    }
-
-    postalCodeInput.addEventListener('blur', lookupContactAddress);
-    houseNumberInput.addEventListener('blur', lookupContactAddress);
-})();
+if (typeof window.bindAdminPostcodeLookup === 'function') {
+    window.bindAdminPostcodeLookup({
+        postcode: 'wizard_postal_code',
+        huisnummer: 'wizard_house_number',
+        street: 'wizard_street',
+        city: 'wizard_city',
+        country: 'wizard_country',
+        loading: ['wizard_house_number_lookup_loading'],
+        url: @json(route('admin.postcode.lookup'))
+    });
+}
 </script>
 
 @push('scripts')

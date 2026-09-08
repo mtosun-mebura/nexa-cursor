@@ -1,6 +1,9 @@
 <p>
-    Onder <strong>Abonnementen</strong> ziet u uw huidige pakket, de prijs en of u kunt
-    upgraden, later downgraden of opzeggen. De eerste contracttermijn is twaalf maanden.
+    Onder <strong>Abonnementen</strong> ziet u uw huidige pakket, de prijs, de aanvullende modules
+    (GPS-trackers, extra contractklanten, Vloot) en of u kunt upgraden, later downgraden of opzeggen.
+    Alleen de bedrijfsbeheerder (company-admin) ziet dit menu. Andere rollen binnen het bedrijf niet.
+    De eerste contracttermijn is twaalf maanden. Een aanvullende module opzeggen kan tijdens de
+    proefperiode kosteloos; daarna per de 1e van volgende maand.
 </p>
 
 <x-admin.handleiding-screenshot caption="Abonnement: huidig pakket, prijs en acties." title="Nexa — Abonnementen">

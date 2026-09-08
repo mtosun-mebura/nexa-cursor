@@ -35,13 +35,39 @@ class CompanyPackageEntitlementTest extends TestCase
             ->assertSee('name="package_key"', false)
             ->assertSee('Start (start)', false)
             ->assertSee('Pro (pro)', false)
-            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::EXTRA_CLIENTS.']"', false)
-            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::GPS_TRACKING.']"', false)
-            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::FLEET.']"', false)
+            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::EXTRA_CLIENTS.'][quantity]"', false)
+            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::GPS_TRACKING.'][quantity]"', false)
+            ->assertSee('name="package_addons['.\App\Support\TenantPackageAddon::FLEET.'][quantity]"', false)
+            ->assertSee('Ingangsdatum', false)
+            ->assertSee('1e volgende maand', false)
             ->assertSee('Stappenplan', false)
             ->assertSee('Klik een stap om die onderdelen te bewerken', false)
             ->assertSee(route('admin.companies.wizard.step', [$company, 9]), false)
             ->assertSee('Integraties', false);
+    }
+
+    #[Test]
+    public function company_edit_hides_addon_start_dates_during_trial(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Proef Bedrijf',
+            'is_active' => true,
+            'package_key' => 'business',
+        ]);
+        app(\App\Services\PlatformBilling\TenantSubscriptionService::class)->ensureProfile($company);
+        $company->billingProfile->update([
+            'trial_started_at' => now()->toDateString(),
+            'trial_ends_at' => now()->addMonth()->toDateString(),
+            'subscription_start_date' => now()->addMonth()->toDateString(),
+        ]);
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.companies.edit', $company))
+            ->assertOk()
+            ->assertSee('Tijdens de proefperiode zijn alle aanvullende modules te gebruiken', false)
+            ->assertDontSee('Ingangsdatum', false);
     }
 
     #[Test]

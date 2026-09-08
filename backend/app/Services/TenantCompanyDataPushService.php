@@ -23,7 +23,9 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Push van één tenant: alle rijen op tabellen met kolom company_id + de companies-rij zelf.
+ * Push van één tenant: alle rijen op tabellen met kolom company_id + de companies-rij zelf
+ * (inclusief package_key en package_addons), plus globale catalogi (permissions, pakketten/prijzen)
+ * en tenant-koppelingen (rollen/rechten, facturatieprofiel, extra regels).
  * Geen bron-primary keys overnemen: nieuwe id's op doel, met remapping van FK's tussen deze tabellen.
  * Bij unieke constraint: rij overslaan (add-only); company match op slug om bestaande tenant te hergebruiken.
  */
@@ -61,8 +63,12 @@ final class TenantCompanyDataPushService
      *     prerequisite_tables: list<string>,
      *     taxi_module_tables: list<string>,
      *     payment_company_scoped_tables: list<string>,
+     *     package_catalog_tables: list<string>,
+     *     post_sync_tables: list<string>,
+     *     global_general_setting_keys: list<string>,
      *     ai_chat_tables: list<string>,
      *     ai_chat_settings_note: string,
+     *     package_and_roles_note: string,
      *     excluded_tables: list<string>,
      *     driver: string
      * }
@@ -82,18 +88,35 @@ final class TenantCompanyDataPushService
             }
         }
 
+        $packageCatalog = array_values(array_filter(
+            ['permissions', 'platform_billing_packages', 'platform_billing_line_items'],
+            fn (string $t) => Schema::connection($connection)->hasTable($t)
+        ));
+        $postSync = config('tenant_sync.post_sync_tables', []);
+        $postSyncTables = is_array($postSync)
+            ? array_values(array_filter($postSync, fn ($t) => is_string($t) && $t !== ''))
+            : [];
+        $globalKeys = config('tenant_sync.global_general_setting_keys', []);
+        $globalSettingKeys = is_array($globalKeys)
+            ? array_values(array_filter($globalKeys, fn ($k) => is_string($k) && $k !== ''))
+            : [];
+
         return [
-            'company_row' => 'companies (één rij per tenant; op doel hergebruikt op slug of nieuw id)',
+            'company_row' => 'companies (één rij per tenant; op doel hergebruikt op slug of nieuw id; inclusief package_key en package_addons)',
             'tables_with_company_id' => $tables,
             'prerequisite_tables' => $this->discoverPrerequisiteTables($connection, $tables),
             'taxi_module_tables' => $this->taxiModuleSyncTableNames(),
             'payment_company_scoped_tables' => $paymentTables,
+            'package_catalog_tables' => $packageCatalog,
+            'post_sync_tables' => $postSyncTables,
+            'global_general_setting_keys' => $globalSettingKeys,
             'ai_chat_tables' => array_values(array_filter(
                 ['ai_chat_audit_logs'],
                 fn (string $t) => in_array($t, $tables, true)
             )),
             'company_domains_note' => 'company_domains (expliciet) + impliciete subdomeinen {slug}.{tenant_parent_domain} op doel.',
             'ai_chat_settings_note' => 'Per tenant via general_settings (company_id): ai_chat_enabled, ai_chat_webhook_*, ai_chat_{module}_* (teksten). Taxi RAG: knowledge_documents/chunks in taxi_module_tables.',
+            'package_and_roles_note' => 'Paketten/prijzen: nexa_pricing + platform_billing_packages/line_items. Tenant-afname: companies.package_key/package_addons, company_billing_profiles en extra regels. Rollen/rechten: roles, permissions, role_has_permissions, model_has_roles, model_has_permissions.',
             'excluded_tables' => array_values(config('tenant_sync.excluded_tables', [])),
             'driver' => $driver,
         ];
@@ -322,6 +345,7 @@ final class TenantCompanyDataPushService
                     $idMaps
                 );
                 $inserted += $preStats['inserted'];
+                $updated += (int) ($preStats['updated'] ?? 0);
                 $skipped += $preStats['skipped'];
                 foreach ($prerequisiteTables as $preTable) {
                     $stats = $preStats['tables'][$preTable] ?? ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
@@ -335,8 +359,9 @@ final class TenantCompanyDataPushService
                 }
             }
 
-            // Modules kunnen op doel al bestaan met andere IDs; vul idMaps altijd via name.
+            // Modules/catalogi kunnen op doel al bestaan met andere IDs; vul idMaps via natuurlijke sleutel.
             $this->ensureModulesIdMapByName($sourceConn, $targetConn, $idMaps);
+            $this->ensureCatalogIdMapsByNaturalKey($sourceConn, $targetConn, $idMaps);
 
             foreach ($this->ensureInstalledModuleSchemasOnSyncTarget($sourceConn) as $schemaMessage) {
                 $this->recordModuleSchemaMessage($schemaMessage);
@@ -504,17 +529,30 @@ final class TenantCompanyDataPushService
                         $remoteCompanyId,
                         $idMaps
                     );
-                    $inserted += $postResult['inserted'];
-                    $skipped += $postResult['skipped'];
+                    $inserted += (int) ($postResult['inserted'] ?? 0);
+                    $updated += (int) ($postResult['updated'] ?? 0);
+                    $skipped += (int) ($postResult['skipped'] ?? 0);
                     $report->addRow(
                         'Overig',
                         $postTable,
                         (int) ($postResult['inserted'] ?? 0),
-                        0,
+                        (int) ($postResult['updated'] ?? 0),
                         (int) ($postResult['skipped'] ?? 0)
                     );
                 }
             }
+
+            $pricingStats = $this->pushCentralNexaPricingSetting($sourceConn, $targetConn);
+            $inserted += (int) ($pricingStats['inserted'] ?? 0);
+            $updated += (int) ($pricingStats['updated'] ?? 0);
+            $skipped += (int) ($pricingStats['skipped'] ?? 0);
+            $report->addRow(
+                'Paketten en prijzen',
+                'general_settings (nexa_pricing)',
+                (int) ($pricingStats['inserted'] ?? 0),
+                (int) ($pricingStats['updated'] ?? 0),
+                (int) ($pricingStats['skipped'] ?? 0)
+            );
 
             $globalSettingsStats = $this->pushGlobalGeneralSettings($sourceConn, $targetConn);
             $inserted += $globalSettingsStats['inserted'];
@@ -816,7 +854,10 @@ final class TenantCompanyDataPushService
             return ['inserted' => 0, 'skipped' => 0, 'message' => ''];
         }
 
-        $keys = array_values(array_filter($keys, fn ($k) => is_string($k) && $k !== ''));
+        $keys = array_values(array_filter(
+            $keys,
+            fn ($k) => is_string($k) && $k !== '' && $k !== 'nexa_pricing'
+        ));
         if ($keys === []) {
             return ['inserted' => 0, 'skipped' => 0, 'message' => ''];
         }
@@ -1769,6 +1810,104 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * Vul idMaps voor globale catalogi (permissions, facturatiepakketten, extra regels).
+     *
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function ensureCatalogIdMapsByNaturalKey(string $sourceConn, string $targetConn, array &$idMaps): void
+    {
+        $this->ensurePermissionsIdMapByName($sourceConn, $targetConn, $idMaps);
+        $this->ensurePlatformBillingPackageIdMap($sourceConn, $targetConn, $idMaps);
+        $this->ensurePlatformBillingLineItemIdMap($sourceConn, $targetConn, $idMaps);
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function ensurePermissionsIdMapByName(string $sourceConn, string $targetConn, array &$idMaps): void
+    {
+        if (! Schema::connection($sourceConn)->hasTable('permissions')
+            || ! Schema::connection($targetConn)->hasTable('permissions')) {
+            return;
+        }
+
+        $sourceRows = DB::connection($sourceConn)->table('permissions')->get(['id', 'name', 'guard_name']);
+        foreach ($sourceRows as $row) {
+            $sourceId = (int) $row->id;
+            if ($sourceId <= 0 || isset($idMaps['permissions'][$sourceId])) {
+                continue;
+            }
+            $name = (string) ($row->name ?? '');
+            $guard = (string) ($row->guard_name ?? 'web');
+            if ($name === '') {
+                continue;
+            }
+            $targetId = DB::connection($targetConn)->table('permissions')
+                ->where('name', $name)
+                ->where('guard_name', $guard)
+                ->value('id');
+            if ($targetId !== null && (int) $targetId > 0) {
+                $idMaps['permissions'][$sourceId] = (int) $targetId;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function ensurePlatformBillingPackageIdMap(string $sourceConn, string $targetConn, array &$idMaps): void
+    {
+        if (! Schema::connection($sourceConn)->hasTable('platform_billing_packages')
+            || ! Schema::connection($targetConn)->hasTable('platform_billing_packages')) {
+            return;
+        }
+
+        $hasPackageKey = Schema::connection($sourceConn)->hasColumn('platform_billing_packages', 'package_key')
+            && Schema::connection($targetConn)->hasColumn('platform_billing_packages', 'package_key');
+        $columns = $hasPackageKey ? ['id', 'name', 'package_key'] : ['id', 'name'];
+        $sourceRows = DB::connection($sourceConn)->table('platform_billing_packages')->get($columns);
+        foreach ($sourceRows as $row) {
+            $sourceId = (int) $row->id;
+            if ($sourceId <= 0 || isset($idMaps['platform_billing_packages'][$sourceId])) {
+                continue;
+            }
+            $targetId = $this->findExistingPlatformBillingPackageId($targetConn, (array) $row);
+            if ($targetId !== null && $targetId > 0) {
+                $idMaps['platform_billing_packages'][$sourceId] = $targetId;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function ensurePlatformBillingLineItemIdMap(string $sourceConn, string $targetConn, array &$idMaps): void
+    {
+        if (! Schema::connection($sourceConn)->hasTable('platform_billing_line_items')
+            || ! Schema::connection($targetConn)->hasTable('platform_billing_line_items')
+            || ! Schema::connection($sourceConn)->hasColumn('platform_billing_line_items', 'name')
+            || ! Schema::connection($targetConn)->hasColumn('platform_billing_line_items', 'name')) {
+            return;
+        }
+
+        $sourceRows = DB::connection($sourceConn)->table('platform_billing_line_items')->get(['id', 'name']);
+        foreach ($sourceRows as $row) {
+            $sourceId = (int) $row->id;
+            if ($sourceId <= 0 || isset($idMaps['platform_billing_line_items'][$sourceId])) {
+                continue;
+            }
+            $name = trim((string) ($row->name ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $targetId = DB::connection($targetConn)->table('platform_billing_line_items')->where('name', $name)->value('id');
+            if ($targetId !== null && (int) $targetId > 0) {
+                $idMaps['platform_billing_line_items'][$sourceId] = (int) $targetId;
+            }
+        }
+    }
+
+    /**
      * Vul idMaps[modules] voor alle bron-modules die op doel al bestaan (match op name).
      *
      * @param  array<string, array<int, int>>  $idMaps
@@ -2494,7 +2633,7 @@ final class TenantCompanyDataPushService
      * @param  list<string>  $prerequisiteTables
      * @param  list<array{child:string, child_column:string, parent:string}>  $intraFkEdges
      * @param  array<string, array<int, int>>  $idMaps
-     * @return array{inserted: int, skipped: int}
+     * @return array{inserted: int, updated: int, skipped: int, tables: array<string, array{inserted: int, updated: int, skipped: int}>}
      */
     private function pushPrerequisiteTables(
         string $sourceConn,
@@ -2504,6 +2643,7 @@ final class TenantCompanyDataPushService
         array &$idMaps
     ): array {
         $inserted = 0;
+        $updated = 0;
         $skipped = 0;
         $tableStats = [];
 
@@ -2515,6 +2655,7 @@ final class TenantCompanyDataPushService
             }
 
             $tableInserted = 0;
+            $tableUpdated = 0;
             $tableSkipped = 0;
 
             $query = DB::connection($sourceConn)->table($table);
@@ -2549,6 +2690,9 @@ final class TenantCompanyDataPushService
                 if ($outcome === 'inserted') {
                     $tableInserted++;
                     $inserted++;
+                } elseif ($outcome === 'updated') {
+                    $tableUpdated++;
+                    $updated++;
                 } else {
                     $tableSkipped++;
                     $skipped++;
@@ -2558,12 +2702,12 @@ final class TenantCompanyDataPushService
 
             $tableStats[$table] = [
                 'inserted' => $tableInserted,
-                'updated' => 0,
+                'updated' => $tableUpdated,
                 'skipped' => $tableSkipped,
             ];
         }
 
-        return ['inserted' => $inserted, 'skipped' => $skipped, 'tables' => $tableStats];
+        return ['inserted' => $inserted, 'updated' => $updated, 'skipped' => $skipped, 'tables' => $tableStats];
     }
 
     private function recordModuleSchemaMessage(string $message): void
@@ -3191,6 +3335,10 @@ final class TenantCompanyDataPushService
             return $this->findExistingModelHasRolesRow($targetConn, $payload) ? -1 : null;
         }
 
+        if ($table === 'platform_billing_packages') {
+            return $this->findExistingPlatformBillingPackageId($targetConn, $payload);
+        }
+
         $configured = config("tenant_sync.existing_row_keys.{$table}");
         if (! is_array($configured) || $configured === []) {
             return null;
@@ -3351,6 +3499,37 @@ final class TenantCompanyDataPushService
             ->where($morphKey, $payload[$morphKey])
             ->where('model_type', $payload['model_type'])
             ->exists();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function findExistingPlatformBillingPackageId(string $targetConn, array $payload): ?int
+    {
+        if (! Schema::connection($targetConn)->hasTable('platform_billing_packages')) {
+            return null;
+        }
+
+        $packageKey = trim((string) ($payload['package_key'] ?? ''));
+        if ($packageKey !== '' && Schema::connection($targetConn)->hasColumn('platform_billing_packages', 'package_key')) {
+            $found = DB::connection($targetConn)->table('platform_billing_packages')
+                ->where('package_key', $packageKey)
+                ->value('id');
+            if ($found !== null) {
+                return (int) $found;
+            }
+        }
+
+        $name = trim((string) ($payload['name'] ?? ''));
+        if ($name === '') {
+            return null;
+        }
+
+        $found = DB::connection($targetConn)->table('platform_billing_packages')
+            ->where('name', $name)
+            ->value('id');
+
+        return $found !== null ? (int) $found : null;
     }
 
     private function connectionsPointToSameDatabase(string $sourceConn, string $targetConn): bool
@@ -3602,7 +3781,7 @@ final class TenantCompanyDataPushService
 
     /**
      * @param  array<string, array<int, int>>  $idMaps
-     * @return array{inserted: int, skipped: int}
+     * @return array{inserted: int, updated: int, skipped: int}
      */
     private function pushPostSyncTable(
         string $sourceConn,
@@ -3612,14 +3791,45 @@ final class TenantCompanyDataPushService
         int $remoteCompanyId,
         array &$idMaps
     ): array {
-        if ($table !== 'role_has_permissions') {
-            return ['inserted' => 0, 'skipped' => 0];
-        }
+        return match ($table) {
+            'role_has_permissions' => $this->pushRoleHasPermissions(
+                $sourceConn,
+                $targetConn,
+                $sourceCompanyId,
+                $idMaps
+            ),
+            'model_has_permissions' => $this->pushModelHasPermissions(
+                $sourceConn,
+                $targetConn,
+                $sourceCompanyId,
+                $remoteCompanyId,
+                $idMaps
+            ),
+            'company_billing_profile_line_item' => $this->pushCompanyBillingProfileLineItems(
+                $sourceConn,
+                $targetConn,
+                $sourceCompanyId,
+                $idMaps
+            ),
+            default => ['inserted' => 0, 'updated' => 0, 'skipped' => 0],
+        };
+    }
 
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, updated: int, skipped: int}
+     */
+    private function pushRoleHasPermissions(
+        string $sourceConn,
+        string $targetConn,
+        int $sourceCompanyId,
+        array &$idMaps
+    ): array {
         if (! Schema::connection($sourceConn)->hasTable('role_has_permissions')
+            || ! Schema::connection($targetConn)->hasTable('role_has_permissions')
             || ! Schema::connection($sourceConn)->hasTable('roles')
             || ! Schema::connection($sourceConn)->hasTable('permissions')) {
-            return ['inserted' => 0, 'skipped' => 0];
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
         }
 
         $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
@@ -3632,7 +3842,7 @@ final class TenantCompanyDataPushService
             ->all();
 
         if ($sourceRoleIds === []) {
-            return ['inserted' => 0, 'skipped' => 0];
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
         }
 
         $inserted = 0;
@@ -3655,7 +3865,7 @@ final class TenantCompanyDataPushService
 
                 continue;
             }
-            $remotePermissionId = $this->resolveRemotePermissionId($sourceConn, $targetConn, $oldPermissionId);
+            $remotePermissionId = $this->resolveRemotePermissionId($sourceConn, $targetConn, $oldPermissionId, $idMaps);
             if ($remotePermissionId === null) {
                 $skipped++;
 
@@ -3681,21 +3891,322 @@ final class TenantCompanyDataPushService
             }
         }
 
-        return ['inserted' => $inserted, 'skipped' => $skipped];
+        return ['inserted' => $inserted, 'updated' => 0, 'skipped' => $skipped];
     }
 
-    private function resolveRemotePermissionId(string $sourceConn, string $targetConn, int $sourcePermissionId): ?int
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, updated: int, skipped: int}
+     */
+    private function pushModelHasPermissions(
+        string $sourceConn,
+        string $targetConn,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        if (! Schema::connection($sourceConn)->hasTable('model_has_permissions')
+            || ! Schema::connection($targetConn)->hasTable('model_has_permissions')
+            || ! Schema::connection($sourceConn)->hasTable('permissions')) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
+        }
+
+        $permissionPivotKey = config('permission.column_names.permission_pivot_key') ?: 'permission_id';
+        $morphKey = config('permission.column_names.model_morph_key', 'model_id');
+        $teamKey = config('permission.column_names.team_foreign_key', 'company_id');
+        $hasTeamColumn = Schema::connection($sourceConn)->hasColumn('model_has_permissions', $teamKey)
+            && Schema::connection($targetConn)->hasColumn('model_has_permissions', $teamKey);
+
+        $query = DB::connection($sourceConn)->table('model_has_permissions');
+        if ($hasTeamColumn) {
+            $query->where($teamKey, $sourceCompanyId);
+        } else {
+            $userIds = array_keys($idMaps['users'] ?? []);
+            if ($userIds === []) {
+                return ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
+            }
+            $query->whereIn($morphKey, $userIds);
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        foreach ($query->get() as $rowObj) {
+            $row = (array) $rowObj;
+            $oldPermissionId = isset($row[$permissionPivotKey]) ? (int) $row[$permissionPivotKey] : 0;
+            $oldModelId = isset($row[$morphKey]) ? (int) $row[$morphKey] : 0;
+            $modelType = (string) ($row['model_type'] ?? '');
+            if ($oldPermissionId === 0 || $oldModelId === 0 || $modelType === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $remotePermissionId = $this->resolveRemotePermissionId($sourceConn, $targetConn, $oldPermissionId, $idMaps);
+            if ($remotePermissionId === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $remoteModelId = $this->resolveRemoteMorphModelId($modelType, $oldModelId, $idMaps);
+            if ($remoteModelId === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $payload = [
+                $permissionPivotKey => $remotePermissionId,
+                $morphKey => $remoteModelId,
+                'model_type' => $modelType,
+            ];
+            if ($hasTeamColumn) {
+                $payload[$teamKey] = $remoteCompanyId;
+            }
+
+            if ($this->findExistingModelHasPermissionsRow($targetConn, $payload)) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                DB::connection($targetConn)->table('model_has_permissions')->insert($payload);
+                $inserted++;
+            } catch (UniqueConstraintViolationException) {
+                $skipped++;
+            } catch (Throwable $e) {
+                if ($this->isDuplicateKeyException($e)) {
+                    $skipped++;
+                } else {
+                    throw $e;
+                }
+            }
+        }
+
+        return ['inserted' => $inserted, 'updated' => 0, 'skipped' => $skipped];
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function resolveRemoteMorphModelId(string $modelType, int $oldModelId, array $idMaps): ?int
     {
+        $class = class_basename($modelType);
+        $parentTable = match ($class) {
+            'User' => 'users',
+            default => null,
+        };
+        if ($parentTable === null) {
+            return null;
+        }
+        if (! isset($idMaps[$parentTable][$oldModelId])) {
+            return null;
+        }
+
+        $mapped = (int) $idMaps[$parentTable][$oldModelId];
+
+        return $mapped > 0 ? $mapped : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function findExistingModelHasPermissionsRow(string $targetConn, array $payload): bool
+    {
+        if (! Schema::connection($targetConn)->hasTable('model_has_permissions')) {
+            return false;
+        }
+
+        $permissionPivotKey = config('permission.column_names.permission_pivot_key') ?: 'permission_id';
+        $morphKey = config('permission.column_names.model_morph_key', 'model_id');
+        $teamKey = config('permission.column_names.team_foreign_key', 'company_id');
+        if (! isset($payload[$permissionPivotKey], $payload[$morphKey], $payload['model_type'])) {
+            return false;
+        }
+
+        $query = DB::connection($targetConn)->table('model_has_permissions')
+            ->where($permissionPivotKey, $payload[$permissionPivotKey])
+            ->where($morphKey, $payload[$morphKey])
+            ->where('model_type', $payload['model_type']);
+
+        if (Schema::connection($targetConn)->hasColumn('model_has_permissions', $teamKey)
+            && array_key_exists($teamKey, $payload)) {
+            $query->where($teamKey, $payload[$teamKey]);
+        }
+
+        return $query->exists();
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, updated: int, skipped: int}
+     */
+    private function pushCompanyBillingProfileLineItems(
+        string $sourceConn,
+        string $targetConn,
+        int $sourceCompanyId,
+        array &$idMaps
+    ): array {
+        if (! Schema::connection($sourceConn)->hasTable('company_billing_profile_line_item')
+            || ! Schema::connection($targetConn)->hasTable('company_billing_profile_line_item')
+            || ! Schema::connection($sourceConn)->hasTable('company_billing_profiles')) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
+        }
+
+        $sourceProfileIds = DB::connection($sourceConn)->table('company_billing_profiles')
+            ->where('company_id', $sourceCompanyId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($sourceProfileIds === []) {
+            return ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        $desiredByProfile = [];
+        $remoteProfileIds = [];
+        foreach ($sourceProfileIds as $sourceProfileId) {
+            if (isset($idMaps['company_billing_profiles'][$sourceProfileId])) {
+                $remoteProfileIds[] = (int) $idMaps['company_billing_profiles'][$sourceProfileId];
+            }
+        }
+        $rows = DB::connection($sourceConn)->table('company_billing_profile_line_item')
+            ->whereIn('company_billing_profile_id', $sourceProfileIds)
+            ->get();
+
+        foreach ($rows as $rowObj) {
+            $row = (array) $rowObj;
+            $oldProfileId = isset($row['company_billing_profile_id']) ? (int) $row['company_billing_profile_id'] : 0;
+            $oldLineItemId = isset($row['platform_billing_line_item_id']) ? (int) $row['platform_billing_line_item_id'] : 0;
+            if ($oldProfileId === 0 || $oldLineItemId === 0) {
+                $skipped++;
+
+                continue;
+            }
+            if (! isset($idMaps['company_billing_profiles'][$oldProfileId])
+                || ! isset($idMaps['platform_billing_line_items'][$oldLineItemId])) {
+                $skipped++;
+
+                continue;
+            }
+
+            $remoteProfileId = (int) $idMaps['company_billing_profiles'][$oldProfileId];
+            $remoteLineItemId = (int) $idMaps['platform_billing_line_items'][$oldLineItemId];
+            $desiredByProfile[$remoteProfileId][] = $remoteLineItemId;
+
+            $payload = [
+                'company_billing_profile_id' => $remoteProfileId,
+                'platform_billing_line_item_id' => $remoteLineItemId,
+            ];
+            $oldId = isset($row['id']) ? (int) $row['id'] : null;
+            $outcome = $this->insertRowOnTarget(
+                $sourceConn,
+                $targetConn,
+                'company_billing_profile_line_item',
+                $payload,
+                $oldId,
+                0,
+                $idMaps
+            );
+            if ($outcome === 'inserted') {
+                $inserted++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        foreach (array_unique($remoteProfileIds) as $remoteProfileId) {
+            $keep = array_values(array_unique(array_map('intval', $desiredByProfile[$remoteProfileId] ?? [])));
+            $query = DB::connection($targetConn)->table('company_billing_profile_line_item')
+                ->where('company_billing_profile_id', $remoteProfileId);
+            if ($keep !== []) {
+                $query->whereNotIn('platform_billing_line_item_id', $keep);
+            }
+            $query->delete();
+        }
+
+        return ['inserted' => $inserted, 'updated' => 0, 'skipped' => $skipped];
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function resolveRemotePermissionId(
+        string $sourceConn,
+        string $targetConn,
+        int $sourcePermissionId,
+        array &$idMaps
+    ): ?int {
+        if (isset($idMaps['permissions'][$sourcePermissionId])) {
+            $mapped = (int) $idMaps['permissions'][$sourcePermissionId];
+            if ($mapped > 0) {
+                return $mapped;
+            }
+        }
+
         $source = DB::connection($sourceConn)->table('permissions')->where('id', $sourcePermissionId)->first();
         if ($source === null) {
             return null;
         }
 
-        $found = DB::connection($targetConn)->table('permissions')
-            ->where('name', $source->name)
-            ->where('guard_name', $source->guard_name)
-            ->value('id');
+        $name = (string) ($source->name ?? '');
+        $guard = (string) ($source->guard_name ?? 'web');
+        if ($name === '') {
+            return null;
+        }
 
-        return $found !== null ? (int) $found : null;
+        $found = DB::connection($targetConn)->table('permissions')
+            ->where('name', $name)
+            ->where('guard_name', $guard)
+            ->value('id');
+        if ($found !== null) {
+            $idMaps['permissions'][$sourcePermissionId] = (int) $found;
+
+            return (int) $found;
+        }
+
+        $payload = [
+            'name' => $name,
+            'guard_name' => $guard,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        $payload = $this->stripUnsupportedColumns('permissions', $payload, $targetConn);
+
+        try {
+            $newId = (int) DB::connection($targetConn)->table('permissions')->insertGetId($payload);
+        } catch (UniqueConstraintViolationException) {
+            $found = DB::connection($targetConn)->table('permissions')
+                ->where('name', $name)
+                ->where('guard_name', $guard)
+                ->value('id');
+            if ($found === null) {
+                return null;
+            }
+            $newId = (int) $found;
+        } catch (Throwable $e) {
+            if (! $this->isDuplicateKeyException($e)) {
+                throw $e;
+            }
+            $found = DB::connection($targetConn)->table('permissions')
+                ->where('name', $name)
+                ->where('guard_name', $guard)
+                ->value('id');
+            if ($found === null) {
+                return null;
+            }
+            $newId = (int) $found;
+        }
+
+        if ($newId <= 0) {
+            return null;
+        }
+
+        $idMaps['permissions'][$sourcePermissionId] = $newId;
+
+        return $newId;
     }
 }

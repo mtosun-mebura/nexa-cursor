@@ -52,6 +52,7 @@ Route::get('gps-tracker', [GpsTrackingController::class, 'index'])->name('gps_tr
 Route::get('gps-tracker/posities', [GpsTrackingController::class, 'positions'])->name('gps_tracking.positions');
 Route::post('gps-tracker/offline-ontgrendelen', [GpsTrackingController::class, 'unlock'])->name('gps_tracking.unlock');
 Route::post('gps-tracker/offline-verbergen', [GpsTrackingController::class, 'lock'])->name('gps_tracking.lock');
+Route::post('gps-tracker/demo', [GpsTrackingController::class, 'demo'])->name('gps_tracking.demo');
 Route::put('gps-tracker/veiligheidscode', [GpsTrackingController::class, 'updateCode'])->name('gps_tracking.code');
 Route::get('gps-tracker/configuratie', [GpsTrackingController::class, 'settings'])->name('gps_tracking.settings');
 Route::put('gps-tracker/configuratie', [GpsTrackingController::class, 'updateSettings'])->name('gps_tracking.settings.update');

@@ -98,6 +98,15 @@
             <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
         </div>
     @endif
+    @if(session('error'))
+        <div class="kt-alert kt-alert-destructive mb-5">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    @if(!empty($websitePagesTenantScopedActive))
+        @include('admin.website-pages.partials.website-logo-size')
+    @endif
 
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-content p-0 min-w-0">

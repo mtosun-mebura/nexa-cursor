@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\Tenancy\TenantFrontendUrl;
 
 class WebsiteBuilderService
 {
@@ -24,6 +25,10 @@ class WebsiteBuilderService
     ) {
         $this->moduleDb = $this->moduleDb ?? app(ModuleDatabaseService::class);
     }
+
+    public const WEBSITE_LOGO_SIZE_KEY = 'website_logo_size';
+
+    public const WEBSITE_LOGO_SIZE_DEFAULT = 26;
 
     /**
      * Query WebsitePage op de juiste connection: alleen module-DB als die een eigen {@code website_pages}-tabel heeft.
@@ -446,7 +451,7 @@ class WebsiteBuilderService
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
      * @param  int|null  $forCompanyId  Expliciet bedrijf voor tenant-logo/instellingen (bijv. admin preview van pagina).
-     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
+     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, logo_alt: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
      */
     public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false, ?int $forCompanyId = null): array
     {
@@ -545,12 +550,22 @@ class WebsiteBuilderService
         $logoDarkUrl = $logoDarkUrl ? $this->storageUrlToDisplayUrl($logoDarkUrl) : null;
         $faviconUrl = $faviconUrl ? $this->storageUrlToDisplayUrl($faviconUrl) : null;
 
+        $logoAlt = $siteName;
+        $logoAltCompanyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($logoAltCompanyId !== null && $logoAltCompanyId > 0) {
+            $companyName = trim((string) (Company::query()->whereKey($logoAltCompanyId)->value('name') ?? ''));
+            if ($companyName !== '') {
+                $logoAlt = $companyName;
+            }
+        }
+
         return [
             'logo_url' => $logoUrl,
             'logo_dark_url' => $logoDarkUrl,
             'logo_size_px' => $logoSizePx,
             'favicon_url' => $faviconUrl,
             'site_name' => $siteName,
+            'logo_alt' => $logoAlt,
             'site_description' => $siteDescription,
             'dashboard_link_label' => $dashboardLinkLabel,
             'dashboard_link_visible' => (bool) $dashboardLinkVisible,
@@ -714,12 +729,30 @@ class WebsiteBuilderService
     }
 
     /**
-     * Logo-hoogte uit Algemene instellingen (zelfde bereik als admin #logo_size).
+     * Toegestane hoogtes (px) voor het tenantlogo op de website-header.
+     *
+     * @return list<int>
+     */
+    public function websiteLogoSizeChoices(): array
+    {
+        return range(20, 80, 2);
+    }
+
+    /**
+     * Logo-hoogte: tenantwebsite via website_logo_size (per bedrijf), NEXA-site via logo_size.
      */
     public function resolveLogoSizePx(?int $forCompanyId = null): int
     {
-        $raw = GeneralSetting::get('logo_size', '26', $forCompanyId);
-        $px = is_numeric($raw) ? (int) $raw : 26;
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId !== null && $companyId > 0) {
+            $raw = GeneralSetting::get(self::WEBSITE_LOGO_SIZE_KEY, null, $companyId);
+            $px = is_numeric($raw) ? (int) $raw : self::WEBSITE_LOGO_SIZE_DEFAULT;
+
+            return max(10, min(100, $px));
+        }
+
+        $raw = GeneralSetting::get('logo_size', (string) self::WEBSITE_LOGO_SIZE_DEFAULT);
+        $px = is_numeric($raw) ? (int) $raw : self::WEBSITE_LOGO_SIZE_DEFAULT;
 
         return max(10, min(100, $px));
     }
@@ -749,16 +782,13 @@ class WebsiteBuilderService
     }
 
     /**
-     * Als er geen logo in general_settings staat: logo uit bedrijfsprofiel (wizard).
+     * Tenant-website: bedrijfslogo i.p.v. het NEXA-platformlogo.
+     * Op de algemene Nexa-site blijft het platformlogo staan.
      */
     private function applyCompanyLogoFallback(?string &$logoUrl, ?string &$logoDarkUrl, ?int $forCompanyId = null): void
     {
-        if ($logoUrl !== null && $logoUrl !== '') {
-            return;
-        }
-
-        $companyId = $forCompanyId ?? $this->resolveBrandingCompanyId();
-        if ($companyId === null) {
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
             return;
         }
 
@@ -770,17 +800,23 @@ class WebsiteBuilderService
         // Admin preview (geen tenant-host): data-URI i.p.v. /brand/company/… (die route vereist tenant-context).
         if ($this->isAdminLikeRequest()) {
             $logoUrl = $this->companyLogoDataUri($company, false);
-            if ($company->logo_dark_blob) {
-                $logoDarkUrl = $this->companyLogoDataUri($company, true);
-            }
+            $logoDarkUrl = $company->logo_dark_blob
+                ? $this->companyLogoDataUri($company, true)
+                : $logoUrl;
 
             return;
         }
 
-        $logoUrl = route('frontend.company-brand.logo', $company);
-        if ($company->logo_dark_blob) {
-            $logoDarkUrl = route('frontend.company-brand.logo.dark', $company);
-        }
+        $logoUrl = TenantFrontendUrl::for(
+            route('frontend.company-brand.logo', $company),
+            (int) $company->id
+        );
+        $logoDarkUrl = $company->logo_dark_blob
+            ? TenantFrontendUrl::for(
+                route('frontend.company-brand.logo.dark', $company),
+                (int) $company->id
+            )
+            : $logoUrl;
     }
 
     private function companyLogoDataUri(Company $company, bool $dark): ?string
@@ -1229,17 +1265,61 @@ class WebsiteBuilderService
     /**
      * Homepagina waarvan andere pagina's de footer overnemen.
      * Op het centrale domein is dat de marketing-welkomstpagina, niet page_type=home.
+     * Op een tenant-site (en in admin-preview daarvan) de home van dát bedrijf.
      */
     public function getSiteHomePageFor(WebsitePage $page): ?WebsitePage
     {
-        if ($page->company_id === null) {
+        $companyId = $this->tenantCompanyIdForPage($page);
+        if ($companyId === null || $companyId <= 0) {
             $central = $this->getCentralMarketingWelcomePage();
             if ($central !== null) {
                 return $central;
             }
+
+            return $this->getHomePage();
         }
 
-        return $this->getHomePage();
+        $home = $this->pagesConfiguredForTenantCompany($companyId)
+            ->first(function (WebsitePage $p) {
+                return (bool) $p->is_active
+                    && ($p->page_type === 'home' || strtolower((string) $p->slug) === 'home');
+            });
+
+        return $home ?? $this->getHomePage();
+    }
+
+    /**
+     * Pagina's zoals ingesteld voor dit bedrijf in Website-pagina's (geen andere tenants, geen Nexa-kernmenu).
+     *
+     * @return Collection<int, WebsitePage>
+     */
+    public function pagesConfiguredForTenantCompany(int $companyId): Collection
+    {
+        if ($companyId <= 0) {
+            return collect();
+        }
+
+        return $this->loadAllPagesForAdminIndex($companyId, true)
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->values();
+    }
+
+    /**
+     * Hoofdmenu voor een gerenderde website-pagina (live of admin-preview).
+     *
+     * @return Collection<int, WebsitePage>
+     */
+    public function getActiveMenuPagesForWebsitePage(WebsitePage $page): Collection
+    {
+        $companyId = $this->tenantCompanyIdForPage($page);
+        if ($companyId !== null && $companyId > 0) {
+            return $this->menuPagesForTenantCompany($companyId);
+        }
+
+        return $this->getActiveMenuPages();
     }
 
     /**
@@ -1287,12 +1367,220 @@ class WebsiteBuilderService
      * @param  array<string, mixed>  $homeSections
      * @return array<string, mixed>
      */
-    public function preparePublicFooterSections(array $homeSections): array
+    public function preparePublicFooterSections(array $homeSections, ?WebsitePage $page = null): array
     {
-        return WebsitePage::prepareFooterForPublicDisplay(
+        $prepared = WebsitePage::prepareFooterForPublicDisplay(
             $homeSections,
             $this->shouldShowSkillmatchingFrontendAppLinks()
         );
+
+        return $this->applyTenantCompanyAddressToFooterMap(
+            $this->filterFooterLinksToExistingPages($prepared, $page),
+            $page
+        );
+    }
+
+    /**
+     * Verberg footer-links (Ondersteuning én snelle links) waarvan de doelpagina niet bestaat.
+     *
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public function filterFooterLinksToExistingPages(array $homeSections, ?WebsitePage $page = null): array
+    {
+        $companyId = $page !== null
+            ? $this->tenantCompanyIdForPage($page)
+            : $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return $homeSections;
+        }
+
+        $pages = $this->pagesConfiguredForTenantCompany($companyId)
+            ->filter(fn (WebsitePage $item) => (bool) $item->is_active)
+            ->values();
+        $validPaths = $this->tenantWebsitePublicPathSet($pages);
+
+        if (! isset($homeSections['footer']) || ! is_array($homeSections['footer'])) {
+            return $homeSections;
+        }
+
+        foreach (['support_links', 'quick_links'] as $key) {
+            $links = is_array($homeSections['footer'][$key] ?? null) ? $homeSections['footer'][$key] : [];
+            $homeSections['footer'][$key] = array_values(array_filter(
+                $links,
+                fn ($link) => is_array($link) && $this->footerLinkIsReachable($link, $validPaths)
+            ));
+        }
+
+        return $homeSections;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, WebsitePage>  $pages
+     * @return array<string, true>
+     */
+    protected function tenantWebsitePublicPathSet($pages): array
+    {
+        $paths = ['/' => true];
+        foreach ($pages as $item) {
+            foreach ($this->publicPathsForWebsitePage($item) as $path) {
+                $paths[$path] = true;
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function publicPathsForWebsitePage(WebsitePage $page): array
+    {
+        $paths = [];
+        $type = strtolower(trim((string) $page->page_type));
+        $slug = strtolower(trim((string) $page->slug, '/'));
+        $canonical = match ($type) {
+            'home' => '/',
+            'about' => '/over-ons',
+            'contact' => '/contact',
+            default => $slug !== '' && $slug !== 'home' ? '/'.$slug : '/',
+        };
+        $paths[] = $canonical;
+        if ($slug !== '' && $slug !== 'home') {
+            $paths[] = '/'.$slug;
+        }
+        if ($type === 'home' || $slug === 'home') {
+            $paths[] = '/';
+        }
+        if ($type === 'about' || in_array($slug, ['over-ons', 'overons', 'about'], true)) {
+            $paths[] = '/over-ons';
+        }
+        if ($type === 'contact' || str_contains($slug, 'contact')) {
+            $paths[] = '/contact';
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @param  array<string, mixed>  $link
+     * @param  array<string, true>  $validPaths
+     */
+    protected function footerLinkIsReachable(array $link, array $validPaths): bool
+    {
+        $label = trim(strip_tags((string) ($link['label'] ?? '')));
+        $url = trim((string) ($link['url'] ?? ''));
+        if ($label === '' || $url === '' || $url === '#') {
+            return false;
+        }
+        if (preg_match('#^(https?://|tel:|mailto:)#i', $url) === 1) {
+            return true;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+        $path = is_string($path) && $path !== '' ? $path : explode('#', $url)[0];
+        $path = '/'.strtolower(ltrim((string) $path, '/'));
+        if ($path !== '/') {
+            $path = rtrim($path, '/');
+        }
+
+        return isset($validPaths[$path]);
+    }
+
+    /**
+     * Kaartpositie voor de website-footer: bedrijfsadres (Contactinformatie / hoofdkantoor).
+     *
+     * @return array{street: string, house_number: string, postal_code: string, city: string, country: string, address: string, lat: ?float, lng: ?float}|null
+     */
+    public function footerMapLocationForPage(?WebsitePage $page = null): ?array
+    {
+        $companyId = $page !== null
+            ? $this->tenantCompanyIdForPage($page)
+            : $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return null;
+        }
+
+        $company = Company::query()->with('mainLocation')->find($companyId);
+        if ($company === null) {
+            return null;
+        }
+
+        $source = $company->mainLocation ?: $company;
+        $street = trim((string) ($source->street ?? ''));
+        $number = trim((string) ($source->house_number ?? ''));
+        $extension = trim((string) ($source->house_number_extension ?? ''));
+        $houseNumber = $number.($extension !== '' ? '-'.$extension : '');
+        $postalRaw = trim((string) ($source->postal_code ?? ''));
+        $city = trim((string) ($source->city ?? ''));
+        $country = trim((string) ($source->country ?? ''));
+        if ($street === '' && $city === '' && $postalRaw === '') {
+            return null;
+        }
+
+        $postalGeocode = str_replace(' ', '', $postalRaw);
+        if ($postalGeocode !== '' && preg_match('/^(\d{4})([A-Za-z]{2})$/u', $postalGeocode, $pcm)) {
+            $postalGeocode = $pcm[1].strtoupper($pcm[2]);
+        }
+
+        $line1 = trim($street.' '.$houseNumber);
+        $line2 = trim($postalGeocode.' '.$city);
+        $address = implode(', ', array_filter([$line1, $line2, $country], fn ($part) => $part !== ''));
+        if ($address === '') {
+            return null;
+        }
+
+        $lat = null;
+        $lng = null;
+        $rawLat = $company->latitude;
+        $rawLng = $company->longitude;
+        if ($rawLat !== null && $rawLng !== null && is_numeric($rawLat) && is_numeric($rawLng)) {
+            $latVal = (float) $rawLat;
+            $lngVal = (float) $rawLng;
+            if ($latVal != 0.0 && $lngVal != 0.0 && abs($latVal) <= 90 && abs($lngVal) <= 180) {
+                $lat = $latVal;
+                $lng = $lngVal;
+            }
+        }
+
+        return [
+            'street' => $street,
+            'house_number' => $houseNumber,
+            'postal_code' => $postalRaw,
+            'city' => $city,
+            'country' => $country,
+            'address' => $address,
+            'lat' => $lat,
+            'lng' => $lng,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    protected function applyTenantCompanyAddressToFooterMap(array $homeSections, ?WebsitePage $page = null): array
+    {
+        $location = $this->footerMapLocationForPage($page);
+        if ($location === null) {
+            return $homeSections;
+        }
+
+        if (! isset($homeSections['footer']) || ! is_array($homeSections['footer'])) {
+            $homeSections['footer'] = [];
+        }
+
+        $homeSections['footer']['map_street'] = $location['street'];
+        $homeSections['footer']['map_huisnummer'] = $location['house_number'];
+        $homeSections['footer']['map_postcode'] = $location['postal_code'];
+        $homeSections['footer']['map_city'] = $location['city'];
+        $homeSections['footer']['map_city_only'] = false;
+        $homeSections['footer']['map_address'] = $location['address'];
+        $homeSections['footer']['map_lat'] = $location['lat'] !== null ? (string) $location['lat'] : '';
+        $homeSections['footer']['map_lng'] = $location['lng'] !== null ? (string) $location['lng'] : '';
+        $homeSections['footer']['map_show_address_balloon'] = true;
+
+        return $homeSections;
     }
 
     /**
@@ -1714,16 +2002,17 @@ class WebsiteBuilderService
     }
 
     /**
-     * Pagina's voor het hoofdmenu: alle actieve pagina's voor de huidige module in sort_order.
-     * Als er een module met eigen DB is: module-pagina's + ontbrekende home/about/contact uit core,
-     * zodat o.a. Contact altijd in het menu staat als die alleen in de hoofddatabase bestaat.
+     * Pagina's voor het hoofdmenu op de centrale Nexa-site, of — bij een opgeloste tenant —
+     * alleen de ingestelde pagina's van dat bedrijf.
      *
      * @return Collection<int, WebsitePage>
      */
     public function getActiveMenuPages(): Collection
     {
-        $brandingModule = $this->getBrandingModule();
-        $moduleName = $brandingModule ? $brandingModule->name : null;
+        $tenantId = $this->resolvedPublicTenantCompanyId();
+        if ($tenantId !== null && $tenantId > 0) {
+            return $this->menuPagesForTenantCompany($tenantId);
+        }
 
         $corePages = $this->websitePageQuery(null)->active()
             ->whereNull('module_name')
@@ -1732,41 +2021,27 @@ class WebsiteBuilderService
             ->orderBy('id')
             ->get();
 
-        if ($this->resolvedPublicTenantCompanyId() === null) {
-            return $this->withCentralHomeInMenu($corePages);
-        }
+        return $this->withCentralHomeInMenu($corePages);
+    }
 
-        $hasModuleDb = $moduleName !== null && $moduleName !== ''
-            && $this->moduleDb
-            && $this->moduleDb->supportsModuleDatabases();
-
-        if (! $hasModuleDb) {
-            if ($moduleName !== null && $moduleName !== '') {
-                $moduleOnly = $this->websitePageQuery($moduleName)->active()->showInMenu();
-                $this->orderWebsitePagesForTenant($moduleOnly);
-
-                return $this->excludeCentralWelcomeFromMenu($moduleOnly->get());
-            }
-
-            return $this->excludeCentralWelcomeFromMenu($corePages);
-        }
-
-        $moduleQuery = $this->websitePageQuery($moduleName)->active()->showInMenu();
-        $this->orderWebsitePagesForTenant($moduleQuery);
-        $modulePages = $moduleQuery->get();
-
-        $coreTypes = ['home', 'about', 'contact'];
-        $moduleHasType = $modulePages->keyBy('page_type');
-
-        foreach ($corePages as $core) {
-            if (in_array($core->page_type, $coreTypes, true)
-                && ! $moduleHasType->has($core->page_type)) {
-                $modulePages->push($core);
-            }
-        }
-
+    /**
+     * @return Collection<int, WebsitePage>
+     */
+    public function menuPagesForTenantCompany(int $companyId): Collection
+    {
         return $this->excludeCentralWelcomeFromMenu(
-            $modulePages->sortBy(['sort_order', 'id'])->values()
+            $this->pagesConfiguredForTenantCompany($companyId)
+                ->filter(function (WebsitePage $p) {
+                    if (! $p->is_active) {
+                        return false;
+                    }
+                    if (! Schema::hasColumn($p->getTable(), 'show_in_menu')) {
+                        return true;
+                    }
+
+                    return (bool) $p->show_in_menu;
+                })
+                ->values()
         );
     }
 

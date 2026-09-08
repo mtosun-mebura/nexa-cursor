@@ -4,6 +4,32 @@ let selectedNotifications = new Set();
 let notifications = [];
 let notificationsPollingInterval = null;
 let lastNotificationCount = 0;
+const DEFAULT_SYSTEM_AVATAR = '/assets/media/avatars/300-2.png';
+
+function getNexaSuiteAvatarUrl(notification) {
+    if (notification && notification.system_avatar) {
+        return notification.system_avatar;
+    }
+    const drawer = document.getElementById('notifications_drawer');
+    const fromDom = drawer && drawer.getAttribute('data-system-avatar');
+    if (fromDom) {
+        return fromDom;
+    }
+    return DEFAULT_SYSTEM_AVATAR;
+}
+
+function isDefaultPlaceholderAvatar(url) {
+    return !url || String(url).includes('/assets/media/avatars/300-2.png');
+}
+
+function avatarForNotification(notification) {
+    const hasSender = notification && notification.sender && notification.sender.id;
+    const senderAvatar = hasSender ? notification.sender.avatar : '';
+    if (senderAvatar && !isDefaultPlaceholderAvatar(senderAvatar)) {
+        return senderAvatar;
+    }
+    return getNexaSuiteAvatarUrl(notification);
+}
 
 function typedActionButtonsHtml(notification, spacingClass) {
     if (!notification.action_url) {
@@ -252,7 +278,7 @@ function createNotificationElement(notification) {
     
     // Get sender info - if no sender, it's a system notification
     const hasSender = notification.sender && notification.sender.id;
-    const avatar = hasSender ? (notification.sender.avatar || '/assets/media/avatars/300-2.png') : '/assets/media/avatars/300-2.png';
+    const avatar = avatarForNotification(notification);
     const senderName = hasSender ? notification.sender.name : 'Systeem';
     const senderEmail = hasSender ? (notification.sender.email || '') : '';
     
@@ -376,7 +402,6 @@ function createNotificationElement(notification) {
                     <div class="kt-avatar-image">
                         <img alt="${senderName}" src="${avatar}">
                     </div>
-                    ${!notification.is_read ? '<div class="kt-avatar-indicator -end-2 -bottom-2"><div class="kt-avatar-status kt-avatar-status-online size-2.5" style="background-color: rgb(59, 130, 246); border: 2px solid var(--kt-body-bg, #ffffff);"></div></div>' : ''}
                 </div>
             </div>
             <div class="flex flex-col gap-2 flex-1">
@@ -792,12 +817,11 @@ function showNotificationDetail(notification) {
     
     // Get sender info - check if sender exists and has id
     const hasSender = notification.sender && notification.sender.id;
-    let avatar = '/assets/media/avatars/300-2.png';
+    let avatar = avatarForNotification(notification);
     let senderName = 'Systeem';
     let senderEmail = '';
     
     if (hasSender && notification.sender) {
-        avatar = notification.sender.avatar || '/assets/media/avatars/300-2.png';
         senderName = notification.sender.name || notification.sender.email || 'Onbekende gebruiker';
         senderEmail = notification.sender.email || '';
     }
@@ -1277,16 +1301,9 @@ function updateNotificationElementUI(notificationId) {
     // Update data-is-read attribute (CSS will handle the background color change)
     notificationEl.dataset.isRead = 'true';
     
-    // Remove unread indicator dot
-    const unreadDot = notificationEl.querySelector('.size-2.rounded-full.bg-primary');
+    const unreadDot = notificationEl.querySelector('.size-2.rounded-full.shrink-0');
     if (unreadDot) {
         unreadDot.remove();
-    }
-    
-    // Remove unread avatar indicator
-    const avatarIndicator = notificationEl.querySelector('.kt-avatar-indicator');
-    if (avatarIndicator) {
-        avatarIndicator.remove();
     }
 }
 

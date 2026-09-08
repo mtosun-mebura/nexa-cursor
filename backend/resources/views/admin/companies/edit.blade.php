@@ -333,7 +333,7 @@
                                        required
                                        autocomplete="email">
                                 @error('email')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="email" data-laravel-message="{{ $message }}" role="alert">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-destructive mt-1 hidden" id="email_error"></div>
                             </td>
@@ -425,6 +425,7 @@
                                        required
                                        value="{{ old('house_number', $company->house_number) }}">
                                 <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld wordt straat en plaats automatisch ingevuld.</div>
+                                @include('admin.partials.postcode-lookup-status', ['id' => 'house_number_lookup_loading'])
                                 @error('house_number')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -671,71 +672,20 @@
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
+<script src="{{ asset('js/admin-postcode-lookup.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Contact address: postcode + huisnummer lookup on blur
-        (function() {
-            const postalCodeInput = document.getElementById('postal_code');
-            const houseNumberInput = document.getElementById('house_number');
-            const streetInput = document.getElementById('street');
-            const cityInput = document.getElementById('city');
-            const countryInput = document.getElementById('country');
-            if (!postalCodeInput || !houseNumberInput || !streetInput || !cityInput) return;
-
-            let lookupTimeout;
-            function lookupContactAddress() {
-                const postcode = postalCodeInput.value.trim().toUpperCase().replace(/\s+/g, '');
-                const huisnummer = houseNumberInput.value.trim();
-                if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode) || !huisnummer) return;
-
-                clearTimeout(lookupTimeout);
-                lookupTimeout = setTimeout(function() {
-                    fetch('{{ route('admin.postcode.lookup') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
-                    })
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
-                        if (data.success) {
-                            streetInput.value = data.street || '';
-                            cityInput.value = data.city || '';
-                            if (countryInput) countryInput.value = data.country || 'Nederland';
-                            streetInput.setAttribute('readonly', 'readonly');
-                            cityInput.setAttribute('readonly', 'readonly');
-                            if (countryInput) countryInput.setAttribute('readonly', 'readonly');
-
-                            // Als velden automatisch zijn ingevuld via postcodecheck:
-                            // direct als geldig markeren (groene vink) en foutmeldingen verbergen.
-                            var validator = postalCodeInput.closest('form')?._formValidator;
-                            [streetInput, cityInput, countryInput].forEach(function(field) {
-                                if (!field) return;
-                                field.dataset.userInteracted = 'true';
-                                field.dispatchEvent(new Event('input', { bubbles: true }));
-                                if (validator && typeof validator.validateField === 'function') {
-                                    validator.validateField(field, null, true);
-                                }
-                            });
-                        } else {
-                            streetInput.removeAttribute('readonly');
-                            cityInput.removeAttribute('readonly');
-                            if (countryInput) countryInput.removeAttribute('readonly');
-                        }
-                    })
-                    .catch(function() {
-                        streetInput.removeAttribute('readonly');
-                        cityInput.removeAttribute('readonly');
-                        if (countryInput) countryInput.removeAttribute('readonly');
-                    });
-                }, 300);
-            }
-
-            postalCodeInput.addEventListener('blur', lookupContactAddress);
-            houseNumberInput.addEventListener('blur', lookupContactAddress);
-        })();
+        if (typeof window.bindAdminPostcodeLookup === 'function') {
+            window.bindAdminPostcodeLookup({
+                postcode: 'postal_code',
+                huisnummer: 'house_number',
+                street: 'street',
+                city: 'city',
+                country: 'country',
+                loading: ['house_number_lookup_loading'],
+                url: @json(route('admin.postcode.lookup'))
+            });
+        }
 
         @include('admin.partials.logo-dropzone-init-inner')
 

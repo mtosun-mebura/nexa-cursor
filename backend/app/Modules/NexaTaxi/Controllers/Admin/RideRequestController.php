@@ -11,8 +11,10 @@ use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
+use App\Modules\NexaTaxi\Services\RideRequestMonthlyStatsService;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerRideAcceptedNotificationService;
+use Carbon\Carbon;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
@@ -33,17 +35,7 @@ class RideRequestController extends Controller
 
         $conn = $this->moduleConnection();
         $query = RideRequest::on($conn)->with(['vehicle.company', 'driver', 'company']);
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $query->where(function ($q) {
-                $q->where('company_id', session('selected_tenant'))
-                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', session('selected_tenant')));
-            });
-        } elseif (! auth()->user()->hasRole('super-admin') && auth()->user()->company_id) {
-            $query->where(function ($q) {
-                $q->where('company_id', auth()->user()->company_id)
-                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', auth()->user()->company_id));
-            });
-        }
+        $this->applyRideTenantScope($query);
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -82,11 +74,20 @@ class RideRequestController extends Controller
 
         $statusLabels = RideRequest::statusLabels();
 
+        $statsMonth = parse_admin_month($request->input('stats_month')) ?? now()->format('Y-m');
+        $monthStart = Carbon::createFromFormat('Y-m', $statsMonth)->startOfMonth();
+        $monthlyStats = app(RideRequestMonthlyStatsService::class)->forMonth(
+            $conn,
+            $monthStart,
+            fn ($ridesQuery) => $this->applyRideTenantScope($ridesQuery)
+        );
+
         return view('taxi::admin.ride_requests.index', [
             'rideRequests' => $rideRequests,
             'vehicles' => $vehicles,
             'statusLabels' => $statusLabels,
             'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
+            'monthlyStats' => $monthlyStats,
         ]);
     }
 
@@ -400,6 +401,27 @@ class RideRequestController extends Controller
         return redirect()
             ->route('admin.taxi.ride_requests.show', $ride_request)
             ->with($activeOffers > 0 ? 'success' : 'warning', $message);
+    }
+
+    private function applyRideTenantScope($query): void
+    {
+        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            $tenantId = session('selected_tenant');
+            $query->where(function ($q) use ($tenantId) {
+                $q->where('company_id', $tenantId)
+                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $tenantId));
+            });
+
+            return;
+        }
+
+        if (! auth()->user()->hasRole('super-admin') && auth()->user()->company_id) {
+            $companyId = auth()->user()->company_id;
+            $query->where(function ($q) use ($companyId) {
+                $q->where('company_id', $companyId)
+                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $companyId));
+            });
+        }
     }
 
     private function authorizeOrPermission(string $ability): void

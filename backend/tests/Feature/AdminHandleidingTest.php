@@ -50,7 +50,10 @@ class AdminHandleidingTest extends TestCase
             ->assertSee('Handleiding')
             ->assertSee('Stap-voor-stap uitleg')
             ->assertSee('Aan de slag')
-            ->assertSee('Dashboard');
+            ->assertSee('Dashboard')
+            ->assertSee('Zoek op onderwerp of trefwoord', false)
+            ->assertSee('data-handleiding-search', false)
+            ->assertSee('data-handleiding-card', false);
     }
 
     public function test_handleiding_show_displays_first_article(): void

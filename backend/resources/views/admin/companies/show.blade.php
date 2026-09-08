@@ -282,7 +282,7 @@
                         </td>
                     </tr>
                     @php
-                        $addonSelections = \App\Support\TenantPackageAddon::normalizeSelections(
+                        $addonRecords = \App\Support\TenantPackageAddon::normalizeRecords(
                             is_array($company->package_addons ?? null) ? $company->package_addons : []
                         );
                         $entitlements = app(\App\Services\CompanyEntitlementService::class);
@@ -292,20 +292,43 @@
                         <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
                         <td class="text-foreground font-normal">
                             <ul class="list-disc ps-5 mb-0 text-sm space-y-1">
-                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] > 0)
-                                    <li>{{ (int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] }}× extra contractklanten (+{{ (int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK }} klanten)</li>
-                                @endif
-                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 1)
-                                    <li>{{ $moduleCatalog->firstWhere('key', \App\Support\TenantPackageAddon::GPS_TRACKING)['name'] ?? 'GPS-trackers' }}</li>
-                                @endif
-                                @if((int) $addonSelections[\App\Support\TenantPackageAddon::FLEET] === 1)
-                                    <li>{{ $moduleCatalog->firstWhere('key', \App\Support\TenantPackageAddon::FLEET)['name'] ?? 'Vloot' }}</li>
-                                @endif
+                                @foreach($moduleCatalog as $addon)
+                                    @php
+                                        $record = $addonRecords[$addon['key']] ?? \App\Support\TenantPackageAddon::emptyRecord();
+                                        $quantity = (int) ($record['quantity'] ?? 0);
+                                    @endphp
+                                    @if($quantity > 0 || \App\Support\TenantPackageAddon::isPendingCancel($record))
+                                        <li>
+                                            @if($addon['key'] === \App\Support\TenantPackageAddon::EXTRA_CLIENTS)
+                                                {{ max($quantity, (int) ($record['active_quantity'] ?? 0)) }}× {{ $addon['name'] ?? $addon['label'] }} (+{{ max($quantity, (int) ($record['active_quantity'] ?? 0)) * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK }} klanten)
+                                            @elseif(($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY)
+                                                {{ max($quantity, (int) ($record['active_quantity'] ?? 0)) }}× {{ $addon['name'] ?? $addon['label'] }}
+                                            @else
+                                                {{ $addon['name'] ?? $addon['label'] }}
+                                            @endif
+                                            @if(\App\Support\TenantPackageAddon::isPendingCancel($record) && ! empty($record['starts_at']))
+                                                <span class="text-muted-foreground"> — opgezegd per {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}</span>
+                                            @elseif(\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at']))
+                                                <span class="text-muted-foreground"> — {{ (int) ($record['active_quantity'] ?? 0) }} tot {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}, daarna {{ $quantity }}</span>
+                                            @elseif(! empty($record['starts_at']))
+                                                <span class="text-muted-foreground"> — ingang {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}</span>
+                                            @endif
+                                            @if(! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0)
+                                                <span class="text-muted-foreground">(nog niet actief)</span>
+                                            @endif
+                                        </li>
+                                    @endif
+                                @endforeach
                             </ul>
-                            @if((int) $addonSelections[\App\Support\TenantPackageAddon::EXTRA_CLIENTS] === 0
-                                && (int) $addonSelections[\App\Support\TenantPackageAddon::GPS_TRACKING] === 0
-                                && (int) $addonSelections[\App\Support\TenantPackageAddon::FLEET] === 0)
+                            @if(collect($addonRecords)->every(fn ($record) => (int) ($record['quantity'] ?? 0) <= 0 && ! \App\Support\TenantPackageAddon::isPendingCancel($record)))
                                 <span class="text-muted-foreground">Geen aanvullende modules</span>
+                            @endif
+                            @php
+                                $addonsInTrial = $company->billingProfile
+                                    && app(\App\Services\PlatformBilling\TenantSubscriptionService::class)->isInTrial($company->billingProfile);
+                            @endphp
+                            @if($addonsInTrial)
+                                <p class="text-xs text-muted-foreground mt-2 mb-0">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.</p>
                             @endif
                             <p class="text-xs text-muted-foreground mt-2 mb-0">Contractklantenlimiet: {{ $entitlements->contractClientLimitLabel($company) }}</p>
                         </td>

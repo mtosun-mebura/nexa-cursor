@@ -26,7 +26,7 @@ class AiChatAssistantService
     /**
      * @return array{module: string, endpoint: string, greeting: string, title: string, subtitle: string, storageKey: string}
      */
-    public function frontendConfig(?string $moduleName = null): array
+    public function frontendConfig(?string $moduleName = null, ?int $forCompanyId = null): array
     {
         if (request()->routeIs('taxi.portal.*') && auth()->check()) {
             return $this->mijnTaxiConfig();
@@ -35,8 +35,9 @@ class AiChatAssistantService
         $module = strtolower(trim((string) ($moduleName ?? $this->websiteBuilder->resolvePublicFrontendModuleName() ?? '')));
         $isTaxi = $module === 'taxi';
         $settingsModule = $isTaxi ? 'taxi' : 'default';
-        $companyId = GeneralSetting::resolveScopeCompanyId();
+        $companyId = $forCompanyId ?? GeneralSetting::resolveScopeCompanyId();
         $messages = app(AiChatMessageSettingsService::class);
+        $userId = auth()->id();
 
         if ($companyId === null && $this->isCentralPublicChat()) {
             return array_merge([
@@ -46,7 +47,7 @@ class AiChatAssistantService
                 'greeting' => 'Hallo! Ik help je met vragen over NEXA Suite: de taxi-applicatie, contractvervoer, prijzen en pakketten, je website en hoe je contact opneemt. Waar kan ik je mee helpen?',
                 'title' => 'NEXA-assistent',
                 'subtitle' => 'Vragen over het platform',
-                'storageKey' => 'ai-chat-messages-nexa',
+                'storageKey' => $this->chatStorageKey('public', 'nexa', null, $userId),
             ], $this->chatMapsConfig());
         }
 
@@ -57,7 +58,12 @@ class AiChatAssistantService
             'greeting' => $messages->greeting($companyId, $settingsModule),
             'title' => $messages->title($companyId, $settingsModule),
             'subtitle' => $messages->subtitle($companyId, $settingsModule),
-            'storageKey' => $isTaxi ? 'ai-chat-messages-taxi' : 'ai-chat-messages',
+            'storageKey' => $this->chatStorageKey(
+                'public',
+                $isTaxi ? 'taxi' : 'default',
+                $companyId,
+                $userId
+            ),
         ], $this->chatMapsConfig());
     }
 
@@ -76,7 +82,7 @@ class AiChatAssistantService
             'greeting' => $messages->greeting($companyId, 'taxi'),
             'title' => 'Mijn Taxi assistent',
             'subtitle' => 'Ingelogd · alleen jouw ritten',
-            'storageKey' => 'ai-chat-messages-mijn-taxi',
+            'storageKey' => $this->chatStorageKey('mijn-taxi', 'taxi', $companyId, auth()->id()),
         ], $this->chatMapsConfig());
     }
 
@@ -113,6 +119,7 @@ class AiChatAssistantService
      */
     public function adminConfig(?User $user = null): array
     {
+        $user ??= auth()->user();
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $requiresTenant = $companyId === null;
         $tenantRequiredMessage = 'Selecteer eerst een bedrijf in de tenant-kiezer linksboven om de assistent te gebruiken.';
@@ -127,11 +134,22 @@ class AiChatAssistantService
             'greeting' => $greeting,
             'title' => 'Taxi-assistent',
             'subtitle' => 'Admin · alleen jouw tenant',
-            'storageKey' => 'ai-chat-messages-admin-taxi',
+            'storageKey' => $this->chatStorageKey('admin', 'taxi', $companyId, $user?->id),
             'requiresTenant' => $requiresTenant,
             'tenantRequiredMessage' => $tenantRequiredMessage,
             'channel' => 'admin',
         ], $this->chatMapsConfig());
+    }
+
+    /**
+     * Browser-opslag per kanaal, tenant en persoon, zodat chats niet door elkaar lopen.
+     */
+    public function chatStorageKey(string $channel, string $module, ?int $companyId, ?int $userId): string
+    {
+        $scope = ($companyId !== null && $companyId > 0) ? 'c'.$companyId : 'central';
+        $person = ($userId !== null && $userId > 0) ? 'u'.$userId : 'guest';
+
+        return 'ai-chat-messages-'.$channel.'-'.$module.'-'.$scope.'-'.$person;
     }
 
     /**

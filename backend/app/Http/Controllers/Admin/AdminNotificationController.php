@@ -18,6 +18,30 @@ class AdminNotificationController extends Controller
 {
     use TenantFilter;
 
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Notification>
+     */
+    protected function drawerNotificationsQuery(?User $user = null): Builder
+    {
+        $user = $user ?? auth()->user();
+
+        return Notification::queryVisibleInAdminDrawer($user, $this->selectedTenantIdForDrawer($user));
+    }
+
+    protected function selectedTenantIdForDrawer(?User $user = null): ?int
+    {
+        $user = $user ?? auth()->user();
+        if (! $user->isSuperAdmin() && ! $user->hasRole('super-admin')) {
+            return null;
+        }
+        $tenantId = (int) ($this->getTenantId() ?: session('selected_tenant') ?: 0);
+        if ($tenantId <= 0) {
+            $tenantId = (int) request()->input('tenant_company', request()->input('tenant_id', 0));
+        }
+
+        return $tenantId > 0 ? $tenantId : null;
+    }
+
     protected function skillmatchingTablesAvailable(?int $companyId = null): bool
     {
         if ($companyId !== null && $companyId <= 0) {
@@ -1050,13 +1074,9 @@ class AdminNotificationController extends Controller
      */
     public function markAsRead(Notification $notification)
     {
-        // Check if the notification belongs to the authenticated user
-        if ($notification->user_id !== auth()->id()) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-        
-        // For admin users, also check company access
-        if (auth()->user()->company_id && !$this->canAccessResource($notification)) {
+        $user = auth()->user();
+        $tenantId = $this->selectedTenantIdForDrawer($user);
+        if (! Notification::userCanAccessDrawerNotification($user, $notification, $tenantId)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -1071,15 +1091,9 @@ class AdminNotificationController extends Controller
     public function markAllAsRead()
     {
         $user = auth()->user();
-        $query = Notification::where('user_id', $user->id)
-            ->whereNull('read_at');
-        
-        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
-        if ($user->company_id && ! $user->isSuperAdmin()) {
-            $query->where('company_id', $this->getTenantId());
-        }
-        
-        $query->update(['read_at' => now()]);
+        $this->drawerNotificationsQuery($user)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
         
         return response()->json(['success' => true]);
     }
@@ -1090,27 +1104,16 @@ class AdminNotificationController extends Controller
     public function getUnreadCount()
     {
         $user = auth()->user();
-        $query = Notification::where('user_id', $user->id)
+        $query = $this->drawerNotificationsQuery($user)
             ->whereNull('read_at')
             ->whereNull('archived_at');
-        
-        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
-        if ($user->company_id && ! $user->isSuperAdmin()) {
-            $query->where('company_id', $this->getTenantId());
-        }
         
         $unreadCount = $query->count();
         
-        // Get highest priority of unread notifications
-        $priorityQuery = Notification::where('user_id', $user->id)
+        $highestPriority = $this->drawerNotificationsQuery($user)
             ->whereNull('read_at')
-            ->whereNull('archived_at');
-        
-        if ($user->company_id && ! $user->isSuperAdmin()) {
-            $priorityQuery->where('company_id', $this->getTenantId());
-        }
-        
-        $highestPriority = $priorityQuery->orderByRaw("CASE priority 
+            ->whereNull('archived_at')
+            ->orderByRaw("CASE priority 
                 WHEN 'urgent' THEN 1 
                 WHEN 'high' THEN 2 
                 WHEN 'normal' THEN 3 
@@ -1131,21 +1134,18 @@ class AdminNotificationController extends Controller
     public function getNotifications(Request $request)
     {
         $user = auth()->user();
-        $query = Notification::where('user_id', $user->id)
+        $query = $this->drawerNotificationsQuery($user)
             ->whereNull('archived_at')
             ->orderBy('created_at', 'desc')
             ->limit(50);
-        
-        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
-        if ($user->company_id && ! $user->isSuperAdmin()) {
-            $query->where('company_id', $user->company_id);
-        }
         
         // Get company for main address lookup
         $companyId = $this->getTenantId();
         $company = \App\Models\Company::with('mainLocation')->find($companyId);
         
-        $notifications = $query->get()->map(function($notification) use ($company) {
+        $systemAvatarUrl = \App\Models\GeneralSetting::nexaSuiteAvatarUrl();
+
+        $notifications = $query->get()->map(function($notification) use ($company, $systemAvatarUrl) {
             $sender = null;
             $data = null;
             
@@ -1178,13 +1178,11 @@ class AdminNotificationController extends Controller
                     $name = $sender->email ?? 'Onbekende gebruiker';
                 }
                 
-                // Use secure photo token for avatar
-                $avatarUrl = asset('assets/media/avatars/300-2.png');
+                $avatarUrl = $systemAvatarUrl;
                 if ($sender->photo_blob) {
                     try {
                         $avatarUrl = route('secure.photo', ['token' => $sender->getPhotoToken()]);
                     } catch (\Exception $e) {
-                        // Fallback to default on error
                         \Log::error('Error getting sender avatar URL in getNotifications: ' . $e->getMessage());
                     }
                 }
@@ -1463,6 +1461,7 @@ class AdminNotificationController extends Controller
                 'created_at_human' => $notification->created_at->diffForHumans(),
                 'created_at_formatted' => $notification->created_at->format('d-m-Y H:i'),
                 'sender' => $senderInfo, // Will be null if no sender found
+                'system_avatar' => $systemAvatarUrl,
                 'action_url' => $notification->action_url,
                 'requires_response' => $notification->type === 'interview' && !$hasResponse && $notification->requires_response !== false && !$interviewHasStatus,
                 'has_response' => $hasResponse,
@@ -1500,15 +1499,9 @@ class AdminNotificationController extends Controller
         ]);
         
         $user = auth()->user();
-        $query = Notification::where('user_id', $user->id)
-            ->whereIn('id', $request->notification_ids);
-        
-        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
-        if ($user->company_id && ! $user->isSuperAdmin()) {
-            $query->where('company_id', $this->getTenantId());
-        }
-        
-        $query->update(['read_at' => now()]);
+        $this->drawerNotificationsQuery($user)
+            ->whereIn('id', $request->notification_ids)
+            ->update(['read_at' => now()]);
         
         return response()->json(['success' => true]);
     }
@@ -1524,15 +1517,9 @@ class AdminNotificationController extends Controller
         ]);
         
         $user = auth()->user();
-        $query = Notification::where('user_id', $user->id)
-            ->whereIn('id', $request->notification_ids);
-        
-        // Super-admins zien alle persoonlijke meldingen (o.a. incidenten van alle tenants).
-        if ($user->company_id && ! $user->isSuperAdmin()) {
-            $query->where('company_id', $this->getTenantId());
-        }
-        
-        $query->update(['archived_at' => now()]);
+        $this->drawerNotificationsQuery($user)
+            ->whereIn('id', $request->notification_ids)
+            ->update(['archived_at' => now()]);
         
         return response()->json(['success' => true]);
     }
