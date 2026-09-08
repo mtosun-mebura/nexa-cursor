@@ -65,6 +65,10 @@ class NexaTaxiBookingPricingService
                 'baggage_van_upgrade_enabled' => true,
                 'baggage_car_max_units' => 4,
                 'baggage_upgrade_person_range' => '5-8',
+                'show_live_fleet' => false,
+                'show_live_fleet_demo' => false,
+                'live_fleet_refresh_seconds' => 1,
+                'live_fleet_car_color' => '#ea580c',
             ],
             'texts' => [
                 'pickup_placeholder' => 'straatnaam met huisnummer',
@@ -205,6 +209,14 @@ class NexaTaxiBookingPricingService
         $section['logic']['person_range_base_price_multiplier'] = max(0.1, min(5, (float) ($logic['person_range_base_price_multiplier'] ?? $defaults['logic']['person_range_base_price_multiplier'])));
         $section['logic']['person_range_base_old_price_multiplier'] = max(1, min(5, (float) ($logic['person_range_base_old_price_multiplier'] ?? $defaults['logic']['person_range_base_old_price_multiplier'])));
         $section['logic']['baggage_van_upgrade_enabled'] = ! empty($logic['baggage_van_upgrade_enabled']);
+        $section['logic']['show_live_fleet'] = ! empty($logic['show_live_fleet']);
+        $section['logic']['show_live_fleet_demo'] = ! empty($logic['show_live_fleet_demo']);
+        $refreshSeconds = (int) ($logic['live_fleet_refresh_seconds'] ?? $defaults['logic']['live_fleet_refresh_seconds']);
+        $section['logic']['live_fleet_refresh_seconds'] = max(1, min(30, $refreshSeconds > 0 ? $refreshSeconds : 1));
+        $fleetColor = trim((string) ($logic['live_fleet_car_color'] ?? $defaults['logic']['live_fleet_car_color']));
+        $section['logic']['live_fleet_car_color'] = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $fleetColor)
+            ? $fleetColor
+            : $defaults['logic']['live_fleet_car_color'];
         $section['logic']['baggage_car_max_units'] = max(0, min(50, (int) ($logic['baggage_car_max_units'] ?? $defaults['logic']['baggage_car_max_units'])));
         $baggageUpgradeRange = $this->normalizePersonRange($logic['baggage_upgrade_person_range'] ?? null);
         $section['logic']['baggage_upgrade_person_range'] = $baggageUpgradeRange ?? $defaults['logic']['baggage_upgrade_person_range'];

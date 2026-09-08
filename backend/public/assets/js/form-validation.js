@@ -90,6 +90,10 @@
             minLength: 1,
             message: 'Voer een kenteken in.',
         },
+        /** Nederlands huisnummer: 1 teken is geldig (bijv. 1 of 5). */
+        house_number: {
+            minLength: 1,
+        },
     };
 
     /**
@@ -172,11 +176,26 @@
 
         findLaravelFeedbackForInput(input) {
             const fieldName = input.getAttribute('name');
-            if (!fieldName || !this.form) {
+            if (!fieldName) {
                 return null;
             }
 
-            return this.form.querySelector('[data-laravel-field="' + fieldName + '"]');
+            const escapedName = (window.CSS && typeof CSS.escape === 'function')
+                ? CSS.escape(fieldName)
+                : String(fieldName).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            const selector = '[data-laravel-field="' + escapedName + '"]';
+            const cell = input.closest('td');
+            if (cell) {
+                const local = cell.querySelector(selector);
+                if (local) {
+                    return local;
+                }
+            }
+            if (!this.form) {
+                return null;
+            }
+
+            return this.form.querySelector(selector);
         }
 
         laravelFeedbackMessage(element) {
@@ -187,17 +206,71 @@
             return (element.getAttribute('data-laravel-message') || element.textContent || '').trim();
         }
 
-        clearServerFieldError(input) {
-            const laravelFeedback = this.findLaravelFeedbackForInput(input);
-            if (!laravelFeedback) {
-                return;
+        isStaleServerErrorElement(el, keepElement) {
+            if (!el || el === keepElement) {
+                return false;
             }
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+                return false;
+            }
+            if (el.classList.contains('text-muted-foreground')) {
+                return false;
+            }
+            if (el.hasAttribute('data-laravel-field') || el.classList.contains('laravel-inline-error')) {
+                return true;
+            }
+            if (el.classList.contains('field-feedback')) {
+                return true;
+            }
+            if (el.id && /_(error|success)$/.test(el.id)) {
+                return true;
+            }
+            return el.classList.contains('text-destructive') && el.classList.contains('text-xs');
+        }
 
-            laravelFeedback.removeAttribute('data-laravel-field');
-            laravelFeedback.removeAttribute('data-laravel-message');
-            laravelFeedback.textContent = '';
-            laravelFeedback.classList.add('hidden');
-            laravelFeedback.style.display = 'none';
+        dismissStaleErrorMessages(input, keepElement) {
+            const roots = [];
+            const cell = input.closest('td');
+            if (cell) {
+                roots.push(cell);
+            }
+            const wrap = input.closest('.relative');
+            if (wrap && !roots.includes(wrap)) {
+                roots.push(wrap);
+            }
+            if (roots.length === 0 && input.parentElement) {
+                roots.push(input.parentElement);
+            }
+            roots.forEach((root) => {
+                Array.from(root.children).forEach((el) => {
+                    if (el === input || el.contains(input)) {
+                        return;
+                    }
+                    if (!this.isStaleServerErrorElement(el, keepElement)) {
+                        return;
+                    }
+                    el.classList.add('hidden');
+                    el.style.display = 'none';
+                    el.textContent = '';
+                    el.removeAttribute('data-laravel-field');
+                    el.removeAttribute('data-laravel-message');
+                });
+            });
+        }
+
+        clearServerFieldError(input) {
+            const keep = this.findFeedbackElement(input);
+            const laravelFeedback = this.findLaravelFeedbackForInput(input);
+            if (laravelFeedback) {
+                laravelFeedback.removeAttribute('data-laravel-field');
+                laravelFeedback.removeAttribute('data-laravel-message');
+                if (laravelFeedback !== keep) {
+                    laravelFeedback.textContent = '';
+                    laravelFeedback.classList.add('hidden');
+                    laravelFeedback.style.display = 'none';
+                }
+            }
+            this.dismissStaleErrorMessages(input, keep);
         }
 
         feedbackMessageClasses() {
@@ -585,6 +658,7 @@
                 return 'person_name';
             }
             if (name === 'license_plate' || name.endsWith('[license_plate]')) return 'license_plate';
+            if (name.includes('house_number') || name.includes('huisnummer')) return 'house_number';
             // Sectie "E-mailtemplate (informatieaanvraag)": titel/template_id bevat "email" maar is geen e-mailadres
             if (/\[email_template/.test(name)) {
                 return 'text';
@@ -627,6 +701,9 @@
             if (fieldType === 'person_name') {
                 return validationRules.person_name?.minLength ?? 2;
             }
+            if (fieldType === 'house_number') {
+                return validationRules.house_number?.minLength ?? 1;
+            }
             if (input.dataset.skipMinlengthValidation === 'true') {
                 return null;
             }
@@ -651,11 +728,16 @@
          * Verwijdert Laravel @error-blokken gemarkeerd met data-laravel-field (zelfde td als input).
          */
         removeLaravelInlineMessagesFor(input) {
+            const keep = this.findFeedbackElement(input);
+            this.dismissStaleErrorMessages(input, keep);
             const fieldKey = input.getAttribute('name');
             if (!fieldKey) return;
             const td = input.closest('td');
             if (!td) return;
             td.querySelectorAll('[data-laravel-field]').forEach((el) => {
+                if (el === keep) {
+                    return;
+                }
                 if (el.getAttribute('data-laravel-field') === fieldKey) {
                     el.remove();
                 }

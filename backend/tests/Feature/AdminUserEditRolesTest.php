@@ -76,6 +76,18 @@ class AdminUserEditRolesTest extends TestCase
     }
 
     #[Test]
+    public function user_show_does_not_use_mailto_for_email(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.users.show', $admin))
+            ->assertOk()
+            ->assertSee($admin->email, false)
+            ->assertDontSee('mailto:'.$admin->email, false);
+    }
+
+    #[Test]
     public function users_index_shows_chauffeur_app_offline_status(): void
     {
         [$company, $admin] = $this->makeCompanyAdmin();

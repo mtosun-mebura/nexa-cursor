@@ -216,10 +216,29 @@ class CompanyBillingProfile extends Model
         return round($packageNet + $this->packageAddonMonthlyAmount(), 2);
     }
 
+    public function mollieRecurringAmount(?Carbon $asOf = null): float
+    {
+        $asOf = $asOf ? Carbon::parse($asOf)->startOfDay() : now()->startOfDay();
+        $nextPeriod = $asOf->day === 1
+            ? $asOf->format('Y-m')
+            : $asOf->copy()->addMonthNoOverflow()->startOfMonth()->format('Y-m');
+
+        $base = $this->subscriptionBaseAmount();
+        $discount = $this->discountPercent();
+        $packageNet = round(max(0, $base * (1 - ($discount / 100))), 2);
+        if ($this->billing_mode !== self::MODE_PACKAGE) {
+            return $packageNet;
+        }
+
+        $nextChargeDate = Carbon::parse($nextPeriod.'-01')->startOfMonth();
+
+        return round($packageNet + $this->packageAddonMonthlyAmount($nextChargeDate, false, $nextPeriod), 2);
+    }
+
     /**
      * @return list<array{key: string, name: string, quantity: int, unit_price: float, total: float}>
      */
-    public function packageAddonLines(): array
+    public function packageAddonLines(?Carbon $asOf = null, bool $includeUpcoming = true, ?string $skipPrepaidPeriod = null): array
     {
         if ($this->billing_mode !== self::MODE_PACKAGE) {
             return [];
@@ -234,15 +253,18 @@ class CompanyBillingProfile extends Model
 
         return TenantPackageAddon::selectedBillingLines(
             $selections,
-            app(NexaPricingService::class)->modulesCatalog()
+            app(NexaPricingService::class)->modulesCatalog(),
+            $asOf,
+            $includeUpcoming,
+            $skipPrepaidPeriod
         );
     }
 
-    public function packageAddonMonthlyAmount(): float
+    public function packageAddonMonthlyAmount(?Carbon $asOf = null, bool $includeUpcoming = true, ?string $skipPrepaidPeriod = null): float
     {
         return round(array_sum(array_map(
             fn (array $line) => (float) ($line['total'] ?? 0),
-            $this->packageAddonLines()
+            $this->packageAddonLines($asOf, $includeUpcoming, $skipPrepaidPeriod)
         )), 2);
     }
 

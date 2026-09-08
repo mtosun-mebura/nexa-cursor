@@ -73,6 +73,10 @@
     .nexa-gps-legend-wrap .kt-table {
         margin-bottom: 0;
     }
+    .nexa-gps-map-card,
+    .gps-map-canvas {
+        scroll-margin-top: 5.5rem;
+    }
     .nexa-gps-focus-btn {
         width: 2.75rem;
         height: 2.75rem;
@@ -93,6 +97,7 @@
     .nexa-gps-focus-btn i {
         font-size: 1.15rem;
         line-height: 1;
+        pointer-events: none;
         filter: drop-shadow(0 1px 1px rgba(0,0,0,.35));
     }
     .nexa-gps-focus-btn:hover {
@@ -191,7 +196,7 @@
     @endif
 
     <div class="grid gap-5 lg:gap-7.5">
-        <div class="kt-card w-full min-w-0 overflow-hidden">
+        <div class="kt-card w-full min-w-0 overflow-hidden nexa-gps-map-card" id="gps-map-card">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                 <div class="flex items-center gap-2 min-w-0">
                     <h5 class="kt-card-title mb-0">Live kaart</h5>
@@ -201,6 +206,16 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="text-sm text-muted-foreground" id="gps-status-label">Laden…</span>
+                    @if(!empty($canUseLiveDemo))
+                        <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer select-none" for="gps-live-demo" title="Laat alle geconfigureerde voertuigen rijden in de vestigingsstad">
+                            <input type="checkbox"
+                                   class="kt-switch kt-switch-sm shrink-0"
+                                   id="gps-live-demo"
+                                   role="switch"
+                                   {{ !empty($liveDemoEnabled) ? 'checked' : '' }}>
+                            <span>Demo</span>
+                        </label>
+                    @endif
                     <button type="button" class="kt-btn kt-btn-sm kt-btn-primary" id="gps-follow-fleet" aria-pressed="true" title="Kaart volgt automatisch alle auto’s en kentekens">
                         <i class="ki-filled ki-geolocation me-1"></i>
                         Volg vloot
@@ -311,6 +326,7 @@ window.initGpsTrackingMap = function () {
         positionsUrl: @json($positionsUrl),
         unlockUrl: @json($unlockUrl),
         lockUrl: @json($lockUrl),
+        demoUrl: @json($demoUrl ?? ''),
         csrf: document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '',
         pollMs: Math.max(1, parseInt(appearance.refresh_seconds, 10) || 1) * 1000,
         view: 'online',
@@ -318,7 +334,8 @@ window.initGpsTrackingMap = function () {
         offlineUnlocked: @json(!empty($offlineUnlocked)),
         offlineCodeSet: @json(!empty($offlineCodeSet)),
         openCodeModal: @json($errors->has('current_code') || $errors->has('code') || $errors->has('code_confirmation')),
-        hasMapsKey: @json(trim((string) $googleMapsApiKey) !== '')
+        hasMapsKey: @json(trim((string) $googleMapsApiKey) !== ''),
+        canUseLiveDemo: @json(!empty($canUseLiveDemo))
     };
 
     var map = null;
@@ -510,6 +527,16 @@ window.initGpsTrackingMap = function () {
         return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
+    function shortestHeadingDelta(from, to) {
+        return ((to - from + 540) % 360) - 180;
+    }
+
+    function parseHeading(el) {
+        if (!el || !el.style || !el.style.transform) return null;
+        var match = /rotate\((-?[\d.]+)deg\)/.exec(el.style.transform);
+        return match ? Number(match[1]) : null;
+    }
+
     function markerLatLng(marker) {
         var pos = marker.getPosition ? marker.getPosition() : marker.position;
         if (pos && typeof pos.lat === 'function') return pos;
@@ -629,17 +656,24 @@ window.initGpsTrackingMap = function () {
         return OverlayClass;
     }
 
-    function animateTo(key, marker, lat, lng) {
+    function animateTo(key, marker, lat, lng, heading, fromHeading) {
         if (animations[key]) cancelAnimationFrame(animations[key]);
         var start = markerLatLng(marker);
         var fromLat = start.lat();
         var fromLng = start.lng();
+        var rot = marker.div ? marker.div.querySelector('.nexa-gps-car-rot') : null;
+        if (fromHeading == null) fromHeading = parseHeading(rot);
+        if (fromHeading == null) fromHeading = heading;
+        var headingDelta = heading == null || fromHeading == null ? 0 : shortestHeadingDelta(fromHeading, heading);
         var duration = Math.max(400, Math.min(cfg.pollMs, 1800));
         var started = performance.now();
         function step(now) {
             var t = Math.min(1, (now - started) / duration);
-            var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-            marker.setPosition({ lat: fromLat + (lat - fromLat) * ease, lng: fromLng + (lng - fromLng) * ease });
+            marker.setPosition({ lat: fromLat + (lat - fromLat) * t, lng: fromLng + (lng - fromLng) * t });
+            var liveRot = marker.div ? marker.div.querySelector('.nexa-gps-car-rot') : rot;
+            if (liveRot && heading != null) {
+                liveRot.style.transform = 'rotate(' + (fromHeading + headingDelta * t) + 'deg)';
+            }
             if (followVehicleId && String(followVehicleId) === String(key)) keepFollowedInView(t >= 1);
             if (t < 1) animations[key] = requestAnimationFrame(step);
             else delete animations[key];
@@ -651,13 +685,17 @@ window.initGpsTrackingMap = function () {
         if (!map || item.lat == null || item.lng == null) return;
         var pos = { lat: Number(item.lat), lng: Number(item.lng) };
         var prev = lastPos[item.id];
-        var heading = prev ? headingBetween(prev, pos) : 0;
+        var serverHeading = item.heading != null && item.heading !== '' ? Number(item.heading) : NaN;
+        var heading = !isNaN(serverHeading)
+            ? serverHeading
+            : (prev ? headingBetween(prev, pos) : 0);
         lastPos[item.id] = pos;
         var content = window.NexaGpsMarker.markerNode(item, appearance, heading);
         var existing = markers[item.id];
         if (existing) {
-            animateTo(item.id, existing, pos.lat, pos.lng);
+            var fromHeading = parseHeading(existing.div ? existing.div.querySelector('.nexa-gps-car-rot') : null);
             existing.setContent(content);
+            animateTo(item.id, existing, pos.lat, pos.lng, heading, fromHeading);
             return;
         }
         var Overlay = ensureOverlayClass();
@@ -683,8 +721,14 @@ window.initGpsTrackingMap = function () {
         return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    function seenHtml(iso) {
-        return '<span class="nexa-gps-seen">' + formatSeen(iso) + '</span>';
+    function seenHtml(iso, id) {
+        return '<span class="nexa-gps-seen" data-gps-seen="' + window.NexaGpsMarker.escapeHtml(String(id || '')) + '">' + formatSeen(iso) + '</span>';
+    }
+
+    function legendSignature(items) {
+        return items.map(function (item) {
+            return String(item.id) + ':' + (item.is_online ? '1' : '0') + ':' + window.NexaGpsMarker.escapeHtml(item.license_plate || '') + ':' + window.NexaGpsMarker.escapeHtml(item.driver_name || '');
+        }).join('|');
     }
 
     function renderLegend(items) {
@@ -696,11 +740,22 @@ window.initGpsTrackingMap = function () {
                 ? 'Geen offline voertuigen. De laatste bekende locatie is alleen zichtbaar als een chauffeur offline is.'
                 : 'Nog geen voertuigen op de kaart. Zet een chauffeur online in de chauffeur-app.';
             box.innerHTML = '<p class="text-sm text-muted-foreground mb-0">' + empty + '</p>';
+            box.removeAttribute('data-gps-legend-sig');
             if (count) count.textContent = '';
             return;
         }
         if (count) count.textContent = items.length + (items.length === 1 ? ' voertuig' : ' voertuigen');
-        var html = '<div class="nexa-gps-legend-wrap overflow-x-auto"><table class="kt-table align-middle text-sm w-full"><thead><tr><th class="w-14"></th><th>Kenteken</th><th>Chauffeur</th><th>Status</th><th>Laatst gezien</th></tr></thead><tbody>';
+        var signature = legendSignature(items);
+        if (box.getAttribute('data-gps-legend-sig') === signature && box.querySelector('[data-gps-focus]')) {
+            items.forEach(function (item) {
+                var seen = box.querySelector('[data-gps-seen="' + window.NexaGpsMarker.escapeHtml(String(item.id)) + '"]');
+                if (seen) seen.textContent = formatSeen(item.location_updated_at || item.last_seen_at);
+            });
+            syncFollowedLegend();
+            return;
+        }
+        box.setAttribute('data-gps-legend-sig', signature);
+        var html = '<div class="nexa-gps-legend-wrap overflow-x-auto"><table class="kt-table align-middle text-sm w-full admin-keep-table-layout" data-admin-no-cards="true"><thead><tr><th class="w-14"></th><th>Kenteken</th><th>Chauffeur</th><th>Status</th><th>Laatst gezien</th></tr></thead><tbody>';
         items.forEach(function (item) {
             var color = window.NexaGpsMarker.bodyColor(item, appearance);
             var luma = (function (hex) {
@@ -713,11 +768,11 @@ window.initGpsTrackingMap = function () {
                 ? 'Kaart volgt ' + plate
                 : 'Zoom in op ' + plate + ' op de kaart';
             html += '<tr>' +
-                '<td><button type="button" class="nexa-gps-focus-btn' + (luma > 0.72 ? ' is-light' : '') + (followVehicleId === String(item.id) ? ' is-following' : '') + '" data-gps-focus="' + window.NexaGpsMarker.escapeHtml(item.id) + '" data-gps-tooltip="' + focusHint + '" style="background:' + color + '" aria-label="' + focusHint + '" aria-pressed="' + (followVehicleId === String(item.id) ? 'true' : 'false') + '"><i class="ki-filled ki-geolocation"></i></button></td>' +
+                '<td><button type="button" class="nexa-gps-focus-btn' + (luma > 0.72 ? ' is-light' : '') + (followVehicleId === String(item.id) ? ' is-following' : '') + '" data-gps-focus="' + window.NexaGpsMarker.escapeHtml(item.id) + '" data-gps-plate="' + plate + '" data-gps-tooltip="' + focusHint + '" style="background:' + color + '" aria-label="' + focusHint + '" aria-pressed="' + (followVehicleId === String(item.id) ? 'true' : 'false') + '" onclick="if(window.nexaGpsFocusVehicle)window.nexaGpsFocusVehicle(this.getAttribute(\'data-gps-focus\'))"><i class="ki-filled ki-geolocation"></i></button></td>' +
                 '<td class="font-medium text-foreground">' + plate + (item.vehicle_name ? '<div class="text-xs text-muted-foreground">' + window.NexaGpsMarker.escapeHtml(item.vehicle_name) + '</div>' : '') + '</td>' +
                 '<td>' + window.NexaGpsMarker.escapeHtml(item.driver_name) + '</td>' +
                 '<td>' + (item.is_online ? '<span class="text-green-600">Online</span>' : '<span class="text-muted-foreground">Offline</span>') + '</td>' +
-                '<td class="text-muted-foreground">' + seenHtml(item.location_updated_at || item.last_seen_at) + '</td>' +
+                '<td class="text-muted-foreground">' + seenHtml(item.location_updated_at || item.last_seen_at, item.id) + '</td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
@@ -769,8 +824,14 @@ window.initGpsTrackingMap = function () {
     function syncFollowedLegend() {
         document.querySelectorAll('[data-gps-focus]').forEach(function (btn) {
             var on = followVehicleId != null && btn.getAttribute('data-gps-focus') === String(followVehicleId);
+            var plate = btn.getAttribute('data-gps-plate') || '';
+            var hint = on
+                ? ('Kaart volgt ' + plate)
+                : ('Zoom in op ' + plate + ' op de kaart');
             btn.classList.toggle('is-following', on);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.setAttribute('aria-label', hint);
+            btn.setAttribute('data-gps-tooltip', hint);
         });
     }
 
@@ -787,7 +848,48 @@ window.initGpsTrackingMap = function () {
         window.setTimeout(function () { programmaticMove = false; }, 1200);
     }
 
+    function closeMapOverlays() {
+        var drawer = document.getElementById('chat_drawer');
+        if (!drawer) return;
+        var style = window.getComputedStyle(drawer);
+        var hidden = drawer.classList.contains('hidden')
+            || drawer.getAttribute('data-drawer-closed') === 'true'
+            || style.display === 'none'
+            || style.visibility === 'hidden';
+        if (hidden) return;
+        drawer.removeAttribute('data-user-opened');
+        var dismiss = drawer.querySelector('[data-kt-drawer-dismiss="true"]');
+        if (dismiss) dismiss.click();
+        else if (typeof window.handleDrawerClose === 'function') window.handleDrawerClose();
+    }
+
+    function scrollMapIntoView() {
+        closeMapOverlays();
+        var el = document.getElementById('gps-tracking-map');
+        var card = document.getElementById('gps-map-card') || (el && el.closest('.kt-card'));
+        var target = card || el;
+        if (!target) return;
+        var header = document.getElementById('header');
+        var offset = header ? Math.ceil(header.getBoundingClientRect().height) + 12 : 88;
+        target.style.scrollMarginTop = offset + 'px';
+        var top = Math.max(0, target.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - offset);
+        window.scrollTo(0, top);
+        if (typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ block: 'start', inline: 'nearest' });
+        }
+        if (map && typeof google !== 'undefined' && google.maps) {
+            window.setTimeout(function () {
+                google.maps.event.trigger(map, 'resize');
+            }, 80);
+        }
+    }
+
     function focusVehicle(id) {
+        if (focusVehicle.lock) return;
+        focusVehicle.lock = true;
+        window.setTimeout(function () { focusVehicle.lock = false; }, 0);
+        hideFocusTooltip();
+        scrollMapIntoView();
         if (!map || !markers[id]) return;
         followVehicleId = String(id);
         setFollowFleet(false, false);
@@ -798,6 +900,7 @@ window.initGpsTrackingMap = function () {
             if (z < 16) map.setZoom(16);
         });
     }
+    window.nexaGpsFocusVehicle = focusVehicle;
 
     function fitAll() {
         var ids = Object.keys(markers);
@@ -987,9 +1090,10 @@ window.initGpsTrackingMap = function () {
             renderLegend(items);
             var statusEl = $('gps-status-label');
             if (statusEl) {
-                statusEl.textContent = cfg.view === 'offline'
+                var countLabel = cfg.view === 'offline'
                     ? (items.length + ' offline')
                     : (items.length + ' online');
+                statusEl.textContent = data.live_demo ? (countLabel + ' · demo') : countLabel;
             }
             if (items.length) {
                 if (!fittedOnce) {
@@ -1111,6 +1215,32 @@ window.initGpsTrackingMap = function () {
     if (followBtn) followBtn.addEventListener('click', function () {
         setFollowFleet(!followFleet, !followFleet);
     });
+    var demoSwitch = $('gps-live-demo');
+    if (demoSwitch && cfg.canUseLiveDemo && cfg.demoUrl) {
+        demoSwitch.addEventListener('change', async function () {
+            var enabled = !!demoSwitch.checked;
+            demoSwitch.disabled = true;
+            try {
+                var res = await fetch(cfg.demoUrl, {
+                    method: 'POST',
+                    headers: jsonHeaders(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ enabled: enabled })
+                });
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Demo kon niet worden gezet.');
+                demoSwitch.checked = !!data.enabled;
+                if (demoSwitch.checked) {
+                    fittedOnce = false;
+                    setFollowFleet(true, false);
+                }
+                loadPositions();
+            } catch (ex) {
+                demoSwitch.checked = !enabled;
+            }
+            demoSwitch.disabled = false;
+        });
+    }
     var themeBtn = $('gps-map-theme');
     if (themeBtn) {
         themeBtn.onclick = function () {
@@ -1137,13 +1267,6 @@ window.initGpsTrackingMap = function () {
     }
     var legendBox = $('gps-legend');
     if (legendBox) {
-        legendBox.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-gps-focus]');
-            if (btn) {
-                hideFocusTooltip();
-                focusVehicle(btn.getAttribute('data-gps-focus'));
-            }
-        });
         legendBox.addEventListener('pointerover', function (e) {
             var btn = e.target.closest('[data-gps-tooltip]');
             if (btn && legendBox.contains(btn)) showFocusTooltip(btn);

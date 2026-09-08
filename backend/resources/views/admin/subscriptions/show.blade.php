@@ -192,6 +192,86 @@
             </div>
         </div>
 
+        @if(! empty($addons))
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                    <h3 class="kt-card-title mb-0">Aanvullende modules</h3>
+                </div>
+                <div class="kt-card-content p-5">
+                    <p class="text-sm text-secondary-foreground mb-5">
+                        @if(! empty($in_trial))
+                            Tijdens de proefperiode kun je alle aanvullende modules gebruiken. Zeg een module op vóór de facturatie start: dan stopt hij kosteloos, zonder factuur. Na de proef zeg je per de 1e van volgende maand op.
+                        @else
+                            Opzeggen van een module gaat per de 1e van volgende maand. Tot die datum blijft de module actief en wordt het extra bedrag nog geïncasseerd.
+                        @endif
+                    </p>
+                    <div class="grid gap-4 md:grid-cols-3">
+                        @foreach($addons as $addon)
+                            <div class="rounded-lg border border-border p-4 flex flex-col gap-3">
+                                <div>
+                                    <div class="text-base font-medium text-foreground">{{ $addon['name'] }}</div>
+                                    @if($addon['description'] !== '')
+                                        <div class="text-xs text-secondary-foreground mt-1">{{ $addon['description'] }}</div>
+                                    @endif
+                                    <div class="text-lg font-semibold text-foreground mt-2 tabular-nums">
+                                        {{ $addon['price_label'] }}
+                                        <span class="text-sm font-normal text-secondary-foreground">per maand{{ ! empty($addon['is_quantity']) ? ' per bundel' : '' }}</span>
+                                    </div>
+                                </div>
+                                @if(! empty($addon['pending_cancel']) && $addon['starts_at'])
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning w-fit">Opgezegd per {{ $addon['starts_at']->translatedFormat('j F Y') }}</span>
+                                    <p class="text-xs text-muted-foreground mb-0">Blijft tot die datum actief.</p>
+                                    @if(! empty($addon['can_withdraw']) && empty($ended))
+                                        <form action="{{ route('admin.subscriptions.addons.withdraw', $addon['key']) }}" method="POST" class="mt-auto">
+                                            @csrf
+                                            <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full">Opzegging intrekken</button>
+                                        </form>
+                                    @endif
+                                @elseif(! empty($addon['pending_decrease']) && $addon['starts_at'])
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning w-fit">Wijziging per {{ $addon['starts_at']->translatedFormat('j F Y') }}</span>
+                                    <p class="text-xs text-muted-foreground mb-0">Deze maand blijft {{ (int) $addon['entitled'] }} bundel{{ (int) $addon['entitled'] === 1 ? '' : 's' }} actief, daarna {{ (int) $addon['quantity'] }}.</p>
+                                    @if(! empty($addon['can_withdraw']) && empty($ended))
+                                        <form action="{{ route('admin.subscriptions.addons.withdraw', $addon['key']) }}" method="POST" class="mt-auto">
+                                            @csrf
+                                            <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full">Wijziging intrekken</button>
+                                        </form>
+                                    @endif
+                                @elseif(! empty($addon['saved']))
+                                    <span class="kt-badge kt-badge-sm kt-badge-success w-fit">
+                                        @if(! empty($addon['is_quantity']) && (int) $addon['entitled'] > 0)
+                                            Actief · {{ (int) $addon['entitled'] }} bundel{{ (int) $addon['entitled'] === 1 ? '' : 's' }}
+                                        @else
+                                            Actief
+                                        @endif
+                                    </span>
+                                    @if(! empty($addon['can_cancel']) && empty($ended))
+                                        <button type="button"
+                                            class="kt-btn kt-btn-outline kt-btn-sm w-full mt-auto"
+                                            data-addon-cancel-open
+                                            data-addon-key="{{ $addon['key'] }}"
+                                            data-addon-name="{{ $addon['name'] }}"
+                                            data-addon-trial="{{ ! empty($addon['in_trial']) ? '1' : '0' }}"
+                                            data-addon-when="{{ $addon['cancel_on']->translatedFormat('j F Y') }}">
+                                            @if(! empty($addon['in_trial']))
+                                                Opzeggen (proefperiode)
+                                            @else
+                                                Opzeggen per {{ $addon['cancel_on']->format('d-m-Y') }}
+                                            @endif
+                                        </button>
+                                    @endif
+                                @elseif(! empty($addon['trial_only']))
+                                    <span class="kt-badge kt-badge-sm kt-badge-light w-fit">Beschikbaar in de proefperiode</span>
+                                    <p class="text-xs text-muted-foreground mb-0">Niet op je abonnement gezet: na de proef stopt deze module automatisch, zonder factuur.</p>
+                                @else
+                                    <span class="text-xs text-muted-foreground">Niet actief</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        @endif
+
         @if(! $ended && $current_key !== '')
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
@@ -323,6 +403,32 @@
         <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
             <button type="button" class="kt-btn kt-btn-outline" data-upgrade-dismiss>Annuleren</button>
             <button type="button" class="kt-btn kt-btn-primary" id="subscription-upgrade-confirm">Upgraden</button>
+        </div>
+    </div>
+</div>
+
+<form id="subscription-addon-cancel-form" method="POST" class="hidden" hidden>
+    @csrf
+</form>
+<div id="subscription-addon-cancel-modal"
+     class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="subscription-addon-cancel-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-addon-cancel-dismiss></div>
+    <div class="subscription-modal-panel relative w-full max-w-lg rounded-2xl border border-border shadow-2xl">
+        <div class="border-b border-border px-6 py-5">
+            <h2 id="subscription-addon-cancel-title" class="text-lg font-semibold text-foreground mb-1">Module opzeggen</h2>
+            <p class="text-sm text-muted-foreground mb-0" id="subscription-addon-cancel-lead"></p>
+        </div>
+        <div class="px-6 py-5 space-y-3">
+            <p class="text-sm text-foreground mb-0" id="subscription-addon-cancel-body"></p>
+            <p class="text-sm text-muted-foreground mb-0" id="subscription-addon-cancel-hint"></p>
+        </div>
+        <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
+            <button type="button" class="kt-btn kt-btn-outline" data-addon-cancel-dismiss>Annuleren</button>
+            <button type="button" class="kt-btn kt-btn-danger" id="subscription-addon-cancel-confirm">Opzeggen</button>
         </div>
     </div>
 </div>
@@ -536,6 +642,50 @@
         confirmId: 'subscription-end-trial-confirm',
         openSelector: '[data-end-trial-open]',
         dismissSelector: '[data-end-trial-dismiss]'
+    });
+
+    var addonForm = document.getElementById('subscription-addon-cancel-form');
+    var addonLead = document.getElementById('subscription-addon-cancel-lead');
+    var addonBody = document.getElementById('subscription-addon-cancel-body');
+    var addonHint = document.getElementById('subscription-addon-cancel-hint');
+    var addonConfirm = document.getElementById('subscription-addon-cancel-confirm');
+    var addonCancelUrls = @json(collect($addons ?? [])->mapWithKeys(fn ($addon) => [$addon['key'] => route('admin.subscriptions.addons.cancel', $addon['key'])]));
+
+    bindConfirmModal({
+        modalId: 'subscription-addon-cancel-modal',
+        formId: 'subscription-addon-cancel-form',
+        confirmId: 'subscription-addon-cancel-confirm',
+        openSelector: '[data-addon-cancel-open]',
+        dismissSelector: '[data-addon-cancel-dismiss]',
+        onOpen: function (btn) {
+            var key = btn.getAttribute('data-addon-key') || '';
+            var name = btn.getAttribute('data-addon-name') || 'deze module';
+            var when = btn.getAttribute('data-addon-when') || '';
+            var trial = btn.getAttribute('data-addon-trial') === '1';
+            if (addonForm) {
+                addonForm.action = addonCancelUrls[key] || '';
+            }
+            if (addonLead) {
+                addonLead.innerHTML = trial
+                    ? 'Tijdens de <strong class="text-foreground">proefperiode</strong> zeg je kosteloos op.'
+                    : 'Opzeggen gaat per de <strong class="text-foreground">1e van volgende maand</strong>.';
+            }
+            if (addonBody) {
+                addonBody.textContent = trial
+                    ? 'Je zegt ' + name + ' op. Tijdens de proef kun je de module blijven gebruiken. Ná de proef wordt hij niet gefactureerd.'
+                    : 'Je zegt ' + name + ' op per ' + when + '. Tot die datum blijft de module actief.';
+            }
+            if (addonHint) {
+                addonHint.textContent = trial
+                    ? 'Er volgt geen factuur voor deze module.'
+                    : 'Het extra maandbedrag stopt vanaf ' + when + '.';
+            }
+            if (addonConfirm) {
+                addonConfirm.textContent = trial
+                    ? 'Opzeggen (proefperiode)'
+                    : ['Opzeggen', 'per', when].join(' ');
+            }
+        }
     });
 })();
 </script>

@@ -88,6 +88,36 @@ class AdminCompanySubscriptionController extends Controller
             ->with('trial_stopped', true);
     }
 
+    public function cancelAddon(string $addon, TenantSubscriptionService $subscriptions): RedirectResponse
+    {
+        $company = $this->companyAdminCompany();
+
+        try {
+            $result = $subscriptions->cancelPackageAddon($company, $addon);
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.subscriptions.show')
+                ->withErrors(['addon' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.subscriptions.show', ['saved' => 1])
+            ->with('success', $result['message']);
+    }
+
+    public function withdrawAddon(string $addon, TenantSubscriptionService $subscriptions): RedirectResponse
+    {
+        $company = $this->companyAdminCompany();
+
+        try {
+            $subscriptions->withdrawPackageAddonCancel($company, $addon);
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.subscriptions.show')
+                ->withErrors(['addon' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.subscriptions.show', ['saved' => 1])
+            ->with('success', 'De opzegging van de module is ingetrokken.');
+    }
+
     public function withdraw(TenantSubscriptionService $subscriptions): RedirectResponse
     {
         $company = $this->companyAdminCompany();
@@ -113,7 +143,7 @@ class AdminCompanySubscriptionController extends Controller
     private function companyAdminCompany(): \App\Models\Company
     {
         $user = auth()->user();
-        if (! $user?->hasRole('company-admin') || $user->hasRole('super-admin')) {
+        if (! $user?->canManageCompanySubscription()) {
             abort(403, 'Alleen de bedrijfsbeheerder kan het abonnement beheren.');
         }
 

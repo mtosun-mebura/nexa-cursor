@@ -72,4 +72,26 @@ class TenantFrontendUrlTest extends TestCase
         $this->assertSame($home, $url);
         $this->assertStringNotContainsString('_tenant_host', $url);
     }
+
+    public function test_uses_parent_subdomain_when_company_has_no_domain(): void
+    {
+        config(['tenancy.tenant_parent_domains' => ['nexasuite.online']]);
+
+        $company = Company::query()->create([
+            'name' => 'Nexa Taxi Demo',
+            'slug' => 'nexa-taxi-demo',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame(
+            'nexa-taxi-demo.nexasuite.online',
+            TenantFrontendUrl::resolvePrimaryHostForCompany((int) $company->id)
+        );
+
+        $request = Request::create('http://localhost:8085/', 'GET');
+        $this->app->instance('request', $request);
+
+        $url = TenantFrontendUrl::for(route('home'), $company->id, $request);
+        $this->assertStringContainsString('_tenant_host=nexa-taxi-demo.nexasuite.online', $url);
+    }
 }

@@ -131,14 +131,27 @@ class TaxiGpsDemoFleetService
      */
     public function fleetDefinitions(): array
     {
+        $out = [];
+        foreach (self::streetDrives() as $plate => $drive) {
+            $out[] = array_merge($drive['driver'], [
+                'license_plate' => $plate,
+                'speed_mps' => $drive['speed_mps'],
+                'route' => $drive['route'],
+            ]);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Vaste Amsterdam-lussen (kenteken => route + snelheid) voor demo-ritten over de weg.
+     *
+     * @return array<string, array{speed_mps: float, route: list<array{0: float, 1: float}>, driver: array<string, mixed>}>
+     */
+    public static function streetDrives(): array
+    {
         return [
-            [
-                'email' => 'qa.gps.driver1@nexa.test',
-                'first_name' => 'Ahmed',
-                'last_name' => 'Hassan',
-                'phone' => '0612340001',
-                'vehicle_name' => 'Mercedes E-Klasse',
-                'license_plate' => '12-GPS-1',
+            '12-GPS-1' => [
                 'speed_mps' => 11.0,
                 'route' => [
                     [52.3790, 4.9003],
@@ -148,14 +161,15 @@ class TaxiGpsDemoFleetService
                     [52.3726, 4.8986],
                     [52.3758, 4.9018],
                 ],
+                'driver' => [
+                    'email' => 'qa.gps.driver1@nexa.test',
+                    'first_name' => 'Ahmed',
+                    'last_name' => 'Hassan',
+                    'phone' => '0612340001',
+                    'vehicle_name' => 'Mercedes E-Klasse',
+                ],
             ],
-            [
-                'email' => 'qa.gps.driver2@nexa.test',
-                'first_name' => 'Lisa',
-                'last_name' => 'de Vries',
-                'phone' => '0612340002',
-                'vehicle_name' => 'Tesla Model 3',
-                'license_plate' => '34-GPS-2',
+            '34-GPS-2' => [
                 'speed_mps' => 13.0,
                 'route' => [
                     [52.3738, 4.8920],
@@ -166,14 +180,15 @@ class TaxiGpsDemoFleetService
                     [52.3718, 4.8992],
                     [52.3734, 4.8956],
                 ],
+                'driver' => [
+                    'email' => 'qa.gps.driver2@nexa.test',
+                    'first_name' => 'Lisa',
+                    'last_name' => 'de Vries',
+                    'phone' => '0612340002',
+                    'vehicle_name' => 'Tesla Model 3',
+                ],
             ],
-            [
-                'email' => 'qa.gps.driver3@nexa.test',
-                'first_name' => 'Marco',
-                'last_name' => 'Jansen',
-                'phone' => '0612340003',
-                'vehicle_name' => 'Volkswagen Passat',
-                'license_plate' => '56-GPS-3',
+            '56-GPS-3' => [
                 'speed_mps' => 10.0,
                 'route' => [
                     [52.3748, 4.8890],
@@ -183,14 +198,15 @@ class TaxiGpsDemoFleetService
                     [52.3706, 4.8908],
                     [52.3728, 4.8916],
                 ],
+                'driver' => [
+                    'email' => 'qa.gps.driver3@nexa.test',
+                    'first_name' => 'Marco',
+                    'last_name' => 'Jansen',
+                    'phone' => '0612340003',
+                    'vehicle_name' => 'Volkswagen Passat',
+                ],
             ],
-            [
-                'email' => 'qa.gps.driver4@nexa.test',
-                'first_name' => 'Soraya',
-                'last_name' => 'El Idrissi',
-                'phone' => '0612340004',
-                'vehicle_name' => 'Toyota Prius',
-                'license_plate' => '78-GPS-4',
+            '78-GPS-4' => [
                 'speed_mps' => 14.0,
                 'route' => [
                     [52.3724, 4.9012],
@@ -200,7 +216,31 @@ class TaxiGpsDemoFleetService
                     [52.3694, 4.8968],
                     [52.3718, 4.8982],
                 ],
+                'driver' => [
+                    'email' => 'qa.gps.driver4@nexa.test',
+                    'first_name' => 'Soraya',
+                    'last_name' => 'El Idrissi',
+                    'phone' => '0612340004',
+                    'vehicle_name' => 'Toyota Prius',
+                ],
             ],
+        ];
+    }
+
+    /**
+     * @return array{speed_mps: float, route: list<array{0: float, 1: float}>}|null
+     */
+    public static function streetDriveForPlate(?string $licensePlate): ?array
+    {
+        $plate = strtoupper(trim((string) $licensePlate));
+        if ($plate === '' || ! isset(self::streetDrives()[$plate])) {
+            return null;
+        }
+        $drive = self::streetDrives()[$plate];
+
+        return [
+            'speed_mps' => $drive['speed_mps'],
+            'route' => $drive['route'],
         ];
     }
 

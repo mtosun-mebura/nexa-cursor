@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Support\TenantPackageAddon;
 use App\Support\TenantPackageCapability;
 use Illuminate\Http\RedirectResponse;
@@ -60,6 +61,9 @@ class CompanyEntitlementService
     {
         if ($capability === TenantPackageCapability::GPS_TRACKING) {
             if ($this->entitlementsFor($company) === []) {
+                return true;
+            }
+            if ($this->companyIsInTrial($company)) {
                 return true;
             }
 
@@ -145,7 +149,7 @@ class CompanyEntitlementService
         }
         $raw = is_array($company->package_addons ?? null) ? $company->package_addons : [];
 
-        return TenantPackageAddon::normalizeSelections($raw);
+        return TenantPackageAddon::effectiveSelections($raw);
     }
 
     public function addonQuantity(?Company $company, string $key): int
@@ -155,6 +159,10 @@ class CompanyEntitlementService
 
     public function hasAddon(?Company $company, string $key): bool
     {
+        if ($this->companyIsInTrial($company) && in_array($key, TenantPackageAddon::keys(), true)) {
+            return true;
+        }
+
         return $this->addonQuantity($company, $key) > 0;
     }
 
@@ -404,5 +412,23 @@ class CompanyEntitlementService
                         ->whereRaw('LOWER(TRIM('.$rolesTable.'.name)) = ?', ['company-admin']);
                 })
                 ->exists();
+    }
+
+    private function companyIsInTrial(?Company $company): bool
+    {
+        if (! $company || ! $company->id) {
+            return false;
+        }
+
+        try {
+            $profile = $company->billingProfile;
+            if (! $profile) {
+                return false;
+            }
+
+            return app(TenantSubscriptionService::class)->isInTrial($profile);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

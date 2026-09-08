@@ -9,6 +9,7 @@ use App\Models\Module;
 use App\Models\User;
 use App\Models\WebsiteMedia;
 use App\Models\WebsitePage;
+use App\Services\WebsiteAiSiteCopy;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -131,14 +132,21 @@ class AdminWebsiteAiGeneratorTest extends TestCase
         $this->assertSame('#7e3af2', $theme->fresh()->settings['primary_color'] ?? null);
         $this->assertSame('#1e3a8a', $theme->fresh()->getSettings($company)['primary_color'] ?? null);
         $this->assertContains('hero', $sections['section_order']);
-        $this->assertContains('featured_services', $sections['section_order']);
         $this->assertContains('text_block', $sections['section_order']);
-        $this->assertNotEmpty($sections['featured_services']['items'] ?? []);
-        $this->assertSame('slow', $sections['featured_services']['animation_speed'] ?? null);
         $this->assertNotEmpty($sections['text_block']['content'] ?? '');
-        $this->assertContains('component:landwind.faq', $sections['section_order']);
-        $this->assertContains('component:website.comparison_table', $sections['section_order']);
-        $this->assertContains('component:vue_material.quote_cards', $sections['section_order']);
+        $this->assertSame('left', $sections['text_block']['alignment'] ?? null);
+        $extraComponents = array_values(array_filter(
+            $sections['section_order'],
+            fn ($key) => is_string($key) && str_starts_with($key, 'component:') && ! str_contains($key, 'boekingsmodule')
+        ));
+        $this->assertGreaterThanOrEqual(2, count($extraComponents));
+        $this->assertLessThanOrEqual(4, count($extraComponents));
+        foreach ($extraComponents as $key) {
+            $id = substr($key, strlen('component:'));
+            $this->assertContains($id, WebsiteAiSiteCopy::HOME_COMPONENT_POOL);
+        }
+        $this->assertSame([], $sections['footer']['support_links'] ?? ['x']);
+        $this->assertStringNotContainsString('/help', json_encode($sections['footer']));
         $heroIndex = array_search('hero', $sections['section_order'], true);
         $bookingIndex = array_search('component:taxi.boekingsmodule_v2', $sections['section_order'], true);
         $this->assertNotFalse($heroIndex);
@@ -382,7 +390,10 @@ class AdminWebsiteAiGeneratorTest extends TestCase
         $this->assertContains('component:taxi.boekingsmodule_v2', $home->home_sections['section_order']);
         $this->assertNotEmpty($home->home_sections['hero']['background_image_url'] ?? '');
         $this->assertStringContainsString('/website-media/', (string) $home->home_sections['hero']['background_image_url']);
-        $this->assertSame(1, WebsiteMedia::query()->count());
+        $this->assertNotEmpty($home->home_sections['text_block']['image_url'] ?? '');
+        $this->assertStringContainsString('/website-media/', (string) $home->home_sections['text_block']['image_url']);
+        $this->assertContains($home->home_sections['text_block']['alignment'] ?? '', ['left', 'right']);
+        $this->assertSame(2, WebsiteMedia::query()->count());
         Storage::disk('local')->assertExists(WebsiteMedia::query()->first()->encrypted_path);
     }
 

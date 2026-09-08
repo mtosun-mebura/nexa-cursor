@@ -46,9 +46,11 @@ final class TenantSyncSettingsService
      *
      * @return array<string, mixed>
      */
-    public function formSettings(?TenantSyncTarget $target = null): array
+    public function formSettings(?TenantSyncTarget $target = null, bool $fallbackToActive = true): array
     {
-        $target ??= $this->activeTarget();
+        if ($target === null && $fallbackToActive) {
+            $target = $this->activeTarget();
+        }
 
         if ($target === null) {
             return [

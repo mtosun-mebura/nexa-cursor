@@ -3,7 +3,7 @@
     $websiteBuilder = $websiteBuilder ?? app(\App\Services\WebsiteBuilderService::class);
     $branding = $branding ?? $websiteBuilder->getSiteBranding();
     $themeSettings = $themeSettings ?? [];
-    $homeSections = $websiteBuilder->preparePublicFooterSections($homeSections);
+    $homeSections = $websiteBuilder->preparePublicFooterSections($homeSections, $page ?? null);
 @endphp
     <footer class="{{ !empty($homeSections) ? 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' }} border-t border-gray-200 dark:border-gray-600">
         @if(!empty($homeSections) && ($homeSections['visibility']['footer'] ?? true) && (!empty($homeSections['footer']) || !empty($homeSections['copyright'])))
@@ -19,7 +19,7 @@
                 if (empty($footerData['logo_url']) && ! empty($branding['logo_dark_url'])) {
                     $footerLogoDarkUrl = $websiteBuilder->storageUrlToDisplayUrl($branding['logo_dark_url']);
                 }
-                $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['site_name'] ?? config('app.name'));
+                $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['logo_alt'] ?? $branding['site_name'] ?? config('app.name'));
                 $footerUsesCustomLogo = !empty($footerData['logo_url']);
                 if ($footerUsesCustomLogo) {
                     $footerLogoTw = max(12, min(30, (int) ($footerData['logo_height'] ?? 12)));
@@ -47,9 +47,12 @@
                         $footerMapHeightPx = $footerMapSize === 'small' ? 200 : ($footerMapSize === 'large' ? 400 : 300);
                         $footerMapWidthClass = 'w-full';
                         $footerMapCityOnly = !empty($footerData['map_city_only']);
-                        $footerMapAddressStr = $footerMapCityOnly
-                            ? trim((string) ($footerData['map_city'] ?? ''))
-                            : trim(($footerData['map_street'] ?? '') . ' ' . ($footerData['map_huisnummer'] ?? '') . ', ' . ($footerData['map_postcode'] ?? '') . ' ' . ($footerData['map_city'] ?? ''), ' ,');
+                        $footerMapAddressStr = trim((string) ($footerData['map_address'] ?? ''));
+                        if ($footerMapAddressStr === '') {
+                            $footerMapAddressStr = $footerMapCityOnly
+                                ? trim((string) ($footerData['map_city'] ?? ''))
+                                : trim(($footerData['map_street'] ?? '') . ' ' . ($footerData['map_huisnummer'] ?? '') . ', ' . ($footerData['map_postcode'] ?? '') . ' ' . ($footerData['map_city'] ?? ''), ' ,');
+                        }
                         $footerLogoAlign = isset($footerData['logo_align']) && in_array($footerData['logo_align'], ['left', 'center', 'right'], true) ? $footerData['logo_align'] : 'left';
                         $footerLogoAlignWrapper = $footerLogoAlign === 'center' ? 'flex flex-col items-center' : ($footerLogoAlign === 'right' ? 'flex flex-col items-end' : 'flex flex-col items-start');
                         $footerLogoAlignText = $footerLogoAlign === 'center' ? 'text-center' : ($footerLogoAlign === 'right' ? 'text-right' : 'text-left');

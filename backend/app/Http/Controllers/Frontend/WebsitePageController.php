@@ -108,7 +108,7 @@ class WebsitePageController extends Controller
     protected function renderPage(WebsitePage $page, bool $showContactForm = false): View
     {
         $theme = $this->websiteBuilder->getThemeForPage($page);
-        $menuPages = $this->websiteBuilder->getActiveMenuPages();
+        $menuPages = $this->websiteBuilder->getActiveMenuPagesForWebsitePage($page);
         $branding = $this->websiteBuilder->getSiteBrandingForWebsitePage($page);
 
         $themeSlug = $theme ? $theme->slug : 'modern';

@@ -16,7 +16,6 @@ use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\NearestTaxiTenantResolver;
-use App\Services\NearbyAvailableTaxiFleetService;
 use App\Services\NexaTaxiBookingPricingService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Services\WebsiteBuilderService;
@@ -102,11 +101,10 @@ class NexaTaxiBookingController extends Controller
             'lat' => 'nullable|numeric',
             'lng' => 'nullable|numeric',
             'section_key' => 'nullable|string|max:120',
+            'page_id' => 'nullable|integer',
+            'module' => 'nullable|string|max:64',
         ]);
         $sectionKey = isset($data['section_key']) ? (string) $data['section_key'] : '';
-        if ($sectionKey !== '' && ! $this->isMarketplaceBookingModule($sectionKey)) {
-            return response()->json(['vehicles' => []]);
-        }
 
         $lat = isset($data['lat']) && is_numeric($data['lat']) ? (float) $data['lat'] : null;
         $lng = isset($data['lng']) && is_numeric($data['lng']) ? (float) $data['lng'] : null;
@@ -115,7 +113,21 @@ class NexaTaxiBookingController extends Controller
             $lng = null;
         }
 
-        $vehicles = app(NearbyAvailableTaxiFleetService::class)->vehicles($lat, $lng);
+        $resolved = $this->resolveSectionConfig(
+            isset($data['page_id']) ? (int) $data['page_id'] : null,
+            $sectionKey,
+            isset($data['module']) ? trim((string) $data['module']) : null
+        );
+        $company = ! empty($resolved['tenant_company_id'])
+            ? Company::query()->find((int) $resolved['tenant_company_id'])
+            : null;
+        $vehicles = app(\App\Services\TenantBookingLiveFleetService::class)->vehiclesForSection(
+            $sectionKey,
+            $resolved['config'] ?? [],
+            $company,
+            $lat,
+            $lng
+        );
 
         return response()->json([
             'vehicles' => $vehicles,

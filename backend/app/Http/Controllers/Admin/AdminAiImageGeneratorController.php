@@ -32,12 +32,20 @@ class AdminAiImageGeneratorController extends Controller
     {
         $validated = $request->validate([
             'prompt' => ['required', 'string', 'max:3500'],
+            'source_uuid' => ['nullable', 'uuid', 'exists:ai_generated_images,website_media_uuid'],
         ]);
 
         @set_time_limit(180);
 
+        $source = null;
+        if (! empty($validated['source_uuid'])) {
+            $source = AiGeneratedImage::query()
+                ->where('website_media_uuid', $validated['source_uuid'])
+                ->first();
+        }
+
         try {
-            $image = $this->service->generate($validated['prompt'], $request->user()?->id);
+            $image = $this->service->generate($validated['prompt'], $request->user()?->id, $source);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

@@ -21,7 +21,7 @@
                                        placeholder="AIzaSy..."
                                        required>
                             </div>
-                            <div class="text-xs text-muted-foreground mt-1">Google Maps JavaScript API key voor kaarten en geocoding</div>
+                            <div class="text-xs text-muted-foreground mt-1">Google Maps JavaScript API key voor kaarten, geocoding en postcode/adres-lookup als OpenPostcode of PDOK geen straat vindt.</div>
                             @error('GOOGLE_MAPS_API_KEY')
                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                             @enderror
@@ -114,6 +114,25 @@
                             @error('GOOGLE_MAPS_TYPE')
                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                             @enderror
+                        </td>
+                    </tr>
+                    @php
+                        $pdokFallbackOn = old('POSTCODE_PDOK_FALLBACK', \App\Models\GeneralSetting::get('POSTCODE_PDOK_FALLBACK', '1')) !== '0';
+                    @endphp
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Gratis postcode-fallback</td>
+                        <td class="min-w-48 w-full">
+                            <input type="hidden" name="POSTCODE_PDOK_FALLBACK" value="0">
+                            <label class="kt-label flex items-center gap-2" for="POSTCODE_PDOK_FALLBACK">
+                                <input type="checkbox"
+                                       class="kt-switch kt-switch-sm shrink-0"
+                                       id="POSTCODE_PDOK_FALLBACK"
+                                       name="POSTCODE_PDOK_FALLBACK"
+                                       value="1"
+                                       {{ $pdokFallbackOn ? 'checked' : '' }}>
+                                <span>PDOK Locatieserver (Kadaster) als 2e check</span>
+                            </label>
+                            <div class="text-xs text-muted-foreground mt-1">Gratis BAG-adressen van het Kadaster. Wordt gebruikt als OpenPostcode geen straat teruggeeft. Geen API-sleutel nodig.</div>
                         </td>
                     </tr>
                 </table>

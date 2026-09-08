@@ -57,12 +57,16 @@ class AdminCompaniesIndexButtonsTest extends TestCase
         $user->assignRole('company-admin');
         $user->givePermissionTo('view-companies');
 
-        $this->actingAs($user)
+        $html = $this->actingAs($user)
             ->get(route('admin.companies.index'))
             ->assertOk()
             ->assertDontSee('Nieuwe tenant (wizard)', false)
             ->assertDontSee('Nieuw bedrijf', false)
-            ->assertDontSee('E-mail Templates', false);
+            ->assertDontSee('E-mail Templates', false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('/kt-menu-title[^>]*>\s*Bedrijf\s*<\/span>/', $html);
+        $this->assertDoesNotMatchRegularExpression('/kt-menu-title[^>]*>\s*Bedrijven\s*<\/span>/', $html);
     }
 
     #[Test]
@@ -72,10 +76,13 @@ class AdminCompaniesIndexButtonsTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('super-admin');
 
-        $this->actingAs($user)
+        $html = $this->actingAs($user)
             ->get(route('admin.companies.index'))
             ->assertOk()
             ->assertSee('Nieuwe tenant (wizard)', false)
-            ->assertSee('Nieuw bedrijf', false);
+            ->assertSee('Nieuw bedrijf', false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('/kt-menu-title[^>]*>\s*Bedrijven\s*<\/span>/', $html);
     }
 }

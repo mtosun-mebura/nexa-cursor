@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\PlatformBilling\SubscriptionBillingCalculator;
 use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Services\UserRoleAssignmentService;
+use App\Support\TenantPackageAddon;
 use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -23,6 +24,7 @@ class AdminCompanySubscriptionTest extends TestCase
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'web']);
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         Carbon::setTestNow('2026-03-15 10:00:00');
     }
@@ -43,6 +45,7 @@ class AdminCompanySubscriptionTest extends TestCase
             ->assertOk()
             ->assertSee('Abonnementen', false)
             ->assertSee('Huidig abonnement', false)
+            ->assertSee('Aanvullende modules', false)
             ->assertSee('Start', false)
             ->assertSee('Nu upgraden', false)
             ->assertSee('Opzeggen per 15-03-2027', false)
@@ -196,6 +199,83 @@ class AdminCompanySubscriptionTest extends TestCase
         $this->assertNull($profile->subscription_end_date);
     }
 
+    #[Test]
+    public function staff_and_demo_cannot_open_abonnementen(): void
+    {
+        $company = $this->company('start');
+        $staff = User::factory()->create(['company_id' => $company->id]);
+        $staff->assignRole('staff');
+        $demo = User::factory()->create(['company_id' => $company->id]);
+        $demo->assignRole('demo');
+
+        $this->actingAs($staff)->get(route('admin.subscriptions.show'))->assertForbidden();
+        $this->actingAs($demo)->get(route('admin.subscriptions.show'))->assertForbidden();
+        $this->actingAs($staff)
+            ->post(route('admin.subscriptions.addons.cancel', TenantPackageAddon::GPS_TRACKING))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function company_admin_who_also_has_staff_cannot_manage_subscription(): void
+    {
+        [$user] = $this->companyAdmin('start');
+        $user->assignRole('staff');
+
+        $this->assertFalse($user->fresh()->canManageCompanySubscription());
+        $this->actingAs($user->fresh())
+            ->get(route('admin.subscriptions.show'))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function company_admin_sees_saved_addons_and_can_cancel_them_at_month_end(): void
+    {
+        [$user, $company] = $this->companyAdmin('business');
+        $this->attachGpsAddon($company);
+        $this->markTrialEnded($company);
+
+        $this->actingAs($user)
+            ->get(route('admin.subscriptions.show'))
+            ->assertOk()
+            ->assertSee('Aanvullende modules', false)
+            ->assertSee('GPS-trackers', false)
+            ->assertSee('Actief', false)
+            ->assertSee('Opzeggen per 01-04-2026', false)
+            ->assertSee('data-addon-cancel-open', false);
+
+        $this->actingAs($user)
+            ->post(route('admin.subscriptions.addons.cancel', TenantPackageAddon::GPS_TRACKING))
+            ->assertRedirect(route('admin.subscriptions.show', ['saved' => 1]));
+
+        $stored = $company->fresh()->package_addons[TenantPackageAddon::GPS_TRACKING];
+        $this->assertTrue(TenantPackageAddon::isPendingCancel($stored));
+        $this->assertSame('2026-04-01', $stored['starts_at']);
+        $this->assertSame(1, TenantPackageAddon::effectiveSelections($company->fresh()->package_addons)[TenantPackageAddon::GPS_TRACKING]);
+    }
+
+    #[Test]
+    public function company_admin_can_cancel_addon_immediately_during_trial(): void
+    {
+        Carbon::setTestNow('2026-09-07 10:00:00');
+        [$user, $company] = $this->companyAdmin('business');
+        $this->attachGpsAddon($company);
+        $this->markInTrial($company);
+
+        $this->actingAs($user)
+            ->get(route('admin.subscriptions.show'))
+            ->assertOk()
+            ->assertSee('Opzeggen (proefperiode)', false);
+
+        $this->actingAs($user)
+            ->post(route('admin.subscriptions.addons.cancel', TenantPackageAddon::GPS_TRACKING))
+            ->assertRedirect(route('admin.subscriptions.show', ['saved' => 1]));
+
+        $stored = $company->fresh()->package_addons[TenantPackageAddon::GPS_TRACKING] ?? TenantPackageAddon::emptyRecord();
+        $this->assertSame(0, (int) ($stored['quantity'] ?? 0));
+        $this->assertFalse(TenantPackageAddon::isPendingCancel($stored));
+        $this->assertSame(0, TenantPackageAddon::effectiveSelections($company->fresh()->package_addons)[TenantPackageAddon::GPS_TRACKING]);
+    }
+
     /**
      * @return array{0: User, 1: Company}
      */
@@ -216,6 +296,37 @@ class AdminCompanySubscriptionTest extends TestCase
             'package_key' => $packageKey,
             'created_at' => '2026-03-15 09:00:00',
             'updated_at' => '2026-03-15 09:00:00',
+        ]);
+    }
+
+    private function attachGpsAddon(Company $company): void
+    {
+        $company->package_addons = TenantPackageAddon::normalizeRecords([
+            TenantPackageAddon::GPS_TRACKING => [
+                'quantity' => 1,
+                'starts_at' => now()->toDateString(),
+            ],
+        ], []);
+        $company->save();
+    }
+
+    private function markTrialEnded(Company $company): void
+    {
+        $profile = app(TenantSubscriptionService::class)->ensureProfile($company);
+        $profile->update([
+            'trial_started_at' => now()->subMonths(2)->toDateString(),
+            'trial_ends_at' => now()->subMonth()->toDateString(),
+            'subscription_start_date' => now()->subMonth()->toDateString(),
+        ]);
+    }
+
+    private function markInTrial(Company $company): void
+    {
+        $profile = app(TenantSubscriptionService::class)->ensureProfile($company);
+        $profile->update([
+            'trial_started_at' => now()->startOfMonth()->toDateString(),
+            'trial_ends_at' => now()->addMonth()->startOfMonth()->toDateString(),
+            'subscription_start_date' => now()->addMonth()->startOfMonth()->toDateString(),
         ]);
     }
 }

@@ -115,6 +115,10 @@ export type BuilderBootstrap = {
     toggleComponentDisabled?: string
   }
   nexaPricing: Record<string, unknown>
+  capabilities?: {
+    gpsTracking: boolean
+    superAdmin: boolean
+  }
   googleMapsApiKey: string
   googleMapsMapId: string
   siteBrandingLogoUrl: string

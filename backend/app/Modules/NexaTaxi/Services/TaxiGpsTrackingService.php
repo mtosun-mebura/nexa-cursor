@@ -164,6 +164,70 @@ class TaxiGpsTrackingService
     }
 
     /**
+     * Alle geconfigureerde voertuigen van de tenant, klaar voor de live-kaart-demo.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function configuredFleetForDemo(int $companyId, string $connection): array
+    {
+        if ($companyId <= 0 || ! Schema::connection($connection)->hasTable('vehicles')) {
+            return [];
+        }
+
+        $base = Vehicle::on($connection)->where('company_id', $companyId);
+        $vehicles = (clone $base)
+            ->where('active', true)
+            ->orderBy('license_plate')
+            ->orderBy('name')
+            ->get();
+        if ($vehicles->isEmpty()) {
+            $vehicles = $base->orderBy('license_plate')->orderBy('name')->get();
+        }
+        if ($vehicles->isEmpty()) {
+            return [];
+        }
+
+        $assigned = $this->assignedDriversByVehicle($companyId, $connection);
+        $driverIds = array_values(array_unique(array_map('intval', $assigned)));
+        $users = $driverIds === []
+            ? collect()
+            : User::query()
+                ->whereIn('id', $driverIds)
+                ->get(['id', 'first_name', 'last_name', 'email'])
+                ->keyBy('id');
+        $appearance = $this->settings->appearance($companyId);
+        $now = now()->toIso8601String();
+
+        $out = [];
+        foreach ($vehicles as $vehicle) {
+            $vehicleId = (int) $vehicle->id;
+            $driverId = (int) ($assigned[$vehicleId] ?? 0);
+            $user = $driverId > 0 ? $users->get($driverId) : null;
+            $plate = trim((string) ($vehicle->license_plate ?? ''));
+            $name = trim((string) ($vehicle->name ?? ''));
+            $style = TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle->type);
+
+            $out[] = [
+                'id' => 'vehicle-'.$vehicleId,
+                'driver_id' => $driverId,
+                'driver_name' => $user ? $this->driverDisplayName($user) : ($name !== '' ? $name : 'Chauffeur'),
+                'vehicle_id' => $vehicleId,
+                'vehicle_name' => $name !== '' ? $name : null,
+                'license_plate' => $plate !== '' ? $plate : ($name !== '' ? $name : 'Voertuig #'.$vehicleId),
+                'car_style' => $style,
+                'lat' => 0.0,
+                'lng' => 0.0,
+                'is_online' => true,
+                'location_updated_at' => $now,
+                'last_seen_at' => $now,
+                'color' => $this->resolveMarkerColor($appearance, $vehicleId, $driverId, $style),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * Voertuigen voor de kleur-instellingen: kenteken, chauffeur en huidige kleur.
      *
      * @param  array<string, mixed>  $appearance

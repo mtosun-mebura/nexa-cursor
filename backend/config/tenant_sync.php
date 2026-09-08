@@ -16,16 +16,11 @@ return [
         'cache',
         'cache_locks',
         'personal_access_tokens',
-        // Spatie: globale permission-definities en directe user-permissions niet meekopiëren
-        'model_has_permissions',
+        // Spatie-pivots zonder betrouwbare company-scope: na rollen/permissions via post_sync.
         'role_has_permissions',
-        'permissions',
+        'model_has_permissions',
     ],
 
-    /*
-    | Tie-break / vroege volgorde wanneer FK-grafiek gelijk is (of bij SQLite-heuristiek).
-    | companies staat altijd eerst buiten deze lijst.
-    */
     /*
     | Tabellen met company_id die bij betalingen/facturatie horen (sync + documentatie).
     */
@@ -45,6 +40,9 @@ return [
     'prerequisite_tables' => [
         'frontend_themes',
         'modules',
+        'permissions',
+        'platform_billing_packages',
+        'platform_billing_line_items',
     ],
 
     /*
@@ -52,6 +50,8 @@ return [
     */
     'post_sync_tables' => [
         'role_has_permissions',
+        'model_has_permissions',
+        'company_billing_profile_line_item',
     ],
 
     /*
@@ -62,6 +62,10 @@ return [
         'company_domains' => 'database/migrations/2026_04_20_000002_create_company_domains_table.php',
         'ai_chat_audit_logs' => 'database/migrations/2026_06_08_140000_create_ai_chat_audit_logs_table.php',
         'ride_payments' => 'database/migrations/modules/taxi/2026_05_21_100000_add_taxi_ride_payments.php',
+        'platform_billing_packages' => 'database/migrations/2026_07_14_100001_ensure_platform_billing_schema.php',
+        'company_billing_profiles' => 'database/migrations/2026_07_14_100001_ensure_platform_billing_schema.php',
+        'platform_billing_line_items' => 'database/migrations/2026_07_15_100000_add_platform_billing_line_items.php',
+        'company_subscription_changes' => 'database/migrations/2026_08_26_100000_add_tenant_subscription_changes.php',
     ],
 
     /*
@@ -78,7 +82,12 @@ return [
         'website_pages',
         'company_locations',
         'roles',
+        'permissions',
         'modules',
+        'platform_billing_packages',
+        'platform_billing_line_items',
+        'company_billing_profiles',
+        'company_subscription_changes',
     ],
 
     /*
@@ -93,6 +102,23 @@ return [
         'company_module' => [
             'module_id' => 'modules',
         ],
+        'company_billing_profiles' => [
+            'platform_billing_package_id' => 'platform_billing_packages',
+        ],
+        'company_subscription_changes' => [
+            'company_billing_profile_id' => 'company_billing_profiles',
+        ],
+        'company_billing_profile_line_item' => [
+            'company_billing_profile_id' => 'company_billing_profiles',
+            'platform_billing_line_item_id' => 'platform_billing_line_items',
+        ],
+        'model_has_permissions' => [
+            'permission_id' => 'permissions',
+        ],
+        'role_has_permissions' => [
+            'permission_id' => 'permissions',
+            'role_id' => 'roles',
+        ],
     ],
 
     /*
@@ -100,6 +126,9 @@ return [
     */
     'required_foreign_key_columns' => [
         'company_module' => ['module_id'],
+        'company_billing_profile_line_item' => ['company_billing_profile_id', 'platform_billing_line_item_id'],
+        'model_has_permissions' => ['permission_id'],
+        'role_has_permissions' => ['permission_id', 'role_id'],
     ],
 
     /*
@@ -109,6 +138,7 @@ return [
     | ai_chat_webhook_*, ai_chat_taxi_* teksten uit AI-chatbot instellingen).
     */
     'global_general_setting_keys' => [
+        'nexa_pricing',
         'WHATSAPP_WIDGET_ENABLED',
         'WHATSAPP_WIDGET_PHONE',
         'WHATSAPP_WIDGET_DEFAULT_MESSAGE',
@@ -296,6 +326,12 @@ return [
         'modules' => ['name'],
         'frontend_themes' => ['slug'],
         'roles' => ['company_id', 'name', 'guard_name'],
+        'permissions' => ['name', 'guard_name'],
+        'platform_billing_packages' => ['name'],
+        'platform_billing_line_items' => ['name'],
+        'company_billing_profiles' => ['company_id'],
+        'company_subscription_changes' => ['company_id', 'change_type', 'effective_on', 'from_package_key', 'to_package_key'],
+        'company_billing_profile_line_item' => ['company_billing_profile_id', 'platform_billing_line_item_id'],
         'payment_providers' => ['company_id', 'provider_type'],
         'website_pages' => ['company_id', 'frontend_theme_id', 'module_name', 'slug'],
         'vacancies' => ['company_id', 'slug'],
@@ -328,6 +364,10 @@ return [
         'ai_chat_audit_logs' => ['company_id', 'created_at', 'channel', 'intent', 'message'],
     ],
 
+    /*
+    | Tie-break / vroege volgorde wanneer FK-grafiek gelijk is (of bij SQLite-heuristiek).
+    | companies staat altijd eerst buiten deze lijst.
+    */
     'priority_tables' => [
         'company_domains',
         'general_settings',
@@ -336,6 +376,8 @@ return [
         'roles',
         'users',
         'model_has_roles',
+        'company_billing_profiles',
+        'company_subscription_changes',
         'email_templates',
         'website_pages',
         'vacancies',

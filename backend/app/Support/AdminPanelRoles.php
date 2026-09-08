@@ -21,6 +21,11 @@ final class AdminPanelRoles
         return count(array_intersect($user->webRoleNames(), self::PANEL)) > 0;
     }
 
+    public static function canManageCompanySubscription(User $user): bool
+    {
+        return $user->canManageCompanySubscription();
+    }
+
     public static function isSystemRole(string $name): bool
     {
         return in_array($name, self::SYSTEM, true);

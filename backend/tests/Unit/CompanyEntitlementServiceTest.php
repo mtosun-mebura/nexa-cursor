@@ -174,6 +174,26 @@ class CompanyEntitlementServiceTest extends TestCase
         $this->assertSame(1, $service->addonQuantity($company, \App\Support\TenantPackageAddon::EXTRA_CLIENTS));
     }
 
+    public function test_scheduled_addon_does_not_grant_access_before_start_date(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Business Later GPS',
+            'is_active' => true,
+            'package_key' => 'business',
+            'package_addons' => [
+                \App\Support\TenantPackageAddon::GPS_TRACKING => [
+                    'quantity' => 1,
+                    'starts_at' => now()->addMonthNoOverflow()->startOfMonth()->toDateString(),
+                    'active_quantity' => 0,
+                ],
+            ],
+        ]);
+        $service = app(CompanyEntitlementService::class);
+
+        $this->assertFalse($service->allows($company, TenantPackageCapability::GPS_TRACKING));
+        $this->assertSame(0, $service->addonQuantity($company, \App\Support\TenantPackageAddon::GPS_TRACKING));
+    }
+
     public function test_start_pro_and_business_capability_matrix(): void
     {
         $start = Company::query()->create(['name' => 'Matrix Start', 'is_active' => true, 'package_key' => 'start']);
@@ -246,6 +266,39 @@ class CompanyEntitlementServiceTest extends TestCase
         $this->assertStringContainsString('Pro of Business', $service->deniedMessage(TenantPackageCapability::MOLLIE_PAYMENTS, $start));
         $this->assertStringContainsString('Upgrade naar Business', $service->deniedMessage(TenantPackageCapability::CONTRACT_TRANSPORT, $start));
         $this->assertStringContainsString('GPS-trackers', $service->deniedMessage(TenantPackageCapability::GPS_TRACKING, $start));
+    }
+
+    public function test_trial_unlocks_all_extra_modules_without_saved_addons(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Trial GPS',
+            'is_active' => true,
+            'package_key' => 'business',
+        ]);
+        app(\App\Services\PlatformBilling\TenantSubscriptionService::class)->ensureProfile($company);
+        $company->billingProfile->update([
+            'trial_started_at' => now()->toDateString(),
+            'trial_ends_at' => now()->addMonth()->toDateString(),
+            'subscription_start_date' => now()->addMonth()->toDateString(),
+        ]);
+        $company->unsetRelation('billingProfile');
+        $service = app(CompanyEntitlementService::class);
+
+        $this->assertTrue($service->allows($company, TenantPackageCapability::GPS_TRACKING));
+        $this->assertTrue($service->hasAddon($company, \App\Support\TenantPackageAddon::GPS_TRACKING));
+        $this->assertTrue($service->hasAddon($company, \App\Support\TenantPackageAddon::FLEET));
+        $this->assertNull($service->maxContractClients($company));
+
+        $company->billingProfile->update([
+            'trial_started_at' => now()->subMonths(2)->toDateString(),
+            'trial_ends_at' => now()->subDay()->toDateString(),
+            'subscription_start_date' => now()->subDay()->toDateString(),
+        ]);
+        $company->unsetRelation('billingProfile');
+
+        $this->assertFalse($service->allows($company, TenantPackageCapability::GPS_TRACKING));
+        $this->assertFalse($service->hasAddon($company, \App\Support\TenantPackageAddon::GPS_TRACKING));
+        $this->assertSame(10, $service->maxContractClients($company));
     }
 
     public function test_assert_allows_throws_for_start_dispatch_and_sepa(): void

@@ -211,6 +211,10 @@ class AdminSettingsController extends Controller
         $tenantSyncTargets = $this->tenantSyncSettings->targets();
         $tenantSyncActiveTarget = $this->tenantSyncSettings->activeTarget();
         $tenantSyncSettings = $this->tenantSyncSettings->formSettings($tenantSyncActiveTarget);
+        $tenantSyncEmptyForm = $this->tenantSyncSettings->formSettings(null, false);
+        $tenantSyncTargetForms = $tenantSyncTargets->mapWithKeys(
+            fn ($target) => [(int) $target->id => $this->tenantSyncSettings->formSettings($target)]
+        );
 
         $tenantSyncTargetDatabaseUrlPrefill = $this->tenantWebsiteBundle->suggestedTargetDatabaseUrl();
 
@@ -253,6 +257,8 @@ class AdminSettingsController extends Controller
             'tenantSyncSettings',
             'tenantSyncTargets',
             'tenantSyncActiveTarget',
+            'tenantSyncEmptyForm',
+            'tenantSyncTargetForms',
             'tenantSyncTargetDatabaseUrlPrefill',
             'companiesForSync',
             'tenantSyncScope',
@@ -378,6 +384,22 @@ class AdminSettingsController extends Controller
         ]);
 
         $this->tenantSyncSettings->activate((int) $validated['tenant_sync_target_id']);
+        $target = $this->tenantSyncSettings->findTarget((int) $validated['tenant_sync_target_id']);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            if ($target === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Omgeving niet gevonden.',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'id' => (int) $target->id,
+                'name' => $target->name,
+            ]);
+        }
 
         return redirect()->to(route('admin.settings.index').'#tenant-sync');
     }
@@ -1099,6 +1121,12 @@ class AdminSettingsController extends Controller
             foreach ($mapsSettings as $key => $value) {
                 GeneralSetting::set($key, (string) $value);
             }
+            if ($request->exists('POSTCODE_PDOK_FALLBACK')) {
+                GeneralSetting::set(
+                    \App\Services\PostcodeLookupService::SETTING_KEY,
+                    $request->boolean('POSTCODE_PDOK_FALLBACK') ? '1' : '0'
+                );
+            }
 
             return redirect()->to(route('admin.settings.general.index').'#maps')
                 ->with('success', 'Google Maps instellingen succesvol bijgewerkt!');
@@ -1599,6 +1627,13 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
 
+        $nexaSuiteAvatar = GeneralSetting::get('nexa_suite_avatar');
+        if ($nexaSuiteAvatar && ! Storage::disk('public')->exists($nexaSuiteAvatar)) {
+            \Log::warning('NEXA Suite avatar file not found in storage', ['path' => $nexaSuiteAvatar]);
+            $nexaSuiteAvatar = null;
+        }
+        $nexaSuiteAvatarUrl = GeneralSetting::nexaSuiteAvatarUrl();
+
         $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta(null);
         $faviconDisplayUrl = $faviconMeta['url'];
 
@@ -1659,7 +1694,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'mapsSettings', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'nexaSuiteAvatar', 'nexaSuiteAvatarUrl', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'mapsSettings', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
     }
 
     /**
@@ -2038,6 +2073,96 @@ class AdminSettingsController extends Controller
                 'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Upload NEXA Suite-avatar voor systeemmeldingen (AJAX)
+     */
+    public function uploadNexaSuiteAvatar(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate([
+            'nexa_suite_avatar' => 'required|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        ], [
+            'nexa_suite_avatar.required' => 'Selecteer een afbeelding.',
+            'nexa_suite_avatar.file' => 'Het bestand moet een geldig bestand zijn.',
+            'nexa_suite_avatar.mimes' => 'Alleen JPEG, PNG, JPG, GIF en WebP bestanden zijn toegestaan.',
+            'nexa_suite_avatar.max' => 'Het bestand mag maximaal 5MB groot zijn.',
+        ]);
+
+        try {
+            $settingsDir = storage_path('app/public/settings');
+            if (! file_exists($settingsDir)) {
+                File::makeDirectory($settingsDir, 0755, true);
+            }
+
+            $oldPath = GeneralSetting::get('nexa_suite_avatar');
+            if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            $path = $request->file('nexa_suite_avatar')->store('settings', 'public');
+
+            if (! $path || ! Storage::disk('public')->exists($path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Afbeelding kon niet worden opgeslagen. Controleer de storage permissies.',
+                ], 500);
+            }
+
+            GeneralSetting::set('nexa_suite_avatar', $path);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'NEXA Suite-avatar succesvol geüpload.',
+                'avatar_url' => GeneralSetting::nexaSuiteAvatarUrl(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error uploading NEXA Suite avatar', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Verwijder NEXA Suite-avatar (terug naar standaard)
+     */
+    public function removeNexaSuiteAvatar(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $oldPath = GeneralSetting::get('nexa_suite_avatar');
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+        GeneralSetting::set('nexa_suite_avatar', '');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'NEXA Suite-avatar verwijderd.',
+            'avatar_url' => GeneralSetting::nexaSuiteAvatarUrl(),
+        ]);
+    }
+
+    /**
+     * Get NEXA Suite-avatar (toegankelijk voor ingelogde admins, o.a. notificatiepaneel)
+     */
+    public function getNexaSuiteAvatar()
+    {
+        $path = GeneralSetting::get('nexa_suite_avatar');
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            abort(404, 'Avatar niet gevonden');
+        }
+        $file = Storage::disk('public')->get($path);
+        $mimeType = Storage::disk('public')->mimeType($path);
+
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="nexa-suite-avatar"');
     }
 
     /**

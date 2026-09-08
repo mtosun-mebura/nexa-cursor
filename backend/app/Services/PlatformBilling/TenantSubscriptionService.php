@@ -6,9 +6,11 @@ use App\Models\Company;
 use App\Models\CompanyBillingProfile;
 use App\Models\CompanySubscriptionChange;
 use App\Models\PlatformBillingPackage;
+use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
 use App\Models\PlatformPaymentMandate;
 use App\Services\NexaPricingService;
+use App\Support\TenantPackageAddon;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Log;
@@ -84,6 +86,79 @@ class TenantSubscriptionService
         $profile->setRelation('company', $company);
 
         return $profile;
+    }
+
+    /**
+     * @param  array<string, mixed>  $previousAddons
+     */
+    public function syncPackageAddonsFromCompany(Company $company, array $previousAddons, ?CarbonInterface $asOf = null): ?PlatformInvoice
+    {
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $next = is_array($company->package_addons) ? $company->package_addons : [];
+        $charges = TenantPackageAddon::activationCharges(
+            $previousAddons,
+            $next,
+            $this->pricing->modulesCatalog(),
+            $asOf
+        );
+
+        $profile = $this->ensureProfile($company);
+        $profile->setRelation('company', $company);
+
+        if ($charges === [] || $this->isInTrial($profile, $asOf)) {
+            $previousQty = TenantPackageAddon::normalizeSelections($previousAddons);
+            $nextQty = TenantPackageAddon::normalizeSelections($next);
+            if ($previousQty !== $nextQty) {
+                $this->syncMolliePlan($profile->fresh(['package', 'company']) ?? $profile);
+            }
+
+            return null;
+        }
+
+        $records = TenantPackageAddon::applyPrepaidThrough(
+            TenantPackageAddon::normalizeRecords($next, $previousAddons),
+            $charges
+        );
+        $company->package_addons = $records;
+        $company->save();
+        $profile->setRelation('company', $company->fresh());
+
+        $invoice = null;
+        if ($profile->billing_mode !== CompanyBillingProfile::MODE_FREE) {
+            $billing = app(PlatformBillingService::class);
+            foreach ($this->groupAddonChargesByPeriod($charges) as $periodCharges) {
+                $invoice = $billing->issueAddonChargeInvoice($profile, $periodCharges) ?? $invoice;
+            }
+        }
+
+        $this->recordChange($profile, CompanySubscriptionChange::TYPE_ADDON, [
+            'status' => CompanySubscriptionChange::STATUS_APPLIED,
+            'from_package_key' => trim((string) ($company->package_key ?? '')) ?: null,
+            'to_package_key' => trim((string) ($company->package_key ?? '')) ?: null,
+            'from_monthly_amount' => $profile->resolveMonthlyAmount(),
+            'to_monthly_amount' => $profile->resolveMonthlyAmount(),
+            'effective_on' => $asOf->toDateString(),
+            'applied_at' => now(),
+        ]);
+
+        $this->syncMolliePlan($profile->fresh(['package', 'company']) ?? $profile);
+
+        return $invoice;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $charges
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function groupAddonChargesByPeriod(array $charges): array
+    {
+        $grouped = [];
+        foreach ($charges as $charge) {
+            $period = (string) ($charge['period'] ?? now()->format('Y-m'));
+            $grouped[$period][] = $charge;
+        }
+
+        return $grouped;
     }
 
     private function backfillTrialDates(CompanyBillingProfile $profile, Carbon $fallbackStart): void
@@ -253,7 +328,149 @@ class TenantSubscriptionService
             'billing_start_date' => $billingStart,
             'free_months' => $freeMonths,
             'packages' => $this->catalogFor($company),
+            'addons' => $this->addonSnapshot($company, $profile, $asOf),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function addonSnapshot(Company $company, ?CompanyBillingProfile $profile = null, ?CarbonInterface $asOf = null): array
+    {
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $profile ??= $this->ensureProfile($company);
+        $inTrial = $this->isInTrial($profile, $asOf);
+        $records = TenantPackageAddon::normalizeRecords(
+            is_array($company->package_addons) ? $company->package_addons : []
+        );
+        $monthEnd = TenantPackageAddon::latestStartDate($asOf);
+        $out = [];
+
+        foreach ($this->pricing->modulesCatalog() as $addon) {
+            if (! is_array($addon)) {
+                continue;
+            }
+            $key = trim((string) ($addon['key'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            $record = $records[$key] ?? TenantPackageAddon::emptyRecord();
+            $quantity = (int) ($record['quantity'] ?? 0);
+            $entitled = TenantPackageAddon::entitledQuantityFromRecord($record, $asOf);
+            $pendingCancel = TenantPackageAddon::isPendingCancel($record, $asOf);
+            $pendingDecrease = TenantPackageAddon::isPendingDecrease($record, $asOf);
+            $price = max(0, (int) ($addon['price'] ?? 0));
+            $isQuantity = ($addon['type'] ?? '') === TenantPackageAddon::TYPE_QUANTITY;
+            $startsAt = TenantPackageAddon::parseDate($record['starts_at'] ?? null);
+            $saved = $quantity > 0 || $entitled > 0 || $pendingCancel;
+            $trialOnly = $inTrial && ! $saved;
+
+            $out[] = [
+                'key' => $key,
+                'name' => trim((string) ($addon['name'] ?? $addon['label'] ?? $key)),
+                'description' => trim((string) ($addon['description'] ?? $addon['hint'] ?? '')),
+                'price' => $price,
+                'price_label' => $this->pricing->displayAmount(number_format($price, 2, '.', '')),
+                'is_quantity' => $isQuantity,
+                'quantity' => $quantity,
+                'entitled' => $entitled,
+                'pending_cancel' => $pendingCancel,
+                'pending_decrease' => $pendingDecrease,
+                'starts_at' => $startsAt,
+                'saved' => $saved,
+                'trial_only' => $trialOnly,
+                'can_cancel' => $saved && ! $pendingCancel,
+                'can_withdraw' => $pendingCancel || $pendingDecrease,
+                'in_trial' => $inTrial,
+                'cancel_on' => $inTrial ? $asOf->copy() : $monthEnd->copy(),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{message: string}
+     */
+    public function cancelPackageAddon(Company $company, string $addonKey, ?CarbonInterface $asOf = null): array
+    {
+        $addonKey = trim($addonKey);
+        $definition = TenantPackageAddon::definition($addonKey);
+        if ($definition === null) {
+            throw new RuntimeException('Onbekende aanvullende module.');
+        }
+
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $previous = is_array($company->package_addons) ? $company->package_addons : [];
+        $records = TenantPackageAddon::normalizeRecords($previous, []);
+        $record = $records[$addonKey] ?? TenantPackageAddon::emptyRecord();
+        $entitled = TenantPackageAddon::entitledQuantityFromRecord($record, $asOf);
+        $quantity = (int) ($record['quantity'] ?? 0);
+
+        if ($entitled <= 0 && $quantity <= 0) {
+            throw new RuntimeException('Deze module is niet actief op je abonnement.');
+        }
+        if (TenantPackageAddon::isPendingCancel($record, $asOf)) {
+            throw new RuntimeException('Deze module is al opgezegd.');
+        }
+
+        $profile = $this->ensureProfile($company);
+        $inTrial = $this->isInTrial($profile, $asOf);
+        $posted = $records;
+        $posted[$addonKey] = ['quantity' => 0];
+        $company->package_addons = TenantPackageAddon::normalizeRecords($posted, $previous, $inTrial);
+        $company->save();
+        $this->syncPackageAddonsFromCompany($company->fresh(), $previous, $asOf);
+
+        $name = $definition['label'];
+        if ($inTrial) {
+            return [
+                'message' => $name.' wordt niet meegenomen na de proefperiode. Tijdens de proef kun je de module blijven gebruiken; er volgt geen factuur.',
+            ];
+        }
+
+        $when = TenantPackageAddon::latestStartDate($asOf)->translatedFormat('j F Y');
+
+        return [
+            'message' => $name.' is opgezegd per '.$when.'. Tot die datum blijft de module actief; daarna stopt de extra maandelijkse kosten.',
+        ];
+    }
+
+    public function withdrawPackageAddonCancel(Company $company, string $addonKey, ?CarbonInterface $asOf = null): void
+    {
+        $addonKey = trim($addonKey);
+        if (TenantPackageAddon::definition($addonKey) === null) {
+            throw new RuntimeException('Onbekende aanvullende module.');
+        }
+
+        $asOf = Carbon::parse($asOf ?? now())->startOfDay();
+        $previous = is_array($company->package_addons) ? $company->package_addons : [];
+        $records = TenantPackageAddon::normalizeRecords($previous, []);
+        $record = $records[$addonKey] ?? TenantPackageAddon::emptyRecord();
+
+        if (
+            ! TenantPackageAddon::isPendingCancel($record, $asOf)
+            && ! TenantPackageAddon::isPendingDecrease($record, $asOf)
+        ) {
+            throw new RuntimeException('Er is geen geplande opzegging voor deze module.');
+        }
+
+        $restoreQty = max(
+            (int) ($record['active_quantity'] ?? 0),
+            TenantPackageAddon::entitledQuantityFromRecord($record, $asOf)
+        );
+        if ($restoreQty <= 0) {
+            throw new RuntimeException('Deze module kan niet worden hersteld.');
+        }
+
+        $posted = $records;
+        $posted[$addonKey] = [
+            'quantity' => $restoreQty,
+            'starts_at' => $asOf->toDateString(),
+        ];
+        $company->package_addons = TenantPackageAddon::normalizeRecords($posted, $previous, false);
+        $company->save();
+        $this->syncPackageAddonsFromCompany($company->fresh(), $previous, $asOf);
     }
 
     /**
@@ -795,7 +1012,7 @@ class TenantSubscriptionService
             return;
         }
 
-        $monthlyAmount = $profile->resolveMonthlyAmount();
+        $monthlyAmount = $profile->mollieRecurringAmount();
         if ($monthlyAmount <= 0) {
             $this->stopMollieSubscription($profile, $mandate);
 

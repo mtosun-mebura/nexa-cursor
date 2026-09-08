@@ -1119,57 +1119,91 @@
                     $tenantSyncTargets = $tenantSyncTargets ?? collect();
                     $tenantSyncActiveTargetId = (int) ($tenantSyncActiveTarget->id ?? 0);
                     $tenantSyncHasTargets = $tenantSyncTargets->isNotEmpty();
+                    $tenantSyncFormHasErrors = collect($errors->keys())->contains(
+                        fn ($key) => str_starts_with((string) $key, 'tenant_sync_')
+                    );
+                    $tenantSyncShowForm = ! $tenantSyncHasTargets || $tenantSyncFormHasErrors;
+                    $tenantSyncEmptyForm = $tenantSyncEmptyForm ?? [];
+                    $tenantSyncTargetForms = $tenantSyncTargetForms ?? collect();
                 @endphp
-                <div class="rounded-md border border-border bg-muted/20 px-4 py-4 space-y-3" id="tenant-sync-target-picker">
+                <div id="tenant-sync-target-picker" class="space-y-3">
                     @include('admin.settings.partials.heading-with-info', [
                         'tag' => 'h4',
                         'class' => 'text-sm font-medium text-foreground mb-0',
                         'title' => 'Doel-omgevingen',
                         'infoId' => 'tenant-sync-target-picker-info',
-                        'info' => 'Beheer meerdere doel-omgevingen (bijv. <strong>Productie</strong>, <strong>Acceptatie</strong>). Kies hieronder de <strong>actieve omgeving</strong>: dat is de omgeving waar de test-verbinding en de volledige tenant-sync naartoe schrijven. De velden eronder tonen en bewerken de gekozen omgeving.',
+                        'info' => 'Beheer meerdere doel-omgevingen (bijv. <strong>Productie</strong>, <strong>Acceptatie</strong>). Klik op een blok om het <strong>sync-doel</strong> te kiezen. Bewerken en verwijderen gaat via de icoontjes. Het formulier opent alleen bij een nieuwe omgeving of bij bewerken.',
                     ])
-                    <div class="flex flex-wrap items-end gap-3">
-                        <div class="grow min-w-[240px]">
-                            <label for="tenant-sync-target-select" class="text-sm text-secondary-foreground block mb-1">Actieve omgeving (sync-doel)</label>
-                            <form method="POST" action="{{ route('admin.settings.tenant-sync.target.activate') }}" id="tenant-sync-activate-form" class="m-0">
-                                @csrf
-                                <select name="tenant_sync_target_id" id="tenant-sync-target-select" class="kt-select w-full" @disabled(! $tenantSyncHasTargets)>
-                                    @forelse ($tenantSyncTargets as $t)
-                                        <option value="{{ $t->id }}" @selected($t->id === $tenantSyncActiveTargetId)>
-                                            {{ $t->name }}{{ $t->ssh_enabled ? ' · SSH' : '' }}{{ $t->push_enabled ? ' · push aan' : '' }}
-                                        </option>
-                                    @empty
-                                        <option value="">— Nog geen omgeving toegevoegd —</option>
-                                    @endforelse
-                                </select>
-                            </form>
-                        </div>
-                        <form method="POST" action="{{ route('admin.settings.tenant-sync.target.create') }}" class="m-0">
-                            @csrf
-                            <button type="submit" class="kt-btn kt-btn-outline">
-                                <i class="ki-filled ki-plus me-2"></i> Nieuwe omgeving
-                            </button>
-                        </form>
-                        @if ($tenantSyncHasTargets)
-                            <form method="POST" action="{{ route('admin.settings.tenant-sync.target.delete') }}" class="m-0"
-                                  id="tenant-sync-delete-form"
-                                  onsubmit="return confirm('Weet je zeker dat je deze omgeving wilt verwijderen?');">
-                                @csrf
-                                <input type="hidden" name="tenant_sync_target_id" value="{{ $tenantSyncActiveTargetId }}">
-                                <button type="submit" class="kt-btn kt-btn-outline text-destructive">
-                                    <i class="ki-filled ki-trash me-2"></i> Verwijder
-                                </button>
-                            </form>
-                        @endif
+                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        @foreach ($tenantSyncTargets as $t)
+                            @php
+                                $isActiveTarget = (int) $t->id === $tenantSyncActiveTargetId;
+                                $targetForm = $tenantSyncTargetForms[$t->id] ?? [];
+                            @endphp
+                            <div class="rounded-md border px-4 py-4 min-w-0 cursor-pointer {{ $isActiveTarget ? 'border-primary' : 'border-border' }}"
+                                 data-tenant-sync-card
+                                 data-target-id="{{ $t->id }}"
+                                 data-target-name="{{ $t->name }}"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-pressed="{{ $isActiveTarget ? 'true' : 'false' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0 grow">
+                                        <div class="text-sm font-medium text-foreground truncate">{{ $t->name }}</div>
+                                        <p class="text-xs text-muted-foreground mt-1 mb-0">
+                                            {{ $t->ssh_enabled ? 'SSH' : 'Direct' }}{{ $t->push_enabled ? ' · push aan' : '' }}
+                                        </p>
+                                        <span class="kt-badge kt-badge-sm kt-badge-primary mt-2 tenant-sync-active-badge {{ $isActiveTarget ? '' : 'hidden' }}">Actief sync-doel</span>
+                                    </div>
+                                    <div class="tenant-sync-card-actions flex shrink-0 items-center gap-0.5">
+                                        <button type="button"
+                                                class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost tenant-sync-edit-btn"
+                                                data-form='@json($targetForm)'
+                                                aria-label="Omgeving bewerken"
+                                                title="Bewerken">
+                                            <i class="ki-filled ki-pencil"></i>
+                                        </button>
+                                        <form method="POST" action="{{ route('admin.settings.tenant-sync.target.delete') }}" class="m-0"
+                                              onsubmit="return confirm('Weet je zeker dat je deze omgeving wilt verwijderen?');">
+                                            @csrf
+                                            <input type="hidden" name="tenant_sync_target_id" value="{{ $t->id }}">
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive"
+                                                    aria-label="Omgeving verwijderen"
+                                                    title="Verwijderen">
+                                                <i class="ki-filled ki-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                        <button type="button"
+                                id="tenant-sync-new-env-btn"
+                                class="rounded-md border border-dashed border-border px-4 py-4 min-h-[5.5rem] flex items-center justify-center gap-2 text-sm font-medium text-foreground hover:border-primary">
+                            <i class="ki-filled ki-plus"></i>
+                            Nieuwe omgeving
+                        </button>
                     </div>
                     @unless ($tenantSyncHasTargets)
                         <p class="text-xs text-secondary-foreground m-0">Vul hieronder de gegevens in en klik op <strong>Opslaan</strong> om je eerste doel-omgeving aan te maken.</p>
                     @endunless
                 </div>
 
+                <script type="application/json" id="tenant-sync-empty-form-json">@json($tenantSyncEmptyForm)</script>
+                <div id="tenant-sync-settings-form-wrap" class="{{ $tenantSyncShowForm ? '' : 'hidden' }}">
                 <form method="POST" action="{{ route('admin.settings.tenant-sync.update') }}" id="tenant-sync-settings-form" class="space-y-4" enctype="multipart/form-data">
                     @csrf
-                    <input type="hidden" name="tenant_sync_target_id" value="{{ old('tenant_sync_target_id', $tenantSyncSettings['tenant_sync_target_id'] ?? 0) }}">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h4 id="tenant-sync-form-heading" class="text-sm font-medium text-foreground mb-0">
+                            {{ $tenantSyncHasTargets ? 'Omgeving bewerken' : 'Nieuwe omgeving' }}
+                        </h4>
+                        <button type="button"
+                                id="tenant-sync-form-cancel"
+                                class="kt-btn kt-btn-outline kt-btn-sm {{ $tenantSyncHasTargets ? '' : 'hidden' }}">
+                            Annuleren
+                        </button>
+                    </div>
+                    <input type="hidden" name="tenant_sync_target_id" id="tenant_sync_target_id" value="{{ old('tenant_sync_target_id', $tenantSyncSettings['tenant_sync_target_id'] ?? 0) }}">
                     <div>
                         <label for="tenant_sync_name" class="text-sm text-secondary-foreground block mb-1">Naam van de omgeving <span class="text-destructive">*</span></label>
                         <input type="text" name="tenant_sync_name" id="tenant_sync_name" class="kt-input w-full text-sm"
@@ -1328,7 +1362,7 @@
                     </div>
                     <label class="inline-flex items-center gap-2">
                         <input type="hidden" name="tenant_sync_push_enabled" value="0">
-                        <input type="checkbox" name="tenant_sync_push_enabled" value="1" class="kt-checkbox"
+                        <input type="checkbox" name="tenant_sync_push_enabled" value="1" id="tenant_sync_push_enabled" class="kt-checkbox"
                                @if(old('tenant_sync_push_enabled', ($tenantSyncSettings['tenant_sync_push_enabled'] ?? false) ? '1' : '0') === '1') checked @endif>
                         <span class="text-sm text-secondary-foreground">Push/sync naar doel-database toestaan</span>
                     </label>
@@ -1342,6 +1376,7 @@
                     </div>
                     <div id="tenant-sync-test-result" class="hidden rounded-md border px-3 py-2 text-sm" role="status" aria-live="polite"></div>
                 </form>
+                </div>
 
                 <div class="border-t border-border pt-6">
                     @include('admin.settings.partials.heading-with-info', [
@@ -1354,9 +1389,9 @@
                     <p class="text-sm text-secondary-foreground mb-4">
                         Synchroniseert naar:
                         @if (! empty($tenantSyncActiveTarget))
-                            <span class="kt-badge kt-badge-sm kt-badge-primary align-middle">{{ $tenantSyncActiveTarget->name }}</span>
+                            <span id="tenant-sync-active-name" class="kt-badge kt-badge-sm kt-badge-primary align-middle">{{ $tenantSyncActiveTarget->name }}</span>
                         @else
-                            <span class="text-destructive">geen omgeving gekozen — voeg er eerst één toe.</span>
+                            <span id="tenant-sync-active-name" class="text-destructive">geen omgeving gekozen — voeg er eerst één toe.</span>
                         @endif
                     </p>
                     <form id="tenant-sync-run-form" method="POST" action="{{ route('admin.settings.tenant-sync.run') }}" class="space-y-4" novalidate>
@@ -1613,37 +1648,287 @@ document.addEventListener('DOMContentLoaded', function() {
     const tenantSyncSshFields = document.getElementById('tenant-sync-ssh-fields');
     const tenantSyncDirectFields = document.getElementById('tenant-sync-direct-fields');
     function syncTenantSyncConnectionMode() {
-        var sshOn = tenantSyncSshEnabled && tenantSyncSshEnabled.checked;
-        if (tenantSyncSshFields) {
-            tenantSyncSshFields.classList.toggle('hidden', !sshOn);
+        var sshEl = document.getElementById('tenant_sync_ssh_enabled');
+        var sshFields = document.getElementById('tenant-sync-ssh-fields');
+        var directFields = document.getElementById('tenant-sync-direct-fields');
+        var urlInput = document.getElementById('tenant_sync_target_database_url');
+        var urlPrefillBtn = document.getElementById('tenant-sync-url-prefill-btn');
+        var sshOn = sshEl && sshEl.checked;
+        if (sshFields) {
+            sshFields.classList.toggle('hidden', !sshOn);
         }
-        if (tenantSyncDirectFields) {
-            tenantSyncDirectFields.classList.toggle('hidden', !!sshOn);
-            tenantSyncDirectFields.querySelectorAll('input, button, select, textarea').forEach(function(el) {
+        if (directFields) {
+            directFields.classList.toggle('hidden', !!sshOn);
+            directFields.querySelectorAll('input, button, select, textarea').forEach(function(el) {
                 if (el.id === 'tenant-sync-url-prefill-btn') {
                     return;
                 }
                 el.disabled = !!sshOn;
             });
         }
-        if (tenantSyncUrlInput) {
-            tenantSyncUrlInput.disabled = !!sshOn;
+        if (urlInput) {
+            urlInput.disabled = !!sshOn;
         }
-        if (tenantSyncUrlPrefillBtn) {
-            tenantSyncUrlPrefillBtn.disabled = !!sshOn || tenantSyncUrlPrefillBtn.classList.contains('opacity-40');
+        if (urlPrefillBtn) {
+            urlPrefillBtn.disabled = !!sshOn || urlPrefillBtn.classList.contains('opacity-40');
         }
     }
-    if (tenantSyncSshEnabled) {
-        tenantSyncSshEnabled.addEventListener('change', syncTenantSyncConnectionMode);
-        syncTenantSyncConnectionMode();
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'tenant_sync_ssh_enabled') {
+            syncTenantSyncConnectionMode();
+        }
+    });
+    syncTenantSyncConnectionMode();
+    var tenantSyncHasCards = document.querySelectorAll('[data-tenant-sync-card]').length > 0;
+    var tenantSyncEmptyForm = {};
+    var tenantSyncEmptyJson = document.getElementById('tenant-sync-empty-form-json');
+    if (tenantSyncEmptyJson) {
+        try {
+            tenantSyncEmptyForm = JSON.parse(tenantSyncEmptyJson.textContent || '{}');
+        } catch (e) {
+            tenantSyncEmptyForm = {};
+        }
     }
-    var tenantSyncTargetSelect = document.getElementById('tenant-sync-target-select');
-    var tenantSyncActivateForm = document.getElementById('tenant-sync-activate-form');
-    if (tenantSyncTargetSelect && tenantSyncActivateForm) {
-        tenantSyncTargetSelect.addEventListener('change', function() {
-            tenantSyncActivateForm.submit();
+    function tenantSyncFormWrapEl() {
+        return document.getElementById('tenant-sync-settings-form-wrap');
+    }
+    function tenantSyncFieldValue(data, key, fallback) {
+        if (data && Object.prototype.hasOwnProperty.call(data, key) && data[key] !== null && data[key] !== undefined) {
+            return data[key];
+        }
+        return fallback;
+    }
+    function setTenantSyncPasswordField(inputId, hasStored, storedPlaceholder, emptyPlaceholder) {
+        var input = document.getElementById(inputId);
+        if (!input) {
+            return;
+        }
+        var wrap = input.closest('.tenant-sync-password-field');
+        input.value = '';
+        input.placeholder = hasStored ? storedPlaceholder : emptyPlaceholder;
+        if (wrap) {
+            wrap.setAttribute('data-has-stored', hasStored ? '1' : '0');
+            wrap.setAttribute('data-cleared', '0');
+            var flagId = wrap.querySelector('.tenant-sync-password-clear');
+            var clearInput = flagId ? document.getElementById(flagId.getAttribute('data-clear-flag')) : null;
+            if (clearInput) {
+                clearInput.value = '0';
+            }
+            updateTenantSyncPasswordClearVisibility(wrap);
+        }
+    }
+    function fillTenantSyncForm(data) {
+        data = data || {};
+        var idInput = document.getElementById('tenant_sync_target_id');
+        if (idInput) {
+            idInput.value = String(tenantSyncFieldValue(data, 'tenant_sync_target_id', 0) || 0);
+        }
+        var nameInput = document.getElementById('tenant_sync_name');
+        if (nameInput) {
+            nameInput.value = String(tenantSyncFieldValue(data, 'tenant_sync_name', ''));
+        }
+        var urlInput = document.getElementById('tenant_sync_target_database_url');
+        if (urlInput) {
+            urlInput.value = String(tenantSyncFieldValue(data, 'tenant_sync_target_database_url', ''));
+        }
+        var map = {
+            tenant_sync_ssh_host: 'tenant_sync_ssh_host',
+            tenant_sync_ssh_port: 'tenant_sync_ssh_port',
+            tenant_sync_ssh_username: 'tenant_sync_ssh_username',
+            tenant_sync_ssh_db_username: 'tenant_sync_ssh_db_username',
+            tenant_sync_ssh_db_database: 'tenant_sync_ssh_db_database',
+            tenant_sync_ssh_remote_db_host: 'tenant_sync_ssh_remote_db_host',
+            tenant_sync_ssh_remote_db_port: 'tenant_sync_ssh_remote_db_port'
+        };
+        Object.keys(map).forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.value = String(tenantSyncFieldValue(data, map[id], el.value || ''));
+            }
         });
+        var sshEl = document.getElementById('tenant_sync_ssh_enabled');
+        if (sshEl) {
+            sshEl.checked = !!tenantSyncFieldValue(data, 'tenant_sync_ssh_enabled', false);
+        }
+        var pushInput = document.getElementById('tenant_sync_push_enabled');
+        if (pushInput) {
+            pushInput.checked = !!tenantSyncFieldValue(data, 'tenant_sync_push_enabled', false);
+        }
+        setTenantSyncPasswordField(
+            'tenant_sync_target_database_password',
+            !!tenantSyncFieldValue(data, 'tenant_sync_has_database_password', false),
+            '•••••••• (opgeslagen — laat leeg om te behouden)',
+            'Wachtwoord van de database-gebruiker'
+        );
+        setTenantSyncPasswordField(
+            'tenant_sync_ssh_password',
+            !!tenantSyncFieldValue(data, 'tenant_sync_has_ssh_password', false),
+            '•••••••• (opgeslagen — laat leeg om te behouden)',
+            'SSH-wachtwoord'
+        );
+        setTenantSyncPasswordField(
+            'tenant_sync_ssh_db_password',
+            !!tenantSyncFieldValue(data, 'tenant_sync_has_ssh_db_password', false),
+            '•••••••• (opgeslagen — laat leeg om te behouden)',
+            'Postgres-wachtwoord op de server'
+        );
+        syncTenantSyncConnectionMode();
+        var alertBox = tenantSyncSettingsForm ? tenantSyncSettingsForm.querySelector('[role="alert"]') : null;
+        if (alertBox) {
+            alertBox.classList.add('hidden');
+        }
     }
+    function showTenantSyncForm(data, heading) {
+        fillTenantSyncForm(data);
+        var headingEl = document.getElementById('tenant-sync-form-heading');
+        if (headingEl) {
+            headingEl.textContent = heading;
+        }
+        var wrap = tenantSyncFormWrapEl();
+        if (wrap) {
+            wrap.classList.remove('hidden');
+        }
+        var cancelEl = document.getElementById('tenant-sync-form-cancel');
+        if (cancelEl) {
+            cancelEl.classList.toggle('hidden', !tenantSyncHasCards);
+        }
+        if (wrap && typeof wrap.scrollIntoView === 'function') {
+            wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        var nameInput = document.getElementById('tenant_sync_name');
+        if (nameInput) {
+            nameInput.focus();
+        }
+    }
+    function hideTenantSyncForm() {
+        if (!tenantSyncHasCards) {
+            return;
+        }
+        var wrap = tenantSyncFormWrapEl();
+        if (wrap) {
+            wrap.classList.add('hidden');
+        }
+    }
+    document.addEventListener('click', function(e) {
+        var node = e.target;
+        if (node && node.nodeType !== 1) {
+            node = node.parentElement;
+        }
+        if (!node || typeof node.closest !== 'function') {
+            return;
+        }
+        var editBtn = node.closest('.tenant-sync-edit-btn');
+        if (editBtn) {
+            e.preventDefault();
+            var payload = {};
+            try {
+                payload = JSON.parse(editBtn.getAttribute('data-form') || '{}');
+            } catch (err) {
+                payload = {};
+            }
+            showTenantSyncForm(payload, 'Omgeving bewerken');
+            return;
+        }
+        if (node.closest('#tenant-sync-new-env-btn')) {
+            e.preventDefault();
+            showTenantSyncForm(tenantSyncEmptyForm, 'Nieuwe omgeving');
+            return;
+        }
+        if (node.closest('#tenant-sync-form-cancel')) {
+            e.preventDefault();
+            hideTenantSyncForm();
+            return;
+        }
+        if (node.closest('.tenant-sync-card-actions') || node.closest('#tenant-sync-new-env-btn')) {
+            return;
+        }
+        var card = node.closest('[data-tenant-sync-card]');
+        if (card) {
+            e.preventDefault();
+            activateTenantSyncCard(card);
+        }
+    }, true);
+    function applyTenantSyncActiveCard(id, name) {
+        document.querySelectorAll('[data-tenant-sync-card]').forEach(function(card) {
+            var isActive = String(card.getAttribute('data-target-id')) === String(id);
+            card.classList.toggle('border-primary', isActive);
+            card.classList.toggle('border-border', !isActive);
+            card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            var badge = card.querySelector('.tenant-sync-active-badge');
+            if (badge) {
+                badge.classList.toggle('hidden', !isActive);
+            }
+        });
+        var dest = document.getElementById('tenant-sync-active-name');
+        if (!dest) {
+            return;
+        }
+        dest.textContent = name || 'geen omgeving gekozen — voeg er eerst één toe.';
+        dest.className = name
+            ? 'kt-badge kt-badge-sm kt-badge-primary align-middle'
+            : 'text-destructive';
+    }
+    var tenantSyncActivateBusy = false;
+    function activateTenantSyncCard(card) {
+        var id = card.getAttribute('data-target-id');
+        if (!id || card.getAttribute('aria-pressed') === 'true' || tenantSyncActivateBusy) {
+            return;
+        }
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        if (!token) {
+            return;
+        }
+        tenantSyncActivateBusy = true;
+        card.setAttribute('aria-busy', 'true');
+        var fd = new FormData();
+        fd.append('_token', token);
+        fd.append('tenant_sync_target_id', id);
+        fetch('{{ route('admin.settings.tenant-sync.target.activate') }}', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': token
+            }
+        })
+            .then(function(r) {
+                return r.json().then(function(data) {
+                    return { ok: r.ok, data: data };
+                });
+            })
+            .then(function(res) {
+                if (!res.ok || !res.data || !res.data.success) {
+                    return;
+                }
+                applyTenantSyncActiveCard(res.data.id, res.data.name);
+            })
+            .catch(function() {})
+            .finally(function() {
+                tenantSyncActivateBusy = false;
+                card.removeAttribute('aria-busy');
+            });
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter' && e.key !== ' ') {
+            return;
+        }
+        var node = e.target;
+        if (!node || typeof node.closest !== 'function') {
+            return;
+        }
+        if (node.closest('.tenant-sync-card-actions')) {
+            return;
+        }
+        var card = node.closest('[data-tenant-sync-card]');
+        if (!card) {
+            return;
+        }
+        e.preventDefault();
+        activateTenantSyncCard(card);
+    });
     function updateTenantSyncPasswordClearVisibility(wrap) {
         if (!wrap) {
             return;

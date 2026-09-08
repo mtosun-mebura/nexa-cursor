@@ -66,8 +66,8 @@
                     <tbody>
                     @forelse($lineItems as $lineItem)
                         <tr data-row-href="{{ route('admin.platform-billing.line-items.edit', $lineItem) }}">
-                            <td class="platform-billing-line-items__name font-medium text-mono">{{ $lineItem->name }}</td>
-                            <td class="platform-billing-line-items__description text-secondary-foreground" @if($lineItem->description) title="{{ $lineItem->description }}" @endif>
+                            <td class="platform-billing-line-items__name font-medium text-mono" data-full-text="{{ $lineItem->name }}">{{ $lineItem->name }}</td>
+                            <td class="platform-billing-line-items__description text-secondary-foreground" @if($lineItem->description) data-full-text="{{ $lineItem->description }}" @endif>
                                 {{ $lineItem->description ?: '—' }}
                             </td>
                             <td class="platform-billing-line-items__price whitespace-nowrap tabular-nums">€ {{ number_format((float) $lineItem->unit_price, 2, ',', '.') }}</td>
@@ -134,7 +134,12 @@
 @push('styles')
 <style>
     #content #platform-billing-line-items-table col.platform-billing-line-items-col-name {
-        width: 11rem;
+        width: 16.5rem;
+        min-width: 16.5rem;
+    }
+
+    #content #platform-billing-line-items-table .platform-billing-line-items__name {
+        min-width: 16.5rem;
     }
 
     #content #platform-billing-line-items-table col.platform-billing-line-items-col-price {
@@ -166,9 +171,128 @@
         white-space: nowrap;
         vertical-align: middle;
     }
+
+    .platform-billing-line-items-truncation-tip {
+        position: fixed;
+        z-index: 100000;
+        width: max-content;
+        max-width: calc(100vw - 1.5rem);
+        padding: 0.375rem 0.75rem;
+        border-radius: calc(var(--radius) - 2px);
+        background: var(--mono);
+        color: var(--mono-foreground);
+        font-size: 0.75rem;
+        line-height: 1.45;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    html.dark .platform-billing-line-items-truncation-tip {
+        border: 1px solid var(--border);
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
+<script>
+    (function () {
+        var table = document.getElementById('platform-billing-line-items-table');
+        if (!table) return;
+
+        var tip = null;
+        var activeCell = null;
+
+        function ensureTip() {
+            if (tip) return tip;
+            tip = document.createElement('div');
+            tip.className = 'platform-billing-line-items-truncation-tip';
+            tip.setAttribute('role', 'tooltip');
+            tip.hidden = true;
+            document.body.appendChild(tip);
+            return tip;
+        }
+
+        function hideTip() {
+            activeCell = null;
+            if (tip) {
+                tip.hidden = true;
+                tip.textContent = '';
+            }
+        }
+
+        function positionTip(cell) {
+            var popup = ensureTip();
+            var rect = cell.getBoundingClientRect();
+            var gap = 8;
+            var left = rect.left;
+            var top = rect.top - popup.offsetHeight - gap;
+            var maxLeft = window.innerWidth - popup.offsetWidth - 12;
+            if (left > maxLeft) left = Math.max(12, maxLeft);
+            if (left < 12) left = 12;
+            if (top < 12) {
+                top = rect.bottom + gap;
+            }
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+        }
+
+        function showTip(cell) {
+            var full = (cell.getAttribute('data-full-text') || '').trim();
+            if (!full || cell.getAttribute('data-truncated') !== '1') {
+                hideTip();
+                return;
+            }
+            activeCell = cell;
+            var popup = ensureTip();
+            popup.textContent = full;
+            popup.hidden = false;
+            positionTip(cell);
+            positionTip(cell);
+        }
+
+        function syncTruncationTitles() {
+            table.querySelectorAll('[data-full-text]').forEach(function (cell) {
+                cell.removeAttribute('title');
+                var full = (cell.getAttribute('data-full-text') || '').trim();
+                var truncated = !!full && cell.scrollWidth > cell.clientWidth + 1;
+                if (truncated) {
+                    cell.setAttribute('data-truncated', '1');
+                } else {
+                    cell.removeAttribute('data-truncated');
+                }
+            });
+            if (activeCell && activeCell.getAttribute('data-truncated') !== '1') {
+                hideTip();
+            } else if (activeCell) {
+                positionTip(activeCell);
+            }
+        }
+
+        table.addEventListener('mouseover', function (event) {
+            var cell = event.target.closest('[data-full-text]');
+            if (!cell || !table.contains(cell)) return;
+            showTip(cell);
+        });
+
+        table.addEventListener('mouseout', function (event) {
+            var cell = event.target.closest('[data-full-text]');
+            if (!cell) return;
+            var next = event.relatedTarget;
+            if (next && cell.contains(next)) return;
+            if (activeCell === cell) hideTip();
+        });
+
+        window.addEventListener('scroll', function () {
+            if (activeCell) positionTip(activeCell);
+        }, true);
+
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(syncTruncationTitles);
+        }
+        window.addEventListener('resize', syncTruncationTitles);
+        requestAnimationFrame(syncTruncationTitles);
+    })();
+</script>
 @endpush

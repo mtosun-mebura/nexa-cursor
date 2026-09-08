@@ -30,6 +30,9 @@
     };
     $isCenteredReading = $alignment === 'center' && ! $showSideColumn;
     $textMaxWidthClass = ($showSideColumn && in_array($alignment, ['left', 'right'], true)) ? 'max-w-none' : '';
+    $textOnlyMaxWidthClass = $isCenteredReading ? 'max-w-3xl mx-auto text-center' : 'max-w-3xl w-full';
+    $sideImageClass = 'block w-full h-full max-h-[22rem] lg:max-h-[28rem] object-cover aspect-[4/3]';
+    $proseBesideImage = 'prose prose-gray dark:prose-invert format dark:format-invert max-w-none self-center';
 @endphp
 <style>
     /* Alinea's vliegen één voor één van links naar binnen; het plaatje krijgt een eigen
@@ -81,31 +84,31 @@
             <div class="text-block-content-fade-in flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
                 @if($alignment === 'right')
                 {{-- Tekst rechts: afbeelding/component links; beide bovenaan uitgelijnd --}}
-                <div class="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-8 lg:gap-12 items-start w-full">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch w-full">
                     <div class="order-2 lg:order-1 w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
-                        <div class="text-block-side-image text-block-side-image--from-left w-full overflow-hidden rounded-2xl">
-                            <img src="{{ $imageUrl }}" alt="" class="block w-full h-full min-h-[16rem] lg:min-h-[22rem] object-cover">
+                        <div class="text-block-side-image text-block-side-image--from-left w-full overflow-hidden rounded-2xl h-full">
+                            <img src="{{ $imageUrl }}" alt="" class="{{ $sideImageClass }}">
                         </div>
                         @endif
                         @if($showSideComponent)
                         @include('frontend.website.components.email-template-section', ['sectionData' => $sideSectionData, 'sectionKey' => $sideKey, 'emailTemplate' => $sideTemplate, 'formFields' => $sideFormFields, 'embeddedInTextBlock' => true])
                         @endif
                     </div>
-                    <div class="order-1 lg:order-2 prose prose-gray dark:prose-invert format format-lg dark:format-invert max-w-none {{ $textAlignClass }}">
+                    <div class="order-1 lg:order-2 {{ $proseBesideImage }} {{ $textAlignClass }}">
                         {!! $content !!}
                     </div>
                 </div>
                 @else
                 {{-- Tekst links: afbeelding/component rechts --}}
-                <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12 items-start w-full">
-                    <div class="prose prose-gray dark:prose-invert format format-lg dark:format-invert max-w-none {{ $textAlignClass }}">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch w-full">
+                    <div class="{{ $proseBesideImage }} {{ $textAlignClass }}">
                         {!! $content !!}
                     </div>
                     <div class="w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
-                        <div class="text-block-side-image w-full overflow-hidden rounded-2xl">
-                            <img src="{{ $imageUrl }}" alt="" class="block w-full h-full min-h-[16rem] lg:min-h-[22rem] object-cover">
+                        <div class="text-block-side-image w-full overflow-hidden rounded-2xl h-full">
+                            <img src="{{ $imageUrl }}" alt="" class="{{ $sideImageClass }}">
                         </div>
                         @endif
                         @if($showSideComponent)
@@ -119,7 +122,7 @@
             {{-- Alleen tekst: volle breedte, of gecentreerde leeskolom in het midden van het scherm --}}
             <div class="text-block-content-fade-in flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
                 <div class="flex {{ $blockAlignClass }} w-full">
-                    <div class="prose prose-gray dark:prose-invert format format-lg dark:format-invert {{ $isCenteredReading ? 'max-w-3xl mx-auto text-center' : 'max-w-none w-full' }} {{ $textAlignClass }} {{ $textMaxWidthClass }}">
+                    <div class="prose prose-gray dark:prose-invert format format-lg dark:format-invert {{ $textOnlyMaxWidthClass }} {{ $textAlignClass }} {{ $textMaxWidthClass }}">
                         {!! $content !!}
                     </div>
                 </div>

@@ -220,7 +220,7 @@ class WebsiteAiGeneratorService
             $sections = $this->finalizeSectionLayout($sections, $pagePlan, (string) $theme->slug, $company, $isHome, $contactTemplateId);
             $sections = $this->applyBrandColors($sections, $primary, $secondary);
 
-            if ($generateImages && $isHome) {
+            if ($generateImages) {
                 $imageCount += $this->applyGeneratedImagesToMediaLibrary(
                     $sections,
                     $pagePlan,
@@ -350,12 +350,18 @@ class WebsiteAiGeneratorService
         $order = $this->registry->filterSectionOrder($themeSlug, $planned !== [] ? $planned : ($sections['section_order'] ?? ['hero']));
 
         if ($this->hasMeaningfulFeaturedServices($sections['featured_services'] ?? [])) {
-            $order = $this->insertBeforeCta($order, 'featured_services');
+            $shouldKeepFeatured = $planned === [] || in_array('featured_services', $planned, true);
+            if ($shouldKeepFeatured) {
+                $order = $this->insertBeforeCta($order, 'featured_services');
+            } else {
+                $order = array_values(array_filter($order, fn ($key) => $key !== 'featured_services'));
+            }
         }
         $text = trim((string) data_get($sections, 'text_block.content', data_get($pagePlan, 'text_block.content', '')));
         if ($text !== '') {
             $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
             $block['content'] = $text;
+            $this->applyTextBlockLayoutFromPlan($block, $pagePlan);
             $sections['text_block'] = $block;
             $order = $this->insertBeforeCta($order, 'text_block');
         }
@@ -509,25 +515,73 @@ class WebsiteAiGeneratorService
      */
     private function applyGeneratedImagesToMediaLibrary(array &$sections, array $pagePlan, string $companySlug, string $slug): int
     {
-        $prompt = trim((string) data_get($pagePlan, 'hero.image_prompt', ''));
-        if ($prompt === '') {
-            $prompt = 'Photorealistic cinematic photograph for a professional Dutch company website hero, no text, no logos';
-        }
-        $prompt .= '. Brand mood colors, high-end commercial photography, 35mm, sharp focus.';
-        $url = $this->generateAndStoreImageInMediaLibrary($prompt, $companySlug, $slug);
-        if ($url === null) {
-            return 0;
-        }
-        if (isset($sections['hero']) && is_array($sections['hero'])) {
-            $sections['hero']['background_image_url'] = $url;
-        }
-
-        return 1;
+        return $this->attachGeneratedImages($sections, $pagePlan, $companySlug, $slug, true);
     }
 
     public function generateAndStoreWebsiteImage(string $prompt, string $companySlug, string $pageSlug): ?string
     {
-        return $this->generateAndStoreImageInMediaLibrary($prompt, $companySlug, $pageSlug);
+        return $this->generateAndStoreImageInMediaLibrary($this->withPhotorealism($prompt), $companySlug, $pageSlug);
+    }
+
+    /**
+     * @param  array<string, mixed>  $sections
+     * @param  array<string, mixed>  $pagePlan
+     */
+    private function attachGeneratedImages(array &$sections, array $pagePlan, string $companySlug, string $slug, bool $mediaLibrary): int
+    {
+        $count = 0;
+        $heroPrompt = trim((string) data_get($pagePlan, 'hero.image_prompt', ''));
+        if ($heroPrompt === '') {
+            $heroPrompt = 'Photorealistic cinematic photograph for a professional Dutch company website hero';
+        }
+        $heroUrl = $this->storeGeneratedImage($heroPrompt, $companySlug, $slug.'-hero', $mediaLibrary);
+        if ($heroUrl !== null && isset($sections['hero']) && is_array($sections['hero'])) {
+            $sections['hero']['background_image_url'] = $heroUrl;
+            $count++;
+        }
+
+        $textContent = trim((string) data_get($sections, 'text_block.content', data_get($pagePlan, 'text_block.content', '')));
+        if ($textContent !== '') {
+            $sidePrompt = trim((string) data_get($pagePlan, 'text_block.image_prompt', ''));
+            if ($sidePrompt === '') {
+                $sidePrompt = $heroPrompt !== ''
+                    ? $heroPrompt
+                    : 'Photorealistic cinematic still matching a Dutch professional service website story';
+            }
+            $sidePrompt .= '. Vertical-friendly 4:3 composition for a text-and-image website section.';
+            $sideUrl = $this->storeGeneratedImage($sidePrompt, $companySlug, $slug.'-text', $mediaLibrary);
+            if ($sideUrl !== null) {
+                $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
+                $block['image_url'] = $sideUrl;
+                $alignment = strtolower(AiScalar::string(data_get($pagePlan, 'text_block.alignment', $block['alignment'] ?? 'left')));
+                $block['alignment'] = in_array($alignment, ['left', 'right'], true) ? $alignment : 'left';
+                $block['width_percent'] = 100;
+                $sections['text_block'] = $block;
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private function storeGeneratedImage(string $prompt, string $companySlug, string $pageSlug, bool $mediaLibrary): ?string
+    {
+        $prompt = $this->withPhotorealism($prompt);
+
+        return $mediaLibrary
+            ? $this->generateAndStoreImageInMediaLibrary($prompt, $companySlug, $pageSlug)
+            : $this->generateAndStoreImage($prompt, $companySlug, $pageSlug);
+    }
+
+    private function withPhotorealism(string $prompt): string
+    {
+        $prompt = trim($prompt);
+        $suffix = ' Photorealistic live-action photograph or premium cinematic motion still of a real scene. Not a sketch, not a pencil drawing, not a cartoon, not an illustration, not a wireframe, not a 3D clay render. Sharp focus, realistic materials and lighting, high production quality, no text, no logos, no watermark.';
+        if (! str_contains(mb_strtolower($prompt), 'photoreal')) {
+            $prompt = 'Photorealistic. '.$prompt;
+        }
+
+        return mb_substr($prompt.$suffix, 0, 3500);
     }
 
     private function generateAndStoreImageInMediaLibrary(string $prompt, string $companySlug, string $pageSlug): ?string
@@ -545,7 +599,15 @@ class WebsiteAiGeneratorService
             'size' => (string) config('services.openai.image_size', '1792x1024'),
         ];
         if ($model === 'dall-e-3') {
-            $payload['quality'] = (string) config('ai_website.image_quality', config('services.openai.image_quality', 'standard'));
+            $payload['quality'] = (string) config('ai_website.image_quality', config('services.openai.image_quality', 'hd'));
+            if (! in_array($payload['quality'], ['standard', 'hd'], true)) {
+                $payload['quality'] = 'hd';
+            }
+        } elseif (str_starts_with($model, 'gpt-image')) {
+            $payload['quality'] = (string) config('ai_website.image_quality', config('services.openai.image_quality', 'high'));
+            if (! in_array($payload['quality'], ['low', 'medium', 'high'], true)) {
+                $payload['quality'] = 'high';
+            }
         }
 
         try {
@@ -625,7 +687,7 @@ class WebsiteAiGeneratorService
             ->all();
 
         $prompt = [
-            'opdracht' => 'Ontwerp een professionele Nederlandse bedrijfswebsite in JSON. Gebruik alleen de opgegeven secties en componenten van de NEXA website builder. Schrijf wervende, concrete copy. Geen em-dash. Neem bruikbare feiten over uit de oude website, maar herschrijf alles fris.',
+            'opdracht' => 'Ontwerp een professionele Nederlandse bedrijfswebsite in JSON. Gebruik alleen de opgegeven secties en componenten van de NEXA website builder. Schrijf wervende, concrete copy. Geen em-dash. Neem bruikbare feiten over uit de oude website, maar herschrijf alles fris. Kies per pagina een andere subset van 3 tot 4 componenten; herhaal niet altijd FAQ+quotes+comparison. image_prompt bij hero en text_block: fotorealistische foto of hoogwaardige cinematic still, geen schets. Footer support-links alleen als die pagina’s in pages staan.',
             'bedrijf' => [
                 'naam' => $company->name,
                 'plaats' => trim((string) ($company->city ?? '')),
@@ -660,14 +722,14 @@ class WebsiteAiGeneratorService
                         'cta_primary_url' => '/contact',
                         'cta_secondary_text' => '',
                         'cta_secondary_url' => '/',
-                        'image_prompt' => 'fotorealistische hero, geen tekst in beeld',
+                        'image_prompt' => 'fotorealistische hero-foto, live-action, geen schets, geen tekst in beeld',
                     ],
                     'why_nexa' => ['title' => '', 'subtitle' => ''],
                     'features' => ['section_title' => '', 'items' => [['title' => '', 'description' => '', 'icon' => 'bolt']]],
                     'stats' => ['items' => [['value' => '', 'label' => '']]],
                     'cta' => ['title' => '', 'subtitle' => '', 'cta_primary_text' => '', 'cta_primary_url' => '/contact'],
                     'featured_services' => ['title' => '', 'subtitle' => '', 'items' => [['icon' => 'briefcase', 'title' => '', 'description' => '']]],
-                    'text_block' => ['content' => '<p></p>'],
+                    'text_block' => ['content' => '<p></p>', 'alignment' => 'left', 'image_prompt' => 'fotorealistische foto naast de tekst, geen schets, geen tekst in beeld'],
                     'components' => ['taxi.boekingsmodule_v2'],
                 ]],
                 'footer' => ['tagline' => '', 'copyright' => ''],
@@ -983,6 +1045,7 @@ class WebsiteAiGeneratorService
             if ($homeText !== '') {
                 $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
                 $block['content'] = $homeText;
+                $this->applyTextBlockLayoutFromPlan($block, $pagePlan);
                 $sections['text_block'] = $block;
                 $order = $this->insertBeforeCta($order, 'text_block');
             }
@@ -991,6 +1054,7 @@ class WebsiteAiGeneratorService
             if ($text !== '') {
                 $block = is_array($sections['text_block'] ?? null) ? $sections['text_block'] : WebsitePage::defaultHomeSections()['text_block'];
                 $block['content'] = $text;
+                $this->applyTextBlockLayoutFromPlan($block, $pagePlan);
                 $sections['text_block'] = $block;
                 $order[] = 'text_block';
             }
@@ -1014,6 +1078,22 @@ class WebsiteAiGeneratorService
         $sections = $this->fillFooter($sections, $company, $isHome);
 
         return $sections;
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     * @param  array<string, mixed>  $pagePlan
+     */
+    private function applyTextBlockLayoutFromPlan(array &$block, array $pagePlan): void
+    {
+        $alignment = strtolower(AiScalar::string(data_get($pagePlan, 'text_block.alignment', '')));
+        if (in_array($alignment, ['left', 'right', 'center', 'full'], true)) {
+            $block['alignment'] = $alignment;
+        }
+        $imageUrl = AiScalar::string(data_get($pagePlan, 'text_block.image_url', ''));
+        if ($imageUrl !== '') {
+            $block['image_url'] = $imageUrl;
+        }
     }
 
     /**
@@ -1289,20 +1369,7 @@ class WebsiteAiGeneratorService
      */
     private function applyGeneratedImages(array &$sections, array $pagePlan, string $companySlug, string $slug): int
     {
-        $prompt = trim((string) data_get($pagePlan, 'hero.image_prompt', ''));
-        if ($prompt === '') {
-            $prompt = 'Photorealistic cinematic photograph for a professional Dutch company website hero, no text, no logos';
-        }
-        $prompt .= '. Brand mood colors, high-end commercial photography, 35mm, sharp focus.';
-        $url = $this->generateAndStoreImage($prompt, $companySlug, $slug);
-        if ($url === null) {
-            return 0;
-        }
-        if (isset($sections['hero']) && is_array($sections['hero'])) {
-            $sections['hero']['background_image_url'] = $url;
-        }
-
-        return 1;
+        return $this->attachGeneratedImages($sections, $pagePlan, $companySlug, $slug, false);
     }
 
     private function generateAndStoreImage(string $prompt, string $companySlug, string $pageSlug): ?string
@@ -1321,6 +1388,14 @@ class WebsiteAiGeneratorService
         ];
         if ($model === 'dall-e-3') {
             $payload['quality'] = (string) config('services.openai.image_quality', 'hd');
+            if (! in_array($payload['quality'], ['standard', 'hd'], true)) {
+                $payload['quality'] = 'hd';
+            }
+        } elseif (str_starts_with($model, 'gpt-image')) {
+            $payload['quality'] = (string) config('services.openai.image_quality', 'high');
+            if (! in_array($payload['quality'], ['low', 'medium', 'high'], true)) {
+                $payload['quality'] = 'high';
+            }
         }
 
         try {
@@ -1382,6 +1457,7 @@ class WebsiteAiGeneratorService
         $footer['map_city'] = trim((string) ($company->city ?? ''));
         $footer['map_lat'] = $company->latitude;
         $footer['map_lng'] = $company->longitude;
+        $footer['support_links'] = [];
         $sections['footer'] = $footer;
         $sections['copyright'] = '© {year} '.$company->name.'. Alle rechten voorbehouden.';
 
@@ -1413,6 +1489,7 @@ class WebsiteAiGeneratorService
                 $menuPages
             );
         }
+        $footer['support_links'] = $this->supportLinksFromExistingPages($menuPages);
         $sections['footer'] = $footer;
         $copyright = trim((string) data_get($plan, 'footer.copyright', ''));
         if ($copyright !== '') {
@@ -1420,6 +1497,34 @@ class WebsiteAiGeneratorService
         }
         $home->home_sections = $sections;
         $home->save();
+    }
+
+    /**
+     * @param  list<array{label: string, url: string}>  $menuPages
+     * @return list<array{label: string, url: string}>
+     */
+    private function supportLinksFromExistingPages(array $menuPages): array
+    {
+        $allowed = ['/help', '/faq', '/help-faq', '/privacy', '/voorwaarden', '/terms', '/cookies', '/cookiebeleid'];
+        $out = [];
+        foreach ($menuPages as $row) {
+            $url = trim((string) ($row['url'] ?? ''));
+            $label = trim((string) ($row['label'] ?? ''));
+            if ($url === '' || $label === '') {
+                continue;
+            }
+            $path = parse_url($url, PHP_URL_PATH);
+            $path = is_string($path) && $path !== '' ? $path : explode('#', $url)[0];
+            $path = '/'.strtolower(ltrim((string) $path, '/'));
+            if ($path !== '/') {
+                $path = rtrim($path, '/');
+            }
+            if (in_array($path, $allowed, true)) {
+                $out[] = ['label' => $label, 'url' => $url];
+            }
+        }
+
+        return $out;
     }
 
     private function resolveWebsiteModuleName(Company $company): ?string

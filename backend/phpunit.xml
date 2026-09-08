@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap.php"
          colors="true"
 >
     <testsuites>
@@ -18,10 +18,10 @@
         </include>
     </source>
     <php>
+        <!-- APP_KEY staat in tests/bootstrap.php (geen Laravel-key in deze xml: GitHub secret scanning). -->
         <ini name="memory_limit" value="1G"/>
         <!-- force=true is niet genoeg: artisan test vanuit de web-upgrade erft pgsql in $_SERVER. -->
         <env name="OPENAI_API_KEY" value="" force="true"/>
-        <env name="APP_KEY" value="base64:/wMja3JxzovwtTbqjqwG8xdBXvMm1PbQgnYJ0P99Iug=" force="true"/>
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
@@ -35,7 +35,6 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <server name="OPENAI_API_KEY" value=""/>
-        <server name="APP_KEY" value="base64:/wMja3JxzovwtTbqjqwG8xdBXvMm1PbQgnYJ0P99Iug="/>
         <server name="APP_ENV" value="testing"/>
         <server name="APP_MAINTENANCE_DRIVER" value="file"/>
         <server name="BCRYPT_ROUNDS" value="4"/>

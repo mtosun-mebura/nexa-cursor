@@ -82,12 +82,12 @@
 
             <tr class="section"><td colspan="6">Beheer</td></tr>
             <tr>
-                <td>Bedrijven</td>
+                <td>Bedrijven / Bedrijf</td>
                 <td class="c yes">Ja</td>
                 <td class="c yes">Ja</td>
                 <td class="c no">Nee</td>
                 <td class="c no">Nee</td>
-                <td class="voor">Rol super-admin of permissie view-companies. Company-admin heeft die permissie standaard; staff en demo niet. Knoppen Nieuw bedrijf / Nieuwe tenant: alleen super-admin.</td>
+                <td class="voor">Rol super-admin of permissie view-companies. Menu-label: Bedrijven voor super-admin, Bedrijf voor andere rollen. Company-admin heeft die permissie standaard; staff en demo niet. Knoppen Nieuw bedrijf / Nieuwe tenant: alleen super-admin.</td>
             </tr>
             <tr>
                 <td>Gebruikers</td>
@@ -135,7 +135,7 @@
                 <td class="c yes">Ja</td>
                 <td class="c no">Nee</td>
                 <td class="c no">Nee</td>
-                <td class="voor">Alleen company-admin die geen super-admin is. Huidig pakket, jaarcontract, upgrade/downgrade/opzeggen.</td>
+                <td class="voor">Alleen company-admin die geen super-admin, staff of demo is. Huidig pakket, aanvullende modules, jaarcontract, upgrade/downgrade/opzeggen.</td>
             </tr>
             <tr>
                 <td>Email communicatie</td>
@@ -346,7 +346,7 @@
     <h2>3. Praktische samenvatting per rol</h2>
     <ul>
         <li><strong>Super-admin:</strong> hele zijbalk, inclusief Systeem en Email communicatie. Taxi- en skillmatching-items volgen de gekozen tenant (modules + pakket). Zonder tenant: alle actieve modules, geen pakketfilter. Mag tenants aanmaken.</li>
-        <li><strong>Company-admin:</strong> Dashboard, Handleiding, Bedrijven, Gebruikers, Agenda, Notificaties, Abonnementen, Klantfacturen, Email communicatie, plus module-items van het eigen bedrijf. Geen Systeem, geen e-mailtemplates, geen AI-chatbot, geen nieuwe tenant.</li>
+        <li><strong>Company-admin:</strong> Dashboard, Handleiding, Bedrijf, Gebruikers, Agenda, Notificaties, Abonnementen, Klantfacturen, Email communicatie, plus module-items van het eigen bedrijf. Geen Systeem, geen e-mailtemplates, geen AI-chatbot, geen nieuwe tenant.</li>
         <li><strong>Staff:</strong> Dashboard, Handleiding, Agenda, Notificaties. Geen Bedrijven/Gebruikers, geen taxi-items (mist vehicles.view / rides.view), geen skillmatching-items (mist skillmatching.*.view), geen Systeem.</li>
         <li><strong>Demo:</strong> Dashboard, Handleiding, plus de taxi-keys Voertuigen, Tarieven, Ritten, Contractvervoer en Chauffeur dispatch (daarna nog het pakketfilter van het demobedrijf).</li>
     </ul>

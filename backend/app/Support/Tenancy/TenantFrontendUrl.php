@@ -101,7 +101,7 @@ final class TenantFrontendUrl
         return null;
     }
 
-    protected static function resolvePrimaryHostForCompany(int $companyId): ?string
+    public static function resolvePrimaryHostForCompany(int $companyId): ?string
     {
         $company = Company::query()->with('domains')->find($companyId);
         if ($company === null) {
@@ -120,7 +120,9 @@ final class TenantFrontendUrl
             }
         }
 
-        return null;
+        $synthetic = TenantParentDomains::syntheticHostForCompany($company);
+
+        return $synthetic !== null ? CompanyDomain::normalizeHost($synthetic) : null;
     }
 
     protected static function toAbsoluteUrl(string $url, Request $request): string

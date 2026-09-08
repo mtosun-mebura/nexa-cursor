@@ -81,6 +81,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Alleen de bedrijfsbeheerder (company-admin) mag het SaaS-abonnement en de modules beheren.
+     * Super-admin, staff en demo binnen hetzelfde bedrijf niet.
+     */
+    public function canManageCompanySubscription(): bool
+    {
+        if ($this->isSuperAdmin() || $this->hasRole('super-admin')) {
+            return false;
+        }
+
+        $roles = $this->webRoleNames();
+        if (! in_array('company-admin', $roles, true)) {
+            return false;
+        }
+        if (in_array('staff', $roles, true) || in_array('demo', $roles, true)) {
+            return false;
+        }
+
+        return $this->company_id !== null && $this->company !== null;
+    }
+
+    /**
      * Eigen rollen mag de gebruiker niet wijzigen; alleen een super-admin mag rollen aanpassen (ook van zichzelf).
      */
     public function canEditRolesOf(User $target): bool

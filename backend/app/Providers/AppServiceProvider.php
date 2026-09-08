@@ -154,6 +154,20 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Named limiters: Laravel's throttle:N,1 uses domain+IP without the route,
+        // so nearby-taxis polling would otherwise block admin login (6/min).
+        RateLimiter::for('admin-login', function ($request) {
+            return Limit::perMinute(6)->by($request->ip());
+        });
+
+        RateLimiter::for('admin-first-login', function ($request) {
+            return Limit::perMinute(8)->by($request->ip());
+        });
+
+        RateLimiter::for('booking-nearby-taxis', function ($request) {
+            return Limit::perMinute(120)->by($request->ip());
+        });
+
         Event::listen(MessageSending::class, function () {
             return app(\App\Services\NexaDemoAccountService::class)->shouldSuppressOutgoingMail() ? false : null;
         });

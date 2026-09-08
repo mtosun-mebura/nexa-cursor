@@ -203,6 +203,7 @@
                                        class="kt-input max-w-xs @error('company_house_number') border-destructive @enderror"
                                        value="{{ old('company_house_number', $settings->company_house_number) }}">
                                 <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld worden straat en plaats automatisch ingevuld.</div>
+                                @include('admin.partials.postcode-lookup-status', ['id' => 'platform_billing_house_lookup_loading'])
                                 @error('company_house_number')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -218,10 +219,6 @@
                                        class="kt-input w-full @error('company_address') border-destructive @enderror"
                                        value="{{ old('company_address', $settings->company_address) }}"
                                        @if($hasPlatformAddress) readonly @endif>
-                                <div id="platform_billing_street_lookup_loading" class="hidden items-center gap-2 text-xs text-muted-foreground mt-1.5" role="status" aria-live="polite" aria-busy="false">
-                                    <span class="platform-billing-postcode-spinner shrink-0" aria-hidden="true"></span>
-                                    <span>Adres zoeken…</span>
-                                </div>
                                 <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat zijn de velden bewerkbaar.</div>
                                 @error('company_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
@@ -386,25 +383,6 @@
 
 @push('styles')
 <style>
-    @keyframes platform-billing-postcode-spin {
-        to { transform: rotate(360deg); }
-    }
-
-    .platform-billing-postcode-spinner {
-        display: inline-block;
-        width: 1rem;
-        height: 1rem;
-        border: 2px solid var(--border, #e5e7eb);
-        border-top-color: var(--primary, #3b82f6);
-        border-radius: 9999px;
-        animation: platform-billing-postcode-spin 0.65s linear infinite;
-    }
-
-    .dark .platform-billing-postcode-spinner {
-        border-color: rgba(255, 255, 255, 0.2);
-        border-top-color: var(--primary, #60a5fa);
-    }
-
     #content .platform-billing-mollie-table {
         table-layout: auto;
         width: 100%;
@@ -429,93 +407,20 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('js/admin-postcode-lookup.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        (function() {
-            const postalCodeInput = document.getElementById('platform_billing_postal_code');
-            const houseNumberInput = document.getElementById('platform_billing_house_number');
-            const streetInput = document.getElementById('platform_billing_street');
-            const cityInput = document.getElementById('platform_billing_city');
-            const countryInput = document.getElementById('platform_billing_country');
-            if (!postalCodeInput || !houseNumberInput || !streetInput || !cityInput) {
-                return;
-            }
-
-            const streetLoadingEl = document.getElementById('platform_billing_street_lookup_loading');
-            let lookupTimeout;
-
-            function setStreetLookupLoading(on) {
-                if (!streetLoadingEl) {
-                    return;
-                }
-                streetLoadingEl.classList.toggle('hidden', !on);
-                streetLoadingEl.setAttribute('aria-busy', on ? 'true' : 'false');
-            }
-
-            function lookupPlatformBillingAddress() {
-                const postcode = postalCodeInput.value.trim().toUpperCase().replace(/\s+/g, '');
-                const huisnummer = houseNumberInput.value.trim();
-
-                clearTimeout(lookupTimeout);
-                setStreetLookupLoading(false);
-
-                if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode) || !huisnummer) {
-                    return;
-                }
-
-                lookupTimeout = setTimeout(function() {
-                    setStreetLookupLoading(true);
-                    fetch('{{ route('admin.postcode.lookup') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
-                        if (data.success) {
-                            streetInput.value = data.street || '';
-                            cityInput.value = data.city || '';
-                            if (countryInput) {
-                                countryInput.value = data.country || 'Nederland';
-                            }
-                            if (data.house_number) {
-                                houseNumberInput.value = data.house_number;
-                            }
-                            if (data.postal_code) {
-                                postalCodeInput.value = data.postal_code;
-                            }
-                            streetInput.setAttribute('readonly', 'readonly');
-                            cityInput.setAttribute('readonly', 'readonly');
-                            if (countryInput) {
-                                countryInput.setAttribute('readonly', 'readonly');
-                            }
-                        } else {
-                            streetInput.removeAttribute('readonly');
-                            cityInput.removeAttribute('readonly');
-                            if (countryInput) {
-                                countryInput.removeAttribute('readonly');
-                            }
-                        }
-                    })
-                    .catch(function() {
-                        streetInput.removeAttribute('readonly');
-                        cityInput.removeAttribute('readonly');
-                        if (countryInput) {
-                            countryInput.removeAttribute('readonly');
-                        }
-                    })
-                    .finally(function() {
-                        setStreetLookupLoading(false);
-                    });
-                }, 300);
-            }
-
-            postalCodeInput.addEventListener('blur', lookupPlatformBillingAddress);
-            houseNumberInput.addEventListener('blur', lookupPlatformBillingAddress);
-        })();
+        if (typeof window.bindAdminPostcodeLookup === 'function') {
+            window.bindAdminPostcodeLookup({
+                postcode: 'platform_billing_postal_code',
+                huisnummer: 'platform_billing_house_number',
+                street: 'platform_billing_street',
+                city: 'platform_billing_city',
+                country: 'platform_billing_country',
+                loading: ['platform_billing_house_lookup_loading'],
+                url: @json(route('admin.postcode.lookup'))
+            });
+        }
     });
 </script>
 @endpush

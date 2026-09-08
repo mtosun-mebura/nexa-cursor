@@ -72,10 +72,9 @@ class SubscriptionBillingCalculator
 
         $packageGross = 0.0;
         $addonGross = 0.0;
-        $addonMonthly = $profile->packageAddonMonthlyAmount();
         foreach ($this->advanceCoverageSegments($profile, $asOf) as $segment) {
             $packageGross += round($profile->subscriptionBaseAmount() * $segment['fraction'], 2);
-            $addonGross += round($addonMonthly * $segment['fraction'], 2);
+            $addonGross += round($this->addonAmountForSegment($profile, $segment) * $segment['fraction'], 2);
         }
 
         $discountPercent = $profile->discountPercent();
@@ -138,7 +137,7 @@ class SubscriptionBillingCalculator
             $periodLines[] = [
                 'label' => $label,
                 'amount' => round(
-                    ($profile->subscriptionBaseAmount() + $profile->packageAddonMonthlyAmount()) * $segment['fraction'],
+                    ($profile->subscriptionBaseAmount() + $this->addonAmountForSegment($profile, $segment)) * $segment['fraction'],
                     2
                 ),
             ];
@@ -309,6 +308,13 @@ class SubscriptionBillingCalculator
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
 
         return $asOf->greaterThanOrEqualTo($end);
+    }
+
+    private function addonAmountForSegment(CompanyBillingProfile $profile, array $segment): float
+    {
+        $monthStart = Carbon::createFromFormat('Y-m', $segment['key'])->startOfMonth();
+
+        return $profile->packageAddonMonthlyAmount($monthStart, false, $segment['key']);
     }
 
     private function monthIsWithinContract(CompanyBillingProfile $profile, CarbonInterface $month): bool

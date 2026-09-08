@@ -56,9 +56,9 @@
                 @endif
                 <div class="flex gap-1.25 items-center">
                     <x-heroicon-o-envelope class="w-4 h-4 text-muted-foreground" />
-                    <a class="text-secondary-foreground font-medium hover:text-primary" href="mailto:{{ $user->email }}">
+                    <span class="text-secondary-foreground font-medium">
                         {{ $user->email }}
-                    </a>
+                    </span>
                 </div>
             </div>
         </div>

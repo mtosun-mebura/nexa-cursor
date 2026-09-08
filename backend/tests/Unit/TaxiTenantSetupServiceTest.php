@@ -15,6 +15,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class TaxiTenantSetupServiceTest extends TestCase
@@ -66,6 +67,9 @@ class TaxiTenantSetupServiceTest extends TestCase
             $table->id();
             $table->timestamps();
         });
+
+        Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
     }
 
     #[Test]
@@ -197,6 +201,43 @@ class TaxiTenantSetupServiceTest extends TestCase
                 ->where('user_id', $user->id)
                 ->where('type', TaxiTenantSetupService::NOTIFICATION_TYPE)
                 ->whereNull('read_at')
+                ->count()
+        );
+    }
+
+    #[Test]
+    public function sync_notification_never_attaches_to_super_admin_and_stays_once_per_tenant(): void
+    {
+        [$company, $admin] = $this->taxiCompanyWithAdmin();
+        $otherAdmin = User::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'admin-2-'.uniqid().'@example.com',
+        ]);
+        $super = User::factory()->create([
+            'company_id' => null,
+            'email' => 'super-'.uniqid().'@example.com',
+        ]);
+        $super->assignRole('super-admin');
+        $service = app(TaxiTenantSetupService::class);
+
+        $service->syncNotification($super, $company);
+        $service->syncNotification($admin, $company);
+        $service->syncNotification($otherAdmin, $company);
+        $service->syncNotification($super, $company);
+
+        $rows = Notification::query()
+            ->where('company_id', $company->id)
+            ->where('type', TaxiTenantSetupService::NOTIFICATION_TYPE)
+            ->get();
+
+        $this->assertCount(1, $rows);
+        $this->assertNotSame($super->id, (int) $rows->first()->user_id);
+        $this->assertContains((int) $rows->first()->user_id, [(int) $admin->id, (int) $otherAdmin->id]);
+        $this->assertSame(
+            0,
+            Notification::query()
+                ->where('user_id', $super->id)
+                ->where('type', TaxiTenantSetupService::NOTIFICATION_TYPE)
                 ->count()
         );
     }
