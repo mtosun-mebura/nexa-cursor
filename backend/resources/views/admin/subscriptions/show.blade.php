@@ -681,7 +681,9 @@
                     : 'Het extra maandbedrag stopt vanaf ' + when + '.';
             }
             if (addonConfirm) {
-                addonConfirm.textContent = trial ? 'Opzeggen (proefperiode)' : ('Opzeggen per ' + when);
+                addonConfirm.textContent = trial
+                    ? 'Opzeggen (proefperiode)'
+                    : ['Opzeggen', 'per', when].join(' ');
             }
         }
     });
