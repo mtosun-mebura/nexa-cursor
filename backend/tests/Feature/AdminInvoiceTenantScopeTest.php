@@ -87,6 +87,6 @@ class AdminInvoiceTenantScopeTest extends TestCase
         $this->actingAs($user)
             ->withSession(['selected_tenant' => $tenantA->id])
             ->get(route('admin.invoices.show', $foreignInvoice))
-            ->assertForbidden();
+            ->assertRedirect(route('admin.dashboard'));
     }
 }

@@ -888,7 +888,8 @@ function ensureAdminTableMenuDropdownVisible(dropdown, toggle) {
 
     const viewportPadding = 12;
     const rect = toggle.getBoundingClientRect();
-    const dropdownHeight = dropdown.offsetHeight || dropdown.scrollHeight;
+    const dropdownHeight = dropdown.offsetHeight || dropdown.scrollHeight || 0;
+    const dropdownWidth = dropdown.offsetWidth || dropdown.scrollWidth || 175;
 
     let top = rect.bottom + 4;
     const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
@@ -900,89 +901,153 @@ function ensureAdminTableMenuDropdownVisible(dropdown, toggle) {
 
     dropdown.style.position = 'fixed';
     dropdown.style.zIndex = '99999';
+    dropdown.style.pointerEvents = 'auto';
     dropdown.style.top = `${top}px`;
-    dropdown.style.left = `${Math.max(viewportPadding, rect.right - dropdown.offsetWidth)}px`;
+    dropdown.style.left = `${Math.max(viewportPadding, rect.right - dropdownWidth)}px`;
+}
 
-    requestAnimationFrame(() => {
-        const dropdownRect = dropdown.getBoundingClientRect();
-        const overflowBottom = dropdownRect.bottom - (window.innerHeight - viewportPadding);
-        if (overflowBottom > 0) {
-            window.scrollBy({ top: overflowBottom, behavior: 'smooth' });
-
+function closeAdminTableActionMenus(exceptItem = null) {
+    document.querySelectorAll('#content table .kt-menu-item.show').forEach((menuItem) => {
+        if (menuItem === exceptItem) {
             return;
         }
 
-        const overflowTop = viewportPadding - dropdownRect.top;
-        if (overflowTop > 0) {
-            window.scrollBy({ top: -overflowTop, behavior: 'smooth' });
+        menuItem.classList.remove('show');
+        const dropdown = menuItem.querySelector('.kt-menu-dropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    const invoicesCard = document.getElementById('transport-contract-invoices-card');
+    if (invoicesCard) {
+        invoicesCard.classList.toggle(
+            'transport-contract-invoices-card--menu-open',
+            Boolean(invoicesCard.querySelector('.kt-menu-item.show'))
+        );
+    }
+}
+
+function repositionOpenAdminTableMenus() {
+    document.querySelectorAll('#content table .kt-menu-item.show').forEach((menuItem) => {
+        const toggle = menuItem.querySelector('.kt-menu-toggle');
+        const dropdown = menuItem.querySelector('.kt-menu-dropdown');
+        if (toggle && dropdown) {
+            ensureAdminTableMenuDropdownVisible(dropdown, toggle);
         }
     });
 }
 
-function bindAdminTableActionMenus(root = document) {
-    root.querySelectorAll('#content table .kt-menu-item[data-kt-menu-item-toggle="dropdown"]').forEach((menuItem) => {
-        if (menuItem.dataset.adminTableMenuBound === '1') {
+function isAdminTableActionMenuToggle(event) {
+    return event.target.closest('#content table .kt-menu-toggle');
+}
+
+function isAdminTableActionMenuDropdown(event) {
+    const dropdown = event.target.closest('.kt-menu-dropdown');
+    return Boolean(dropdown && dropdown.closest('#content table'));
+}
+
+function bindAdminTableActionMenus() {
+    if (document.documentElement.dataset.adminTableMenuBound === '1') {
+        return;
+    }
+
+    document.documentElement.dataset.adminTableMenuBound = '1';
+
+    const destroyTableKtMenus = () => {
+        if (!window.KTMenu || typeof window.KTMenu.getInstance !== 'function') {
             return;
         }
 
-        const toggle = menuItem.querySelector('.kt-menu-toggle');
-        const table = menuItem.closest('table');
-        if (!toggle || !table) {
-            return;
-        }
+        document.querySelectorAll('#content table [data-kt-menu]').forEach((menuEl) => {
+            try {
+                const existing = window.KTMenu.getInstance(menuEl);
+                if (existing && typeof existing.destroy === 'function') {
+                    existing.destroy();
+                }
+            } catch (error) {
+                // Menu kan al zonder KT-instance bestaan.
+            }
+        });
+    };
 
-        menuItem.dataset.adminTableMenuBound = '1';
+    destroyTableKtMenus();
+    setTimeout(destroyTableKtMenus, 250);
+    setTimeout(destroyTableKtMenus, 800);
 
-        toggle.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
+    document.addEventListener(
+        'click',
+        (event) => {
+            const toggle = isAdminTableActionMenuToggle(event);
+            if (toggle) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
 
-            const dropdown = menuItem.querySelector('.kt-menu-dropdown');
-            const isOpen = menuItem.classList.contains('show');
-
-            table.querySelectorAll('.kt-menu-item.show').forEach((openItem) => {
-                if (openItem === menuItem) {
+                const menuItem =
+                    toggle.closest('.kt-menu-item[data-kt-menu-item-toggle="dropdown"]') ||
+                    toggle.closest('.kt-menu-item');
+                const dropdown = menuItem?.querySelector('.kt-menu-dropdown');
+                if (!menuItem || !dropdown) {
                     return;
                 }
 
-                openItem.classList.remove('show');
-                const openDropdown = openItem.querySelector('.kt-menu-dropdown');
-                if (openDropdown) {
-                    openDropdown.style.display = 'none';
+                const isOpen = menuItem.classList.contains('show');
+                closeAdminTableActionMenus();
+                if (!isOpen) {
+                    menuItem.classList.add('show');
+                    dropdown.style.display = 'block';
+                    dropdown.style.visibility = 'visible';
+                    dropdown.style.opacity = '1';
+                    ensureAdminTableMenuDropdownVisible(dropdown, toggle);
+                    requestAnimationFrame(() => ensureAdminTableMenuDropdownVisible(dropdown, toggle));
+                    const invoicesCard = document.getElementById('transport-contract-invoices-card');
+                    if (invoicesCard?.contains(menuItem)) {
+                        invoicesCard.classList.add('transport-contract-invoices-card--menu-open');
+                    }
                 }
-            });
 
-            if (!isOpen && dropdown) {
-                menuItem.classList.add('show');
-                dropdown.style.display = 'block';
-                dropdown.style.visibility = 'visible';
-                dropdown.style.opacity = '1';
-                ensureAdminTableMenuDropdownVisible(dropdown, toggle);
-            } else {
-                menuItem.classList.remove('show');
-                if (dropdown) {
-                    dropdown.style.display = 'none';
-                }
-            }
-        });
-    });
-
-    if (document.documentElement.dataset.adminTableMenuDismissBound !== '1') {
-        document.documentElement.dataset.adminTableMenuDismissBound = '1';
-        document.addEventListener('click', (event) => {
-            if (event.target.closest('#content table .kt-menu')) {
                 return;
             }
 
-            document.querySelectorAll('#content table .kt-menu-item.show').forEach((menuItem) => {
-                menuItem.classList.remove('show');
-                const dropdown = menuItem.querySelector('.kt-menu-dropdown');
-                if (dropdown) {
-                    dropdown.style.display = 'none';
+            if (isAdminTableActionMenuDropdown(event)) {
+                const link = event.target.closest('a[href]');
+                if (link) {
+                    const href = link.getAttribute('href');
+                    if (href && href !== '#' && !href.toLowerCase().startsWith('javascript:')) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.stopImmediatePropagation();
+                        window.location.assign(link.href);
+                    }
+                    return;
                 }
-            });
-        });
-    }
+
+                const submitBtn = event.target.closest('button[type="submit"], button.kt-menu-link');
+                if (submitBtn) {
+                    const form = submitBtn.closest('form');
+                    if (form) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.stopImmediatePropagation();
+                        closeAdminTableActionMenus();
+                        if (typeof form.requestSubmit === 'function') {
+                            form.requestSubmit(submitBtn);
+                        } else {
+                            form.submit();
+                        }
+                    }
+                }
+                return;
+            }
+
+            closeAdminTableActionMenus();
+        },
+        true
+    );
+
+    window.addEventListener('resize', repositionOpenAdminTableMenus);
+    window.addEventListener('scroll', repositionOpenAdminTableMenus, true);
 }
 
 function bindClickableTableRows(root = document) {
@@ -1008,7 +1073,7 @@ function bindClickableTableRows(root = document) {
         row.addEventListener('click', (e) => {
             if (
                 e.target.closest(
-                    'a, button, input, select, textarea, label, [data-no-row-link], .kt-menu, .website-page-actions-cell'
+                    'a, button, input, select, textarea, label, [data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, .website-page-actions-cell'
                 )
             ) {
                 return;
@@ -1017,7 +1082,7 @@ function bindClickableTableRows(root = document) {
         });
 
         row.addEventListener('keydown', (e) => {
-            if (e.target.closest('[data-no-row-link], .kt-menu, .website-page-actions-cell')) {
+            if (e.target.closest('[data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, .website-page-actions-cell')) {
                 return;
             }
             if (e.key === 'Enter' || e.key === ' ') {

@@ -3,6 +3,9 @@
 @section('title', 'Notificaties Beheer')
 
 @section('content')
+@php
+    $canDeleteNotifications = auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-notifications');
+@endphp
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
@@ -22,6 +25,12 @@
         <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
             <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="kt-alert kt-alert-danger mb-5" role="alert">
+            <i class="ki-filled ki-cross-circle me-2"></i>
+            {{ session('error') }}
         </div>
     @endif
 
@@ -70,11 +79,21 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm pb-3 w-full">
-                    Toon 1 tot {{ $notifications->count() }} van {{ $notifications->count() }} notificaties
-                </h3>
-                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="kt-card-title text-sm mb-0">
+                        Toon 1 tot {{ $notifications->count() }} van {{ $notifications->count() }} notificaties
+                    </h3>
+                    @if($canDeleteNotifications)
+                    <button type="button"
+                            id="notifications-bulk-delete"
+                            class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive hidden"
+                            hidden
+                            aria-label="Geselecteerde notificaties verwijderen"
+                            title="Verwijderen"><i class="ki-filled ki-trash"></i><span>(<span data-notifications-selected-count>0</span>)</span></button>
+                    @endif
+                </div>
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full sm:w-auto sm:ml-auto">
                     <!-- Search -->
                     <div class="flex w-full sm:w-auto justify-center sm:justify-start">
                         <form method="GET" action="{{ route('admin.notifications.index') }}" class="flex gap-2" id="search-form">
@@ -181,6 +200,15 @@
                             <table class="kt-table table-auto kt-table-border">
                             <thead>
                                 <tr>
+                                    @if($canDeleteNotifications)
+                                    <th class="notifications-check-col" data-no-row-link>
+                                        <label class="kt-label notifications-check-label">
+                                            <input type="checkbox"
+                                                   class="kt-checkbox notifications-select-all"
+                                                   aria-label="Alles selecteren">
+                                        </label>
+                                    </th>
+                                    @endif
                                     <th class="min-w-[250px]">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Gebruiker</span>
@@ -241,6 +269,16 @@
                             <tbody>
                                 @foreach($notifications as $notification)
                                     <tr class="notification-row" data-notification-id="{{ $notification->id }}">
+                                        @if($canDeleteNotifications)
+                                        <td class="notifications-check-col" data-no-row-link>
+                                            <label class="kt-label notifications-check-label">
+                                                <input type="checkbox"
+                                                       class="kt-checkbox notification-row-checkbox"
+                                                       value="{{ $notification->id }}"
+                                                       aria-label="Selecteer notificatie {{ $notification->id }}">
+                                            </label>
+                                        </td>
+                                        @endif
                                         <td>
                                             @if($notification->user)
                                                 <div class="flex flex-col">
@@ -299,10 +337,10 @@
                                         <td class="text-foreground font-normal">
                                             <span class="text-sm">{{ $notification->created_at->format('d-m-Y H:i') }}</span>
                                         </td>
-                                        <td class="w-[60px]" onclick="event.stopPropagation(); event.preventDefault();">
+                                        <td class="w-[60px] text-center admin-table__actions-col" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                    <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
                                                         <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
                                                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -333,8 +371,9 @@
                                                         <div class="kt-menu-item">
                                                             <form action="{{ route('admin.notifications.destroy', $notification) }}"
                                                                   method="POST"
-                                                                  style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je deze notificatie wilt verwijderen?')">
+                                                                  class="notification-delete-form"
+                                                                  data-confirm-title="Notificatie verwijderen"
+                                                                  data-confirm-message="Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
@@ -380,6 +419,40 @@
         </div>
     </div>
 </div>
+
+@if($canDeleteNotifications)
+<form method="POST"
+      action="{{ route('admin.notifications.bulk-destroy') }}"
+      id="notifications-bulk-delete-form"
+      class="hidden">
+    @csrf
+    @method('DELETE')
+    <div id="notifications-bulk-delete-ids"></div>
+</form>
+
+<div id="notifications-delete-modal"
+     class="hidden fixed inset-0 items-center justify-center p-4 z-[100000]"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="notifications-delete-modal-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-notifications-delete-dismiss></div>
+    <div class="notifications-delete-panel relative z-10 w-full max-w-md rounded-2xl border shadow-2xl">
+        <div class="notifications-delete-panel__head px-5 py-5">
+            <h3 id="notifications-delete-modal-title" class="notifications-delete-panel__title mb-0">Notificatie verwijderen</h3>
+        </div>
+        <div class="notifications-delete-panel__body px-5 py-5">
+            <p class="notifications-delete-panel__text mb-0" data-notifications-delete-message>
+                Weet je zeker dat je deze notificatie wilt verwijderen?
+            </p>
+        </div>
+        <div class="notifications-delete-panel__foot px-5 py-5 flex flex-wrap justify-end gap-2">
+            <button type="button" class="kt-btn kt-btn-outline notifications-delete-panel__cancel" data-notifications-delete-dismiss>Annuleren</button>
+            <button type="button" class="kt-btn kt-btn-destructive notifications-delete-panel__confirm" data-notifications-delete-confirm>Verwijderen</button>
+        </div>
+    </div>
+</div>
+@endif
 
 @push('scripts')
 <script>
@@ -481,7 +554,7 @@
 
             // Remove existing handler if it exists (for event delegation)
             if (rowClickHandler) {
-                tbody.removeEventListener('click', rowClickHandler, true);
+                tbody.removeEventListener('click', rowClickHandler);
             }
 
             // Create event delegation handler
@@ -491,15 +564,14 @@
                     return;
                 }
 
-                // Don't navigate if clicking on actions column or menu
                 const clickedElement = e.target;
-                const actionsTd = row.querySelector('td:last-child');
-                const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
-                const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
-                const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
-                const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                const isRowAction = Boolean(
+                    clickedElement.closest(
+                        '[data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, a, button, input, label, select, textarea'
+                    )
+                );
 
-                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                if (isRowAction) {
                     return;
                 }
 
@@ -526,8 +598,8 @@
                 }
             };
 
-            // Add event delegation listener
-            tbody.addEventListener('click', rowClickHandler, true);
+            // Add event delegation listener (bubble so menu-links hun default behouden)
+            tbody.addEventListener('click', rowClickHandler);
 
             // Also attach direct handlers to each row (backup method)
             const rows = tbody.querySelectorAll('tr.notification-row');
@@ -563,15 +635,14 @@
 
                 // Add direct click handler as backup
                 row.addEventListener('click', function(e) {
-                    // Don't navigate if clicking on actions column or menu
                     const clickedElement = e.target;
-                    const actionsTd = this.querySelector('td:last-child');
-                    const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
-                    const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
-                    const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
-                    const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                    const isRowAction = Boolean(
+                        clickedElement.closest(
+                            '[data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, a, button, input, label, select, textarea'
+                        )
+                    );
 
-                    if (isInActionsColumn || isInMenu || isButton || isLink) {
+                    if (isRowAction) {
                         return;
                     }
 
@@ -594,7 +665,7 @@
                         e.preventDefault();
                         window.location.href = '/admin/notifications/' + notificationId;
                     }
-                }, true);
+                });
             });
         }
 
@@ -653,12 +724,321 @@
     .notification-row:hover {
         background-color: var(--muted) !important;
     }
+    #notifications-bulk-delete {
+        border: 0 !important;
+        box-shadow: none !important;
+        background-color: transparent !important;
+        padding-inline: 0.25rem;
+        gap: 0.15rem;
+        height: auto;
+        align-items: center;
+        font-variant-numeric: tabular-nums;
+        color: var(--destructive) !important;
+    }
+    #notifications-bulk-delete:hover,
+    #notifications-bulk-delete:focus,
+    #notifications-bulk-delete:focus-visible,
+    #notifications-bulk-delete:active {
+        background-color: transparent !important;
+        color: var(--destructive) !important;
+    }
+    #notifications-bulk-delete i,
+    #notifications-bulk-delete:hover i,
+    #notifications-bulk-delete:focus i,
+    #notifications-bulk-delete:active i {
+        font-size: 1.15rem !important;
+        line-height: 1 !important;
+        color: inherit !important;
+    }
+    #notifications-bulk-delete span {
+        font-size: 0.8125rem !important;
+        line-height: 1 !important;
+        color: inherit !important;
+    }
+    .notifications-delete-panel {
+        background-color: #ffffff;
+        color: #0f172a;
+        border-color: #e2e8f0;
+        box-shadow:
+            0 25px 50px -12px rgba(2, 6, 23, 0.35),
+            0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+    .notifications-delete-panel__head,
+    .notifications-delete-panel__foot {
+        border-color: #e2e8f0;
+    }
+    .notifications-delete-panel__head {
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .notifications-delete-panel__foot {
+        border-top: 1px solid #e2e8f0;
+    }
+    .notifications-delete-panel__title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.4;
+        color: #0f172a;
+    }
+    .notifications-delete-panel__text {
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: #64748b;
+    }
+    html.dark .notifications-delete-panel,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel,
+    .dark .notifications-delete-panel {
+        background-color: #0b0f19;
+        color: #f8fafc;
+        border-color: rgba(148, 163, 184, 0.18);
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.65),
+            0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    html.dark .notifications-delete-panel__head,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__head,
+    .dark .notifications-delete-panel__head {
+        border-bottom-color: rgba(148, 163, 184, 0.18);
+    }
+    html.dark .notifications-delete-panel__foot,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__foot,
+    .dark .notifications-delete-panel__foot {
+        border-top-color: rgba(148, 163, 184, 0.18);
+    }
+    html.dark .notifications-delete-panel__title,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__title,
+    .dark .notifications-delete-panel__title {
+        color: #f8fafc;
+    }
+    html.dark .notifications-delete-panel__text,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__text,
+    .dark .notifications-delete-panel__text {
+        color: #94a3b8;
+    }
+    .notifications-delete-panel__cancel {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #e2e8f0 !important;
+    }
+    .notifications-delete-panel__confirm {
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+        border-color: #dc2626 !important;
+    }
+    html.dark .notifications-delete-panel__cancel,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__cancel,
+    .dark .notifications-delete-panel__cancel {
+        background-color: transparent !important;
+        color: #f8fafc !important;
+        border-color: rgba(148, 163, 184, 0.28) !important;
+    }
+    html.dark .notifications-delete-panel__confirm,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__confirm,
+    .dark .notifications-delete-panel__confirm {
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+        border-color: #dc2626 !important;
+    }
+    #notifications_table colgroup col:first-child {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+    }
+    #notifications_table .notifications-check-col {
+        position: relative;
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        padding: 0 !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+    #notifications_table .notifications-check-label {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: absolute;
+        inset: 0;
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        gap: 0 !important;
+        cursor: pointer;
+    }
+    #notifications_table .notifications-check-label .kt-checkbox {
+        margin: 0 !important;
+        flex-shrink: 0;
+    }
     @supports (color: color-mix(in lab, red, red)) {
         .notification-row:hover {
             background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
         }
     }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+(function () {
+    const table = document.querySelector('#notifications_table table');
+    const bulkBtn = document.getElementById('notifications-bulk-delete');
+    const bulkForm = document.getElementById('notifications-bulk-delete-form');
+    const bulkIds = document.getElementById('notifications-bulk-delete-ids');
+    const modal = document.getElementById('notifications-delete-modal');
+    if (!table) {
+        return;
+    }
+
+    const titleEl = document.getElementById('notifications-delete-modal-title');
+    const messageEl = modal ? modal.querySelector('[data-notifications-delete-message]') : null;
+    const countEl = document.querySelector('[data-notifications-selected-count]');
+    let pendingForm = null;
+
+    function rowCheckboxes() {
+        return Array.from(table.querySelectorAll('.notification-row-checkbox'));
+    }
+
+    function selectedCheckboxes() {
+        return rowCheckboxes().filter(function (cb) { return cb.checked; });
+    }
+
+    function selectAllBoxes() {
+        return Array.from(document.querySelectorAll('.notifications-select-all'));
+    }
+
+    function syncSelection() {
+        const boxes = rowCheckboxes();
+        const selected = selectedCheckboxes();
+        const allChecked = boxes.length > 0 && selected.length === boxes.length;
+        const someChecked = selected.length > 0 && selected.length < boxes.length;
+        selectAllBoxes().forEach(function (selectAll) {
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked;
+        });
+        if (countEl) {
+            countEl.textContent = String(selected.length);
+        }
+        if (bulkBtn) {
+            const show = selected.length > 0;
+            bulkBtn.hidden = !show;
+            bulkBtn.classList.toggle('hidden', !show);
+        }
+    }
+
+    function openModal(title, message, form) {
+        if (!modal) {
+            return;
+        }
+        pendingForm = form;
+        if (titleEl) {
+            titleEl.textContent = title;
+        }
+        if (messageEl) {
+            messageEl.textContent = message;
+        }
+        modal.hidden = false;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeModal() {
+        pendingForm = null;
+        if (!modal) {
+            return;
+        }
+        modal.hidden = true;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function fillBulkForm() {
+        if (!bulkIds) {
+            return;
+        }
+        bulkIds.innerHTML = '';
+        selectedCheckboxes().forEach(function (cb) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids[]';
+            input.value = cb.value;
+            bulkIds.appendChild(input);
+        });
+    }
+
+    table.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('notification-row-checkbox')) {
+            syncSelection();
+        }
+        if (e.target && e.target.classList.contains('notifications-select-all')) {
+            const checked = e.target.checked;
+            rowCheckboxes().forEach(function (cb) {
+                cb.checked = checked;
+            });
+            syncSelection();
+        }
+    });
+
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('notifications-select-all')) {
+            const checked = e.target.checked;
+            rowCheckboxes().forEach(function (cb) {
+                cb.checked = checked;
+            });
+            syncSelection();
+        }
+    });
+
+    table.querySelectorAll('.notification-delete-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            openModal(
+                form.getAttribute('data-confirm-title') || 'Notificatie verwijderen',
+                form.getAttribute('data-confirm-message') || 'Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+                form
+            );
+        });
+    });
+
+    if (bulkBtn && bulkForm) {
+        bulkBtn.addEventListener('click', function () {
+            const count = selectedCheckboxes().length;
+            if (count === 0) {
+                return;
+            }
+            fillBulkForm();
+            openModal(
+                count === 1 ? 'Notificatie verwijderen' : 'Notificaties verwijderen',
+                count === 1
+                    ? 'Weet je zeker dat je de geselecteerde notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                    : 'Weet je zeker dat je de ' + count + ' geselecteerde notificaties wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+                bulkForm
+            );
+        });
+    }
+
+    if (modal) {
+        modal.querySelectorAll('[data-notifications-delete-dismiss]').forEach(function (el) {
+            el.addEventListener('click', closeModal);
+        });
+        const confirmBtn = modal.querySelector('[data-notifications-delete-confirm]');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                if (pendingForm) {
+                    pendingForm.submit();
+                }
+            });
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+    }
+
+    syncSelection();
+})();
+</script>
 @endpush
 
 @push('scripts')

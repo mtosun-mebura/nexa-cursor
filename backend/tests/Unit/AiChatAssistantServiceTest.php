@@ -138,6 +138,43 @@ class AiChatAssistantServiceTest extends TestCase
         );
     }
 
+    public function test_admin_config_for_super_admin_without_tenant_allows_chat(): void
+    {
+        \Spatie\Permission\Models\Role::query()->firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        $user = \App\Models\User::factory()->create(['company_id' => null]);
+        $user->assignRole('super-admin');
+
+        $this->actingAs($user);
+        $this->app->instance('request', \Illuminate\Http\Request::create('http://localhost/admin/dashboard', 'GET'));
+        GeneralSetting::clearRequestCache();
+
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+        $config = $service->adminConfig($user);
+
+        $this->assertFalse($config['requiresTenant']);
+        $this->assertStringContainsString('alle tenants', $config['subtitle']);
+        $this->assertStringContainsString('NEXA-facturen', $config['greeting']);
+    }
+
+    public function test_admin_config_for_company_admin_mentions_omzet_and_planning(): void
+    {
+        $company = Company::query()->create(['name' => 'Omzet Taxi', 'is_active' => true]);
+        \Spatie\Permission\Models\Role::query()->firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
+        $user = \App\Models\User::factory()->create(['company_id' => $company->id]);
+        $user->assignRole('company-admin');
+
+        app()->instance('resolved_tenant_id', $company->id);
+        GeneralSetting::clearRequestCache();
+
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+        $config = $service->adminConfig($user);
+
+        $this->assertFalse($config['requiresTenant']);
+        $this->assertStringContainsString('jouw bedrijf', $config['subtitle']);
+        $this->assertStringContainsString('omzet', mb_strtolower($config['greeting']));
+        $this->assertStringContainsString('chauffeurs', mb_strtolower($config['greeting']));
+    }
+
     public function test_webhook_setting_key_is_normalized_per_module(): void
     {
         $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));

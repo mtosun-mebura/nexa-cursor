@@ -69,14 +69,33 @@ const saving = ref(false)
 const archiveSaving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+let successTimer: number | undefined
+function flashSuccess(message: string) {
+  successMessage.value = message
+  window.clearTimeout(successTimer)
+  successTimer = window.setTimeout(() => { successMessage.value = '' }, 4000)
+}
 const search = ref('')
 const statusFilter = ref('')
 const priorityFilter = ref('')
-const showArchived = ref(false)
+const searchWrap = ref<HTMLLabelElement | null>(null)
+function onSearchClearEvent(event: Event) {
+  const target = event.target
+  if (!(target instanceof Element) || !target.closest('.admin-search-clear-btn')) return
+  search.value = ''
+  event.preventDefault()
+  event.stopPropagation()
+}
 function readListQueryInt(name: string, fallback: number): number {
   const raw = Number(new URL(window.location.href).searchParams.get(name))
   return Number.isInteger(raw) && raw > 0 ? raw : fallback
 }
+function readListQueryFlag(name: string): boolean {
+  const raw = (new URL(window.location.href).searchParams.get(name) || '').toLowerCase()
+  return raw === '1' || raw === 'true'
+}
+
+const showArchived = ref(readListQueryFlag('archived'))
 
 const page = ref(readListQueryInt('page', 1))
 const perPage = ref(readListQueryInt('perpage', 10))
@@ -117,14 +136,14 @@ const noteTextarea = ref<HTMLTextAreaElement | null>(null)
 let noteSavedTimer: number | undefined
 let commentSavedTimer: number | undefined
 const lightboxIndex = ref<number | null>(null)
-
+const detailScreenshots = computed(() => (detail.value?.screenshots ?? []).filter((shot) => !!shot.url))
 const lightboxShots = computed(() => {
   if (composerOpen.value) {
     return shots.value
       .filter((shot) => shot.url)
       .map((shot) => ({ url: shot.url, name: shot.name }))
   }
-  return (detail.value?.screenshots ?? []).filter((shot) => shot.url)
+  return detailScreenshots.value
 })
 const lightboxShot = computed(() => {
   if (lightboxIndex.value === null) return null
@@ -247,10 +266,11 @@ async function archiveSelected(archived: boolean) {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data?.message || 'Archiveren is niet gelukt.')
     selectedIds.value = []
-    successMessage.value = archived
-      ? `${data.count || ''} incident${data.count === 1 ? '' : 'en'} naar archief.`
-      : `${data.count || ''} incident${data.count === 1 ? '' : 'en'} teruggezet.`
-    window.setTimeout(() => { successMessage.value = '' }, 3500)
+    flashSuccess(
+      archived
+        ? `${data.count || ''} incident${data.count === 1 ? '' : 'en'} naar archief.`
+        : `${data.count || ''} incident${data.count === 1 ? '' : 'en'} teruggezet.`
+    )
     await loadList()
   } catch (e: any) {
     errorMessage.value = e?.message || 'Archiveren is niet gelukt.'
@@ -262,6 +282,7 @@ async function archiveSelected(archived: boolean) {
 let searchTimer: number | undefined
 watch([search, statusFilter, priorityFilter, showArchived], () => {
   selectedIds.value = []
+  syncListQuery()
   if (page.value !== 1) {
     page.value = 1
     return
@@ -287,9 +308,15 @@ function syncListQuery() {
   } else {
     url.searchParams.delete('perpage')
   }
+  if (showArchived.value) {
+    url.searchParams.set('archived', '1')
+  } else {
+    url.searchParams.delete('archived')
+  }
   const query = url.searchParams.toString()
   const next = url.pathname + (query ? `?${query}` : '') + url.hash
-  if (`${url.pathname}${url.search}${url.hash}` !== next) {
+  const current = window.location.pathname + window.location.search + window.location.hash
+  if (current !== next) {
     window.history.replaceState({}, '', next)
   }
 }
@@ -467,7 +494,7 @@ async function submitIncident() {
   form.append('description', description.value.trim())
   form.append('priority', priority.value)
   if (b.is_super_admin && companyId.value) form.append('company_id', companyId.value)
-  shots.value.forEach((s) => form.append('screenshots[]', s.file, s.name))
+  shots.value.forEach((s, index) => form.append(`screenshots[${index}]`, s.file, s.name))
   try {
     const res = await fetch(b.routes.store, {
       method: 'POST',
@@ -755,6 +782,9 @@ function onKeydown(event: KeyboardEvent) {
 onMounted(async () => {
   window.addEventListener('paste', onPaste)
   window.addEventListener('keydown', onKeydown)
+  await nextTick()
+  searchWrap.value?.addEventListener('mousedown', onSearchClearEvent)
+  searchWrap.value?.addEventListener('click', onSearchClearEvent)
   await loadList()
   const openId = b.open_id
   const url = new URL(window.location.href)
@@ -769,6 +799,9 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('paste', onPaste)
   window.removeEventListener('keydown', onKeydown)
+  searchWrap.value?.removeEventListener('mousedown', onSearchClearEvent)
+  searchWrap.value?.removeEventListener('click', onSearchClearEvent)
+  window.clearTimeout(successTimer)
   clearShots()
 })
 </script>
@@ -822,14 +855,31 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="successMessage" class="kt-alert kt-alert-success mb-5" role="alert">
-      <i class="ki-filled ki-check-circle me-2"></i>
-      {{ successMessage }}
-    </div>
-    <div v-if="errorMessage && !composerOpen && !detailOpen" class="kt-alert kt-alert-danger mb-5" role="alert">
-      <i class="ki-filled ki-information me-2"></i>
-      {{ errorMessage }}
-    </div>
+    <Teleport to="#admin-header-flash">
+      <div class="incident-flash-layer">
+        <Transition name="incident-flash">
+          <div
+            v-if="successMessage"
+            class="admin-header-toast kt-alert kt-alert-success"
+            role="status"
+            aria-live="polite"
+          >
+            <i class="ki-filled ki-check-circle me-2"></i>
+            {{ successMessage }}
+          </div>
+        </Transition>
+        <Transition name="incident-flash">
+          <div
+            v-if="errorMessage && !composerOpen && !detailOpen"
+            class="admin-header-toast kt-alert kt-alert-danger"
+            role="alert"
+          >
+            <i class="ki-filled ki-information me-2"></i>
+            {{ errorMessage }}
+          </div>
+        </Transition>
+      </div>
+    </Teleport>
 
     <div class="kt-card kt-card-grid w-full min-w-0">
       <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5 min-w-0">
@@ -859,9 +909,21 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
-          <label class="kt-input w-full sm:w-64 min-w-0">
+          <label ref="searchWrap" class="kt-input admin-search-input-wrap w-full sm:w-64 min-w-0">
             <i class="ki-filled ki-magnifier"></i>
-            <input v-model="search" type="text" placeholder="Zoek op titel of nummer" class="grow">
+            <input v-model="search" type="text" placeholder="Zoek op titel of nummer" class="grow" autocomplete="off" data-no-search-clear>
+            <button
+              type="button"
+              class="admin-search-clear-btn"
+              :class="{ 'is-visible': search.length > 0 }"
+              :aria-hidden="search.length === 0"
+              aria-label="Zoekveld wissen"
+              tabindex="-1"
+              @mousedown="onSearchClearEvent"
+              @click="onSearchClearEvent"
+            >
+              <i class="ki-filled ki-cross text-sm"></i>
+            </button>
           </label>
           <select v-model="statusFilter" class="kt-select w-full sm:w-44">
             <option value="">Alle statussen</option>
@@ -1010,6 +1072,7 @@ onUnmounted(() => {
           <button type="button" class="incident-panel-close" aria-label="Sluiten" @click="closeComposer">
             <i class="ki-filled ki-cross"></i>
           </button>
+          <div class="incident-panel-scroll">
           <div v-if="!submitted" class="incident-panel-head">
             <div>
               <h2 class="text-lg font-medium mb-0">Incident melden</h2>
@@ -1200,6 +1263,7 @@ onUnmounted(() => {
               </div>
             </div>
           </Transition>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -1210,6 +1274,7 @@ onUnmounted(() => {
           <button type="button" class="incident-panel-close" aria-label="Sluiten" @click="closeDetail">
             <i class="ki-filled ki-cross"></i>
           </button>
+          <div class="incident-panel-scroll">
           <div class="incident-panel-head">
             <div class="incident-panel-head-top">
               <div class="incident-panel-head-main">
@@ -1225,6 +1290,7 @@ onUnmounted(() => {
                 v-if="b.is_super_admin"
                 v-model="handleStatus"
                 class="incident-status-select"
+                :class="{ 'is-resolved': handleStatus === 'resolved' }"
                 aria-label="Status"
                 :disabled="statusSaving"
                 @change="saveStatus"
@@ -1261,13 +1327,15 @@ onUnmounted(() => {
               <div class="incident-frame">
                 <p class="incident-description">{{ detail.description }}</p>
               </div>
-              <div v-if="detail.screenshots?.length" class="incident-frame incident-thumbs-frame">
+              <div v-if="detailScreenshots.length" class="incident-frame incident-thumbs-frame">
+                <p class="incident-shots-label">Screenshots</p>
                 <div class="incident-thumbs">
                   <button
-                    v-for="(shot, index) in detail.screenshots"
-                    :key="shot.url"
+                    v-for="(shot, index) in detailScreenshots"
+                    :key="shot.url + '-' + index"
                     type="button"
                     class="incident-thumb"
+                    :aria-label="'Vergroot screenshot ' + (index + 1) + ' van ' + detailScreenshots.length"
                     @click="openLightbox(index)"
                   >
                     <img :src="shot.url" :alt="shot.name">
@@ -1351,6 +1419,7 @@ onUnmounted(() => {
               </div>
             </template>
           </div>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -1391,7 +1460,10 @@ onUnmounted(() => {
         </button>
         <figure class="incident-lightbox-figure" @click.stop>
           <img :src="lightboxShot.url" :alt="lightboxShot.name">
-          <figcaption v-if="lightboxCanNav">{{ (lightboxIndex ?? 0) + 1 }} / {{ lightboxShots.length }}</figcaption>
+          <figcaption v-if="lightboxShot.name || lightboxCanNav">
+            <span v-if="lightboxShot.name">{{ lightboxShot.name }}</span>
+            <span v-if="lightboxCanNav">{{ (lightboxIndex ?? 0) + 1 }} / {{ lightboxShots.length }}</span>
+          </figcaption>
         </figure>
         <button
           v-if="lightboxCanNav"
@@ -1635,10 +1707,11 @@ html.dark .incident-overlay,
 }
 .incident-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(40rem, 100%);
   max-height: calc(100vh - 2.5rem);
-  overflow: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   text-align: left;
   background: var(--card, var(--background, #fff));
   color: var(--foreground, #18181b);
@@ -1648,6 +1721,50 @@ html.dark .incident-overlay,
   transform: translateY(12px) scale(0.98);
   opacity: 0;
   transition: transform 0.22s ease, opacity 0.22s ease;
+}
+.incident-panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overflow-x: hidden;
+}
+/* Geen scrollbar-color: Chrome tekent dan een grijze track-capsule. Alleen de thumb. */
+.incident-panel-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+.incident-panel-scroll::-webkit-scrollbar-track,
+.incident-panel-scroll::-webkit-scrollbar-track-piece,
+.incident-panel-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+.incident-panel-scroll::-webkit-scrollbar-thumb {
+  background-color: #64748b;
+  border-radius: 9999px;
+}
+.incident-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #475569;
+}
+html.dark .incident-panel-scroll::-webkit-scrollbar-thumb,
+.dark .incident-panel-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+}
+html.dark .incident-panel-scroll::-webkit-scrollbar-thumb:hover,
+.dark .incident-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #f1f5f9;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .incident-panel-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #64748b transparent;
+  }
+  html.dark .incident-panel-scroll,
+  .dark .incident-panel-scroll {
+    scrollbar-color: #cbd5e1 transparent;
+  }
 }
 html.dark .incident-panel,
 html.dark .incident-confirm-panel,
@@ -1989,6 +2106,12 @@ html.dark .incident-panel .kt-select,
   outline: 2px solid color-mix(in srgb, #2563eb 55%, #fff);
   outline-offset: 2px;
 }
+.incident-status-select.is-resolved {
+  background-color: #16a34a;
+}
+.incident-status-select.is-resolved:focus {
+  outline-color: color-mix(in srgb, #16a34a 55%, #fff);
+}
 .incident-status-select option {
   color: #18181b;
   background: #fff;
@@ -2025,6 +2148,12 @@ html.dark .incident-panel .kt-select,
 }
 .incident-thumbs-frame .incident-thumbs {
   margin-top: 0;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+}
+.incident-shots-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 .incident-description {
   margin: 0;
@@ -2185,6 +2314,9 @@ html.dark .incident-btn-muted:hover:not(:disabled),
   margin: 0;
   font-size: 0.8rem;
   color: #e4e4e7;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 .incident-lightbox-close {
   position: absolute;
@@ -2227,6 +2359,20 @@ html.dark .incident-btn-muted:hover:not(:disabled),
 .incident-fade-enter-active, .incident-fade-leave-active { transition: all 0.18s ease; }
 .incident-fade-enter-from { opacity: 0; transform: translateX(12px); }
 .incident-fade-leave-to { opacity: 0; transform: translateX(-12px); }
+.incident-flash-layer {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  pointer-events: none;
+}
+.incident-flash-enter-active,
+.incident-flash-leave-active {
+  transition: opacity 0.22s ease;
+}
+.incident-flash-enter-from,
+.incident-flash-leave-to {
+  opacity: 0;
+}
 @keyframes incident-pop {
   0% { transform: scale(0.6); opacity: 0; }
   70% { transform: scale(1.08); opacity: 1; }

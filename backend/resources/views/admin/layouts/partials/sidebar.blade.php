@@ -8,11 +8,14 @@
                     $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                     $logoHeight = $logoSize . 'px';
                     $collapsedMarkUrl = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta(null)['url'];
+                    $adminLogo = \App\Support\AdminLogo::displayUrls();
                 @endphp
                 @include('partials.nexa-brand-logo', [
                     'class' => 'default-logo w-auto max-w-[350px] object-contain',
                     'style' => 'height: '.$logoHeight,
-                    'alt' => 'NEXA Suite',
+                    'alt' => $adminLogo['alt'],
+                    'lightSrc' => $adminLogo['light_url'],
+                    'darkSrc' => $adminLogo['dark_url'],
                 ])
                 <img class="small-logo h-[26px] w-[26px] shrink-0 object-contain" src="{{ $collapsedMarkUrl }}" alt="NEXA Suite" />
             </a>

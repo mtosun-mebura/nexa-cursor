@@ -36,11 +36,11 @@ final class AiChatIntentDetector
         }
 
         if ($this->isAdminOperationalQuestion($text, $context)) {
-            return $this->detectAdminIntent($text, $responseMode);
+            return $this->detectAdminIntent($text, $responseMode, $context);
         }
 
         if ($this->isPublicOperationalProbe($text, $context)) {
-            return $this->detectAdminIntent($text, $responseMode);
+            return $this->detectAdminIntent($text, $responseMode, $context);
         }
 
         if ($this->matchesAny($text, [
@@ -110,11 +110,15 @@ final class AiChatIntentDetector
 
         $operationalNeedles = [
             'welke ritten', 'ritten staan', 'hoeveel ritten', 'ritten hebben we', 'ritten zijn',
+            'ritten uitgevoerd', 'uitgevoerd', 'voltooid', 'voltooide', 'afgerond',
             'welke chauffeur', 'welke chauffeurs', 'chauffeurs zijn', 'chauffeurs hebben',
-            'omzet', 'welke klanten', 'klanten hebben', 'planning', 'voertuigen zijn',
-            'voertuig is', 'onderweg', 'geannuleerd', 'zonder chauffeur', 'geen chauffeur',
-            'geen voertuig', 'open rit', 'nog bevestig', 'luchthavenrit', 'schiphol',
-            'dubbel ingepland', 'overlappen', 'binnen een uur',
+            'omzet', 'inkomsten', 'gedraaid', 'welke klanten', 'klanten hebben', 'planning',
+            'voertuigen zijn', 'voertuig is', 'onderweg', 'geannuleerd', 'zonder chauffeur',
+            'geen chauffeur', 'geen voertuig', 'open rit', 'nog bevestig', 'luchthavenrit',
+            'schiphol', 'dubbel ingepland', 'overlappen', 'binnen een uur',
+            'factuur', 'facturen', 'openstaand', 'achterstallig', 'abonnement', 'pakket',
+            'contract', 'niet betaald', 'acties', 'wat moet ik nog', 'wie rijdt',
+            'chauffeursplanning', 'online', 'deze week', 'deze maand', 'dit jaar',
         ];
 
         return $this->matchesAny($text, $operationalNeedles);
@@ -123,18 +127,21 @@ final class AiChatIntentDetector
     /**
      * @return array{intent: AiChatIntent, query_hint: ?string, response_mode: AiChatResponseMode}
      */
-    private function detectAdminIntent(string $text, AiChatResponseMode $responseMode): array
+    private function detectAdminIntent(string $text, AiChatResponseMode $responseMode, AiChatRequestContext $context): array
     {
-        if ($this->matchesAny($text, ['omzet vandaag', 'omzet van vandaag', 'verwachte omzet van vandaag'])) {
-            return ['intent' => AiChatIntent::OmzetVandaag, 'query_hint' => null, 'response_mode' => $responseMode];
+        $platform = $this->detectPlatformIntent($text, $responseMode, $context);
+        if ($platform !== null) {
+            return $platform;
         }
 
-        if ($this->matchesAny($text, ['omzet morgen', 'verwachte omzet morgen', 'verwachte omzet van morgen'])) {
-            return ['intent' => AiChatIntent::OmzetMorgen, 'query_hint' => null, 'response_mode' => $responseMode];
+        $invoices = $this->detectInvoiceIntent($text, $responseMode);
+        if ($invoices !== null) {
+            return $invoices;
         }
 
-        if ($this->matchesAny($text, ['omzet vorige maand', 'omzet van vorige maand', 'was de omzet vorige'])) {
-            return ['intent' => AiChatIntent::OmzetVorigeMaand, 'query_hint' => null, 'response_mode' => $responseMode];
+        $revenue = $this->detectRevenueIntent($text, $responseMode);
+        if ($revenue !== null) {
+            return $revenue;
         }
 
         if ($this->matchesAny($text, ['hoogste omzet', 'meeste omzet']) && $this->matchesAny($text, ['rit', 'ritten'])) {
@@ -194,6 +201,11 @@ final class AiChatIntentDetector
             return ['intent' => AiChatIntent::RittenLuchthavenMorgen, 'query_hint' => null, 'response_mode' => $responseMode];
         }
 
+        $driverPlanning = $this->detectDriverPlanningIntent($text, $responseMode);
+        if ($driverPlanning !== null) {
+            return $driverPlanning;
+        }
+
         if ($this->matchesAny($text, ['meeste ritten', 'meeste rit']) && $this->matchesAny($text, ['chauffeur', 'chauffeurs'])) {
             return ['intent' => AiChatIntent::ChauffeursMeesteRittenVandaag, 'query_hint' => null, 'response_mode' => $responseMode];
         }
@@ -240,6 +252,18 @@ final class AiChatIntentDetector
             return ['intent' => AiChatIntent::VoertuigenBeschikbaar, 'query_hint' => null, 'response_mode' => $responseMode];
         }
 
+        if ($this->matchesAny($text, ['hoeveel ritten', 'ritten hebben we', 'ritten deze']) && $this->matchesAny($text, ['deze week', 'deze maand'])) {
+            $intent = $this->matchesAny($text, ['deze week'])
+                ? AiChatIntent::RittenDezeWeek
+                : AiChatIntent::RittenDezeMaand;
+
+            return [
+                'intent' => $intent,
+                'query_hint' => null,
+                'response_mode' => $this->matchesAny($text, ['hoeveel', 'aantal']) ? AiChatResponseMode::Count : $responseMode,
+            ];
+        }
+
         if ($this->matchesAny($text, ['rit morgen', 'ritten morgen', 'morgen gepland', 'planning morgen', 'staat morgen', 'staan morgen', 'staan morgen gepland'])) {
             return ['intent' => AiChatIntent::RittenMorgen, 'query_hint' => null, 'response_mode' => $responseMode];
         }
@@ -259,6 +283,27 @@ final class AiChatIntentDetector
             return ['intent' => AiChatIntent::RittenVandaag, 'query_hint' => null, 'response_mode' => AiChatResponseMode::Count];
         }
 
+        if ($this->matchesAny($text, ['rit', 'ritten']) && $this->matchesAny($text, [
+            'uitgevoerd', 'voltooid', 'voltooide', 'afgerond', 'gereden', 'gedaan',
+        ])) {
+            $hint = null;
+            if ($this->matchesAny($text, ['vandaag'])) {
+                $hint = 'vandaag';
+            } elseif ($this->matchesAny($text, ['deze week'])) {
+                $hint = 'deze_week';
+            } elseif ($this->matchesAny($text, ['deze maand'])) {
+                $hint = 'deze_maand';
+            }
+
+            return [
+                'intent' => AiChatIntent::RittenUitgevoerd,
+                'query_hint' => $hint,
+                'response_mode' => $this->matchesAny($text, ['hoeveel', 'aantal'])
+                    ? AiChatResponseMode::Count
+                    : $responseMode,
+            ];
+        }
+
         if ($this->matchesAny($text, [
             'rit', 'ritten', 'chauffeur', 'chauffeurs', 'klant', 'klanten', 'voertuig', 'voertuigen',
             'factuur', 'facturen', 'reservering', 'reserveringen', 'planning',
@@ -275,7 +320,7 @@ final class AiChatIntentDetector
             return AiChatResponseMode::Count;
         }
 
-        if ($this->matchesAny($text, ['omzet', 'verwachte omzet', 'meeste', 'drukste'])) {
+        if ($this->matchesAny($text, ['omzet', 'inkomsten', 'gedraaid', 'verwachte omzet', 'meeste', 'drukste'])) {
             return AiChatResponseMode::Summary;
         }
 
@@ -369,6 +414,180 @@ final class AiChatIntentDetector
         }
 
         return preg_match('/\b(?:naar|to)\s+.+/iu', $text) === 1;
+    }
+
+    /**
+     * @return array{intent: AiChatIntent, query_hint: ?string, response_mode: AiChatResponseMode}|null
+     */
+    private function detectPlatformIntent(string $text, AiChatResponseMode $responseMode, AiChatRequestContext $context): ?array
+    {
+        $isSuperAdmin = $context->user?->hasRole('super-admin') === true;
+        $tenantHint = $this->extractTenantHint($text);
+
+        if ($isSuperAdmin && $this->matchesAny($text, [
+            'wat moet ik nog doen', 'wat moet er nog', 'acties nodig', 'openstaande acties',
+            'welke acties', 'wat staat er nog open',
+        ])) {
+            return [
+                'intent' => AiChatIntent::PlatformActiesNodig,
+                'query_hint' => $tenantHint,
+                'response_mode' => $responseMode,
+            ];
+        }
+
+        if ($isSuperAdmin && $this->matchesAny($text, ['niet betaald', 'nog niet betaald', 'onbetaald', 'niet betaald deze maand'])
+            && $this->matchesAny($text, ['tenant', 'tenants', 'bedrijven', 'welke'])) {
+            return [
+                'intent' => AiChatIntent::PlatformTenantsOnbetaald,
+                'query_hint' => $tenantHint,
+                'response_mode' => $responseMode,
+            ];
+        }
+
+        $saasInvoice = $this->matchesAny($text, ['nexa-factuur', 'nexa factuur', 'saas-factuur', 'platformfactuur', 'platform-factuur']);
+        if ($saasInvoice || ($this->matchesAny($text, ['abonnement', 'nexa']) && $this->matchesAny($text, ['factuur', 'facturen']))) {
+            return [
+                'intent' => AiChatIntent::PlatformTenantFacturen,
+                'query_hint' => $tenantHint,
+                'response_mode' => $responseMode,
+            ];
+        }
+
+        if ($this->matchesAny($text, ['abonnement', 'welk pakket', 'huidig pakket', 'contractdatum'])
+            || ($this->matchesAny($text, ['contract']) && $this->matchesAny($text, ['af', 'eindigt', 'einde', 'loopt']))) {
+            return [
+                'intent' => AiChatIntent::PlatformTenantAbonnement,
+                'query_hint' => $tenantHint,
+                'response_mode' => $responseMode,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{intent: AiChatIntent, query_hint: ?string, response_mode: AiChatResponseMode}|null
+     */
+    private function detectInvoiceIntent(string $text, AiChatResponseMode $responseMode): ?array
+    {
+        if (! $this->matchesAny($text, ['factuur', 'facturen'])) {
+            return null;
+        }
+
+        if ($this->matchesAny($text, ['alle facturen', 'overzicht facturen', 'facturenoverzicht', 'stand van de facturen'])) {
+            return ['intent' => AiChatIntent::FacturenOverzicht, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
+        if ($this->matchesAny($text, ['achterstallig', 'te laat', 'overdue', 'verlopen'])) {
+            return ['intent' => AiChatIntent::FacturenAchterstallig, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
+        if ($this->matchesAny($text, ['openstaand', 'niet betaald', 'onbetaald', 'nog open'])) {
+            return ['intent' => AiChatIntent::FacturenOpenstaand, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
+        if ($this->matchesAny($text, ['betaald', 'voldaan']) && ! $this->matchesAny($text, ['niet betaald', 'onbetaald'])) {
+            return ['intent' => AiChatIntent::FacturenBetaald, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
+        return ['intent' => AiChatIntent::FacturenOverzicht, 'query_hint' => null, 'response_mode' => $responseMode];
+    }
+
+    /**
+     * @return array{intent: AiChatIntent, query_hint: ?string, response_mode: AiChatResponseMode}|null
+     */
+    private function detectRevenueIntent(string $text, AiChatResponseMode $responseMode): ?array
+    {
+        if (! $this->matchesAny($text, ['omzet', 'inkomsten'])) {
+            return null;
+        }
+
+        if ($this->matchesAny($text, ['hoogste omzet', 'meeste omzet']) && $this->matchesAny($text, ['rit', 'ritten'])) {
+            return null;
+        }
+
+        $mode = AiChatResponseMode::Summary;
+
+        if ($this->matchesAny($text, ['deze week', 'huidige week', 'afgelopen 7 dagen'])) {
+            return ['intent' => AiChatIntent::OmzetDezeWeek, 'query_hint' => null, 'response_mode' => $mode];
+        }
+
+        if ($this->matchesAny($text, ['deze maand', 'huidige maand'])) {
+            return ['intent' => AiChatIntent::OmzetDezeMaand, 'query_hint' => null, 'response_mode' => $mode];
+        }
+
+        if ($this->matchesAny($text, ['dit jaar', 'huidige jaar'])) {
+            return ['intent' => AiChatIntent::OmzetDitJaar, 'query_hint' => null, 'response_mode' => $mode];
+        }
+
+        if ($this->matchesAny($text, ['vorige maand', 'was de omzet vorige'])) {
+            return ['intent' => AiChatIntent::OmzetVorigeMaand, 'query_hint' => null, 'response_mode' => $mode];
+        }
+
+        if ($this->matchesAny($text, ['omzet morgen', 'verwachte omzet morgen', 'verwachte omzet van morgen', 'morgen'])) {
+            return ['intent' => AiChatIntent::OmzetMorgen, 'query_hint' => null, 'response_mode' => $mode];
+        }
+
+        if ($this->matchesAny($text, ['vandaag', 'omzet van vandaag', 'omzet vandaag'])) {
+            return ['intent' => AiChatIntent::OmzetVandaag, 'query_hint' => null, 'response_mode' => $mode];
+        }
+
+        return ['intent' => AiChatIntent::InkomstenOverzicht, 'query_hint' => null, 'response_mode' => $mode];
+    }
+
+    /**
+     * @return array{intent: AiChatIntent, query_hint: ?string, response_mode: AiChatResponseMode}|null
+     */
+    private function detectDriverPlanningIntent(string $text, AiChatResponseMode $responseMode): ?array
+    {
+        if ($this->matchesAny($text, ['online', 'ingelogd']) && $this->matchesAny($text, ['chauffeur', 'chauffeurs'])) {
+            return ['intent' => AiChatIntent::ChauffeursOnline, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
+        $wantsPlanning = $this->matchesAny($text, [
+            'planning van de chauffeur', 'planning van chauffeurs', 'chauffeursplanning',
+            'planning chauffeurs', 'wie rijdt', 'agenda van de chauffeur', 'dienstrooster',
+        ]) || ($this->matchesAny($text, ['planning']) && $this->matchesAny($text, ['chauffeur', 'chauffeurs']));
+
+        if ($wantsPlanning) {
+            $hint = 'vandaag';
+            if ($this->matchesAny($text, ['morgen'])) {
+                $hint = 'morgen';
+            } elseif ($this->matchesAny($text, ['deze week'])) {
+                $hint = 'deze_week';
+            }
+
+            return ['intent' => AiChatIntent::PlanningChauffeurs, 'query_hint' => $hint, 'response_mode' => $responseMode];
+        }
+
+        if ($this->matchesAny($text, ['welke chauffeurs hebben we', 'hoeveel chauffeurs', 'lijst chauffeurs', 'overzicht chauffeurs'])
+            || ($this->matchesAny($text, ['chauffeurs']) && $this->matchesAny($text, ['in dienst', 'overzicht', 'alle chauffeurs']))) {
+            return ['intent' => AiChatIntent::ChauffeursOverzicht, 'query_hint' => null, 'response_mode' => $responseMode];
+        }
+
+        return null;
+    }
+
+    private function extractTenantHint(string $text): ?string
+    {
+        foreach ([
+            '/(?:tenant|bedrijf)\s+([a-z0-9][a-z0-9 .&\'-]{1,80})/iu',
+            '/(?:heeft|van|voor)\s+([a-z0-9][a-z0-9 .&\'-]{1,80}?)(?:\?|$)/iu',
+        ] as $pattern) {
+            if (preg_match($pattern, $text, $matches) !== 1) {
+                continue;
+            }
+
+            $name = trim((string) ($matches[1] ?? ''));
+            $name = preg_replace('/\s+(abonnement|factuur|facturen|betaald|contract|pakket|deze|nog|vandaag|morgen).*$/iu', '', $name) ?? $name;
+            $name = trim($name, " \t\n\r\0\x0B?.");
+            $blocked = ['vandaag', 'morgen', 'deze', 'het', 'een', 'de', 'mijn', 'ons', 'onze'];
+            if ($name !== '' && ! in_array(mb_strtolower($name), $blocked, true)) {
+                return $name;
+            }
+        }
+
+        return null;
     }
 
     private function isOwnRideQuestion(string $text, AiChatRequestContext $context): bool

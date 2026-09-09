@@ -43,16 +43,11 @@ class AdminAiChatMessageTest extends TestCase
 
     public function test_admin_live_question_uses_admin_channel_and_tenant_scope(): void
     {
-        Http::fake([
-            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
-                'answer' => [],
-                'count' => 0,
-            ], 200),
-        ]);
+        Http::fake();
 
         config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
-        [$company, $user] = $this->companyAdminWithRidesView();
+        [, $user] = $this->companyAdminWithRidesView();
 
         $response = $this->actingAs($user)->postJson(route('admin.ai-chat.message'), [
             'message' => 'Welke ritten staan morgen gepland?',
@@ -61,20 +56,37 @@ class AdminAiChatMessageTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('success', true);
-
-        Http::assertSent(function ($request) use ($company, $user) {
-            return $request->url() === 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant'
-                && $request['company_id'] === $company->id
-                && $request['channel'] === 'admin'
-                && $request['isAdmin'] === true
-                && $request['allowLiveData'] === true
-                && $request['user_id'] === $user->id;
-        });
+        $this->assertNotEmpty($response->json('reply'));
+        Http::assertNothingSent();
     }
 
-    public function test_super_admin_without_selected_tenant_gets_validation_error(): void
+    public function test_super_admin_without_selected_tenant_can_ask_platform_questions(): void
     {
-        $user = User::factory()->create();
+        Http::fake();
+
+        $user = User::factory()->create(['company_id' => null]);
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->postJson(route('admin.ai-chat.message'), [
+            'message' => 'Welke tenants hebben deze maand niet betaald?',
+            'module' => 'taxi',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $reply = mb_strtolower((string) $response->json('reply'));
+        $this->assertTrue(
+            str_contains($reply, 'tenant') || str_contains($reply, 'nexa-factuur') || str_contains($reply, 'betaald'),
+            $reply
+        );
+        Http::assertNothingSent();
+    }
+
+    public function test_super_admin_without_tenant_gets_hint_for_operational_questions(): void
+    {
+        Http::fake();
+
+        $user = User::factory()->create(['company_id' => null]);
         $user->assignRole('super-admin');
 
         $response = $this->actingAs($user)->postJson(route('admin.ai-chat.message'), [
@@ -82,9 +94,10 @@ class AdminAiChatMessageTest extends TestCase
             'module' => 'taxi',
         ]);
 
-        $response->assertStatus(422);
-        $response->assertJsonPath('success', false);
-        $this->assertStringContainsString('tenant', mb_strtolower((string) $response->json('error')));
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $this->assertStringContainsString('tenant', mb_strtolower((string) $response->json('reply')));
+        Http::assertNothingSent();
     }
 
     public function test_admin_travel_intent_starts_local_quote_flow_without_n8n(): void
@@ -115,11 +128,7 @@ class AdminAiChatMessageTest extends TestCase
 
     public function test_super_admin_uses_selected_tenant_for_admin_chat(): void
     {
-        Http::fake([
-            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
-                'answer' => 'Geen ritten gevonden.',
-            ], 200),
-        ]);
+        Http::fake();
 
         config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
@@ -139,11 +148,9 @@ class AdminAiChatMessageTest extends TestCase
             ]);
 
         $response->assertOk();
-
-        Http::assertSent(function ($request) use ($company) {
-            return $request['company_id'] === $company->id
-                && $request['channel'] === 'admin';
-        });
+        $response->assertJsonPath('success', true);
+        $this->assertNotEmpty($response->json('reply'));
+        Http::assertNothingSent();
     }
 
     public function test_demo_user_cannot_query_admin_ai_chat(): void

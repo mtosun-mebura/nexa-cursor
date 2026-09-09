@@ -38,7 +38,7 @@ final class AiChatSqlGuardService
             throw new RuntimeException('Live data queries zijn niet toegestaan.');
         }
 
-        if (($claims['company_id'] ?? 0) <= 0) {
+        if (($claims['company_id'] ?? 0) <= 0 && ! $intent->allowsCompanyIdZero()) {
             throw new RuntimeException('company_id ontbreekt in SQL-context.');
         }
 

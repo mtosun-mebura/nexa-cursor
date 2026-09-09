@@ -384,6 +384,17 @@
     margin: 0.2rem 0;
     padding-left: 0.15rem;
   }
+  .ai-chat-message {
+    line-height: 1.55;
+  }
+  .ai-chat-message p,
+  .ai-chat-message__p {
+    margin: 0 0 0.7em;
+  }
+  .ai-chat-message p:last-child,
+  .ai-chat-message__p:last-child {
+    margin-bottom: 0;
+  }
   .ai-chat-bubble--user {
     background-color: var(--theme-primary, #2563eb);
     color: #ffffff;

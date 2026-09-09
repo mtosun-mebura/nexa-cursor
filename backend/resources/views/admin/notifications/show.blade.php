@@ -2,6 +2,10 @@
 
 @section('title', 'Notificatie Details - #' . $notification->id)
 
+@php
+    $canDeleteNotification = auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-notifications');
+@endphp
+
 @section('content')
 
 <style>
@@ -19,6 +23,46 @@
     }
     .kt-card-content .kt-input:empty {
         display: none;
+    }
+    .notification-detail-fields {
+        container-type: inline-size;
+        container-name: notification-detail;
+    }
+    .notification-detail-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border, #e2e8f0);
+    }
+    .notification-detail-row:first-child {
+        padding-top: 0;
+    }
+    .notification-detail-row:last-child {
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .notification-detail-row dt {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 400;
+        color: var(--muted-foreground, #64748b);
+    }
+    .notification-detail-row dd {
+        margin: 0;
+        min-width: 0;
+        font-size: 0.875rem;
+        font-weight: 400;
+        color: var(--foreground, #0f172a);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    @container notification-detail (min-width: 36rem) {
+        .notification-detail-row {
+            grid-template-columns: 8.5rem minmax(0, 1fr);
+            gap: 0 1rem;
+            align-items: start;
+        }
     }
 </style>
 
@@ -125,6 +169,23 @@
                 // Hide edit button if it's a change notification or if there's a scheduled interview
                 $showEditButton = !$isChangeNotification && !$hasScheduledInterview;
             @endphp
+            @if($canDeleteNotification)
+            <form method="POST"
+                  action="{{ route('admin.notifications.destroy', $notification) }}"
+                  id="notification-delete-form"
+                  class="m-0">
+                @csrf
+                @method('DELETE')
+            </form>
+            <button type="button"
+                    id="notification-delete-open"
+                    class="kt-btn kt-btn-destructive"
+                    aria-haspopup="dialog"
+                    aria-controls="notifications-delete-modal">
+                <i class="ki-filled ki-trash me-2"></i>
+                Verwijderen
+            </button>
+            @endif
             @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-notifications')) && $showEditButton)
             <a href="{{ route('admin.notifications.edit', $notification) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
@@ -134,40 +195,36 @@
         </div>
     </div>
 
-    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 items-stretch">
+    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 items-stretch min-w-0">
         <!-- Notificatie Informatie -->
-        <div class="kt-card flex-1">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
+        <div class="kt-card flex-1 min-w-0">
+            <div class="kt-card-header flex items-center px-5 py-5">
+                <h3 class="kt-card-title mb-0">
                     Notificatie Informatie
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                    <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                            Ontvanger
-                        </td>
-                        <td class="min-w-48 w-full text-foreground font-normal">
+            <div class="kt-card-content p-5 notification-detail-fields">
+                <dl class="m-0">
+                    <div class="notification-detail-row">
+                        <dt>Ontvanger</dt>
+                        <dd>
                             @if($notification->user)
                                 {{ trim($notification->user->first_name . ' ' . $notification->user->last_name) }}
                             @else
                                 Onbekend
                             @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            E-mail
-                        </td>
-                        <td class="text-foreground font-normal">
+                        </dd>
+                    </div>
+                    <div class="notification-detail-row">
+                        <dt>E-mail</dt>
+                        <dd>
                             @if($notification->user)
                                 {{ $notification->user->email }}
                             @else
                                 Onbekend
                             @endif
-                        </td>
-                    </tr>
+                        </dd>
+                    </div>
                     @if($notification->user && $notification->user->hasRole('candidate'))
                     @php
                         $candidate = \App\Models\Candidate::where('email', $notification->user->email)->first();
@@ -179,21 +236,15 @@
                         }
                     @endphp
                     @if($match && $match->vacancy)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Vacature
-                        </td>
-                        <td class="text-foreground font-normal">
-                            {{ $match->vacancy->title }}
-                        </td>
-                    </tr>
+                    <div class="notification-detail-row">
+                        <dt>Vacature</dt>
+                        <dd>{{ $match->vacancy->title }}</dd>
+                    </div>
                     @endif
                     @endif
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Bedrijf
-                        </td>
-                        <td class="text-foreground font-normal">
+                    <div class="notification-detail-row">
+                        <dt>Bedrijf</dt>
+                        <dd>
                             @if($notification->user && $notification->user->company)
                                 {{ $notification->user->company->name }}
                             @elseif($notification->company_id)
@@ -204,35 +255,27 @@
                             @else
                                 Onbekend
                             @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Afzender
-                        </td>
-                        <td class="text-foreground font-normal">
+                        </dd>
+                    </div>
+                    <div class="notification-detail-row">
+                        <dt>Afzender</dt>
+                        <dd>
                             @if($sender)
                                 {{ trim($sender->first_name . ' ' . $sender->last_name) }}
                             @else
                                 Systeem
                             @endif
-                        </td>
-                    </tr>
+                        </dd>
+                    </div>
                     @if($sender)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Afzender E-mail
-                        </td>
-                        <td class="text-foreground font-normal">
-                            {{ $sender->email }}
-                        </td>
-                    </tr>
+                    <div class="notification-detail-row">
+                        <dt>Afzender E-mail</dt>
+                        <dd>{{ $sender->email }}</dd>
+                    </div>
                     @endif
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Categorie
-                        </td>
-                        <td class="text-foreground font-normal">
+                    <div class="notification-detail-row">
+                        <dt>Categorie</dt>
+                        <dd>
                             @php
                                 $categoryLabels = [
                                     'info' => 'Informatie',
@@ -245,74 +288,54 @@
                                 ];
                                 echo $categoryLabels[$notification->category ?? ''] ?? ucfirst($notification->category ?? 'Onbekend');
                             @endphp
-                        </td>
-                    </tr>
+                        </dd>
+                    </div>
                     @if($notification->scheduled_at)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Geplande Datum & Tijd
-                        </td>
-                        <td class="text-foreground font-normal">
-                            {{ $notification->scheduled_at->format('d-m-Y H:i') }}
-                        </td>
-                    </tr>
+                    <div class="notification-detail-row">
+                        <dt>Geplande Datum & Tijd</dt>
+                        <dd>{{ $notification->scheduled_at->format('d-m-Y H:i') }}</dd>
+                    </div>
                     @endif
                     @if($notification->location)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Locatie
-                        </td>
-                        <td class="text-foreground font-normal">
-                            {{ $notification->location }}
-                        </td>
-                    </tr>
+                    <div class="notification-detail-row">
+                        <dt>Locatie</dt>
+                        <dd>{{ $notification->location }}</dd>
+                    </div>
                     @endif
                     @if($notification->priority)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Prioriteit
-                        </td>
-                        <td class="text-foreground font-normal">
+                    <div class="notification-detail-row">
+                        <dt>Prioriteit</dt>
+                        <dd>
                             <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->priority == 'urgent' ? 'danger' : ($notification->priority == 'high' ? 'warning' : ($notification->priority == 'low' ? 'secondary' : 'info')) }}">
                                 {{ ucfirst($notification->priority) }}
                             </span>
-                        </td>
-                    </tr>
+                        </dd>
+                    </div>
                     @endif
-                    <tr>
-                        <td class="text-secondary-foreground font-normal align-top">
-                            Aangemaakt op
-                        </td>
-                        <td class="text-foreground font-normal">
-                            {{ $notification->created_at->format('d-m-Y H:i') }}
-                        </td>
-                    </tr>
-                </table>
+                    <div class="notification-detail-row">
+                        <dt>Aangemaakt op</dt>
+                        <dd>{{ $notification->created_at->format('d-m-Y H:i') }}</dd>
+                    </div>
+                </dl>
             </div>
         </div>
 
         <!-- Bericht & Bestand -->
-        <div class="kt-card flex-1">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
+        <div class="kt-card flex-1 min-w-0">
+            <div class="kt-card-header flex items-center px-5 py-5">
+                <h3 class="kt-card-title mb-0">
                     Bericht & Bestand
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                    <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal border-b border-border">
-                            Titel
-                        </td>
-                        <td class="min-w-48 w-full text-foreground font-normal border-b border-border">
-                            {{ $notification->title }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-secondary-foreground font-normal border-b border-border">
-                            Type
-                        </td>
-                        <td class="text-foreground font-normal border-b border-border">
+            <div class="kt-card-content p-5 notification-detail-fields">
+                <dl class="m-0">
+                    <div class="notification-detail-row">
+                        <dt>Titel</dt>
+                        <dd>{{ $notification->title }}</dd>
+                    </div>
+                    <div class="notification-detail-row">
+                        <dt>Type</dt>
+                        <dd>
                             @php
                                 $typeLabels = [
                                     'match' => 'Match',
@@ -326,34 +349,26 @@
                                 ];
                                 echo $typeLabels[$notification->type ?? ''] ?? ucfirst($notification->type ?? 'Onbekend');
                             @endphp
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-secondary-foreground font-normal border-b border-border">
-                            Status
-                        </td>
-                        <td class="text-foreground font-normal border-b border-border">
+                        </dd>
+                    </div>
+                    <div class="notification-detail-row">
+                        <dt>Status</dt>
+                        <dd>
                             <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->read_at ? 'success' : 'warning' }}">
                                 {{ $notification->read_at ? 'Gelezen' : 'Ongelezen' }}
                             </span>
-                        </td>
-                    </tr>
+                        </dd>
+                    </div>
                     @if($notification->read_at)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal border-b border-border">
-                            Gelezen op
-                        </td>
-                        <td class="text-foreground font-normal border-b border-border">
-                            {{ $notification->read_at->format('d-m-Y H:i') }}
-                        </td>
-                    </tr>
+                    <div class="notification-detail-row">
+                        <dt>Gelezen op</dt>
+                        <dd>{{ $notification->read_at->format('d-m-Y H:i') }}</dd>
+                    </div>
                     @endif
                     @if($notification->message)
-                    <tr>
-                        <td class="text-secondary-foreground font-normal border-b border-border">
-                            Bericht
-                        </td>
-                        <td class="text-foreground font-normal border-b border-border break-words">
+                    <div class="notification-detail-row">
+                        <dt>Bericht</dt>
+                        <dd>
                             @php
                                 $messageText = trim($notification->message);
                                 $formattedMessage = $messageText;
@@ -401,22 +416,20 @@
                                 }
                             @endphp
                             {!! $formattedMessage !!}
-                        </td>
-                    </tr>
+                        </dd>
+                    </div>
                     @endif
-                </table>
-            </div>
-            <div class="kt-card-content">
+                </dl>
                 @if($notification->file_path)
-                <div>
+                <div class="mt-5 pt-4 border-t border-border">
                     <h4 class="text-sm font-semibold text-secondary-foreground mb-2">Bestand</h4>
-                    <div>
+                    <div class="flex flex-wrap items-center gap-2">
                         <a href="{{ \Storage::url($notification->file_path) }}" target="_blank" class="kt-btn kt-btn-outline">
                             <i class="ki-filled ki-file me-2"></i>
                             {{ $notification->file_name ?? 'Download bestand' }}
                         </a>
                         @if($notification->file_size)
-                        <span class="text-xs text-muted-foreground ml-2">
+                        <span class="text-xs text-muted-foreground">
                             ({{ number_format($notification->file_size / 1024, 2) }} KB)
                         </span>
                         @endif
@@ -427,4 +440,220 @@
         </div>
     </div>
 </div>
+
+@if(!empty($canDeleteNotification))
+<div id="notifications-delete-modal"
+     class="hidden fixed inset-0 items-center justify-center p-4 z-[100000]"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="notifications-delete-modal-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-notifications-delete-dismiss></div>
+    <div class="notifications-delete-panel relative z-10 w-full max-w-md rounded-2xl border shadow-2xl">
+        <div class="notifications-delete-panel__head px-5 py-5">
+            <h3 id="notifications-delete-modal-title" class="notifications-delete-panel__title mb-0">Notificatie verwijderen</h3>
+        </div>
+        <div class="notifications-delete-panel__body px-5 py-5">
+            <p class="notifications-delete-panel__text mb-0">
+                Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+            </p>
+        </div>
+        <div class="notifications-delete-panel__foot px-5 py-5 flex flex-wrap justify-end gap-2">
+            <button type="button" class="kt-btn kt-btn-outline notifications-delete-panel__cancel" data-notifications-delete-dismiss>Annuleren</button>
+            <button type="button" class="kt-btn kt-btn-destructive notifications-delete-panel__confirm" data-notifications-delete-confirm>Verwijderen</button>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
+
+@if(!empty($canDeleteNotification))
+@push('styles')
+<style>
+    #notifications-delete-modal.hidden,
+    #notifications-delete-modal[hidden] {
+        display: none !important;
+        pointer-events: none !important;
+    }
+    #notifications-delete-modal.flex:not([hidden]):not(.hidden) {
+        display: flex !important;
+        pointer-events: auto !important;
+    }
+    .notifications-delete-panel {
+        background-color: #ffffff;
+        color: #0f172a;
+        border-color: #e2e8f0;
+        box-shadow:
+            0 25px 50px -12px rgba(2, 6, 23, 0.35),
+            0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+    .notifications-delete-panel__head {
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .notifications-delete-panel__foot {
+        border-top: 1px solid #e2e8f0;
+    }
+    .notifications-delete-panel__title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.4;
+        color: #0f172a;
+    }
+    .notifications-delete-panel__text {
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: #64748b;
+    }
+    html.dark .notifications-delete-panel,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel,
+    .dark .notifications-delete-panel {
+        background-color: #0b0f19;
+        color: #f8fafc;
+        border-color: rgba(148, 163, 184, 0.18);
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.65),
+            0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    html.dark .notifications-delete-panel__head,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__head,
+    .dark .notifications-delete-panel__head {
+        border-bottom-color: rgba(148, 163, 184, 0.18);
+    }
+    html.dark .notifications-delete-panel__foot,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__foot,
+    .dark .notifications-delete-panel__foot {
+        border-top-color: rgba(148, 163, 184, 0.18);
+    }
+    html.dark .notifications-delete-panel__title,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__title,
+    .dark .notifications-delete-panel__title {
+        color: #f8fafc;
+    }
+    html.dark .notifications-delete-panel__text,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__text,
+    .dark .notifications-delete-panel__text {
+        color: #94a3b8;
+    }
+    .notifications-delete-panel__cancel {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #e2e8f0 !important;
+    }
+    .notifications-delete-panel__confirm {
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+        border-color: #dc2626 !important;
+    }
+    html.dark .notifications-delete-panel__cancel,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__cancel,
+    .dark .notifications-delete-panel__cancel {
+        background-color: transparent !important;
+        color: #f8fafc !important;
+        border-color: rgba(148, 163, 184, 0.28) !important;
+    }
+    html.dark .notifications-delete-panel__confirm,
+    html[data-kt-theme-mode="dark"] .notifications-delete-panel__confirm,
+    .dark .notifications-delete-panel__confirm {
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+        border-color: #dc2626 !important;
+    }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function () {
+    let openedAt = 0;
+
+    function getModal() {
+        return document.getElementById('notifications-delete-modal');
+    }
+
+    function getForm() {
+        return document.getElementById('notification-delete-form');
+    }
+
+    function openModal(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const modal = getModal();
+        if (!modal) {
+            return;
+        }
+        modal.hidden = false;
+        modal.removeAttribute('hidden');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        openedAt = Date.now();
+    }
+
+    function closeModal(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        if (openedAt && (Date.now() - openedAt) < 400) {
+            return;
+        }
+        const modal = getModal();
+        if (!modal) {
+            return;
+        }
+        modal.hidden = true;
+        modal.setAttribute('hidden', 'hidden');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function submitDelete(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        if (openedAt && (Date.now() - openedAt) < 400) {
+            return;
+        }
+        const form = getForm();
+        if (form) {
+            form.submit();
+        }
+    }
+
+    window.openNotificationDeleteModal = openModal;
+    window.closeNotificationDeleteModal = closeModal;
+    window.submitNotificationDeleteForm = submitDelete;
+
+    document.addEventListener('click', function (event) {
+        if (event.target.closest('#notification-delete-open')) {
+            openModal(event);
+            return;
+        }
+
+        const modal = getModal();
+        if (!modal || modal.hidden) {
+            return;
+        }
+
+        if (event.target.closest('[data-notifications-delete-confirm]')) {
+            submitDelete(event);
+            return;
+        }
+
+        if (event.target.closest('[data-notifications-delete-dismiss]')) {
+            closeModal(event);
+        }
+    }, true);
+
+    document.addEventListener('keydown', function (event) {
+        const modal = getModal();
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+            closeModal(event);
+        }
+    });
+})();
+</script>
+@endpush
+@endif
