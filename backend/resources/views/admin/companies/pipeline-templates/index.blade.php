@@ -24,24 +24,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5">
-            <div class="kt-alert-content">
-                <i class="ki-filled ki-check-circle me-2"></i>
-                {{ session('success') }}
-            </div>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5">
-            <div class="kt-alert-content">
-                <i class="ki-filled ki-cross-circle me-2"></i>
-                {{ session('error') }}
-            </div>
-        </div>
-    @endif
-
     <div class="kt-card">
         <div class="kt-card-header">
             <h3 class="kt-card-title">Pipeline Templates voor {{ $company->name }}</h3>
@@ -104,12 +86,4 @@
 </div>
 
 @endsection
-
-
-
-
-
-
-
-
 

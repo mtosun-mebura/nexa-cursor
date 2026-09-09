@@ -36,15 +36,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-            @if(session('route_departure_time'))
-                <span class="block text-sm mt-1">Geschat vertrek: {{ session('route_departure_time') }}</span>
-            @endif
-        </div>
-    @endif
-
     @if($routeWarnings !== [])
         <div class="kt-alert kt-alert-warning mb-5" role="alert">
             <ul class="list-disc list-inside text-sm">

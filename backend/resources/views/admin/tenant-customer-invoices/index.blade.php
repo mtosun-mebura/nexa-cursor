@@ -6,7 +6,6 @@
         <h1 class="text-xl font-semibold">Klantfacturen</h1>
         <a href="{{ route('admin.tenant-customer-invoices.create') }}" class="kt-btn kt-btn-primary">Nieuwe factuur</a>
     </div>
-    @if(session('success'))<div class="kt-alert kt-alert-success mb-4">{{ session('success') }}</div>@endif
     <div class="kt-card overflow-x-auto">
         <table class="kt-table w-full">
             <thead><tr><th>Nummer</th><th>Klant</th><th>Totaal</th><th>Status</th><th></th></tr></thead>

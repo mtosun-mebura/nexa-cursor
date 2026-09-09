@@ -18,13 +18,6 @@
         </a>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="form-fields-success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
     <!-- Statistics Cards -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">

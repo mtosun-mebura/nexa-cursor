@@ -81,16 +81,6 @@
         @endcan
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5"><i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}</div>
-    @endif
-    @if(session('warning'))
-        <div class="kt-alert kt-alert-warning mb-5"><i class="ki-filled ki-information-2 me-2"></i> {{ session('warning') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5"><i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}</div>
-    @endif
-
     <div class="grid grid-cols-1 gap-5 lg:gap-7.5">
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header"><h3 class="kt-card-title mb-0">Route &amp; datum</h3></div>

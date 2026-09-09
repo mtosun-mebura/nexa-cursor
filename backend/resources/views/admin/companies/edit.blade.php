@@ -31,13 +31,6 @@
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
-            @if(session('error'))
-                <div class="kt-alert kt-alert-danger" role="alert">
-                    <i class="ki-filled ki-cross-circle me-2"></i>
-                    {{ session('error') }}
-                </div>
-            @endif
-
             <!-- General Info -->
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">

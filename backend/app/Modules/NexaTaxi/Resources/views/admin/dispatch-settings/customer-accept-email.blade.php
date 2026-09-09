@@ -21,10 +21,6 @@
         </a>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5"><i class="ki-filled ki-check-circle me-2"></i>{{ session('success') }}</div>
-    @endif
-
     @if($errors->any())
         <div class="kt-alert kt-alert-danger mb-5">
             <ul class="list-disc list-inside">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>

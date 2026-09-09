@@ -17,17 +17,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}
-        </div>
-    @endif
-
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">

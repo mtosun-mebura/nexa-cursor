@@ -15,26 +15,6 @@
             </div>
         </div>
 
-        @if(session('success'))
-            <div class="kt-alert kt-alert-success mb-5">
-                <div class="kt-alert-content">
-                    {{ session('success') }}
-                </div>
-            </div>
-        @endif
-
-        @if($errors->any())
-            <div class="kt-alert kt-alert-danger mb-5">
-                <div class="kt-alert-content">
-                    <ul class="list-disc list-inside">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            </div>
-        @endif
-
         <!-- Huidige logo en favicon bovenaan gecentreerd -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 py-8 mb-8 rounded-xl bg-muted/30 dark:bg-muted/10 border border-border">
             <div class="flex flex-col items-center gap-2">

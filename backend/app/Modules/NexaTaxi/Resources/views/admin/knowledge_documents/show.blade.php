@@ -7,12 +7,6 @@
     $canEditDocument = auth()->user()->hasRole('super-admin') || auth()->user()->can('ai_chatbot.update') || auth()->user()->can('rides.update') || auth()->user()->can('vehicles.update');
 @endphp
 
-@if(session('success'))
-    <div class="kt-alert kt-alert-success mb-5" role="alert">
-        <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-    </div>
-@endif
-
 @include('taxi::admin.knowledge_documents.partials.content-list-styles')
 
 <style>

@@ -4,18 +4,6 @@
 
 @section('content')
 
-@if(session('success'))
-    <div class="kt-alert kt-alert-success mb-5" role="alert">
-        <i class="ki-filled ki-check-circle me-2"></i>
-        {{ session('success') }}
-    </div>
-@endif
-@if(session('error'))
-    <div class="kt-alert kt-alert-danger mb-5" role="alert">
-        <i class="ki-filled ki-cross-circle me-2"></i>
-        {{ session('error') }}
-    </div>
-@endif
 @if(! empty($needsCompanyAdminWelcome))
     <div class="kt-alert company-welcome-alert mb-5" role="alert">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

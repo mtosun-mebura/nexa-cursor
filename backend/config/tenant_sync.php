@@ -19,6 +19,10 @@ return [
         // Spatie-pivots zonder betrouwbare company-scope: na rollen/permissions via post_sync.
         'role_has_permissions',
         'model_has_permissions',
+        // Per omgeving: inbox, tickets en reacties horen niet bij tenant-stamdata.
+        'notifications',
+        'incidents',
+        'incident_comments',
     ],
 
     /*
@@ -335,7 +339,6 @@ return [
         'payment_providers' => ['company_id', 'provider_type'],
         'website_pages' => ['company_id', 'frontend_theme_id', 'module_name', 'slug'],
         'vacancies' => ['company_id', 'slug'],
-        'notifications' => ['company_id', 'title'],
         'companies' => ['slug'],
         'invoices' => ['company_id', 'invoice_number'],
         'invoice_settings' => ['company_id', 'location_id'],
@@ -381,7 +384,6 @@ return [
         'email_templates',
         'website_pages',
         'vacancies',
-        'notifications',
         'payment_providers',
         'invoice_settings',
         'invoices',

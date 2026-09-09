@@ -1316,6 +1316,76 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     padding-top: 0.625rem;
 }
 
+/* Label/waarde-formulieren (configuraties, wizard, edit): binnen de kaart, tekst wrapt */
+#content .settings-collapsible-card,
+#content .settings-collapsible-body,
+#content .nexa-smooth-accordion,
+#content .nexa-smooth-accordion__clip {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#content .settings-collapsible-card.min-w-full {
+    min-width: 0 !important;
+    width: 100%;
+}
+
+#content form .kt-card-table,
+#content .kt-card-table:has(form),
+#content .kt-card-table:has(.kt-table-border-dashed) {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout):not(.admin-fluid-table),
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout):not(.admin-fluid-table) {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    table-layout: fixed;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
+    min-width: 0 !important;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-56,
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48 {
+    min-width: 0 !important;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child {
+    width: 14rem;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2) :is(.relative, .flex, p, span, .text-xs) {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2) :is(.kt-input, .kt-select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"])) {
+    max-width: 100%;
+    min-width: 0;
+}
+
+#content form .kt-card-footer {
+    max-width: 100%;
+    flex-wrap: wrap;
+}
+
+#content form .settings-section-intro,
+#content form > p,
+#content .settings-collapsible-body > p {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 #content form .kt-switch {
     pointer-events: auto !important;
     position: relative;
