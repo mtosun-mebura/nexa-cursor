@@ -187,4 +187,24 @@ class AiChatIntentServiceTest extends TestCase
         $this->assertTrue($result->isAdmin);
         $this->assertTrue($result->allowLiveData);
     }
+
+    public function test_omzet_deze_week_is_allowed_for_admin(): void
+    {
+        Permission::create(['name' => 'rides.view', 'guard_name' => 'web']);
+        $user = User::factory()->create();
+        $user->givePermissionTo('rides.view');
+
+        $result = $this->intentService()->classify(
+            'Hoeveel omzet heb ik deze week gedraaid?',
+            new AiChatRequestContext(
+                companyId: 1,
+                channel: AiChatChannel::Admin,
+                userId: $user->id,
+                user: $user,
+            ),
+        );
+
+        $this->assertSame(AiChatIntent::OmzetDezeWeek, $result->intent);
+        $this->assertTrue($result->allowLiveData);
+    }
 }

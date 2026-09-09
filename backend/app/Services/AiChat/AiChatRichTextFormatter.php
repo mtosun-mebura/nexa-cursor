@@ -41,6 +41,23 @@ final class AiChatRichTextFormatter
         $value = preg_replace("/[ \t]+\n/u", "\n", $value) ?? $value;
         $value = preg_replace("/\n{3,}/u", "\n\n", $value) ?? $value;
 
+        return $this->ungluePdfText(trim($value));
+    }
+
+    /**
+     * Herstelt PDF/kennisbank-tekst waarin woorden en zinnen aan elkaar geplakt zijn.
+     */
+    public function ungluePdfText(string $text): string
+    {
+        $value = str_replace("\xc2\xa0", ' ', $text);
+        $value = preg_replace('/\r\n?/', "\n", $value) ?? $value;
+        $value = preg_replace('/([.!?])([A-ZÀ-Ý])/u', '$1 $2', $value) ?? $value;
+        $value = preg_replace('/([a-zà-ÿ])([A-ZÀ-Ý])/u', "$1\n\n$2", $value) ?? $value;
+        $value = preg_replace('/\b(artikel\s+\d+)/iu', "\n\n$1", $value) ?? $value;
+        $value = preg_replace("/[ \t]+\n/u", "\n", $value) ?? $value;
+        $value = preg_replace("/\n{3,}/u", "\n\n", $value) ?? $value;
+        $value = preg_replace('/[ \t]{2,}/u', ' ', $value) ?? $value;
+
         return trim($value);
     }
 }

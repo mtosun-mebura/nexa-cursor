@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Admin\SuperAdminForbiddenRedirect;
 use App\Support\AdminReturnUrl;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
@@ -97,7 +98,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
             }
 
-            if (! $is403 || ! view()->exists('errors.403')) {
+            if (! $is403) {
+                return null;
+            }
+
+            $dashboardRedirect = SuperAdminForbiddenRedirect::toDashboard($request);
+            if ($dashboardRedirect !== null) {
+                return $dashboardRedirect;
+            }
+
+            if (! view()->exists('errors.403')) {
                 return null;
             }
 

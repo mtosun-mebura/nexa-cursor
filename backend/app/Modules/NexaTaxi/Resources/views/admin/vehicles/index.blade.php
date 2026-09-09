@@ -255,50 +255,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var successAlert = document.getElementById('success-alert');
     if (successAlert) setTimeout(function() { successAlert.style.opacity = '0'; setTimeout(function() { successAlert.remove(); }, 300); }, 3000);
 
-    function initVehicleMenus() {
-        if (window.KTMenu && typeof window.KTMenu.init === 'function') {
-            try { window.KTMenu.init(); } catch (e) {}
-        }
-        document.querySelectorAll('.vehicles-table-wrap .kt-menu-toggle').forEach(function(toggle) {
-            if (toggle._vehicleMenuBound) return;
-            toggle._vehicleMenuBound = true;
-            toggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                var menuItem = toggle.closest('.kt-menu-item');
-                if (!menuItem) return;
-                var dropdown = menuItem.querySelector('.kt-menu-dropdown');
-                if (!dropdown) return;
-                var isShowing = menuItem.classList.contains('show');
-                document.querySelectorAll('.vehicles-table-wrap .kt-menu-item.show').forEach(function(item) {
-                    if (item !== menuItem) {
-                        item.classList.remove('show');
-                        var d = item.querySelector('.kt-menu-dropdown');
-                        if (d) d.style.display = 'none';
-                    }
-                });
-                if (!isShowing) {
-                    menuItem.classList.add('show');
-                    var rect = toggle.getBoundingClientRect();
-                    dropdown.style.position = 'fixed';
-                    dropdown.style.left = (rect.right - 175) + 'px';
-                    dropdown.style.top = (rect.bottom + 5) + 'px';
-                    dropdown.style.minWidth = '175px';
-                    dropdown.style.width = '175px';
-                    dropdown.style.zIndex = '99999';
-                    dropdown.style.display = 'block';
-                    dropdown.style.visibility = 'visible';
-                    dropdown.style.opacity = '1';
-                } else {
-                    menuItem.classList.remove('show');
-                    dropdown.style.display = 'none';
-                }
-            });
-        });
-    }
-    initVehicleMenus();
-    setTimeout(initVehicleMenus, 300);
-
     document.querySelectorAll('.vehicle-row--clickable').forEach(function(row) {
         if (row._rowLinkBound) return;
         row._rowLinkBound = true;
@@ -311,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.vehicles-table-wrap .kt-menu')) return;
+        if (e.target.closest('.vehicles-table-wrap .kt-menu, .vehicles-table-wrap .kt-menu-dropdown')) return;
         document.querySelectorAll('.vehicles-table-wrap .kt-menu-item.show').forEach(function(item) {
             item.classList.remove('show');
             var d = item.querySelector('.kt-menu-dropdown');

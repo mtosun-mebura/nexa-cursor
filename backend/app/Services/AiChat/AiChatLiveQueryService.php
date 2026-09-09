@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Services\ModuleDatabaseService;
+use App\Services\PlatformBilling\SuperAdminBillingInsightService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -41,13 +42,24 @@ final class AiChatLiveQueryService
     {
         $this->sqlGuard->assertMayExecute($claims, $intent);
 
+        $companyId = (int) $claims['company_id'];
+        $hint = $claims['query_hint'] ?? null;
+
+        if ($intent->isPlatformIntent()) {
+            return $this->withResponseMode(
+                app(SuperAdminBillingInsightService::class)->execute($intent, $claims),
+                $claims,
+            );
+        }
+
+        if ($intent->usesCompanyInvoices()) {
+            return $this->withResponseMode($this->executeInvoiceIntent($intent, $companyId), $claims);
+        }
+
         $connection = $this->resolveTaxiConnection();
         if ($connection === null) {
             return ['count' => 0, 'rows' => []];
         }
-
-        $companyId = (int) $claims['company_id'];
-        $hint = $claims['query_hint'] ?? null;
 
         $result = match ($intent) {
             AiChatIntent::Tarieven => ['rows' => $this->publicRates($connection), 'summary' => null],
@@ -55,6 +67,7 @@ final class AiChatLiveQueryService
             AiChatIntent::RittenMorgen => ['rows' => $this->ridesForDate($connection, $companyId, now()->addDay()->toDateString()), 'summary' => null],
             AiChatIntent::RittenVandaag => ['rows' => $this->ridesForDate($connection, $companyId, now()->toDateString()), 'summary' => null],
             AiChatIntent::RittenKomend => ['rows' => $this->upcomingRides($connection, $companyId), 'summary' => null],
+            AiChatIntent::RittenUitgevoerd => $this->completedRidesResult($connection, $companyId, $hint, $claims),
             AiChatIntent::OpenRitten => ['rows' => $this->openRides($connection, $companyId), 'summary' => null],
             AiChatIntent::RittenGeannuleerd => ['rows' => $this->cancelledRides($connection, $companyId), 'summary' => null],
             AiChatIntent::RittenZonderChauffeur => ['rows' => $this->ridesWithoutDriver($connection, $companyId), 'summary' => null],
@@ -75,10 +88,41 @@ final class AiChatLiveQueryService
             AiChatIntent::KlantenNieuwDezeMaand => ['rows' => $this->newCustomersThisMonth($connection, $companyId), 'summary' => null],
             AiChatIntent::OmzetVandaag => ['rows' => [], 'summary' => $this->revenueForDate($connection, $companyId, now()->toDateString(), 'vandaag')],
             AiChatIntent::OmzetMorgen => ['rows' => [], 'summary' => $this->revenueForDate($connection, $companyId, now()->addDay()->toDateString(), 'morgen')],
-            AiChatIntent::OmzetVorigeMaand => ['rows' => [], 'summary' => $this->revenueForMonth($connection, $companyId, now()->subMonth())],
+            AiChatIntent::OmzetDezeWeek => ['rows' => [], 'summary' => $this->revenueForRange(
+                $connection,
+                $companyId,
+                now()->startOfWeek(Carbon::MONDAY),
+                now()->endOfWeek(Carbon::SUNDAY),
+                'deze week',
+            )],
+            AiChatIntent::OmzetDezeMaand => ['rows' => [], 'summary' => $this->revenueForMonth($connection, $companyId, now(), 'deze maand')],
+            AiChatIntent::OmzetDitJaar => ['rows' => [], 'summary' => $this->revenueForRange(
+                $connection,
+                $companyId,
+                now()->startOfYear(),
+                now()->endOfYear(),
+                'dit jaar',
+            )],
+            AiChatIntent::OmzetVorigeMaand => ['rows' => [], 'summary' => $this->revenueForMonth($connection, $companyId, now()->subMonth(), 'vorige maand')],
+            AiChatIntent::InkomstenOverzicht => ['rows' => [], 'summary' => $this->revenueOverview($connection, $companyId)],
             AiChatIntent::RittenHoogsteOmzet => ['rows' => $this->topRidesByRevenue($connection, $companyId), 'summary' => null],
+            AiChatIntent::RittenDezeWeek => ['rows' => $this->ridesBetween(
+                $connection,
+                $companyId,
+                now()->startOfWeek(Carbon::MONDAY),
+                now()->endOfWeek(Carbon::SUNDAY),
+            ), 'summary' => null],
+            AiChatIntent::RittenDezeMaand => ['rows' => $this->ridesBetween(
+                $connection,
+                $companyId,
+                now()->startOfMonth(),
+                now()->endOfMonth(),
+            ), 'summary' => null],
             AiChatIntent::LuchthavenrittenDezeMaand => ['rows' => $this->airportRidesCompletedThisMonth($connection, $companyId), 'summary' => null],
             AiChatIntent::Planning => ['rows' => $this->planningQuery($connection, $companyId, $hint), 'summary' => null],
+            AiChatIntent::PlanningChauffeurs => ['rows' => $this->driverPlanning($connection, $companyId, $hint), 'summary' => null],
+            AiChatIntent::ChauffeursOnline => ['rows' => $this->onlineDrivers($connection, $companyId), 'summary' => null],
+            AiChatIntent::ChauffeursOverzicht => ['rows' => $this->allDrivers($companyId), 'summary' => null],
             AiChatIntent::VoertuigenMorgen => ['rows' => $this->vehiclesScheduledForDate($connection, $companyId, now()->addDay()->toDateString()), 'summary' => null],
             AiChatIntent::VoertuigenBeschikbaar => ['rows' => $this->availableVehicles($connection, $companyId), 'summary' => null],
             default => throw new RuntimeException('Geen live query beschikbaar voor intent '.$intent->value),
@@ -95,6 +139,27 @@ final class AiChatLiveQueryService
             'count' => $count,
             'rows' => $rows,
             'summary' => $result['summary'],
+            'response_mode' => $claims['response_mode'] ?? 'list',
+        ];
+    }
+
+    /**
+     * @param  array{count?: int, rows: list<array<string, mixed>>, summary?: ?array<string, mixed>}  $result
+     * @param  array{response_mode?: string}  $claims
+     * @return array{count: int, rows: list<array<string, mixed>>, summary?: array<string, mixed>, response_mode: string}
+     */
+    private function withResponseMode(array $result, array $claims): array
+    {
+        $rows = $result['rows'] ?? [];
+        $count = (int) ($result['count'] ?? count($rows));
+        if (is_array($result['summary'] ?? null) && isset($result['summary']['ride_count'])) {
+            $count = (int) $result['summary']['ride_count'];
+        }
+
+        return [
+            'count' => $count,
+            'rows' => $rows,
+            'summary' => $result['summary'] ?? null,
             'response_mode' => $claims['response_mode'] ?? 'list',
         ];
     }
@@ -285,6 +350,90 @@ final class AiChatLiveQueryService
                 ->map(fn ($row) => (array) $row)
                 ->all()
         );
+    }
+
+    /**
+     * @param  array{response_mode?: string}  $claims
+     * @return array{rows: list<array<string, mixed>>, summary: array<string, mixed>}
+     */
+    private function completedRidesResult(string $connection, int $companyId, ?string $hint, array $claims): array
+    {
+        $count = $this->completedRideCount($connection, $companyId, $hint);
+        $mode = (string) ($claims['response_mode'] ?? 'list');
+        if ($mode === 'count') {
+            return [
+                'rows' => [],
+                'summary' => [
+                    'ride_count' => $count,
+                    'period' => $hint,
+                ],
+            ];
+        }
+
+        return [
+            'rows' => $this->completedRides($connection, $companyId, $hint),
+            'summary' => null,
+        ];
+    }
+
+    private function completedRideCount(string $connection, int $companyId, ?string $hint): int
+    {
+        if (! $this->tableExists($connection, 'ride_requests')) {
+            return 0;
+        }
+
+        $query = DB::connection($connection)
+            ->table('ride_requests')
+            ->where('status', RideRequest::STATUS_COMPLETED);
+
+        $this->applyCompletedPeriod($query, $hint);
+
+        return (int) $this->scopeRidesForCompany($query, $connection, $companyId)->count();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function completedRides(string $connection, int $companyId, ?string $hint): array
+    {
+        if (! $this->tableExists($connection, 'ride_requests')) {
+            return [];
+        }
+
+        $query = DB::connection($connection)
+            ->table('ride_requests')
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->orderByDesc('pickup_at')
+            ->limit(20);
+
+        $this->applyCompletedPeriod($query, $hint);
+
+        return $this->enrichRideRows(
+            $connection,
+            $this->scopeRidesForCompany($query, $connection, $companyId)
+                ->get($this->rideSelectColumns())
+                ->map(fn ($row) => (array) $row)
+                ->all()
+        );
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyCompletedPeriod($query, ?string $hint): void
+    {
+        match ($hint) {
+            'vandaag' => $query->whereDate('pickup_at', now()->toDateString()),
+            'deze_week' => $query->whereBetween('pickup_at', [
+                now()->startOfWeek(Carbon::MONDAY),
+                now()->endOfWeek(Carbon::SUNDAY),
+            ]),
+            'deze_maand' => $query->whereBetween('pickup_at', [
+                now()->startOfMonth(),
+                now()->endOfMonth(),
+            ]),
+            default => null,
+        };
     }
 
     /**
@@ -784,15 +933,25 @@ final class AiChatLiveQueryService
     /**
      * @return array{label: string, ride_count: int, total_amount: float, currency: string}
      */
-    private function revenueForMonth(string $connection, int $companyId, \Illuminate\Support\Carbon $month): array
+    private function revenueForMonth(string $connection, int $companyId, \Illuminate\Support\Carbon $month, string $label = 'vorige maand'): array
     {
-        $label = 'vorige maand';
+        return $this->revenueForRange(
+            $connection,
+            $companyId,
+            $month->copy()->startOfMonth(),
+            $month->copy()->endOfMonth(),
+            $label,
+        );
+    }
+
+    /**
+     * @return array{label: string, ride_count: int, total_amount: float, currency: string, date?: string}
+     */
+    private function revenueForRange(string $connection, int $companyId, Carbon $start, Carbon $end, string $label): array
+    {
         if (! $this->tableExists($connection, 'ride_requests')) {
             return ['label' => $label, 'ride_count' => 0, 'total_amount' => 0.0, 'currency' => 'EUR'];
         }
-
-        $start = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth();
 
         $stats = DB::connection($connection)
             ->table('ride_requests')
@@ -809,6 +968,226 @@ final class AiChatLiveQueryService
             'total_amount' => round((float) ($stats->total_amount ?? 0), 2),
             'currency' => 'EUR',
         ];
+    }
+
+    /**
+     * @return array{periods: list<array{label: string, ride_count: int, total_amount: float, currency: string}>}
+     */
+    private function revenueOverview(string $connection, int $companyId): array
+    {
+        return [
+            'periods' => [
+                $this->revenueForDate($connection, $companyId, now()->toDateString(), 'vandaag'),
+                $this->revenueForRange(
+                    $connection,
+                    $companyId,
+                    now()->startOfWeek(Carbon::MONDAY),
+                    now()->endOfWeek(Carbon::SUNDAY),
+                    'deze week',
+                ),
+                $this->revenueForMonth($connection, $companyId, now(), 'deze maand'),
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function ridesBetween(string $connection, int $companyId, Carbon $start, Carbon $end): array
+    {
+        if (! $this->tableExists($connection, 'ride_requests')) {
+            return [];
+        }
+
+        $query = DB::connection($connection)
+            ->table('ride_requests')
+            ->whereBetween('pickup_at', [$start, $end])
+            ->where('status', '<>', RideRequest::STATUS_CANCELLED)
+            ->orderBy('pickup_at')
+            ->limit(50);
+
+        return $this->enrichRideRows(
+            $connection,
+            $this->scopeRidesForCompany($query, $connection, $companyId)
+                ->get($this->rideSelectColumns())
+                ->map(fn ($row) => (array) $row)
+                ->all()
+        );
+    }
+
+    /**
+     * @return array{count: int, rows: list<array<string, mixed>>, summary: array<string, mixed>}
+     */
+    private function executeInvoiceIntent(AiChatIntent $intent, int $companyId): array
+    {
+        if ($companyId <= 0 || ! Schema::hasTable('invoices')) {
+            return ['count' => 0, 'rows' => [], 'summary' => ['answer' => 'Er zijn geen facturen gevonden.']];
+        }
+
+        $base = Invoice::query()->where('company_id', $companyId);
+
+        $open = (clone $base)->whereIn('status', ['sent', 'overdue', 'draft'])->whereNull('paid_date');
+        $paid = (clone $base)->where(function ($q) {
+            $q->where('status', 'paid')->orWhereNotNull('paid_date');
+        });
+        $overdue = (clone $base)->where(function ($q) {
+            $q->where('status', 'overdue')
+                ->orWhere(function ($q2) {
+                    $q2->where('status', 'sent')
+                        ->whereNotNull('due_date')
+                        ->whereDate('due_date', '<', now()->toDateString())
+                        ->whereNull('paid_date');
+                });
+        });
+
+        if ($intent === AiChatIntent::FacturenOverzicht) {
+            $openCount = (clone $open)->count();
+            $paidCount = (clone $paid)->count();
+            $overdueCount = (clone $overdue)->count();
+            $openAmount = (float) (clone $open)->sum('total_amount');
+            $paidAmount = (float) (clone $paid)->sum('total_amount');
+
+            $answer = sprintf(
+                'Facturen van je bedrijf: %d openstaand (€%s), %d achterstallig, %d betaald (€%s).',
+                $openCount,
+                number_format($openAmount, 2, ',', '.'),
+                $overdueCount,
+                $paidCount,
+                number_format($paidAmount, 2, ',', '.'),
+            );
+
+            return [
+                'count' => $openCount + $paidCount,
+                'rows' => [],
+                'summary' => ['answer' => $answer],
+            ];
+        }
+
+        $query = match ($intent) {
+            AiChatIntent::FacturenOpenstaand => $open,
+            AiChatIntent::FacturenBetaald => $paid,
+            AiChatIntent::FacturenAchterstallig => $overdue,
+            default => $base,
+        };
+
+        $rows = $query->orderByDesc('invoice_date')
+            ->limit(20)
+            ->get(['id', 'invoice_number', 'customer_name', 'total_amount', 'status', 'invoice_date', 'due_date', 'paid_date'])
+            ->map(fn (Invoice $invoice) => [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'customer_name' => $invoice->customer_name,
+                'total_amount' => (float) $invoice->total_amount,
+                'status' => $invoice->status,
+                'invoice_date' => optional($invoice->invoice_date)?->toDateString(),
+                'due_date' => optional($invoice->due_date)?->toDateString(),
+            ])
+            ->all();
+
+        return ['count' => count($rows), 'rows' => $rows, 'summary' => null];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function driverPlanning(string $connection, int $companyId, ?string $hint): array
+    {
+        $start = now()->startOfDay();
+        $end = now()->endOfDay();
+        if ($hint === 'morgen') {
+            $start = now()->addDay()->startOfDay();
+            $end = now()->addDay()->endOfDay();
+        } elseif ($hint === 'deze_week') {
+            $start = now()->startOfWeek(Carbon::MONDAY);
+            $end = now()->endOfWeek(Carbon::SUNDAY);
+        }
+
+        $rides = $this->ridesBetween($connection, $companyId, $start, $end);
+        $byDriver = [];
+        $unassigned = [];
+
+        foreach ($rides as $ride) {
+            $driverId = (int) ($ride['driver_id'] ?? 0);
+            if ($driverId <= 0) {
+                $unassigned[] = $ride;
+                continue;
+            }
+            $name = trim((string) ($ride['driver_name'] ?? 'Chauffeur'));
+            $byDriver[$driverId]['driver_id'] = $driverId;
+            $byDriver[$driverId]['driver_name'] = $name !== '' ? $name : 'Chauffeur';
+            $byDriver[$driverId]['rides'][] = $ride;
+        }
+
+        foreach ($this->allDrivers($companyId) as $driver) {
+            $id = (int) ($driver['driver_id'] ?? 0);
+            if ($id <= 0 || isset($byDriver[$id])) {
+                continue;
+            }
+            $byDriver[$id] = [
+                'driver_id' => $id,
+                'driver_name' => $driver['driver_name'],
+                'rides' => [],
+            ];
+        }
+
+        $rows = array_values($byDriver);
+        usort($rows, fn ($a, $b) => strcmp((string) $a['driver_name'], (string) $b['driver_name']));
+
+        if ($unassigned !== []) {
+            $rows[] = [
+                'driver_id' => null,
+                'driver_name' => 'Niet toegewezen',
+                'rides' => $unassigned,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function onlineDrivers(string $connection, int $companyId): array
+    {
+        if (! $this->tableExists($connection, 'driver_availability')) {
+            return [];
+        }
+
+        $onlineIds = DB::connection($connection)
+            ->table('driver_availability')
+            ->where('company_id', $companyId)
+            ->where('is_online', true)
+            ->pluck('driver_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($onlineIds === []) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $this->allDrivers($companyId),
+            fn (array $row) => in_array((int) $row['driver_id'], $onlineIds, true),
+        ));
+    }
+
+    /**
+     * @return list<array{driver_id: int, driver_name: string}>
+     */
+    private function allDrivers(int $companyId): array
+    {
+        return $this->roleQueryService->chauffeursForCompany($companyId)
+            ->limit(80)
+            ->get(['id', 'first_name', 'last_name'])
+            ->map(function (User $user): array {
+                $name = trim($user->first_name.' '.$user->last_name);
+
+                return [
+                    'driver_id' => $user->id,
+                    'driver_name' => $name !== '' ? $name : 'Chauffeur',
+                ];
+            })
+            ->all();
     }
 
     /**

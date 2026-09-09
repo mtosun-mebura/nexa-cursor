@@ -1069,6 +1069,41 @@ class AdminNotificationController extends Controller
         return redirect()->route('admin.notifications.index')->with('success', 'Notificatie succesvol verwijderd.');
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties te verwijderen.');
+        }
+
+        $data = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ]);
+
+        $query = Notification::query()->whereIn('id', $data['ids']);
+        $this->applyTenantFilter($query);
+
+        $deleted = 0;
+        foreach ($query->get() as $notification) {
+            if (! $this->canAccessResource($notification)) {
+                continue;
+            }
+            $notification->delete();
+            $deleted++;
+        }
+
+        if ($deleted === 0) {
+            return redirect()->route('admin.notifications.index')
+                ->with('error', 'Geen notificaties verwijderd.');
+        }
+
+        $message = $deleted === 1
+            ? '1 notificatie succesvol verwijderd.'
+            : $deleted.' notificaties succesvol verwijderd.';
+
+        return redirect()->route('admin.notifications.index')->with('success', $message);
+    }
+
     /**
      * Mark a notification as read
      */

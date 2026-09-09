@@ -115,6 +115,26 @@ class AdminIncidentController extends Controller
         ]);
     }
 
+    public function screenshot(Incident $incident, int $index)
+    {
+        $this->assertCanView($incident);
+
+        $shot = ($incident->screenshots ?? [])[$index] ?? null;
+        abort_unless(is_array($shot), 404);
+
+        $path = (string) ($shot['path'] ?? '');
+        abort_unless($path !== '' && Storage::disk('public')->exists($path), 404);
+
+        $filename = (string) ($shot['name'] ?? basename($path));
+        $mime = Storage::disk('public')->mimeType($path) ?: 'image/png';
+
+        return Storage::disk('public')->response($path, $filename, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $user = auth()->user();
@@ -150,10 +170,7 @@ class AdminIncidentController extends Controller
         ]);
         $incident->save();
 
-        $files = $request->file('screenshots', []);
-        if (! is_array($files)) {
-            $files = $files ? [$files] : [];
-        }
+        $files = $this->uploadedScreenshotFiles($request);
         $screenshots = $this->storeScreenshots($incident, $files);
         if ($screenshots !== []) {
             $incident->update(['screenshots' => $screenshots]);
@@ -354,6 +371,26 @@ class AdminIncidentController extends Controller
     }
 
     /**
+     * @return list<UploadedFile>
+     */
+    private function uploadedScreenshotFiles(Request $request): array
+    {
+        $files = $request->file('screenshots', []);
+        if ($files instanceof UploadedFile) {
+            $files = [$files];
+        }
+        if (! is_array($files) || $files === []) {
+            $nested = $request->allFiles()['screenshots'] ?? [];
+            $files = $nested instanceof UploadedFile ? [$nested] : (is_array($nested) ? $nested : []);
+        }
+
+        return array_values(array_filter(
+            $files,
+            static fn ($file) => $file instanceof UploadedFile
+        ));
+    }
+
+    /**
      * @param  array<int, UploadedFile|null>  $files
      * @return list<array{path: string, url: string, name: string, size: int}>
      */
@@ -405,14 +442,19 @@ class AdminIncidentController extends Controller
     private function serializeIncident(Incident $incident, bool $full): array
     {
         $screenshots = [];
-        foreach ($incident->screenshots ?? [] as $shot) {
+        foreach ($incident->screenshots ?? [] as $index => $shot) {
             if (! is_array($shot)) {
                 continue;
             }
             $path = (string) ($shot['path'] ?? '');
+            if ($path === '' && empty($shot['url'])) {
+                continue;
+            }
             $screenshots[] = [
                 'path' => $path,
-                'url' => $path !== '' ? Storage::disk('public')->url($path) : ($shot['url'] ?? null),
+                'url' => $path !== ''
+                    ? route('admin.incidents.screenshot', ['incident' => $incident, 'index' => (int) $index])
+                    : ($shot['url'] ?? null),
                 'name' => $shot['name'] ?? 'screenshot',
                 'size' => (int) ($shot['size'] ?? 0),
             ];

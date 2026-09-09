@@ -10,6 +10,7 @@ use App\Services\AiChat\AiChatAccessService;
 use App\Services\AiChat\AiChatAssistantOrchestrator;
 use App\Services\AiChat\AiChatKnowledgeFallbackService;
 use App\Services\AiChat\AiChatMessageSettingsService;
+use App\Services\AiChat\AiChatRichTextFormatter;
 use App\Support\Tenancy\CentralDomains;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -121,19 +122,30 @@ class AiChatAssistantService
     {
         $user ??= auth()->user();
         $companyId = GeneralSetting::resolveScopeCompanyId();
-        $requiresTenant = $companyId === null;
+        $isSuperAdmin = $user?->hasRole('super-admin') === true;
+        $hasTenant = $companyId !== null && $companyId > 0;
+        $requiresTenant = ! $isSuperAdmin && ($companyId === null || $companyId <= 0);
         $tenantRequiredMessage = 'Selecteer eerst een bedrijf in de tenant-kiezer linksboven om de assistent te gebruiken.';
 
-        $greeting = $requiresTenant
-            ? $tenantRequiredMessage
-            : 'Hallo! Ik help je met vragen over ritten, voertuigen, tarieven en de kennisbank van je bedrijf.';
+        if ($isSuperAdmin && ! $hasTenant) {
+            $greeting = 'Hallo! Vraag me naar tenants, abonnementen, openstaande NEXA-facturen en wat er nog moet gebeuren. Noem een bedrijfsnaam voor details, bijvoorbeeld: welk abonnement heeft Taxi Tosun?';
+            $subtitle = 'Super-admin · alle tenants';
+        } elseif ($isSuperAdmin) {
+            $greeting = 'Hallo! Ik help met ritten, chauffeurs, planning, facturen, omzet en het abonnement van deze tenant.';
+            $subtitle = 'Super-admin · geselecteerde tenant';
+        } else {
+            $greeting = $requiresTenant
+                ? $tenantRequiredMessage
+                : 'Hallo! Stel vragen over ritten, chauffeurs, planning, facturen en omzet van je bedrijf — bijvoorbeeld hoeveel omzet je vandaag, deze week of deze maand hebt gedraaid.';
+            $subtitle = 'Admin · jouw bedrijf';
+        }
 
         return array_merge([
             'module' => 'taxi',
             'endpoint' => route('admin.ai-chat.message'),
             'greeting' => $greeting,
             'title' => 'Taxi-assistent',
-            'subtitle' => 'Admin · alleen jouw tenant',
+            'subtitle' => $subtitle,
             'storageKey' => $this->chatStorageKey('admin', 'taxi', $companyId, $user?->id),
             'requiresTenant' => $requiresTenant,
             'tenantRequiredMessage' => $tenantRequiredMessage,
@@ -311,7 +323,7 @@ class AiChatAssistantService
                     'message' => Str::limit($payload->message, 120),
                 ]);
 
-                return trim($knowledgeFallback);
+                return $this->polishAssistantText(trim($knowledgeFallback));
             }
 
             Log::warning('AI chat webhook HTTP-fout', [
@@ -337,7 +349,7 @@ class AiChatAssistantService
             return $this->localFallbackReply($payload, 'empty-webhook-reply');
         }
 
-        return trim($reply);
+        return $this->polishAssistantText(trim($reply));
     }
 
     /**
@@ -792,7 +804,7 @@ class AiChatAssistantService
                 'message' => Str::limit($payload->message, 120),
             ]);
 
-            return trim($knowledgeFallback);
+            return $this->polishAssistantText(trim($knowledgeFallback));
         }
 
         $fallback = $this->resolveWebsiteFallbackReply($payload->message, $payload->context->companyId);
@@ -803,7 +815,7 @@ class AiChatAssistantService
                 'message' => Str::limit($payload->message, 120),
             ]);
 
-            return trim($fallback);
+            return $this->polishAssistantText(trim($fallback));
         }
 
         Log::warning('AI chat had geen lokaal fallback-antwoord', [
@@ -816,6 +828,11 @@ class AiChatAssistantService
             $payload->context->companyId,
             $module,
         );
+    }
+
+    private function polishAssistantText(string $text): string
+    {
+        return app(AiChatRichTextFormatter::class)->ungluePdfText($text);
     }
 
     private function plainBodyFallback(?string $rawBody): ?string

@@ -143,7 +143,7 @@ function initAdminDatatableMenus() {
 
     document.querySelectorAll('[data-admin-datatable="true"]').forEach((datatableRoot) => {
         datatableRoot.querySelectorAll('[data-kt-menu]:not([data-kt-menu="false"])').forEach((menuEl) => {
-            if (menuEl.id === 'sidebar_menu' || menuEl.closest('#sidebar_menu')) {
+            if (menuEl.id === 'sidebar_menu' || menuEl.closest('#sidebar_menu') || menuEl.closest('table')) {
                 return;
             }
 

@@ -1412,13 +1412,27 @@ export function registerAiChatbot(Alpine) {
             }
 
             try {
-                return this.formatInlineMarkdown(this.formatChatBlocks(this.applyChatLinks(text)));
+                return this.formatInlineMarkdown(
+                    this.formatChatBlocks(this.applyChatLinks(this.unglueChatText(text))),
+                );
             } catch (error) {
                 return text
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
             }
+        },
+
+        unglueChatText(text) {
+            return String(text)
+                .replace(/\u00a0/g, ' ')
+                .replace(/([.!?])([A-ZÀ-Ý])/gu, '$1 $2')
+                .replace(/([a-zà-ÿ])([A-ZÀ-Ý])/gu, '$1\n\n$2')
+                .replace(/\b(artikel\s+\d+)/giu, '\n\n$1')
+                .replace(/[ \t]+\n/g, '\n')
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/[ \t]{2,}/g, ' ')
+                .trim();
         },
 
         formatInlineMarkdown(text) {
@@ -1488,7 +1502,31 @@ export function registerAiChatbot(Alpine) {
 
             flushBullets();
 
-            return parts.join('<br>').replace(/(<br>){3,}/g, '<br><br>');
+            const htmlParts = [];
+            let paragraph = [];
+            const flushParagraph = () => {
+                if (paragraph.length === 0) {
+                    return;
+                }
+                htmlParts.push(`<p class="ai-chat-message__p">${paragraph.join('<br>')}</p>`);
+                paragraph = [];
+            };
+
+            for (const part of parts) {
+                if (typeof part === 'string' && part.startsWith('<ul')) {
+                    flushParagraph();
+                    htmlParts.push(part);
+                    continue;
+                }
+                if (part === '') {
+                    flushParagraph();
+                    continue;
+                }
+                paragraph.push(part);
+            }
+            flushParagraph();
+
+            return htmlParts.join('');
         },
 
         sanitizeChatUrl(url) {

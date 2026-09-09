@@ -591,61 +591,6 @@
         }
         
         // Make table rows clickable (except actions column)
-        function initCompanyMenus() {
-            if (window.KTMenu && typeof window.KTMenu.init === 'function') {
-                try {
-                    window.KTMenu.init();
-                } catch (e) {
-                    console.warn('KTMenu init error:', e);
-                }
-            }
-
-            document.querySelectorAll('#companies_table .kt-menu-toggle').forEach(function(toggle) {
-                if (toggle._companyMenuBound) {
-                    return;
-                }
-                toggle._companyMenuBound = true;
-                toggle.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    var menuItem = toggle.closest('.kt-menu-item');
-                    if (!menuItem) {
-                        return;
-                    }
-                    var dropdown = menuItem.querySelector('.kt-menu-dropdown');
-                    if (!dropdown) {
-                        return;
-                    }
-                    var isShowing = menuItem.classList.contains('show');
-                    document.querySelectorAll('#companies_table .kt-menu-item.show').forEach(function(item) {
-                        if (item !== menuItem) {
-                            item.classList.remove('show');
-                            var otherDropdown = item.querySelector('.kt-menu-dropdown');
-                            if (otherDropdown) {
-                                otherDropdown.style.display = 'none';
-                            }
-                        }
-                    });
-                    if (!isShowing) {
-                        menuItem.classList.add('show');
-                        var rect = toggle.getBoundingClientRect();
-                        dropdown.style.position = 'fixed';
-                        dropdown.style.left = Math.max(8, rect.right - 175) + 'px';
-                        dropdown.style.top = (rect.bottom + 5) + 'px';
-                        dropdown.style.minWidth = '175px';
-                        dropdown.style.width = '175px';
-                        dropdown.style.zIndex = '99999';
-                        dropdown.style.display = 'block';
-                        dropdown.style.visibility = 'visible';
-                        dropdown.style.opacity = '1';
-                    } else {
-                        menuItem.classList.remove('show');
-                        dropdown.style.display = 'none';
-                    }
-                });
-            });
-        }
-
         function initCompanyRowLinks() {
             document.querySelectorAll('#companies_table tr.company-row[data-row-href]').forEach(function(row) {
                 if (row._companyRowBound) {
@@ -665,14 +610,13 @@
         }
 
         window.initCompaniesTablePage = function() {
-            initCompanyMenus();
             initCompanyRowLinks();
         };
 
         window.initCompaniesTablePage();
 
         document.addEventListener('click', function(e) {
-            if (e.target.closest('#companies_table .kt-menu')) {
+            if (e.target.closest('#companies_table .kt-menu, #companies_table .kt-menu-dropdown')) {
                 return;
             }
             document.querySelectorAll('#companies_table .kt-menu-item.show').forEach(function(item) {

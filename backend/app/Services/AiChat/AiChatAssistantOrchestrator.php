@@ -20,6 +20,7 @@ final class AiChatAssistantOrchestrator
         private readonly AiChatMessageSettingsService $messageSettings,
         private readonly AiChatQuoteConversationService $quoteConversation,
         private readonly AiChatProductFaqService $productFaq,
+        private readonly AiChatLiveAnswerService $liveAnswer,
     ) {}
 
     public function handle(
@@ -93,6 +94,12 @@ final class AiChatAssistantOrchestrator
                 $context->companyId,
                 $context->module ?? 'taxi',
             ));
+        }
+
+        if ($intentResult->allowLiveData && $intentResult->intent->requiresLiveData()) {
+            $this->auditLogger->log($context, $intentResult, $message, AiChatDataSource::Sql);
+
+            return new AiChatMessageResult($this->liveAnswer->reply($context, $intentResult));
         }
 
         $sqlToken = $this->sqlTokenService->issue($context, $intentResult);

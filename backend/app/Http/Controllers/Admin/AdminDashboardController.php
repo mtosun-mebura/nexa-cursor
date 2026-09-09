@@ -15,6 +15,7 @@ use App\Services\AdminDashboardModuleContext;
 use App\Services\AdminPaymentOverviewService;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
+use App\Services\PlatformBilling\SuperAdminBillingInsightService;
 use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Services\SystemStackSnapshotService;
 use App\Support\ModuleSchemaAvailability;
@@ -35,6 +36,7 @@ class AdminDashboardController extends Controller
         protected ModuleDatabaseService $moduleDatabaseService,
         protected SystemStackSnapshotService $stackSnapshots,
         protected TenantSubscriptionService $subscriptions,
+        protected SuperAdminBillingInsightService $billingInsights,
     ) {
         $this->envService = $envService;
     }
@@ -160,9 +162,11 @@ class AdminDashboardController extends Controller
 
         $systemStack = null;
         $releaseVersion = null;
+        $saasActionItems = [];
         if (auth()->user()->hasRole('super-admin') && ! session('selected_tenant')) {
             $systemStack = $this->stackSnapshots->labeledStack();
             $releaseVersion = $this->stackSnapshots->currentReleaseVersion();
+            $saasActionItems = $this->billingInsights->dashboardActions();
         }
 
         return view('admin.dashboard', [
@@ -192,6 +196,7 @@ class AdminDashboardController extends Controller
             'recent_rides' => $taxiDashboard['recent_rides'],
             'systemStack' => $systemStack,
             'releaseVersion' => $releaseVersion,
+            'saasActionItems' => $saasActionItems,
         ]);
     }
 

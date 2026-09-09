@@ -234,4 +234,31 @@ class Company extends Model
 
         return CompanyBuildingImages::url($n);
     }
+
+    public function hasAdminLogo(): bool
+    {
+        return filled($this->logo_blob);
+    }
+
+    public function adminLogoLightUrl(): ?string
+    {
+        if (! $this->hasAdminLogo()) {
+            return null;
+        }
+
+        return route('admin.companies.logo', $this);
+    }
+
+    public function adminLogoDarkUrl(): ?string
+    {
+        if (! $this->hasAdminLogo()) {
+            return null;
+        }
+
+        if (filled($this->logo_dark_blob)) {
+            return route('admin.companies.logo.dark', $this);
+        }
+
+        return $this->adminLogoLightUrl();
+    }
 }

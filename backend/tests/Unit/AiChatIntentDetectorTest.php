@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AiChat\AiChatIntentDetector;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AiChatIntentDetectorTest extends TestCase
@@ -255,6 +256,16 @@ class AiChatIntentDetectorTest extends TestCase
             'omzet morgen' => ['Wat is de verwachte omzet van morgen?', AiChatIntent::OmzetMorgen, AiChatResponseMode::Summary],
             'omzet vandaag' => ['Wat is de omzet van vandaag?', AiChatIntent::OmzetVandaag, AiChatResponseMode::Summary],
             'omzet vorige maand' => ['Wat was de omzet vorige maand?', AiChatIntent::OmzetVorigeMaand, AiChatResponseMode::Summary],
+            'omzet deze week' => ['Hoeveel omzet heb ik deze week gedraaid?', AiChatIntent::OmzetDezeWeek, AiChatResponseMode::Summary],
+            'omzet deze maand' => ['Hoeveel omzet heb ik deze maand gedraaid?', AiChatIntent::OmzetDezeMaand, AiChatResponseMode::Summary],
+            'omzet vandaag gedraaid' => ['Hoeveel omzet heb ik vandaag gedraaid?', AiChatIntent::OmzetVandaag, AiChatResponseMode::Summary],
+            'inkomsten overzicht' => ['Hoeveel omzet heb ik gedraaid?', AiChatIntent::InkomstenOverzicht, AiChatResponseMode::Summary],
+            'openstaande facturen' => ['Welke facturen staan nog open?', AiChatIntent::FacturenOpenstaand],
+            'achterstallige facturen' => ['Welke facturen zijn achterstallig?', AiChatIntent::FacturenAchterstallig],
+            'planning chauffeurs' => ['Wat is de planning van de chauffeurs vandaag?', AiChatIntent::PlanningChauffeurs],
+            'ritten deze week' => ['Hoeveel ritten hebben we deze week?', AiChatIntent::RittenDezeWeek, AiChatResponseMode::Count],
+            'ritten uitgevoerd' => ['Hoeveel ritten zijn er uitgevoerd?', AiChatIntent::RittenUitgevoerd, AiChatResponseMode::Count],
+            'ritten uitgevoerd variant' => ['Hoeveel ritten er zijn uitgevoerd?', AiChatIntent::RittenUitgevoerd, AiChatResponseMode::Count],
             'hoogste omzet ritten' => ['Welke ritten hebben de hoogste omzet?', AiChatIntent::RittenHoogsteOmzet, AiChatResponseMode::Summary],
             'luchthavenritten deze maand' => ['Hoeveel luchthavenritten hebben we deze maand uitgevoerd?', AiChatIntent::LuchthavenrittenDezeMaand, AiChatResponseMode::Count],
             'planning zonder chauffeur' => ['Zijn er ritten zonder chauffeur?', AiChatIntent::RittenZonderChauffeur],
@@ -275,5 +286,46 @@ class AiChatIntentDetectorTest extends TestCase
 
         $this->assertSame(AiChatIntent::MijnRit, $result['intent']);
         $this->assertNotSame(AiChatIntent::RittenKomend, $result['intent']);
+    }
+
+    public function test_tenant_abonnement_question_maps_to_platform_intent(): void
+    {
+        $result = $this->detector->detect('Wat is mijn abonnement?', new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Admin,
+            userId: 1,
+        ));
+
+        $this->assertSame(AiChatIntent::PlatformTenantAbonnement, $result['intent']);
+    }
+
+    public function test_named_tenant_abonnement_keeps_company_hint(): void
+    {
+        $result = $this->detector->detect(
+            'Welk abonnement heeft Taxi Tosun?',
+            new AiChatRequestContext(companyId: 0, channel: AiChatChannel::Admin, userId: 1),
+        );
+
+        $this->assertSame(AiChatIntent::PlatformTenantAbonnement, $result['intent']);
+        $this->assertSame('taxi tosun', $result['query_hint']);
+    }
+
+    public function test_super_admin_unpaid_tenants_question(): void
+    {
+        Role::query()->firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        $user = User::factory()->create(['company_id' => null]);
+        $user->assignRole('super-admin');
+
+        $result = $this->detector->detect(
+            'Welke tenants hebben deze maand niet betaald?',
+            new AiChatRequestContext(
+                companyId: 0,
+                channel: AiChatChannel::Admin,
+                userId: $user->id,
+                user: $user,
+            ),
+        );
+
+        $this->assertSame(AiChatIntent::PlatformTenantsOnbetaald, $result['intent']);
     }
 }

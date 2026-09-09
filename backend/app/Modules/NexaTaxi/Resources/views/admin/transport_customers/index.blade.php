@@ -233,49 +233,6 @@
 
 @push('scripts')
 <script>
-function initTransportCustomerMenus() {
-    if (window.KTMenu && typeof window.KTMenu.init === 'function') {
-        try { window.KTMenu.init(); } catch (e) {}
-    }
-
-    document.querySelectorAll('.transport-customers-table-wrap .kt-menu-toggle').forEach(function(toggle) {
-        if (toggle._transportCustomerMenuBound) return;
-        toggle._transportCustomerMenuBound = true;
-        toggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            var menuItem = toggle.closest('.kt-menu-item');
-            if (!menuItem) return;
-            var dropdown = menuItem.querySelector('.kt-menu-dropdown');
-            if (!dropdown) return;
-            var isShowing = menuItem.classList.contains('show');
-            document.querySelectorAll('.transport-customers-table-wrap .kt-menu-item.show').forEach(function(item) {
-                if (item !== menuItem) {
-                    item.classList.remove('show');
-                    var d = item.querySelector('.kt-menu-dropdown');
-                    if (d) d.style.display = 'none';
-                }
-            });
-            if (!isShowing) {
-                menuItem.classList.add('show');
-                var rect = toggle.getBoundingClientRect();
-                dropdown.style.position = 'fixed';
-                dropdown.style.left = (rect.right - 175) + 'px';
-                dropdown.style.top = (rect.bottom + 5) + 'px';
-                dropdown.style.minWidth = '175px';
-                dropdown.style.width = '175px';
-                dropdown.style.zIndex = '99999';
-                dropdown.style.display = 'block';
-                dropdown.style.visibility = 'visible';
-                dropdown.style.opacity = '1';
-            } else {
-                menuItem.classList.remove('show');
-                dropdown.style.display = 'none';
-            }
-        });
-    });
-}
-
 function initTransportCustomerRowLinks() {
     document.querySelectorAll('#transport-customers-table tr[data-row-href]').forEach(function(row) {
         if (row._transportCustomerRowBound) return;
@@ -301,7 +258,6 @@ function initTransportCustomerRowLinks() {
 }
 
 window.initTransportCustomerTablePage = function() {
-    initTransportCustomerMenus();
     initTransportCustomerRowLinks();
 };
 

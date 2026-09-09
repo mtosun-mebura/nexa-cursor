@@ -76,6 +76,12 @@ body.dark #header [data-ai-chat-toggle] svg,
     padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px)) !important;
 }
 
+#header #admin-header-flash {
+    min-width: 0;
+    flex: 1 1 auto;
+    margin-right: auto;
+}
+
 @media (min-width: 1024px) {
     #header #headerContainer {
         padding-inline-start: 0 !important;
@@ -1081,9 +1087,11 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 .admin-table-scroll-wrap td.admin-table__actions-col .kt-menu-dropdown,
 .admin-desktop-table-wrap td.admin-table__actions-col .kt-menu-dropdown,
 .admin-table-scroll-wrap td:last-child .kt-menu-dropdown,
-.admin-desktop-table-wrap td:last-child .kt-menu-dropdown {
+.admin-desktop-table-wrap td:last-child .kt-menu-dropdown,
+#content table .kt-menu-dropdown {
     position: fixed !important;
     z-index: 99999 !important;
+    pointer-events: auto !important;
 }
 
 .admin-table-scroll-wrap td.admin-table__actions-col .kt-menu-item.show .kt-menu-dropdown,

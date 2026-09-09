@@ -209,6 +209,10 @@
         </div>
     </div>
 
+    @if($isSuperAdmin)
+        @include('admin.dashboard.partials.saas-actions', ['saasActionItems' => $saasActionItems ?? []])
+    @endif
+
     @if($isSuperAdmin && !empty($tenantPaymentRows))
     <div class="grid gap-5 grid-cols-1">
         <div class="kt-card w-full min-w-0">
