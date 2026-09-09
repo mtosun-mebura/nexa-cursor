@@ -15,10 +15,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5">{{ session('success') }}</div>
-    @endif
-
     <form action="{{ route('admin.taxi.tarieven.update') }}" method="POST">
         @csrf
         @method('PUT')

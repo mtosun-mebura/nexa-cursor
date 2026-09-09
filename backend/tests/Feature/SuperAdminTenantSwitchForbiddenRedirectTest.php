@@ -33,6 +33,24 @@ class SuperAdminTenantSwitchForbiddenRedirectTest extends TestCase
     }
 
     #[Test]
+    public function tenant_forbidden_warning_is_shown_in_the_admin_header(): void
+    {
+        $tenantA = Company::query()->create(['name' => 'Tenant A', 'is_active' => true]);
+        $tenantB = Company::query()->create(['name' => 'Tenant B', 'is_active' => true]);
+        $super = User::factory()->create();
+        $super->assignRole('super-admin');
+
+        $this->actingAs($super)
+            ->withSession(['selected_tenant' => $tenantB->id])
+            ->followingRedirects()
+            ->get(route('admin.companies.edit', $tenantA))
+            ->assertOk()
+            ->assertSee('admin-header-toast', false)
+            ->assertSee('kt-alert-warning', false)
+            ->assertSee('Deze pagina is niet beschikbaar voor de gekozen tenant');
+    }
+
+    #[Test]
     public function super_admin_can_open_the_selected_tenant_company_page(): void
     {
         $tenant = Company::query()->create(['name' => 'Huidige tenant', 'is_active' => true]);

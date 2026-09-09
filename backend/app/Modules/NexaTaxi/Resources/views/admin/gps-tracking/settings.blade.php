@@ -67,9 +67,6 @@
         </a>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5">{{ session('success') }}</div>
-    @endif
     @if($errors->has('tenant'))
         <div class="kt-alert kt-alert-warning mb-5">{{ $errors->first('tenant') }}</div>
     @endif

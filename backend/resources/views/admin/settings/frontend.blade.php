@@ -11,25 +11,6 @@
         </h1>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if($errors->any())
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-information me-2"></i>
-            <strong>Er zijn validatiefouten opgetreden:</strong>
-            <ul class="mb-0 mt-2">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <div class="grid gap-5 lg:gap-7.5">
         <!-- Coming Soon pagina -->
         <div class="kt-card min-w-full">

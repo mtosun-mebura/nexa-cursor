@@ -8,10 +8,6 @@
                 Oude backups worden automatisch verwijderd na de ingestelde bewaartermijn.
             </p>
 
-            <div id="database-backups-flash" class="@if(! session('database_backup_error')) hidden @endif rounded-md border px-3 py-2 text-sm @if(session('database_backup_error')) border-destructive/60 bg-destructive/10 text-destructive @endif" role="status">
-                {{ session('database_backup_error') }}
-            </div>
-
             <form method="POST" action="{{ route('admin.settings.database-backups.update') }}" id="database-backup-settings-form" class="space-y-4">
                 @csrf
                 <div class="flex items-center justify-between gap-3 rounded-md border border-border p-4">
@@ -279,7 +275,6 @@
     const bulkDeleteBtn = document.getElementById('database-backups-bulk-delete');
     const bulkCountEl = document.getElementById('database-backups-bulk-count');
     const list = document.getElementById('database-backups-list');
-    const flash = document.getElementById('database-backups-flash');
     if (!card || !refreshBtn) {
         return;
     }
@@ -434,17 +429,14 @@
     }
 
     function showFlash(message, isError) {
-        if (!flash) {
+        if (typeof window.showAdminHeaderFlash === 'function') {
+            window.showAdminHeaderFlash(isError ? 'error' : 'success', message);
             return;
         }
-        flash.textContent = message || '';
-        flash.classList.toggle('hidden', !message);
-        flash.classList.toggle('border-destructive/60', !!isError);
-        flash.classList.toggle('bg-destructive/10', !!isError);
-        flash.classList.toggle('text-destructive', !!isError);
-        flash.classList.toggle('border-border', !isError && !!message);
-        flash.classList.toggle('bg-muted/20', !isError && !!message);
-        flash.classList.toggle('text-foreground', !isError && !!message);
+        if (!message) {
+            return;
+        }
+        window.alert(message);
     }
 
     function refreshBackupTable(options) {

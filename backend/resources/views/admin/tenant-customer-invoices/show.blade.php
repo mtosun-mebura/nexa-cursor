@@ -3,8 +3,6 @@
 @section('content')
 <div class="kt-container-fixed max-w-2xl">
     <h1 class="text-xl font-semibold mb-4">{{ $invoice->invoice_number }}</h1>
-    @if(session('success'))<div class="kt-alert kt-alert-success mb-4">{{ session('success') }}</div>@endif
-    @if(session('error'))<div class="kt-alert kt-alert-danger mb-4">{{ session('error') }}</div>@endif
     <div class="kt-card p-6 space-y-2 text-sm mb-6">
         <p><strong>Klant:</strong> {{ $invoice->customer_name }}</p>
         <p><strong>Totaal:</strong> € {{ number_format((float)$invoice->total_amount, 2, ',', '.') }}</p>

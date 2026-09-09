@@ -19,13 +19,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert" id="success-alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
     <form method="POST" action="{{ route('admin.invoices.settings.update') }}" data-validate="true">
         @csrf
         

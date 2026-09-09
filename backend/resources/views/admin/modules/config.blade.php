@@ -98,20 +98,6 @@
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
-            @if(session('success'))
-                <div class="kt-alert kt-alert-success" id="success-alert" role="alert">
-                    <i class="ki-filled ki-check-circle me-2"></i>
-                    {{ session('success') }}
-                </div>
-            @endif
-
-            @if(session('error'))
-                <div class="kt-alert kt-alert-danger" id="error-alert" role="alert">
-                    <i class="ki-filled ki-cross-circle me-2"></i>
-                    {{ session('error') }}
-                </div>
-            @endif
-
             <!-- Applicatie naam en omschrijving (meta, header, logo's) -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">

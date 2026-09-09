@@ -87,17 +87,6 @@
     </div>
     <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per <strong>tenant</strong> kies je hieronder welk thema op die website komt. Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-destructive mb-5">
-            <i class="ki-filled ki-information-2 me-2"></i> {{ session('error') }}
-        </div>
-    @endif
-
     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         @foreach($themes as $theme)
             @php

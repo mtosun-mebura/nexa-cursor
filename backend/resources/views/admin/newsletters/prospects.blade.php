@@ -20,18 +20,6 @@
         </div>
     </div>
 
-    @if(session('success') || request()->integer('discovered') > 0)
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') ?: request()->integer('discovered').' bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon.' }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-cross-circle" aria-hidden="true"></i>
-            <span>{{ session('error') }}</span>
-        </div>
-    @endif
     @if($errors->any())
         <div class="kt-alert kt-alert-danger mb-5" role="alert">
             <i class="ki-filled ki-cross-circle" aria-hidden="true"></i>

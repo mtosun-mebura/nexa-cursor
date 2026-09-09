@@ -27,12 +27,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-
     @if($errors->any())
         <div class="kt-alert kt-alert-danger mb-5" role="alert">
             <ul class="list-disc list-inside">

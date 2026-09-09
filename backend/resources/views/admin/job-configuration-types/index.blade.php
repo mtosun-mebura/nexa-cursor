@@ -60,21 +60,6 @@
         @endif
     </div>
 
-    <!-- Success/Error Alerts -->
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" id="error-alert" role="alert">
-            <i class="ki-filled ki-cross-circle me-2"></i>
-            {{ session('error') }}
-        </div>
-    @endif
-
     <!-- Statistics Cards -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">

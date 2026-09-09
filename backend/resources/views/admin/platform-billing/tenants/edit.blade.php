@@ -21,19 +21,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-destructive mb-5" role="alert">
-            <i class="ki-filled ki-information-2 me-2"></i>
-            {{ session('error') }}
-        </div>
-    @endif
-
     <form method="POST"
           action="{{ route('admin.platform-billing.tenants.update', $company) }}"
           data-validate="true"

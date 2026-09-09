@@ -10,13 +10,6 @@
         <h1 class="text-xl font-medium leading-none text-mono">Ritten</h1>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5"><i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5"><i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}</div>
-    @endif
-
     @include('taxi::admin.ride_requests.partials.monthly-stats')
 
     <div class="kt-card w-full min-w-0">

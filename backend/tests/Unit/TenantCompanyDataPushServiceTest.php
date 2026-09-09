@@ -46,6 +46,20 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function sync_scope_excludes_environment_runtime_tables(): void
+    {
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $tables = $scope['tables_with_company_id'] ?? [];
+        $excluded = $scope['excluded_tables'] ?? [];
+
+        $this->assertContains('notifications', $excluded);
+        $this->assertContains('incidents', $excluded);
+        $this->assertContains('incident_comments', $excluded);
+        $this->assertNotContains('notifications', $tables);
+        $this->assertNotContains('incidents', $tables);
+    }
+
+    #[Test]
     public function sync_scope_lists_taxi_module_tables(): void
     {
         $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();

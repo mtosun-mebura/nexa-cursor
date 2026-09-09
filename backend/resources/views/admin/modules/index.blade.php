@@ -11,14 +11,6 @@
         </h1>
     </div>
 
-    <!-- Success Alert -->
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
     @if(session('info'))
         <div class="kt-alert kt-alert-info mb-5" id="info-alert" role="alert">
             <i class="ki-filled ki-information-5 me-2"></i>
