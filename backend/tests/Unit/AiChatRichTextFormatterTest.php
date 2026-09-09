@@ -41,4 +41,19 @@ class AiChatRichTextFormatterTest extends TestCase
         $this->assertStringContainsString('- Tweede punt', $result);
         $this->assertStringNotContainsString('<li>', $result);
     }
+
+    public function test_unglues_pdf_sentences_and_headings(): void
+    {
+        $formatter = new AiChatRichTextFormatter();
+
+        $result = $formatter->ungluePdfText(
+            'Algemene Voorwaarden Zorgvervoer en TaxiDe onderstaande tekst.A Gedeponeerd 2020.Artikel 1 BegripsomschrijvingIn deze voorwaarden'
+        );
+
+        $this->assertStringContainsString('Taxi', $result);
+        $this->assertStringContainsString('De onderstaande tekst.', $result);
+        $this->assertStringContainsString('Artikel 1', $result);
+        $this->assertDoesNotMatchRegularExpression('/TaxiDe/', $result);
+        $this->assertDoesNotMatchRegularExpression('/2020\.Artikel/', $result);
+    }
 }

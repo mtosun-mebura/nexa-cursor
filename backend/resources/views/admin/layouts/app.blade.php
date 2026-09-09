@@ -432,25 +432,39 @@
         }
 
         /* Flash success: iets donkerder groen (leesbaarder) */
-        #content .kt-alert.kt-alert-success {
+        #content .kt-alert.kt-alert-success,
+        .admin-fixed-toast.kt-alert-success,
+        .admin-header-toast.kt-alert-success {
             background-color: rgba(5, 120, 85, 0.14) !important;
             border: 1px solid rgb(4, 120, 87) !important;
             color: rgb(6, 78, 59) !important;
         }
-        #content .kt-alert.kt-alert-success .ki-filled {
+        #content .kt-alert.kt-alert-success .ki-filled,
+        .admin-fixed-toast.kt-alert-success .ki-filled,
+        .admin-header-toast.kt-alert-success .ki-filled {
             color: rgb(4, 120, 87) !important;
         }
-        .dark #content .kt-alert.kt-alert-success {
+        .dark #content .kt-alert.kt-alert-success,
+        .dark .admin-fixed-toast.kt-alert-success,
+        html.dark .admin-fixed-toast.kt-alert-success,
+        .dark .admin-header-toast.kt-alert-success,
+        html.dark .admin-header-toast.kt-alert-success {
             background-color: rgba(16, 185, 129, 0.18) !important;
             border-color: rgb(52, 211, 153) !important;
             color: rgb(209, 250, 229) !important;
         }
-        .dark #content .kt-alert.kt-alert-success .ki-filled {
+        .dark #content .kt-alert.kt-alert-success .ki-filled,
+        .dark .admin-fixed-toast.kt-alert-success .ki-filled,
+        html.dark .admin-fixed-toast.kt-alert-success .ki-filled,
+        .dark .admin-header-toast.kt-alert-success .ki-filled,
+        html.dark .admin-header-toast.kt-alert-success .ki-filled {
             color: rgb(167, 243, 208) !important;
         }
 
         /* Flash danger: rode tekst, icoon naast de bovenste regel */
-        #content .kt-alert.kt-alert-danger {
+        #content .kt-alert.kt-alert-danger,
+        .admin-fixed-toast.kt-alert-danger,
+        .admin-header-toast.kt-alert-danger {
             display: flex !important;
             align-items: flex-start !important;
             gap: 0.625rem;
@@ -461,7 +475,9 @@
         #content .kt-alert.kt-alert-danger.hidden {
             display: none !important;
         }
-        #content .kt-alert.kt-alert-danger > .ki-filled {
+        #content .kt-alert.kt-alert-danger > .ki-filled,
+        .admin-fixed-toast.kt-alert-danger > .ki-filled,
+        .admin-header-toast.kt-alert-danger > .ki-filled {
             position: relative;
             display: inline-flex !important;
             align-items: center;
@@ -474,14 +490,18 @@
             line-height: 1 !important;
             color: rgb(220, 38, 38) !important;
         }
-        #content .kt-alert.kt-alert-danger > .ki-filled::before {
+        #content .kt-alert.kt-alert-danger > .ki-filled::before,
+        .admin-fixed-toast.kt-alert-danger > .ki-filled::before,
+        .admin-header-toast.kt-alert-danger > .ki-filled::before {
             position: absolute !important;
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
             line-height: 1;
         }
-        #content .kt-alert.kt-alert-danger > .ki-filled::after {
+        #content .kt-alert.kt-alert-danger > .ki-filled::after,
+        .admin-fixed-toast.kt-alert-danger > .ki-filled::after,
+        .admin-header-toast.kt-alert-danger > .ki-filled::after {
             line-height: 1;
         }
         #content .kt-alert.kt-alert-danger > span,
@@ -491,16 +511,24 @@
             margin-bottom: 0;
             color: inherit;
         }
-        .dark #content .kt-alert.kt-alert-danger {
+        .dark #content .kt-alert.kt-alert-danger,
+        .dark .admin-fixed-toast.kt-alert-danger,
+        html.dark .admin-fixed-toast.kt-alert-danger,
+        .dark .admin-header-toast.kt-alert-danger,
+        html.dark .admin-header-toast.kt-alert-danger {
             background-color: rgba(239, 68, 68, 0.16) !important;
             border-color: rgb(239, 68, 68) !important;
             color: rgb(248, 113, 113) !important;
         }
-        .dark #content .kt-alert.kt-alert-danger > .ki-filled {
+        .dark #content .kt-alert.kt-alert-danger > .ki-filled,
+        .dark .admin-fixed-toast.kt-alert-danger > .ki-filled,
+        html.dark .admin-fixed-toast.kt-alert-danger > .ki-filled,
+        .dark .admin-header-toast.kt-alert-danger > .ki-filled,
+        html.dark .admin-header-toast.kt-alert-danger > .ki-filled {
             color: rgb(248, 113, 113) !important;
         }
 
-        /* Vaste meldingen rechtsboven: boven sticky header (z-index 9999) */
+        /* Vaste meldingen onder de header, over de pagina heen */
         .admin-fixed-toast {
             position: fixed;
             right: 1.25rem;
@@ -511,6 +539,12 @@
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
             pointer-events: auto;
         }
+        .admin-fixed-toast.kt-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            margin: 0;
+        }
         @media (min-width: 640px) {
             .admin-fixed-toast {
                 width: auto;
@@ -518,6 +552,37 @@
         }
         .dark .admin-fixed-toast {
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+        }
+
+        #admin-header-flash.admin-header-flash {
+            min-width: 0;
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            margin-right: auto;
+            padding-inline-start: 0.25rem;
+            pointer-events: none;
+        }
+        #admin-header-flash .admin-header-toast {
+            pointer-events: auto;
+            display: inline-flex !important;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            max-width: 100%;
+            padding: 0.35rem 0.75rem;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #admin-header-flash .admin-header-toast .ki-filled {
+            flex-shrink: 0;
+        }
+        @media (min-width: 1024px) {
+            #admin-header-flash.admin-header-flash {
+                padding-inline-start: 0.75rem;
+            }
         }
 
         html[data-sidebar-scroll-pending="1"] #sidebar_scrollable {

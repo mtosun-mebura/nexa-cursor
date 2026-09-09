@@ -70,6 +70,12 @@ final class AiChatAccessService
             return $this->userMayQueryOwnRides($context->user);
         }
 
+        if ($intent->isPlatformWideIntent()) {
+            return $context->isAdminChannel()
+                && $context->user !== null
+                && $context->user->hasRole('super-admin');
+        }
+
         if (! $intent->requiresLiveData()) {
             return false;
         }

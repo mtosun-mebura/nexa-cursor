@@ -105,7 +105,7 @@ final class AiChatContextResolver
         if ($user->hasRole('super-admin')) {
             $tenantId = session('selected_tenant');
 
-            return $tenantId ? (int) $tenantId : null;
+            return $tenantId ? (int) $tenantId : 0;
         }
 
         return $user->company_id ? (int) $user->company_id : null;

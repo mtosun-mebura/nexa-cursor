@@ -53,17 +53,12 @@
                         <!-- Logo and Header Info -->
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                @if($invoice->company && $invoice->company->logo_blob)
-                                    @php
-                                        $companyLogoDarkUrl = ! empty($invoice->company->logo_dark_blob)
-                                            ? route('admin.companies.logo.dark', $invoice->company)
-                                            : route('admin.companies.logo', $invoice->company);
-                                    @endphp
-                                    <img class="h-12 w-auto max-w-[220px] object-contain logo-light dark:hidden"
-                                         src="{{ route('admin.companies.logo', $invoice->company) }}"
+                                @if($invoice->company && $invoice->company->hasAdminLogo())
+                                    <img class="h-12 w-auto max-w-[220px] object-contain logo-light"
+                                         src="{{ $invoice->company->adminLogoLightUrl() }}"
                                          alt="{{ $invoice->company->name }}">
-                                    <img class="h-12 w-auto max-w-[220px] object-contain logo-dark hidden dark:block"
-                                         src="{{ $companyLogoDarkUrl }}"
+                                    <img class="h-12 w-auto max-w-[220px] object-contain logo-dark"
+                                         src="{{ $invoice->company->adminLogoDarkUrl() }}"
                                          alt="{{ $invoice->company->name }}">
                                 @elseif($invoice->company)
                                     <span class="text-lg font-semibold text-mono">{{ $invoice->company->name }}</span>

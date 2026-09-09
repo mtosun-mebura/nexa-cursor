@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
@@ -9,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 class AdminLogo
 {
     /**
-     * Logo URLs for admin UI (mirrors sidebar priority: settings, company, default).
+     * Logo URLs for admin UI (tenant in zijbalk, anders settings, anders eigen bedrijf, anders default).
      *
      * @return array{
      *     source: 'settings'|'company'|'default',
@@ -23,6 +24,14 @@ class AdminLogo
         $user ??= auth()->user();
         $fallbackLight = NexaBranding::defaultLogoUrl();
         $fallbackDark = NexaBranding::defaultLogoDarkUrl();
+
+        $selectedTenantId = (int) session('selected_tenant');
+        if ($selectedTenantId > 0) {
+            $fromTenant = self::urlsFromCompany(Company::query()->find($selectedTenantId));
+            if ($fromTenant !== null) {
+                return $fromTenant;
+            }
+        }
 
         $settingsLogo = trim((string) (GeneralSetting::get('logo') ?? ''));
         if ($settingsLogo === '') {
@@ -53,19 +62,9 @@ class AdminLogo
             ];
         }
 
-        $company = $user?->company;
-        if ($company && $company->logo_blob) {
-            $logoLightUrl = route('admin.companies.logo', $company);
-            $logoDarkUrl = ! empty($company->logo_dark_blob)
-                ? route('admin.companies.logo.dark', $company)
-                : $logoLightUrl;
-
-            return [
-                'source' => 'company',
-                'light_url' => $logoLightUrl,
-                'dark_url' => $logoDarkUrl,
-                'alt' => (string) $company->name,
-            ];
+        $fromUserCompany = self::urlsFromCompany($user?->company);
+        if ($fromUserCompany !== null) {
+            return $fromUserCompany;
         }
 
         return [
@@ -108,6 +107,40 @@ class AdminLogo
         }
 
         return NexaBranding::defaultLogoDataUri();
+    }
+
+    public static function userCanViewCompanyLogo(?User $user, Company $company): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->can('view-companies')) {
+            return true;
+        }
+
+        return (int) $user->company_id === (int) $company->id;
+    }
+
+    /**
+     * @return array{source: 'company', light_url: string, dark_url: string, alt: string}|null
+     */
+    private static function urlsFromCompany(?Company $company): ?array
+    {
+        if (! $company?->hasAdminLogo()) {
+            return null;
+        }
+
+        return [
+            'source' => 'company',
+            'light_url' => (string) $company->adminLogoLightUrl(),
+            'dark_url' => (string) $company->adminLogoDarkUrl(),
+            'alt' => (string) $company->name,
+        ];
     }
 
     private static function storagePathToDataUri(string $storagePath): ?string

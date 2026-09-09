@@ -25,6 +25,7 @@ enum AiChatIntent: string
     case RittenMorgen = 'ritten_morgen';
     case RittenVandaag = 'ritten_vandaag';
     case RittenKomend = 'ritten_komend';
+    case RittenUitgevoerd = 'ritten_uitgevoerd';
     case OpenRitten = 'open_ritten';
     case RittenGeannuleerd = 'ritten_geannuleerd';
     case RittenZonderChauffeur = 'ritten_zonder_chauffeur';
@@ -52,13 +53,36 @@ enum AiChatIntent: string
     // Admin — omzet
     case OmzetVandaag = 'omzet_vandaag';
     case OmzetMorgen = 'omzet_morgen';
+    case OmzetDezeWeek = 'omzet_deze_week';
+    case OmzetDezeMaand = 'omzet_deze_maand';
+    case OmzetDitJaar = 'omzet_dit_jaar';
     case OmzetVorigeMaand = 'omzet_vorige_maand';
+    case InkomstenOverzicht = 'inkomsten_overzicht';
     case LuchthavenrittenDezeMaand = 'luchthavenritten_deze_maand';
+
+    // Admin — ritten extra periodes
+    case RittenDezeWeek = 'ritten_deze_week';
+    case RittenDezeMaand = 'ritten_deze_maand';
+
+    // Admin — facturen (klantfacturen van de tenant)
+    case FacturenOpenstaand = 'facturen_openstaand';
+    case FacturenBetaald = 'facturen_betaald';
+    case FacturenAchterstallig = 'facturen_achterstallig';
+    case FacturenOverzicht = 'facturen_overzicht';
 
     // Admin — planning & voertuigen
     case Planning = 'planning';
+    case PlanningChauffeurs = 'planning_chauffeurs';
+    case ChauffeursOnline = 'chauffeurs_online';
+    case ChauffeursOverzicht = 'chauffeurs_overzicht';
     case VoertuigenMorgen = 'voertuigen_morgen';
     case VoertuigenBeschikbaar = 'voertuigen_beschikbaar';
+
+    // Super-admin / tenant — NEXA-abonnement en SaaS-facturen
+    case PlatformTenantAbonnement = 'platform_tenant_abonnement';
+    case PlatformTenantFacturen = 'platform_tenant_facturen';
+    case PlatformTenantsOnbetaald = 'platform_tenants_onbetaald';
+    case PlatformActiesNodig = 'platform_acties_nodig';
 
     /**
      * @return list<self>
@@ -85,6 +109,7 @@ enum AiChatIntent: string
             self::RittenMorgen,
             self::RittenVandaag,
             self::RittenKomend,
+            self::RittenUitgevoerd,
             self::OpenRitten,
             self::RittenGeannuleerd,
             self::RittenZonderChauffeur,
@@ -106,11 +131,28 @@ enum AiChatIntent: string
             self::KlantenNieuwDezeMaand,
             self::OmzetVandaag,
             self::OmzetMorgen,
+            self::OmzetDezeWeek,
+            self::OmzetDezeMaand,
+            self::OmzetDitJaar,
             self::OmzetVorigeMaand,
+            self::InkomstenOverzicht,
             self::LuchthavenrittenDezeMaand,
+            self::RittenDezeWeek,
+            self::RittenDezeMaand,
+            self::FacturenOpenstaand,
+            self::FacturenBetaald,
+            self::FacturenAchterstallig,
+            self::FacturenOverzicht,
             self::Planning,
+            self::PlanningChauffeurs,
+            self::ChauffeursOnline,
+            self::ChauffeursOverzicht,
             self::VoertuigenMorgen,
             self::VoertuigenBeschikbaar,
+            self::PlatformTenantAbonnement,
+            self::PlatformTenantFacturen,
+            self::PlatformTenantsOnbetaald,
+            self::PlatformActiesNodig,
         ];
     }
 
@@ -132,5 +174,64 @@ enum AiChatIntent: string
     public function isCustomerOwnData(): bool
     {
         return $this === self::MijnRit;
+    }
+
+    public function isPlatformIntent(): bool
+    {
+        return in_array($this, [
+            self::PlatformTenantAbonnement,
+            self::PlatformTenantFacturen,
+            self::PlatformTenantsOnbetaald,
+            self::PlatformActiesNodig,
+        ], true);
+    }
+
+    public function isPlatformWideIntent(): bool
+    {
+        return in_array($this, [
+            self::PlatformTenantsOnbetaald,
+            self::PlatformActiesNodig,
+        ], true);
+    }
+
+    public function allowsCompanyIdZero(): bool
+    {
+        return $this->isPlatformIntent();
+    }
+
+    public function usesTaxiDatabase(): bool
+    {
+        if (! $this->requiresLiveData()) {
+            return false;
+        }
+
+        if ($this->isPlatformIntent() || $this->usesCompanyInvoices()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function usesCompanyInvoices(): bool
+    {
+        return in_array($this, [
+            self::FacturenOpenstaand,
+            self::FacturenBetaald,
+            self::FacturenAchterstallig,
+            self::FacturenOverzicht,
+        ], true);
+    }
+
+    public function isRevenueIntent(): bool
+    {
+        return in_array($this, [
+            self::OmzetVandaag,
+            self::OmzetMorgen,
+            self::OmzetDezeWeek,
+            self::OmzetDezeMaand,
+            self::OmzetDitJaar,
+            self::OmzetVorigeMaand,
+            self::InkomstenOverzicht,
+        ], true);
     }
 }

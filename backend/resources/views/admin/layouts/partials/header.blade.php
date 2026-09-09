@@ -13,12 +13,16 @@
                 <i class="ki-filled ki-menu" aria-hidden="true"></i>
             </button>
             <a class="shrink-0 flex items-center" href="{{ route('admin.dashboard') }}">
+                @php $adminHeaderLogo = \App\Support\AdminLogo::displayUrls(); @endphp
                 @include('partials.nexa-brand-logo', [
                     'class' => 'h-[30px] w-auto max-w-[220px] object-contain',
-                    'alt' => 'NEXA Suite',
+                    'alt' => $adminHeaderLogo['alt'],
+                    'lightSrc' => $adminHeaderLogo['light_url'],
+                    'darkSrc' => $adminHeaderLogo['dark_url'],
                 ])
             </a>
         </div>
+        <div id="admin-header-flash" class="admin-header-flash min-w-0 flex-1 flex items-center" aria-live="polite"></div>
         <!-- Topbar -->
         <div class="flex items-center gap-2.5 shrink-0 ms-auto">
             @include('admin.layouts.partials.ai-chatbot-trigger')

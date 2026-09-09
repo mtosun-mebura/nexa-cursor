@@ -70,7 +70,8 @@ class AdminCompanySubscriptionTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('admin.subscriptions.show'))
-            ->assertForbidden();
+            ->assertRedirect(route('admin.dashboard'))
+            ->assertSessionHas('warning');
     }
 
     #[Test]

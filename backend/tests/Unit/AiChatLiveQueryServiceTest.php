@@ -48,6 +48,8 @@ class AiChatLiveQueryServiceTest extends TestCase
             $table->string('customer_name');
             $table->string('customer_phone')->nullable();
             $table->string('customer_email')->nullable();
+            $table->decimal('quoted_price', 10, 2)->nullable();
+            $table->decimal('final_price', 10, 2)->nullable();
         });
 
         DB::connection('module_taxi_test')->table('vehicles')->insert([
@@ -206,5 +208,138 @@ class AiChatLiveQueryServiceTest extends TestCase
         $this->assertSame('Taxi 1', $result['rows'][0]['vehicle_name']);
         $this->assertSame('06-11112222', $result['rows'][0]['customer_phone']);
         $this->assertSame('Aangeboden', $result['rows'][0]['status_label']);
+    }
+
+    public function test_revenue_today_sums_non_cancelled_rides(): void
+    {
+        DB::connection('module_taxi_test')->table('ride_requests')->insert([
+            'company_id' => 2,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->setTime(11, 0),
+            'customer_name' => 'Omzet Klant',
+            'quoted_price' => 40,
+            'final_price' => 50,
+        ]);
+
+        $result = $this->liveQuery()->execute(AiChatIntent::OmzetVandaag, $this->adminClaims(AiChatIntent::OmzetVandaag));
+
+        $this->assertSame(1, $result['count']);
+        $this->assertSame(50.0, $result['summary']['total_amount']);
+        $this->assertSame('vandaag', $result['summary']['label']);
+    }
+
+    public function test_revenue_this_week_includes_today(): void
+    {
+        DB::connection('module_taxi_test')->table('ride_requests')->insert([
+            'company_id' => 2,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->setTime(11, 0),
+            'customer_name' => 'Week Klant',
+            'quoted_price' => 25,
+            'final_price' => 25,
+        ]);
+
+        $result = $this->liveQuery()->execute(AiChatIntent::OmzetDezeWeek, $this->adminClaims(AiChatIntent::OmzetDezeWeek));
+
+        $this->assertGreaterThanOrEqual(25.0, (float) $result['summary']['total_amount']);
+        $this->assertSame('deze week', $result['summary']['label']);
+    }
+
+    public function test_completed_rides_count_ignores_upcoming(): void
+    {
+        DB::connection('module_taxi_test')->table('ride_requests')->insert([
+            [
+                'company_id' => 2,
+                'status' => RideRequest::STATUS_COMPLETED,
+                'pickup_address' => 'Klaar',
+                'dropoff_address' => 'Bestemming',
+                'pickup_at' => now()->subDay(),
+                'customer_name' => 'Klaar Klant',
+            ],
+            [
+                'company_id' => 2,
+                'status' => RideRequest::STATUS_ACCEPTED,
+                'pickup_address' => 'Nog niet',
+                'dropoff_address' => 'Later',
+                'pickup_at' => now()->addHour(),
+                'customer_name' => 'Open Klant',
+            ],
+        ]);
+
+        $claims = $this->adminClaims(AiChatIntent::RittenUitgevoerd);
+        $claims['response_mode'] = 'count';
+
+        $result = $this->liveQuery()->execute(AiChatIntent::RittenUitgevoerd, $claims);
+
+        $this->assertSame(1, $result['count']);
+        $this->assertSame(1, $result['summary']['ride_count']);
+    }
+
+    public function test_company_open_invoices_are_scoped_to_tenant(): void
+    {
+        $company = \App\Models\Company::query()->create(['name' => 'Factuur Taxi', 'is_active' => true]);
+        $other = \App\Models\Company::query()->create(['name' => 'Andere Taxi', 'is_active' => true]);
+
+        \App\Models\Invoice::query()->create([
+            'invoice_number' => 'FT-1',
+            'company_id' => $company->id,
+            'customer_name' => 'Klant A',
+            'amount' => 100,
+            'tax_amount' => 21,
+            'total_amount' => 121,
+            'currency' => 'EUR',
+            'status' => 'sent',
+            'invoice_date' => now(),
+            'due_date' => now()->addDays(7),
+        ]);
+        \App\Models\Invoice::query()->create([
+            'invoice_number' => 'OT-1',
+            'company_id' => $other->id,
+            'customer_name' => 'Klant B',
+            'amount' => 200,
+            'tax_amount' => 42,
+            'total_amount' => 242,
+            'currency' => 'EUR',
+            'status' => 'sent',
+            'invoice_date' => now(),
+            'due_date' => now()->addDays(7),
+        ]);
+
+        $result = $this->liveQuery()->execute(
+            AiChatIntent::FacturenOpenstaand,
+            $this->adminClaims(AiChatIntent::FacturenOpenstaand, $company->id),
+        );
+
+        $this->assertSame(1, $result['count']);
+        $this->assertSame('FT-1', $result['rows'][0]['invoice_number']);
+    }
+
+    private function liveQuery(): AiChatLiveQueryService
+    {
+        return new AiChatLiveQueryService(
+            app(ModuleDatabaseService::class),
+            new AiChatSqlGuardService(),
+            app(AiChatTaxiRoleQueryService::class),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminClaims(AiChatIntent $intent, int $companyId = 2): array
+    {
+        return [
+            'company_id' => $companyId,
+            'user_id' => 1,
+            'channel' => AiChatChannel::Admin->value,
+            'intent' => $intent->value,
+            'allow_live_data' => true,
+            'allow_public_rates' => false,
+            'exp' => now()->addMinute()->timestamp,
+        ];
     }
 }

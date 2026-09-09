@@ -257,8 +257,7 @@ Route::get('/company-logo/{company}', function ($companyId) {
         abort(404);
     }
 
-    // Check if user has permission to view companies
-    if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-companies')) {
+    if (! \App\Support\AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
         abort(403);
     }
 
@@ -285,7 +284,7 @@ Route::get('/company-logo/{company}/dark', function ($companyId) {
         abort(404);
     }
 
-    if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-companies')) {
+    if (! \App\Support\AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
         abort(403);
     }
 
@@ -616,12 +615,16 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('notifications/archive-selected', [AdminNotificationController::class, 'archiveSelected'])->name('notifications.archive-selected');
     Route::post('notifications/{notification}/mark-read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.mark-read');
     Route::post('notifications/{notification}/respond-interview', [AdminNotificationController::class, 'respondToInterview'])->name('notifications.respond-interview');
+    Route::delete('notifications/bulk', [AdminNotificationController::class, 'bulkDestroy'])->name('notifications.bulk-destroy');
     Route::resource('notifications', AdminNotificationController::class);
 
     Route::get('incidents', [AdminIncidentController::class, 'index'])->name('incidents.index');
     Route::get('incidents/list', [AdminIncidentController::class, 'list'])->name('incidents.list');
     Route::post('incidents/archive', [AdminIncidentController::class, 'archive'])->name('incidents.archive');
     Route::post('incidents', [AdminIncidentController::class, 'store'])->name('incidents.store');
+    Route::get('incidents/{incident}/screenshots/{index}', [AdminIncidentController::class, 'screenshot'])
+        ->whereNumber('index')
+        ->name('incidents.screenshot');
     Route::get('incidents/{incident}', [AdminIncidentController::class, 'show'])->name('incidents.show');
     Route::patch('incidents/{incident}', [AdminIncidentController::class, 'update'])->name('incidents.update');
     Route::post('incidents/{incident}/comments', [AdminIncidentController::class, 'storeComment'])->name('incidents.comments.store');

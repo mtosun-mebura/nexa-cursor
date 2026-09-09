@@ -34,16 +34,8 @@
     <!-- Container -->
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
-            @if($company->logo_blob)
-                @php
-                    $companyHeroLogoDarkUrl = ! empty($company->logo_dark_blob)
-                        ? route('admin.companies.logo.dark', $company)
-                        : route('admin.companies.logo', $company);
-                @endphp
-                <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
-                    <img class="logo-light rounded-lg w-auto object-contain bg-transparent dark:hidden" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
-                    <img class="logo-dark rounded-lg w-auto object-contain bg-transparent hidden dark:block" style="height: 80px; display: block; padding: 8px;" src="{{ $companyHeroLogoDarkUrl }}" alt="{{ $company->name }}">
-                </div>
+            @if($company->hasAdminLogo())
+                @include('admin.partials.company-theme-logo', ['company' => $company])
             @else
                 <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
                     {{ strtoupper(substr($company->name, 0, 2)) }}

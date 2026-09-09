@@ -460,6 +460,72 @@ class IncidentTicketTest extends TestCase
         $this->assertNull($incident->fresh()->archived_at);
     }
 
+    #[Test]
+    public function incident_show_includes_screenshot_gallery_urls(): void
+    {
+        [$company, $admin] = $this->companyAdmin();
+        $super = $this->superAdmin();
+
+        $this->actingAs($admin)
+            ->post(route('admin.incidents.store'), [
+                'kind' => IncidentCatalog::KIND_STORING,
+                'title' => 'Kaart blijft wit',
+                'description' => 'Na het openen van GPS-tracking blijft de kaart leeg.',
+                'priority' => IncidentCatalog::PRIORITY_HIGH,
+                'screenshots' => [
+                    UploadedFile::fake()->image('gps-wit.png', 800, 600),
+                    UploadedFile::fake()->image('gps-menu.jpg', 640, 480),
+                ],
+            ])
+            ->assertCreated();
+
+        $incident = Incident::query()->where('title', 'Kaart blijft wit')->first();
+        $this->assertNotNull($incident);
+        $this->assertCount(2, $incident->screenshots ?? []);
+
+        $show = $this->actingAs($super)
+            ->getJson(route('admin.incidents.show', $incident))
+            ->assertOk();
+
+        $shots = $show->json('incident.screenshots');
+        $this->assertIsArray($shots);
+        $this->assertCount(2, $shots);
+        $this->assertSame('gps-wit.png', $shots[0]['name']);
+        $this->assertStringContainsString('/screenshots/0', $shots[0]['url']);
+        $this->assertStringContainsString('/screenshots/1', $shots[1]['url']);
+
+        $this->actingAs($super)
+            ->get($shots[0]['url'])
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png');
+    }
+
+    #[Test]
+    public function company_admin_cannot_open_another_tenants_screenshot(): void
+    {
+        [$companyA, $adminA] = $this->companyAdmin('Shot A');
+        [, $adminB] = $this->companyAdmin('Shot B');
+
+        $this->actingAs($adminA)
+            ->post(route('admin.incidents.store'), [
+                'kind' => IncidentCatalog::KIND_STORING,
+                'title' => 'Screenshot van A',
+                'description' => 'Deze bijlage is alleen voor tenant A.',
+                'priority' => IncidentCatalog::PRIORITY_NORMAL,
+                'screenshots' => [
+                    UploadedFile::fake()->image('alleen-a.png', 320, 240),
+                ],
+            ])
+            ->assertCreated();
+
+        $incident = Incident::query()->where('title', 'Screenshot van A')->first();
+        $this->assertNotNull($incident);
+
+        $this->actingAs($adminB)
+            ->get(route('admin.incidents.screenshot', ['incident' => $incident, 'index' => 0]))
+            ->assertForbidden();
+    }
+
     /**
      * @return array{0: Company, 1: User}
      */

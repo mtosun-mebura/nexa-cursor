@@ -41,7 +41,7 @@ class AiChatSqlController extends Controller
         $validated = $request->validate([
             'intent' => ['required', 'string', Rule::enum(AiChatIntent::class)],
             'sql_token' => 'required|string',
-            'company_id' => 'required|integer|min:1',
+            'company_id' => 'required|integer|min:0',
         ]);
 
         $intent = AiChatIntent::from($validated['intent']);
