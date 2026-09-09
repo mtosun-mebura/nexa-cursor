@@ -25,15 +25,6 @@
     </div>
 </div>
 
-@if(session('success'))
-    <div class="kt-container-fixed">
-        <div class="kt-alert kt-alert-success mb-5 auto-dismiss" role="alert" id="success-alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    </div>
-@endif
-
 <div class="kt-container-fixed">
     <div class="kt-card">
         <div class="kt-card-header">

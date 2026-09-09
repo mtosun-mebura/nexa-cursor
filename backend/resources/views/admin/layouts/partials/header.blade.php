@@ -22,7 +22,9 @@
                 ])
             </a>
         </div>
-        <div id="admin-header-flash" class="admin-header-flash min-w-0 flex-1 flex items-center" aria-live="polite"></div>
+        <div id="admin-header-flash" class="admin-header-flash min-w-0 flex-1 flex items-center" aria-live="polite">
+            @include('admin.layouts.partials.header-flash')
+        </div>
         <!-- Topbar -->
         <div class="flex items-center gap-2.5 shrink-0 ms-auto">
             @include('admin.layouts.partials.ai-chatbot-trigger')

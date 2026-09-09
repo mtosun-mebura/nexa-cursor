@@ -12,12 +12,6 @@
         <a href="{{ route('admin.taxi.transport_planning.index') }}" class="kt-btn kt-btn-outline shrink-0">Naar planning</a>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-
     @if($errors->any())
         <div class="kt-alert kt-alert-danger mb-5" role="alert">
             <ul class="list-disc list-inside">

@@ -4,7 +4,6 @@
 
 @section('content')
 
-
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
@@ -51,13 +50,6 @@
                     </a>
                 </div>
                 <div class="kt-card-content">
-                    @if(session('success'))
-                        <div class="kt-alert kt-alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            {{ session('success') }}
-                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="alert"></button>
-                        </div>
-                    @endif
 
                     <!-- Filters -->
                     <div class="filters-section">
@@ -417,9 +409,6 @@
                             </nav>
                         </div>
                     @endif
-
-
-
 
                     @else
                     <div class="empty-state">

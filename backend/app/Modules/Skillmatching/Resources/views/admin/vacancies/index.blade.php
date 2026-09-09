@@ -17,14 +17,6 @@
         @endcan
     </div>
 
-    <!-- Success Alert -->
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
     <!-- Statistics Cards (same style as Users overview) -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">

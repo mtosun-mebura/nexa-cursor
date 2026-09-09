@@ -18,17 +18,6 @@
         @endif
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5">
-            <i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}
-        </div>
-    @endif
-
     @if(!empty($packageDeniedMessage))
         <div class="kt-alert kt-alert-warning mb-5" role="alert">
             <i class="ki-filled ki-information me-2"></i>

@@ -40,20 +40,6 @@
     #test-email-status[data-ok="0"] {
         color: #dc2626;
     }
-    #test-email-message[data-ok="1"] {
-        color: #166534;
-        background: #dcfce7;
-        border: 1px solid #86efac;
-        border-radius: 0.5rem;
-        padding: 0.65rem 0.85rem;
-    }
-    #test-email-message[data-ok="0"] {
-        color: #991b1b;
-        background: #fee2e2;
-        border: 1px solid #fca5a5;
-        border-radius: 0.5rem;
-        padding: 0.65rem 0.85rem;
-    }
 </style>
 @endpush
 
@@ -66,52 +52,13 @@
         </h1>
     </div>
 
-    @if(session('settings_tenant_save_notice'))
-        <div class="mb-5 flex gap-3 rounded-lg border-2 border-orange-700 bg-orange-950 px-4 py-3 text-sm text-orange-50 shadow-md dark:border-orange-600 dark:bg-orange-950 dark:text-orange-50 dark:shadow-lg dark:shadow-orange-950/50" role="alert">
-            <i class="ki-filled ki-information mt-0.5 shrink-0 text-2xl text-orange-300"></i>
-            <div class="min-w-0 leading-relaxed font-medium text-orange-50">{{ session('settings_tenant_save_notice') }}</div>
+    @if(session('tenant_sync_report'))
+        <div class="mb-5">
+            @include('admin.settings.partials.tenant-sync-report', ['report' => session('tenant_sync_report')])
         </div>
     @endif
 
-    <!-- Success Alert -->
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-        @if(session('tenant_sync_report'))
-            <div class="mb-5">
-                @include('admin.settings.partials.tenant-sync-report', ['report' => session('tenant_sync_report')])
-            </div>
-        @endif
-    @endif
-
-    @if(session('success'))
-        <div id="settings-success-toast"
-             class="admin-fixed-toast rounded-lg border border-emerald-300/60 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100 dark:border-emerald-700/50 px-4 py-3 opacity-0 translate-y-2 pointer-events-none transition-all duration-300"
-             role="status"
-             aria-live="polite"
-             aria-atomic="true">
-            <div class="flex items-start gap-2">
-                <i class="ki-filled ki-check-circle text-emerald-600 mt-0.5"></i>
-                <div class="text-sm font-medium">{{ session('success') }}</div>
-            </div>
-        </div>
-    @endif
-
-    @if ($errors->any())
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-information me-2"></i>
-            <strong>Er zijn validatiefouten opgetreden:</strong>
-            <ul class="mb-0 mt-2">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
+    <div class="grid gap-5 lg:gap-7.5 min-w-0 w-full max-w-full" id="settings-collapsible-root">
         <!-- Mail Server Instellingen: NEXA Suite (Alle Tenants) of per tenant -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => ($mailSettingsIsPlatform ?? false)
@@ -137,7 +84,6 @@
                     {{ $mailDeliveryHint }}
                 </div>
             @endif
-            <div id="test-email-message" class="hidden mx-5 mt-4 mb-0 text-sm" role="status" aria-live="polite"></div>
             <div class="kt-card-table kt-scrollable-x-auto pb-0">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
@@ -504,7 +450,6 @@
             </div>
         </div>
 
-
         <!-- Google Reviews (platform Maps API-sleutel; Places API moet ingeschakeld zijn) -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="google-reviews">
             <style>
@@ -514,12 +459,12 @@
             #google-reviews .grw-cache-hours-input { width: 4.5rem; min-width: 4.5rem; padding-right: 0.5rem !important; }
             </style>
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-star me-2"></i> Google Reviews'])
-            <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <form method="POST" action="{{ route('admin.settings.google-reviews.update') }}" data-validate="true" id="google-reviews-form">
+            <div class="settings-collapsible-body min-w-0">
+            <p class="settings-section-intro text-sm text-muted-foreground mx-5 mt-4 mb-0">Toon Google-reviews in een carousel op de website. Vul <strong>ofwel</strong> het Place ID in (uit Google Maps/Business Profile) <strong>ofwel</strong> de bedrijfsnaam; bij bedrijfsnaam wordt gezocht en het eerste resultaat gebruikt. Dezelfde Maps API-sleutel wordt gebruikt; zorg dat de <strong>Places API</strong> is ingeschakeld.</p>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 min-w-0 max-w-full">
+                <form method="POST" action="{{ route('admin.settings.google-reviews.update') }}" data-validate="true" id="google-reviews-form" class="min-w-0 max-w-full">
                     @csrf
-                    <p class="text-sm text-muted-foreground mb-4 p-2">Toon Google-reviews in een carousel op de website. Vul <strong>ofwel</strong> het Place ID in (uit Google Maps/Business Profile) <strong>ofwel</strong> de bedrijfsnaam; bij bedrijfsnaam wordt gezocht en het eerste resultaat gebruikt. Dezelfde Maps API-sleutel wordt gebruikt; zorg dat de <strong>Places API</strong> is ingeschakeld.</p>
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Place ID</td>
                             <td class="min-w-48 w-full">
@@ -1496,36 +1441,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-dismiss success alert after 5 seconds
-    const successAlert = document.getElementById('success-alert');
-    if (successAlert) {
-        setTimeout(function() {
-            successAlert.style.transition = 'opacity 0.3s ease-out';
-            successAlert.style.opacity = '0';
-            setTimeout(function() {
-                successAlert.remove();
-            }, 300);
-        }, 5000);
-    }
-
-    const successToast = document.getElementById('settings-success-toast');
-    if (successToast) {
-        if (successToast.parentElement !== document.body) {
-            document.body.appendChild(successToast);
-        }
-        requestAnimationFrame(function() {
-            successToast.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
-            successToast.style.pointerEvents = 'auto';
-        });
-
-        setTimeout(function() {
-            successToast.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none');
-            setTimeout(function() {
-                successToast.remove();
-            }, 300);
-        }, 4000);
-    }
-
     // Test email functionality
     const testEmailBtn = document.getElementById('test-email-btn');
     const testEmailInput = document.getElementById('test-email-input');
@@ -1546,11 +1461,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ? '<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
             : '<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
 
-        var msg = document.getElementById('test-email-message');
-        if (msg) {
-            msg.classList.remove('hidden');
-            msg.dataset.ok = ok ? '1' : '0';
-            msg.textContent = message || label;
+        if (typeof window.showAdminHeaderFlash === 'function') {
+            window.showAdminHeaderFlash(ok ? 'success' : 'error', message || label);
         }
         var hint = document.getElementById('mail-config-hint');
         if (hint && !ok) {
@@ -1568,12 +1480,6 @@ document.addEventListener('DOMContentLoaded', function() {
         testEmailStatus.removeAttribute('data-ok');
         testEmailStatus.style.color = '';
         testEmailStatus.innerHTML = '';
-        var msg = document.getElementById('test-email-message');
-        if (msg) {
-            msg.classList.add('hidden');
-            msg.textContent = '';
-            msg.removeAttribute('data-ok');
-        }
     }
     
     if (testEmailBtn && testEmailInput) {
@@ -2045,6 +1951,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     function showTenantSyncTestMessage(ok, text) {
+        if (typeof window.showAdminHeaderFlash === 'function') {
+            window.showAdminHeaderFlash(ok ? 'success' : 'error', text);
+            if (tenantSyncTestResult) {
+                tenantSyncTestResult.classList.add('hidden');
+                tenantSyncTestResult.textContent = '';
+            }
+            return;
+        }
         if (!tenantSyncTestResult) {
             window.alert((ok ? '✓ ' : '✗ ') + text);
             return;
@@ -2744,8 +2658,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var original = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = 'Bezig…';
-        feedbackEl.classList.remove('hidden', 'text-destructive', 'text-success');
-        feedbackEl.textContent = 'Bezig met Google API…';
+        feedbackEl.classList.add('hidden');
         fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
@@ -2757,11 +2670,22 @@ document.addEventListener('DOMContentLoaded', function() {
         })
             .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
             .then(function(res) {
-                feedbackEl.textContent = (res.data && res.data.message) ? res.data.message : 'Klaar.';
+                var msg = (res.data && res.data.message) ? res.data.message : 'Klaar.';
+                if (typeof window.showAdminHeaderFlash === 'function') {
+                    window.showAdminHeaderFlash(res.ok ? 'success' : 'error', msg);
+                    return;
+                }
+                feedbackEl.classList.remove('hidden', 'text-destructive', 'text-success');
+                feedbackEl.textContent = msg;
                 feedbackEl.classList.toggle('text-success', res.ok);
                 feedbackEl.classList.toggle('text-destructive', !res.ok);
             })
             .catch(function() {
+                if (typeof window.showAdminHeaderFlash === 'function') {
+                    window.showAdminHeaderFlash('error', 'Netwerkfout bij contact met de server.');
+                    return;
+                }
+                feedbackEl.classList.remove('hidden', 'text-success');
                 feedbackEl.textContent = 'Netwerkfout bij contact met de server.';
                 feedbackEl.classList.add('text-destructive');
             })

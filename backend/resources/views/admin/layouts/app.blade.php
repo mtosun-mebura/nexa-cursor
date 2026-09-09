@@ -528,6 +528,26 @@
             color: rgb(248, 113, 113) !important;
         }
 
+        /* Flash warning: alleen de header-toast, niet persistente banners */
+        .admin-header-toast.kt-alert-warning {
+            background-color: rgba(217, 119, 6, 0.14) !important;
+            border: 1px solid rgb(180, 83, 9) !important;
+            color: rgb(146, 64, 14) !important;
+        }
+        .admin-header-toast.kt-alert-warning .ki-filled {
+            color: rgb(180, 83, 9) !important;
+        }
+        .dark .admin-header-toast.kt-alert-warning,
+        html.dark .admin-header-toast.kt-alert-warning {
+            background-color: rgba(251, 191, 36, 0.16) !important;
+            border-color: rgb(251, 191, 36) !important;
+            color: rgb(253, 230, 138) !important;
+        }
+        .dark .admin-header-toast.kt-alert-warning .ki-filled,
+        html.dark .admin-header-toast.kt-alert-warning .ki-filled {
+            color: rgb(252, 211, 77) !important;
+        }
+
         /* Vaste meldingen onder de header, over de pagina heen */
         .admin-fixed-toast {
             position: fixed;
@@ -559,6 +579,8 @@
             flex: 1 1 auto;
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
             margin-right: auto;
             padding-inline-start: 0.25rem;
             pointer-events: none;
@@ -567,14 +589,14 @@
             pointer-events: auto;
             display: inline-flex !important;
             align-items: center;
+            flex: 0 1 auto;
+            width: auto !important;
             gap: 0.5rem;
             margin: 0;
-            max-width: 100%;
+            max-width: min(42rem, 100%);
             padding: 0.35rem 0.75rem;
             line-height: 1.25;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
         }
         #admin-header-flash .admin-header-toast .ki-filled {
             flex-shrink: 0;
@@ -592,6 +614,43 @@
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
     @php
+        $adminHeaderFlashSuccess = session('success');
+        $adminHeaderFlashError = session('error') ?: session('database_backup_error');
+        $adminHeaderFlashWarning = session('warning') ?: $errors->first('package') ?: session('settings_tenant_save_notice');
+        if (request()->routeIs('admin.website-pages.edit')) {
+            $adminHeaderFlashSuccess = null;
+        }
+        if (! $adminHeaderFlashError && $errors->any() && request()->routeIs('admin.settings.*')) {
+            foreach ($errors->getMessages() as $key => $messages) {
+                if ($key === 'package') {
+                    continue;
+                }
+                $adminHeaderFlashError = $messages[0] ?? null;
+                if ($adminHeaderFlashError) {
+                    break;
+                }
+            }
+        }
+        $whatsappConnectionTest = session('whatsapp_connection_test');
+        if (is_array($whatsappConnectionTest)) {
+            if (! empty($whatsappConnectionTest['ok']) && ! $adminHeaderFlashSuccess) {
+                $whatsappFlashName = trim((string) ($whatsappConnectionTest['meta']['verified_name'] ?? ''));
+                $adminHeaderFlashSuccess = $whatsappFlashName !== ''
+                    ? 'WhatsApp-verbinding OK — '.$whatsappFlashName
+                    : 'WhatsApp-verbinding OK';
+            } elseif (empty($whatsappConnectionTest['ok']) && ! $adminHeaderFlashError) {
+                $whatsappFlashError = trim((string) ($whatsappConnectionTest['error'] ?? ''));
+                $adminHeaderFlashError = $whatsappFlashError !== ''
+                    ? 'WhatsApp API-verbinding mislukt: '.$whatsappFlashError
+                    : 'WhatsApp API-verbinding mislukt.';
+            }
+        }
+        if (! $adminHeaderFlashSuccess && request()->routeIs('admin.newsletters.prospects') && request()->integer('discovered') > 0) {
+            $adminHeaderFlashSuccess = request()->integer('discovered').' bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon.';
+        }
+        if ($adminHeaderFlashSuccess && session('route_departure_time')) {
+            $adminHeaderFlashSuccess .= ' Geschat vertrek: '.session('route_departure_time');
+        }
         $adminMustChangePassword = ($adminMustChangePassword ?? false) || (bool) (auth()->user()?->must_change_password);
         $adminTrialDeclined = null;
         $adminTaxiSetup = null;
@@ -680,22 +739,6 @@
                         }
                     });
                     </script>
-                    @endif
-                    @php
-                        $adminBannerError = session('error');
-                        $adminBannerWarning = session('warning') ?: $errors->first('package');
-                    @endphp
-                    @if($adminBannerError)
-                        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-                            <i class="ki-filled ki-information"></i>
-                            {{ $adminBannerError }}
-                        </div>
-                    @endif
-                    @if($adminBannerWarning)
-                        <div class="kt-alert kt-alert-warning mb-5" role="alert">
-                            <i class="ki-filled ki-information"></i>
-                            {{ $adminBannerWarning }}
-                        </div>
                     @endif
                     @if($adminTaxiSetup && empty($adminMustChangePassword) && empty($adminTrialDeclined))
                         @php
@@ -1236,7 +1279,7 @@
     })();
     </script>
 
-    <!-- Flash success: na 5s uitfaden en verwijderen (alle .kt-alert-success in #content) -->
+    <!-- Flash: na 5s uitfaden (success in de pagina + alle toasts in de header) -->
     <script>
     (function() {
         function fadeRemove(el) {
@@ -1247,12 +1290,33 @@
                 if (el.parentNode) el.parentNode.removeChild(el);
             }, 350);
         }
-        function init() {
-            var alerts = document.querySelectorAll('#content .kt-alert-success');
-            alerts.forEach(function(el) {
-                if (el.hasAttribute('data-no-auto-dismiss')) return;
-                setTimeout(function() { fadeRemove(el); }, 5000);
+        function scheduleDismiss(el) {
+            if (!el || el.hasAttribute('data-no-auto-dismiss')) return;
+            setTimeout(function() { fadeRemove(el); }, 5000);
+        }
+        window.showAdminHeaderFlash = function(type, message) {
+            var root = document.getElementById('admin-header-flash');
+            var text = (message || '').toString().trim();
+            if (!root || !text) return;
+            root.querySelectorAll('.admin-header-toast').forEach(function(el) {
+                if (el.parentNode) el.parentNode.removeChild(el);
             });
+            var kind = (type === 'error' || type === 'danger') ? 'danger' : (type === 'warning' ? 'warning' : 'success');
+            var el = document.createElement('div');
+            el.className = 'admin-header-toast kt-alert kt-alert-' + kind;
+            el.setAttribute('data-admin-header-flash-js', '1');
+            el.setAttribute('role', kind === 'danger' ? 'alert' : 'status');
+            el.setAttribute('aria-live', 'polite');
+            var icon = document.createElement('i');
+            icon.className = 'ki-filled ' + (kind === 'success' ? 'ki-check-circle' : 'ki-information') + ' me-2';
+            el.appendChild(icon);
+            el.appendChild(document.createTextNode(text));
+            root.appendChild(el);
+            scheduleDismiss(el);
+        };
+        function init() {
+            var alerts = document.querySelectorAll('#content .kt-alert-success, #admin-header-flash .admin-header-toast');
+            alerts.forEach(scheduleDismiss);
         }
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);

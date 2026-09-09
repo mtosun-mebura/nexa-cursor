@@ -17,14 +17,6 @@
         @endcan
     </div>
 
-    <!-- Success Alert -->
-    @if(session('success'))
-        <div class="mb-5 flex items-center justify-center gap-2 py-3 px-4 rounded-lg" id="success-alert" role="alert" style="background-color: #10b981; color: white;">
-            <i class="ki-filled ki-check-circle"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    @endif
-
     <!-- Statistics Cards -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">

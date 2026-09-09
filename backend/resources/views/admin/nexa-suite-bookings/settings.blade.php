@@ -11,10 +11,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert"><i class="ki-filled ki-check-circle me-2"></i>{{ session('success') }}</div>
-    @endif
-
     @include('admin.nexa-suite-bookings.partials.nav')
 
     <form method="POST" action="{{ route('admin.nexa-suite-bookings.settings.update') }}">

@@ -18,17 +18,6 @@
         @endif
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5">
-            <i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}
-        </div>
-    @endif
-
     <div class="kt-card w-full min-w-0 mb-5">
         <div class="kt-card-content">
             <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">

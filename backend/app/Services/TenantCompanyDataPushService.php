@@ -2255,8 +2255,6 @@ final class TenantCompanyDataPushService
             }
         } elseif ($table === 'vacancies' && isset($payload['slug'])) {
             $q->where('slug', $payload['slug']);
-        } elseif ($table === 'notifications' && isset($payload['title'])) {
-            $q->where('title', $payload['title']);
         } elseif ($table === 'company_domains' && isset($payload['host'])) {
             $q->where('host', $payload['host']);
         } elseif ($table === 'company_module' && isset($payload['module_id'])) {

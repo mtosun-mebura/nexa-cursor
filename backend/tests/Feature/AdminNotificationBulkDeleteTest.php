@@ -80,6 +80,21 @@ class AdminNotificationBulkDeleteTest extends TestCase
     }
 
     #[Test]
+    public function success_flash_is_rendered_in_the_admin_header(): void
+    {
+        $admin = $this->superAdmin();
+
+        $this->actingAs($admin)
+            ->withSession(['success' => 'Notificatie succesvol verwijderd.'])
+            ->get(route('admin.notifications.index'))
+            ->assertOk()
+            ->assertSee('id="admin-header-flash"', false)
+            ->assertSee('admin-header-toast', false)
+            ->assertSee('Notificatie succesvol verwijderd.')
+            ->assertDontSee('id="success-alert"', false);
+    }
+
+    #[Test]
     public function show_page_has_delete_button_for_super_admin(): void
     {
         $company = $this->company();

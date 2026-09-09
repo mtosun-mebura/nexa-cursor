@@ -15,15 +15,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5">
-            <div class="kt-alert-content">
-                <i class="ki-filled ki-check-circle me-2"></i>
-                {{ session('success') }}
-            </div>
-        </div>
-    @endif
-
     <form action="{{ route('admin.companies.pipeline-templates.update', [$company, $pipelineTemplate]) }}" method="POST" id="pipeline-template-form" data-validate="true" novalidate>
         @csrf
         @method('PUT')

@@ -93,17 +93,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5">
-            <i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-destructive mb-5">
-            {{ session('error') }}
-        </div>
-    @endif
-
     @if(!empty($websitePagesTenantScopedActive))
         @include('admin.website-pages.partials.website-logo-size')
     @endif

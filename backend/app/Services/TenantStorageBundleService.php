@@ -852,7 +852,6 @@ final class TenantStorageBundleService
         $paths = [];
         $specs = [
             ['table' => 'users', 'column' => 'cv_path'],
-            ['table' => 'notifications', 'column' => 'file_path'],
             ['table' => 'invoice_settings', 'column' => 'logo_path'],
         ];
 

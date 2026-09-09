@@ -21,19 +21,6 @@
 
     @include('admin.companies.wizard.partials.tabs', ['company' => $company ?? null, 'currentStep' => $currentStep ?? 1, 'maxReachable' => $maxReachable ?? 1])
 
-    @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-information me-2"></i>
-            {{ session('error') }}
-        </div>
-    @endif
-
     @yield('wizard_content')
 </div>
 
