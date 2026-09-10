@@ -561,40 +561,50 @@
             const label = ids.length === 1
                 ? 'Deze backup permanent verwijderen?'
                 : 'Deze ' + ids.length + ' backups permanent verwijderen?';
+            const runDelete = function () {
+                bulkDeleteBtn.disabled = true;
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken(),
+                    },
+                    body: JSON.stringify({ ids: ids.map(function (id) { return parseInt(id, 10); }) }),
+                })
+                    .then(function (response) {
+                        return response.json().then(function (data) {
+                            return { ok: response.ok, data: data };
+                        }).catch(function () {
+                            return { ok: false, data: { message: 'Verwijderen mislukt.' } };
+                        });
+                    })
+                    .then(function (result) {
+                        if (!result.ok || (result.data && result.data.ok === false)) {
+                            throw new Error((result.data && result.data.message) || 'Verwijderen mislukt.');
+                        }
+                        showFlash((result.data && result.data.message) || 'Backups verwijderd.', false);
+                        return refreshBackupTable({ force: true, silent: true });
+                    })
+                    .catch(function (err) {
+                        showFlash(err.message || 'Verwijderen mislukt.', true);
+                        syncBulkUi();
+                    });
+            };
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({ title: 'Backup verwijderen', message: label, confirmLabel: 'Verwijderen' }).then(function (ok) {
+                    if (ok) {
+                        runDelete();
+                    }
+                });
+                return;
+            }
             if (!window.confirm(label)) {
                 return;
             }
-
-            bulkDeleteBtn.disabled = true;
-            fetch(url, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken(),
-                },
-                body: JSON.stringify({ ids: ids.map(function (id) { return parseInt(id, 10); }) }),
-            })
-                .then(function (response) {
-                    return response.json().then(function (data) {
-                        return { ok: response.ok, data: data };
-                    }).catch(function () {
-                        return { ok: false, data: { message: 'Verwijderen mislukt.' } };
-                    });
-                })
-                .then(function (result) {
-                    if (!result.ok || (result.data && result.data.ok === false)) {
-                        throw new Error((result.data && result.data.message) || 'Verwijderen mislukt.');
-                    }
-                    showFlash((result.data && result.data.message) || 'Backups verwijderd.', false);
-                    return refreshBackupTable({ force: true, silent: true });
-                })
-                .catch(function (err) {
-                    showFlash(err.message || 'Verwijderen mislukt.', true);
-                    syncBulkUi();
-                });
+            runDelete();
         });
     }
 
@@ -652,20 +662,17 @@
             if (runBtn && runBtn.disabled) {
                 return;
             }
-            if (!window.confirm('Nu een handmatige database-backup starten?')) {
-                return;
-            }
+            const startBackup = function () {
+                if (runBtn) {
+                    runBtn.disabled = true;
+                }
+                showFlash('Backup wordt gemaakt…', false);
+                startFastPoll(180000);
+                setTimeout(function () {
+                    refreshBackupTable({ force: true, silent: true });
+                }, 600);
 
-            if (runBtn) {
-                runBtn.disabled = true;
-            }
-            showFlash('Backup wordt gemaakt…', false);
-            startFastPoll(180000);
-            setTimeout(function () {
-                refreshBackupTable({ force: true, silent: true });
-            }, 600);
-
-            fetch(runForm.getAttribute('action'), {
+                fetch(runForm.getAttribute('action'), {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -709,6 +716,24 @@
                         runBtn.disabled = false;
                     }
                 });
+            };
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({
+                    title: 'Backup maken',
+                    message: 'Nu een handmatige database-backup starten?',
+                    confirmLabel: 'Starten',
+                    destructive: false
+                }).then(function (ok) {
+                    if (ok) {
+                        startBackup();
+                    }
+                });
+                return;
+            }
+            if (!window.confirm('Nu een handmatige database-backup starten?')) {
+                return;
+            }
+            startBackup();
         });
     }
 

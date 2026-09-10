@@ -398,6 +398,9 @@
 
     table.querySelectorAll('.package-delete-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
+            if (form.adminConfirmAccepted || typeof window.showAdminConfirm === 'function') {
+                return;
+            }
             e.preventDefault();
             openModal(
                 form.getAttribute('data-confirm-title') || 'Pakket verwijderen',
@@ -414,13 +417,20 @@
                 return;
             }
             fillBulkForm();
-            openModal(
-                count === 1 ? 'Pakket verwijderen' : 'Pakketten verwijderen',
-                count === 1
-                    ? 'Weet je zeker dat je het geselecteerde pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-                    : 'Weet je zeker dat je de ' + count + ' geselecteerde pakketten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-                bulkForm
-            );
+            const title = count === 1 ? 'Pakket verwijderen' : 'Pakketten verwijderen';
+            const message = count === 1
+                ? 'Weet je zeker dat je het geselecteerde pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                : 'Weet je zeker dat je de ' + count + ' geselecteerde pakketten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
+                    if (ok) {
+                        bulkForm.adminConfirmAccepted = true;
+                        bulkForm.submit();
+                    }
+                });
+                return;
+            }
+            openModal(title, message, bulkForm);
         });
     }
 

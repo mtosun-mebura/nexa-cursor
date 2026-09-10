@@ -4095,31 +4095,46 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var uuidInp = imageRow.querySelector('input[name$="[uuid]"]');
                 var mediaUuid = (uuidInp && uuidInp.value) ? uuidInp.value.trim() : (imageRow.getAttribute('data-uuid') || '').trim();
                 if (!mediaUuid) return;
-                if (!confirm('Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.')) return;
-                var deleteUrl = getWebsiteMediaDeleteUrl(mediaUuid);
-                if (!deleteUrl) return;
-                var token = (csrfToken && csrfToken.getAttribute('content')) || '';
-                imageRemoveBtn.disabled = true;
-                fetch(deleteUrl, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    }
-                })
-                    .then(function(r) {
-                        return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Verwijderen mislukt'); });
+                var doDeleteImage = function () {
+                    var deleteUrl = getWebsiteMediaDeleteUrl(mediaUuid);
+                    if (!deleteUrl) return;
+                    var token = (csrfToken && csrfToken.getAttribute('content')) || '';
+                    imageRemoveBtn.disabled = true;
+                    fetch(deleteUrl, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': token
+                        }
                     })
-                    .then(function() {
-                        setCarouselSlidePreviewImage(imageRow, '', '');
-                    })
-                    .catch(function(err) {
-                        alert(err.message || 'Afbeelding verwijderen mislukt.');
-                    })
-                    .finally(function() {
-                        imageRemoveBtn.disabled = false;
+                        .then(function(r) {
+                            return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Verwijderen mislukt'); });
+                        })
+                        .then(function() {
+                            setCarouselSlidePreviewImage(imageRow, '', '');
+                        })
+                        .catch(function(err) {
+                            alert(err.message || 'Afbeelding verwijderen mislukt.');
+                        })
+                        .finally(function() {
+                            imageRemoveBtn.disabled = false;
+                        });
+                };
+                if (typeof window.showAdminConfirm === 'function') {
+                    window.showAdminConfirm({
+                        title: 'Afbeelding verwijderen',
+                        message: 'Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.',
+                        confirmLabel: 'Verwijderen'
+                    }).then(function (ok) {
+                        if (ok) {
+                            doDeleteImage();
+                        }
                     });
+                    return;
+                }
+                if (!confirm('Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.')) return;
+                doDeleteImage();
                 return;
             }
             var btn = e.target.closest('.carousel-slide-remove');

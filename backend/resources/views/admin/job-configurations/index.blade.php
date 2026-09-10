@@ -542,6 +542,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({
+                    title: 'Configuraties verwijderen',
+                    message: 'Weet je zeker dat je ' + selected.length + ' configuratie' +
+                        (selected.length > 1 ? 's' : '') +
+                        ' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+                    confirmLabel: 'Verwijderen'
+                }).then(function (ok) {
+                    if (ok) {
+                        bulkDeleteForm.submit();
+                    }
+                });
+                return;
+            }
             if (confirm('Weet je zeker dat je ' + selected.length + ' configuratie' +
                        (selected.length > 1 ? 's' : '') +
                        ' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {

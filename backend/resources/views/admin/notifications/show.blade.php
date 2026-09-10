@@ -628,6 +628,20 @@
 
     document.addEventListener('click', function (event) {
         if (event.target.closest('#notification-delete-open')) {
+            if (typeof window.showAdminConfirm === 'function') {
+                event.preventDefault();
+                event.stopPropagation();
+                window.showAdminConfirm({
+                    title: 'Notificatie verwijderen',
+                    message: 'Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+                    confirmLabel: 'Verwijderen'
+                }).then(function (ok) {
+                    if (ok) {
+                        submitDelete();
+                    }
+                });
+                return;
+            }
             openModal(event);
             return;
         }

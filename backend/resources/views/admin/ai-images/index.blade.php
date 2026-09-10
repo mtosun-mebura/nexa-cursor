@@ -97,24 +97,6 @@
     </div>
 </div>
 
-<div id="ai-image-confirm"
-     class="ai-image-confirm hidden fixed inset-0 z-[100000] items-center justify-center p-4"
-     role="dialog"
-     aria-modal="true"
-     aria-labelledby="ai-image-confirm-title"
-     hidden>
-    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-ai-image-confirm-dismiss></div>
-    <div class="ai-image-confirm__dialog relative z-10 w-full max-w-sm rounded-2xl border border-border">
-        <div class="p-5">
-            <p id="ai-image-confirm-title" class="mb-4 text-foreground">Deze afbeelding definitief verwijderen?</p>
-            <div class="flex justify-end gap-2">
-                <button type="button" id="ai-image-confirm-cancel" class="kt-btn kt-btn-outline">Annuleren</button>
-                <button type="button" id="ai-image-confirm-ok" class="kt-btn kt-btn-danger">Verwijderen</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @push('styles')
 <style>
     .ai-image-gallery-grid {
@@ -273,21 +255,6 @@
         top: -0.75rem;
         right: -0.75rem;
         z-index: 1;
-    }
-    .ai-image-confirm__dialog {
-        background-color: #ffffff;
-        color: #0f172a;
-        box-shadow:
-            0 25px 50px -12px rgba(2, 6, 23, 0.35),
-            0 0 0 1px rgba(15, 23, 42, 0.06);
-    }
-    html.dark .ai-image-confirm__dialog,
-    .dark .ai-image-confirm__dialog {
-        background-color: #0b0f19;
-        color: #f8fafc;
-        box-shadow:
-            0 25px 50px -12px rgba(0, 0, 0, 0.65),
-            0 0 0 1px rgba(148, 163, 184, 0.12);
     }
 </style>
 @endpush
@@ -485,31 +452,12 @@
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             closeLightbox();
-            closeConfirm();
         }
     });
 
-    // Delete confirm
-    var confirmBox = document.getElementById('ai-image-confirm');
-    var confirmOk = document.getElementById('ai-image-confirm-ok');
-    var confirmCancel = document.getElementById('ai-image-confirm-cancel');
-    var pendingDeleteCard = null;
-    mountOverlay(confirmBox);
-    function openConfirm(card) {
-        pendingDeleteCard = card;
-        showOverlay(confirmBox);
-    }
-    function closeConfirm() {
-        hideOverlay(confirmBox);
-        pendingDeleteCard = null;
-    }
-    confirmBox.querySelector('[data-ai-image-confirm-dismiss]').addEventListener('click', closeConfirm);
-    confirmCancel.addEventListener('click', closeConfirm);
-    confirmOk.addEventListener('click', function () {
-        if (!pendingDeleteCard) return;
-        var id = pendingDeleteCard.getAttribute('data-delete-id');
-        var card = pendingDeleteCard;
-        confirmOk.disabled = true;
+    function deleteGalleryCard(card) {
+        if (!card) return;
+        var id = card.getAttribute('data-delete-id');
         fetch('/admin/ai-images/' + id, {
             method: 'DELETE',
             headers: {
@@ -520,23 +468,38 @@
         })
         .then(function (res) { return res.ok; })
         .then(function (ok) {
-            confirmOk.disabled = false;
-            closeConfirm();
-            if (ok) {
-                if (card.getAttribute('data-uuid') === selectedSourceUuid) {
-                    clearSource();
-                }
-                card.remove();
-                if (!gallery.querySelector('.ai-image-card')) {
-                    gallery.insertAdjacentHTML('afterend', '<p id="ai-image-gallery-empty" class="text-sm text-muted-foreground mb-0">Nog geen afbeeldingen gegenereerd.</p>');
-                }
+            if (!ok) {
+                return;
+            }
+            if (card.getAttribute('data-uuid') === selectedSourceUuid) {
+                clearSource();
+            }
+            card.remove();
+            if (!gallery.querySelector('.ai-image-card')) {
+                gallery.insertAdjacentHTML('afterend', '<p id="ai-image-gallery-empty" class="text-sm text-muted-foreground mb-0">Nog geen afbeeldingen gegenereerd.</p>');
             }
         })
-        .catch(function () {
-            confirmOk.disabled = false;
-            closeConfirm();
-        });
-    });
+        .catch(function () {});
+    }
+
+    function openConfirm(card) {
+        var message = 'Deze afbeelding definitief verwijderen?';
+        if (typeof window.showAdminConfirm === 'function') {
+            window.showAdminConfirm({
+                title: 'Afbeelding verwijderen',
+                message: message,
+                confirmLabel: 'Verwijderen'
+            }).then(function (ok) {
+                if (ok) {
+                    deleteGalleryCard(card);
+                }
+            });
+            return;
+        }
+        if (window.confirm(message)) {
+            deleteGalleryCard(card);
+        }
+    }
 
     // Gallery actions (event delegation)
     gallery.addEventListener('click', function (e) {
