@@ -96,12 +96,15 @@ services:
       N8N_URL: https://n8n.tosun.nl
       N8N_PORT: "5678"
       N8N_EMAIL: m.tosun@mebura.nl
+      NEXA_HOST_PROJECT_DIR: ${NEXA_HOST_PROJECT_DIR:-${PWD}}
 
     volumes:
       - ./backend/storage:/var/www/html/storage
       - ./backend/bootstrap/cache:/var/www/html/bootstrap/cache
       - ./backend/public/build:/var/www/html/public/build
       - ./.env:/var/www/html/.env
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${NEXA_HOST_PROJECT_DIR:-${PWD}}:${NEXA_HOST_PROJECT_DIR:-${PWD}}
     dns:
       - 127.0.0.11
       - 8.8.8.8

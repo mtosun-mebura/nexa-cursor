@@ -91,7 +91,7 @@ class SystemUpgradePreviewService
 
         foreach ($installed as $package) {
             $name = (string) ($package['name'] ?? '');
-            if ($name === '') {
+            if ($name === '' || $name === 'laravel/framework') {
                 continue;
             }
 
@@ -139,9 +139,9 @@ class SystemUpgradePreviewService
                 group: 'runtime',
                 label: 'PHP',
                 current: $this->displayVersion($stack['php'] ?? '—'),
-                target: 'Rebuild Docker-image',
+                target: 'Eigen knop',
                 selectable: false,
-                status: 'Via Docker',
+                status: 'Eigen knop',
             ),
             $this->item(
                 id: 'runtime:postgresql',
