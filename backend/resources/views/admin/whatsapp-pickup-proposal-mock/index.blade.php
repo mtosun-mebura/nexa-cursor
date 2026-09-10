@@ -465,7 +465,16 @@ html.dark .whatsapp-mock-message-modal__backdrop {
             if (!ids.length) {
                 return;
             }
-            if (!confirm('Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.')) {
+            if (typeof window.showAdminConfirm === 'function') {
+                const ok = await window.showAdminConfirm({
+                    title: 'Voorstellen verwijderen',
+                    message: 'Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.',
+                    confirmLabel: 'Verwijderen'
+                });
+                if (!ok) {
+                    return;
+                }
+            } else if (!confirm('Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.')) {
                 return;
             }
             bulkBtn.disabled = true;

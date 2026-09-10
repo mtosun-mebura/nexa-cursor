@@ -118,38 +118,6 @@
     </div>
 
     @can('rides.delete')
-    <div id="schedule-exception-delete-modal"
-         class="fixed inset-0 z-[100000] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4"
-         role="dialog"
-         aria-modal="true"
-         aria-labelledby="schedule-exception-delete-modal-title">
-        <div class="bg-background rounded-lg w-full max-w-md border border-border shadow-xl overflow-hidden">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-border">
-                <h3 id="schedule-exception-delete-modal-title" class="text-lg font-semibold text-foreground flex items-center gap-2 mb-0">
-                    <i class="ki-filled ki-trash text-destructive"></i>
-                    Uitzonderingsdag verwijderen
-                </h3>
-                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" data-schedule-exception-delete-close aria-label="Sluiten">
-                    <i class="ki-filled ki-cross text-muted-foreground"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <p class="text-sm text-foreground mb-6">
-                    Weet je zeker dat je <strong id="schedule-exception-delete-label"></strong> wilt verwijderen?
-                </p>
-                <div class="flex gap-2.5">
-                    <button type="button" class="kt-btn kt-btn-outline flex-1 justify-center" data-schedule-exception-delete-close>
-                        Annuleren
-                    </button>
-                    <button type="button" class="kt-btn kt-btn-danger flex-1 justify-center" id="schedule-exception-delete-confirm">
-                        <i class="ki-filled ki-trash me-2"></i>
-                        Verwijderen
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <form id="schedule-exception-delete-form" method="POST" class="hidden">
         @csrf
         @method('DELETE')
@@ -162,54 +130,34 @@
 @can('rides.delete')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var modal = document.getElementById('schedule-exception-delete-modal');
     var form = document.getElementById('schedule-exception-delete-form');
-    var labelEl = document.getElementById('schedule-exception-delete-label');
-    var confirmBtn = document.getElementById('schedule-exception-delete-confirm');
-    if (!modal || !form || !labelEl || !confirmBtn) return;
-
-    var escHandler = null;
-
-    function closeModal() {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        if (escHandler) {
-            document.removeEventListener('keydown', escHandler, true);
-            escHandler = null;
-        }
-    }
-
-    function openModal(action, label) {
-        form.action = action;
-        labelEl.textContent = label;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        confirmBtn.focus();
-        escHandler = function (e) {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                closeModal();
-            }
-        };
-        document.addEventListener('keydown', escHandler, true);
-    }
+    if (!form) return;
 
     document.querySelectorAll('[data-schedule-exception-delete]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            openModal(btn.getAttribute('data-action') || '', btn.getAttribute('data-label') || 'deze uitzonderingsdag');
+            var label = btn.getAttribute('data-label') || 'deze uitzonderingsdag';
+            var action = btn.getAttribute('data-action') || '';
+            var message = 'Weet je zeker dat je ' + label + ' wilt verwijderen?';
+            var runDelete = function () {
+                form.action = action;
+                form.submit();
+            };
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({
+                    title: 'Uitzonderingsdag verwijderen',
+                    message: message,
+                    confirmLabel: 'Verwijderen'
+                }).then(function (ok) {
+                    if (ok) {
+                        runDelete();
+                    }
+                });
+                return;
+            }
+            if (window.confirm(message)) {
+                runDelete();
+            }
         });
-    });
-
-    modal.querySelectorAll('[data-schedule-exception-delete-close]').forEach(function (btn) {
-        btn.addEventListener('click', closeModal);
-    });
-
-    modal.addEventListener('click', function (e) {
-        if (e.target === modal) closeModal();
-    });
-
-    confirmBtn.addEventListener('click', function () {
-        form.submit();
     });
 });
 </script>

@@ -797,6 +797,8 @@
         @include('admin.partials.taxi-setup-modal', ['adminTaxiSetup' => $adminTaxiSetup])
     @endif
 
+    @include('admin.layouts.partials.confirm-modal')
+
     @include('layouts.partials.scripts')
 
     <!-- Sidebar accordions: keep submenu toggles working (also after datatable menu re-inits). -->

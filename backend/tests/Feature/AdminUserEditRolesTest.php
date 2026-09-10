@@ -76,6 +76,18 @@ class AdminUserEditRolesTest extends TestCase
     }
 
     #[Test]
+    public function users_index_uses_the_standard_admin_confirm_modal_for_deletes(): void
+    {
+        [$company, $admin] = $this->makeCompanyAdmin();
+
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->assertSee('id="admin-confirm-modal"', false)
+            ->assertSee('showAdminConfirm', false);
+    }
+
+    #[Test]
     public function user_show_does_not_use_mailto_for_email(): void
     {
         [$company, $admin] = $this->makeCompanyAdmin();

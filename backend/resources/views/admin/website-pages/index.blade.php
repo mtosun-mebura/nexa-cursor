@@ -582,6 +582,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!form) {
                 return;
             }
+            if (form.adminConfirmAccepted || typeof window.showAdminConfirm === 'function') {
+                return;
+            }
             e.preventDefault();
             e.stopPropagation();
             openDeleteModal(form);

@@ -1409,9 +1409,40 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             e.preventDefault();
             if (form.getAttribute('data-domain-destroy') === '1') {
+                var runDomainAction = function () {
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                    }
+                    fetchJsonDomainAction(form.action, new FormData(form))
+                        .then(function(result) {
+                            if (!result.ok) {
+                                throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
+                            }
+                            applyCompanyDomainsList(result.data);
+                        })
+                        .catch(function(err) {
+                            alert(err.message || 'Er is een fout opgetreden.');
+                        })
+                        .finally(function() {
+                            if (submitBtn) {
+                                submitBtn.disabled = false;
+                            }
+                        });
+                };
+                if (typeof window.showAdminConfirm === 'function') {
+                    window.showAdminConfirm({ title: 'Domein verwijderen', message: 'Domein verwijderen?', confirmLabel: 'Verwijderen' }).then(function (ok) {
+                        if (ok) {
+                            runDomainAction();
+                        }
+                    });
+                    return;
+                }
                 if (!window.confirm('Domein verwijderen?')) {
                     return;
                 }
+                runDomainAction();
+                return;
             }
             const submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {

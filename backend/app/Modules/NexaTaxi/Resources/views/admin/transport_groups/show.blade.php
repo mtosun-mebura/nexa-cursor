@@ -429,9 +429,30 @@
         if (!/\/groepen\/\d+\/leden/.test(form.action)) return;
 
         var isDelete = form.querySelector('input[name="_method"][value="DELETE"]');
-        if (isDelete && !window.confirm('Passagier uit deze groep halen?')) {
+        if (isDelete && !form.adminConfirmAccepted) {
             event.preventDefault();
-            return;
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({
+                    title: 'Passagier verwijderen',
+                    message: 'Passagier uit deze groep halen?',
+                    confirmLabel: 'Verwijderen'
+                }).then(function (ok) {
+                    if (!ok) {
+                        return;
+                    }
+                    form.adminConfirmAccepted = true;
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        form.submit();
+                    }
+                    queueMicrotask(function () { form.adminConfirmAccepted = false; });
+                });
+                return;
+            }
+            if (!window.confirm('Passagier uit deze groep halen?')) {
+                return;
+            }
         }
 
         if (form.id === 'transport-group-add-members-form') {

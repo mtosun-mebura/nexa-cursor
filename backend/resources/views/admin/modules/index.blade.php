@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             var onsubmitAttr = form.getAttribute('onsubmit');
-            if (onsubmitAttr && onsubmitAttr.indexOf('confirm') >= 0) {
+            if (onsubmitAttr && onsubmitAttr.indexOf('confirm') >= 0 && !form.adminConfirmAccepted && typeof window.showAdminConfirm !== 'function') {
                 var msg = 'Weet je het zeker?';
                 if (onsubmitAttr.indexOf('Alle tabellen') >= 0) msg = 'Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan. Weet je het zeker?';
                 if (onsubmitAttr.indexOf('verwijderen') >= 0) msg = 'Weet je zeker dat je deze module wilt verwijderen?';

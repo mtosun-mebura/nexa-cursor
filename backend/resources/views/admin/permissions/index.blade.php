@@ -980,6 +980,20 @@
                     return;
                 }
 
+                if (typeof window.showAdminConfirm === 'function') {
+                    window.showAdminConfirm({
+                        title: 'Permissies verwijderen',
+                        message: 'Weet je zeker dat je ' + selected.length + ' permissie' +
+                            (selected.length > 1 ? 's' : '') +
+                            ' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+                        confirmLabel: 'Verwijderen'
+                    }).then(function (ok) {
+                        if (ok) {
+                            bulkDeleteForm.submit();
+                        }
+                    });
+                    return;
+                }
                 if (confirm('Weet je zeker dat je ' + selected.length + ' permissie' +
                            (selected.length > 1 ? 's' : '') +
                            ' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {

@@ -6,6 +6,23 @@ let notificationsPollingInterval = null;
 let lastNotificationCount = 0;
 const DEFAULT_SYSTEM_AVATAR = '/assets/media/avatars/300-2.png';
 
+function confirmWithAdminModal(message, options) {
+    options = options || {};
+    if (typeof window.showAdminConfirm === 'function') {
+        return window.showAdminConfirm({
+            title: options.title || 'Bevestigen',
+            message: message,
+            confirmLabel: options.confirmLabel || 'Bevestigen',
+            destructive: options.destructive !== false
+        });
+    }
+    try {
+        return Promise.resolve(window.confirm(message));
+    } catch (e) {
+        return Promise.resolve(true);
+    }
+}
+
 function getNexaSuiteAvatarUrl(notification) {
     if (notification && notification.system_avatar) {
         return notification.system_avatar;
@@ -1757,6 +1774,15 @@ function createInterviewFromNotification(notification) {
 
 // Show confirmation modal for deleting interview
 function showDeleteConfirmationModal(callback) {
+    if (typeof window.showAdminConfirm === 'function') {
+        window.showAdminConfirm({
+            title: 'Afspraak verwijderen',
+            message: 'Weet je zeker dat je deze afspraak wilt verwijderen uit de interviews?\n\nDe kandidaat ontvangt een notificatie dat de afspraak is geannuleerd.',
+            confirmLabel: 'Verwijderen'
+        }).then(callback);
+        return;
+    }
+
     // Create or get modal
     let modal = document.getElementById('delete-interview-modal');
     if (!modal) {
@@ -2067,14 +2093,10 @@ async function archiveSelected() {
     if (selectedNotifications.size === 0) return;
     
     const ids = Array.from(selectedNotifications);
-    // Show confirmation using a simple approach
-    let confirmed = false;
-    try {
-        confirmed = confirm(`Weet je zeker dat je ${ids.length} notificatie(s) wilt archiveren?`);
-    } catch (e) {
-        // If confirm is not available, proceed anyway (for testing/automation)
-        confirmed = true;
-    }
+    const confirmed = await confirmWithAdminModal(
+        `Weet je zeker dat je ${ids.length} notificatie(s) wilt archiveren?`,
+        { title: 'Archiveren', confirmLabel: 'Archiveren' }
+    );
     if (!confirmed) {
         return;
     }
@@ -2293,19 +2315,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (archiveAllBtn) {
             // Store original handler
             originalArchiveHandler = async function() {
-                let confirmed = false;
-                try {
-                    confirmed = confirm('Weet je zeker dat je alle notificaties wilt archiveren?');
-                } catch (e) {
-                    // If confirm is not available, proceed anyway
-                    confirmed = true;
-                }
-                if (confirmed) {
-                    // Archive all visible notifications
-                    const allIds = notifications.map(n => n.id);
-                    selectedNotifications = new Set(allIds);
-                    await archiveSelected();
-                }
+                const allIds = notifications.map(n => n.id);
+                selectedNotifications = new Set(allIds);
+                await archiveSelected();
             };
             archiveAllBtn.addEventListener('click', originalArchiveHandler);
         }

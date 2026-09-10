@@ -1428,6 +1428,19 @@ function updateExperienceInDOM(experience) {
 let pendingDeleteAction = null;
 
 function showConfirmationModal(title, message, deleteAction) {
+  if (typeof window.showAdminConfirm === 'function') {
+    window.showAdminConfirm({
+      title: title,
+      message: message,
+      confirmLabel: 'Verwijderen'
+    }).then(function (ok) {
+      if (ok && typeof deleteAction === 'function') {
+        deleteAction();
+      }
+    });
+    return;
+  }
+
   document.getElementById('confirmation-title').textContent = title;
   document.getElementById('confirmation-message').textContent = message;
   document.getElementById('confirmation-modal').classList.remove('hidden');
@@ -1636,6 +1649,21 @@ let currentCVId = null;
 
 function showCVRemoveModal(cvId) {
   currentCVId = cvId;
+  if (typeof window.showAdminConfirm === 'function') {
+    window.showAdminConfirm({
+      title: 'CV verwijderen',
+      message: 'Weet je zeker dat je het CV wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.',
+      confirmLabel: 'Verwijderen'
+    }).then(function (ok) {
+      if (ok) {
+        confirmCVRemove();
+      } else {
+        currentCVId = null;
+      }
+    });
+    return;
+  }
+
   const modal = document.getElementById('cv-remove-modal');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
