@@ -39,9 +39,12 @@ services:
       # Meerdere PHP built-in server workers (vereist --no-reload in docker-entrypoint.sh).
       # Zonder dit blokkeert de AI-chat: Laravel wacht op n8n terwijl n8n terugbelt naar Laravel.
       PHP_CLI_SERVER_WORKERS: "8"
+      NEXA_HOST_PROJECT_DIR: ${NEXA_HOST_PROJECT_DIR:-${PWD}}
     volumes:
       - ./backend:/var/www/html
       - ./.env:/var/www/html/.env
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${NEXA_HOST_PROJECT_DIR:-${PWD}}:${NEXA_HOST_PROJECT_DIR:-${PWD}}
     # Fallback DNS: voorkomt cURL error 6 (Could not resolve host) in sommige Docker-netwerken
     dns:
       - 127.0.0.11

@@ -826,6 +826,12 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::get('settings/upgrade', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'index'])->name('settings.upgrade.index');
         Route::get('settings/upgrade/preview', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'preview'])->name('settings.upgrade.preview');
         Route::post('settings/upgrade/run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'run'])->name('settings.upgrade.run');
+        Route::get('settings/upgrade/php-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpStatus'])->name('settings.upgrade.php-status');
+        Route::post('settings/upgrade/php-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpRun'])->name('settings.upgrade.php-run');
+        Route::post('settings/upgrade/php-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpFinalize'])->name('settings.upgrade.php-finalize');
+        Route::get('settings/upgrade/laravel-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelStatus'])->name('settings.upgrade.laravel-status');
+        Route::post('settings/upgrade/laravel-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelRun'])->name('settings.upgrade.laravel-run');
+        Route::post('settings/upgrade/laravel-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelFinalize'])->name('settings.upgrade.laravel-finalize');
         Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
         Route::post('settings/remove-logo-light', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
         Route::post('settings/remove-logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');

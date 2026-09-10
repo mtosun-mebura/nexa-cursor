@@ -83,14 +83,7 @@ class SystemUpgradeService
             }
 
             if (in_array('step:tests', $selections, true)) {
-                $this->runArtisanStep(
-                    $emit,
-                    $steps,
-                    'Unit tests uitvoeren',
-                    ['test', '--colors=never', '--without-tty'],
-                    1200,
-                    $this->phpunitProcessEnvironment(),
-                );
+                $this->runStabilityTests($emit, $steps);
             }
 
             $toStack = $this->snapshots->capture();
@@ -139,6 +132,370 @@ class SystemUpgradeService
                 'message' => 'Upgrade mislukt: '.$e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @param  callable(callable|null, array): void  $operation
+     * @return array{log: SystemUpgradeLog, success: bool, message: string}
+     */
+    public function executeLoggedUpgrade(
+        User $user,
+        callable $operation,
+        ?callable $emit = null,
+        bool $runMigrations = false,
+        bool $runTests = true,
+    ): array {
+        if (! $this->webUpgradeEnabled()) {
+            throw new \RuntimeException('Web-upgrades zijn uitgeschakeld. Zet NEXA_WEB_UPGRADE_ENABLED=true in .env.');
+        }
+
+        $fromRelease = $this->snapshots->currentReleaseVersion();
+        $fromStack = $this->snapshots->capture();
+        $toRelease = $this->snapshots->bumpReleasePatch($fromRelease);
+
+        $log = SystemUpgradeLog::query()->create([
+            'from_release' => $fromRelease,
+            'to_release' => $toRelease,
+            'status' => SystemUpgradeLog::STATUS_RUNNING,
+            'from_stack' => $fromStack,
+            'triggered_by_user_id' => $user->id,
+            'started_at' => now(),
+        ]);
+
+        $steps = [];
+
+        try {
+            $operation($emit, $steps);
+
+            if ($runMigrations) {
+                $this->runDatabaseMigrations($emit, $steps);
+            }
+
+            if ($runTests) {
+                $this->runStabilityTests($emit, $steps);
+            }
+
+            $toStack = $this->snapshots->capture();
+            GeneralSetting::set('nexa_release_version', $toRelease);
+
+            $log->update([
+                'status' => SystemUpgradeLog::STATUS_SUCCESS,
+                'to_release' => $toRelease,
+                'to_stack' => $toStack,
+                'steps_log' => $steps,
+                'completed_at' => now(),
+            ]);
+
+            $this->step($emit, $steps, 'Upgrade voltooid: '.$fromRelease.' → '.$toRelease, 'done');
+            $this->emit($emit, 'summary', [
+                'from_release' => $fromRelease,
+                'to_release' => $toRelease,
+                'from_stack' => $fromStack,
+                'to_stack' => $toStack,
+            ]);
+
+            return [
+                'log' => $log->fresh(),
+                'success' => true,
+                'message' => 'Upgrade voltooid: '.$fromRelease.' → '.$toRelease,
+            ];
+        } catch (\Throwable $e) {
+            $log->update([
+                'status' => SystemUpgradeLog::STATUS_FAILED,
+                'steps_log' => $steps,
+                'error_message' => $e->getMessage(),
+                'completed_at' => now(),
+            ]);
+
+            $this->step($emit, $steps, 'Upgrade mislukt: '.$e->getMessage(), 'failed');
+            $this->emit($emit, 'summary', [
+                'from_release' => $fromRelease,
+                'to_release' => null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'log' => $log->fresh(),
+                'success' => false,
+                'message' => 'Upgrade mislukt: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function runStabilityTests(?callable $emit, array &$steps): void
+    {
+        $phpunit = $this->phpunitBinary();
+        if ($phpunit === null) {
+            $this->step($emit, $steps, 'Stabiliteitstests overgeslagen: PHPUnit is niet geïnstalleerd in deze image', 'skipped');
+
+            return;
+        }
+
+        $this->runProcessCommandWithUnknownOptionRetry(
+            $emit,
+            $steps,
+            'Stabiliteitstests uitvoeren',
+            [PHP_BINARY, $phpunit, '--colors=never'],
+            1200,
+            base_path(),
+            $this->phpunitProcessEnvironment(),
+        );
+    }
+
+    public function unknownCliOptionFromOutput(string $output): ?string
+    {
+        $patterns = [
+            '/Unknown option\s+[\'"](--[A-Za-z0-9][A-Za-z0-9\-]*)[\'"]/i',
+            '/The [\'"](--[A-Za-z0-9][A-Za-z0-9\-]*)[\'"] option does not exist/i',
+            '/The option [\'"](--[A-Za-z0-9][A-Za-z0-9\-]*)[\'"] does not exist/i',
+            '/unrecognized option\s+[\'"](--[A-Za-z0-9][A-Za-z0-9\-]*)[\'"]/i',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $output, $matches) === 1) {
+                return $matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @return list<string>
+     */
+    public function commandWithoutOption(array $command, string $option): array
+    {
+        $filtered = [];
+        foreach ($command as $argument) {
+            if ($argument === $option || str_starts_with((string) $argument, $option.'=')) {
+                continue;
+            }
+            $filtered[] = $argument;
+        }
+
+        return array_values($filtered);
+    }
+
+    /**
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function runDatabaseMigrations(?callable $emit, array &$steps): void
+    {
+        $this->runArtisanStep($emit, $steps, 'Database migraties uitvoeren', ['migrate', '--force'], 300);
+    }
+
+    /**
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function emitProgress(?callable $emit, array &$steps, string $label, string $status): void
+    {
+        $this->step($emit, $steps, $label, $status);
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     * @param  array<string, string>|null  $env
+     */
+    public function runProcessCommand(
+        ?callable $emit,
+        array &$steps,
+        string $label,
+        array $command,
+        int $timeout,
+        ?string $cwd = null,
+        ?array $env = null,
+    ): void {
+        $this->step($emit, $steps, $label, 'running');
+
+        $process = new Process($command, $cwd ?? base_path(), $env, null, $timeout);
+        $output = '';
+
+        $process->run(function (string $type, string $buffer) use ($emit, $label, &$output): void {
+            $output .= $buffer;
+            $line = trim($buffer);
+            if ($line !== '') {
+                $this->emit($emit, 'note', ['note' => $label.': '.$line]);
+            }
+        });
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
+                $process->getErrorOutput()."\n".$process->getOutput()
+            )));
+        }
+
+        $this->markLastStepDone($steps, $output);
+        $this->step($emit, $steps, $label.' voltooid', 'done');
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     * @param  array<string, string>|null  $env
+     */
+    public function runProcessCommandWithUnknownOptionRetry(
+        ?callable $emit,
+        array &$steps,
+        string $label,
+        array $command,
+        int $timeout,
+        ?string $cwd = null,
+        ?array $env = null,
+    ): void {
+        $this->step($emit, $steps, $label, 'running');
+
+        $attempt = array_values($command);
+        $lastOutput = '';
+
+        for ($i = 0; $i < 8; $i++) {
+            $output = '';
+            $process = new Process($attempt, $cwd ?? base_path(), $env, null, $timeout);
+            $process->run(function (string $type, string $buffer) use ($emit, $label, &$output): void {
+                $output .= $buffer;
+                $line = trim($buffer);
+                if ($line !== '') {
+                    $this->emit($emit, 'note', ['note' => $label.': '.$line]);
+                }
+            });
+
+            $lastOutput = $process->getErrorOutput()."\n".$process->getOutput();
+            if ($lastOutput === "\n") {
+                $lastOutput = $output;
+            } elseif ($output !== '' && ! str_contains($lastOutput, $output)) {
+                $lastOutput = $output."\n".$lastOutput;
+            }
+
+            if ($process->isSuccessful()) {
+                $this->markLastStepDone($steps, $output);
+                $this->step($emit, $steps, $label.' voltooid', 'done');
+
+                return;
+            }
+
+            $unknown = $this->unknownCliOptionFromOutput($lastOutput);
+            if ($unknown === null) {
+                break;
+            }
+
+            $stripped = $this->commandWithoutOption($attempt, $unknown);
+            if ($stripped === $attempt) {
+                break;
+            }
+
+            $this->emit($emit, 'note', [
+                'note' => $label.': optie '.$unknown.' wordt niet ondersteund, opnieuw zonder die vlag.',
+            ]);
+            $attempt = $stripped;
+        }
+
+        throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput($lastOutput)));
+    }
+
+    /**
+     * @return array{log: SystemUpgradeLog, from_release: string, to_release: string, from_stack: array<string, string>, steps: list<array{label: string, status: string, output?: string}>}
+     */
+    public function startUpgradeLog(User $user): array
+    {
+        if (! $this->webUpgradeEnabled()) {
+            throw new \RuntimeException('Web-upgrades zijn uitgeschakeld. Zet NEXA_WEB_UPGRADE_ENABLED=true in .env.');
+        }
+
+        $fromRelease = $this->snapshots->currentReleaseVersion();
+        $fromStack = $this->snapshots->capture();
+        $toRelease = $this->snapshots->bumpReleasePatch($fromRelease);
+
+        $log = SystemUpgradeLog::query()->create([
+            'from_release' => $fromRelease,
+            'to_release' => $toRelease,
+            'status' => SystemUpgradeLog::STATUS_RUNNING,
+            'from_stack' => $fromStack,
+            'triggered_by_user_id' => $user->id,
+            'started_at' => now(),
+        ]);
+
+        return [
+            'log' => $log,
+            'from_release' => $fromRelease,
+            'to_release' => $toRelease,
+            'from_stack' => $fromStack,
+            'steps' => [],
+        ];
+    }
+
+    /**
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     * @param  array<string, string>  $fromStack
+     * @return array{log: SystemUpgradeLog, success: bool, message: string}
+     */
+    public function finishUpgradeLogSuccess(
+        SystemUpgradeLog $log,
+        array &$steps,
+        ?callable $emit,
+        string $fromRelease,
+        string $toRelease,
+        array $fromStack,
+    ): array {
+        $toStack = $this->snapshots->capture();
+        GeneralSetting::set('nexa_release_version', $toRelease);
+
+        $log->update([
+            'status' => SystemUpgradeLog::STATUS_SUCCESS,
+            'to_release' => $toRelease,
+            'to_stack' => $toStack,
+            'steps_log' => $steps,
+            'completed_at' => now(),
+        ]);
+
+        $this->step($emit, $steps, 'Upgrade voltooid: '.$fromRelease.' → '.$toRelease, 'done');
+        $this->emit($emit, 'summary', [
+            'from_release' => $fromRelease,
+            'to_release' => $toRelease,
+            'from_stack' => $fromStack,
+            'to_stack' => $toStack,
+        ]);
+
+        return [
+            'log' => $log->fresh(),
+            'success' => true,
+            'message' => 'Upgrade voltooid: '.$fromRelease.' → '.$toRelease,
+        ];
+    }
+
+    /**
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     * @return array{log: SystemUpgradeLog, success: bool, message: string}
+     */
+    public function finishUpgradeLogFailure(
+        SystemUpgradeLog $log,
+        array &$steps,
+        ?callable $emit,
+        string $fromRelease,
+        \Throwable $e,
+    ): array {
+        $log->update([
+            'status' => SystemUpgradeLog::STATUS_FAILED,
+            'steps_log' => $steps,
+            'error_message' => $e->getMessage(),
+            'completed_at' => now(),
+        ]);
+
+        $this->step($emit, $steps, 'Upgrade mislukt: '.$e->getMessage(), 'failed');
+        $this->emit($emit, 'summary', [
+            'from_release' => $fromRelease,
+            'to_release' => null,
+            'error' => $e->getMessage(),
+        ]);
+
+        return [
+            'log' => $log->fresh(),
+            'success' => false,
+            'message' => 'Upgrade mislukt: '.$e->getMessage(),
+        ];
     }
 
     /**
@@ -293,6 +650,17 @@ class SystemUpgradeService
         return $process->isSuccessful();
     }
 
+    private function phpunitBinary(): ?string
+    {
+        foreach ([base_path('vendor/bin/phpunit'), base_path('vendor/phpunit/phpunit/phpunit')] as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Tests vanuit de web-upgrade erven anders DB_CONNECTION=pgsql uit de draaiende app.
      *
@@ -311,6 +679,8 @@ class SystemUpgradeService
             'PULSE_ENABLED' => 'false',
             'TELESCOPE_ENABLED' => 'false',
             'NIGHTWATCH_ENABLED' => 'false',
+            'TERM' => 'dumb',
+            'NO_COLOR' => '1',
         ];
     }
 

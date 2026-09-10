@@ -18,8 +18,8 @@
 
     <div class="flex flex-col gap-5 mb-5">
         <div class="kt-card min-w-0">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Geïnstalleerde stack</h3>
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">Geïnstalleerde stack</h3>
             </div>
             <div class="kt-card-body p-5 lg:p-6 min-w-0">
                 <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
@@ -44,19 +44,136 @@
         </div>
 
         <div class="kt-card min-w-0">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Upgrade uitvoeren</h3>
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">Laravel bijwerken</h3>
+            </div>
+            <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
+                <p class="text-sm text-secondary-foreground mb-0" id="laravel-upgrade-status-text">Beschikbare Laravel-updates ophalen…</p>
+                <div class="flex flex-wrap gap-2 pt-5 pb-0">
+                    <button type="button" id="btn-laravel-minor" class="kt-btn kt-btn-primary hidden" @disabled(!$webUpgradeEnabled) disabled>
+                        <i class="ki-filled ki-arrow-up me-1"></i>
+                        Minor-update
+                    </button>
+                    <button type="button" id="btn-laravel-major" class="kt-btn kt-btn-success hidden" @disabled(!$webUpgradeEnabled) disabled>
+                        <i class="ki-filled ki-rocket me-1"></i>
+                        Major-update
+                    </button>
+                </div>
+                <div id="laravel-upgrade-progress" class="hidden"></div>
+                <div id="laravel-upgrade-result" class="hidden rounded-md border border-border bg-muted/20 p-4 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="kt-card min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">PHP in Docker bijwerken</h3>
+            </div>
+            <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
+                <p class="text-sm text-secondary-foreground mb-0">
+                    Werkt de PHP-basisimage in de Dockerfiles bij naar de nieuwste officiële <code>php:X.Y-cli</code>,
+                    tuigt daarna de hele Docker-stack opnieuw op (build waar de image is veranderd) en draait de testdoorloop.
+                </p>
+                <p class="text-sm text-secondary-foreground mb-0" id="php-upgrade-status-text">Status ophalen…</p>
+                <div class="flex flex-wrap gap-2 pt-5 pb-0">
+                    <button type="button" id="btn-php-docker-upgrade" class="kt-btn kt-btn-outline" @disabled(!$webUpgradeEnabled) disabled>
+                        <i class="ki-filled ki-docker me-1"></i>
+                        PHP in Docker bijwerken
+                    </button>
+                </div>
+                <div id="php-upgrade-progress" class="hidden"></div>
+                <div id="php-upgrade-result" class="hidden rounded-md border border-border bg-muted/20 p-4 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="kt-card min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">Overige packages bijwerken</h3>
             </div>
             <div class="kt-card-body space-y-4 p-5 lg:p-6">
                 <p class="text-sm text-secondary-foreground">
-                    Bekijk eerst welke componenten bijgewerkt kunnen worden, selecteer wat je wilt upgraden en start daarna de upgrade.
-                    Bij succes wordt de platform-release automatisch verhoogd voor alle tenants.
+                    Bekijk eerst welke overige packages bijgewerkt kunnen worden (Composer, NPM, migraties).
+                    Laravel en PHP hebben eigen knoppen hierboven. Bij succes wordt de platform-release verhoogd.
                 </p>
                 @unless($webUpgradeEnabled)
                     <div class="kt-alert kt-alert-warning">
                         <div class="kt-alert-content">Web-upgrades zijn uitgeschakeld via <code>NEXA_WEB_UPGRADE_ENABLED</code>.</div>
                     </div>
                 @endunless
+
+                <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
+                    <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
+                        <i class="ki-filled ki-code text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                        <span class="flex-1 min-w-0">Laravel: minor vs major</span>
+                        <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                    </summary>
+                    <div class="mt-3 space-y-4 text-secondary-foreground">
+                        <p class="mb-0">
+                            Gebruik de knoppen <strong>Minor-update</strong> en <strong>Major-update</strong> hierboven.
+                            Beide draaien daarna automatisch migraties, tests en het opnieuw optuigen van de Docker-stack.
+                        </p>
+                        <div>
+                            <p class="mb-1 font-semibold text-mono">Minor (binnen de huidige major)</p>
+                            <p class="mb-0">
+                                Voert <code>composer update laravel/framework --with-all-dependencies</code> uit binnen de
+                                huidige constraint. Geen sprong naar een nieuwe major.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="mb-1 font-semibold text-mono">Major (nieuwe Laravel-versie)</p>
+                            <p class="mb-0">
+                                Zet de Composer-constraint op de volgende major, installeert die versie, en controleert
+                                of PHP hoog genoeg is. Bij falende installatie of tests gaan de Composer-bestanden terug.
+                                Controleer bij een major alsnog de officiële upgrade-guide voor breaking changes.
+                            </p>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
+                    <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
+                        <i class="ki-filled ki-docker text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                        <span class="flex-1 min-w-0">PHP &amp; PostgreSQL bijwerken (via Docker)</span>
+                        <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
+                    </summary>
+                    <div class="mt-3 space-y-4 text-secondary-foreground">
+                        <p class="mb-0">
+                            PHP kun je nu automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.
+                            Die zet de <code>FROM php:…-cli</code> regel in de Dockerfiles, tuigt de Docker-stack opnieuw op
+                            (build waar nodig) en draait daarna tests. PostgreSQL blijft handmatig: een major-upgrade vereist een data-migratie.
+                        </p>
+
+                        <div>
+                            <p class="mb-1 font-semibold text-mono">1. PHP (automatisch via de knop)</p>
+                            <p class="mb-0">
+                                De knop haalt de nieuwste stabiele PHP 8-lijn op, schrijft <code>backend/Dockerfile</code>
+                                en <code>backend/Dockerfile.prod</code>, voert <code>docker compose up -d --build</code>
+                                uit en rondt daarna <code>php artisan test</code> af. Een eenmalige
+                                <code>docker compose up -d</code> is nodig zodat de Docker-socket in de container hangt.
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="mb-1 font-semibold text-mono">2. PostgreSQL upgraden (bijv. pg16 → pg17)</p>
+                            <p class="mb-1">
+                                Een major-upgrade vereist een <strong>data-migratie</strong> — het volume is versiegebonden, dus een
+                                nieuwe image start niet zomaar op oude data. Maak eerst een backup:
+                            </p>
+                            <pre class="upgrade-docker-code">docker compose exec db pg_dumpall -U nexa > backup-$(date +%F).sql</pre>
+                            <p class="mb-1">Pas de image aan in <code>docker-compose.postgres.yml</code>:</p>
+                            <pre class="upgrade-docker-code">- image: pgvector/pgvector:pg16
++ image: pgvector/pgvector:pg17</pre>
+                            <p class="mb-1">Verwijder het oude datavolume en herstel de backup in de nieuwe versie:</p>
+                            <pre class="upgrade-docker-code">docker compose down
+docker volume rm nexa_postgres_data
+docker compose up -d db
+cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
+                            <p class="mb-0 text-destructive">
+                                Let op: doe dit in een onderhoudsvenster en verifieer altijd eerst dat de backup geldig is.
+                            </p>
+                        </div>
+                    </div>
+                </details>
+
                 <button type="button" id="btn-run-upgrade" class="kt-btn kt-btn-primary" @disabled(!$webUpgradeEnabled)>
                     <i class="ki-filled ki-arrow-up me-1"></i>
                     Upgrade naar nieuwste versies
@@ -108,107 +225,6 @@
                             </table>
                         </div>
 
-                        <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
-                            <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
-                                <i class="ki-filled ki-code text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
-                                <span class="flex-1 min-w-0">Laravel bijwerken</span>
-                                <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
-                            </summary>
-                            <div class="mt-3 space-y-4 text-secondary-foreground">
-                                <p class="mb-0">
-                                    Deze knop voert <code>composer update</code> uit <strong>binnen de huidige constraint</strong>
-                                    (<code>laravel/framework: ^12.0</code>). Dat is een 12.x-patch of -minor, geen sprong naar Laravel 13.
-                                    Een major-upgrade wijzigt Composer-constraints en volgt de officiële upgrade-guide; dat kan deze pagina niet veilig alleen.
-                                </p>
-
-                                <div>
-                                    <p class="mb-1 font-semibold text-mono">1. Binnen Laravel 12 (via deze pagina)</p>
-                                    <p class="mb-1">Vink Laravel aan in de lijst hierboven, bevestig, en start de upgrade. Er gebeurt dan o.a.:</p>
-                                    <pre class="upgrade-docker-code">composer update laravel/framework --with-all-dependencies
-php artisan migrate --force
-php artisan test</pre>
-                                    <p class="mb-0">
-                                        <code>--with-all-dependencies</code> is nodig omdat nieuwere 12.x-releases ook lock-pins van
-                                        transitieve packages (zoals <code>league/commonmark</code>) moeten meenemen.
-                                        Voer dit eerst lokaal of op staging uit en laat de testdoorloop aanstaan.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p class="mb-1 font-semibold text-mono">2. Naar Laravel 13 (handmatig, niet via deze knop)</p>
-                                    <p class="mb-1">
-                                        Laravel 13 vereist PHP 8.3+ (deze Docker-image is al 8.3). Werk op een aparte git-branch en
-                                        volg <a href="https://laravel.com/docs/13.x/upgrade" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2">laravel.com/docs/13.x/upgrade</a>.
-                                        Pas daarna de constraints in <code>backend/composer.json</code> aan:
-                                    </p>
-                                    <pre class="upgrade-docker-code">- "php": "^8.2"
-+ "php": "^8.3"
-- "laravel/framework": "^12.0"
-+ "laravel/framework": "^13.0"</pre>
-                                    <p class="mb-1">Controleer blockers en werk gerelateerde packages mee (vaak tinker, phpunit, livewire, scout, guzzle):</p>
-                                    <pre class="upgrade-docker-code">composer why-not laravel/framework:^13.0
-composer update laravel/framework --with-all-dependencies
-php artisan migrate --force
-php artisan test</pre>
-                                    <p class="mb-0">
-                                        Als 13 eenmaal in de constraint staat, houdt deze pagina Laravel daarna bij met 13.x-patches.
-                                        Doe de major eerst lokaal, met groene tests, vóór productie.
-                                    </p>
-                                </div>
-                            </div>
-                        </details>
-
-                        <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
-                            <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
-                                <i class="ki-filled ki-docker text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
-                                <span class="flex-1 min-w-0">PHP &amp; PostgreSQL bijwerken (via Docker)</span>
-                                <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
-                            </summary>
-                            <div class="mt-3 space-y-4 text-secondary-foreground">
-                                <p class="mb-0">
-                                    PHP, PostgreSQL, Node.js en NPM zijn <strong>container-runtimes</strong>. Ze zitten niet in Composer of NPM
-                                    en kunnen daarom niet vanuit deze web-upgrade worden bijgewerkt: de webserver draait zelf in de PHP-container
-                                    en kan zichzelf niet herbouwen. Werk ze bij op de host met onderstaande stappen.
-                                </p>
-
-                                <div>
-                                    <p class="mb-1 font-semibold text-mono">1. PHP upgraden (bijv. 8.3 → 8.5)</p>
-                                    <p class="mb-1">Wijzig de basis-image in <code>backend/Dockerfile</code>:</p>
-                                    <pre class="upgrade-docker-code">- FROM php:8.3-cli
-+ FROM php:8.5-cli</pre>
-                                    <p class="mb-1">Herbouw daarna de container en test:</p>
-                                    <pre class="upgrade-docker-code">docker compose build backend
-docker compose up -d backend
-docker compose exec backend php -v
-docker compose exec backend php artisan test</pre>
-                                    <p class="mb-0">
-                                        Controleer eerst of alle Composer-dependencies de nieuwe PHP-versie ondersteunen
-                                        (<code>composer why-not php 8.5</code>).
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p class="mb-1 font-semibold text-mono">2. PostgreSQL upgraden (bijv. pg16 → pg17)</p>
-                                    <p class="mb-1">
-                                        Een major-upgrade vereist een <strong>data-migratie</strong> — het volume is versiegebonden, dus een
-                                        nieuwe image start niet zomaar op oude data. Maak eerst een backup:
-                                    </p>
-                                    <pre class="upgrade-docker-code">docker compose exec db pg_dumpall -U nexa > backup-$(date +%F).sql</pre>
-                                    <p class="mb-1">Pas de image aan in <code>docker-compose.postgres.yml</code>:</p>
-                                    <pre class="upgrade-docker-code">- image: pgvector/pgvector:pg16
-+ image: pgvector/pgvector:pg17</pre>
-                                    <p class="mb-1">Verwijder het oude datavolume en herstel de backup in de nieuwe versie:</p>
-                                    <pre class="upgrade-docker-code">docker compose down
-docker volume rm nexa_postgres_data
-docker compose up -d db
-cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
-                                    <p class="mb-0 text-destructive">
-                                        Let op: doe dit in een onderhoudsvenster en verifieer altijd eerst dat de backup geldig is.
-                                    </p>
-                                </div>
-                            </div>
-                        </details>
-
                         <label class="upgrade-confirm-label flex items-start gap-2.5 text-sm">
                             <input type="checkbox" id="upgrade-confirm" class="kt-checkbox shrink-0">
                             <span>Ik begrijp dat de geselecteerde onderdelen worden bijgewerkt.</span>
@@ -230,8 +246,8 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     </div>
 
     <div class="kt-card min-w-0">
-        <div class="kt-card-header">
-            <h3 class="kt-card-title">Upgradegeschiedenis</h3>
+        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+            <h3 class="kt-card-title mb-0">Upgradegeschiedenis</h3>
         </div>
         <div class="kt-card-body p-5 lg:p-6 min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
@@ -472,6 +488,27 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
         word-break: break-word;
         color: var(--foreground);
     }
+
+    .kt-btn-success {
+        background-color: #10b981;
+        border-color: #10b981;
+        color: #fff;
+    }
+    .kt-btn-success:hover:not(:disabled) {
+        background-color: #059669;
+        border-color: #059669;
+        color: #fff;
+    }
+    .dark .kt-btn-success {
+        background-color: #059669;
+        border-color: #059669;
+        color: #fff;
+    }
+    .dark .kt-btn-success:hover:not(:disabled) {
+        background-color: #047857;
+        border-color: #047857;
+        color: #fff;
+    }
 </style>
 @endpush
 
@@ -564,7 +601,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
         if (status === 'Actueel' || status === 'Geen openstaande' || status === 'Geïnstalleerd') {
             return 'kt-badge-success';
         }
-        if (status === 'Via Docker') {
+        if (status === 'Via Docker' || status === 'Eigen knop') {
             return 'kt-badge-info';
         }
         if (status === 'Niet nodig') {
@@ -829,6 +866,411 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
             runUpgrade(selectedItemIds());
         });
     }
+})();
+
+(function () {
+    var webUpgradeEnabled = @json((bool) $webUpgradeEnabled);
+    var laravelStatusUrl = @json(route('admin.settings.upgrade.laravel-status'));
+    var laravelRunUrl = @json(route('admin.settings.upgrade.laravel-run'));
+    var laravelFinalizeUrl = @json(route('admin.settings.upgrade.laravel-finalize'));
+    var phpStatusUrl = @json(route('admin.settings.upgrade.php-status'));
+    var phpRunUrl = @json(route('admin.settings.upgrade.php-run'));
+    var phpFinalizeUrl = @json(route('admin.settings.upgrade.php-finalize'));
+
+    var laravelStatusEl = document.getElementById('laravel-upgrade-status-text');
+    var phpStatusEl = document.getElementById('php-upgrade-status-text');
+    var btnLaravelMinor = document.getElementById('btn-laravel-minor');
+    var btnLaravelMajor = document.getElementById('btn-laravel-major');
+    var btnPhp = document.getElementById('btn-php-docker-upgrade');
+    var laravelProgressEl = document.getElementById('laravel-upgrade-progress');
+    var laravelResultEl = document.getElementById('laravel-upgrade-result');
+    var phpProgressEl = document.getElementById('php-upgrade-progress');
+    var phpResultEl = document.getElementById('php-upgrade-result');
+    var laravelStatus = null;
+    var phpStatus = null;
+
+    function csrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+
+    function confirmUpgrade(title, message, label) {
+        if (typeof window.showAdminConfirm === 'function') {
+            return window.showAdminConfirm({
+                title: title,
+                message: message,
+                confirmLabel: label || 'Starten',
+                destructive: false,
+            });
+        }
+        return Promise.resolve(window.confirm(message));
+    }
+
+    function initProgress(progressEl, title) {
+        if (!progressEl) return null;
+        progressEl.classList.remove('hidden');
+        progressEl.innerHTML =
+            '<div class="upgrade-progress">' +
+            '<p class="font-medium flex items-center gap-2 mb-0">' +
+            '<i class="ki-filled ki-arrows-circle animate-spin" aria-hidden="true"></i>' +
+            '<span>' + title + '</span></p>' +
+            '<ul class="upgrade-progress-list" aria-live="polite"></ul>' +
+            '</div>';
+        return progressEl.querySelector('.upgrade-progress-list');
+    }
+
+    function appendStep(list, label, status) {
+        if (!list) return;
+        var li = document.createElement('li');
+        li.className = 'upgrade-progress-item';
+        var icon = status === 'failed'
+            ? 'ki-cross-circle text-destructive'
+            : (status === 'skipped' ? 'ki-information-2 text-muted-foreground' : 'ki-check-circle text-emerald-600');
+        li.innerHTML = '<i class="ki-filled ' + icon + ' shrink-0 mt-0.5" aria-hidden="true"></i><span></span>';
+        li.querySelector('span').textContent = label;
+        list.appendChild(li);
+        li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function appendNote(list, note) {
+        if (!list || !note) return;
+        var li = document.createElement('li');
+        li.className = 'upgrade-progress-note';
+        li.textContent = note;
+        list.appendChild(li);
+    }
+
+    function showPanelResult(resultEl, success, message) {
+        if (!resultEl) return;
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'rounded-md border p-4 text-sm ' + (success
+            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+            : 'border-destructive/40 bg-destructive/10 text-destructive');
+        resultEl.textContent = message;
+    }
+
+    function setBusy(busy) {
+        if (btnLaravelMinor) btnLaravelMinor.disabled = busy || !webUpgradeEnabled || !(laravelStatus && laravelStatus.can_minor);
+        if (btnLaravelMajor) btnLaravelMajor.disabled = busy || !webUpgradeEnabled || !(laravelStatus && laravelStatus.can_major);
+        if (btnPhp) {
+            var phpOk = phpStatus && (phpStatus.can_run || phpStatus.pending_finalize);
+            btnPhp.disabled = busy || !webUpgradeEnabled || !phpOk;
+            btnPhp.classList.toggle('kt-btn-success', !!phpOk);
+            btnPhp.classList.toggle('kt-btn-outline', !phpOk);
+            btnPhp.classList.remove('kt-btn-primary');
+        }
+    }
+
+    function escapeText(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function versionMark(value) {
+        return '<span class="font-mono">' + escapeText(value || '—') + '</span>';
+    }
+
+    function laravelCopyHtml(data) {
+        if (data.pending_finalize) {
+            return escapeText(data.message || 'De Docker-stack is herstart. De Laravel-upgrade wordt nu afgerond.');
+        }
+        var current = versionMark(data.current);
+        if (data.can_minor && data.minor_target) {
+            return 'Er is een nieuwe minor-versie: Laravel ' + current +
+                ' → ' + versionMark(data.minor_target) +
+                '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).';
+        }
+        if (data.can_major && data.major_target) {
+            return 'Er is een nieuwe major-versie: Laravel ' + current +
+                ' → ' + versionMark(data.major_target) +
+                '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan composer.json en composer.lock terug.';
+        }
+        if (data.major_target && data.major_blocked_reason) {
+            return 'Laravel ' + current + ' heeft geen nieuwere minor. Major naar ' +
+                versionMark(data.major_target) + ' is nog niet mogelijk: ' +
+                escapeText(data.major_blocked_reason);
+        }
+        return 'Laravel ' + current + ' is actueel. Er is geen nieuwere minor of major.';
+    }
+
+    function applyLaravelStatus(data) {
+        laravelStatus = data || null;
+        if (laravelStatusEl) {
+            if (data) {
+                laravelStatusEl.innerHTML = laravelCopyHtml(data);
+            } else {
+                laravelStatusEl.textContent = 'Kon Laravel-status niet laden.';
+            }
+        }
+        if (btnLaravelMinor) {
+            var showMinor = !!(data && data.can_minor && data.minor_target);
+            btnLaravelMinor.classList.toggle('hidden', !showMinor);
+            btnLaravelMinor.innerHTML = showMinor
+                ? '<i class="ki-filled ki-arrow-up me-1"></i>Minor-update naar ' + escapeText(data.minor_target)
+                : '<i class="ki-filled ki-arrow-up me-1"></i>Minor-update';
+        }
+        if (btnLaravelMajor) {
+            var showMajor = !!(data && data.can_major && data.major_target);
+            btnLaravelMajor.classList.toggle('hidden', !showMajor);
+            btnLaravelMajor.innerHTML = (data && data.major_target)
+                ? '<i class="ki-filled ki-rocket me-1"></i>Major-update naar ' + escapeText(data.major_target)
+                : '<i class="ki-filled ki-rocket me-1"></i>Major-update';
+        }
+        setBusy(false);
+    }
+
+    function applyPhpStatus(data) {
+        phpStatus = data || null;
+        if (phpStatusEl) {
+            phpStatusEl.textContent = data && data.message
+                ? ('Draaiend: ' + (data.current_php || '—') + (data.dockerfile_tag ? ' (image php:' + data.dockerfile_tag + ')' : '') + '. ' + data.message)
+                : 'Kon PHP-status niet laden.';
+        }
+        if (btnPhp && data && data.button_label) {
+            btnPhp.innerHTML = '<i class="ki-filled ki-docker me-1"></i>' + data.button_label;
+        }
+        setBusy(false);
+    }
+
+    function fetchJson(url) {
+        return fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        }).then(function (response) {
+            return response.json().then(function (payload) {
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.message || 'Kon status niet ophalen.');
+                }
+                return payload.data;
+            });
+        });
+    }
+
+    function consumeNdjson(response, list) {
+        if (!response.ok || !response.body) {
+            return response.json().catch(function () {
+                throw new Error('Upgrade kon niet worden gestart.');
+            }).then(function (payload) {
+                throw new Error(payload.message || 'Upgrade kon niet worden gestart.');
+            });
+        }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+        var complete = null;
+        var sawReconnect = false;
+
+        function pump() {
+            return reader.read().then(function (chunk) {
+                if (chunk.done) return { complete: complete, reconnect: sawReconnect };
+                buffer += decoder.decode(chunk.value, { stream: true });
+                var lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                lines.forEach(function (line) {
+                    line = line.trim();
+                    if (!line) return;
+                    try {
+                        var event = JSON.parse(line);
+                        if (event.type === 'step') {
+                            appendStep(list, event.label || 'Stap', event.status || 'done');
+                        } else if (event.type === 'note') {
+                            appendNote(list, event.note);
+                        } else if (event.type === 'reconnect') {
+                            sawReconnect = true;
+                            appendNote(list, 'Container wordt herstart. De pagina wacht tot de admin weer online is…');
+                        } else if (event.type === 'complete') {
+                            complete = event;
+                        }
+                    } catch (e) { /* ignore partial json */ }
+                });
+                return pump();
+            });
+        }
+
+        return pump();
+    }
+
+    function postStream(url, body, list) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-System-Upgrade-Stream': '1',
+            },
+            body: JSON.stringify(body || {}),
+        }).then(function (response) {
+            return consumeNdjson(response, list);
+        });
+    }
+
+    function sleep(ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    }
+
+    function waitForAdmin(statusUrl, applyFn, list) {
+        var attempts = 0;
+        function tick() {
+            attempts += 1;
+            if (attempts > 90) {
+                return Promise.reject(new Error('De admin kwam niet terug na de herstart. Controleer docker compose logs.'));
+            }
+            return fetch(statusUrl, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            }).then(function (response) {
+                if (!response.ok) throw new Error('not ready');
+                return response.json();
+            }).then(function (payload) {
+                if (!payload || !payload.success) throw new Error('not ready');
+                if (typeof applyFn === 'function') {
+                    applyFn(payload.data);
+                }
+                return payload.data;
+            }).catch(function () {
+                if (attempts === 1 || attempts % 3 === 0) {
+                    appendNote(list, 'Wachten op herstart… (' + attempts + ')');
+                }
+                return sleep(4000).then(tick);
+            });
+        }
+        return sleep(3000).then(tick);
+    }
+
+    function runLaravel(channel) {
+        var target = channel === 'major'
+            ? (laravelStatus && laravelStatus.major_target)
+            : (laravelStatus && laravelStatus.minor_target);
+        var title = channel === 'major' ? 'Laravel major-update' : 'Laravel minor-update';
+        var message = channel === 'major'
+            ? 'Laravel wordt naar ' + (target || 'de volgende major') + ' gezet. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan de Composer-bestanden terug. Doorgaan?'
+            : 'Laravel wordt binnen de huidige major bijgewerkt naar ' + (target || 'de nieuwste patch') + '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Doorgaan?';
+
+        confirmUpgrade(title, message, 'Upgraden').then(function (ok) {
+            if (!ok) return;
+            setBusy(true);
+            if (laravelResultEl) {
+                laravelResultEl.classList.add('hidden');
+                laravelResultEl.textContent = '';
+            }
+            var list = initProgress(laravelProgressEl, 'Laravel-upgrade bezig…');
+            var start = laravelStatus && laravelStatus.pending_finalize
+                ? postStream(laravelFinalizeUrl, {}, list)
+                : postStream(laravelRunUrl, { channel: channel }, list);
+
+            start.then(function (outcome) {
+                if (outcome && outcome.complete && !outcome.reconnect) {
+                    return outcome;
+                }
+                appendNote(list, 'Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…');
+                return waitForAdmin(laravelStatusUrl, applyLaravelStatus, list).then(function (status) {
+                    if (status && status.pending_finalize) {
+                        appendStep(list, 'Docker-stack afronden', 'running');
+                        return postStream(laravelFinalizeUrl, {}, list);
+                    }
+                    return { complete: { success: true, message: 'Laravel-upgrade is afgerond; de stack is weer online.' } };
+                });
+            }).then(function (outcome) {
+                var event = outcome && outcome.complete;
+                var success = !!(event && event.success);
+                showPanelResult(laravelResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'Upgrade mislukt.'));
+                if (success) {
+                    setTimeout(function () { window.location.reload(); }, 1200);
+                }
+            }).catch(function (err) {
+                showPanelResult(laravelResultEl, false, err.message || 'Laravel-upgrade mislukt.');
+            }).finally(function () {
+                setBusy(false);
+                loadLaravelStatus();
+            });
+        });
+    }
+
+    function runPhp() {
+        var phpOk = phpStatus && (phpStatus.can_run || phpStatus.pending_finalize);
+        if (!phpOk) {
+            return;
+        }
+        var label = (phpStatus && phpStatus.button_label) || 'PHP in Docker bijwerken';
+        var message = 'De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?';
+
+        confirmUpgrade(label, message, 'Upgraden').then(function (ok) {
+            if (!ok) return;
+            setBusy(true);
+            if (phpResultEl) {
+                phpResultEl.classList.add('hidden');
+                phpResultEl.textContent = '';
+            }
+            var list = initProgress(phpProgressEl, 'PHP-upgrade bezig…');
+            var start = phpStatus && phpStatus.pending_finalize
+                ? postStream(phpFinalizeUrl, {}, list)
+                : postStream(phpRunUrl, {}, list);
+
+            start.then(function (outcome) {
+                if (outcome && outcome.complete && !outcome.reconnect) {
+                    return outcome;
+                }
+                appendNote(list, 'Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…');
+                return waitForAdmin(phpStatusUrl, applyPhpStatus, list).then(function (status) {
+                    if (status && status.pending_finalize) {
+                        appendStep(list, 'Stabiliteitstests starten', 'running');
+                        return postStream(phpFinalizeUrl, {}, list);
+                    }
+                    return { complete: { success: true, message: 'PHP-container is weer online.' } };
+                });
+            }).then(function (outcome) {
+                var event = outcome && outcome.complete;
+                var success = !!(event && event.success);
+                showPanelResult(phpResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'PHP-upgrade mislukt.'));
+                if (success) {
+                    setTimeout(function () { window.location.reload(); }, 1200);
+                }
+            }).catch(function (err) {
+                showPanelResult(phpResultEl, false, err.message || 'PHP-upgrade mislukt.');
+            }).finally(function () {
+                setBusy(false);
+                loadPhpStatus();
+            });
+        });
+    }
+
+    function loadLaravelStatus() {
+        return fetchJson(laravelStatusUrl).then(applyLaravelStatus).catch(function (err) {
+            if (laravelStatusEl) laravelStatusEl.textContent = err.message || 'Kon Laravel-status niet laden.';
+            if (btnLaravelMinor) btnLaravelMinor.classList.add('hidden');
+            if (btnLaravelMajor) btnLaravelMajor.classList.add('hidden');
+            laravelStatus = null;
+            setBusy(false);
+        });
+    }
+
+    function loadPhpStatus() {
+        return fetchJson(phpStatusUrl).then(applyPhpStatus).catch(function (err) {
+            if (phpStatusEl) phpStatusEl.textContent = err.message || 'Kon PHP-status niet laden.';
+            phpStatus = null;
+            setBusy(false);
+        });
+    }
+
+    if (btnLaravelMinor) {
+        btnLaravelMinor.addEventListener('click', function () { runLaravel('minor'); });
+    }
+    if (btnLaravelMajor) {
+        btnLaravelMajor.addEventListener('click', function () { runLaravel('major'); });
+    }
+    if (btnPhp) {
+        btnPhp.addEventListener('click', function () { runPhp(); });
+    }
+
+    loadLaravelStatus();
+    loadPhpStatus();
 })();
 </script>
 @endpush

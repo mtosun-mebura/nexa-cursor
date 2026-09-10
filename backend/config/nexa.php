@@ -19,6 +19,20 @@ return [
     'web_upgrade_enabled' => env('NEXA_WEB_UPGRADE_ENABLED', true),
 
     /*
+    |--------------------------------------------------------------------------
+    | Host-pad van de git-repo (voor PHP-Docker-upgrade vanuit de container)
+    |--------------------------------------------------------------------------
+    */
+    'host_project_dir' => env('NEXA_HOST_PROJECT_DIR'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lokale compose-binary (buiten bind-mounts, voorkomt ETXTBSY)
+    |--------------------------------------------------------------------------
+    */
+    'docker_compose_local_bin' => env('NEXA_DOCKER_COMPOSE_LOCAL_BIN', '/tmp/nexa-docker-compose'),
+
+    /*
   |--------------------------------------------------------------------------
   | Standaard branding (logo / avatar zonder upload)
   |--------------------------------------------------------------------------

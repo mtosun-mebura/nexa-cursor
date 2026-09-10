@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SystemUpgradeLog;
+use App\Services\SystemLaravelUpgradeService;
+use App\Services\SystemPhpDockerUpgradeService;
 use App\Services\SystemStackSnapshotService;
 use App\Services\SystemUpgradePreviewService;
 use App\Services\SystemUpgradeService;
@@ -17,6 +19,8 @@ class AdminSystemUpgradeController extends Controller
         protected SystemStackSnapshotService $snapshots,
         protected SystemUpgradePreviewService $previewService,
         protected SystemUpgradeService $upgrades,
+        protected SystemPhpDockerUpgradeService $phpDocker,
+        protected SystemLaravelUpgradeService $laravel,
     ) {}
 
     public function index()
@@ -88,6 +92,168 @@ class AdminSystemUpgradeController extends Controller
             'message' => $result['message'],
             'log' => $result['log'],
         ], $result['success'] ? 200 : 500);
+    }
+
+    public function phpStatus(): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->phpDocker->status(),
+        ]);
+    }
+
+    public function phpRun(Request $request): JsonResponse|StreamedResponse
+    {
+        $this->ensureSuperAdmin();
+
+        if (! $this->upgrades->webUpgradeEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Web-upgrades zijn uitgeschakeld.',
+            ], 422);
+        }
+
+        $status = $this->phpDocker->status();
+        if (! $status['can_run'] && ! $status['pending_finalize']) {
+            return response()->json([
+                'success' => false,
+                'message' => $status['message'] !== '' ? $status['message'] : 'PHP-upgrade via Docker is niet beschikbaar.',
+            ], 422);
+        }
+
+        if ($request->expectsJson() && $request->header('X-System-Upgrade-Stream') === '1') {
+            return $this->streamEvents(function (callable $emit) use ($request): array {
+                return $this->phpDocker->run($request->user(), $emit);
+            });
+        }
+
+        $result = $this->phpDocker->run($request->user());
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'log' => $result['log'] ?? null,
+        ], $result['success'] ? 200 : 500);
+    }
+
+    public function phpFinalize(Request $request): JsonResponse|StreamedResponse
+    {
+        $this->ensureSuperAdmin();
+
+        if ($request->expectsJson() && $request->header('X-System-Upgrade-Stream') === '1') {
+            return $this->streamEvents(function (callable $emit): array {
+                return $this->phpDocker->finalize($emit);
+            });
+        }
+
+        $result = $this->phpDocker->finalize();
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'log' => $result['log'] ?? null,
+        ], $result['success'] ? 200 : 500);
+    }
+
+    public function laravelStatus(): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->laravel->status(),
+        ]);
+    }
+
+    public function laravelRun(Request $request): JsonResponse|StreamedResponse
+    {
+        $this->ensureSuperAdmin();
+
+        if (! $this->upgrades->webUpgradeEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Web-upgrades zijn uitgeschakeld.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'channel' => ['required', 'in:minor,major'],
+        ]);
+
+        $channel = $validated['channel'];
+
+        if ($request->expectsJson() && $request->header('X-System-Upgrade-Stream') === '1') {
+            return $this->streamEvents(function (callable $emit) use ($request, $channel): array {
+                return $this->laravel->run($request->user(), $channel, $emit);
+            });
+        }
+
+        $result = $this->laravel->run($request->user(), $channel);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'log' => $result['log'] ?? null,
+        ], $result['success'] ? 200 : 500);
+    }
+
+    public function laravelFinalize(Request $request): JsonResponse|StreamedResponse
+    {
+        $this->ensureSuperAdmin();
+
+        if ($request->expectsJson() && $request->header('X-System-Upgrade-Stream') === '1') {
+            return $this->streamEvents(function (callable $emit): array {
+                return $this->laravel->finalize($emit);
+            });
+        }
+
+        $result = $this->laravel->finalize();
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'log' => $result['log'] ?? null,
+        ], $result['success'] ? 200 : 500);
+    }
+
+    /**
+     * @param  callable(callable): array{success: bool, message: string, log?: mixed, reconnect?: bool}  $handler
+     */
+    private function streamEvents(callable $handler): StreamedResponse
+    {
+        return response()->stream(function () use ($handler): void {
+            ignore_user_abort(true);
+            set_time_limit(0);
+            $this->flushStream();
+
+            $emit = function (array $event): void {
+                echo json_encode($event, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)."\n";
+                $this->flushStream();
+            };
+
+            try {
+                $result = $handler($emit);
+                $emit([
+                    'type' => 'complete',
+                    'success' => $result['success'],
+                    'message' => $result['message'],
+                    'log' => $result['log'] ?? null,
+                    'reconnect' => $result['reconnect'] ?? false,
+                ]);
+            } catch (\Throwable $e) {
+                $emit([
+                    'type' => 'complete',
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'X-Accel-Buffering' => 'no',
+        ]);
     }
 
     /**
