@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SystemUpgradeLog;
+use App\Services\SystemDockerComposeService;
 use App\Services\SystemLaravelUpgradeService;
 use App\Services\SystemPhpDockerUpgradeService;
 use App\Services\SystemStackSnapshotService;
@@ -21,6 +22,7 @@ class AdminSystemUpgradeController extends Controller
         protected SystemUpgradeService $upgrades,
         protected SystemPhpDockerUpgradeService $phpDocker,
         protected SystemLaravelUpgradeService $laravel,
+        protected SystemDockerComposeService $docker,
     ) {}
 
     public function index()
@@ -218,9 +220,92 @@ class AdminSystemUpgradeController extends Controller
         ], $result['success'] ? 200 : 500);
     }
 
-    /**
-     * @param  callable(callable): array{success: bool, message: string, log?: mixed, reconnect?: bool}  $handler
-     */
+    public function dockerStatus(): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->docker->status(),
+        ]);
+    }
+
+    public function dockerRun(Request $request): JsonResponse|StreamedResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'action' => ['required', 'in:restart,rebuild'],
+            'services' => ['sometimes', 'array'],
+            'services.*' => ['string', 'max:64', 'regex:/^[A-Za-z0-9][A-Za-z0-9_.-]*$/'],
+        ]);
+        $action = $validated['action'];
+        $services = $action === 'restart'
+            ? array_values($validated['services'] ?? [])
+            : [];
+        if (! $this->docker->ready()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Docker is in deze omgeving niet beschikbaar.',
+            ], 422);
+        }
+        if ($action === 'rebuild' && ! $this->upgrades->webUpgradeEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Web-upgrades zijn uitgeschakeld.',
+            ], 422);
+        }
+
+        if ($request->expectsJson() && $request->header('X-System-Upgrade-Stream') === '1') {
+            return $this->streamEvents(function (callable $emit) use ($request, $action, $services): array {
+                return $this->docker->run($request->user(), $action, $emit, $services);
+            });
+        }
+
+        $result = $this->docker->run($request->user(), $action, null, $services);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'reconnect' => $result['reconnect'] ?? false,
+        ], $result['success'] ? 200 : 500);
+    }
+
+    public function destroyHistory(Request $request): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['integer', 'distinct', 'min:1'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
+
+        $deleted = SystemUpgradeLog::query()
+            ->whereIn('id', $ids)
+            ->where('status', '!=', SystemUpgradeLog::STATUS_RUNNING)
+            ->delete();
+
+        if ($deleted === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Geen regels verwijderd. Lopende upgrades blijven staan.',
+                'deleted' => 0,
+            ], 422);
+        }
+
+        $message = $deleted === 1
+            ? '1 regel verwijderd.'
+            : $deleted.' regels verwijderd.';
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'deleted' => $deleted,
+        ]);
+    }
+
     private function streamEvents(callable $handler): StreamedResponse
     {
         return response()->stream(function () use ($handler): void {

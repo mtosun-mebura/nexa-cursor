@@ -142,9 +142,9 @@
     <!-- begin: grid -->
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5">
         <!-- Profiel -->
-        <div class="kt-card">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">
                     Profiel
                 </h3>
             </div>
@@ -221,9 +221,9 @@
         </div>
 
         <!-- Account Status -->
-        <div class="kt-card">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">
                     Account Status
                 </h3>
             </div>
@@ -408,38 +408,6 @@
     });
 </script>
 @endcan
-@endpush
-
-@push('styles')
-<style>
-    /* Remove all borders between table rows in show forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
-    }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: top;
-    }
-    
-    /* Labels (first column) should align with top of content */
-    .kt-table-border-dashed tbody tr td:first-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    
-    /* Content (second column) should align with top */
-    .kt-table-border-dashed tbody tr td:last-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-</style>
 @endpush
 
 @endsection

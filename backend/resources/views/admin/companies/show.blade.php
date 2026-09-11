@@ -271,46 +271,77 @@
                     <tr>
                         <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
                         <td class="text-foreground font-normal">
-                            <ul class="list-disc ps-5 mb-0 text-sm space-y-1">
-                                @foreach($moduleCatalog as $addon)
-                                    @php
-                                        $record = $addonRecords[$addon['key']] ?? \App\Support\TenantPackageAddon::emptyRecord();
-                                        $quantity = (int) ($record['quantity'] ?? 0);
-                                    @endphp
-                                    @if($quantity > 0 || \App\Support\TenantPackageAddon::isPendingCancel($record))
-                                        <li>
-                                            @if($addon['key'] === \App\Support\TenantPackageAddon::EXTRA_CLIENTS)
-                                                {{ max($quantity, (int) ($record['active_quantity'] ?? 0)) }}× {{ $addon['name'] ?? $addon['label'] }} (+{{ max($quantity, (int) ($record['active_quantity'] ?? 0)) * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK }} klanten)
-                                            @elseif(($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY)
-                                                {{ max($quantity, (int) ($record['active_quantity'] ?? 0)) }}× {{ $addon['name'] ?? $addon['label'] }}
-                                            @else
-                                                {{ $addon['name'] ?? $addon['label'] }}
-                                            @endif
-                                            @if(\App\Support\TenantPackageAddon::isPendingCancel($record) && ! empty($record['starts_at']))
-                                                <span class="text-muted-foreground"> — opgezegd per {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}</span>
-                                            @elseif(\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at']))
-                                                <span class="text-muted-foreground"> — {{ (int) ($record['active_quantity'] ?? 0) }} tot {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}, daarna {{ $quantity }}</span>
-                                            @elseif(! empty($record['starts_at']))
-                                                <span class="text-muted-foreground"> — ingang {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}</span>
-                                            @endif
-                                            @if(! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0)
-                                                <span class="text-muted-foreground">(nog niet actief)</span>
-                                            @endif
-                                        </li>
-                                    @endif
-                                @endforeach
-                            </ul>
-                            @if(collect($addonRecords)->every(fn ($record) => (int) ($record['quantity'] ?? 0) <= 0 && ! \App\Support\TenantPackageAddon::isPendingCancel($record)))
-                                <span class="text-muted-foreground">Geen aanvullende modules</span>
-                            @endif
                             @php
+                                $addonIconByKey = [
+                                    \App\Support\TenantPackageAddon::GPS_TRACKING => 'ki-filled ki-geolocation',
+                                    \App\Support\TenantPackageAddon::EXTRA_CLIENTS => 'ki-filled ki-people',
+                                    \App\Support\TenantPackageAddon::FLEET => 'ki-filled ki-car',
+                                ];
+                                $addonModuleCards = [];
+                                foreach ($moduleCatalog as $addon) {
+                                    $record = $addonRecords[$addon['key']] ?? \App\Support\TenantPackageAddon::emptyRecord();
+                                    $quantity = (int) ($record['quantity'] ?? 0);
+                                    if ($quantity <= 0 && ! \App\Support\TenantPackageAddon::isPendingCancel($record)) {
+                                        continue;
+                                    }
+                                    $displayQty = max($quantity, (int) ($record['active_quantity'] ?? 0));
+                                    $title = $addon['name'] ?? $addon['label'] ?? $addon['key'];
+                                    if ($addon['key'] === \App\Support\TenantPackageAddon::EXTRA_CLIENTS) {
+                                        $title = $displayQty.'× '.$title.' (+'.($displayQty * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK).' klanten)';
+                                    } elseif (($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY) {
+                                        $title = $displayQty.'× '.$title;
+                                    }
+                                    $meta = null;
+                                    $badge = null;
+                                    if (\App\Support\TenantPackageAddon::isPendingCancel($record) && ! empty($record['starts_at'])) {
+                                        $badge = 'Opgezegd';
+                                        $meta = 'Actief tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y');
+                                    } elseif (\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at'])) {
+                                        $badge = 'Wijziging';
+                                        $meta = (int) ($record['active_quantity'] ?? 0).' tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y').', daarna '.$quantity;
+                                    } elseif (! empty($record['starts_at'])) {
+                                        $meta = 'Ingang '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y');
+                                    }
+                                    if (! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0) {
+                                        $badge = 'Nog niet actief';
+                                    }
+                                    $addonModuleCards[] = [
+                                        'icon' => $addonIconByKey[$addon['key']] ?? 'ki-filled ki-element-11',
+                                        'title' => $title,
+                                        'meta' => $meta,
+                                        'badge' => $badge,
+                                    ];
+                                }
+                                $addonModuleCards[] = [
+                                    'icon' => 'ki-filled ki-people',
+                                    'title' => 'Contractklanten',
+                                    'meta' => 'Limiet: '.$entitlements->contractClientLimitLabel($company),
+                                    'badge' => null,
+                                ];
                                 $addonsInTrial = $company->billingProfile
                                     && app(\App\Services\PlatformBilling\TenantSubscriptionService::class)->isInTrial($company->billingProfile);
                             @endphp
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+                                @foreach($addonModuleCards as $moduleCard)
+                                    <div class="flex items-center gap-4 min-w-0 rounded-xl border border-border p-4">
+                                        <span class="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden="true">
+                                            <i class="{{ $moduleCard['icon'] }} text-4xl leading-none"></i>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-semibold text-foreground leading-snug break-normal">{{ $moduleCard['title'] }}</div>
+                                            @if($moduleCard['meta'])
+                                                <div class="text-xs text-muted-foreground mt-0.5">{{ $moduleCard['meta'] }}</div>
+                                            @endif
+                                            @if($moduleCard['badge'])
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning mt-1.5">{{ $moduleCard['badge'] }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
                             @if($addonsInTrial)
-                                <p class="text-xs text-muted-foreground mt-2 mb-0">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.</p>
+                                <p class="text-xs text-muted-foreground mt-3 mb-0">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.</p>
                             @endif
-                            <p class="text-xs text-muted-foreground mt-2 mb-0">Contractklantenlimiet: {{ $entitlements->contractClientLimitLabel($company) }}</p>
                         </td>
                     </tr>
                     <tr>
@@ -1598,39 +1629,6 @@ document.addEventListener('DOMContentLoaded', function () {
     #toggle-main-location-checkbox-header,
     #is_active_header {
         vertical-align: middle;
-    }
-    
-    /* Remove all borders between table rows in show forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
-    }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: top;
-    }
-    
-    /* Labels (first column) should align with top of content */
-    .kt-table-border-dashed tbody tr td:first-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    
-    /* Content (second column) should align with top */
-    .kt-table-border-dashed tbody tr td:last-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    
-    /* Ensure all table cells align to top */
-    .kt-table-border-dashed tbody tr td {
-        vertical-align: top !important;
     }
     
     /* Location row hover styling (same as company-row on index page) */

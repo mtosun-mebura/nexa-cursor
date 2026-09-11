@@ -34,11 +34,12 @@ class AdminAiImagesPageTest extends TestCase
             ->withSession(['selected_tenant' => $company->id])
             ->get(route('admin.ai-images.index'))
             ->assertOk()
-            ->assertSee('id="ai-image-confirm"', false)
+            ->assertSee('showAdminConfirm', false)
             ->assertSee('Deze afbeelding definitief verwijderen?', false)
+            ->assertSee('Afbeelding verwijderen', false)
+            ->assertSee('id="ai-image-lightbox"', false)
             ->assertSee('bg-slate-900/45 backdrop-blur-md', false)
-            ->assertSee('ai-image-confirm__dialog relative z-10 w-full max-w-sm', false)
-            ->assertDontSee('ai-image-confirm__dialog kt-card', false);
+            ->assertDontSee('id="ai-image-confirm"', false);
     }
 
     #[Test]

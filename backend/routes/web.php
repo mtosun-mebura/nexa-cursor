@@ -831,7 +831,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::post('settings/upgrade/php-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpFinalize'])->name('settings.upgrade.php-finalize');
         Route::get('settings/upgrade/laravel-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelStatus'])->name('settings.upgrade.laravel-status');
         Route::post('settings/upgrade/laravel-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelRun'])->name('settings.upgrade.laravel-run');
-        Route::post('settings/upgrade/laravel-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelFinalize'])->name('settings.upgrade.laravel-finalize');
+        Route::get('settings/upgrade/laravel-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelFinalize'])->name('settings.upgrade.laravel-finalize');
+        Route::get('settings/upgrade/docker-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'dockerStatus'])->name('settings.upgrade.docker-status');
+        Route::post('settings/upgrade/docker-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'dockerRun'])->name('settings.upgrade.docker-run');
+        Route::delete('settings/upgrade/history', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'destroyHistory'])->name('settings.upgrade.history.destroy');
         Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
         Route::post('settings/remove-logo-light', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
         Route::post('settings/remove-logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');

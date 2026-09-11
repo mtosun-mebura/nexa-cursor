@@ -109,6 +109,55 @@ JSON;
     }
 
     #[Test]
+    public function laravel_major_bumps_companion_constraints_from_the_upgrade_guide(): void
+    {
+        $service = app(SystemLaravelUpgradeService::class);
+        $json = <<<'JSON'
+{
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.0",
+        "laravel/tinker": "^2.10.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5.3"
+    }
+}
+JSON;
+
+        $updated = $service->applyMajorComposerConstraints($json, 13);
+
+        $this->assertStringContainsString('"laravel/framework": "^13.0"', $updated);
+        $this->assertStringContainsString('"laravel/tinker": "^3.0"', $updated);
+        $this->assertStringContainsString('"phpunit/phpunit": "^12.0"', $updated);
+        $this->assertStringContainsString('"php": "^8.2"', $updated);
+        $this->assertArrayHasKey('laravel/tinker', $service->companionConstraintsForMajor(13));
+        $this->assertSame([], $service->companionConstraintsForMajor(14));
+    }
+
+    #[Test]
+    public function laravel_major_composer_update_includes_present_companions(): void
+    {
+        $service = app(SystemLaravelUpgradeService::class);
+        $command = $service->composerUpdateCommandForMajor(13);
+
+        $this->assertSame('composer', $command[0]);
+        $this->assertSame('update', $command[1]);
+        $this->assertContains('laravel/framework', $command);
+        $this->assertContains('laravel/tinker', $command);
+        $this->assertContains('phpunit/phpunit', $command);
+        $this->assertNotContains('laravel/boost', $command);
+        $this->assertContains('--with-all-dependencies', $command);
+        $this->assertContains('--no-progress', $command);
+        $this->assertContains('--no-scripts', $command);
+        $this->assertNotContains('--dry-run', $command);
+
+        $dryRun = $service->composerUpdateCommand(['laravel/framework'], dryRun: true);
+        $this->assertContains('--dry-run', $dryRun);
+        $this->assertContains('--no-scripts', $dryRun);
+    }
+
+    #[Test]
     public function laravel_picks_latest_version_in_major_from_packagist_payload(): void
     {
         $service = app(SystemLaravelUpgradeService::class);
@@ -165,5 +214,90 @@ JSON;
         $this->assertSame('--build', $command[array_key_last($command)]);
         $this->assertNotContains('backend', $command);
         $this->assertSame('compose', app(SystemDockerComposeService::class)->composeCliArgs($root, true)[0]);
+    }
+
+    #[Test]
+    public function compose_restart_does_not_rebuild_images(): void
+    {
+        $root = sys_get_temp_dir().'/nexa-compose-'.uniqid();
+        mkdir($root, 0777, true);
+        file_put_contents($root.'/docker-compose.yml', "services:\n  backend:\n    image: php:8.3-cli\n");
+
+        $command = app(SystemDockerComposeService::class)->composeRestartCommand($root);
+
+        $this->assertContains('restart', $command);
+        $this->assertNotContains('up', $command);
+        $this->assertNotContains('--build', $command);
+        $this->assertNotContains('backend', $command);
+    }
+
+    #[Test]
+    public function compose_restart_can_target_selected_services(): void
+    {
+        $root = sys_get_temp_dir().'/nexa-compose-'.uniqid();
+        mkdir($root, 0777, true);
+        file_put_contents($root.'/docker-compose.yml', "services:\n  backend:\n    image: php:8.3-cli\n");
+
+        $command = app(SystemDockerComposeService::class)->composeRestartCommand($root, ['backend', 'db']);
+
+        $this->assertContains('restart', $command);
+        $this->assertContains('backend', $command);
+        $this->assertContains('db', $command);
+        $this->assertNotContains('--build', $command);
+        $this->assertSame('db', $command[array_key_last($command)]);
+    }
+
+    #[Test]
+    public function restart_flash_names_selected_services(): void
+    {
+        $service = app(SystemDockerComposeService::class);
+
+        $this->assertSame('Docker-containers zijn herstart.', $service->restartFlash('restart', []));
+        $this->assertSame('Docker-container backend is herstart.', $service->restartFlash('restart', ['backend']));
+        $this->assertSame('Docker-containers backend, db zijn herstart.', $service->restartFlash('restart', ['backend', 'db']));
+        $this->assertSame('Docker-stack is opnieuw gebouwd en herstart.', $service->restartFlash('rebuild', ['backend']));
+    }
+
+    #[Test]
+    public function docker_flash_is_consumed_only_for_docker_pending(): void
+    {
+        $service = app(SystemDockerComposeService::class);
+
+        try {
+            $service->storePending(SystemDockerComposeService::KIND_LARAVEL, ['flash' => 'niet tonen']);
+            $this->assertNull($service->consumeDockerFlash());
+            $this->assertSame('laravel', $service->pending(SystemDockerComposeService::KIND_LARAVEL)['kind']);
+
+            $service->storePending(SystemDockerComposeService::KIND_DOCKER, ['flash' => 'Docker-containers zijn herstart.']);
+            $this->assertSame('Docker-containers zijn herstart.', $service->consumeDockerFlash());
+            $this->assertSame([], $service->pending(SystemDockerComposeService::KIND_DOCKER));
+        } finally {
+            $service->clearPending();
+        }
+    }
+
+    #[Test]
+    public function docker_container_rows_are_normalized_from_engine_payload(): void
+    {
+        $rows = app(SystemDockerComposeService::class)->normalizeProjectContainers([
+            [
+                'Names' => ['/nexa_frontend'],
+                'Image' => 'nexa-frontend:latest',
+                'State' => 'running',
+                'Status' => 'Up 2 hours',
+                'Labels' => ['com.docker.compose.service' => 'frontend'],
+            ],
+            [
+                'Names' => ['/nexa_backend'],
+                'Image' => 'nexa-backend:latest',
+                'State' => 'running',
+                'Status' => 'Up 2 hours',
+                'Labels' => ['com.docker.compose.service' => 'backend'],
+            ],
+        ]);
+
+        $this->assertSame('backend', $rows[0]['service']);
+        $this->assertSame('nexa_backend', $rows[0]['name']);
+        $this->assertSame('frontend', $rows[1]['service']);
     }
 }

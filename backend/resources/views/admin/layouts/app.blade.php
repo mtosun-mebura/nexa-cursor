@@ -1316,7 +1316,36 @@
             root.appendChild(el);
             scheduleDismiss(el);
         };
+        var queuedFlashKey = 'admin-header-flash';
+        window.queueAdminHeaderFlash = function(type, message) {
+            var text = (message || '').toString().trim();
+            if (!text) return;
+            try {
+                sessionStorage.setItem(queuedFlashKey, JSON.stringify({
+                    type: type || 'success',
+                    message: text,
+                    at: Date.now()
+                }));
+            } catch (e) {}
+        };
+        window.consumeQueuedAdminHeaderFlash = function() {
+            var raw = null;
+            try {
+                raw = sessionStorage.getItem(queuedFlashKey);
+                if (raw) sessionStorage.removeItem(queuedFlashKey);
+            } catch (e) {
+                return;
+            }
+            if (!raw) return;
+            try {
+                var data = JSON.parse(raw);
+                if (!data || !data.message) return;
+                if (data.at && (Date.now() - data.at) > 15 * 60 * 1000) return;
+                window.showAdminHeaderFlash(data.type || 'success', data.message);
+            } catch (e) {}
+        };
         function init() {
+            window.consumeQueuedAdminHeaderFlash();
             var alerts = document.querySelectorAll('#content .kt-alert-success, #admin-header-flash .admin-header-toast');
             alerts.forEach(scheduleDismiss);
         }

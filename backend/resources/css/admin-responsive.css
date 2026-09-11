@@ -313,6 +313,11 @@ body.dark #header [data-ai-chat-toggle] svg,
     max-width: 100%;
 }
 
+/* Theme heeft alleen horizontale header-padding */
+#content .kt-card-header {
+    padding-block: 1.25rem;
+}
+
 #content .kt-card.min-w-full,
 #content .kt-card-grid.min-w-full {
     min-width: 0 !important;
@@ -1346,7 +1351,8 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     table-layout: fixed;
 }
 
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
     min-width: 0 !important;
     max-width: 100%;
     overflow-wrap: anywhere;
@@ -1355,12 +1361,32 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 }
 
 #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-56,
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48 {
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-56,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48 {
     min-width: 0 !important;
 }
 
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child {
+/*
+ * table-layout:fixed + w-full op de waarde-kolom zet de labelkolom op 0px.
+ * Houd het label vast en laat de tweede kolom de rest van de kaart vullen.
+ */
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child {
     width: 14rem;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2),
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2) {
+    width: auto;
+}
+
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) tr {
+    border-bottom: none;
+}
+
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
+    vertical-align: top;
 }
 
 #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2) :is(.relative, .flex, p, span, .text-xs) {
