@@ -41,19 +41,19 @@ class SystemDockerComposeService
     public function hostProjectDir(): ?string
     {
         $configured = config('nexa.host_project_dir');
-        if (is_string($configured) && is_dir($configured)) {
+        if (is_string($configured) && $this->isUsableHostProjectDir($configured)) {
             return rtrim($configured, '/');
         }
 
         $env = env('NEXA_HOST_PROJECT_DIR');
-        if (is_string($env) && is_dir($env)) {
+        if (is_string($env) && $this->isUsableHostProjectDir($env)) {
             return rtrim($env, '/');
         }
 
         $inspect = $this->selfContainerInspect();
         $labels = is_array($inspect['Config']['Labels'] ?? null) ? $inspect['Config']['Labels'] : [];
         $workingDir = $labels['com.docker.compose.project.working_dir'] ?? null;
-        if (is_string($workingDir) && is_dir($workingDir)) {
+        if (is_string($workingDir) && $this->isUsableHostProjectDir($workingDir)) {
             return rtrim($workingDir, '/');
         }
 
@@ -64,6 +64,20 @@ class SystemDockerComposeService
         }
 
         return null;
+    }
+
+    /**
+     * Host-pad mag ontbreken in déze container: Coolify mount de repo niet op hetzelfde pad.
+     * De helper-container bind-mount het pad via docker.sock.
+     */
+    private function isUsableHostProjectDir(string $path): bool
+    {
+        $path = trim($path);
+        if ($path === '') {
+            return false;
+        }
+
+        return is_dir($path) || $this->dockerSocketAvailable();
     }
 
     /**
@@ -448,13 +462,13 @@ class SystemDockerComposeService
         $service = (string) ($labels['com.docker.compose.service'] ?? 'backend');
         $project = (string) ($labels['com.docker.compose.project'] ?? '');
 
-        $file = $firstFile !== '' && is_file($firstFile)
+        $file = $firstFile !== ''
             ? $firstFile
             : (is_file($hostDir.'/docker-compose.yml')
                 ? $hostDir.'/docker-compose.yml'
                 : $hostDir.'/docker-compose.deploy.yml');
 
-        if (! is_file($file)) {
+        if ($firstFile === '' && ! is_file($file)) {
             throw new \RuntimeException('Geen docker-compose-bestand gevonden in '.$hostDir);
         }
 
