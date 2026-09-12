@@ -405,6 +405,10 @@ function buildListCard(tr, labels, table) {
     const href = resolveRowHref(tr);
     const card = document.createElement('article');
     card.className = 'admin-list-card' + (href ? ' admin-list-card--clickable' : '');
+    const rowId = tr.getAttribute('data-admin-row-id') || '';
+    if (rowId) {
+        card.setAttribute('data-admin-row-id', rowId);
+    }
     if (href) {
         card.setAttribute('data-row-href', href);
         card.setAttribute('tabindex', '0');
@@ -849,7 +853,12 @@ function submitAdminFilterForm(form) {
 }
 
 function bindAdminFilterPanelLiveSubmit(root = document) {
-    root.querySelectorAll('#content form.admin-filter-panel[method="GET"]').forEach((form) => {
+    const forms = [
+        ...root.querySelectorAll('#content form.admin-filter-panel[method="GET"]'),
+        ...root.querySelectorAll('#content form.admin-calendar-toolbar__filters[method="GET"]'),
+    ];
+
+    forms.forEach((form) => {
         if (form.dataset.adminLiveFilterBound === '1' || form.dataset.adminLiveFilter === 'off') {
             return;
         }
@@ -878,6 +887,55 @@ function bindAdminFilterPanelLiveSubmit(root = document) {
         form.querySelectorAll('select').forEach((select) => {
             select.addEventListener('change', () => submitAdminFilterForm(form));
         });
+
+        form.querySelectorAll('input[data-kt-date-picker]').forEach((input) => {
+            let lastValue = input.value;
+            input.addEventListener('change', () => {
+                if (input.value === lastValue) {
+                    return;
+                }
+                lastValue = input.value;
+                submitAdminFilterForm(form);
+            });
+        });
+    });
+}
+
+function fitNativeSelectToContent(select) {
+    const option = select.options[select.selectedIndex];
+    const text = option ? option.text : '';
+    const style = window.getComputedStyle(select);
+    const probe = document.createElement('span');
+    probe.textContent = text || ' ';
+    probe.style.cssText = [
+        'position:absolute',
+        'left:-9999px',
+        'top:0',
+        'white-space:nowrap',
+        `font:${style.font}`,
+        `letter-spacing:${style.letterSpacing}`,
+        `text-transform:${style.textTransform}`,
+    ].join(';');
+    document.body.appendChild(probe);
+
+    const padLeft = parseFloat(style.paddingLeft) || 0;
+    const padRight = parseFloat(style.paddingRight) || 0;
+    const border =
+        (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+    const width = Math.ceil(probe.offsetWidth + padLeft + padRight + border + 2);
+    probe.remove();
+    select.style.width = `${width}px`;
+}
+
+function bindContentWidthSelects(root = document) {
+    root.querySelectorAll('#content .admin-calendar-toolbar__filters select').forEach((select) => {
+        if (select.dataset.contentWidthBound === '1') {
+            return;
+        }
+        select.dataset.contentWidthBound = '1';
+        const fit = () => fitNativeSelectToContent(select);
+        fit();
+        select.addEventListener('change', fit);
     });
 }
 
@@ -1103,6 +1161,7 @@ function scheduleAdminResponsiveEnhance() {
         wrapTablesForScroll();
         enhanceListTables();
         bindAdminFilterPanelLiveSubmit();
+        bindContentWidthSelects();
         bindAdminTableActionMenus();
         bindClickableTableRows();
     });
@@ -1135,28 +1194,36 @@ function countActiveFilters(panel) {
     return count;
 }
 
+function findFilterRow(header) {
+    const existing = header.querySelector('.admin-filter-panel');
+    if (existing) {
+        return existing;
+    }
+
+    const form = header.querySelector('#filters-form, #search-form, form[method="GET"]');
+    if (!form) {
+        return null;
+    }
+
+    let candidate = form;
+    let node = form.parentElement;
+    while (node && node !== header) {
+        if (node.classList?.contains('flex')) {
+            candidate = node;
+        }
+        node = node.parentElement;
+    }
+
+    return candidate;
+}
+
 function enhanceFilterPanels() {
     document.querySelectorAll('.kt-card-header').forEach((header) => {
         if (header.dataset.adminFiltersEnhanced === '1') {
             return;
         }
 
-        const hasFilters =
-            header.querySelector('#filters-form, #search-form') ||
-            header.querySelector('form[method="GET"]');
-        if (!hasFilters) {
-            return;
-        }
-
-        let filterRow = header.querySelector(
-            '.flex.flex-col.sm\\:flex-row, .flex.flex-wrap.gap-2, .flex.gap-2.flex-wrap'
-        );
-        if (!filterRow) {
-            const getForm = header.querySelector('form[method="GET"]');
-            if (getForm?.parentElement?.classList.contains('flex')) {
-                filterRow = getForm.parentElement;
-            }
-        }
+        const filterRow = findFilterRow(header);
         if (!filterRow || filterRow.classList.contains('admin-filter-panel')) {
             return;
         }
@@ -1233,6 +1300,7 @@ export function initAdminResponsive() {
     markPageActionBars();
     enhanceFilterPanels();
     bindAdminFilterPanelLiveSubmit();
+    bindContentWidthSelects();
     bindAdminTableActionMenus();
     bindClickableTableRows();
     scheduleAdminResponsiveEnhance();

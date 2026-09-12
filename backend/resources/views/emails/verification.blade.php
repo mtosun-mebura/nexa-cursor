@@ -29,15 +29,16 @@
 <body>
     <h1>Verifieer je e-mailadres</h1>
     <p>Beste {{ $user->first_name }} {{ $user->last_name }},</p>
-    <p>Bedankt voor je registratie bij Nexa Skillmatching. Klik op de onderstaande knop om je e-mailadres te verifiëren:</p>
+    <p>Je bent geregistreerd bij {{ $suiteBrand }}. Klik op de onderstaande knop om je e-mailadres te verifiëren:</p>
     <p>
         <a href="{{ $verificationUrl }}" class="button">Verifieer e-mailadres</a>
     </p>
     <p>Of kopieer en plak deze link in je browser:</p>
     <p style="word-break: break-all; color: #666;">{{ $verificationUrl }}</p>
     <p>Deze link is 7 dagen geldig.</p>
-    <p>Als je geen account hebt aangemaakt bij Nexa Skillmatching, kun je deze e-mail negeren.</p>
-    <p>Met vriendelijke groet,<br>Het Nexa Skillmatching Team</p>
+    <p>Als je geen account hebt aangemaakt bij {{ $suiteBrand }}, kun je deze e-mail negeren.</p>
+    <p>Met vriendelijke groet,</p>
+    <p>NEXA Suite</p>
 </body>
 </html>
 

@@ -223,7 +223,7 @@ class TaxiAppFirstLoginTest extends TestCase
         $this->assertNotNull($created);
         $this->assertTrue((bool) $created->must_change_password);
         $this->assertTrue((bool) $created->password_must_be_set);
-        $this->assertNotNull($created->email_verified_at);
+        $this->assertNull($created->email_verified_at);
         $this->assertFalse(Hash::check('Password1', $created->password));
         $this->assertDatabaseHas('tenant_customer_emails', [
             'recipient_email' => 'nieuwe.chauffeur@example.com',

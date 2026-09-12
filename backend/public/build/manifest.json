@@ -2184,7 +2184,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-D4RmazHP.css",
+    "file": "assets/app-BlVFL7UT.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2192,7 +2192,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-DlkdfpRK.js",
+    "file": "assets/app-tOYEMOam.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2200,7 +2200,7 @@
       "_bootstrap-BzoQaoha.js"
     ],
     "css": [
-      "assets/app-DyY_dxuu.css",
+      "assets/app-DU4DsKld.css",
       "assets/nexa-smooth-accordion-CT5NIOwF.css"
     ]
   },

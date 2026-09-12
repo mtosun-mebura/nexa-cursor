@@ -1047,6 +1047,10 @@
                 const inCarouselHexWrap = inputWrapper.classList.contains('carousel-slide-hex-input-wrap') ||
                     inputWrapper.closest('.carousel-slide-hex-input-wrap');
                 const compactChWidth = /^\d+(\.\d+)?ch$/.test(String(input.style.width || '').trim());
+                const fitContentField = inputWrapper.classList.contains('admin-field-fit')
+                    || input.closest('.admin-field-fit, [data-admin-time-picker]')
+                    || (input.hasAttribute('data-kt-date-picker')
+                        && !input.hasAttribute('data-kt-date-picker-selection-time-mode'));
                 if (!inputWrapper.classList.contains('relative')) {
                     inputWrapper.classList.add('relative');
                 }
@@ -1055,7 +1059,7 @@
                     inputWrapper.style.width = '';
                     inputWrapper.style.maxWidth = '';
                     inputWrapper.classList.add('flex-none');
-                } else if (compactChWidth) {
+                } else if (compactChWidth || fitContentField) {
                     inputWrapper.style.width = 'fit-content';
                     inputWrapper.style.maxWidth = '100%';
                 } else if (!inputWrapper.style.width || inputWrapper.style.width === '') {

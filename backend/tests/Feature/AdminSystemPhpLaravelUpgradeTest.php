@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\SystemUpgradeLog;
 use App\Models\User;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -17,7 +18,7 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
         parent::setUp();
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
 
         Http::fake([
             'www.php.net/*' => Http::response([
@@ -48,6 +49,9 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
         $this->actingAs($this->superAdmin())
             ->get(route('admin.settings.upgrade.index'))
             ->assertOk()
+            ->assertSee('Geïnstalleerde stack', false)
+            ->assertSee('upgrade-installed-stack', false)
+            ->assertSee('settings-collapsible-toggle', false)
             ->assertSee('Laravel bijwerken', false)
             ->assertSee('PHP in Docker bijwerken', false)
             ->assertSee('Minor-update', false)
@@ -55,6 +59,11 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
             ->assertSee('ki-laravel', false)
             ->assertSee('upgrade-php-icon', false)
             ->assertSee('btn-php-docker-upgrade', false)
+            ->assertSee('PostgreSQL in Docker bijwerken', false)
+            ->assertSee('btn-postgres-minor', false)
+            ->assertSee('btn-postgres-major', false)
+            ->assertSee('docker-exec-command', false)
+            ->assertSee('btn-docker-exec', false)
             ->assertSee('Docker-containers', false)
             ->assertSee('Containers herstarten', false)
             ->assertSee('Images opnieuw bouwen', false)
@@ -111,6 +120,14 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
 
         $this->getJson(route('admin.settings.upgrade.docker-status'))
             ->assertUnauthorized();
+
+        $this->getJson(route('admin.settings.upgrade.postgres-status'))
+            ->assertUnauthorized();
+
+        $this->postJson(route('admin.settings.upgrade.docker-exec'), [
+            'service' => 'backend',
+            'command' => 'php -v',
+        ])->assertUnauthorized();
     }
 
     #[Test]
@@ -123,6 +140,7 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
             ->assertJsonPath('data.ready', false)
             ->assertJsonPath('data.can_restart', false)
             ->assertJsonPath('data.can_rebuild', false)
+            ->assertJsonPath('data.can_exec', false)
             ->assertJsonPath('data.flash', null);
     }
 
@@ -131,6 +149,50 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
     {
         $this->actingAs($this->superAdmin())
             ->postJson(route('admin.settings.upgrade.docker-run'), ['action' => 'restart'])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    #[Test]
+    public function docker_exec_is_rejected_when_docker_is_unavailable(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->postJson(route('admin.settings.upgrade.docker-exec'), [
+                'service' => 'backend',
+                'command' => 'php -v',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    #[Test]
+    public function docker_exec_rejects_empty_command(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->postJson(route('admin.settings.upgrade.docker-exec'), [
+                'service' => 'backend',
+                'command' => '   ',
+            ])
+            ->assertStatus(422);
+    }
+
+    #[Test]
+    public function postgres_status_is_available_to_super_admin_without_compose(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->getJson(route('admin.settings.upgrade.postgres-status'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.can_minor', false)
+            ->assertJsonPath('data.can_major', false)
+            ->assertJsonPath('data.docker_ready', false);
+    }
+
+    #[Test]
+    public function postgres_run_is_rejected_when_docker_is_unavailable(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->postJson(route('admin.settings.upgrade.postgres-run'), ['channel' => 'minor'])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
     }

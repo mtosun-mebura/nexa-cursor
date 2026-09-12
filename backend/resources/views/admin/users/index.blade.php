@@ -71,13 +71,13 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm pb-3 w-full">
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 justify-between items-center">
+                <h3 class="kt-card-title text-sm mb-0">
                     Toon 1 tot {{ $users->count() }} van {{ $users->count() }} gebruikers
                 </h3>
-                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full sm:w-auto ml-auto">
                     <!-- Search -->
-                    <div class="flex w-full sm:w-auto justify-center sm:justify-start">
+                    <div class="flex w-full sm:w-auto justify-end">
                         <form method="GET" action="{{ route('admin.users.index') }}" class="flex gap-2" id="search-form">
                             @if(request('status'))
                                 <input type="hidden" name="status" value="{{ request('status') }}">
@@ -182,11 +182,29 @@
             
             <div class="kt-card-content">
                 @if($users->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="users_table" data-admin-datatable-label="gebruikers">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="users_table" data-admin-datatable-label="gebruikers" data-admin-datatable-on-page="syncUsersBulkSelection">
                         <div class="kt-scrollable-x-auto admin-table-scroll-wrap users-table-wrap">
-                            <table class="kt-table kt-table-border admin-fluid-table w-full">
+                            <table class="kt-table kt-table-border admin-fluid-table w-full @can('delete-users') has-user-check @endcan">
                             <thead>
                                 <tr>
+                                    @can('delete-users')
+                                    <th class="admin-table__check-col text-center" data-no-row-link data-label="">
+                                        <div class="users-check-col-head">
+                                            <button type="button"
+                                                    id="users-bulk-delete"
+                                                    class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive hidden"
+                                                    hidden
+                                                    aria-label="Geselecteerde gebruikers verwijderen"
+                                                    title="Verwijderen">
+                                                <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                                                <span class="users-bulk-delete-count">(<span data-users-selected-count>0</span>)</span>
+                                            </button>
+                                            <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                                <input type="checkbox" class="kt-checkbox" id="users-select-all" aria-label="Alles selecteren">
+                                            </label>
+                                        </div>
+                                    </th>
+                                    @endcan
                                     <th data-label="Gebruiker">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Gebruiker</span>
@@ -268,6 +286,18 @@
                             <tbody>
                                 @foreach($users as $user)
                                     <tr class="user-row" data-user-id="{{ $user->id }}">
+                                        @can('delete-users')
+                                        <td class="admin-table__check-col text-center" data-no-row-link data-label="">
+                                            @if($user->id !== auth()->id())
+                                            <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                                <input type="checkbox"
+                                                       class="kt-checkbox user-row-checkbox"
+                                                       value="{{ $user->id }}"
+                                                       aria-label="Selecteer {{ $user->first_name }} {{ $user->last_name }}">
+                                            </label>
+                                            @endif
+                                        </td>
+                                        @endcan
                                         <td>
                                             <div class="flex items-center gap-2.5">
                                                 @if($user->photo_blob)
@@ -383,6 +413,22 @@
                                                         @endif
                                                         @can('edit-users')
                                                         <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.users.force-logout', $user) }}"
+                                                                  method="POST"
+                                                                  style="display: inline;"
+                                                                  data-admin-confirm="Deze gebruiker wordt op alle apparaten uitgelogd, inclusief de chauffeur-app."
+                                                                  data-admin-confirm-title="Op afstand uitloggen"
+                                                                  data-admin-confirm-label="Uitloggen">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-exit-right-corner"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Uitloggen</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        <div class="kt-menu-item">
                                                             <form action="{{ route('admin.users.toggle-status', $user) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
@@ -456,6 +502,17 @@
         </div>
     </div>
 </div>
+
+@can('delete-users')
+<form method="POST"
+      action="{{ route('admin.users.bulk-destroy') }}"
+      id="users-bulk-delete-form"
+      class="hidden">
+    @csrf
+    @method('DELETE')
+    <div id="users-bulk-delete-ids"></div>
+</form>
+@endcan
 
 @push('scripts')
 <script>
@@ -559,6 +616,101 @@
             window.prompt('Kopieer dit e-mailadres:', text);
         }
     }, true);
+})();
+</script>
+<script>
+(function () {
+    const tableRoot = document.getElementById('users_table');
+    const selectAll = document.getElementById('users-select-all');
+    const bulkBtn = document.getElementById('users-bulk-delete');
+    const bulkForm = document.getElementById('users-bulk-delete-form');
+    const bulkIds = document.getElementById('users-bulk-delete-ids');
+    const countEl = document.querySelector('[data-users-selected-count]');
+    if (!tableRoot || !selectAll || !bulkBtn || !bulkForm) {
+        return;
+    }
+
+    function rowCheckboxes() {
+        return Array.from(tableRoot.querySelectorAll('.user-row-checkbox'));
+    }
+
+    function visibleRowCheckboxes() {
+        return rowCheckboxes().filter(function (cb) {
+            const row = cb.closest('tr');
+            if (!row || row.hidden) {
+                return false;
+            }
+            const style = window.getComputedStyle(row);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+    }
+
+    function selectedCheckboxes() {
+        return rowCheckboxes().filter(function (cb) { return cb.checked; });
+    }
+
+    function syncUsersBulkSelection() {
+        const visible = visibleRowCheckboxes();
+        const selectedVisible = visible.filter(function (cb) { return cb.checked; });
+        const selected = selectedCheckboxes();
+        selectAll.checked = visible.length > 0 && selectedVisible.length === visible.length;
+        selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+        if (countEl) {
+            countEl.textContent = String(selected.length);
+        }
+        const show = selected.length > 0;
+        bulkBtn.hidden = !show;
+        bulkBtn.classList.toggle('hidden', !show);
+    }
+
+    window.syncUsersBulkSelection = syncUsersBulkSelection;
+
+    function fillBulkForm() {
+        if (!bulkIds) {
+            return;
+        }
+        bulkIds.innerHTML = '';
+        selectedCheckboxes().forEach(function (cb) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'user_ids[]';
+            input.value = cb.value;
+            bulkIds.appendChild(input);
+        });
+    }
+
+    selectAll.addEventListener('change', function () {
+        const checked = selectAll.checked;
+        visibleRowCheckboxes().forEach(function (cb) {
+            cb.checked = checked;
+        });
+        syncUsersBulkSelection();
+    });
+
+    tableRoot.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('user-row-checkbox')) {
+            syncUsersBulkSelection();
+        }
+    });
+
+    bulkBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        const selected = selectedCheckboxes();
+        if (!selected.length) {
+            return;
+        }
+        const count = selected.length;
+        const message = count === 1
+            ? 'Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+            : 'Weet je zeker dat je ' + count + ' gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+        if (!window.confirm(message)) {
+            return;
+        }
+        fillBulkForm();
+        bulkForm.submit();
+    });
+
+    syncUsersBulkSelection();
 })();
 </script>
 <script>
@@ -792,10 +944,11 @@
                 const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
                 const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
                 const isCopyEmail = !!clickedElement.closest('.user-email-copy');
+                const isCheckbox = !!clickedElement.closest('[data-no-row-link], .admin-table__check-col, .user-row-checkbox, input[type="checkbox"]');
                 const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
                 const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
                 
-                if (isCopyEmail || isInActionsColumn || isInMenu || isButton || isLink) {
+                if (isCopyEmail || isCheckbox || isInActionsColumn || isInMenu || isButton || isLink) {
                     return;
                 }
                 
@@ -807,7 +960,7 @@
                 
                 // Method 2: Try name link with data attribute
                 if (!userId || userId === 'null' || userId === '') {
-                    const nameLink = row.querySelector('td:first-child a[data-user-id]');
+                    const nameLink = row.querySelector('a[data-user-id]');
                     if (nameLink) {
                         userId = nameLink.getAttribute('data-user-id');
                     }
@@ -859,28 +1012,110 @@
 
 @push('styles')
 <style>
-    #content #users_table .admin-fluid-table th:nth-child(1),
-    #content #users_table .admin-fluid-table td:nth-child(1) {
+    #content #users_table .admin-fluid-table th.admin-table__check-col,
+    #content #users_table .admin-fluid-table td.admin-table__check-col {
+        width: 2.75rem !important;
+        min-width: 2.75rem !important;
+        max-width: 2.75rem !important;
+        padding-inline: 0.375rem !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+    #users_table .admin-table__check-col .kt-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 2rem;
+        margin: 0;
+    }
+    #users_table .admin-table__check-col .kt-checkbox {
+        margin: 0;
+    }
+    #users_table .users-check-col-head {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.125rem;
+        width: 100%;
+    }
+    #users_table #users-bulk-delete {
+        border: 0 !important;
+        box-shadow: none !important;
+        background-color: transparent !important;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        height: auto;
+        min-height: 0;
+        padding: 0 !important;
+        margin: 0;
+        gap: 0.05rem;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-variant-numeric: tabular-nums;
+        color: var(--destructive, #dc2626) !important;
+    }
+    #users_table #users-bulk-delete:not(.hidden):not([hidden]) {
+        display: inline-flex !important;
+    }
+    #users_table #users-bulk-delete:hover,
+    #users_table #users-bulk-delete:focus,
+    #users_table #users-bulk-delete:focus-visible,
+    #users_table #users-bulk-delete:active {
+        background-color: transparent !important;
+        color: var(--destructive, #dc2626) !important;
+    }
+    #users_table #users-bulk-delete i,
+    #users_table #users-bulk-delete:hover i,
+    #users_table #users-bulk-delete:focus i,
+    #users_table #users-bulk-delete:active i {
+        font-size: 1.25rem !important;
+        line-height: 1 !important;
+        color: inherit !important;
+    }
+    #users_table #users-bulk-delete .users-bulk-delete-count {
+        font-size: 0.625rem;
+        line-height: 1;
+    }
+    #users_table #users-bulk-delete.hidden {
+        display: none !important;
+    }
+
+    #content #users_table .admin-fluid-table.has-user-check th:nth-child(2),
+    #content #users_table .admin-fluid-table.has-user-check td:nth-child(2),
+    #content #users_table .admin-fluid-table:not(.has-user-check) th:nth-child(1),
+    #content #users_table .admin-fluid-table:not(.has-user-check) td:nth-child(1) {
         width: 32%;
     }
 
-    #content #users_table .admin-fluid-table th:nth-child(2),
-    #content #users_table .admin-fluid-table td:nth-child(2) {
+    #content #users_table .admin-fluid-table.has-user-check th:nth-child(3),
+    #content #users_table .admin-fluid-table.has-user-check td:nth-child(3),
+    #content #users_table .admin-fluid-table:not(.has-user-check) th:nth-child(2),
+    #content #users_table .admin-fluid-table:not(.has-user-check) td:nth-child(2) {
         width: 16%;
     }
 
-    #content #users_table .admin-fluid-table th:nth-child(3),
-    #content #users_table .admin-fluid-table td:nth-child(3) {
+    #content #users_table .admin-fluid-table.has-user-check th:nth-child(4),
+    #content #users_table .admin-fluid-table.has-user-check td:nth-child(4),
+    #content #users_table .admin-fluid-table:not(.has-user-check) th:nth-child(3),
+    #content #users_table .admin-fluid-table:not(.has-user-check) td:nth-child(3) {
         width: 16%;
     }
 
-    #content #users_table .admin-fluid-table th:nth-child(4),
-    #content #users_table .admin-fluid-table td:nth-child(4) {
+    #content #users_table .admin-fluid-table.has-user-check th:nth-child(5),
+    #content #users_table .admin-fluid-table.has-user-check td:nth-child(5),
+    #content #users_table .admin-fluid-table:not(.has-user-check) th:nth-child(4),
+    #content #users_table .admin-fluid-table:not(.has-user-check) td:nth-child(4) {
         width: 16%;
     }
 
-    #content #users_table .admin-fluid-table th:nth-child(5),
-    #content #users_table .admin-fluid-table td:nth-child(5) {
+    #content #users_table .admin-fluid-table.has-user-check th:nth-child(6),
+    #content #users_table .admin-fluid-table.has-user-check td:nth-child(6),
+    #content #users_table .admin-fluid-table:not(.has-user-check) th:nth-child(5),
+    #content #users_table .admin-fluid-table:not(.has-user-check) td:nth-child(5) {
         width: 12%;
     }
 

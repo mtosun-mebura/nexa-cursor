@@ -49,7 +49,7 @@
                 <h3 class="kt-card-title text-sm pb-3 w-full">
                     Toon {{ $from }} tot {{ $to }} van {{ $vehicles->total() }} voertuigen
                 </h3>
-                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full">
                     <form method="GET" action="{{ route('admin.taxi.vehicles.index') }}" class="flex gap-2" id="search-form">
                         @if(request('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
                         @if(request('active') !== null && request('active') !== '')<input type="hidden" name="active" value="{{ request('active') }}">@endif
