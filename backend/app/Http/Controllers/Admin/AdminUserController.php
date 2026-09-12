@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiAppPresenceService;
 use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeService;
+use App\Modules\NexaTaxi\Services\TaxiCustomerSmsService;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
@@ -24,6 +26,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Spatie\Permission\Models\Role;
 
 class AdminUserController extends Controller
@@ -232,7 +235,9 @@ class AdminUserController extends Controller
         $welcomeRole = $willBeFirstUserForCompany ? null : $firstLogin->welcomeRoleForRoles($roleNames);
         if ($welcomeRole !== null) {
             $userData['password'] = $firstLogin->unusablePasswordHash();
-            $userData = array_merge($userData, $firstLogin->provisionFlags());
+            $flags = $firstLogin->provisionFlags();
+            unset($flags['email_verified_at']);
+            $userData = array_merge($userData, $flags);
         } else {
             $userData['password'] = Hash::make($request->validated()['password']);
         }
@@ -265,12 +270,16 @@ class AdminUserController extends Controller
             app(TaxiAppUserWelcomeService::class)->sendIfNeeded($user->fresh(), $roleNames, true);
         }
 
+        $user = $user->fresh();
+        $success = 'Gebruiker succesvol aangemaakt.';
+        $success .= ' '.$this->sendNewUserVerifications($user);
+
         $wizardBack = $request->validated()['wizard_back_url'] ?? null;
         if (is_string($wizardBack) && $wizardBack !== '') {
-            return redirect()->to($wizardBack)->with('success', 'Gebruiker succesvol aangemaakt.');
+            return redirect()->to($wizardBack)->with('success', $success);
         }
 
-        return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol aangemaakt.');
+        return redirect()->route('admin.users.show', $user)->with('success', $success);
     }
 
     /**
@@ -515,6 +524,52 @@ class AdminUserController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'Gebruiker succesvol verwijderd.');
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te verwijderen.');
+        }
+
+        $data = $request->validate([
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'integer|exists:users,id',
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $data['user_ids'])));
+        $users = User::query()->whereIn('id', $ids)->get();
+        $deleted = 0;
+        $skipped = 0;
+
+        foreach ($users as $user) {
+            if ((int) $user->id === (int) auth()->id()) {
+                $skipped++;
+                continue;
+            }
+            if (! $this->canAccessResource($user)) {
+                $skipped++;
+                continue;
+            }
+            if (! auth()->user()->hasRole('super-admin') && $user->hasRole('super-admin')) {
+                $skipped++;
+                continue;
+            }
+
+            $user->delete();
+            $deleted++;
+        }
+
+        if ($deleted > 0 && $skipped > 0) {
+            return redirect()->route('admin.users.index')->with('warning', $deleted.' gebruiker(s) verwijderd. '.$skipped.' overgeslagen.');
+        }
+        if ($deleted > 0) {
+            return redirect()->route('admin.users.index')->with('success', $deleted === 1
+                ? 'Gebruiker succesvol verwijderd.'
+                : $deleted.' gebruikers succesvol verwijderd.');
+        }
+
+        return redirect()->route('admin.users.index')->with('error', 'Geen gebruikers verwijderd.');
+    }
+
     public function assignRole(Request $request, User $user)
     {
         $request->validate([
@@ -573,6 +628,44 @@ class AdminUserController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
         ]);
+    }
+
+    public function forceLogout(User $user)
+    {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers uit te loggen.');
+        }
+
+        if (! $this->canAccessResource($user)) {
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        if ((int) $user->id === (int) auth()->id()) {
+            return back()->with('error', 'Je kunt jezelf niet op afstand uitloggen.');
+        }
+
+        $this->revokeUserLogins($user);
+
+        return back()->with('success', 'Gebruiker is op alle apparaten uitgelogd.');
+    }
+
+    private function revokeUserLogins(User $user): void
+    {
+        try {
+            $user->tokens()->delete();
+        } catch (\Throwable $e) {
+            // personal_access_tokens ontbreekt in sommige omgevingen
+        }
+
+        $user->setRememberToken(\Illuminate\Support\Str::random(60));
+        $user->save();
+
+        if (config('session.driver') === 'database'
+            && \Schema::hasTable('sessions')
+            && \Schema::hasColumn('sessions', 'user_id')
+        ) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
     }
 
     public function toggleStatus(User $user)
@@ -745,57 +838,16 @@ class AdminUserController extends Controller
             abort(403, 'Je hebt geen rechten om activatielinks te versturen.');
         }
 
-        // Check if user can access this resource
         if (! $this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
         }
 
-        // Check if email is already verified
         if ($user->email_verified_at) {
             return back()->with('error', 'Deze gebruiker is al geverifieerd.');
         }
 
         try {
-            // Apply mail settings (same as ContactController)
-            $envService = app(EnvService::class);
-            $this->applyMailSettings($envService);
-
-            // Generate a signed verification URL that expires in 7 days
-            $verificationUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
-                'verify-email',
-                now()->addDays(7),
-                ['user' => $user->id, 'hash' => sha1($user->email)]
-            );
-
-            // Get mail settings
-            $fromAddress = $envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
-            $fromName = $envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
-            $smtpUsername = $envService->get('MAIL_USERNAME', '');
-
-            // Send email using Laravel's Mail facade
-            Mail::send('emails.verification', [
-                'user' => $user,
-                'verificationUrl' => $verificationUrl,
-            ], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername) {
-                $message->to($user->email, $user->first_name.' '.$user->last_name)
-                    ->subject('Verifieer je e-mailadres - Nexa Skillmatching')
-                    ->from($fromAddress, $fromName);
-
-                // Add Sender header if SMTP username is available
-                // This helps with mail servers that check authorization
-                if (! empty($smtpUsername)) {
-                    try {
-                        $symfonyMessage = $message->getSymfonyMessage();
-                        $symfonyMessage->getHeaders()->remove('Sender');
-                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $smtpUsername);
-                    } catch (\Exception $e) {
-                        \Log::warning('Could not set Sender header', [
-                            'error' => $e->getMessage(),
-                            'smtp_username' => $smtpUsername,
-                        ]);
-                    }
-                }
-            });
+            $this->dispatchEmailVerification($user);
 
             return back()->with('success', 'Activatielink is succesvol verzonden naar '.$user->email.'.');
         } catch (\Exception $e) {
@@ -803,6 +855,171 @@ class AdminUserController extends Controller
 
             return back()->with('error', 'Er is een fout opgetreden bij het versturen van de activatielink: '.$e->getMessage());
         }
+    }
+
+    public function sendPhoneVerification(User $user, TaxiCustomerSmsService $sms)
+    {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-users')) {
+            abort(403, 'Je hebt geen rechten om verificatie te versturen.');
+        }
+        if (! $this->canAccessResource($user)) {
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+        if ($user->phone_verified_at) {
+            return back()->with('error', 'Dit telefoonnummer is al geverifieerd.');
+        }
+        $phone = trim((string) ($user->phone ?? ''));
+        if ($phone === '') {
+            return back()->with('error', 'Deze gebruiker heeft geen telefoonnummer.');
+        }
+
+        try {
+            $viaSms = $this->dispatchPhoneVerification($user, $sms);
+            if ($viaSms) {
+                return back()->with('success', 'Verificatie is verzonden via sms naar '.$phone.'.');
+            }
+
+            return back()->with('success', 'Verificatie voor '.$phone.' is verzonden naar '.$user->email.'.');
+        } catch (\Exception $e) {
+            \Log::error('Error sending phone verification: '.$e->getMessage());
+
+            return back()->with('error', 'Er is een fout opgetreden bij het versturen van de telefoonverificatie: '.$e->getMessage());
+        }
+    }
+
+    public function markEmailVerified(User $user)
+    {
+        $this->assertSuperAdminCanVerify($user);
+        if ($user->email_verified_at) {
+            return back()->with('error', 'Dit e-mailadres is al geverifieerd.');
+        }
+
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return back()->with('success', 'E-mailadres is handmatig geverifieerd.');
+    }
+
+    public function markPhoneVerified(User $user)
+    {
+        $this->assertSuperAdminCanVerify($user);
+        if (trim((string) ($user->phone ?? '')) === '') {
+            return back()->with('error', 'Deze gebruiker heeft geen telefoonnummer.');
+        }
+        if ($user->phone_verified_at) {
+            return back()->with('error', 'Dit telefoonnummer is al geverifieerd.');
+        }
+
+        $user->forceFill(['phone_verified_at' => now()])->save();
+
+        return back()->with('success', 'Telefoonnummer is handmatig geverifieerd.');
+    }
+
+    public function verifyPhone(Request $request, User $user)
+    {
+        if (! $request->hasValidSignature()) {
+            return view('auth.email-verification-failed', [
+                'message' => 'Deze link is ongeldig of verlopen. Vraag een nieuwe verificatielink aan via de beheerder.',
+            ]);
+        }
+
+        if (sha1((string) $user->phone) !== $request->hash) {
+            return view('auth.email-verification-failed', [
+                'message' => 'Deze link is ongeldig. Vraag een nieuwe verificatielink aan via de beheerder.',
+            ]);
+        }
+
+        $wasAlreadyVerified = (bool) $user->phone_verified_at;
+        if (! $wasAlreadyVerified) {
+            $user->phone_verified_at = now();
+            $user->save();
+        }
+
+        return view('auth.email-verified', [
+            'user' => $user,
+            'wasAlreadyVerified' => $wasAlreadyVerified,
+            'channelLabel' => 'telefoonnummer',
+            'channelValue' => $user->phone,
+        ]);
+    }
+
+    private function sendNewUserVerifications(User $user): string
+    {
+        $parts = [];
+        try {
+            $this->dispatchEmailVerification($user);
+            $parts[] = 'Er is een verificatielink naar het e-mailadres gestuurd.';
+        } catch (\Throwable $e) {
+            report($e);
+            $parts[] = 'De verificatiemail kon niet worden verzonden.';
+        }
+
+        $phone = trim((string) ($user->phone ?? ''));
+        if ($phone === '' || $user->phone_verified_at) {
+            return implode(' ', $parts);
+        }
+
+        try {
+            $viaSms = $this->dispatchPhoneVerification($user, app(TaxiCustomerSmsService::class));
+            $parts[] = $viaSms
+                ? 'Er is een verificatielink naar het telefoonnummer gestuurd via sms.'
+                : 'Er is een verificatielink voor het telefoonnummer naar het e-mailadres gestuurd.';
+        } catch (\Throwable $e) {
+            report($e);
+            $parts[] = 'De telefoonverificatie kon niet worden verzonden.';
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function dispatchEmailVerification(User $user): void
+    {
+        $envService = app(EnvService::class);
+        $this->applyMailSettings($envService);
+        $verificationUrl = URL::temporarySignedRoute(
+            'verify-email',
+            now()->addDays(7),
+            ['user' => $user->id, 'hash' => sha1($user->email)]
+        );
+        $this->sendVerificationMail(
+            $user,
+            $verificationUrl,
+            'emails.verification',
+            'Verifieer je e-mailadres'
+        );
+    }
+
+    private function dispatchPhoneVerification(User $user, TaxiCustomerSmsService $sms): bool
+    {
+        $phone = trim((string) ($user->phone ?? ''));
+        $verificationUrl = URL::temporarySignedRoute(
+            'verify-phone',
+            now()->addDays(7),
+            ['user' => $user->id, 'hash' => sha1($phone)]
+        );
+
+        $smsResult = ['ok' => false];
+        if ($sms->isVonageConfigured()) {
+            $smsResult = $sms->send(
+                TaxiDispatchSettingsService::SMS_PROVIDER_VONAGE,
+                $phone,
+                'Bevestig je telefoonnummer: '.$verificationUrl
+            );
+        }
+
+        if ($smsResult['ok'] ?? false) {
+            return true;
+        }
+
+        $envService = app(EnvService::class);
+        $this->applyMailSettings($envService);
+        $this->sendVerificationMail(
+            $user,
+            $verificationUrl,
+            'emails.phone-verification',
+            'Bevestig je telefoonnummer'
+        );
+
+        return false;
     }
 
     /**
@@ -836,6 +1053,55 @@ class AdminUserController extends Controller
         }
 
         app()->forgetInstance('mail.manager');
+    }
+
+    private function sendVerificationMail(User $user, string $verificationUrl, string $view, string $subject): void
+    {
+        $envService = app(EnvService::class);
+        $fromAddress = $envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
+        $fromName = $envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+        $smtpUsername = $envService->get('MAIL_USERNAME', '');
+
+        Mail::send($view, [
+            'user' => $user,
+            'verificationUrl' => $verificationUrl,
+            'suiteBrand' => $this->nexaSuiteTenantBrand($user),
+        ], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername, $subject) {
+            $message->to($user->email, $user->first_name.' '.$user->last_name)
+                ->subject($subject)
+                ->from($fromAddress, $fromName);
+
+            if (! empty($smtpUsername)) {
+                try {
+                    $symfonyMessage = $message->getSymfonyMessage();
+                    $symfonyMessage->getHeaders()->remove('Sender');
+                    $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $smtpUsername);
+                } catch (\Exception $e) {
+                    \Log::warning('Could not set Sender header', [
+                        'error' => $e->getMessage(),
+                        'smtp_username' => $smtpUsername,
+                    ]);
+                }
+            }
+        });
+    }
+
+    private function nexaSuiteTenantBrand(User $user): string
+    {
+        $user->loadMissing('company');
+        $tenantName = trim((string) ($user->company?->name ?? ''));
+
+        return $tenantName !== '' ? 'Nexa Suite - '.$tenantName : 'Nexa Suite';
+    }
+
+    private function assertSuperAdminCanVerify(User $user): void
+    {
+        if (! auth()->user()->hasRole('super-admin')) {
+            abort(403, 'Alleen een super-admin kan verificatie handmatig afronden.');
+        }
+        if (! $this->canAccessResource($user)) {
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
     }
 
     /**

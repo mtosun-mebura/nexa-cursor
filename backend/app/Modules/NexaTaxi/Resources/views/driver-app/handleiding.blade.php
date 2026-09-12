@@ -806,7 +806,7 @@
                 </span>
                 <div>
                     <strong>Lijst — Planning</strong>
-                    <p>Dag of week, tik een dag aan, tik een rit open.</p>
+                    <p>Dag of week. Op ingeplande dagen zie je je dienst (tijden en voertuig) boven de ritten. Tik een rit open.</p>
                 </div>
             </li>
             <li>

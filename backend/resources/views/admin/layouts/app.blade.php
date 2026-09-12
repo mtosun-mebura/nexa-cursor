@@ -1226,15 +1226,79 @@
     })();
     </script>
 
-    <!-- Scrollpositie na opslaan: standaard voor alle admin-pagina's -->
+    <!-- Scrollpositie na opslaan / terug naar lijst: standaard voor alle admin-pagina's -->
     <script>
     (function() {
         var SCROLL_KEY = 'admin-scroll-after-save';
-        function saveScroll() {
+        var IGNORE_ROW_SEL = 'a, button, input, select, textarea, label, [data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, .website-page-actions-cell';
+
+        function readPayload() {
             try {
-                var y = window.scrollY || window.pageYOffset || 0;
-                sessionStorage.setItem(SCROLL_KEY, String(y));
+                var raw = sessionStorage.getItem(SCROLL_KEY);
+                if (raw === null || raw === '') return {};
+                if (raw.charAt(0) === '{') {
+                    var parsed = JSON.parse(raw);
+                    return parsed && typeof parsed === 'object' ? parsed : {};
+                }
+                var y = parseInt(raw, 10);
+                return isNaN(y) ? {} : { y: y };
+            } catch (err) {
+                return {};
+            }
+        }
+        function writePayload(data) {
+            try {
+                var hasY = data && data.y != null && !isNaN(Number(data.y));
+                var hasReturn = data && data.return && data.return.path;
+                if (!hasY && !hasReturn) {
+                    sessionStorage.removeItem(SCROLL_KEY);
+                    return;
+                }
+                sessionStorage.setItem(SCROLL_KEY, JSON.stringify(data));
             } catch (err) {}
+        }
+        function saveScroll() {
+            var data = readPayload();
+            data.y = window.scrollY || window.pageYOffset || 0;
+            writePayload(data);
+        }
+        function cssEscape(value) {
+            var s = String(value || '');
+            if (window.CSS && typeof CSS.escape === 'function') return CSS.escape(s);
+            return s.replace(/[^a-zA-Z0-9_\-]/g, '\\$&');
+        }
+        function attrEscape(value) {
+            return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        }
+        function isVisibleEl(el) {
+            if (!el) return false;
+            if (el.getClientRects && el.getClientRects().length > 0) return true;
+            return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+        }
+        function firstVisible(nodes) {
+            for (var i = 0; i < nodes.length; i++) {
+                if (isVisibleEl(nodes[i])) return nodes[i];
+            }
+            return nodes.length ? nodes[0] : null;
+        }
+        function rowIdFrom(el) {
+            if (!el) return '';
+            var id = el.getAttribute('data-admin-row-id') || '';
+            if (id) return id;
+            var nested = el.closest ? el.closest('[data-admin-row-id]') : null;
+            if (nested) return nested.getAttribute('data-admin-row-id') || '';
+            return el.id || '';
+        }
+        function markListReturn(fromEl) {
+            var data = readPayload();
+            data.y = window.scrollY || window.pageYOffset || 0;
+            data.return = {
+                path: location.pathname,
+                search: location.search || '',
+                y: data.y,
+                rowId: rowIdFrom(fromEl)
+            };
+            writePayload(data);
         }
         var scrollSaveTimer;
         document.addEventListener('scroll', function() {
@@ -1247,6 +1311,34 @@
                 saveScroll();
             }
         }, true);
+        document.addEventListener('click', function(e) {
+            if (e.defaultPrevented) return;
+            if (e.button && e.button !== 0) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var target = e.target;
+            if (!target || typeof target.closest !== 'function') return;
+            var link = target.closest('#content a[href]');
+            if (link) {
+                var href = link.getAttribute('href') || '';
+                if (!href || href.charAt(0) === '#') return;
+                var row = link.closest('tr[data-row-href], tr[data-href], [data-admin-row-id]');
+                if (row && row.closest('#content')) markListReturn(row);
+                return;
+            }
+            var clickable = target.closest('#content [data-row-href], #content [data-href]');
+            if (!clickable) return;
+            if (target.closest(IGNORE_ROW_SEL)) return;
+            markListReturn(clickable);
+        }, true);
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            var target = e.target;
+            if (!target || typeof target.closest !== 'function') return;
+            if (target.closest('[data-no-row-link], a, button, input, select, textarea, label')) return;
+            var clickable = target.closest('#content tr[data-row-href], #content tr[data-href], #content [data-row-href]');
+            if (!clickable) return;
+            markListReturn(clickable);
+        }, true);
         function restoreScrollAfterSave() {
             var justSaved = document.body && document.body.getAttribute('data-admin-just-saved') === '1';
             var u;
@@ -1254,30 +1346,89 @@
             var hasSavedParam = u && (u.searchParams.get('saved') || u.searchParams.get('updated') || u.searchParams.get('created'));
             if (!justSaved && !hasSavedParam) return;
             try {
-                var saved = sessionStorage.getItem(SCROLL_KEY);
-                if (saved !== null) {
-                    var y = parseInt(saved, 10);
-                    if (!isNaN(y) && y >= 0) {
-                        function doScroll() { window.scrollTo(0, y); }
+                var data = readPayload();
+                var y = parseInt(data.y, 10);
+                if (!isNaN(y) && y >= 0) {
+                    function doScroll() { window.scrollTo(0, y); }
+                    doScroll();
+                    requestAnimationFrame(function() { doScroll(); });
+                    setTimeout(doScroll, 100);
+                    setTimeout(doScroll, 350);
+                    setTimeout(doScroll, 800);
+                    setTimeout(doScroll, 1500);
+                    setTimeout(function() {
                         doScroll();
-                        requestAnimationFrame(function() { doScroll(); });
-                        setTimeout(doScroll, 100);
-                        setTimeout(doScroll, 350);
-                        setTimeout(doScroll, 800);
-                        setTimeout(doScroll, 1500);
-                        setTimeout(function() { doScroll(); sessionStorage.removeItem(SCROLL_KEY); }, 2500);
-                    }
+                        var next = readPayload();
+                        delete next.y;
+                        writePayload(next);
+                    }, 2500);
                 }
             } catch (err) {}
         }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', restoreScrollAfterSave);
-        } else {
-            restoreScrollAfterSave();
+        function clearRestoreHash() {
+            if (!location.hash) return;
+            var id = location.hash.replace(/^#/, '');
+            if (!id) return;
+            var el = document.getElementById(id);
+            if (!el || !el.hasAttribute('data-admin-restore-anchor')) return;
+            try {
+                history.replaceState(null, '', location.pathname + location.search);
+            } catch (err) {}
         }
-        window.addEventListener('load', function() {
+        function restoreListReturn() {
+            var justSaved = document.body && document.body.getAttribute('data-admin-just-saved') === '1';
+            var u;
+            try { u = window.location.href ? new URL(window.location.href) : null; } catch (e) { u = null; }
+            var hasSavedParam = u && (u.searchParams.get('saved') || u.searchParams.get('updated') || u.searchParams.get('created'));
+            if (justSaved || hasSavedParam) return;
+            var data = readPayload();
+            var ret = data.return;
+            if (!ret || !ret.path || ret.path !== location.pathname) return;
+            function doRestore() {
+                var el = null;
+                if (ret.rowId) {
+                    var nodes = document.querySelectorAll('#' + cssEscape(ret.rowId) + ', [data-admin-row-id="' + attrEscape(ret.rowId) + '"]');
+                    el = firstVisible(nodes);
+                }
+                if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ block: 'center', inline: 'nearest' });
+                    clearRestoreHash();
+                    return;
+                }
+                var y = parseInt(ret.y, 10);
+                if (!isNaN(y) && y > 0) {
+                    window.scrollTo(0, y);
+                    return;
+                }
+                var anchor = document.querySelector('[data-admin-restore-anchor]');
+                if (anchor && typeof anchor.scrollIntoView === 'function') {
+                    anchor.scrollIntoView({ block: 'start', inline: 'nearest' });
+                }
+            }
+            doRestore();
+            requestAnimationFrame(function() { doRestore(); });
+            setTimeout(doRestore, 100);
+            setTimeout(doRestore, 350);
+            setTimeout(doRestore, 800);
+            setTimeout(function() {
+                doRestore();
+                var next = readPayload();
+                if (next.return && next.return.path === ret.path) {
+                    delete next.return;
+                    writePayload(next);
+                }
+            }, 1500);
+        }
+        function restoreAll() {
             restoreScrollAfterSave();
-        });
+            restoreListReturn();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', restoreAll);
+        } else {
+            restoreAll();
+        }
+        window.addEventListener('load', restoreAll);
     })();
     </script>
 

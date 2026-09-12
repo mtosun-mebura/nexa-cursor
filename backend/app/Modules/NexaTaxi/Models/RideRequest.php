@@ -56,6 +56,11 @@ class RideRequest extends Model
         'quote_expires_at',
         'booking_payload',
         'selected_offer_payload',
+        'trip_started_at',
+        'trip_completed_at',
+        'track_polyline',
+        'actual_distance_meters',
+        'actual_duration_seconds',
     ];
 
     protected $casts = [
@@ -67,6 +72,8 @@ class RideRequest extends Model
         'outbound_completed_at' => 'datetime',
         'return_started_at' => 'datetime',
         'quote_expires_at' => 'datetime',
+        'trip_started_at' => 'datetime',
+        'trip_completed_at' => 'datetime',
         'pickup_lat' => 'decimal:7',
         'pickup_lng' => 'decimal:7',
         'dropoff_lat' => 'decimal:7',
@@ -374,6 +381,16 @@ class RideRequest extends Model
     public function getDistanceKmAttribute(): ?float
     {
         return $this->distance_meters !== null ? round($this->distance_meters / 1000, 2) : null;
+    }
+
+    public function getActualDurationMinutesAttribute(): ?int
+    {
+        return $this->actual_duration_seconds !== null ? (int) round($this->actual_duration_seconds / 60) : null;
+    }
+
+    public function getActualDistanceKmAttribute(): ?float
+    {
+        return $this->actual_distance_meters !== null ? round($this->actual_distance_meters / 1000, 2) : null;
     }
 
     /**

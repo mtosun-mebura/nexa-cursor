@@ -7,8 +7,82 @@
     const GUIDE_HINT_KEY = 'nexa_taxi_contract_dismiss_guide';
     const ANNOUNCEMENT_DISMISS_KEY = 'nexa_taxi_contract_dismiss_announcements';
     const VALID_TABS = ['today', 'week', 'navigation', 'absences', 'profile'];
+    const TOKEN_MAX_AGE = 14 * 24 * 60 * 60;
 
-    let token = sessionStorage.getItem(STORAGE_KEY) || '';
+    function readCookie(name) {
+        try {
+            const parts = ('; ' + document.cookie).split('; ' + name + '=');
+            if (parts.length < 2) {
+                return '';
+            }
+            return decodeURIComponent(parts.pop().split(';').shift() || '');
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function writeAuthCookie(name, value, maxAge) {
+        let cookie = name + '=' + encodeURIComponent(value) + '; path=/taxi; max-age=' + maxAge + '; SameSite=Lax';
+        if (window.location.protocol === 'https:') {
+            cookie += '; Secure';
+        }
+        document.cookie = cookie;
+    }
+
+    function clearAuthCookie(name) {
+        document.cookie = name + '=; path=/taxi; max-age=0; SameSite=Lax';
+        document.cookie = name + '=; path=/; max-age=0; SameSite=Lax';
+    }
+
+    function persistToken(value, expiresAt) {
+        if (!value) {
+            clearPersistedAuth();
+            return;
+        }
+        try { localStorage.setItem(STORAGE_KEY, value); } catch (e) { /* ignore */ }
+        try { sessionStorage.setItem(STORAGE_KEY, value); } catch (e) { /* ignore */ }
+        let maxAge = TOKEN_MAX_AGE;
+        if (expiresAt) {
+            const ts = Date.parse(expiresAt);
+            if (!isNaN(ts)) {
+                maxAge = Math.max(60, Math.floor((ts - Date.now()) / 1000));
+            }
+        }
+        writeAuthCookie(STORAGE_KEY, value, maxAge);
+    }
+
+    function clearPersistedAuth() {
+        token = '';
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+        try { sessionStorage.removeItem(UI_STATE_KEY); } catch (e) { /* ignore */ }
+        clearAuthCookie(STORAGE_KEY);
+    }
+
+    function readPersistedToken() {
+        try {
+            const local = localStorage.getItem(STORAGE_KEY);
+            if (local) {
+                persistToken(local);
+                return local;
+            }
+        } catch (e) { /* ignore */ }
+        try {
+            const session = sessionStorage.getItem(STORAGE_KEY);
+            if (session) {
+                persistToken(session);
+                return session;
+            }
+        } catch (e) { /* ignore */ }
+        const cookie = readCookie(STORAGE_KEY);
+        if (cookie) {
+            persistToken(cookie);
+            return cookie;
+        }
+        return '';
+    }
+
+    let token = readPersistedToken();
     let firstLoginEmail = '';
     let user = null;
     let pollTimer = null;
@@ -573,7 +647,7 @@
             throw err;
         }
         token = data.token;
-        sessionStorage.setItem(STORAGE_KEY, token);
+        persistToken(token, data.expires_at);
         user = data.user;
         renderProfileUser(user);
         return data;
@@ -707,7 +781,7 @@
             throw new Error((data && data.message) || 'Activeren mislukt.');
         }
         token = data.token;
-        sessionStorage.setItem(STORAGE_KEY, token);
+        persistToken(token, data.expires_at);
         user = data.user;
         renderProfileUser(user);
         return data;
@@ -727,10 +801,8 @@
                 credentials: 'same-origin',
             }).catch(function () {});
         }
-        token = '';
+        clearPersistedAuth();
         user = null;
-        sessionStorage.removeItem(STORAGE_KEY);
-        sessionStorage.removeItem(UI_STATE_KEY);
         activeTab = 'today';
         planningView = 'day';
         selectedWeekDate = null;

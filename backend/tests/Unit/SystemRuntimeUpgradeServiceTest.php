@@ -2,9 +2,10 @@
 
 namespace Tests\Unit;
 
+use App\Services\SystemDockerComposeService;
 use App\Services\SystemLaravelUpgradeService;
 use App\Services\SystemPhpDockerUpgradeService;
-use App\Services\SystemDockerComposeService;
+use App\Services\SystemPostgresDockerUpgradeService;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -259,6 +260,97 @@ JSON;
     }
 
     #[Test]
+    public function docker_exec_command_is_split_without_a_shell(): void
+    {
+        $service = app(SystemDockerComposeService::class);
+
+        $this->assertSame(['php', '-v'], $service->parseExecCommand('php -v'));
+        $this->assertSame(['psql', '--version'], $service->parseExecCommand('  psql --version  '));
+        $this->assertSame(['php', 'artisan', 'about'], $service->parseExecCommand('php artisan about'));
+        $this->assertSame(['echo', 'hello world'], $service->parseExecCommand('echo "hello world"'));
+    }
+
+    #[Test]
+    public function docker_exec_command_rejects_empty_or_unbalanced_quotes(): void
+    {
+        $service = app(SystemDockerComposeService::class);
+
+        try {
+            $service->parseExecCommand('   ');
+            $this->fail('Leeg commando moet falen.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('Voer een commando in', $e->getMessage());
+        }
+
+        try {
+            $service->parseExecCommand('echo "hello');
+            $this->fail('Onafgesloten quote moet falen.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('aanhalingsteken', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function postgres_parses_and_rewrites_compose_image_and_volume(): void
+    {
+        $service = app(SystemPostgresDockerUpgradeService::class);
+        $compose = <<<'YAML'
+services:
+  db:
+    image: pgvector/pgvector:pg16
+volumes:
+  nexa_postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-nexa}_postgres_data
+YAML;
+
+        $this->assertSame('pg16', $service->parseImageTag($compose));
+        $updated = $service->rewriteVolumeNameForMajor($service->rewriteImageTag($compose, 'pg17'), 17);
+        $this->assertStringContainsString('image: pgvector/pgvector:pg17', $updated);
+        $this->assertStringContainsString('_postgres_data_pg17', $updated);
+        $this->assertStringNotContainsString('image: pgvector/pgvector:pg16', $updated);
+    }
+
+    #[Test]
+    public function postgres_picks_the_next_available_major_tag(): void
+    {
+        $service = app(SystemPostgresDockerUpgradeService::class);
+
+        $this->assertSame('pg17', $service->pickNextMajorTag(['pg15', 'pg16', 'pg17', 'pg18'], 16));
+        $this->assertSame('pg18', $service->pickNextMajorTag(['pg16', 'pg18'], 16));
+        $this->assertNull($service->pickNextMajorTag(['pg15', 'pg16'], 16));
+    }
+
+    #[Test]
+    public function postgres_rewrites_compose_files_in_configured_project_root(): void
+    {
+        $root = sys_get_temp_dir().'/nexa-pg-up-'.uniqid();
+        mkdir($root, 0777, true);
+        $yml = <<<'YAML'
+services:
+  db:
+    image: pgvector/pgvector:pg16
+volumes:
+  nexa_postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-nexa}_postgres_data
+YAML;
+        file_put_contents($root.'/docker-compose.postgres.yml', $yml);
+        file_put_contents($root.'/docker-compose.deploy.yml', $yml);
+        config(['nexa.host_project_dir' => $root]);
+
+        $service = app(SystemPostgresDockerUpgradeService::class);
+        $service->rewriteComposeFiles('pg17', 17);
+
+        $postgres = (string) file_get_contents($root.'/docker-compose.postgres.yml');
+        $deploy = (string) file_get_contents($root.'/docker-compose.deploy.yml');
+        $this->assertStringContainsString('pgvector/pgvector:pg17', $postgres);
+        $this->assertStringContainsString('_postgres_data_pg17', $deploy);
+
+        $snapshots = [$root.'/docker-compose.postgres.yml' => $yml];
+        $service->restoreComposeSnapshots($snapshots);
+        $this->assertStringContainsString('pgvector/pgvector:pg16', (string) file_get_contents($root.'/docker-compose.postgres.yml'));
+    }
+
+    #[Test]
     public function docker_flash_is_consumed_only_for_docker_pending(): void
     {
         $service = app(SystemDockerComposeService::class);
@@ -281,6 +373,7 @@ JSON;
     {
         $rows = app(SystemDockerComposeService::class)->normalizeProjectContainers([
             [
+                'Id' => 'def456',
                 'Names' => ['/nexa_frontend'],
                 'Image' => 'nexa-frontend:latest',
                 'State' => 'running',
@@ -288,6 +381,7 @@ JSON;
                 'Labels' => ['com.docker.compose.service' => 'frontend'],
             ],
             [
+                'Id' => 'abc123',
                 'Names' => ['/nexa_backend'],
                 'Image' => 'nexa-backend:latest',
                 'State' => 'running',
@@ -298,6 +392,7 @@ JSON;
 
         $this->assertSame('backend', $rows[0]['service']);
         $this->assertSame('nexa_backend', $rows[0]['name']);
+        $this->assertSame('abc123', $rows[0]['id']);
         $this->assertSame('frontend', $rows[1]['service']);
     }
 }

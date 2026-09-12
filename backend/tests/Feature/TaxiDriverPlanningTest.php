@@ -131,6 +131,65 @@ class TaxiDriverPlanningTest extends TestCase
     }
 
     #[Test]
+    public function week_includes_driver_shift_windows_without_mixing_them_into_rides(): void
+    {
+        $company = \App\Models\Company::query()->create(['name' => 'Plan Co', 'is_active' => true]);
+        $driver = User::factory()->create(['company_id' => $company->id]);
+        $other = User::factory()->create(['company_id' => $company->id]);
+
+        \App\Modules\NexaTaxi\Support\TaxiDriverScheduleSchema::ensureTable('module_taxi');
+        Schema::connection('module_taxi')->create('vehicles', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('company_id');
+            $table->string('name')->nullable();
+            $table->string('license_plate')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
+
+        $vehicle = \App\Modules\NexaTaxi\Models\Vehicle::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'name' => 'Mercedes E klasse',
+            'license_plate' => 'AB-123-CD',
+            'active' => true,
+        ]);
+
+        \App\Modules\NexaTaxi\Models\DriverSchedule::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'starts_at' => '2026-08-26 08:00:00',
+            'ends_at' => '2026-08-26 17:00:00',
+            'weekdays' => '3',
+            'repeat_weekly' => false,
+            'repeat_until' => null,
+            'notes' => 'Ochtenddienst',
+        ]);
+        \App\Modules\NexaTaxi\Models\DriverSchedule::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'driver_id' => $other->id,
+            'vehicle_id' => $vehicle->id,
+            'starts_at' => '2026-08-26 09:00:00',
+            'ends_at' => '2026-08-26 12:00:00',
+            'weekdays' => '3',
+            'repeat_weekly' => false,
+            'repeat_until' => null,
+        ]);
+
+        $payload = $this->planningPayload($driver, '2026-08-24');
+        $byDate = collect($payload['days'])->keyBy('date');
+
+        $this->assertSame(1, $byDate['2026-08-26']['shift_count']);
+        $this->assertSame('08:00', $byDate['2026-08-26']['shifts'][0]['start_time']);
+        $this->assertSame('17:00', $byDate['2026-08-26']['shifts'][0]['end_time']);
+        $this->assertSame('AB-123-CD · Mercedes E klasse', $byDate['2026-08-26']['shifts'][0]['vehicle_label']);
+        $this->assertSame('Ochtenddienst', $byDate['2026-08-26']['shifts'][0]['notes']);
+        $this->assertSame(0, $byDate['2026-08-26']['ride_count']);
+        $this->assertSame(0, $byDate['2026-08-25']['shift_count']);
+        $this->assertSame([], $byDate['2026-08-25']['shifts']);
+    }
+
+    #[Test]
     public function week_includes_contract_rides_linked_to_selected_vehicle(): void
     {
         $driver = User::factory()->create();

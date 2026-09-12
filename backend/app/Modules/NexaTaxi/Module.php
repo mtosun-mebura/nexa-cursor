@@ -69,6 +69,14 @@ class Module extends BaseModule
                 'order' => 20,
             ],
             [
+                'key' => 'driver_schedules',
+                'title' => 'Chauffeurplanning',
+                'route' => 'admin.taxi.driver_schedules.index',
+                'icon' => 'ki-filled ki-time',
+                'permission' => 'rides.view',
+                'order' => 21,
+            ],
+            [
                 'key' => 'transport_customers',
                 'title' => 'Contractvervoer',
                 'route' => 'admin.taxi.transport_customers.index',

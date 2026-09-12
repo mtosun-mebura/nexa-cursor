@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class TaxiGpsTrackingService
@@ -38,7 +39,8 @@ class TaxiGpsTrackingService
      *     include_offline: bool,
      *     offline_code_set: bool,
      *     offline_unlocked: bool,
-     *     server_now: string
+     *     server_now: string,
+     *     completed_rides: list<array<string, mixed>>
      * }
      */
     public function positions(int $companyId, string $connection, string $view = 'online'): array
@@ -51,6 +53,7 @@ class TaxiGpsTrackingService
             'offline_code_set' => $this->settings->hasOfflineCode($companyId),
             'offline_unlocked' => $this->settings->isOfflineUnlocked($companyId),
             'server_now' => now()->toIso8601String(),
+            'completed_rides' => [],
         ];
 
         if (! TaxiDispatchSchema::driverAvailabilityExists($connection)) {
@@ -77,18 +80,30 @@ class TaxiGpsTrackingService
             ->keyBy('id');
 
         $hasVehicleColumn = Schema::connection($connection)->hasColumn('driver_availability', 'vehicle_id');
-        $rideVehicles = $this->activeRideVehicles($connection, $companyId, $driverIds);
+        $rideVehicles = $this->currentAssignedVehicles($connection, $companyId, $driverIds);
 
-        $vehicleIds = [];
+        $bestByVehicle = [];
         foreach ($rows as $row) {
+            $driverId = (int) $row->driver_id;
             $fromAvailability = $hasVehicleColumn && $row->vehicle_id ? (int) $row->vehicle_id : 0;
-            $fromRide = (int) ($rideVehicles[(int) $row->driver_id] ?? 0);
-            $id = $fromAvailability ?: $fromRide;
-            if ($id > 0) {
-                $vehicleIds[] = $id;
+            $vehicleId = $fromAvailability ?: (int) ($rideVehicles[$driverId] ?? 0);
+            if ($vehicleId <= 0) {
+                continue;
             }
+            $updatedAt = $row->location_updated_at?->getTimestamp() ?? $row->last_seen_at?->getTimestamp() ?? 0;
+            $existing = $bestByVehicle[$vehicleId] ?? null;
+            if ($existing !== null && ($existing['updated_at'] ?? 0) >= $updatedAt) {
+                continue;
+            }
+            $bestByVehicle[$vehicleId] = [
+                'row' => $row,
+                'driver_id' => $driverId,
+                'vehicle_id' => $vehicleId,
+                'updated_at' => $updatedAt,
+            ];
         }
-        $vehicleIds = array_values(array_unique($vehicleIds));
+
+        $vehicleIds = array_keys($bestByVehicle);
         $vehicles = $vehicleIds === []
             ? collect()
             : Vehicle::on($connection)->whereIn('id', $vehicleIds)->get()->keyBy('id');
@@ -96,25 +111,27 @@ class TaxiGpsTrackingService
         $appearance = $this->settings->appearance($companyId);
 
         $out = [];
-        foreach ($rows as $row) {
-            $driverId = (int) $row->driver_id;
+        foreach ($bestByVehicle as $item) {
+            $row = $item['row'];
+            $driverId = $item['driver_id'];
+            $vehicleId = $item['vehicle_id'];
             $user = $users->get($driverId);
-            $fromAvailability = $hasVehicleColumn && $row->vehicle_id ? (int) $row->vehicle_id : 0;
-            $vehicleId = $fromAvailability ?: (int) ($rideVehicles[$driverId] ?? 0);
-            $vehicle = $vehicleId > 0 ? $vehicles->get($vehicleId) : null;
+            $vehicle = $vehicles->get($vehicleId);
             $plate = $vehicle ? trim((string) ($vehicle->license_plate ?? '')) : '';
-
             $style = TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle?->type);
+
+            $heading = Cache::get('taxi-gps-heading:'.$companyId.':'.$driverId);
             $out[] = [
-                'id' => 'driver-'.$driverId,
+                'id' => 'vehicle-'.$vehicleId,
                 'driver_id' => $driverId,
                 'driver_name' => $this->driverDisplayName($user),
-                'vehicle_id' => $vehicleId > 0 ? $vehicleId : null,
+                'vehicle_id' => $vehicleId,
                 'vehicle_name' => $vehicle ? (string) ($vehicle->name ?? '') : null,
                 'license_plate' => $plate !== '' ? $plate : null,
                 'car_style' => $style,
                 'lat' => (float) $row->lat,
                 'lng' => (float) $row->lng,
+                'heading' => is_numeric($heading) ? round((float) $heading, 1) : null,
                 'is_online' => (bool) $row->is_online,
                 'location_updated_at' => $row->location_updated_at?->toIso8601String(),
                 'last_seen_at' => $row->last_seen_at?->toIso8601String(),
@@ -317,25 +334,40 @@ class TaxiGpsTrackingService
     }
 
     /**
+     * Auto van een chauffeur die nu onderweg is (toegewezen rit), niet van oude geaccepteerde boekingen.
+     *
      * @param  list<int>  $driverIds
      * @return array<int, int>
      */
-    private function activeRideVehicles(string $connection, int $companyId, array $driverIds): array
+    private function currentAssignedVehicles(string $connection, int $companyId, array $driverIds): array
     {
         if ($driverIds === [] || ! Schema::connection($connection)->hasTable('ride_requests')) {
             return [];
         }
 
-        $rides = RideRequest::on($connection)
+        $query = RideRequest::on($connection)
             ->where('company_id', $companyId)
             ->whereIn('driver_id', $driverIds)
-            ->whereIn('status', [RideRequest::STATUS_ACCEPTED, RideRequest::STATUS_ASSIGNED])
+            ->where('status', RideRequest::STATUS_ASSIGNED)
             ->whereNotNull('vehicle_id')
-            ->orderByDesc('updated_at')
-            ->get(['driver_id', 'vehicle_id']);
+            ->orderByDesc('updated_at');
+
+        $hasPickup = Schema::connection($connection)->hasColumn('ride_requests', 'pickup_at');
+        $hasTripStarted = Schema::connection($connection)->hasColumn('ride_requests', 'trip_started_at');
+        if ($hasPickup || $hasTripStarted) {
+            $query->where(function ($inner) use ($hasPickup, $hasTripStarted) {
+                if ($hasTripStarted) {
+                    $inner->whereNotNull('trip_started_at');
+                }
+                if ($hasPickup) {
+                    $method = $hasTripStarted ? 'orWhereBetween' : 'whereBetween';
+                    $inner->{$method}('pickup_at', [now()->subHours(6), now()->addHours(4)]);
+                }
+            });
+        }
 
         $map = [];
-        foreach ($rides as $ride) {
+        foreach ($query->get(['driver_id', 'vehicle_id']) as $ride) {
             $driverId = (int) $ride->driver_id;
             if (! isset($map[$driverId])) {
                 $map[$driverId] = (int) $ride->vehicle_id;

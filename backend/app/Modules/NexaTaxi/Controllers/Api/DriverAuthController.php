@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
+use App\Modules\NexaTaxi\Services\DriverScheduleService;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEarningsAccessService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
@@ -245,9 +246,22 @@ class DriverAuthController extends Controller
                 $companyName = $company ? (trim((string) ($company->name ?? '')) ?: null) : null;
             }
             if ($companyName === null) {
-                $raw = \App\Models\Company::query()->whereKey($companyId)->value('name');
+                $raw = Company::query()->whereKey($companyId)->value('name');
                 $companyName = is_string($raw) && trim($raw) !== '' ? trim($raw) : null;
             }
+        }
+
+        $vehicleId = $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null;
+        $vehicleLocked = false;
+        try {
+            $conn = app(ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+            $lockedVehicleId = app(DriverScheduleService::class)->resolveLockedVehicleId($conn, $companyId, (int) $user->id);
+            if ($lockedVehicleId) {
+                $vehicleId = $lockedVehicleId;
+                $vehicleLocked = true;
+            }
+        } catch (\Throwable) {
+            // Agenda/planning-lock is optioneel bij ontbrekende taxi-tabel.
         }
 
         return [
@@ -261,9 +275,11 @@ class DriverAuthController extends Controller
             'company_name' => $companyName,
             'is_account_active' => $accountActive,
             'is_online' => $isOnline,
-            'vehicle_id' => $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null,
+            'vehicle_id' => $vehicleId,
+            'vehicle_locked' => $vehicleLocked,
             'pwa_accent' => PwaAccent::fromUser($user),
             'ride_alert_tone' => RideAlertTone::fromUser($user),
+            'can_handle_contract_rides' => app(TaxiDriverEligibilityService::class)->canUseContractRideFilter($user),
         ];
     }
 

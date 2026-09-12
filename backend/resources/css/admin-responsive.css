@@ -318,6 +318,109 @@ body.dark #header [data-ai-chat-toggle] svg,
     padding-block: 1.25rem;
 }
 
+/* Chauffeurplanning: plus blijft rechtsboven, ook in smalle weekkolommen */
+#content #driver-schedule-week-grid .kt-card-header {
+    flex-wrap: nowrap;
+    padding-inline: 0.75rem;
+    padding-block: 0.75rem;
+}
+#content #driver-schedule-week-grid .kt-card-header .kt-card-title {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+#content #driver-schedule-week-grid .kt-card-header .kt-btn {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+}
+
+/* Agenda + chauffeurplanning: filters onder de actierij, inhoudsbreedte, rechts */
+#content .admin-calendar-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding-block: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+}
+html.dark #content .admin-calendar-toolbar,
+.dark #content .admin-calendar-toolbar {
+    border-bottom-color: #4b5563;
+}
+#content .agenda-header.admin-calendar-toolbar {
+    margin-bottom: 0;
+}
+#content .admin-calendar-toolbar__top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+#content .admin-calendar-toolbar__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--foreground, #111827);
+}
+html.dark #content .admin-calendar-toolbar__title,
+.dark #content .admin-calendar-toolbar__title {
+    font-weight: 700;
+}
+#content .admin-calendar-toolbar__subtitle {
+    margin: 0;
+    padding-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+}
+#content .admin-calendar-toolbar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+#content .admin-calendar-toolbar__filters {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+#content .admin-calendar-toolbar__filters .kt-select,
+#content .admin-calendar-toolbar__filters select {
+    width: auto;
+    max-width: 100%;
+    flex: 0 0 auto;
+    height: 38px;
+    min-height: 38px;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    field-sizing: content;
+}
+#content .admin-calendar-toolbar__filters .kt-input,
+#content .admin-calendar-toolbar__filters .admin-calendar-toolbar__date {
+    width: auto;
+    min-width: 9.75rem;
+    max-width: 100%;
+    flex: 0 0 auto;
+}
+@media (max-width: 1023px) {
+    #content .admin-calendar-toolbar__top {
+        align-items: stretch;
+    }
+    #content .admin-calendar-toolbar__actions {
+        width: 100%;
+    }
+    #content .admin-calendar-toolbar__actions .kt-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}
+
 #content .kt-card.min-w-full,
 #content .kt-card-grid.min-w-full {
     min-width: 0 !important;
@@ -1024,6 +1127,26 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
+        justify-content: flex-end !important;
+    }
+
+    /* Filterrij altijd rechts, ook als die onder de titel wrapped */
+    #content .kt-card-header > .admin-filter-panel,
+    #content .kt-card-header > .flex.flex-col.sm\:flex-row,
+    #content .kt-card-header > form.admin-filter-panel {
+        margin-inline-start: auto;
+        flex: 1 1 auto;
+        width: auto;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    #content .kt-card-header .admin-filter-panel > .flex,
+    #content .kt-card-header > .flex.flex-col.sm\:flex-row > .flex,
+    #content .kt-card-header .admin-filter-panel form {
+        justify-content: flex-end !important;
+        width: auto;
+        max-width: 100%;
     }
 }
 
@@ -2953,4 +3076,137 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 #content form:has(.admin-address-suggestions:not(.hidden)) .kt-card,
 #content form:has(.admin-address-suggestions:not(.hidden)) .kt-card-content {
     overflow: visible;
+}
+
+/* --- Admin timepicker: uren/minuten zonder grijze scrollput --- */
+.admin-time-picker {
+    position: relative;
+}
+.admin-time-picker__popover {
+    position: fixed;
+    z-index: 1060;
+    display: flex;
+    flex-direction: column;
+    width: 9.5rem;
+    max-height: min(16.5rem, 50vh);
+    border-radius: 0.5rem;
+    border: 1px solid var(--input, #d1d5db);
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.12);
+    overflow: hidden;
+}
+html.dark .admin-time-picker__popover,
+.dark .admin-time-picker__popover {
+    background: #0b0f19;
+    border-color: #4b5563;
+}
+.admin-time-picker__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+    max-height: min(16.5rem, 50vh);
+}
+.admin-time-picker__col {
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    padding: 0.25rem 0;
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af transparent;
+}
+html.dark .admin-time-picker__col,
+.dark .admin-time-picker__col {
+    scrollbar-color: #6b7280 transparent;
+}
+.admin-time-picker__col::-webkit-scrollbar {
+    width: 8px;
+}
+.admin-time-picker__col::-webkit-scrollbar-track {
+    background: transparent;
+}
+.admin-time-picker__col::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 9999px;
+}
+html.dark .admin-time-picker__col::-webkit-scrollbar-thumb,
+.dark .admin-time-picker__col::-webkit-scrollbar-thumb {
+    background: #6b7280;
+}
+.admin-time-picker__col + .admin-time-picker__col {
+    border-inline-start: 1px solid var(--input, #e5e7eb);
+}
+html.dark .admin-time-picker__col + .admin-time-picker__col,
+.dark .admin-time-picker__col + .admin-time-picker__col {
+    border-inline-start-color: #4b5563;
+}
+.admin-time-picker__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 2rem;
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 0.875rem;
+    line-height: 1.25;
+    cursor: pointer;
+}
+.admin-time-picker__item:hover {
+    background: color-mix(in oklab, var(--muted, #f1f5f9) 70%, transparent);
+}
+.admin-time-picker__item.is-active {
+    background: var(--primary, #3b82f6);
+    color: #fff;
+    font-weight: 600;
+}
+
+.kt-input.admin-field-fit,
+.admin-time-picker.admin-field-fit,
+.admin-time-picker.admin-field-fit .kt-input {
+    width: max-content !important;
+    max-width: 100%;
+}
+.kt-input.admin-field-fit > input[data-kt-date-picker] {
+    flex: 0 0 auto;
+    field-sizing: content;
+    width: auto;
+    min-width: calc(10ch + 2.5rem) !important;
+    max-width: none;
+}
+.kt-input.admin-field-fit--until > input[data-kt-date-picker] {
+    min-width: calc(20ch + 2.5rem) !important;
+}
+.admin-time-picker.admin-field-fit input[data-admin-time-picker-input] {
+    flex: 0 0 auto;
+    width: calc(5.5ch + 2.5rem);
+    max-width: none;
+}
+
+.admin-weekday-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+.admin-weekday-picks__btn {
+    min-width: 2.5rem;
+    justify-content: center;
+}
+.admin-weekday-picks input:checked + .admin-weekday-picks__btn,
+.admin-weekday-picks label:has(input:checked) .admin-weekday-picks__btn {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: #fff;
+}
+.admin-weekday-picks label {
+    position: relative;
+    display: inline-flex;
+    margin: 0;
+    cursor: pointer;
+}
+.admin-weekday-picks input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
 }

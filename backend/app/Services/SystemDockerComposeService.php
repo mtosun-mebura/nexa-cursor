@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\User;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\Process\Process;
@@ -13,6 +15,8 @@ class SystemDockerComposeService
     public const KIND_LARAVEL = 'laravel';
 
     public const KIND_DOCKER = 'docker';
+
+    public const KIND_POSTGRES = 'postgres';
 
     private const COMPOSE_VERSION = 'v2.36.2';
 
@@ -88,7 +92,7 @@ class SystemDockerComposeService
     public function recreateStack(?callable $emit, array &$steps): void
     {
         $hostDir = $this->requireHostProjectDir();
-        $this->runComposeInHelperContainer(
+        $this->runInHelperContainer(
             $emit,
             $steps,
             $hostDir,
@@ -106,7 +110,7 @@ class SystemDockerComposeService
     public function restartStack(?callable $emit, array &$steps, array $services = []): void
     {
         $hostDir = $this->requireHostProjectDir();
-        $this->runComposeInHelperContainer(
+        $this->runInHelperContainer(
             $emit,
             $steps,
             $hostDir,
@@ -123,9 +127,10 @@ class SystemDockerComposeService
      *     ready: bool,
      *     can_restart: bool,
      *     can_rebuild: bool,
-     *     containers: list<array{name: string, service: string, image: string, state: string, status: string}>,
+     *     containers: list<array{id: string, name: string, service: string, image: string, state: string, status: string}>,
      *     flash: string|null,
-     *     message: string
+     *     message: string,
+     *     can_exec: bool
      * }
      */
     public function status(): array
@@ -145,6 +150,7 @@ class SystemDockerComposeService
             'ready' => $ready,
             'can_restart' => $ready,
             'can_rebuild' => $ready && $this->upgrades->webUpgradeEnabled(),
+            'can_exec' => $ready && $count > 0,
             'containers' => $containers,
             'flash' => $flash,
             'message' => $message,
@@ -156,7 +162,7 @@ class SystemDockerComposeService
      * @param  list<string>  $services
      * @return array{success: bool, message: string, reconnect?: bool}
      */
-    public function run(\App\Models\User $user, string $action, ?callable $emit = null, array $services = []): array
+    public function run(User $user, string $action, ?callable $emit = null, array $services = []): array
     {
         $action = $action === 'rebuild' ? 'rebuild' : 'restart';
         if (! $this->ready()) {
@@ -258,7 +264,247 @@ class SystemDockerComposeService
     }
 
     /**
-     * @return list<array{name: string, service: string, image: string, state: string, status: string}>
+     * @return list<string>
+     */
+    public function parseExecCommand(string $command): array
+    {
+        $command = trim($command);
+        if ($command === '') {
+            throw new \InvalidArgumentException('Voer een commando in.');
+        }
+        if (strlen($command) > 4000) {
+            throw new \InvalidArgumentException('Commando is te lang (max. 4000 tekens).');
+        }
+        if (preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $command) === 1) {
+            throw new \InvalidArgumentException('Commando bevat ongeldige tekens.');
+        }
+
+        $argv = [];
+        $current = '';
+        $quote = null;
+        $length = strlen($command);
+        for ($i = 0; $i < $length; $i++) {
+            $ch = $command[$i];
+            if ($quote !== null) {
+                if ($ch === '\\' && $i + 1 < $length) {
+                    $current .= $command[$i + 1];
+                    $i++;
+
+                    continue;
+                }
+                if ($ch === $quote) {
+                    $quote = null;
+
+                    continue;
+                }
+                $current .= $ch;
+
+                continue;
+            }
+            if ($ch === '"' || $ch === "'") {
+                $quote = $ch;
+
+                continue;
+            }
+            if ($ch === ' ' || $ch === "\t") {
+                if ($current !== '') {
+                    $argv[] = $current;
+                    $current = '';
+                }
+
+                continue;
+            }
+            $current .= $ch;
+        }
+        if ($quote !== null) {
+            throw new \InvalidArgumentException('Onafgesloten aanhalingsteken in commando.');
+        }
+        if ($current !== '') {
+            $argv[] = $current;
+        }
+        if ($argv === []) {
+            throw new \InvalidArgumentException('Voer een commando in.');
+        }
+        if (count($argv) > 40) {
+            throw new \InvalidArgumentException('Commando heeft te veel argumenten.');
+        }
+
+        return $argv;
+    }
+
+    /**
+     * @param  list<string>|null  $argv
+     * @return array{success: bool, exit_code: int, output: string, service: string, container: string}
+     */
+    public function execInService(string $service, string $command, ?array $argv = null, int $timeoutSeconds = 60, ?string $sinkPath = null): array
+    {
+        if (! $this->ready()) {
+            throw new \RuntimeException('Docker is niet beschikbaar.');
+        }
+
+        $argv = $argv ?? $this->parseExecCommand($command);
+        $row = $this->containerByService($service);
+        if ($row === null) {
+            throw new \RuntimeException('Container "'.$service.'" hoort niet bij deze stack.');
+        }
+        if (strtolower((string) $row['state']) !== 'running') {
+            throw new \RuntimeException('Container '.$service.' draait niet.');
+        }
+        $name = (string) $row['name'];
+        if ($name === '' || $name === '—') {
+            throw new \RuntimeException('Container-naam voor '.$service.' is onbekend.');
+        }
+
+        $cmd = array_merge(['docker', 'exec', $name], $argv);
+        if ($sinkPath !== null) {
+            $cmd = [
+                'sh',
+                '-c',
+                'docker exec '.escapeshellarg($name).' '.implode(' ', array_map('escapeshellarg', $argv)).
+                ' > '.escapeshellarg($sinkPath),
+            ];
+        }
+
+        $steps = [];
+        $result = $this->runHelperCommand(
+            null,
+            $steps,
+            $cmd,
+            'docker exec '.$service,
+            $timeoutSeconds,
+            false,
+        );
+
+        $output = $sinkPath !== null
+            ? (is_file($sinkPath) ? 'Dump geschreven ('.filesize($sinkPath).' bytes).' : $result['output'])
+            : $result['output'];
+
+        return [
+            'success' => $result['exit_code'] === 0,
+            'exit_code' => $result['exit_code'],
+            'output' => $this->truncateComposeOutput((string) $output, 64000),
+            'service' => $service,
+            'container' => $name,
+        ];
+    }
+
+    /**
+     * @return array{id: string, name: string, service: string, image: string, state: string, status: string}|null
+     */
+    public function containerByService(string $service): ?array
+    {
+        $service = trim($service);
+        if ($service === '') {
+            return null;
+        }
+        foreach ($this->projectContainers() as $row) {
+            if ($row['service'] === $service) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function containerEnv(string $service): array
+    {
+        $row = $this->containerByService($service);
+        $id = is_array($row) ? (string) $row['id'] : '';
+        if ($id === '') {
+            return [];
+        }
+
+        try {
+            $inspect = $this->dockerRequest('get', '/containers/'.$id.'/json', null, 15);
+        } catch (\Throwable) {
+            return [];
+        }
+        $list = $inspect->json('Config.Env');
+        if (! is_array($list)) {
+            return [];
+        }
+
+        $env = [];
+        foreach ($list as $line) {
+            if (! is_string($line)) {
+                continue;
+            }
+            $pos = strpos($line, '=');
+            if ($pos === false) {
+                continue;
+            }
+            $env[substr($line, 0, $pos)] = substr($line, $pos + 1);
+        }
+
+        return $env;
+    }
+
+    /**
+     * @param  list<string>  $subcommand
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function runComposeSubcommand(
+        ?callable $emit,
+        array &$steps,
+        array $subcommand,
+        string $label,
+        int $timeoutSeconds = 1800,
+    ): void {
+        $hostDir = $this->requireHostProjectDir();
+        $this->runInHelperContainer(
+            $emit,
+            $steps,
+            $hostDir,
+            $this->composeSubcommandArgs($hostDir, $subcommand),
+            $label,
+            $timeoutSeconds,
+        );
+    }
+
+    /**
+     * @param  list<string>  $cmd
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function runHelperCommand(
+        ?callable $emit,
+        array &$steps,
+        array $cmd,
+        string $label,
+        int $timeoutSeconds = 1800,
+        bool $throwOnFailure = true,
+    ): array {
+        $hostDir = $this->requireHostProjectDir();
+
+        return $this->runInHelperContainer($emit, $steps, $hostDir, $cmd, $label, $timeoutSeconds, $throwOnFailure);
+    }
+
+    public function waitForServiceHealthy(string $service, int $timeoutSeconds = 180, ?callable $emit = null): void
+    {
+        $deadline = time() + $timeoutSeconds;
+        $attempt = 0;
+        while (time() < $deadline) {
+            $attempt++;
+            $row = $this->containerByService($service);
+            $status = is_array($row) ? strtolower((string) $row['status']) : '';
+            $state = is_array($row) ? strtolower((string) $row['state']) : '';
+            if ($state === 'running' && (str_contains($status, '(healthy)') || str_contains($status, 'healthy'))) {
+                return;
+            }
+            if ($attempt === 1 || $attempt % 5 === 0) {
+                $statusLabel = is_array($row) ? (string) ($row['status'] ?? 'onbekend') : 'onbekend';
+                $this->emitComposeNotes($emit, $service.' niet gezond: '.$statusLabel, 'Wachten op '.$service);
+            }
+            sleep(2);
+        }
+
+        throw new \RuntimeException('Container '.$service.' werd niet gezond binnen '.$timeoutSeconds.' seconden.');
+    }
+
+    /**
+     * @return list<array{id: string, name: string, service: string, image: string, state: string, status: string}>
      */
     public function projectContainers(): array
     {
@@ -284,7 +530,7 @@ class SystemDockerComposeService
 
     /**
      * @param  list<mixed>  $items
-     * @return list<array{name: string, service: string, image: string, state: string, status: string}>
+     * @return list<array{id: string, name: string, service: string, image: string, state: string, status: string}>
      */
     public function normalizeProjectContainers(array $items): array
     {
@@ -298,6 +544,7 @@ class SystemDockerComposeService
             $name = ltrim((string) ($names[0] ?? ''), '/');
             $service = (string) ($itemLabels['com.docker.compose.service'] ?? '');
             $rows[] = [
+                'id' => (string) ($item['Id'] ?? ''),
                 'name' => $name !== '' ? $name : '—',
                 'service' => $service !== '' ? $service : '—',
                 'image' => (string) ($item['Image'] ?? '—'),
@@ -629,27 +876,29 @@ class SystemDockerComposeService
     }
 
     /**
-     * Compose draait in een aparte container, zodat het stoppen van `backend`
+     * Compose/CLI draait in een aparte container, zodat het stoppen van `backend`
      * de upgrade niet afkapt (ETXTBSY/zelf-kill vanaf de bind-mount).
      *
      * @param  list<array{label: string, status: string, output?: string}>  $steps
-     * @param  list<string>  $args
+     * @param  list<string>  $cmd
+     * @return array{output: string, exit_code: int}
      */
-    private function runComposeInHelperContainer(
+    private function runInHelperContainer(
         ?callable $emit,
         array &$steps,
         string $hostDir,
-        array $args,
+        array $cmd,
         string $label,
         int $timeoutSeconds = 1800,
-    ): void {
+        bool $throwOnFailure = true,
+    ): array {
         $this->upgrades->emitProgress($emit, $steps, $label, 'running');
         $this->ensureHelperImage();
         $this->dockerDeleteContainer(self::HELPER_CONTAINER);
 
         $created = $this->dockerRequest('post', '/containers/create?name='.urlencode(self::HELPER_CONTAINER), [
             'Image' => self::HELPER_IMAGE,
-            'Cmd' => $args,
+            'Cmd' => $cmd,
             'WorkingDir' => $hostDir,
             'Tty' => true,
             'Env' => [
@@ -695,15 +944,15 @@ class SystemDockerComposeService
             if (! ($state['Running'] ?? false)) {
                 $exit = (int) ($state['ExitCode'] ?? 1);
                 $this->dockerDeleteContainer(self::HELPER_CONTAINER);
-                if ($exit !== 0) {
+                if ($exit !== 0 && $throwOnFailure) {
                     throw new \RuntimeException(trim(
                         $label.' mislukt: '.$this->truncateComposeOutput($output)
                     ));
                 }
 
-                $this->upgrades->emitProgress($emit, $steps, $label.' voltooid', 'done');
+                $this->upgrades->emitProgress($emit, $steps, $label.($exit === 0 ? ' voltooid' : ' (exit '.$exit.')'), $exit === 0 ? 'done' : 'failed');
 
-                return;
+                return ['output' => $output, 'exit_code' => $exit];
             }
 
             sleep(2);
@@ -743,13 +992,21 @@ class SystemDockerComposeService
     /**
      * @param  array<string, mixed>|null  $json
      */
-    private function dockerRequest(string $method, string $path, ?array $json = null, int $timeout = 30): \Illuminate\Http\Client\Response
-    {
+    private function dockerRequest(
+        string $method,
+        string $path,
+        ?array $json = null,
+        int $timeout = 30,
+        ?string $sinkPath = null,
+    ): Response {
         $request = Http::withOptions([
             'curl' => [
                 CURLOPT_UNIX_SOCKET_PATH => '/var/run/docker.sock',
             ],
         ])->timeout($timeout)->connectTimeout(5);
+        if ($sinkPath !== null) {
+            $request = $request->sink($sinkPath);
+        }
 
         $url = 'http://localhost/v1.41'.$path;
 
@@ -761,7 +1018,7 @@ class SystemDockerComposeService
         };
     }
 
-    private function dockerError(\Illuminate\Http\Client\Response $response): string
+    private function dockerError(Response $response): string
     {
         $message = $response->json('message');
         if (is_string($message) && $message !== '') {

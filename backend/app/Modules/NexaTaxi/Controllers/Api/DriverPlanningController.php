@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Http\Resources\TaxiDispatchOfferResource;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Services\DriverScheduleService;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Services\ModuleDatabaseService;
 use Carbon\Carbon;
@@ -18,6 +19,10 @@ class DriverPlanningController extends Controller
     private const WEEKS_BACK = 4;
 
     private const WEEKS_AHEAD = 8;
+
+    public function __construct(
+        protected DriverScheduleService $schedules
+    ) {}
 
     public function week(Request $request, ModuleDatabaseService $moduleDb): JsonResponse
     {
@@ -46,6 +51,13 @@ class DriverPlanningController extends Controller
 
         $to = $from->copy()->endOfWeek(Carbon::SUNDAY);
         $days = $this->emptyDays($from, $to, $today);
+        $shiftsByDate = $this->schedules->planningShiftsForDriver(
+            $conn,
+            (int) ($user->company_id ?? 0),
+            (int) $user->id,
+            $from,
+            $to
+        );
 
         if (Schema::connection($conn)->hasTable('ride_requests')) {
             $vehicleId = (int) $request->input('vehicle_id', 0);
@@ -81,6 +93,12 @@ class DriverPlanningController extends Controller
             }
         }
 
+        foreach ($days as $i => $day) {
+            $dayShifts = $shiftsByDate[$day['date']] ?? [];
+            $days[$i]['shifts'] = $dayShifts;
+            $days[$i]['shift_count'] = count($dayShifts);
+        }
+
         return response()->json([
             'data' => [
                 'from' => $from->toDateString(),
@@ -92,7 +110,7 @@ class DriverPlanningController extends Controller
     }
 
     /**
-     * @return list<array{date: string, is_today: bool, ride_count: int, rides: list<array<string, mixed>>}>
+     * @return list<array{date: string, is_today: bool, ride_count: int, rides: list<array<string, mixed>>, shift_count: int, shifts: list<array<string, mixed>>}>
      */
     private function emptyDays(Carbon $from, Carbon $to, Carbon $today): array
     {
@@ -104,6 +122,8 @@ class DriverPlanningController extends Controller
                 'is_today' => $dateString === $today->toDateString(),
                 'ride_count' => 0,
                 'rides' => [],
+                'shift_count' => 0,
+                'shifts' => [],
             ];
         }
 

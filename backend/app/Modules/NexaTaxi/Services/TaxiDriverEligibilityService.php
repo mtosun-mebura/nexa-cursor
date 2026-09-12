@@ -34,6 +34,26 @@ class TaxiDriverEligibilityService
         return count(array_intersect($normalized, self::CHAUFFEUR_ROLE_NAMES)) > 0;
     }
 
+    /**
+     * @param  list<string>  $roleNames
+     */
+    public function rolesIncludeContract(array $roleNames): bool
+    {
+        $normalized = array_map(static fn ($name) => strtolower(trim((string) $name)), $roleNames);
+
+        return count(array_intersect($normalized, [
+            TaxiContractPortalAccessService::SPATIE_CONTRACTANT,
+            TaxiContractPortalAccessService::SPATIE_CONTRACTOUDER,
+        ])) > 0;
+    }
+
+    public function canUseContractRideFilter(User $user): bool
+    {
+        $names = $user->webRoleNames();
+
+        return $this->rolesIncludeChauffeur($names) && $this->rolesIncludeContract($names);
+    }
+
     public function isChauffeurForCompany(User $user, int $companyId): bool
     {
         return $this->buildChauffeurQuery($companyId)

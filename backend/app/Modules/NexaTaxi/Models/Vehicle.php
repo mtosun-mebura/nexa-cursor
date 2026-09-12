@@ -40,9 +40,13 @@ class Vehicle extends Model
     ];
 
     public const TYPE_CAR = 'car';
+
     public const TYPE_VAN = 'van';
+
     public const TYPE_BUS = 'bus';
+
     public const PERSON_RANGE_1_4 = '1-4';
+
     public const PERSON_RANGE_5_8 = '5-8';
 
     public static function typeLabels(): array
@@ -75,5 +79,20 @@ class Vehicle extends Model
     public function getTypeLabelAttribute(): string
     {
         return self::typeLabels()[$this->type] ?? $this->type;
+    }
+
+    public function fleetLabel(): string
+    {
+        $plate = trim((string) ($this->license_plate ?? ''));
+        $name = trim((string) ($this->name ?? ''));
+        if ($plate !== '' && $name !== '') {
+            return $plate.' · '.$name;
+        }
+
+        if ($plate !== '') {
+            return $plate;
+        }
+
+        return $name !== '' ? $name : 'Voertuig '.$this->id;
     }
 }

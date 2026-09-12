@@ -389,6 +389,12 @@ class DriverDispatchController extends Controller
         TaxiDispatchSettingsService $dispatchSettings,
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $validated = $request->validate([
+            'track' => ['sometimes', 'array', 'max:1500'],
+            'track.*.lat' => ['required', 'numeric', 'between:-90,90'],
+            'track.*.lng' => ['required', 'numeric', 'between:-180,180'],
+            'track.*.t' => ['nullable', 'numeric'],
+        ]);
         $rideModel = RideRequest::on($conn)->find($ride);
         $allowOverdueContractComplete = $rideModel
             && $rideModel->isContractRide()
@@ -404,6 +410,7 @@ class DriverDispatchController extends Controller
                 $request->user(),
                 $ride,
                 $allowOverdueContractComplete,
+                $validated['track'] ?? [],
             );
         } catch (ValidationException $e) {
             return response()->json([

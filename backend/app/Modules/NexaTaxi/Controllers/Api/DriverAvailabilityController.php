@@ -5,14 +5,21 @@ namespace App\Modules\NexaTaxi\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\DriverScheduleService;
+use App\Modules\NexaTaxi\Services\RideTrackService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class DriverAvailabilityController extends Controller
 {
+    public function __construct(
+        protected DriverScheduleService $schedules
+    ) {}
+
     public function update(Request $request, ModuleDatabaseService $moduleDb): JsonResponse
     {
         $data = $request->validate([
@@ -20,6 +27,9 @@ class DriverAvailabilityController extends Controller
             'lat' => 'nullable|numeric|between:-90,90',
             'lng' => 'nullable|numeric|between:-180,180',
             'vehicle_id' => 'nullable|integer',
+            'accuracy' => 'nullable|numeric|min:0|max:5000',
+            'heading' => 'nullable|numeric|between:0,360',
+            'speed' => 'nullable|numeric|min:0|max:80',
         ]);
 
         return $this->persist($request, $moduleDb, $data, requireOnline: true);
@@ -31,6 +41,9 @@ class DriverAvailabilityController extends Controller
             'lat' => 'required|numeric|between:-90,90',
             'lng' => 'required|numeric|between:-180,180',
             'vehicle_id' => 'nullable|integer',
+            'accuracy' => 'nullable|numeric|min:0|max:5000',
+            'heading' => 'nullable|numeric|between:0,360',
+            'speed' => 'nullable|numeric|min:0|max:80',
         ]);
 
         return $this->persist($request, $moduleDb, $data, requireOnline: false);
@@ -40,21 +53,9 @@ class DriverAvailabilityController extends Controller
     {
         $companyId = (int) $request->attributes->get('taxi_company_id');
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $driverId = (int) $request->user()->id;
 
-        $vehicles = Vehicle::on($conn)
-            ->where('company_id', $companyId)
-            ->where('active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'license_plate', 'type']);
-
-        return response()->json([
-            'data' => $vehicles->map(fn (Vehicle $vehicle) => [
-                'id' => (int) $vehicle->id,
-                'name' => (string) ($vehicle->name ?? ''),
-                'license_plate' => trim((string) ($vehicle->license_plate ?? '')) ?: null,
-                'type' => (string) ($vehicle->type ?? ''),
-            ])->values(),
-        ]);
+        return response()->json($this->schedules->vehiclesPayloadForDriver($conn, $companyId, $driverId));
     }
 
     /**
@@ -66,6 +67,7 @@ class DriverAvailabilityController extends Controller
         $companyId = (int) $request->attributes->get('taxi_company_id');
         $conn = $moduleDb->getModuleConnectionName('taxi');
         TaxiDispatchSchema::ensureVehicleIdColumn($conn);
+        $this->schedules->ensureReady($conn);
         $now = now();
 
         $payload = [
@@ -80,23 +82,57 @@ class DriverAvailabilityController extends Controller
         $hasCoords = isset($data['lat'], $data['lng'])
             && $data['lat'] !== null
             && $data['lng'] !== null;
+        $existing = DriverAvailability::on($conn)->find($user->id);
+        $accuracy = isset($data['accuracy']) && $data['accuracy'] !== null ? (float) $data['accuracy'] : null;
+        if ($hasCoords && $accuracy !== null && $accuracy > 180.0 && $existing && $existing->lat !== null && $existing->lng !== null) {
+            $hasCoords = false;
+        }
         if ($hasCoords) {
             $payload['lat'] = $data['lat'];
             $payload['lng'] = $data['lng'];
             $payload['location_updated_at'] = $now;
         }
 
+        if (isset($data['heading']) && $data['heading'] !== null) {
+            $heading = fmod((float) $data['heading'] + 360.0, 360.0);
+            Cache::put('taxi-gps-heading:'.$companyId.':'.(int) $user->id, $heading, now()->addMinutes(2));
+        }
+
         $hasVehicleColumn = Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id');
-        if ($hasVehicleColumn && array_key_exists('vehicle_id', $data)) {
-            $vehicleId = $data['vehicle_id'] !== null ? (int) $data['vehicle_id'] : null;
-            if ($vehicleId) {
-                $exists = Vehicle::on($conn)
-                    ->where('company_id', $companyId)
-                    ->whereKey($vehicleId)
-                    ->exists();
-                $payload['vehicle_id'] = $exists ? $vehicleId : null;
-            } else {
-                $payload['vehicle_id'] = null;
+        if ($hasVehicleColumn) {
+            $lockedVehicleId = $this->schedules->resolveLockedVehicleId($conn, $companyId, (int) $user->id);
+            $requestedVehicleId = array_key_exists('vehicle_id', $data) && $data['vehicle_id'] !== null
+                ? (int) $data['vehicle_id']
+                : null;
+
+            if ($lockedVehicleId) {
+                if ($requestedVehicleId && $requestedVehicleId !== $lockedVehicleId) {
+                    return response()->json([
+                        'message' => 'Je bent ingepland op een ander voertuig. Je kunt nu geen andere auto kiezen.',
+                        'code' => 'vehicle_locked',
+                    ], 422);
+                }
+                $payload['vehicle_id'] = $lockedVehicleId;
+            } elseif (array_key_exists('vehicle_id', $data)) {
+                $vehicleId = $requestedVehicleId;
+                if ($vehicleId) {
+                    $exists = Vehicle::on($conn)
+                        ->where('company_id', $companyId)
+                        ->whereKey($vehicleId)
+                        ->exists();
+                    if (! $exists) {
+                        $payload['vehicle_id'] = null;
+                    } elseif ($this->schedules->isVehicleOccupiedByOther($conn, $companyId, (int) $user->id, $vehicleId)) {
+                        return response()->json([
+                            'message' => 'Dit voertuig is al in gebruik door een andere chauffeur.',
+                            'code' => 'vehicle_occupied',
+                        ], 422);
+                    } else {
+                        $payload['vehicle_id'] = $vehicleId;
+                    }
+                } else {
+                    $payload['vehicle_id'] = null;
+                }
             }
         }
 
@@ -104,6 +140,20 @@ class DriverAvailabilityController extends Controller
             ['driver_id' => $user->id],
             $payload
         );
+
+        if ($hasCoords) {
+            try {
+                app(RideTrackService::class)->appendPoint(
+                    $conn,
+                    $companyId,
+                    (int) $user->id,
+                    (float) $data['lat'],
+                    (float) $data['lng']
+                );
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return response()->json([
             'data' => [
