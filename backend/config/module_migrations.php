@@ -42,6 +42,8 @@ return [
             'transport_occurrences',
             'ride_stops',
             'transport_schedule_exceptions',
+            'driver_schedules',
+            'ride_gps_points',
         ],
         'skillmatching' => ['vacancies', 'job_configurations'],
     ],

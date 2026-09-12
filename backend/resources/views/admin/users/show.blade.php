@@ -11,6 +11,22 @@
     .dark .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
     }
+    .user-show-action-btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-sizing: border-box;
+        height: 2.125rem;
+        min-height: 2.125rem;
+        min-width: 7.5rem;
+        padding-inline: 0.75rem;
+        border-width: 1px;
+        border-style: solid;
+    }
+    a.user-show-action-btn.kt-btn-primary {
+        border-color: var(--primary, #1b84ff);
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -127,8 +143,22 @@
             </form>
             <span class="text-orange-500">|</span>
             @endif
-            <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-primary ml-auto">
-                <i class="ki-filled ki-notepad-edit me-2"></i>
+            @if($user->id !== auth()->id())
+            <form action="{{ route('admin.users.force-logout', $user) }}"
+                  method="POST"
+                  class="inline-flex"
+                  data-admin-confirm="Deze gebruiker wordt op alle apparaten uitgelogd, inclusief de chauffeur-app."
+                  data-admin-confirm-title="Op afstand uitloggen"
+                  data-admin-confirm-label="Uitloggen">
+                @csrf
+                <button type="submit" class="kt-btn kt-btn-outline user-show-action-btn">
+                    <i class="ki-filled ki-exit-right-corner"></i>
+                    Uitloggen
+                </button>
+            </form>
+            @endif
+            <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-primary user-show-action-btn">
+                <i class="ki-filled ki-notepad-edit"></i>
                 Bewerken
             </a>
             @endcan
@@ -253,8 +283,10 @@
                                 $needsAppPassword = app(\App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService::class)->needsFirstLogin($user);
                             @endphp
                             @if($needsAppPassword)
-                                <span class="kt-badge kt-badge-sm kt-badge-warning">Nog instellen</span>
-                                <span class="text-xs text-secondary-foreground ms-2">Inlogcode in chauffeur- of contract-app</span>
+                                <div class="flex flex-col items-start gap-1">
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Nog instellen</span>
+                                    <span class="text-xs text-secondary-foreground">Inlogcode in chauffeur- of contract-app</span>
+                                </div>
                             @else
                                 <span class="kt-badge kt-badge-sm kt-badge-success">Ingesteld</span>
                             @endif
@@ -289,14 +321,42 @@
                             E-mail geverifieerd
                         </td>
                         <td class="text-foreground font-normal">
-                            @if($user->email_verified_at)
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
-                                <span class="text-xs text-secondary-foreground ms-2">
-                                    {{ \Carbon\Carbon::parse($user->email_verified_at)->format('d-m-Y H:i') }}
-                                </span>
-                            @else
-                                <span class="kt-badge kt-badge-sm kt-badge-warning">Nee</span>
-                            @endif
+                            <div class="flex flex-wrap items-center gap-2">
+                                @if($user->email_verified_at)
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
+                                    <span class="text-xs text-secondary-foreground">
+                                        {{ \Carbon\Carbon::parse($user->email_verified_at)->format('d-m-Y H:i') }}
+                                    </span>
+                                @else
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Nee</span>
+                                    @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-users'))
+                                        <form action="{{ route('admin.users.send-activation-link', $user) }}" method="POST" class="inline-flex">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
+                                                    data-kt-tooltip="true"
+                                                    data-kt-tooltip-placement="top"
+                                                    aria-label="Verificatiemail versturen">
+                                                <i class="ki-filled ki-sms"></i>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">Verificatiemail versturen naar {{ $user->email }}</span>
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if(auth()->user()->hasRole('super-admin'))
+                                        <form action="{{ route('admin.users.mark-email-verified', $user) }}" method="POST" class="inline-flex">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
+                                                    data-kt-tooltip="true"
+                                                    data-kt-tooltip-placement="top"
+                                                    aria-label="E-mailadres handmatig verifiëren">
+                                                <i class="ki-filled ki-check-circle"></i>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">E-mailadres handmatig verifiëren</span>
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     <tr>
@@ -304,14 +364,67 @@
                             Telefoon geverifieerd
                         </td>
                         <td class="text-foreground font-normal">
-                            @if($user->phone_verified_at)
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
-                                <span class="text-xs text-secondary-foreground ms-2">
-                                    {{ \Carbon\Carbon::parse($user->phone_verified_at)->format('d-m-Y H:i') }}
-                                </span>
-                            @else
-                                <span class="kt-badge kt-badge-sm kt-badge-warning">Nee</span>
-                            @endif
+                            <div class="flex flex-wrap items-center gap-2">
+                                @if($user->phone_verified_at)
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
+                                    <span class="text-xs text-secondary-foreground">
+                                        {{ \Carbon\Carbon::parse($user->phone_verified_at)->format('d-m-Y H:i') }}
+                                    </span>
+                                @else
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Nee</span>
+                                    @php $canSendVerification = auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-users'); @endphp
+                                    @if($canSendVerification)
+                                        @if(trim((string) ($user->phone ?? '')) !== '')
+                                            <form action="{{ route('admin.users.send-phone-verification', $user) }}" method="POST" class="inline-flex">
+                                                @csrf
+                                                <button type="submit"
+                                                        class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
+                                                        data-kt-tooltip="true"
+                                                        data-kt-tooltip-placement="top"
+                                                        aria-label="Telefoonverificatie versturen">
+                                                    <i class="ki-filled ki-phone"></i>
+                                                    <span class="kt-tooltip" data-kt-tooltip-content="true">Verificatie versturen naar {{ $user->phone }}</span>
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="inline-flex" data-kt-tooltip="true" data-kt-tooltip-placement="top">
+                                                <button type="button"
+                                                        class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground"
+                                                        disabled
+                                                        aria-label="Geen telefoonnummer">
+                                                    <i class="ki-filled ki-phone"></i>
+                                                </button>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">Geen telefoonnummer ingesteld</span>
+                                            </span>
+                                        @endif
+                                    @endif
+                                    @if(auth()->user()->hasRole('super-admin'))
+                                        @if(trim((string) ($user->phone ?? '')) !== '')
+                                            <form action="{{ route('admin.users.mark-phone-verified', $user) }}" method="POST" class="inline-flex">
+                                                @csrf
+                                                <button type="submit"
+                                                        class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
+                                                        data-kt-tooltip="true"
+                                                        data-kt-tooltip-placement="top"
+                                                        aria-label="Telefoonnummer handmatig verifiëren">
+                                                    <i class="ki-filled ki-check-circle"></i>
+                                                    <span class="kt-tooltip" data-kt-tooltip-content="true">Telefoonnummer handmatig verifiëren</span>
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="inline-flex" data-kt-tooltip="true" data-kt-tooltip-placement="top">
+                                                <button type="button"
+                                                        class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground"
+                                                        disabled
+                                                        aria-label="Geen telefoonnummer">
+                                                    <i class="ki-filled ki-check-circle"></i>
+                                                </button>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">Geen telefoonnummer ingesteld</span>
+                                            </span>
+                                        @endif
+                                    @endif
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     <tr>

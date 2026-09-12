@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex items-center flex-wrap justify-between gap-3 mb-6 mt-5">
@@ -20,29 +22,32 @@
         De Nexa-release gaat één patch omhoog na een geslaagde web-upgrade (Laravel, PHP of overige packages).
     </p>
 
-    <div class="flex flex-col gap-5 mb-5">
-        <div class="kt-card min-w-0">
-            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Geïnstalleerde stack</h3>
-            </div>
-            <div class="kt-card-body p-5 lg:p-6 min-w-0">
-                <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
-                    <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
-                        <thead>
-                            <tr>
-                                <th data-label="Component">Component</th>
-                                <th data-label="Versie">Versie</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($stack as $item)
+    <div class="flex flex-col gap-5 mb-5" id="upgrade-collapsible-root">
+        <div class="kt-card min-w-0 settings-collapsible-card settings-collapsible-card--collapsed" id="upgrade-installed-stack">
+            @include('admin.settings.partials.collapsible-header', [
+                'titleHtml' => 'Geïnstalleerde stack',
+                'headerClass' => 'px-5 py-5',
+            ])
+            <div class="settings-collapsible-body">
+                <div class="kt-card-body p-5 lg:p-6 min-w-0">
+                    <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                        <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                            <thead>
                                 <tr>
-                                    <td data-label="Component">{{ $item['label'] }}</td>
-                                    <td data-label="Versie" class="font-mono text-xs sm:text-sm break-all">{{ $item['value'] }}</td>
+                                    <th data-label="Component">Component</th>
+                                    <th data-label="Versie">Versie</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach($stack as $item)
+                                    <tr>
+                                        <td data-label="Component">{{ $item['label'] }}</td>
+                                        <td data-label="Versie" class="font-mono text-xs sm:text-sm break-all">{{ $item['value'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -94,6 +99,32 @@
 
         <div class="kt-card min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">PostgreSQL in Docker bijwerken</h3>
+            </div>
+            <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
+                <p class="text-sm text-secondary-foreground mb-0">
+                    Minor pullt de nieuwste <code>pgvector/pgvector</code>-image van de huidige major.
+                    Major zet een nieuwe major (bijv. pg16 → pg17) op een <strong>nieuw datavolume</strong> na een
+                    <code>pg_dumpall</code>-backup. Bij een fout gaan de compose-bestanden terug en start de oude versie weer.
+                </p>
+                <p class="text-sm text-secondary-foreground mb-0" id="postgres-upgrade-status-text">Status ophalen…</p>
+                <div class="flex flex-wrap gap-2 pt-5 pb-0">
+                    <button type="button" id="btn-postgres-minor" class="kt-btn kt-btn-primary" @disabled(!$webUpgradeEnabled) disabled>
+                        <span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>
+                        Minor-update
+                    </button>
+                    <button type="button" id="btn-postgres-major" class="kt-btn kt-btn-success" @disabled(!$webUpgradeEnabled) disabled>
+                        <span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>
+                        Major-update
+                    </button>
+                </div>
+                <div id="postgres-upgrade-progress" class="hidden"></div>
+                <div id="postgres-upgrade-result" class="hidden rounded-md border border-border bg-muted/20 p-4 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="kt-card min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                 <h3 class="kt-card-title mb-0">Docker-containers</h3>
             </div>
             <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
@@ -133,6 +164,35 @@
                         </thead>
                         <tbody id="docker-container-rows"></tbody>
                     </table>
+                </div>
+                <div class="space-y-3 pt-5">
+                    <p class="text-sm font-medium text-mono mb-0">Commando op container</p>
+                    <p class="text-sm text-secondary-foreground mb-0">
+                        Voert <code>docker exec</code> uit op één container van deze stack, bijvoorbeeld <code>php -v</code> of <code>psql --version</code>.
+                    </p>
+                    <div class="flex flex-wrap items-end gap-2">
+                        <div class="min-w-[11rem]">
+                            <label for="docker-exec-service" class="mb-1 block text-xs text-muted-foreground">Container</label>
+                            <select id="docker-exec-service" class="kt-input w-full" disabled aria-label="Container voor commando">
+                                <option value="">Kies een container</option>
+                            </select>
+                        </div>
+                        <div class="min-w-[14rem] flex-1">
+                            <label for="docker-exec-command" class="mb-1 block text-xs text-muted-foreground">Commando</label>
+                            <input type="text"
+                                   id="docker-exec-command"
+                                   class="kt-input w-full font-mono"
+                                   placeholder="php -v"
+                                   autocomplete="off"
+                                   maxlength="4000"
+                                   disabled>
+                        </div>
+                        <button type="button" id="btn-docker-exec" class="kt-btn kt-btn-outline" disabled>
+                            <i class="ki-filled ki-code me-1" aria-hidden="true"></i>
+                            Uitvoeren
+                        </button>
+                    </div>
+                    <pre id="docker-exec-output" class="upgrade-exec-output hidden mb-0" hidden></pre>
                 </div>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-docker-restart" class="kt-btn kt-btn-primary" disabled>
@@ -204,9 +264,9 @@
                     </summary>
                     <div class="mt-3 space-y-4 text-secondary-foreground">
                         <p class="mb-0">
-                            PHP kun je nu automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.
-                            Die zet de <code>FROM php:…-cli</code> regel in de Dockerfiles, tuigt de Docker-stack opnieuw op
-                            (build waar nodig) en draait daarna tests. PostgreSQL blijft handmatig: een major-upgrade vereist een data-migratie.
+                            PHP kun je automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.
+                            PostgreSQL heeft eigen knoppen <strong>Minor-update</strong> en <strong>Major-update</strong>:
+                            eerst een <code>pg_dumpall</code>-backup, daarna image/volume-wissel. Bij een fout start de oude versie weer.
                         </p>
 
                         <div>
@@ -220,22 +280,13 @@
                         </div>
 
                         <div>
-                            <p class="mb-1 font-semibold text-mono">2. PostgreSQL upgraden (bijv. pg16 → pg17)</p>
-                            <p class="mb-1">
-                                Een major-upgrade vereist een <strong>data-migratie</strong> — het volume is versiegebonden, dus een
-                                nieuwe image start niet zomaar op oude data. Maak eerst een backup:
-                            </p>
-                            <pre class="upgrade-docker-code">docker compose exec db pg_dumpall -U nexa > backup-$(date +%F).sql</pre>
-                            <p class="mb-1">Pas de image aan in <code>docker-compose.postgres.yml</code>:</p>
-                            <pre class="upgrade-docker-code">- image: pgvector/pgvector:pg16
-+ image: pgvector/pgvector:pg17</pre>
-                            <p class="mb-1">Verwijder het oude datavolume en herstel de backup in de nieuwe versie:</p>
-                            <pre class="upgrade-docker-code">docker compose down
-docker volume rm nexa_postgres_data
-docker compose up -d db
-cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
-                            <p class="mb-0 text-destructive">
-                                Let op: doe dit in een onderhoudsvenster en verifieer altijd eerst dat de backup geldig is.
+                            <p class="mb-1 font-semibold text-mono">2. PostgreSQL (automatisch via de knoppen)</p>
+                            <p class="mb-0">
+                                <strong>Minor</strong> pullt de huidige tag (bijv. <code>pg16</code>) opnieuw.
+                                <strong>Major</strong> schrijft <code>pgvector/pgvector:pg17</code> (of de volgende major) in
+                                <code>docker-compose.postgres.yml</code> en <code>docker-compose.deploy.yml</code>,
+                                zet een nieuw volume <code>…_postgres_data_pg17</code> in, herstelt de dump en laat het oude
+                                volume staan. Mislukt de restore, dan gaan de compose-bestanden terug en komt de oude database weer online.
                             </p>
                         </div>
                     </div>
@@ -414,6 +465,52 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     }
     .upgrade-php-icon-word {
         fill: var(--background);
+    }
+    .upgrade-pg-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.4rem;
+        height: 0.82rem;
+        padding: 0 0.2rem;
+        border-radius: 0.2rem;
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        background: currentColor;
+        vertical-align: 0.05em;
+    }
+    .upgrade-pg-icon-word {
+        color: var(--background);
+    }
+    .upgrade-exec-output {
+        margin: 0;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.375rem;
+        border: 1px solid var(--border);
+        font-family: ui-monospace, monospace;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--foreground);
+        max-height: 16rem;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent) transparent;
+    }
+    .upgrade-exec-output::-webkit-scrollbar {
+        width: 8px;
+    }
+    .upgrade-exec-output::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .upgrade-exec-output::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+        border-radius: 9999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
     }
     .upgrade-progress {
         border: 1px solid var(--border);
@@ -1084,9 +1181,13 @@ function announceUpgradeSuccess(message) {
     var phpFinalizeUrl = @json(route('admin.settings.upgrade.php-finalize'));
     var dockerStatusUrl = @json(route('admin.settings.upgrade.docker-status'));
     var dockerRunUrl = @json(route('admin.settings.upgrade.docker-run'));
+    var dockerExecUrl = @json(route('admin.settings.upgrade.docker-exec'));
+    var postgresStatusUrl = @json(route('admin.settings.upgrade.postgres-status'));
+    var postgresRunUrl = @json(route('admin.settings.upgrade.postgres-run'));
 
     var laravelStatusEl = document.getElementById('laravel-upgrade-status-text');
     var phpStatusEl = document.getElementById('php-upgrade-status-text');
+    var postgresStatusEl = document.getElementById('postgres-upgrade-status-text');
     var dockerStatusEl = document.getElementById('docker-upgrade-status-text');
     var dockerRowsEl = document.getElementById('docker-container-rows');
     var dockerTableEl = document.getElementById('docker-container-table');
@@ -1094,16 +1195,25 @@ function announceUpgradeSuccess(message) {
     var btnLaravelMinor = document.getElementById('btn-laravel-minor');
     var btnLaravelMajor = document.getElementById('btn-laravel-major');
     var btnPhp = document.getElementById('btn-php-docker-upgrade');
+    var btnPostgresMinor = document.getElementById('btn-postgres-minor');
+    var btnPostgresMajor = document.getElementById('btn-postgres-major');
     var btnDockerRestart = document.getElementById('btn-docker-restart');
     var btnDockerRebuild = document.getElementById('btn-docker-rebuild');
+    var btnDockerExec = document.getElementById('btn-docker-exec');
+    var dockerExecServiceEl = document.getElementById('docker-exec-service');
+    var dockerExecCommandEl = document.getElementById('docker-exec-command');
+    var dockerExecOutputEl = document.getElementById('docker-exec-output');
     var laravelProgressEl = document.getElementById('laravel-upgrade-progress');
     var laravelResultEl = document.getElementById('laravel-upgrade-result');
     var phpProgressEl = document.getElementById('php-upgrade-progress');
     var phpResultEl = document.getElementById('php-upgrade-result');
+    var postgresProgressEl = document.getElementById('postgres-upgrade-progress');
+    var postgresResultEl = document.getElementById('postgres-upgrade-result');
     var dockerProgressEl = document.getElementById('docker-upgrade-progress');
     var dockerResultEl = document.getElementById('docker-upgrade-result');
     var laravelStatus = null;
     var phpStatus = null;
+    var postgresStatus = null;
     var dockerStatus = null;
 
     function csrfToken() {
@@ -1120,6 +1230,10 @@ function announceUpgradeSuccess(message) {
             '<ellipse class="upgrade-php-icon-shape" cx="12" cy="7" rx="11" ry="6.2"/>' +
             '<text class="upgrade-php-icon-word" x="12" y="9.7" text-anchor="middle" font-size="7.4" font-weight="700" font-style="italic" font-family="Georgia, \'Times New Roman\', serif">php</text>' +
             '</svg>';
+    }
+
+    function pgIconHtml() {
+        return '<span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>';
     }
 
     function confirmUpgrade(title, message, label) {
@@ -1192,6 +1306,18 @@ function announceUpgradeSuccess(message) {
         }
         if (btnDockerRebuild) {
             btnDockerRebuild.disabled = busy || !webUpgradeEnabled || !(dockerStatus && dockerStatus.can_rebuild);
+        }
+        if (btnPostgresMinor) {
+            btnPostgresMinor.disabled = busy || !webUpgradeEnabled || !(postgresStatus && postgresStatus.can_minor);
+        }
+        if (btnPostgresMajor) {
+            btnPostgresMajor.disabled = busy || !webUpgradeEnabled || !(postgresStatus && postgresStatus.can_major);
+        }
+        var execReady = !busy && !!(dockerStatus && dockerStatus.can_exec);
+        if (dockerExecServiceEl) dockerExecServiceEl.disabled = !execReady;
+        if (dockerExecCommandEl) dockerExecCommandEl.disabled = !execReady;
+        if (btnDockerExec) {
+            btnDockerExec.disabled = !execReady || !(dockerExecServiceEl && dockerExecServiceEl.value) || !(dockerExecCommandEl && dockerExecCommandEl.value.trim());
         }
     }
 
@@ -1274,6 +1400,22 @@ function announceUpgradeSuccess(message) {
         }
         if (btnPhp && data && data.button_label) {
             btnPhp.innerHTML = phpIconHtml() + escapeText(data.button_label);
+        }
+        setBusy(false);
+    }
+
+    function applyPostgresStatus(data) {
+        postgresStatus = data || null;
+        if (postgresStatusEl) {
+            postgresStatusEl.innerHTML = data && data.message
+                ? ('Image: ' + versionMark(data.current_tag || '—') + '. ' + escapeText(data.message))
+                : 'Kon PostgreSQL-status niet laden.';
+        }
+        if (btnPostgresMinor) {
+            btnPostgresMinor.innerHTML = pgIconHtml() + escapeText((data && data.minor_label) || 'Minor-update');
+        }
+        if (btnPostgresMajor) {
+            btnPostgresMajor.innerHTML = pgIconHtml() + escapeText((data && data.major_label) || 'Major-update');
         }
         setBusy(false);
     }
@@ -1527,6 +1669,7 @@ function announceUpgradeSuccess(message) {
         if (!containers.length) {
             dockerTableEl.classList.add('hidden');
             syncDockerSelectAll();
+            fillDockerExecSelect([]);
             return;
         }
         dockerTableEl.classList.remove('hidden');
@@ -1552,6 +1695,29 @@ function announceUpgradeSuccess(message) {
             input.addEventListener('change', syncDockerSelectAll);
         });
         syncDockerSelectAll();
+        fillDockerExecSelect(containers);
+    }
+
+    function fillDockerExecSelect(containers) {
+        if (!dockerExecServiceEl) return;
+        var previous = dockerExecServiceEl.value;
+        dockerExecServiceEl.innerHTML = '';
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = containers.length ? 'Kies een container' : 'Geen containers';
+        dockerExecServiceEl.appendChild(placeholder);
+        containers.forEach(function (row) {
+            var option = document.createElement('option');
+            option.value = String(row.service || '');
+            var running = String(row.state || '').toLowerCase() === 'running';
+            option.textContent = (row.service || row.name || '—') + (running ? '' : ' (gestopt)');
+            option.disabled = !running || !option.value;
+            dockerExecServiceEl.appendChild(option);
+        });
+        if (previous && Array.from(dockerExecServiceEl.options).some(function (opt) { return opt.value === previous && !opt.disabled; })) {
+            dockerExecServiceEl.value = previous;
+        }
+        setBusy(false);
     }
 
     function dockerRowChecks() {
@@ -1586,6 +1752,14 @@ function announceUpgradeSuccess(message) {
         return fetchJson(dockerStatusUrl).then(applyDockerStatus).catch(function (err) {
             if (dockerStatusEl) dockerStatusEl.textContent = err.message || 'Kon Docker-status niet laden.';
             dockerStatus = null;
+            setBusy(false);
+        });
+    }
+
+    function loadPostgresStatus() {
+        return fetchJson(postgresStatusUrl).then(applyPostgresStatus).catch(function (err) {
+            if (postgresStatusEl) postgresStatusEl.textContent = err.message || 'Kon PostgreSQL-status niet laden.';
+            postgresStatus = null;
             setBusy(false);
         });
     }
@@ -1660,6 +1834,95 @@ function announceUpgradeSuccess(message) {
         });
     }
 
+    function runPostgres(channel) {
+        var can = channel === 'major'
+            ? (postgresStatus && postgresStatus.can_major)
+            : (postgresStatus && postgresStatus.can_minor);
+        if (!can) {
+            return;
+        }
+        var target = channel === 'major'
+            ? (postgresStatus && postgresStatus.major_target)
+            : (postgresStatus && postgresStatus.minor_target);
+        var title = channel === 'major' ? 'PostgreSQL major-update' : 'PostgreSQL minor-update';
+        var message = channel === 'major'
+            ? 'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna start PostgreSQL op een nieuw volume als ' + (target || 'de volgende major') + '. Bij een fout gaat de oude versie weer aan. De admin kan kort haperen. Doorgaan?'
+            : 'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna wordt image ' + (target || 'pgvector') + ' opnieuw gepulld. Bij een fout blijft de huidige data staan. Doorgaan?';
+
+        confirmUpgrade(title, message, 'Upgraden').then(function (ok) {
+            if (!ok) return;
+            setBusy(true);
+            if (postgresResultEl) {
+                postgresResultEl.classList.add('hidden');
+                postgresResultEl.textContent = '';
+            }
+            var list = initProgress(postgresProgressEl, 'PostgreSQL-upgrade bezig…');
+            postStream(postgresRunUrl, { channel: channel }, list).then(function (outcome) {
+                var event = outcome && outcome.complete;
+                var success = !!(event && event.success);
+                showPanelResult(postgresResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'PostgreSQL-upgrade mislukt.'));
+                if (success) {
+                    announceUpgradeSuccess((event && event.message) || 'PostgreSQL-upgrade is succesvol verwerkt.');
+                    setTimeout(function () { window.location.reload(); }, 1200);
+                }
+            }).catch(function (err) {
+                showPanelResult(postgresResultEl, false, err.message || 'PostgreSQL-upgrade mislukt.');
+            }).finally(function () {
+                setBusy(false);
+                loadPostgresStatus();
+                loadDockerStatus();
+            });
+        });
+    }
+
+    function showDockerExecOutput(text, success) {
+        if (!dockerExecOutputEl) return;
+        dockerExecOutputEl.hidden = false;
+        dockerExecOutputEl.classList.remove('hidden');
+        dockerExecOutputEl.textContent = text || '';
+        dockerExecOutputEl.classList.toggle('text-destructive', success === false);
+    }
+
+    function runDockerExec() {
+        var service = dockerExecServiceEl ? dockerExecServiceEl.value : '';
+        var command = dockerExecCommandEl ? dockerExecCommandEl.value.trim() : '';
+        if (!service || !command) {
+            if (typeof window.showAdminHeaderFlash === 'function') {
+                window.showAdminHeaderFlash('warning', 'Kies een container en voer een commando in.');
+            }
+            return;
+        }
+        setBusy(true);
+        showDockerExecOutput('Bezig…', true);
+        fetch(dockerExecUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ service: service, command: command }),
+        }).then(function (response) {
+            return response.json().then(function (payload) {
+                return { ok: response.ok, payload: payload };
+            });
+        }).then(function (result) {
+            var payload = result.payload || {};
+            var data = payload.data || {};
+            var output = data.output || payload.message || 'Geen uitvoer.';
+            var header = (data.service || service) + ' · exit ' + (data.exit_code == null ? '?' : data.exit_code) + '\n';
+            showDockerExecOutput(header + output, payload.success !== false && result.ok);
+            if (payload.success === false && !data.output) {
+                showDockerExecOutput(payload.message || 'Commando mislukt.', false);
+            }
+        }).catch(function (err) {
+            showDockerExecOutput(err.message || 'Commando mislukt.', false);
+        }).finally(function () {
+            setBusy(false);
+        });
+    }
+
     if (btnLaravelMinor) {
         btnLaravelMinor.addEventListener('click', function () { runLaravel('minor'); });
     }
@@ -1669,11 +1932,32 @@ function announceUpgradeSuccess(message) {
     if (btnPhp) {
         btnPhp.addEventListener('click', function () { runPhp(); });
     }
+    if (btnPostgresMinor) {
+        btnPostgresMinor.addEventListener('click', function () { runPostgres('minor'); });
+    }
+    if (btnPostgresMajor) {
+        btnPostgresMajor.addEventListener('click', function () { runPostgres('major'); });
+    }
     if (btnDockerRestart) {
         btnDockerRestart.addEventListener('click', function () { runDocker('restart'); });
     }
     if (btnDockerRebuild) {
         btnDockerRebuild.addEventListener('click', function () { runDocker('rebuild'); });
+    }
+    if (btnDockerExec) {
+        btnDockerExec.addEventListener('click', function () { runDockerExec(); });
+    }
+    if (dockerExecServiceEl) {
+        dockerExecServiceEl.addEventListener('change', function () { setBusy(false); });
+    }
+    if (dockerExecCommandEl) {
+        dockerExecCommandEl.addEventListener('input', function () { setBusy(false); });
+        dockerExecCommandEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                runDockerExec();
+            }
+        });
     }
     if (dockerSelectAllEl) {
         dockerSelectAllEl.addEventListener('change', function () {
@@ -1832,6 +2116,7 @@ function announceUpgradeSuccess(message) {
 
     loadLaravelStatus();
     loadPhpStatus();
+    loadPostgresStatus();
     loadDockerStatus();
 })();
 </script>

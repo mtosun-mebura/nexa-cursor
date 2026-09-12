@@ -102,12 +102,125 @@ class TaxiGpsTrackingServiceTest extends TestCase
         $this->assertSame('Online Chauffeur', $onlineOnly['vehicles'][0]['driver_name']);
         $this->assertTrue($onlineOnly['vehicles'][0]['is_online']);
         $this->assertNotEmpty($onlineOnly['server_now']);
+        $this->assertArrayHasKey('completed_rides', $onlineOnly);
+        $this->assertSame([], $onlineOnly['completed_rides']);
 
         $offlineOnly = $service->positions((int) $company->id, $this->conn, 'offline');
         $this->assertCount(1, $offlineOnly['vehicles']);
         $this->assertSame('offline', $offlineOnly['view']);
         $this->assertSame('Offline Chauffeur', $offlineOnly['vehicles'][0]['driver_name']);
         $this->assertFalse($offlineOnly['vehicles'][0]['is_online']);
+    }
+
+    #[Test]
+    public function live_map_shows_one_marker_per_active_vehicle(): void
+    {
+        $company = Company::query()->create(['name' => 'Live GPS Co', 'is_active' => true, 'package_key' => 'pro']);
+        $inCar = User::factory()->create(['company_id' => $company->id, 'first_name' => 'In', 'last_name' => 'Auto']);
+        $withoutCar = User::factory()->create(['company_id' => $company->id, 'first_name' => 'Zonder', 'last_name' => 'Auto']);
+        $secondCar = User::factory()->create(['company_id' => $company->id, 'first_name' => 'Tweede', 'last_name' => 'Auto']);
+        $mercedes = Vehicle::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'Mercedes E',
+            'type' => 'sedan',
+            'license_plate' => 'AB-123-CD',
+            'active' => true,
+        ]);
+        $bmw = Vehicle::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'BMW 5',
+            'type' => 'sedan',
+            'license_plate' => 'WE-456-RT',
+            'active' => true,
+        ]);
+
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $inCar->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $mercedes->id,
+            'is_online' => true,
+            'lat' => 52.2289,
+            'lng' => 6.8896,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $withoutCar->id,
+            'company_id' => $company->id,
+            'vehicle_id' => null,
+            'is_online' => true,
+            'lat' => 52.2290,
+            'lng' => 6.8897,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $secondCar->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $bmw->id,
+            'is_online' => true,
+            'lat' => 52.2210,
+            'lng' => 6.8950,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        \App\Modules\NexaTaxi\Models\RideRequest::on($this->conn)->create([
+            'company_id' => $company->id,
+            'driver_id' => $withoutCar->id,
+            'vehicle_id' => $mercedes->id,
+            'status' => \App\Modules\NexaTaxi\Models\RideRequest::STATUS_ACCEPTED,
+        ]);
+
+        $live = app(TaxiGpsTrackingService::class)->positions((int) $company->id, $this->conn, 'online');
+        $plates = array_column($live['vehicles'], 'license_plate');
+        sort($plates);
+
+        $this->assertSame(['AB-123-CD', 'WE-456-RT'], $plates);
+        $this->assertSame('vehicle-'.$mercedes->id, $live['vehicles'][0]['id']);
+        $this->assertCount(2, array_unique(array_column($live['vehicles'], 'id')));
+    }
+
+    #[Test]
+    public function two_online_drivers_in_the_same_car_keep_the_newest_position(): void
+    {
+        $company = Company::query()->create(['name' => 'Shared Car Co', 'is_active' => true, 'package_key' => 'pro']);
+        $first = User::factory()->create(['company_id' => $company->id, 'first_name' => 'Oud', 'last_name' => 'Signaal']);
+        $second = User::factory()->create(['company_id' => $company->id, 'first_name' => 'Nieuw', 'last_name' => 'Signaal']);
+        $car = Vehicle::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'Vito',
+            'type' => 'van',
+            'license_plate' => 'AB-123-CD',
+            'active' => true,
+        ]);
+
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $first->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $car->id,
+            'is_online' => true,
+            'lat' => 52.10,
+            'lng' => 6.80,
+            'location_updated_at' => now()->subMinutes(4),
+            'last_seen_at' => now()->subMinutes(4),
+        ]);
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $second->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $car->id,
+            'is_online' => true,
+            'lat' => 52.22,
+            'lng' => 6.89,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $live = app(TaxiGpsTrackingService::class)->positions((int) $company->id, $this->conn, 'online');
+        $this->assertCount(1, $live['vehicles']);
+        $this->assertSame('AB-123-CD', $live['vehicles'][0]['license_plate']);
+        $this->assertSame('Nieuw Signaal', $live['vehicles'][0]['driver_name']);
+        $this->assertEqualsWithDelta(52.22, $live['vehicles'][0]['lat'], 0.0001);
     }
 
     #[Test]

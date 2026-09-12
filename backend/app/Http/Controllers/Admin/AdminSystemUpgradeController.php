@@ -7,6 +7,7 @@ use App\Models\SystemUpgradeLog;
 use App\Services\SystemDockerComposeService;
 use App\Services\SystemLaravelUpgradeService;
 use App\Services\SystemPhpDockerUpgradeService;
+use App\Services\SystemPostgresDockerUpgradeService;
 use App\Services\SystemStackSnapshotService;
 use App\Services\SystemUpgradePreviewService;
 use App\Services\SystemUpgradeService;
@@ -23,6 +24,7 @@ class AdminSystemUpgradeController extends Controller
         protected SystemPhpDockerUpgradeService $phpDocker,
         protected SystemLaravelUpgradeService $laravel,
         protected SystemDockerComposeService $docker,
+        protected SystemPostgresDockerUpgradeService $postgres,
     ) {}
 
     public function index()
@@ -268,6 +270,106 @@ class AdminSystemUpgradeController extends Controller
             'success' => $result['success'],
             'message' => $result['message'],
             'reconnect' => $result['reconnect'] ?? false,
+        ], $result['success'] ? 200 : 500);
+    }
+
+    public function dockerExec(Request $request): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'service' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9][A-Za-z0-9_.-]*$/'],
+            'command' => ['required', 'string', 'max:4000'],
+        ]);
+
+        if (! $this->docker->ready()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Docker is in deze omgeving niet beschikbaar.',
+            ], 422);
+        }
+
+        try {
+            $argv = $this->docker->parseExecCommand($validated['command']);
+            $result = $this->docker->execInService($validated['service'], $validated['command'], $argv, 60);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        $output = $result['output'] !== ''
+            ? $result['output']
+            : '(geen uitvoer, exit '.$result['exit_code'].')';
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['success']
+                ? 'Commando uitgevoerd op '.$result['service'].'.'
+                : 'Commando eindigde met exit '.$result['exit_code'].'.',
+            'data' => [
+                'exit_code' => $result['exit_code'],
+                'output' => $output,
+                'service' => $result['service'],
+                'container' => $result['container'],
+            ],
+        ], $result['success'] ? 200 : 422);
+    }
+
+    public function postgresStatus(): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->postgres->status(),
+        ]);
+    }
+
+    public function postgresRun(Request $request): JsonResponse|StreamedResponse
+    {
+        $this->ensureSuperAdmin();
+
+        if (! $this->upgrades->webUpgradeEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Web-upgrades zijn uitgeschakeld.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'channel' => ['required', 'in:minor,major'],
+        ]);
+        $channel = $validated['channel'];
+        $status = $this->postgres->status();
+        $can = $channel === 'major' ? $status['can_major'] : $status['can_minor'];
+        if (! $can) {
+            return response()->json([
+                'success' => false,
+                'message' => $status['message'] !== ''
+                    ? $status['message']
+                    : 'PostgreSQL-upgrade via Docker is niet beschikbaar.',
+            ], 422);
+        }
+
+        if ($request->expectsJson() && $request->header('X-System-Upgrade-Stream') === '1') {
+            return $this->streamEvents(function (callable $emit) use ($request, $channel): array {
+                return $this->postgres->run($request->user(), $channel, $emit);
+            });
+        }
+
+        $result = $this->postgres->run($request->user(), $channel);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'log' => $result['log'] ?? null,
         ], $result['success'] ? 200 : 500);
     }
 

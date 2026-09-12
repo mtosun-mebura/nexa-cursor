@@ -81,9 +81,23 @@
         .app-top-chrome {
             flex-shrink: 0;
             background: var(--chrome);
+            padding-top: var(--safe-top);
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+        }
+        @media (max-width: 48rem) {
+            .app-top-chrome {
+                padding-top: max(var(--safe-top), 3.75rem);
+            }
         }
         .app-top-chrome:not(:has(#guide-hint:not([hidden]))) {
             display: none;
+        }
+        #app:has(#guide-hint:not([hidden])) #screen-login.screen {
+            padding-top: 1rem;
+        }
+        #app:has(#guide-hint:not([hidden])) .home-top {
+            padding-top: 0.65rem;
         }
         .screen {
             display: none;
@@ -648,7 +662,7 @@
             color: var(--accent-light-ink);
         }
         #guide-hint {
-            margin: 1rem 1rem 0.85rem;
+            margin: 0.65rem 1rem 0.85rem;
             flex-shrink: 0;
         }
         .banner-guide-hint__body {
@@ -1593,7 +1607,7 @@ window.NEXA_TAXI_CONTRACT = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=43" defer></script>
+<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=44" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

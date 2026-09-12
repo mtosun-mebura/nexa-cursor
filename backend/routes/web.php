@@ -1,28 +1,36 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminAiChatController;
+use App\Http\Controllers\Admin\AdminAiImageGeneratorController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
-use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminCompanyConfigAccessController;
+use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminCompanyDomainController;
+use App\Http\Controllers\Admin\AdminCompanyLocationController;
 use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminForcePasswordController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
+use App\Http\Controllers\Admin\AdminFrontendComponentController;
+use App\Http\Controllers\Admin\AdminFrontendThemeController;
 use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminIncidentController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
+use App\Http\Controllers\Admin\AdminJobConfigurationController;
+// AdminVacancyController moved to Skillmatching module
+// AdminMatchController and AdminInterviewController moved to Skillmatching module
+use App\Http\Controllers\Admin\AdminJobConfigurationTypeController;
 use App\Http\Controllers\Admin\AdminModuleController;
 use App\Http\Controllers\Admin\AdminNewsletterController;
+use App\Http\Controllers\Admin\AdminNexaPricingController;
 use App\Http\Controllers\Admin\AdminNexaSuiteMarketplaceController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentProviderController;
-// AdminVacancyController moved to Skillmatching module
-// AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminPermissionController;
 use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
 use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
@@ -30,29 +38,63 @@ use App\Http\Controllers\Admin\AdminPlatformBillingSettingsController;
 use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
 use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
+use App\Http\Controllers\Admin\AdminSettingsController;
+use App\Http\Controllers\Admin\AdminSystemUpgradeController;
 use App\Http\Controllers\Admin\AdminTenantCustomerEmailController;
 use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
+use App\Http\Controllers\Admin\AdminTenantWebsiteBundleController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminWebManifestController;
+use App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController;
+use App\Http\Controllers\Admin\AdminWebsiteMediaController;
 use App\Http\Controllers\Admin\AdminWebsitePageController;
+use App\Http\Controllers\Admin\AdminWelcomePageController;
+use App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController;
+use App\Http\Controllers\Admin\AgendaController;
 use App\Http\Controllers\Admin\ChatController;
+use App\Http\Controllers\Admin\PipelineTemplateController;
+use App\Http\Controllers\Admin\StageInstanceController;
+use App\Http\Controllers\DemoController;
+use App\Http\Controllers\EmailCompanyLogoController;
+use App\Http\Controllers\Frontend\AiChatController;
+use App\Http\Controllers\Frontend\ApplicationController;
+use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
+use App\Http\Controllers\Frontend\FavoriteController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
+use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\InfoRequestController;
+use App\Http\Controllers\Frontend\MarketingPreviewController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\ProfileController;
+use App\Http\Controllers\Frontend\SettingsController;
 use App\Http\Controllers\Frontend\WebsitePageController;
+use App\Http\Controllers\NewsletterUnsubscribeController;
+use App\Http\Controllers\PostcodeController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Http\Controllers\SaasTrialStopController;
+use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\WebsiteMediaController;
+use App\Models\Branch;
+use App\Models\Company;
+use App\Models\Notification;
+use App\Models\User;
 use App\Models\Vacancy;
+use App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalAiChatController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
+use App\Services\ModuleManager;
 use App\Services\WebsiteBuilderService;
+use App\Support\AdminLogo;
 use App\Support\AdminReturnUrl;
 use App\Support\ModuleSchemaAvailability;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -104,12 +146,12 @@ Route::get('/file/{path}', function ($path) {
     ]);
 })->where('path', '.*');
 
-Route::get('/email-logo/{company}', App\Http\Controllers\EmailCompanyLogoController::class)
+Route::get('/email-logo/{company}', EmailCompanyLogoController::class)
     ->name('email.company-logo');
 
 // Browsers vragen vaak /favicon.ico aan (vóór <link rel="icon">). Geen leeg bestand in public/ gebruiken.
 Route::get('/favicon.ico', function () {
-    $meta = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta();
+    $meta = app(WebsiteBuilderService::class)->publicFaviconMeta();
     $path = parse_url($meta['url'], PHP_URL_PATH);
     if (is_string($path) && str_starts_with($path, '/file/')) {
         $storagePath = str_replace('--', '/', ltrim(substr($path, strlen('/file/')), '/'));
@@ -140,7 +182,7 @@ Route::get('/user-photo/{id}', function ($id) {
         abort(404);
     }
 
-    $user = \App\Models\User::find($id);
+    $user = User::find($id);
 
     if (! $user || ! $user->photo_blob) {
         abort(404);
@@ -176,7 +218,7 @@ Route::get('/secure-photo/{token}', function ($token) {
     $hash = $parts[1];
 
     // Verify token integrity
-    $user = \App\Models\User::find($userId);
+    $user = User::find($userId);
     if (! $user) {
         abort(404);
     }
@@ -221,14 +263,14 @@ Route::get('/candidate-photo/{token}', function ($token) {
         abort(404);
     }
 
-    $user = \App\Models\User::find($userId);
+    $user = User::find($userId);
 
     if (! $user || ! $user->photo_blob) {
         abort(404);
     }
 
     // Verify company exists and is active
-    $company = \App\Models\Company::find($companyId);
+    $company = Company::find($companyId);
     if (! $company || ! $company->is_active) {
         abort(404);
     }
@@ -251,13 +293,13 @@ Route::get('/company-logo/{company}', function ($companyId) {
         abort(404);
     }
 
-    $company = \App\Models\Company::find($companyId);
+    $company = Company::find($companyId);
 
     if (! $company || ! $company->logo_blob) {
         abort(404);
     }
 
-    if (! \App\Support\AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
+    if (! AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
         abort(403);
     }
 
@@ -278,13 +320,13 @@ Route::get('/company-logo/{company}/dark', function ($companyId) {
         abort(404);
     }
 
-    $company = \App\Models\Company::find($companyId);
+    $company = Company::find($companyId);
 
     if (! $company || ! $company->logo_dark_blob) {
         abort(404);
     }
 
-    if (! \App\Support\AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
+    if (! AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
         abort(403);
     }
 
@@ -312,12 +354,12 @@ Route::get('/vacatures', function () {
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
 // Frontend meld: sessie verlopen (toegankelijk zonder login)
-Route::get('/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
+Route::get('/meld/sessie-verlopen', function (Request $request) {
     // Bewaar de bedoelde URL voor na inloggen (alleen frontend-pagina's, geen /admin)
     $intended = $request->query('intended');
     if ($intended && is_string($intended)) {
         $path = parse_url($intended, PHP_URL_PATH) ?? '';
-        if ($path !== '' && ! \Illuminate\Support\Str::startsWith($path, '/admin')) {
+        if ($path !== '' && ! Str::startsWith($path, '/admin')) {
             session(['url.intended' => $intended]);
         }
     }
@@ -343,7 +385,7 @@ Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('
 Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-code');
 Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-verify');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
-Route::get('/admin/manifest.webmanifest', App\Http\Controllers\Admin\AdminWebManifestController::class)->name('admin.manifest');
+Route::get('/admin/manifest.webmanifest', AdminWebManifestController::class)->name('admin.manifest');
 
 /*
 | Sessiecheck voor JavaScript in de admin-layout: alleen web + auth (geen AdminMiddleware-rolcheck).
@@ -357,7 +399,7 @@ Route::middleware(['web', 'auth:web'])->prefix('admin')->name('admin.')->group(f
 });
 
 // Admin meld: sessie verlopen (toegankelijk zonder login)
-Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
+Route::get('/admin/meld/sessie-verlopen', function (Request $request) {
     // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's, nooit login/meld zelf)
     $intended = AdminReturnUrl::resolveIntended($request->query('intended'));
     if ($intended !== null) {
@@ -382,7 +424,7 @@ Route::get('/admin/password/changed', [AdminAuthController::class, 'showPassword
 
 // Admin Protected Routes
 Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->name('admin.')->group(function () {
-    Route::post('ai-chat/message', [App\Http\Controllers\Admin\AdminAiChatController::class, 'sendMessage'])
+    Route::post('ai-chat/message', [AdminAiChatController::class, 'sendMessage'])
         ->middleware('throttle:60,1')
         ->name('ai-chat.message');
 
@@ -442,38 +484,43 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         Route::view('playground/metronic-demo1', 'admin.metronic-vue-demo1')->name('playground.metronic-demo1');
         Route::post('companies/{company}/send-welcome', [AdminCompanyController::class, 'sendWelcomeMail'])->name('companies.send-welcome');
         Route::put('companies/{company}/config-access', [AdminCompanyConfigAccessController::class, 'update'])->name('companies.config-access.update');
-        Route::get('companies/{company}/website-bundle/export', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'export'])->name('companies.website-bundle.export');
-        Route::post('companies/{company}/website-bundle/import', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'import'])->name('companies.website-bundle.import');
+        Route::get('companies/{company}/website-bundle/export', [AdminTenantWebsiteBundleController::class, 'export'])->name('companies.website-bundle.export');
+        Route::post('companies/{company}/website-bundle/import', [AdminTenantWebsiteBundleController::class, 'import'])->name('companies.website-bundle.import');
     });
 
     // Pipeline Templates
-    Route::get('companies/{company}/pipeline-templates', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'index'])->name('companies.pipeline-templates.index');
-    Route::get('companies/{company}/pipeline-templates/{pipelineTemplate}/edit', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'edit'])->name('companies.pipeline-templates.edit');
-    Route::put('companies/{company}/pipeline-templates/{pipelineTemplate}', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'update'])->name('companies.pipeline-templates.update');
-    Route::post('companies/{company}/pipeline-templates/create-from-default', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'createFromDefault'])->name('companies.pipeline-templates.create-from-default');
+    Route::get('companies/{company}/pipeline-templates', [PipelineTemplateController::class, 'index'])->name('companies.pipeline-templates.index');
+    Route::get('companies/{company}/pipeline-templates/{pipelineTemplate}/edit', [PipelineTemplateController::class, 'edit'])->name('companies.pipeline-templates.edit');
+    Route::put('companies/{company}/pipeline-templates/{pipelineTemplate}', [PipelineTemplateController::class, 'update'])->name('companies.pipeline-templates.update');
+    Route::post('companies/{company}/pipeline-templates/create-from-default', [PipelineTemplateController::class, 'createFromDefault'])->name('companies.pipeline-templates.create-from-default');
 
     // Stage Instances
-    Route::post('stage-instances/initialize/{type}/{id}', [App\Http\Controllers\Admin\StageInstanceController::class, 'initialize'])->name('stage-instances.initialize');
-    Route::get('stage-instances/{stageInstance}', [App\Http\Controllers\Admin\StageInstanceController::class, 'show'])->name('stage-instances.show');
-    Route::put('stage-instances/{stageInstance}', [App\Http\Controllers\Admin\StageInstanceController::class, 'update'])->name('stage-instances.update');
+    Route::post('stage-instances/initialize/{type}/{id}', [StageInstanceController::class, 'initialize'])->name('stage-instances.initialize');
+    Route::get('stage-instances/{stageInstance}', [StageInstanceController::class, 'show'])->name('stage-instances.show');
+    Route::put('stage-instances/{stageInstance}', [StageInstanceController::class, 'update'])->name('stage-instances.update');
 
     // Company Locations
     Route::get('companies/{company}/users/json', [AdminCompanyController::class, 'getUsersJson'])->name('companies.users.json');
-    Route::get('companies/{company}/locations/json', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'getLocationsJson'])->name('companies.locations.json');
-    Route::get('companies/{company}/locations/create', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
-    Route::post('companies/{company}/locations', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
-    Route::get('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'show'])->name('companies.locations.show');
-    Route::get('companies/{company}/locations/{location}/edit', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'edit'])->name('companies.locations.edit');
-    Route::put('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'update'])->name('companies.locations.update');
-    Route::delete('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'destroy'])->name('companies.locations.destroy');
-    Route::post('companies/{company}/locations/{location}/set-main', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'setMain'])->name('companies.locations.set-main');
-    Route::post('companies/{company}/locations/{location}/toggle-status', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'toggleStatus'])->name('companies.locations.toggle-status');
+    Route::get('companies/{company}/locations/json', [AdminCompanyLocationController::class, 'getLocationsJson'])->name('companies.locations.json');
+    Route::get('companies/{company}/locations/create', [AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
+    Route::post('companies/{company}/locations', [AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
+    Route::get('companies/{company}/locations/{location}', [AdminCompanyLocationController::class, 'show'])->name('companies.locations.show');
+    Route::get('companies/{company}/locations/{location}/edit', [AdminCompanyLocationController::class, 'edit'])->name('companies.locations.edit');
+    Route::put('companies/{company}/locations/{location}', [AdminCompanyLocationController::class, 'update'])->name('companies.locations.update');
+    Route::delete('companies/{company}/locations/{location}', [AdminCompanyLocationController::class, 'destroy'])->name('companies.locations.destroy');
+    Route::post('companies/{company}/locations/{location}/set-main', [AdminCompanyLocationController::class, 'setMain'])->name('companies.locations.set-main');
+    Route::post('companies/{company}/locations/{location}/toggle-status', [AdminCompanyLocationController::class, 'toggleStatus'])->name('companies.locations.toggle-status');
 
     // Users
+    Route::delete('users/bulk', [AdminUserController::class, 'bulkDestroy'])->name('users.bulk-destroy');
     Route::resource('users', AdminUserController::class);
     Route::post('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
     Route::post('users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::post('users/{user}/force-logout', [AdminUserController::class, 'forceLogout'])->name('users.force-logout');
     Route::post('users/{user}/send-activation-link', [AdminUserController::class, 'sendActivationLink'])->name('users.send-activation-link');
+    Route::post('users/{user}/send-phone-verification', [AdminUserController::class, 'sendPhoneVerification'])->name('users.send-phone-verification');
+    Route::post('users/{user}/mark-email-verified', [AdminUserController::class, 'markEmailVerified'])->name('users.mark-email-verified');
+    Route::post('users/{user}/mark-phone-verified', [AdminUserController::class, 'markPhoneVerified'])->name('users.mark-phone-verified');
     Route::get('users/{user}/photo', [AdminUserController::class, 'photo'])->name('users.photo');
     Route::match(['get', 'post'], 'api/job-titles', [AdminUserController::class, 'getJobTitles'])->name('api.job-titles');
 
@@ -490,14 +537,14 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     });
     Route::get('branches/{branch}', function ($branch) {
         // Probeer eerst slug, dan ID
-        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        $branchModel = Branch::where('slug', $branch)->orWhere('id', $branch)->first();
         if ($branchModel) {
             // Genereer slug als die niet bestaat
             if (empty($branchModel->slug)) {
-                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $branchModel->slug = Str::slug($branchModel->name);
                 $baseSlug = $branchModel->slug;
                 $counter = 1;
-                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                while (Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
                     $branchModel->slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
@@ -509,13 +556,13 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         abort(404);
     });
     Route::get('branches/{branch}/edit', function ($branch) {
-        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        $branchModel = Branch::where('slug', $branch)->orWhere('id', $branch)->first();
         if ($branchModel) {
             if (empty($branchModel->slug)) {
-                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $branchModel->slug = Str::slug($branchModel->name);
                 $baseSlug = $branchModel->slug;
                 $counter = 1;
-                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                while (Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
                     $branchModel->slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
@@ -527,13 +574,13 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         abort(404);
     });
     Route::get('branches/{branch}/data', function ($branch) {
-        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        $branchModel = Branch::where('slug', $branch)->orWhere('id', $branch)->first();
         if ($branchModel) {
             if (empty($branchModel->slug)) {
-                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $branchModel->slug = Str::slug($branchModel->name);
                 $baseSlug = $branchModel->slug;
                 $counter = 1;
-                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                while (Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
                     $branchModel->slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
@@ -545,13 +592,13 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         abort(404);
     });
     Route::get('branches/{branch}/functions/{function}/skills', function ($branch, $function) {
-        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        $branchModel = Branch::where('slug', $branch)->orWhere('id', $branch)->first();
         if ($branchModel) {
             if (empty($branchModel->slug)) {
-                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $branchModel->slug = Str::slug($branchModel->name);
                 $baseSlug = $branchModel->slug;
                 $counter = 1;
-                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                while (Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
                     $branchModel->slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
@@ -590,8 +637,8 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     // Interviews - Moved to Skillmatching module
 
     // Agenda
-    Route::get('agenda', [App\Http\Controllers\Admin\AgendaController::class, 'index'])->name('agenda.index');
-    Route::get('agenda/events', [App\Http\Controllers\Admin\AgendaController::class, 'events'])->name('agenda.events');
+    Route::get('agenda', [AgendaController::class, 'index'])->name('agenda.index');
+    Route::get('agenda/events', [AgendaController::class, 'events'])->name('agenda.events');
 
     // Profile
     Route::get('profile', [AdminProfileController::class, 'index'])->name('profile');
@@ -770,120 +817,123 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         });
 
         // Job Configurations (Super Admin only)
-        Route::delete('job-configurations/bulk/delete', [App\Http\Controllers\Admin\AdminJobConfigurationController::class, 'bulkDelete'])->name('job-configurations.bulk-delete');
-        Route::resource('job-configurations', App\Http\Controllers\Admin\AdminJobConfigurationController::class);
+        Route::delete('job-configurations/bulk/delete', [AdminJobConfigurationController::class, 'bulkDelete'])->name('job-configurations.bulk-delete');
+        Route::resource('job-configurations', AdminJobConfigurationController::class);
 
         // Job Configuration Types (Super Admin only)
-        Route::resource('job-configuration-types', App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class);
-        Route::post('job-configuration-types/{jobConfigurationType}/toggle-status', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'toggleStatus'])->name('job-configuration-types.toggle-status');
-        Route::match(['get', 'post'], 'job-configuration-types/import', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'import'])->name('job-configuration-types.import');
+        Route::resource('job-configuration-types', AdminJobConfigurationTypeController::class);
+        Route::post('job-configuration-types/{jobConfigurationType}/toggle-status', [AdminJobConfigurationTypeController::class, 'toggleStatus'])->name('job-configuration-types.toggle-status');
+        Route::match(['get', 'post'], 'job-configuration-types/import', [AdminJobConfigurationTypeController::class, 'import'])->name('job-configuration-types.import');
 
         // Settings (Super Admin only)
-        Route::get('settings', [App\Http\Controllers\Admin\AdminSettingsController::class, 'index'])->name('settings.index');
-        Route::post('settings/mail', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
-        Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
-        Route::post('settings/seo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
-        Route::post('settings/seo/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testSeoConnection'])->name('settings.seo.test');
-        Route::post('settings/seo/submit-sitemap', [App\Http\Controllers\Admin\AdminSettingsController::class, 'submitSeoSitemap'])->name('settings.seo.submit-sitemap');
-        Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
-        Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
-        Route::post('settings/mollie', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMollie'])->name('settings.mollie.update');
-        Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
-        Route::post('settings/whatsapp/platform', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsappPlatform'])->name('settings.whatsapp.platform.update');
-        Route::post('settings/whatsapp/platform/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testWhatsappPlatform'])->name('settings.whatsapp.platform.test');
+        Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
+        Route::post('settings/mail', [AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
+        Route::post('settings/mail/test', [AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
+        Route::post('settings/seo', [AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
+        Route::post('settings/seo/test', [AdminSettingsController::class, 'testSeoConnection'])->name('settings.seo.test');
+        Route::post('settings/seo/submit-sitemap', [AdminSettingsController::class, 'submitSeoSitemap'])->name('settings.seo.submit-sitemap');
+        Route::post('settings/maps', [AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
+        Route::post('settings/google-reviews', [AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
+        Route::post('settings/mollie', [AdminSettingsController::class, 'updateMollie'])->name('settings.mollie.update');
+        Route::post('settings/whatsapp', [AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
+        Route::post('settings/whatsapp/platform', [AdminSettingsController::class, 'updateWhatsappPlatform'])->name('settings.whatsapp.platform.update');
+        Route::post('settings/whatsapp/platform/test', [AdminSettingsController::class, 'testWhatsappPlatform'])->name('settings.whatsapp.platform.test');
         Route::middleware('role:super-admin')->group(function () {
-            Route::get('whatsapp-voorstel-test', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'index'])->name('whatsapp-pickup-proposal-mock.index');
-            Route::get('whatsapp-voorstel-test/feed', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'feed'])->name('whatsapp-pickup-proposal-mock.feed');
-            Route::post('whatsapp-voorstel-test/seed', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'seed'])->name('whatsapp-pickup-proposal-mock.seed');
-            Route::post('whatsapp-voorstel-test/simulate', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'simulate'])->name('whatsapp-pickup-proposal-mock.simulate');
-            Route::post('whatsapp-voorstel-test/delete', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'destroySelected'])->name('whatsapp-pickup-proposal-mock.destroy');
-            Route::post('whatsapp-voorstel-test/clear', [App\Http\Controllers\Admin\AdminWhatsAppPickupProposalMockController::class, 'clear'])->name('whatsapp-pickup-proposal-mock.clear');
+            Route::get('whatsapp-voorstel-test', [AdminWhatsAppPickupProposalMockController::class, 'index'])->name('whatsapp-pickup-proposal-mock.index');
+            Route::get('whatsapp-voorstel-test/feed', [AdminWhatsAppPickupProposalMockController::class, 'feed'])->name('whatsapp-pickup-proposal-mock.feed');
+            Route::post('whatsapp-voorstel-test/seed', [AdminWhatsAppPickupProposalMockController::class, 'seed'])->name('whatsapp-pickup-proposal-mock.seed');
+            Route::post('whatsapp-voorstel-test/simulate', [AdminWhatsAppPickupProposalMockController::class, 'simulate'])->name('whatsapp-pickup-proposal-mock.simulate');
+            Route::post('whatsapp-voorstel-test/delete', [AdminWhatsAppPickupProposalMockController::class, 'destroySelected'])->name('whatsapp-pickup-proposal-mock.destroy');
+            Route::post('whatsapp-voorstel-test/clear', [AdminWhatsAppPickupProposalMockController::class, 'clear'])->name('whatsapp-pickup-proposal-mock.clear');
         });
-        Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
-        Route::post('settings/tenant-sync', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateTenantSync'])->name('settings.tenant-sync.update');
-        Route::post('settings/tenant-sync/target/create', [App\Http\Controllers\Admin\AdminSettingsController::class, 'createTenantSyncTarget'])->name('settings.tenant-sync.target.create');
-        Route::post('settings/tenant-sync/target/activate', [App\Http\Controllers\Admin\AdminSettingsController::class, 'activateTenantSyncTarget'])->name('settings.tenant-sync.target.activate');
-        Route::post('settings/tenant-sync/target/delete', [App\Http\Controllers\Admin\AdminSettingsController::class, 'deleteTenantSyncTarget'])->name('settings.tenant-sync.target.delete');
-        Route::post('settings/tenant-sync/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testTenantSync'])->name('settings.tenant-sync.test');
-        Route::post('settings/tenant-sync/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runTenantSync'])->name('settings.tenant-sync.run');
-        Route::get('settings/tenant-storage-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantStorageBundle'])->name('settings.tenant-storage-bundle.export');
-        Route::post('settings/tenant-storage-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantStorageBundle'])->name('settings.tenant-storage-bundle.import');
-        Route::get('settings/tenant-website-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantWebsiteBundle'])->name('settings.tenant-website-bundle.export');
-        Route::post('settings/tenant-website-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantWebsiteBundle'])->name('settings.tenant-website-bundle.import');
-        Route::post('settings/database-backups', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateDatabaseBackupSettings'])->name('settings.database-backups.update');
-        Route::post('settings/database-backups/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runDatabaseBackupNow'])->name('settings.database-backups.run');
-        Route::get('settings/database-backups/table', [App\Http\Controllers\Admin\AdminSettingsController::class, 'databaseBackupsTable'])->name('settings.database-backups.table');
-        Route::post('settings/database-backups/bulk-delete', [App\Http\Controllers\Admin\AdminSettingsController::class, 'bulkDestroyDatabaseBackups'])->name('settings.database-backups.bulk-delete');
-        Route::post('settings/database-backups/{databaseBackup}/restore', [App\Http\Controllers\Admin\AdminSettingsController::class, 'restoreDatabaseBackup'])->name('settings.database-backups.restore');
-        Route::get('settings/database-backups/{databaseBackup}/download', [App\Http\Controllers\Admin\AdminSettingsController::class, 'downloadDatabaseBackup'])->name('settings.database-backups.download');
-        Route::delete('settings/database-backups/{databaseBackup}', [App\Http\Controllers\Admin\AdminSettingsController::class, 'destroyDatabaseBackup'])->name('settings.database-backups.destroy');
+        Route::post('settings/coming-soon', [AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
+        Route::post('settings/tenant-sync', [AdminSettingsController::class, 'updateTenantSync'])->name('settings.tenant-sync.update');
+        Route::post('settings/tenant-sync/target/create', [AdminSettingsController::class, 'createTenantSyncTarget'])->name('settings.tenant-sync.target.create');
+        Route::post('settings/tenant-sync/target/activate', [AdminSettingsController::class, 'activateTenantSyncTarget'])->name('settings.tenant-sync.target.activate');
+        Route::post('settings/tenant-sync/target/delete', [AdminSettingsController::class, 'deleteTenantSyncTarget'])->name('settings.tenant-sync.target.delete');
+        Route::post('settings/tenant-sync/test', [AdminSettingsController::class, 'testTenantSync'])->name('settings.tenant-sync.test');
+        Route::post('settings/tenant-sync/run', [AdminSettingsController::class, 'runTenantSync'])->name('settings.tenant-sync.run');
+        Route::get('settings/tenant-storage-bundle/export', [AdminSettingsController::class, 'exportTenantStorageBundle'])->name('settings.tenant-storage-bundle.export');
+        Route::post('settings/tenant-storage-bundle/import', [AdminSettingsController::class, 'importTenantStorageBundle'])->name('settings.tenant-storage-bundle.import');
+        Route::get('settings/tenant-website-bundle/export', [AdminSettingsController::class, 'exportTenantWebsiteBundle'])->name('settings.tenant-website-bundle.export');
+        Route::post('settings/tenant-website-bundle/import', [AdminSettingsController::class, 'importTenantWebsiteBundle'])->name('settings.tenant-website-bundle.import');
+        Route::post('settings/database-backups', [AdminSettingsController::class, 'updateDatabaseBackupSettings'])->name('settings.database-backups.update');
+        Route::post('settings/database-backups/run', [AdminSettingsController::class, 'runDatabaseBackupNow'])->name('settings.database-backups.run');
+        Route::get('settings/database-backups/table', [AdminSettingsController::class, 'databaseBackupsTable'])->name('settings.database-backups.table');
+        Route::post('settings/database-backups/bulk-delete', [AdminSettingsController::class, 'bulkDestroyDatabaseBackups'])->name('settings.database-backups.bulk-delete');
+        Route::post('settings/database-backups/{databaseBackup}/restore', [AdminSettingsController::class, 'restoreDatabaseBackup'])->name('settings.database-backups.restore');
+        Route::get('settings/database-backups/{databaseBackup}/download', [AdminSettingsController::class, 'downloadDatabaseBackup'])->name('settings.database-backups.download');
+        Route::delete('settings/database-backups/{databaseBackup}', [AdminSettingsController::class, 'destroyDatabaseBackup'])->name('settings.database-backups.destroy');
 
         // General Settings (Super Admin only)
-        Route::get('settings/frontend', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');
-        Route::get('settings/frontend/preview', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendComingSoonPreview'])->name('settings.frontend.preview');
-        Route::get('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
-        Route::post('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
-        Route::get('settings/upgrade', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'index'])->name('settings.upgrade.index');
-        Route::get('settings/upgrade/preview', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'preview'])->name('settings.upgrade.preview');
-        Route::post('settings/upgrade/run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'run'])->name('settings.upgrade.run');
-        Route::get('settings/upgrade/php-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpStatus'])->name('settings.upgrade.php-status');
-        Route::post('settings/upgrade/php-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpRun'])->name('settings.upgrade.php-run');
-        Route::post('settings/upgrade/php-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'phpFinalize'])->name('settings.upgrade.php-finalize');
-        Route::get('settings/upgrade/laravel-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelStatus'])->name('settings.upgrade.laravel-status');
-        Route::post('settings/upgrade/laravel-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelRun'])->name('settings.upgrade.laravel-run');
-        Route::get('settings/upgrade/laravel-finalize', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'laravelFinalize'])->name('settings.upgrade.laravel-finalize');
-        Route::get('settings/upgrade/docker-status', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'dockerStatus'])->name('settings.upgrade.docker-status');
-        Route::post('settings/upgrade/docker-run', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'dockerRun'])->name('settings.upgrade.docker-run');
-        Route::delete('settings/upgrade/history', [App\Http\Controllers\Admin\AdminSystemUpgradeController::class, 'destroyHistory'])->name('settings.upgrade.history.destroy');
-        Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
-        Route::post('settings/remove-logo-light', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
-        Route::post('settings/remove-logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');
-        Route::post('settings/upload-favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadFavicon'])->name('settings.upload-favicon');
-        Route::post('settings/upload-nexa-suite-avatar', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadNexaSuiteAvatar'])->name('settings.upload-nexa-suite-avatar');
-        Route::post('settings/remove-nexa-suite-avatar', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeNexaSuiteAvatar'])->name('settings.remove-nexa-suite-avatar');
-        Route::get('settings/nexa-suite-avatar', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getNexaSuiteAvatar'])->name('settings.nexa-suite-avatar');
-        Route::post('settings/logo-size', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateLogoSize'])->name('settings.logo-size.update');
-        Route::get('settings/logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogo'])->name('settings.logo');
-        Route::get('settings/logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogoDark'])->name('settings.logo-dark');
-        Route::get('settings/favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getFavicon'])->name('settings.favicon');
-        Route::post('settings/upload-success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadSuccessImage'])->name('settings.upload-success-image');
-        Route::post('settings/remove-success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeSuccessImage'])->name('settings.remove-success-image');
-        Route::get('settings/success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getSuccessImage'])->name('settings.success-image');
-        Route::post('settings/upload-coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadComingSoonImage'])->name('settings.upload-coming-soon-image');
-        Route::post('settings/remove-coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeComingSoonImage'])->name('settings.remove-coming-soon-image');
-        Route::get('settings/coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getComingSoonImage'])->name('settings.coming-soon-image');
+        Route::get('settings/frontend', [AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');
+        Route::get('settings/frontend/preview', [AdminSettingsController::class, 'frontendComingSoonPreview'])->name('settings.frontend.preview');
+        Route::get('settings/general', [AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
+        Route::post('settings/general', [AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
+        Route::get('settings/upgrade', [AdminSystemUpgradeController::class, 'index'])->name('settings.upgrade.index');
+        Route::get('settings/upgrade/preview', [AdminSystemUpgradeController::class, 'preview'])->name('settings.upgrade.preview');
+        Route::post('settings/upgrade/run', [AdminSystemUpgradeController::class, 'run'])->name('settings.upgrade.run');
+        Route::get('settings/upgrade/php-status', [AdminSystemUpgradeController::class, 'phpStatus'])->name('settings.upgrade.php-status');
+        Route::post('settings/upgrade/php-run', [AdminSystemUpgradeController::class, 'phpRun'])->name('settings.upgrade.php-run');
+        Route::post('settings/upgrade/php-finalize', [AdminSystemUpgradeController::class, 'phpFinalize'])->name('settings.upgrade.php-finalize');
+        Route::get('settings/upgrade/laravel-status', [AdminSystemUpgradeController::class, 'laravelStatus'])->name('settings.upgrade.laravel-status');
+        Route::post('settings/upgrade/laravel-run', [AdminSystemUpgradeController::class, 'laravelRun'])->name('settings.upgrade.laravel-run');
+        Route::get('settings/upgrade/laravel-finalize', [AdminSystemUpgradeController::class, 'laravelFinalize'])->name('settings.upgrade.laravel-finalize');
+        Route::get('settings/upgrade/docker-status', [AdminSystemUpgradeController::class, 'dockerStatus'])->name('settings.upgrade.docker-status');
+        Route::post('settings/upgrade/docker-run', [AdminSystemUpgradeController::class, 'dockerRun'])->name('settings.upgrade.docker-run');
+        Route::post('settings/upgrade/docker-exec', [AdminSystemUpgradeController::class, 'dockerExec'])->name('settings.upgrade.docker-exec');
+        Route::get('settings/upgrade/postgres-status', [AdminSystemUpgradeController::class, 'postgresStatus'])->name('settings.upgrade.postgres-status');
+        Route::post('settings/upgrade/postgres-run', [AdminSystemUpgradeController::class, 'postgresRun'])->name('settings.upgrade.postgres-run');
+        Route::delete('settings/upgrade/history', [AdminSystemUpgradeController::class, 'destroyHistory'])->name('settings.upgrade.history.destroy');
+        Route::post('settings/upload-logo', [AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+        Route::post('settings/remove-logo-light', [AdminSettingsController::class, 'removeLogoLight'])->name('settings.remove-logo-light');
+        Route::post('settings/remove-logo-dark', [AdminSettingsController::class, 'removeLogoDark'])->name('settings.remove-logo-dark');
+        Route::post('settings/upload-favicon', [AdminSettingsController::class, 'uploadFavicon'])->name('settings.upload-favicon');
+        Route::post('settings/upload-nexa-suite-avatar', [AdminSettingsController::class, 'uploadNexaSuiteAvatar'])->name('settings.upload-nexa-suite-avatar');
+        Route::post('settings/remove-nexa-suite-avatar', [AdminSettingsController::class, 'removeNexaSuiteAvatar'])->name('settings.remove-nexa-suite-avatar');
+        Route::get('settings/nexa-suite-avatar', [AdminSettingsController::class, 'getNexaSuiteAvatar'])->name('settings.nexa-suite-avatar');
+        Route::post('settings/logo-size', [AdminSettingsController::class, 'updateLogoSize'])->name('settings.logo-size.update');
+        Route::get('settings/logo', [AdminSettingsController::class, 'getLogo'])->name('settings.logo');
+        Route::get('settings/logo-dark', [AdminSettingsController::class, 'getLogoDark'])->name('settings.logo-dark');
+        Route::get('settings/favicon', [AdminSettingsController::class, 'getFavicon'])->name('settings.favicon');
+        Route::post('settings/upload-success-image', [AdminSettingsController::class, 'uploadSuccessImage'])->name('settings.upload-success-image');
+        Route::post('settings/remove-success-image', [AdminSettingsController::class, 'removeSuccessImage'])->name('settings.remove-success-image');
+        Route::get('settings/success-image', [AdminSettingsController::class, 'getSuccessImage'])->name('settings.success-image');
+        Route::post('settings/upload-coming-soon-image', [AdminSettingsController::class, 'uploadComingSoonImage'])->name('settings.upload-coming-soon-image');
+        Route::post('settings/remove-coming-soon-image', [AdminSettingsController::class, 'removeComingSoonImage'])->name('settings.remove-coming-soon-image');
+        Route::get('settings/coming-soon-image', [AdminSettingsController::class, 'getComingSoonImage'])->name('settings.coming-soon-image');
 
         // Welkom-pagina editor (Super Admin only)
-        Route::get('welcome-page', [App\Http\Controllers\Admin\AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
+        Route::get('welcome-page', [AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
 
         Route::middleware('role:super-admin')->group(function () {
-            Route::get('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
-            Route::put('prijzen', [App\Http\Controllers\Admin\AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
-            Route::get('website-ai', [App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController::class, 'create'])->name('website-ai.create');
-            Route::post('website-ai', [App\Http\Controllers\Admin\AdminWebsiteAiGeneratorController::class, 'generate'])->name('website-ai.generate');
+            Route::get('prijzen', [AdminNexaPricingController::class, 'edit'])->name('nexa-pricing.edit');
+            Route::put('prijzen', [AdminNexaPricingController::class, 'update'])->name('nexa-pricing.update');
+            Route::get('website-ai', [AdminWebsiteAiGeneratorController::class, 'create'])->name('website-ai.create');
+            Route::post('website-ai', [AdminWebsiteAiGeneratorController::class, 'generate'])->name('website-ai.generate');
 
-            Route::get('ai-images', [App\Http\Controllers\Admin\AdminAiImageGeneratorController::class, 'index'])->name('ai-images.index');
-            Route::post('ai-images/generate', [App\Http\Controllers\Admin\AdminAiImageGeneratorController::class, 'generate'])->name('ai-images.generate');
-            Route::delete('ai-images/{aiGeneratedImage}', [App\Http\Controllers\Admin\AdminAiImageGeneratorController::class, 'destroy'])->name('ai-images.destroy');
+            Route::get('ai-images', [AdminAiImageGeneratorController::class, 'index'])->name('ai-images.index');
+            Route::post('ai-images/generate', [AdminAiImageGeneratorController::class, 'generate'])->name('ai-images.generate');
+            Route::delete('ai-images/{aiGeneratedImage}', [AdminAiImageGeneratorController::class, 'destroy'])->name('ai-images.destroy');
         });
 
-        Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
-        Route::get('frontend-themes/preview', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
-        Route::get('frontend-themes/staging', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');
-        Route::post('frontend-themes/publish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'publish'])->name('frontend-themes.publish');
-        Route::post('frontend-themes/unpublish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'unpublish'])->name('frontend-themes.unpublish');
-        Route::get('frontend-themes/setup', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'showSetup'])->name('frontend-themes.setup');
-        Route::post('frontend-themes/company-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateCompanyTheme'])->name('frontend-themes.update-company-theme');
-        Route::post('frontend-themes/module-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateModuleTheme'])->name('frontend-themes.update-module-theme');
-        Route::post('frontend-themes/{frontend_theme}/set-active', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'setActive'])->name('frontend-themes.set-active');
-        Route::get('frontend-themes/{frontend_theme}/edit', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'edit'])->name('frontend-themes.edit');
-        Route::put('frontend-themes/{frontend_theme}', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'update'])->name('frontend-themes.update');
-        Route::get('frontend-components', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'index'])->name('frontend-components.index');
-        Route::post('frontend-components/toggle-disabled', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'toggleDisabled'])->name('frontend-components.toggle-disabled');
-        Route::get('frontend-components/{componentId}/demo', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'demo'])->name('frontend-components.demo');
+        Route::get('frontend-themes', [AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
+        Route::get('frontend-themes/preview', [AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
+        Route::get('frontend-themes/staging', [AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');
+        Route::post('frontend-themes/publish', [AdminFrontendThemeController::class, 'publish'])->name('frontend-themes.publish');
+        Route::post('frontend-themes/unpublish', [AdminFrontendThemeController::class, 'unpublish'])->name('frontend-themes.unpublish');
+        Route::get('frontend-themes/setup', [AdminFrontendThemeController::class, 'showSetup'])->name('frontend-themes.setup');
+        Route::post('frontend-themes/company-theme', [AdminFrontendThemeController::class, 'updateCompanyTheme'])->name('frontend-themes.update-company-theme');
+        Route::post('frontend-themes/module-theme', [AdminFrontendThemeController::class, 'updateModuleTheme'])->name('frontend-themes.update-module-theme');
+        Route::post('frontend-themes/{frontend_theme}/set-active', [AdminFrontendThemeController::class, 'setActive'])->name('frontend-themes.set-active');
+        Route::get('frontend-themes/{frontend_theme}/edit', [AdminFrontendThemeController::class, 'edit'])->name('frontend-themes.edit');
+        Route::put('frontend-themes/{frontend_theme}', [AdminFrontendThemeController::class, 'update'])->name('frontend-themes.update');
+        Route::get('frontend-components', [AdminFrontendComponentController::class, 'index'])->name('frontend-components.index');
+        Route::post('frontend-components/toggle-disabled', [AdminFrontendComponentController::class, 'toggleDisabled'])->name('frontend-components.toggle-disabled');
+        Route::get('frontend-components/{componentId}/demo', [AdminFrontendComponentController::class, 'demo'])->name('frontend-components.demo');
 
         // Postcode lookup (for address autocomplete)
-        Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');
+        Route::post('postcode/lookup', [PostcodeController::class, 'lookup'])->name('postcode.lookup');
     });
 
     Route::get('website-pages/theme-blocks', [AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
@@ -905,22 +955,22 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
     Route::post('website-pages/{website_page}/reorder', [AdminWebsitePageController::class, 'reorder'])->name('website-pages.reorder');
     Route::post('website-pages/{website_page}/toggle-active', [AdminWebsitePageController::class, 'toggleActive'])->name('website-pages.toggle-active');
     Route::resource('website-pages', AdminWebsitePageController::class)->names('website-pages');
-    Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
-    Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
+    Route::post('website-media/upload', [AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
+    Route::delete('website-media/{uuid}', [AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
 });
 
 // Frontend home page
 // Centraal domein (localhost, nexa.tosun.nl): altijd NEXA welkomstpagina.
 // Tenant-domein (bedrijf.nl, demo.nexasuite.nl): bedrijfsspecifieke pagina via website-builder.
-Route::get('/', function (\Illuminate\Http\Request $request) {
+Route::get('/', function (Request $request) {
     $isTenant = app()->bound('resolved_tenant') && app('resolved_tenant') !== null;
 
     if (! $isTenant) {
-        $central = app(\App\Services\WebsiteBuilderService::class)->getCentralMarketingWelcomePage();
+        $central = app(WebsiteBuilderService::class)->getCentralMarketingWelcomePage();
         if ($central) {
-            return app(\App\Http\Controllers\Frontend\WebsitePageController::class)->showCentralWelcome($central);
+            return app(WebsitePageController::class)->showCentralWelcome($central);
         }
-        $w = \App\Http\Controllers\Admin\AdminWelcomePageController::getWelcomeContent();
+        $w = AdminWelcomePageController::getWelcomeContent();
 
         return view('frontend.welcome', compact('w'));
     }
@@ -931,21 +981,21 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         return app(WebsitePageController::class)->showHome($request);
     }
 
-    $moduleManager = app(\App\Services\ModuleManager::class);
+    $moduleManager = app(ModuleManager::class);
     if (! $moduleManager->hasAnyActiveModule()) {
-        return app(\App\Http\Controllers\Frontend\ComingSoonController::class)->index();
+        return app(ComingSoonController::class)->index();
     }
 
-    return app(\App\Http\Controllers\Frontend\HomeController::class)->index($request);
+    return app(HomeController::class)->index($request);
 })->name('home');
 
-Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 // Interne marketing / sales preview (centraal host: localhost, nexasuite.nl)
 // Let op: geen public/marketing/ map — die botst met php artisan serve / static files.
-Route::get('/marketing', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'index'])
+Route::get('/marketing', [MarketingPreviewController::class, 'index'])
     ->name('marketing.index');
-Route::get('/marketing/{page}', [\App\Http\Controllers\Frontend\MarketingPreviewController::class, 'show'])
+Route::get('/marketing/{page}', [MarketingPreviewController::class, 'show'])
     ->where('page', 'strategie|taxi|contractvervoer|website|prijzen|website-copy')
     ->name('marketing.show');
 
@@ -955,14 +1005,14 @@ Route::get('/test-404', function () {
 })->name('test-404');
 
 // Website media: encrypted afbeeldingen (decrypt on serve, publiek voor frontend)
-Route::get('website-media/{uuid}', [App\Http\Controllers\WebsiteMediaController::class, 'serve'])->name('website-media.serve')->where('uuid', '[\w\-]+');
+Route::get('website-media/{uuid}', [WebsiteMediaController::class, 'serve'])->name('website-media.serve')->where('uuid', '[\w\-]+');
 
 // Vacature matching demo page
 Route::get('/vacature-matching', [MatchController::class, 'demo'])->name('vacature-matching');
 
 // Demo routes (demo1-demo10)
-Route::get('/demo{demoNumber}', [App\Http\Controllers\DemoController::class, 'show'])->where('demoNumber', '[1-9]|10')->name('demo.show');
-Route::get('/demo{demoNumber}/{path}', [App\Http\Controllers\DemoController::class, 'showSubpage'])->where('demoNumber', '[1-9]|10')->where('path', '.*')->name('demo.subpage');
+Route::get('/demo{demoNumber}', [DemoController::class, 'show'])->where('demoNumber', '[1-9]|10')->name('demo.show');
+Route::get('/demo{demoNumber}/{path}', [DemoController::class, 'showSubpage'])->where('demoNumber', '[1-9]|10')->where('path', '.*')->name('demo.subpage');
 
 /*
 |--------------------------------------------------------------------------
@@ -972,9 +1022,9 @@ Route::get('/demo{demoNumber}/{path}', [App\Http\Controllers\DemoController::cla
 
 // Favorite routes
 Route::middleware('auth')->group(function () {
-    Route::post('/favorites/{vacancy}/toggle', [App\Http\Controllers\Frontend\FavoriteController::class, 'toggle'])->name('favorites.toggle');
-    Route::get('/favorites/{vacancy}/check', [App\Http\Controllers\Frontend\FavoriteController::class, 'check'])->name('favorites.check');
-    Route::get('/favorites', [App\Http\Controllers\Frontend\FavoriteController::class, 'index'])->name('favorites.index');
+    Route::post('/favorites/{vacancy}/toggle', [FavoriteController::class, 'toggle'])->name('favorites.toggle');
+    Route::get('/favorites/{vacancy}/check', [FavoriteController::class, 'check'])->name('favorites.check');
+    Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
 
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
@@ -1000,7 +1050,8 @@ Route::middleware('auth')->group(function () {
 });
 
 // Email verification route (public, no auth required)
-Route::get('/verify-email/{user}', [App\Http\Controllers\Admin\AdminUserController::class, 'verifyEmail'])->name('verify-email');
+Route::get('/verify-email/{user}', [AdminUserController::class, 'verifyEmail'])->name('verify-email');
+Route::get('/verify-phone/{user}', [AdminUserController::class, 'verifyPhone'])->name('verify-phone');
 
 // Frontend login (kandidaten / portaal)
 Route::get('/login', [FrontendAuthController::class, 'showLoginForm'])->name('login');
@@ -1014,7 +1065,7 @@ Route::post('/register', fn () => redirect()->route('home'))->name('register.pos
 Route::post('/logout', [FrontendAuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [FrontendAuthController::class, 'logout'])->name('logout.get');
 
-Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController::class, 'sendMessage'])
+Route::post('/ai-chat/message', [AiChatController::class, 'sendMessage'])
     ->middleware('throttle:30,1')
     ->name('frontend.ai-chat.message');
 
@@ -1048,7 +1099,7 @@ Route::middleware(['auth:web'])->group(function () {
         $unreadCount = auth()->user()->notifications()->whereNull('read_at')->whereNull('archived_at')->count();
 
         // Get highest priority of unread notifications
-        $highestPriority = \App\Models\Notification::where('user_id', auth()->id())
+        $highestPriority = Notification::where('user_id', auth()->id())
             ->whereNull('read_at')
             ->whereNull('archived_at')
             ->orderByRaw("CASE priority
@@ -1068,12 +1119,12 @@ Route::middleware(['auth:web'])->group(function () {
 
     // Frontend notification routes
     // Specific routes must come first to avoid route conflicts
-    Route::get('/notifications/list', [App\Http\Controllers\Admin\AdminNotificationController::class, 'getNotifications'])->name('frontend.notifications.list');
-    Route::post('/notifications/mark-all-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markAllAsRead'])->name('frontend.notifications.mark-all-read');
-    Route::post('/notifications/mark-selected-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markSelectedAsRead'])->name('frontend.notifications.mark-selected-read');
-    Route::post('/notifications/archive-selected', [App\Http\Controllers\Admin\AdminNotificationController::class, 'archiveSelected'])->name('frontend.notifications.archive-selected');
-    Route::post('/notifications/{notification}/mark-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markAsRead'])->name('frontend.notifications.mark-read');
-    Route::post('/notifications/{notification}/respond-interview', [App\Http\Controllers\Admin\AdminNotificationController::class, 'respondToInterview'])->name('frontend.notifications.respond-interview');
+    Route::get('/notifications/list', [AdminNotificationController::class, 'getNotifications'])->name('frontend.notifications.list');
+    Route::post('/notifications/mark-all-read', [AdminNotificationController::class, 'markAllAsRead'])->name('frontend.notifications.mark-all-read');
+    Route::post('/notifications/mark-selected-read', [AdminNotificationController::class, 'markSelectedAsRead'])->name('frontend.notifications.mark-selected-read');
+    Route::post('/notifications/archive-selected', [AdminNotificationController::class, 'archiveSelected'])->name('frontend.notifications.archive-selected');
+    Route::post('/notifications/{notification}/mark-read', [AdminNotificationController::class, 'markAsRead'])->name('frontend.notifications.mark-read');
+    Route::post('/notifications/{notification}/respond-interview', [AdminNotificationController::class, 'respondToInterview'])->name('frontend.notifications.respond-interview');
 
     // Nexa Skillmatching frontend-portaal (niet voor Nexa Taxi)
     Route::middleware(['skillmatching.portal'])->group(function () {
@@ -1088,21 +1139,21 @@ Route::middleware(['auth:web'])->group(function () {
             return view('frontend.pages.agenda');
         });
 
-        Route::get('/applications', [App\Http\Controllers\Frontend\ApplicationController::class, 'index'])->name('applications');
-        Route::get('/applications/{id}', [App\Http\Controllers\Frontend\ApplicationController::class, 'show'])->name('applications.show');
-        Route::get('/applications/{id}/status', [App\Http\Controllers\Frontend\ApplicationController::class, 'status'])->name('applications.status');
+        Route::get('/applications', [ApplicationController::class, 'index'])->name('applications');
+        Route::get('/applications/{id}', [ApplicationController::class, 'show'])->name('applications.show');
+        Route::get('/applications/{id}/status', [ApplicationController::class, 'status'])->name('applications.status');
 
-        Route::get('/settings', [App\Http\Controllers\Frontend\SettingsController::class, 'index'])->name('settings');
-        Route::post('/settings/password', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePassword'])->name('settings.password');
-        Route::post('/settings/email', [App\Http\Controllers\Frontend\SettingsController::class, 'updateEmail'])->name('settings.email');
-        Route::post('/settings/job-preferences', [App\Http\Controllers\Frontend\SettingsController::class, 'updateJobPreferences'])->name('settings.job-preferences');
-        Route::post('/settings/notifications', [App\Http\Controllers\Frontend\SettingsController::class, 'updateNotificationPreferences'])->name('settings.notifications');
-        Route::post('/settings/privacy', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePrivacyPreferences'])->name('settings.privacy');
-        Route::post('/settings/export-data', [App\Http\Controllers\Frontend\SettingsController::class, 'exportData'])->name('settings.export-data');
-        Route::delete('/settings/delete-account', [App\Http\Controllers\Frontend\SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+        Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+        Route::post('/settings/email', [SettingsController::class, 'updateEmail'])->name('settings.email');
+        Route::post('/settings/job-preferences', [SettingsController::class, 'updateJobPreferences'])->name('settings.job-preferences');
+        Route::post('/settings/notifications', [SettingsController::class, 'updateNotificationPreferences'])->name('settings.notifications');
+        Route::post('/settings/privacy', [SettingsController::class, 'updatePrivacyPreferences'])->name('settings.privacy');
+        Route::post('/settings/export-data', [SettingsController::class, 'exportData'])->name('settings.export-data');
+        Route::delete('/settings/delete-account', [SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
 
-        Route::post('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'uploadCV'])->name('profile.cv');
-        Route::delete('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'removeCV'])->name('profile.cv.remove');
+        Route::post('/profile/cv', [ProfileController::class, 'uploadCV'])->name('profile.cv');
+        Route::delete('/profile/cv', [ProfileController::class, 'removeCV'])->name('profile.cv.remove');
     });
 
 });
@@ -1112,7 +1163,7 @@ Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(functi
     Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
 
     Route::prefix('mijn-taxi/api')->name('taxi.portal.api.')->group(function () {
-        Route::post('ai-chat/message', [\App\Modules\NexaTaxi\Controllers\TaxiPortalAiChatController::class, 'sendMessage'])
+        Route::post('ai-chat/message', [TaxiPortalAiChatController::class, 'sendMessage'])
             ->name('ai-chat.message');
         Route::get('dashboard', [TaxiPortalApiController::class, 'dashboard'])->name('dashboard');
         Route::get('rides', [TaxiPortalApiController::class, 'rides'])->name('rides');
@@ -1163,10 +1214,10 @@ Route::get('/contact', function () {
 })->name('contact');
 Route::post('/contact', fn () => redirect()->route('home'))->name('contact.submit');
 
-Route::get('/nieuwsbrief/afmelden/{token}', [App\Http\Controllers\NewsletterUnsubscribeController::class, 'show'])
+Route::get('/nieuwsbrief/afmelden/{token}', [NewsletterUnsubscribeController::class, 'show'])
     ->where('token', '[A-Za-z0-9]+')
     ->name('newsletter.unsubscribe');
-Route::post('/nieuwsbrief/afmelden/{token}', [App\Http\Controllers\NewsletterUnsubscribeController::class, 'store'])
+Route::post('/nieuwsbrief/afmelden/{token}', [NewsletterUnsubscribeController::class, 'store'])
     ->where('token', '[A-Za-z0-9]+')
     ->name('newsletter.unsubscribe.one-click');
 
@@ -1187,7 +1238,7 @@ Route::prefix('nexa-taxi/booking')->group(function () {
     Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
     Route::get('pending', [NexaTaxiBookingController::class, 'pending'])->name('nexataxi.booking.pending');
     Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');
-    Route::get('betaling/terug', [\App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController::class, 'returnPage'])
+    Route::get('betaling/terug', [TaxiBookingPaymentController::class, 'returnPage'])
         ->name('nexataxi.booking.payment.return');
 });
 

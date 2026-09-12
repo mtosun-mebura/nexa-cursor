@@ -12,8 +12,10 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\RideRequestMonthlyStatsService;
+use App\Modules\NexaTaxi\Services\RideTrackService;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerRideAcceptedNotificationService;
+use App\Services\EnvService;
 use Carbon\Carbon;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
@@ -168,6 +170,9 @@ class RideRequestController extends Controller
             route('admin.taxi.ride_requests.index')
         );
 
+        $maps = app(EnvService::class)->mapsFormSettings();
+        $rideTrack = app(RideTrackService::class)->mapPayload($conn, $ride_request);
+
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
             'stopoverAddresses' => $ride_request->resolveStopoverAddresses(),
@@ -178,6 +183,10 @@ class RideRequestController extends Controller
             'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
             'dispatchTablesExist' => TaxiDispatchSchema::tablesExist($conn),
             'rideBackUrl' => $rideBackUrl,
+            'googleMapsApiKey' => $maps['GOOGLE_MAPS_API_KEY'],
+            'googleMapsMapId' => $maps['GOOGLE_MAPS_MAP_ID'],
+            'googleMapsZoom' => (int) $maps['GOOGLE_MAPS_ZOOM'],
+            'rideTrack' => $rideTrack,
         ]);
     }
 

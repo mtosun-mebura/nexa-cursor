@@ -12,10 +12,10 @@
 
     @include('taxi::admin.ride_requests.partials.monthly-stats')
 
-    <div class="kt-card w-full min-w-0">
+    <div class="kt-card w-full min-w-0 scroll-mt-[calc(var(--kt-header-height,4.375rem)+1rem)]" id="ritten-overzicht" data-admin-restore-anchor>
         <div class="kt-card-header py-5 px-5 flex-wrap gap-2 min-w-0">
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Overzicht ritten</h3>
-            <div class="flex flex-col sm:flex-row flex-wrap gap-2 gap-2.5 w-full sm:justify-end items-stretch sm:items-center min-w-0">
+            <div class="flex flex-col sm:flex-row flex-wrap gap-2 gap-2.5 w-full justify-end items-stretch sm:items-center min-w-0">
                 <form method="GET" action="{{ route('admin.taxi.ride_requests.index') }}" id="ride-filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
                     @if(request('per_page'))<input type="hidden" name="per_page" value="{{ request('per_page') }}">@endif
                     @if(!empty($monthlyStats['month']))<input type="hidden" name="stats_month" value="{{ $monthlyStats['month'] }}">@endif
@@ -75,6 +75,7 @@
                 </thead>
                 <tbody>
                     @php
+                        $ridesListReturn = url()->full();
                         $shortRideAddress = static function (?string $address): string {
                             if ($address === null || trim($address) === '') {
                                 return '—';
@@ -98,10 +99,15 @@
                     @php
                         $canViewRide = auth()->user()->hasRole('super-admin') || auth()->user()->can('rides.view');
                         $canUpdateRide = auth()->user()->hasRole('super-admin') || auth()->user()->can('rides.update');
+                        $rideShowUrl = $canViewRide
+                            ? \App\Support\AdminReturnUrl::appendReturnParam(route('admin.taxi.ride_requests.show', $r), $ridesListReturn)
+                            : null;
                     @endphp
                     <tr
+                        id="rit-{{ $r->id }}"
+                        data-admin-row-id="rit-{{ $r->id }}"
                         @if($canViewRide)
-                            data-row-href="{{ route('admin.taxi.ride_requests.show', $r) }}"
+                            data-row-href="{{ $rideShowUrl }}"
                             class="cursor-pointer hover:bg-muted/40"
                             tabindex="0"
                             role="link"
@@ -149,7 +155,7 @@
                                         <div class="kt-menu-dropdown kt-menu-default w-[190px] min-w-[190px]" data-kt-menu-dismiss="true">
                                             @if($canViewRide)
                                             <div class="kt-menu-item">
-                                                <a class="kt-menu-link" href="{{ route('admin.taxi.ride_requests.show', $r) }}">
+                                                <a class="kt-menu-link" href="{{ $rideShowUrl }}">
                                                     <span class="kt-menu-icon">
                                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                                                     </span>

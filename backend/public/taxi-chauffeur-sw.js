@@ -1,5 +1,5 @@
 /* PWA service worker: cache + telefoonmeldingen voor nieuwe ritten. */
-const CACHE = 'nexa-taxi-chauffeur-v8';
+const CACHE = 'nexa-taxi-chauffeur-v9';
 const DEFAULT_ICON = '/favicon.ico';
 const CHAUFFEUR_URL = '/taxi/chauffeur';
 
@@ -40,6 +40,28 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
     const data = event.data;
+    if (data && data.type === 'HIDE_ONLINE_GPS_NOTIFICATION') {
+        event.waitUntil(
+            self.registration.getNotifications({ tag: data.tag || 'nexa-driver-online-gps' }).then((notes) => {
+                notes.forEach((note) => note.close());
+            })
+        );
+        return;
+    }
+    if (data && data.type === 'SHOW_ONLINE_GPS_NOTIFICATION') {
+        event.waitUntil(
+            self.registration.showNotification(data.title || 'Je bent online', {
+                body: data.body || 'Locatie wordt gedeeld met de GPS-tracker.',
+                icon: data.icon || DEFAULT_ICON,
+                badge: data.icon || DEFAULT_ICON,
+                tag: data.tag || 'nexa-driver-online-gps',
+                silent: true,
+                requireInteraction: true,
+                data: { url: data.url || CHAUFFEUR_URL },
+            })
+        );
+        return;
+    }
     if (!data || data.type !== 'SHOW_RIDE_NOTIFICATION') {
         return;
     }

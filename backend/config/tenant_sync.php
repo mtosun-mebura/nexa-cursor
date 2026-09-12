@@ -174,6 +174,8 @@ return [
             'ride_requests',
             'ride_dispatch_offers',
             'driver_availability',
+            'driver_schedules',
+            'ride_gps_points',
             'transport_schedule_exceptions',
         ],
         /*
@@ -277,6 +279,15 @@ return [
             'driver_availability' => [
                 'driver_id' => 'users',
             ],
+            'driver_schedules' => [
+                'driver_id' => 'users',
+                'vehicle_id' => 'vehicles',
+                'created_by_user_id' => 'users',
+            ],
+            'ride_gps_points' => [
+                'ride_request_id' => 'ride_requests',
+                'driver_id' => 'users',
+            ],
         ],
         // FK-kolommen die NOT NULL zijn: rij overslaan als parent-id niet hermapt kan worden.
         'required_foreign_key_columns' => [
@@ -292,6 +303,8 @@ return [
             'ride_stops' => ['ride_request_id'],
             'ride_dispatch_offers' => ['ride_request_id', 'driver_id'],
             'driver_availability' => ['driver_id'],
+            'driver_schedules' => ['driver_id', 'vehicle_id'],
+            'ride_gps_points' => ['ride_request_id'],
         ],
         'natural_keys' => [
             'vehicles' => ['company_id', 'name'],
@@ -311,6 +324,8 @@ return [
             'ride_requests' => ['company_id', 'pickup_at', 'customer_email', 'pickup_address'],
             'ride_dispatch_offers' => ['ride_request_id', 'driver_id'],
             'driver_availability' => ['driver_id'],
+            'driver_schedules' => ['company_id', 'driver_id', 'vehicle_id', 'starts_at'],
+            'ride_gps_points' => ['company_id', 'ride_request_id', 'recorded_at'],
             'default_rates' => ['person_range'],
             'knowledge_documents' => ['title', 'category'],
             'knowledge_chunks' => ['document_id', 'chunk_text'],
@@ -361,6 +376,8 @@ return [
         'ride_requests' => ['company_id', 'pickup_at', 'customer_email', 'pickup_address'],
         'ride_dispatch_offers' => ['ride_request_id', 'driver_id'],
         'driver_availability' => ['driver_id'],
+        'driver_schedules' => ['company_id', 'driver_id', 'vehicle_id', 'starts_at'],
+        'ride_gps_points' => ['company_id', 'ride_request_id', 'recorded_at'],
         'default_rates' => ['person_range'],
         'knowledge_documents' => ['title', 'category'],
         'knowledge_chunks' => ['document_id', 'chunk_text'],

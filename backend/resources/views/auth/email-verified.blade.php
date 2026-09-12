@@ -59,20 +59,25 @@ Author: Keenthemes
                     <img alt="Success" class="light:hidden max-h-[130px]" src="{{ asset('assets/media/illustrations/30-dark.svg') }}"/>
                 </div>
                 <h3 class="text-lg font-medium text-mono text-center mb-3">
+                    @php
+                        $channelLabel = $channelLabel ?? 'e-mailadres';
+                    @endphp
                     @if($wasAlreadyVerified)
-                        E-mailadres al geverifieerd
+                        {{ ucfirst($channelLabel) }} al geverifieerd
                     @else
-                        E-mailadres succesvol geverifieerd!
+                        {{ ucfirst($channelLabel) }} succesvol geverifieerd!
                     @endif
                 </h3>
                 <div class="text-sm text-center text-secondary-foreground mb-7.5">
                     @if($wasAlreadyVerified)
-                        Je e-mailadres was al geverifieerd. Je kunt direct inloggen.
+                        Je {{ $channelLabel }} was al geverifieerd. Je kunt direct inloggen.
                     @else
-                        Bedankt {{ $user->first_name }}! Je e-mailadres 
-                        <a class="text-sm text-mono font-medium hover:text-primary" href="mailto:{{ $user->email }}">
-                            {{ $user->email }}
+                        Bedankt {{ $user->first_name }}! Je {{ $channelLabel }}
+                        @if(!empty($channelValue) || $user->email)
+                        <a class="text-sm text-mono font-medium hover:text-primary" href="{{ ($channelLabel === 'telefoonnummer') ? 'tel:'.($channelValue ?? $user->phone) : 'mailto:'.($channelValue ?? $user->email) }}">
+                            {{ $channelValue ?? $user->email }}
                         </a>
+                        @endif
                         is nu geverifieerd. Je kunt nu inloggen op je account.
                     @endif
                 </div>

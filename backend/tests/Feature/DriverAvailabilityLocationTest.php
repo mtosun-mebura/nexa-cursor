@@ -82,4 +82,72 @@ class DriverAvailabilityLocationTest extends TestCase
         $this->assertFalse($row->is_online);
         $this->assertEquals(52.1234567, (float) $row->lat);
     }
+
+    #[Test]
+    public function coarse_gps_accuracy_does_not_overwrite_a_known_position(): void
+    {
+        $company = Company::query()->create(['name' => 'Acc Co', 'is_active' => true]);
+        $driver = User::factory()->create(['company_id' => $company->id]);
+        $this->actingAs($driver);
+
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.2289448,
+            'lng' => 6.8896612,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $request = Request::create('/api/taxi/v1/driver/availability/location', 'PUT', [
+            'lat' => 52.2300000,
+            'lng' => 6.8910000,
+            'accuracy' => 420,
+        ]);
+        $request->setUserResolver(fn () => $driver);
+        $request->attributes->set('taxi_company_id', $company->id);
+
+        $response = app(DriverAvailabilityController::class)->updateLocation($request, app(ModuleDatabaseService::class));
+        $payload = $response->getData(true);
+
+        $this->assertEquals(52.2289448, (float) $payload['data']['lat']);
+        $this->assertEquals(6.8896612, (float) $payload['data']['lng']);
+
+        $row = DriverAvailability::on($this->conn)->where('driver_id', $driver->id)->first();
+        $this->assertEquals(52.2289448, (float) $row->lat);
+        $this->assertEquals(6.8896612, (float) $row->lng);
+    }
+
+    #[Test]
+    public function moderate_gps_accuracy_updates_the_live_position(): void
+    {
+        $company = Company::query()->create(['name' => 'Live Acc Co', 'is_active' => true]);
+        $driver = User::factory()->create(['company_id' => $company->id]);
+        $this->actingAs($driver);
+
+        DriverAvailability::on($this->conn)->create([
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.2289448,
+            'lng' => 6.8896612,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $request = Request::create('/api/taxi/v1/driver/availability/location', 'PUT', [
+            'lat' => 52.2291000,
+            'lng' => 6.8898000,
+            'accuracy' => 80,
+        ]);
+        $request->setUserResolver(fn () => $driver);
+        $request->attributes->set('taxi_company_id', $company->id);
+
+        $response = app(DriverAvailabilityController::class)->updateLocation($request, app(ModuleDatabaseService::class));
+        $payload = $response->getData(true);
+
+        $this->assertEqualsWithDelta(52.2291, (float) $payload['data']['lat'], 0.00001);
+        $this->assertEqualsWithDelta(6.8898, (float) $payload['data']['lng'], 0.00001);
+    }
 }
