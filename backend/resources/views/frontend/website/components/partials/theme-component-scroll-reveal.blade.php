@@ -2,7 +2,7 @@
 <style>
     [data-theme-component].theme-scroll-reveal {
         max-width: 100%;
-        overflow-x: hidden;
+        overflow-x: clip;
     }
     [data-theme-component].theme-scroll-reveal .theme-fade {
         opacity: 0;
@@ -341,6 +341,20 @@
         animation: none !important;
     }
 
+    @media (max-width: 767px) {
+        [data-theme-anim="check"] .theme-reveal-left {
+            transform: translateX(-16px) scale(0.98);
+        }
+        [data-theme-anim="check"] .theme-reveal-right {
+            transform: translateX(12px);
+        }
+        [data-theme-component].theme-scroll-reveal h2 {
+            font-size: 1.25rem;
+            line-height: 1.3;
+            text-wrap: balance;
+        }
+    }
+
     @media (prefers-reduced-motion: reduce) {
         [data-theme-component].theme-scroll-reveal .theme-fade,
         [data-theme-anim="wipe"] .theme-reveal-item,
@@ -444,6 +458,9 @@
     }
     function mark(el) {
         el.classList.add('is-in-view');
+        el.querySelectorAll('[data-scroll-reveal-item]').forEach(function (item) {
+            item.classList.add('is-in-view');
+        });
         el.querySelectorAll('[data-theme-count]').forEach(animateCount);
     }
     window.nexaReplayThemeAnimations = function (root) {
@@ -455,6 +472,9 @@
         if (!sections.length) return;
         sections.forEach(function (el) {
             el.classList.remove('is-in-view', 'is-visible');
+            el.querySelectorAll('[data-scroll-reveal-item]').forEach(function (item) {
+                item.classList.remove('is-in-view');
+            });
             el.classList.add('theme-anim-reset');
             el.querySelectorAll('[data-theme-count]').forEach(function (n) {
                 n.removeAttribute('data-theme-count-done');
@@ -481,12 +501,15 @@
     };
     function inViewport(el) {
         var r = el.getBoundingClientRect();
-        return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < (window.innerHeight || document.documentElement.clientHeight);
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+        return r.width > 0 && r.height > 0 && visible >= Math.min(72, r.height * 0.2);
     }
     function bind() {
         var sections = document.querySelectorAll('[data-theme-component].theme-scroll-reveal');
         if (!sections.length) return;
         var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var isNarrow = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
         sections.forEach(function (el) {
             if (el.getAttribute('data-theme-pills-bound') !== '1') {
                 el.setAttribute('data-theme-pills-bound', '1');
@@ -504,7 +527,9 @@
                     mark(entry.target);
                     window.__nexaThemeScrollRevealIo.unobserve(entry.target);
                 });
-            }, { rootMargin: '0px 0px -15% 0px', threshold: 0.25 });
+            }, isNarrow
+                ? { rootMargin: '0px 0px -6% 0px', threshold: 0.08 }
+                : { rootMargin: '0px 0px -15% 0px', threshold: 0.25 });
         }
         sections.forEach(function (el) {
             if (el.getAttribute('data-theme-reveal-bound') === '1') return;

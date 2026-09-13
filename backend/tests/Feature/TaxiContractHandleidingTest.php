@@ -82,6 +82,8 @@ class TaxiContractHandleidingTest extends TestCase
         $this->assertStringContainsString('id="guide-hint"', $html);
         $this->assertStringContainsString('Na wegklikken vind je die altijd terug onder', $html);
         $this->assertStringContainsString('profile-guide-link', $html);
+        $this->assertStringContainsString('id="tenant-logo-bar"', $html);
+        $this->assertStringContainsString('id="tenant-logo"', $html);
         $this->assertStringContainsString('/taxi/contract/handleiding', $html);
         $this->assertStringNotContainsString('id="install-hint"', $html);
         $this->assertStringNotContainsString('Hoe installeren', $html);

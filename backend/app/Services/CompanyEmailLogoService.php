@@ -107,6 +107,53 @@ class CompanyEmailLogoService
         return url(route('email.company-logo', ['company' => $companyId], false));
     }
 
+    /**
+     * Light- en dark-logo voor chauffeur-/contract-PWA (huidige host).
+     *
+     * @return array{light: ?string, dark: ?string}
+     */
+    public function pwaLogoUrls(?int $companyId): array
+    {
+        $light = $this->adminPreviewLogoUrl($companyId);
+        if ($light === null) {
+            return ['light' => null, 'dark' => null];
+        }
+
+        $dark = $this->resolveDarkLogoPayload($companyId) !== null
+            ? $light.(str_contains($light, '?') ? '&' : '?').'variant=dark'
+            : $light;
+
+        return ['light' => $light, 'dark' => $dark];
+    }
+
+    /**
+     * @return array{data: string, mime: string}|null
+     */
+    public function resolveDarkLogoPayload(?int $companyId): ?array
+    {
+        if ($companyId === null || $companyId <= 0) {
+            return null;
+        }
+
+        $company = Company::query()->find($companyId);
+        if ($company && filled($company->logo_dark_blob)) {
+            $binary = base64_decode((string) $company->logo_dark_blob, true);
+            if ($binary !== false && $binary !== '') {
+                return [
+                    'data' => $binary,
+                    'mime' => (string) ($company->logo_dark_mime_type ?: 'image/png'),
+                ];
+            }
+        }
+
+        $path = GeneralSetting::get('logo_dark', null, $companyId);
+        if (is_string($path) && trim($path) !== '') {
+            return $this->payloadFromStoragePath($path);
+        }
+
+        return null;
+    }
+
     public function resolveEmailLogoMaxHeightPx(?int $companyId): int
     {
         $raw = GeneralSetting::get('logo_size', '56', $companyId && $companyId > 0 ? $companyId : null);

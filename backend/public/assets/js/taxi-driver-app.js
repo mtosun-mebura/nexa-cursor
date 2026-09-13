@@ -17,14 +17,16 @@
     const GPS_COORDS_KEY = 'nexa_taxi_driver_last_gps';
     const GPS_FIX_OPTIONS = {
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 750
+        timeout: 20000,
+        maximumAge: 0
     };
     const GPS_SEND_INTERVAL_MS = 1000;
-    const GPS_HEARTBEAT_MS = 1000;
-    const GPS_MAX_ACCURACY_METERS = 140;
-    const GPS_BACKGROUND_ACCURACY_METERS = 250;
-    const GPS_MAX_SPEED_MPS = 42;
+    const GPS_HEARTBEAT_MS = 1500;
+    const GPS_STALE_HEARTBEAT_MS = 15000;
+    const GPS_MAX_ACCURACY_METERS = 320;
+    const GPS_BACKGROUND_ACCURACY_METERS = 480;
+    const GPS_MOVE_ACCEPT_METERS = 18;
+    const GPS_MAX_SPEED_MPS = 55;
     const VALID_TABS = ['requests', 'trips', 'planning', 'navigation', 'earnings', 'profile'];
     const VALID_RIDE_KINDS = ['all', 'taxi', 'contract'];
     const RIDE_KIND_KEY = 'nexa_taxi_driver_ride_kind';
@@ -221,6 +223,8 @@
         return null;
     })();
     let lastGpsSentAt = 0;
+    let lastGpsSentFixAt = 0;
+    let lastSentGpsCoords = null;
     let lastGpsAccuracy = null;
     let lastGpsFixAt = 0;
     let gpsWatchId = null;
@@ -724,6 +728,7 @@
             localStorage.setItem(ONLINE_KEY, '0');
             setOnlineUi();
             stopInboxSync();
+            stopGpsTracking();
             renderOffer(null);
             updateEmptyState();
             syncScreenWakeLock();
@@ -2017,8 +2022,12 @@
         }
     }
 
+    function shouldKeepGpsTracking() {
+        return !!(token && accountActive);
+    }
+
     function shouldKeepGpsAlive() {
-        return !!(token && accountActive && isOnline);
+        return !!(shouldKeepGpsTracking() && isOnline);
     }
 
     function shouldKeepScreenAwake() {
@@ -5232,7 +5241,7 @@
             return;
         }
         try {
-            const coords = isOnline ? await getDriverPosition() : lastGpsCoords;
+            const coords = await getDriverPosition() || lastGpsCoords;
             const body = { is_online: isOnline };
             if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
                 body.lat = coords.lat;
@@ -5252,11 +5261,14 @@
             }
             console.warn(e);
         }
-        if (isOnline) {
+        if (token && accountActive) {
             startGpsTracking();
-            await refreshInbox();
         } else {
             stopGpsTracking();
+        }
+        if (isOnline) {
+            await refreshInbox();
+        } else {
             inboxLoading = false;
             inboxHasLoaded = false;
             stopInboxSync();
@@ -5407,27 +5419,48 @@
         };
     }
 
+    function headingBetweenCoords(from, to) {
+        if (!from || !to) {
+            return null;
+        }
+        const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+        const lat1 = (from.lat * Math.PI) / 180;
+        const lat2 = (to.lat * Math.PI) / 180;
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+        return (bearing + 360) % 360;
+    }
+
     function shouldAcceptGpsFix(next) {
         if (!next || !Number.isFinite(next.lat) || !Number.isFinite(next.lng)) {
             return false;
         }
         const acc = next.accuracy;
+        const moved = lastGpsCoords && Number.isFinite(lastGpsCoords.lat)
+            ? rideTrackDistanceMeters(lastGpsCoords, next)
+            : Infinity;
+        if (!lastGpsCoords) {
+            return !Number.isFinite(acc) || acc <= 2000;
+        }
+        if (lastGpsFixAt) {
+            const dt = Math.max(0.25, ((next.at || Date.now()) - lastGpsFixAt) / 1000);
+            if (moved > 280 && (moved / dt) > GPS_MAX_SPEED_MPS && !(Number.isFinite(acc) && acc <= 15)) {
+                return false;
+            }
+        }
+        if (moved >= GPS_MOVE_ACCEPT_METERS && (!Number.isFinite(acc) || acc <= 500)) {
+            return true;
+        }
         const maxAcc = document.visibilityState === 'visible'
             ? GPS_MAX_ACCURACY_METERS
             : GPS_BACKGROUND_ACCURACY_METERS;
-        if (Number.isFinite(acc) && acc > maxAcc) {
+        if (Number.isFinite(acc) && acc > maxAcc && moved < GPS_MOVE_ACCEPT_METERS) {
             return false;
         }
         if (lastGpsCoords && Number.isFinite(acc) && Number.isFinite(lastGpsAccuracy)
-            && acc > lastGpsAccuracy + 35 && acc > GPS_MAX_ACCURACY_METERS) {
+            && acc > lastGpsAccuracy + 50 && acc > 80 && moved < 8) {
             return false;
-        }
-        if (lastGpsCoords && lastGpsFixAt) {
-            const dt = Math.max(0.25, ((next.at || Date.now()) - lastGpsFixAt) / 1000);
-            const dist = rideTrackDistanceMeters(lastGpsCoords, next);
-            if (dist > 120 && (dist / dt) > GPS_MAX_SPEED_MPS && !(Number.isFinite(acc) && acc <= 12)) {
-                return false;
-            }
         }
         return true;
     }
@@ -5528,6 +5561,24 @@
         });
     }
 
+    function maybeSendHeartbeatLocation(coords) {
+        if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+            return;
+        }
+        const now = Date.now();
+        const fixAt = Number.isFinite(coords.at) ? coords.at : now;
+        if (now - fixAt > 12000) {
+            return;
+        }
+        const moved = lastSentGpsCoords
+            ? rideTrackDistanceMeters(lastSentGpsCoords, coords) >= 4
+            : true;
+        if (!moved && (now - lastGpsSentAt) < GPS_STALE_HEARTBEAT_MS) {
+            return;
+        }
+        sendDriverLocation(coords, true, true);
+    }
+
     async function sendDriverLocation(coords, withVehicle, force) {
         if (!token || !coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
             return;
@@ -5539,17 +5590,24 @@
             return;
         }
         lastGpsSentAt = now;
+        lastGpsSentFixAt = Number.isFinite(coords.at) ? coords.at : now;
+        let heading = Number.isFinite(coords.heading) ? coords.heading : null;
+        if (heading == null && lastSentGpsCoords
+            && rideTrackDistanceMeters(lastSentGpsCoords, coords) >= 8) {
+            heading = headingBetweenCoords(lastSentGpsCoords, coords);
+        }
+        lastSentGpsCoords = { lat: coords.lat, lng: coords.lng };
         const body = { lat: coords.lat, lng: coords.lng };
         if (Number.isFinite(coords.accuracy)) {
             body.accuracy = coords.accuracy;
         }
-        if (Number.isFinite(coords.heading)) {
-            body.heading = coords.heading;
+        if (Number.isFinite(heading)) {
+            body.heading = heading;
         }
         if (Number.isFinite(coords.speed)) {
             body.speed = coords.speed;
         }
-        if (withVehicle && selectedVehicleId) {
+        if (selectedVehicleId && (withVehicle !== false)) {
             body.vehicle_id = selectedVehicleId;
         }
         try {
@@ -5563,13 +5621,18 @@
 
     function startGpsTracking() {
         stopGpsTracking();
+        refreshDriverPosition().then(function (coords) {
+            maybeSendHeartbeatLocation(coords);
+        });
         if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
             gpsHeartbeatTimer = setInterval(function () {
-                refreshDriverPosition().then(function (coords) {
-                    sendDriverLocation(coords, false, true);
-                });
+                refreshDriverPosition().then(maybeSendHeartbeatLocation);
             }, GPS_HEARTBEAT_MS);
-            showOnlineGpsNotification();
+            if (isOnline) {
+                showOnlineGpsNotification();
+            } else {
+                hideOnlineGpsNotification();
+            }
             return;
         }
         gpsWatchId = navigator.geolocation.watchPosition(
@@ -5578,17 +5641,19 @@
                 if (!coords || !shouldAcceptGpsFix(coords)) {
                     return;
                 }
-                sendDriverLocation(coords, false);
+                sendDriverLocation(coords, true);
             },
             function () {},
             GPS_FIX_OPTIONS
         );
         gpsHeartbeatTimer = setInterval(function () {
-            refreshDriverPosition().then(function (coords) {
-                sendDriverLocation(coords, false, true);
-            });
+            refreshDriverPosition().then(maybeSendHeartbeatLocation);
         }, GPS_HEARTBEAT_MS);
-        showOnlineGpsNotification();
+        if (isOnline) {
+            showOnlineGpsNotification();
+        } else {
+            hideOnlineGpsNotification();
+        }
     }
 
     function stopGpsTracking() {
@@ -10368,7 +10433,7 @@
         }
         setOnlineUi();
         updateProfileOnlineStatus();
-        if (isOnline && token && accountActive) {
+        if (token && accountActive) {
             startGpsTracking();
         } else {
             stopGpsTracking();
@@ -10417,6 +10482,9 @@
             setProfileField(emailEl, '');
             setProfileField(phoneEl, '');
             setProfileField(companyEl, '');
+            if (typeof window.nexaApplyTenantLogo === 'function') {
+                window.nexaApplyTenantLogo(null);
+            }
             if (statusEl) {
                 delete statusEl.dataset.hasUser;
                 delete statusEl.dataset.accountActive;
@@ -10432,6 +10500,9 @@
         setProfileField(emailEl, user.email || '');
         setProfileField(phoneEl, user.phone || '');
         setProfileField(companyEl, user.company_name || '');
+        if (typeof window.nexaApplyTenantLogo === 'function') {
+            window.nexaApplyTenantLogo(user);
+        }
         if (statusEl) {
             statusEl.dataset.hasUser = '1';
             statusEl.dataset.accountActive = user.is_account_active === false ? '0' : '1';
@@ -11189,10 +11260,12 @@
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
             onPageBecameVisible();
-            if (isOnline && token) {
+            if (token && isOnline) {
                 refreshInbox();
+            }
+            if (shouldKeepGpsTracking()) {
                 refreshDriverPosition().then(function (coords) {
-                    sendDriverLocation(coords, false, true);
+                    sendDriverLocation(coords, true, true);
                 });
             }
             return;
@@ -11202,11 +11275,16 @@
             screenWakeLock = null;
         }
         stopWakeLockMaintenance();
-        if (shouldKeepGpsAlive()) {
-            startNoSleepFallback();
-            showOnlineGpsNotification();
+        if (shouldKeepGpsTracking()) {
+            if (isOnline) {
+                startNoSleepFallback();
+                showOnlineGpsNotification();
+            } else {
+                stopNoSleepFallback();
+                hideOnlineGpsNotification();
+            }
             refreshDriverPosition().then(function (coords) {
-                sendDriverLocation(coords, false, true);
+                sendDriverLocation(coords, true, true);
             });
         } else {
             stopNoSleepFallback();

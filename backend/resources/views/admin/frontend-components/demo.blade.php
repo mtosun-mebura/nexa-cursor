@@ -73,11 +73,17 @@
             root.querySelectorAll('[data-scroll-reveal], .scroll-reveal-section, .theme-scroll-reveal').forEach(function (el) {
                 el.classList.remove('is-in-view', 'is-visible');
                 el.classList.add('theme-anim-reset');
+                el.querySelectorAll('[data-scroll-reveal-item]').forEach(function (item) {
+                    item.classList.remove('is-in-view');
+                });
                 void el.offsetWidth;
                 window.setTimeout(function () {
                     el.classList.remove('theme-anim-reset');
                     void el.offsetWidth;
                     el.classList.add('is-in-view');
+                    el.querySelectorAll('[data-scroll-reveal-item]').forEach(function (item) {
+                        item.classList.add('is-in-view');
+                    });
                 }, 50);
             });
         }

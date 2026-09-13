@@ -84,8 +84,23 @@ class DriverAvailabilityController extends Controller
             && $data['lng'] !== null;
         $existing = DriverAvailability::on($conn)->find($user->id);
         $accuracy = isset($data['accuracy']) && $data['accuracy'] !== null ? (float) $data['accuracy'] : null;
-        if ($hasCoords && $accuracy !== null && $accuracy > 180.0 && $existing && $existing->lat !== null && $existing->lng !== null) {
-            $hasCoords = false;
+        $moveMeters = 0.0;
+        if ($hasCoords && $existing && $existing->lat !== null && $existing->lng !== null) {
+            $moveMeters = $this->distanceMeters(
+                (float) $existing->lat,
+                (float) $existing->lng,
+                (float) $data['lat'],
+                (float) $data['lng']
+            );
+        }
+        if ($hasCoords && $accuracy !== null && $existing && $existing->lat !== null && $existing->lng !== null) {
+            if ($accuracy > 250.0 && $moveMeters < 15.0) {
+                $hasCoords = false;
+            } elseif ($accuracy > 600.0 && $moveMeters < 80.0) {
+                $hasCoords = false;
+            } elseif ($moveMeters > 2500.0 && $accuracy > 80.0) {
+                $hasCoords = false;
+            }
         }
         if ($hasCoords) {
             $payload['lat'] = $data['lat'];
@@ -96,6 +111,17 @@ class DriverAvailabilityController extends Controller
         if (isset($data['heading']) && $data['heading'] !== null) {
             $heading = fmod((float) $data['heading'] + 360.0, 360.0);
             Cache::put('taxi-gps-heading:'.$companyId.':'.(int) $user->id, $heading, now()->addMinutes(2));
+        } elseif ($hasCoords && $existing && $existing->lat !== null && $existing->lng !== null && $moveMeters >= 8.0) {
+            Cache::put(
+                'taxi-gps-heading:'.$companyId.':'.(int) $user->id,
+                $this->bearingDegrees(
+                    (float) $existing->lat,
+                    (float) $existing->lng,
+                    (float) $data['lat'],
+                    (float) $data['lng']
+                ),
+                now()->addMinutes(2)
+            );
         }
 
         $hasVehicleColumn = Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id');
@@ -165,5 +191,24 @@ class DriverAvailabilityController extends Controller
                 'last_seen_at' => $row->last_seen_at?->toIso8601String(),
             ],
         ]);
+    }
+
+    private function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return 2 * 6371000 * asin(min(1.0, sqrt($a)));
+    }
+
+    private function bearingDegrees(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $y = sin(deg2rad($lng2 - $lng1)) * cos(deg2rad($lat2));
+        $x = cos(deg2rad($lat1)) * sin(deg2rad($lat2))
+            - sin(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($lng2 - $lng1));
+
+        return fmod(rad2deg(atan2($y, $x)) + 360.0, 360.0);
     }
 }

@@ -94,7 +94,7 @@
     </style>
     <script>
     (function () {
-        var ANIMATED_SEL = '.nexa-pros-cons__reveal, .nexa-pros-cons__item-reveal, .scroll-reveal-item, .footer-animate-brand, .footer-animate-tagline, .footer-footer-anim-left, .footer-map-reveal, .info-req-animate-left, .info-req-animate-right, .info-req-animate-bottom, .grw-summary, .grw-card, .grw-header h2, .grw-header p, .grw-btn-prev, .grw-btn-next, .grw-dots, .nexa-pricing-reveal--block, .nexa-pricing-reveal__item, .nexa-pricing-reveal__card';
+        var ANIMATED_SEL = '.nexa-pros-cons__reveal, .nexa-pros-cons__item-reveal, .scroll-reveal-item, [data-scroll-reveal-item], .nexa-screenshot-gallery__intro, .nexa-screenshot-gallery__item, .footer-animate-brand, .footer-animate-tagline, .footer-footer-anim-left, .footer-map-reveal, .info-req-animate-left, .info-req-animate-right, .info-req-animate-bottom, .grw-summary, .grw-card, .grw-header h2, .grw-header p, .grw-btn-prev, .grw-btn-next, .grw-dots, .nexa-pricing-reveal--block, .nexa-pricing-reveal__item, .nexa-pricing-reveal__card';
         var restartTimer = null;
 
         function clearInline(node) {
@@ -104,7 +104,7 @@
         }
 
         function snapHidden() {
-            document.querySelectorAll('[data-scroll-reveal]').forEach(function (el) {
+            document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-item]').forEach(function (el) {
                 el.classList.remove('is-in-view');
             });
             document.querySelectorAll('.info-request-section').forEach(function (el) {
@@ -130,7 +130,7 @@
                 document.querySelectorAll(ANIMATED_SEL).forEach(clearInline);
                 void document.body.offsetHeight;
                 requestAnimationFrame(function () {
-                    document.querySelectorAll('[data-scroll-reveal]').forEach(function (el) {
+                    document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-item]').forEach(function (el) {
                         el.classList.add('is-in-view');
                     });
                     document.querySelectorAll('.info-request-section').forEach(function (el) {

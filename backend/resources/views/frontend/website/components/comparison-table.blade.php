@@ -195,8 +195,9 @@
                 min-width: 0;
                 width: 100%;
             }
-            @media (max-width: 639px) {
-                .nexa-pros-cons__columns {
+            @media (max-width: 767px) {
+                .nexa-pros-cons__columns,
+                .nexa-pros-cons__columns--both:not(.nexa-pros-cons__columns--stack) {
                     width: 100%;
                     grid-template-columns: minmax(0, 1fr);
                 }

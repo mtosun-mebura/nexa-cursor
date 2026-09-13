@@ -42,10 +42,10 @@
     }
 @endphp
 @if($visibleItems !== [])
-<section class="nexa-screenshot-gallery pt-6 md:pt-8 pb-8 md:pb-10 bg-white dark:bg-gray-900" data-layout="{{ $layout }}">
+<section class="nexa-screenshot-gallery pt-6 md:pt-8 pb-8 md:pb-10 bg-white dark:bg-gray-900 scroll-reveal-section" data-layout="{{ $layout }}" data-scroll-reveal>
     <div class="website-section-inner">
         @if($title !== '' || $subtitle !== '')
-        <div class="text-center mb-6 max-w-3xl mx-auto">
+        <div class="text-center mb-6 max-w-3xl mx-auto nexa-screenshot-gallery__intro" data-scroll-reveal-item>
             @if($title !== '')
             <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">{{ $title }}</h2>
             @endif
@@ -56,7 +56,7 @@
         @endif
         <div class="nexa-screenshot-gallery__grid nexa-screenshot-gallery__grid--{{ $layout }}">
             @foreach($visibleItems as $item)
-            <figure class="nexa-screenshot-gallery__item">
+            <figure class="nexa-screenshot-gallery__item" data-scroll-reveal-item>
                 <button type="button"
                     class="nexa-screenshot-gallery__link nexa-screenshot-gallery__zoom"
                     data-lightbox-src="{{ $item['src'] }}"
@@ -97,6 +97,25 @@
                 grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             }
             .nexa-screenshot-gallery__item { margin: 0; }
+            .nexa-screenshot-gallery.scroll-reveal-section .nexa-screenshot-gallery__intro,
+            .nexa-screenshot-gallery.scroll-reveal-section .nexa-screenshot-gallery__item {
+                opacity: 0;
+                transform: translateY(28px);
+                transition: opacity 1s cubic-bezier(0.22, 0.61, 0.36, 1), transform 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+            }
+            .nexa-screenshot-gallery.scroll-reveal-section .nexa-screenshot-gallery__intro.is-in-view,
+            .nexa-screenshot-gallery.scroll-reveal-section .nexa-screenshot-gallery__item.is-in-view {
+                opacity: 1;
+                transform: none;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .nexa-screenshot-gallery.scroll-reveal-section .nexa-screenshot-gallery__intro,
+                .nexa-screenshot-gallery.scroll-reveal-section .nexa-screenshot-gallery__item {
+                    opacity: 1;
+                    transform: none;
+                    transition: none;
+                }
+            }
             .nexa-screenshot-gallery__grid--grid .nexa-screenshot-gallery__item,
             .nexa-screenshot-gallery__grid--grid .nexa-screenshot-gallery__link {
                 height: 100%;

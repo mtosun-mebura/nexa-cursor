@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use App\Services\CompanyEmailLogoService;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -11,9 +12,12 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EmailCompanyLogoController extends Controller
 {
-    public function __invoke(Company $company, CompanyEmailLogoService $logos): Response
+    public function __invoke(Request $request, Company $company, CompanyEmailLogoService $logos): Response
     {
-        $payload = $logos->resolveLogoPayload((int) $company->id);
+        $companyId = (int) $company->id;
+        $payload = $request->query('variant') === 'dark'
+            ? ($logos->resolveDarkLogoPayload($companyId) ?? $logos->resolveLogoPayload($companyId))
+            : $logos->resolveLogoPayload($companyId);
         if ($payload === null) {
             abort(404);
         }

@@ -197,7 +197,7 @@
         .driver-app-header {
             position: relative;
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
             align-items: center;
             gap: 0.5rem;
             min-height: 2.75rem;
@@ -273,10 +273,14 @@
             justify-self: center;
             display: flex;
             align-items: center;
-            min-width: 0;
+            justify-content: center;
+            flex-wrap: nowrap;
+            gap: 0.15rem;
+            min-width: max-content;
         }
         .driver-app-header__end {
             grid-column: 3;
+            justify-self: end;
             width: 2.25rem;
             height: 2.25rem;
             flex-shrink: 0;
@@ -1174,6 +1178,8 @@
         .toolbar-nav {
             display: flex;
             align-items: center;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
             margin: 0;
             min-height: 0;
         }
@@ -1183,9 +1189,11 @@
             justify-content: center;
             gap: 0;
             flex-wrap: nowrap;
-            max-width: 100%;
+            flex-shrink: 0;
+            max-width: none;
             padding: 0;
             overflow: visible;
+            white-space: nowrap;
         }
         .dispatch-screen-title {
             text-align: center;
@@ -2029,6 +2037,8 @@
             display: inline-flex;
             align-items: stretch;
             flex-shrink: 0;
+            flex-wrap: nowrap;
+            white-space: nowrap;
             border: 1px solid var(--line);
             border-radius: 0.75rem;
             overflow: hidden;
@@ -2095,6 +2105,32 @@
         .driver-section-head--with-filter:not(.has-ride-kind-filter) {
             display: flex;
             justify-content: space-between;
+        }
+        #requests-section-head.has-ride-kind-filter {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                "filter filter"
+                "title icon";
+            align-items: center;
+            column-gap: 0.75rem;
+            row-gap: 0.55rem;
+        }
+        #requests-section-head.has-ride-kind-filter > h2 {
+            grid-area: title;
+            justify-self: start;
+            min-width: 0;
+            font-size: 1.05rem;
+            white-space: nowrap;
+        }
+        #requests-section-head.has-ride-kind-filter > .ride-kind-filter {
+            grid-area: filter;
+            grid-column: 1 / -1;
+            justify-self: center;
+        }
+        #requests-section-head.has-ride-kind-filter > .driver-section-head__icon {
+            grid-area: icon;
+            justify-self: end;
         }
         .planning-week-nav {
             display: flex;
@@ -3503,6 +3539,7 @@
             <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
         </div>
     </div>
+    @include('taxi::partials.tenant-logo-bar')
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Chauffeur inloggen</h1>
         <div class="card">
@@ -4096,7 +4133,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=154" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=157" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Support\PwaAccent;
+use App\Services\CompanyEmailLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
@@ -198,6 +199,7 @@ class ContractPortalAuthController extends Controller
         $roleLabel = $role === TransportCustomerPortalUser::ROLE_CONTRACTANT
             ? 'Contractant'
             : 'Contractouder';
+        $logoUrls = app(CompanyEmailLogoService::class)->pwaLogoUrls((int) ($context['company_id'] ?? 0));
 
         return [
             'id' => $user->id,
@@ -208,6 +210,8 @@ class ContractPortalAuthController extends Controller
             'phone' => trim((string) ($user->phone ?? '')) ?: null,
             'company_id' => (int) ($context['company_id'] ?? 0),
             'company_name' => $this->resolveCompanyName((int) ($context['company_id'] ?? 0), $user),
+            'company_logo_url' => $logoUrls['light'],
+            'company_logo_dark_url' => $logoUrls['dark'],
             'transport_customer_id' => (int) ($context['transport_customer_id'] ?? 0),
             'portal_role' => $role,
             'portal_role_label' => $roleLabel,

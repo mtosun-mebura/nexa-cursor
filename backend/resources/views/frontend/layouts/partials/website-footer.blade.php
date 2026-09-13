@@ -63,12 +63,8 @@
                         $showQuickLinks = ($footVis['footer_quick_links'] ?? true) && !empty($footerData['quick_links']);
                         $showSupportLinks = ($footVis['footer_support_links'] ?? true) && !empty($footerData['support_links']);
                         $footerLinkColumnsCount = ($showQuickLinks ? 1 : 0) + ($showSupportLinks ? 1 : 0);
-                        $footerShowMapRight = $footerMapVisible;
-                        $footerGridCols = $footerShowMapRight ? 'md:grid-cols-2' : ($footerLinkColumnsCount === 2 ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 1 ? 'md:grid-cols-3' : 'md:grid-cols-1'));
-                        $footerGridWithMapClass = $footerShowMapRight ? ' footer-grid-with-map' : '';
-                        $footerFirstColSpan = $footerLinkColumnsCount === 2 ? 'md:col-span-2' : ($footerLinkColumnsCount === 1 ? 'md:col-span-2' : 'md:col-span-1');
-                        $footerQuickLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-3' : 'md:col-start-3';
-                        $footerSupportLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-4' : 'md:col-start-3';
+                        $footerLinkGridCols = $footerLinkColumnsCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
+                        $footerGridWithMapClass = $footerMapVisible ? ' footer-grid-with-map' : '';
                         $footerSocialLinks = [];
                         $footerSocialBases = ['social_facebook' => 'https://www.facebook.com/', 'social_instagram' => 'https://www.instagram.com/', 'social_x' => 'https://x.com/', 'social_linkedin' => 'https://www.linkedin.com/', 'social_youtube' => 'https://www.youtube.com/', 'social_tiktok' => 'https://www.tiktok.com/@'];
                         foreach (['facebook' => 'social_facebook', 'instagram' => 'social_instagram', 'x' => 'social_x', 'linkedin' => 'social_linkedin', 'youtube' => 'social_youtube', 'tiktok' => 'social_tiktok'] as $key => $field) {
@@ -106,140 +102,72 @@
                         $footerDelayMap = min($footerDelayMap, 420);
                     @endphp
                     <div class="footer-reveal-soft">
-                    <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerShowMapRight ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
-                        @if($footerShowMapRight)
-                        {{-- Linkerkant (50%): logo + tagline, daaronder Snelle Links (links) en Ondersteuning (rechts) naast elkaar --}}
-                        <div class="flex flex-col min-w-0">
-                            <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
-                                @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                    @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @endif
-                                    </div>
-                                @elseif($footVis['footer_logo'] ?? true)
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                        @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
-                                    </div>
-                                @endif
-                                @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
-                                        {!! $homeSections['footer']['tagline'] !!}
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-0 w-full max-w-full min-w-0">
-                                @if($showQuickLinks)
-                                <div class="{{ $footerQuickLinksAlignClass }} min-w-0">
-                                    <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
-                                    @php $footerQlAnim = 0; @endphp
-                                    <ul class="footer-quick-links-list space-y-3">
-                                        @foreach($footerData['quick_links'] as $link)
-                                            @if(!empty($link['label']))
-                                        @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
-                                        <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                            @endif
-                                        @endforeach
-                                    </ul>
-                                </div>
-                                @endif
-                                @if($showSupportLinks)
-                                <div class="{{ $footerSupportLinksAlignClass }} min-w-0">
-                                    <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-4" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
-                                    @php $footerSlAnim = 0; @endphp
-                                    <ul class="footer-support-links-list space-y-3">
-                                        @foreach($footerData['support_links'] as $link)
-                                            @if(!empty($link['label']))
-                                        @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
-                                        <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                            @endif
-                                        @endforeach
-                                    </ul>
-                                </div>
-                                @endif
-                            </div>
-                        </div>
-                        {{-- Rechterkant (50%): kaart over volle breedte van de rechterhelft --}}
-                        <div class="w-full min-w-0 flex flex-col">
-                            <div class="footer-map-reveal w-full min-w-0 flex-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
-                                @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-[200px] block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 200px; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
+                    <div class="flex flex-col gap-6{{ $footerGridWithMapClass }}">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start w-full min-w-0">
+                        <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
+                            @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
+                                <div class="footer-animate-brand inline-block mb-4">
+                                @if(!empty($footerLogoDarkUrl))
+                                    <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
+                                    <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
                                 @else
-                                <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
-                                    <span>Stel de Google Maps API-sleutel in via het Admin paneel om de kaart te tonen.</span>
-                                </div>
+                                    <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
                                 @endif
-                            </div>
+                                </div>
+                            @elseif($footVis['footer_logo'] ?? true)
+                                <div class="footer-animate-brand inline-block mb-4">
+                                    @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
+                                </div>
+                            @endif
+                            @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
+                                <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-0 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
+                                    {!! $homeSections['footer']['tagline'] !!}
+                                </div>
+                            @endif
                         </div>
-                        @else
-                        {{-- Geen map of geen linkkolommen: één kolom logo+tagline+kaart --}}
-                        <div class="col-span-1 {{ $footerFirstColSpan }}">
-                            <div class="{{ $footerLogoAlignWrapper }}">
-                                @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                    @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @endif
-                                    </div>
-                                @elseif($footVis['footer_logo'] ?? true)
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                        @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
-                                    </div>
-                                @endif
-                                @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
-                                        {!! $homeSections['footer']['tagline'] !!}
-                                    </div>
-                                @endif
+                        @if($showQuickLinks || $showSupportLinks)
+                        <div class="grid {{ $footerLinkGridCols }} gap-6 w-full max-w-full min-w-0">
+                            @if($showQuickLinks)
+                            <div class="{{ $footerQuickLinksAlignClass }} min-w-0">
+                                <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
+                                @php $footerQlAnim = 0; @endphp
+                                <ul class="footer-quick-links-list space-y-3">
+                                    @foreach($footerData['quick_links'] as $link)
+                                        @if(!empty($link['label']))
+                                    @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
+                                    <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
+                                        @endif
+                                    @endforeach
+                                </ul>
                             </div>
-                            @if($footerMapVisible)
-                            <div class="footer-map-reveal w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
-                                @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-full block" style="width: 100%; height: 100%; min-height: 100%;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
-                                @else
-                                <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
-                                    <span>Stel de Google Maps API-sleutel in via het Admin paneel om de kaart te tonen.</span>
-                                </div>
-                                @endif
+                            @endif
+                            @if($showSupportLinks)
+                            <div class="{{ $footerSupportLinksAlignClass }} min-w-0">
+                                <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
+                                @php $footerSlAnim = 0; @endphp
+                                <ul class="footer-support-links-list space-y-3">
+                                    @foreach($footerData['support_links'] as $link)
+                                        @if(!empty($link['label']))
+                                    @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
+                                    <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
+                                        @endif
+                                    @endforeach
+                                </ul>
                             </div>
                             @endif
                         </div>
                         @endif
-                        @if(!$footerShowMapRight)
-                        @if($showQuickLinks)
-                        <div class="{{ $footerQuickLinksCol }} {{ $footerQuickLinksAlignClass }}">
-                            <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
-                            @php $footerQlAnim = 0; @endphp
-                            <ul class="footer-quick-links-list space-y-3">
-                                @foreach($footerData['quick_links'] as $link)
-                                    @if(!empty($link['label']))
-                                @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
-                                <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                    @endif
-                                @endforeach
-                            </ul>
                         </div>
-                        @endif
-                        @if($showSupportLinks)
-                        <div class="{{ $footerSupportLinksCol }} {{ $footerSupportLinksAlignClass }}">
-                            <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-4" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
-                            @php $footerSlAnim = 0; @endphp
-                            <ul class="footer-support-links-list space-y-3">
-                                @foreach($footerData['support_links'] as $link)
-                                    @if(!empty($link['label']))
-                                @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
-                                <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                    @endif
-                                @endforeach
-                            </ul>
+                        @if($footerMapVisible)
+                        <div class="footer-map-reveal w-full min-w-0 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
+                            @if($showFooterMap)
+                            <div id="footer-google-map" class="w-full h-full min-h-[200px] block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 200px; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
+                            @else
+                            <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
+                                <span>Stel de Google Maps API-sleutel in via het Admin paneel om de kaart te tonen.</span>
+                            </div>
+                            @endif
                         </div>
-                        @endif
                         @endif
                     </div>
                     @if(($footVis['footer_social'] ?? true) && count($footerSocialLinks) > 0)
