@@ -84,7 +84,7 @@
     <!-- End of Container -->
 </div>
 
-<div class="kt-container-fixed mb-5 lg:mb-7.5">
+<div class="kt-container-fixed mb-5 lg:mb-7.5 flex flex-col gap-3">
     <div class="kt-card">
         <div class="kt-card-content">
             <div class="flex lg:px-10 py-1.5 gap-2 flex-wrap">
@@ -119,6 +119,7 @@
             </div>
         </div>
     </div>
+    @include('admin.dashboard.partials.app-launch-bar')
 </div>
 
 <div class="kt-container-fixed">

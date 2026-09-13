@@ -102,4 +102,40 @@ class CompanyEmailLogoServiceTest extends TestCase
 
         $this->assertStringContainsString('<strong>Zonder Logo BV</strong>', $vars['COMPANY_LOGO']);
     }
+
+    #[Test]
+    public function pwa_logo_urls_include_dark_variant_when_dark_blob_exists(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Taxi Logo',
+            'logo_blob' => base64_encode(self::TINY_PNG),
+            'logo_mime_type' => 'image/png',
+            'logo_dark_blob' => base64_encode(self::TINY_PNG),
+            'logo_dark_mime_type' => 'image/png',
+        ]);
+
+        $urls = app(CompanyEmailLogoService::class)->pwaLogoUrls($company->id);
+
+        $this->assertNotNull($urls['light']);
+        $this->assertNotNull($urls['dark']);
+        $this->assertStringContainsString('/email-logo/'.$company->id, $urls['light']);
+        $this->assertStringContainsString('variant=dark', $urls['dark']);
+        $this->assertStringNotContainsString('variant=dark', $urls['light']);
+    }
+
+    #[Test]
+    public function dark_email_logo_route_serves_dark_blob(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Taxi Dark Logo',
+            'logo_blob' => base64_encode(self::TINY_PNG),
+            'logo_mime_type' => 'image/png',
+            'logo_dark_blob' => base64_encode(self::TINY_PNG),
+            'logo_dark_mime_type' => 'image/png',
+        ]);
+
+        $this->get(route('email.company-logo', ['company' => $company->id, 'variant' => 'dark']))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png');
+    }
 }

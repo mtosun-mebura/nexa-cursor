@@ -1421,6 +1421,7 @@
             </div>
         </div>
     </div>
+    @include('taxi::partials.tenant-logo-bar')
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Contract inloggen</h1>
         <div class="card">
@@ -1607,7 +1608,7 @@ window.NEXA_TAXI_CONTRACT = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=44" defer></script>
+<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=45" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

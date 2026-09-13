@@ -60,6 +60,119 @@
             max-width: 100%;
             overflow-x: clip;
         }
+        .modern-home-hero--has-image {
+            background-color: #07111f;
+        }
+        .modern-home-hero--has-image .modern-home-hero__media {
+            max-height: min(48vh, 26rem);
+        }
+        .modern-home-hero--has-image .modern-home-hero__image {
+            max-height: min(48vh, 26rem);
+            object-fit: cover;
+            object-position: center;
+        }
+        @media (max-width: 767px) {
+            .modern-home-hero--has-image {
+                --hero-mobile-min-height: min(46dvh, 22rem);
+                min-height: var(--hero-mobile-min-height);
+                background-color: #07111f;
+            }
+            .modern-home-hero--has-image .modern-home-hero__media {
+                position: absolute;
+                inset: 0;
+                max-height: none;
+                height: 100%;
+                width: 100%;
+                overflow: hidden;
+            }
+            .modern-home-hero--has-image .modern-home-hero__image {
+                position: absolute;
+                inset: 0;
+                width: 100% !important;
+                height: 100% !important;
+                max-height: none !important;
+                min-height: 100%;
+                object-fit: cover;
+                object-position: 20% center;
+            }
+            .modern-home-hero--has-image .modern-home-hero__caption-overlay {
+                position: relative !important;
+                inset: auto !important;
+                top: auto !important;
+                right: auto !important;
+                bottom: auto !important;
+                left: auto !important;
+                min-height: var(--hero-mobile-min-height);
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .modern-home-hero--has-image .hero-caption-subtitle,
+            .modern-home-hero--has-image .hero-caption-width-context,
+            .modern-home-hero--has-image .hero-caption-text-block {
+                width: 100% !important;
+                max-width: 100%;
+            }
+            .modern-home-hero--has-image .hero-caption-title {
+                overflow-wrap: break-word;
+                font-size: 1.15rem !important;
+                line-height: 1.25 !important;
+            }
+            .modern-home-hero--has-image .hero-reveal-btn,
+            .modern-home-cta .cta-reveal-btn {
+                padding: 0.6rem 1rem !important;
+                font-size: 0.875rem !important;
+            }
+            #main-content h1 {
+                font-size: 1.2rem !important;
+                line-height: 1.28 !important;
+                text-wrap: balance;
+            }
+            #main-content h2,
+            #main-content .text-3xl,
+            #main-content .text-4xl,
+            #main-content .nexa-modules-animate-eyebrow,
+            #main-content .nexa-pros-cons__title {
+                font-size: 1.25rem !important;
+                line-height: 1.3 !important;
+                text-wrap: balance;
+            }
+            #main-content h3 {
+                font-size: 1.05rem !important;
+                line-height: 1.35 !important;
+            }
+            #main-content > section {
+                padding-top: 1.35rem;
+                padding-bottom: 1.6rem;
+            }
+            #main-content .mb-8 { margin-bottom: 1rem; }
+            #main-content .mb-12 { margin-bottom: 1.15rem; }
+            #main-content .gap-10 { gap: 1.25rem; }
+            #main-content .gap-8 { gap: 1rem; }
+            #main-content .nexa-pros-cons__columns,
+            #main-content .nexa-pros-cons__columns--both:not(.nexa-pros-cons__columns--stack) {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-title-left {
+                transform: translateX(-18px);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-title-right {
+                transform: translateX(18px);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-zoom {
+                transform: translateY(16px) scale(0.98);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-btn-primary,
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-btn-secondary {
+                transform: translateY(18px);
+            }
+            .modern-home-cta.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.cta-reveal-rise {
+                transform: translateY(24px);
+            }
+            .modern-home-cta.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.cta-reveal-btn-left,
+            .modern-home-cta.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.cta-reveal-btn-right {
+                transform: translateX(0) translateY(18px);
+            }
+        }
         /* Eén grootte voor alle paginatitels (h1) */
         .kt-page-title { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
         @media (min-width: 768px) { .kt-page-title { font-size: 2.25rem; } }
@@ -339,10 +452,19 @@
             var rootMargin = options.rootMargin || '0px';
             var threshold = options.threshold !== undefined ? options.threshold : 0;
             var once = options.once !== false;
+            var minVisiblePx = options.minVisiblePx || 0;
             function run(el) {
                 if (once && el.getAttribute('data-nexa-visible-fired') === '1') return;
                 if (once) el.setAttribute('data-nexa-visible-fired', '1');
                 callback(el);
+            }
+            function isReadyNow(el) {
+                if (!isRoughlyInViewport(el, rootMargin)) return false;
+                if (!minVisiblePx) return true;
+                var rect = el.getBoundingClientRect();
+                var vh = window.innerHeight || document.documentElement.clientHeight;
+                var visible = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
+                return visible >= minVisiblePx || visible >= rect.height * 0.45;
             }
             if (!('IntersectionObserver' in window)) {
                 list.forEach(run);
@@ -358,7 +480,7 @@
             }, { root: options.root || null, rootMargin: rootMargin, threshold: threshold });
             function checkAll() {
                 list.forEach(function(el) {
-                    if (isRoughlyInViewport(el, rootMargin)) run(el);
+                    if (isReadyNow(el)) run(el);
                 });
             }
             list.forEach(function(el) { observer.observe(el); });
@@ -931,7 +1053,23 @@
                 }
             );
             if (!sections.length) return;
-            var opts = { rootMargin: '0px 0px -15% 0px', threshold: 0.25 };
+            var isNarrow = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+            var opts = isNarrow
+                ? { rootMargin: '0px 0px -6% 0px', threshold: 0.08, minVisiblePx: 72 }
+                : { rootMargin: '0px 0px -15% 0px', threshold: 0.25, minVisiblePx: 120 };
+            var itemOpts = isNarrow
+                ? { rootMargin: '0px 0px -22% 0px', threshold: 0.18, minVisiblePx: 88 }
+                : { rootMargin: '0px 0px -18% 0px', threshold: 0.22, minVisiblePx: 110 };
+            var sectionOnly = [];
+            var items = [];
+            sections.forEach(function (el) {
+                var kids = el.querySelectorAll('[data-scroll-reveal-item]');
+                if (kids.length) {
+                    Array.prototype.push.apply(items, kids);
+                } else {
+                    sectionOnly.push(el);
+                }
+            });
             function onSectionInView(el) {
                 el.classList.add('is-in-view');
                 if (el.classList.contains('site-footer-reveal') && typeof window.resizeFooterMap === 'function') {
@@ -940,16 +1078,26 @@
                     setTimeout(window.resizeFooterMap, 900);
                 }
             }
-            if (typeof window.nexaObserveWhenVisible === 'function') {
-                window.nexaObserveWhenVisible(sections, onSectionInView, opts);
-                return;
+            function onItemInView(el) {
+                el.classList.add('is-in-view');
+                var parent = el.closest('[data-scroll-reveal]');
+                if (parent) parent.classList.add('is-in-view');
             }
-            var observer = new IntersectionObserver(function(entries) {
-                entries.forEach(function(entry) {
-                    if (entry.isIntersecting) onSectionInView(entry.target);
-                });
-            }, opts);
-            sections.forEach(function(el) { observer.observe(el); });
+            function observeList(list, callback, observeOpts) {
+                if (!list.length) return;
+                if (typeof window.nexaObserveWhenVisible === 'function') {
+                    window.nexaObserveWhenVisible(list, callback, observeOpts);
+                    return;
+                }
+                var observer = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) callback(entry.target);
+                    });
+                }, observeOpts);
+                list.forEach(function(el) { observer.observe(el); });
+            }
+            observeList(sectionOnly, onSectionInView, opts);
+            observeList(items, onItemInView, itemOpts);
         }
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initScrollRevealSections);

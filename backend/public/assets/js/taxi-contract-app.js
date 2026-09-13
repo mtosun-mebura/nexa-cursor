@@ -416,6 +416,9 @@
         setProfileField($('#profile-phone'), u && u.phone);
         setProfileField($('#profile-role'), u && u.portal_role_label);
         setProfileField($('#profile-company'), u && u.company_name);
+        if (typeof window.nexaApplyTenantLogo === 'function') {
+            window.nexaApplyTenantLogo(u || null);
+        }
         if (!window.nexaPwaAccent) {
             return;
         }
