@@ -632,13 +632,18 @@
     overflow: hidden;
   }
   /* Hero banner: houd hoogte in toom bij breed productbeeld */
-  .modern-home-hero--has-image .modern-home-hero__media {
-    max-height: min(62vh, 34rem);
+  .modern-home-hero--has-image {
+    background-color: #07111f;
   }
-  .modern-home-hero--has-image .modern-home-hero__media .website-image-carousel-fit {
+  .modern-home-hero--has-image .modern-home-hero__media {
+    max-height: min(48vh, 26rem);
+  }
+  .modern-home-hero--has-image .modern-home-hero__media .website-image-carousel-fit,
+  .modern-home-hero--has-image .modern-home-hero__image {
+    display: block;
     width: 100% !important;
     height: auto !important;
-    max-height: min(62vh, 34rem);
+    max-height: min(48vh, 26rem);
     object-fit: cover;
     object-position: center;
   }
@@ -709,12 +714,39 @@
     line-height: inherit;
   }
   @media (max-width: 767px) {
+    .modern-home-hero--has-image {
+      --hero-mobile-min-height: min(46dvh, 22rem);
+      min-height: var(--hero-mobile-min-height);
+      background-color: #07111f;
+    }
+    .modern-home-hero--has-image .modern-home-hero__media {
+      position: absolute;
+      inset: 0;
+      max-height: none;
+      height: 100%;
+      width: 100%;
+    }
+    .modern-home-hero--has-image .modern-home-hero__media .website-image-carousel-fit,
+    .modern-home-hero--has-image .modern-home-hero__image {
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      max-height: none !important;
+      object-fit: cover;
+      object-position: 20% center;
+    }
     .modern-home-hero--has-image .modern-home-hero__caption-overlay {
+      position: relative;
+      inset: auto;
+      min-height: var(--hero-mobile-min-height);
+      width: 100%;
+      box-sizing: border-box;
       padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
       padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
     }
     .hero-caption-text-block.carousel-caption-text-block {
-      width: min(100%, calc(var(--hero-caption-width-pct, 70) * 1%));
+      width: 100%;
       max-width: 100%;
       padding-left: 0.75rem;
       padding-right: 0.75rem;
@@ -722,30 +754,40 @@
       padding-bottom: 0.5rem;
     }
     .modern-home-hero--has-image .hero-caption-title {
-      font-size: clamp(
-        1.125rem,
-        calc(0.25rem + 4.8vw),
-        calc(var(--hero-title-size-max, 44px) * 0.78)
-      );
-      line-height: 1.25;
-      overflow-wrap: anywhere;
+      font-size: 1.2rem;
+      line-height: 1.28;
+      overflow-wrap: break-word;
     }
     .modern-home-hero--has-image .hero-caption-title .hero-title-part {
       display: inline;
     }
     .modern-home-hero--has-image .hero-caption-subtitle {
-      font-size: clamp(
-        0.8125rem,
-        calc(0.15rem + 3.1vw),
-        calc(var(--hero-subtitle-size-max, 22px) * 0.9)
-      );
-      line-height: 1.45;
+      width: 100%;
+      max-width: 100%;
+      font-size: 0.875rem;
+      line-height: 1.4;
       overflow-wrap: break-word;
       hyphens: auto;
     }
     .carousel-caption-text-block:not(.hero-caption-text-block) {
       width: min(100%, calc(var(--carousel-caption-width-pct, 70) * 1%));
       max-width: 100%;
+    }
+    #main-content h1 {
+      font-size: 1.2rem;
+      line-height: 1.28;
+      text-wrap: balance;
+    }
+    #main-content h2,
+    #main-content .text-3xl,
+    #main-content .text-4xl {
+      font-size: 1.25rem;
+      line-height: 1.3;
+      text-wrap: balance;
+    }
+    #main-content h3 {
+      font-size: 1.05rem;
+      line-height: 1.35;
     }
   }
 
@@ -852,7 +894,7 @@
     }
   }
 
-  /* Footer: kaart altijd zichtbaar; desktop 50/50 met links */
+  /* Footer: kaart onder de linkkolommen, volle breedte */
   .footer-map-reveal {
     min-height: 200px;
   }
@@ -862,9 +904,6 @@
     min-width: 0;
   }
   @media (min-width: 768px) {
-    .footer-grid-with-map {
-      grid-template-columns: 1fr 1fr;
-    }
     .footer-grid-with-map #footer-google-map {
       width: 100% !important;
       min-width: 0;

@@ -71,7 +71,7 @@
     $widthPercent = max(30, min(100, (int) ($sectionData['width_percent'] ?? 100)));
 @endphp
 
-<section id="modules-overview" class="pt-6 md:pt-8 pb-10 md:pb-14 bg-white dark:bg-gray-900 nexa-modules-overview-scroll-reveal">
+<section id="modules-overview" class="pt-6 md:pt-8 pb-10 md:pb-14 bg-white dark:bg-gray-900 nexa-modules-overview-scroll-reveal" data-scroll-reveal>
     <div class="website-section-inner nexa-modules-overview__inner" style="--nexa-modules-width: {{ $widthPercent }}%; width: var(--nexa-modules-width); max-width: var(--nexa-modules-width);">
         <div class="text-center mb-12">
             <p class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-300 mb-6 nexa-modules-animate-item nexa-modules-animate-eyebrow">{{ $sectionData['eyebrow'] ?? 'Onze modules' }}</p>
@@ -136,7 +136,8 @@
                 transform: translateY(36px);
                 transition: opacity 0.7s ease, transform 0.7s ease;
             }
-            .nexa-modules-overview-scroll-reveal.is-visible .nexa-modules-animate-item {
+            .nexa-modules-overview-scroll-reveal.is-visible .nexa-modules-animate-item,
+            .nexa-modules-overview-scroll-reveal.is-in-view .nexa-modules-animate-item {
                 opacity: 1;
                 transform: translateY(0);
             }
@@ -146,7 +147,8 @@
             .nexa-modules-overview-scroll-reveal .nexa-modules-animate-card:nth-of-type(1) { transition-delay: 420ms; }
             .nexa-modules-overview-scroll-reveal .nexa-modules-animate-card:nth-of-type(2) { transition-delay: 560ms; }
             .nexa-modules-overview-scroll-reveal .nexa-modules-animate-card:nth-of-type(3) { transition-delay: 700ms; }
-            .nexa-modules-overview-scroll-reveal.is-visible .nexa-modules-animate-card {
+            .nexa-modules-overview-scroll-reveal.is-visible .nexa-modules-animate-card,
+            .nexa-modules-overview-scroll-reveal.is-in-view .nexa-modules-animate-card {
                 transform: translateY(0);
             }
             .nexa-modules-overview-scroll-reveal .nexa-modules-animate-card {

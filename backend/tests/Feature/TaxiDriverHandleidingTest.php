@@ -94,6 +94,11 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('rel="preconnect"', $html);
         $this->assertStringContainsString('Inlogcode aanvragen', $html);
         $this->assertStringContainsString('data-planning-view="day"', $html);
+        $this->assertStringContainsString('id="requests-section-title"', $html);
+        $this->assertStringContainsString('id="requests-section-icon"', $html);
+        $this->assertStringContainsString('id="requests-section-head"', $html);
+        $this->assertStringContainsString('id="tenant-logo-bar"', $html);
+        $this->assertStringContainsString('id="tenant-logo"', $html);
         $this->assertStringContainsString('data-planning-view="week"', $html);
         $this->assertStringNotContainsString('data-planning-view="month"', $html);
     }
