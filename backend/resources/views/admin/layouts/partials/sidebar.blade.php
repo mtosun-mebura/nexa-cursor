@@ -1,5 +1,5 @@
 <!-- Sidebar -->
-<div class="kt-sidebar bg-background border-e border-e-border fixed top-0 bottom-0 z-20 flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
+<div class="kt-sidebar bg-background border-e border-e-border fixed top-0 bottom-0 z-20 hidden lg:flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
     data-kt-drawer="true" data-kt-drawer-class="kt-drawer kt-drawer-start top-0 bottom-0" id="sidebar">
     <div class="flex flex-col shrink-0 bg-background overflow-visible" id="sidebar_header">
         <div class="kt-sidebar-header flex items-center relative justify-center px-3 lg:px-6 shrink-0">
@@ -7,17 +7,16 @@
                 @php
                     $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                     $logoHeight = $logoSize . 'px';
-                    $collapsedMarkUrl = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta(null)['url'];
-                    $adminLogo = \App\Support\AdminLogo::displayUrls();
+                    $nexaMarkUrl = asset('images/nexa-x-logo.png');
                 @endphp
                 @include('partials.nexa-brand-logo', [
                     'class' => 'default-logo w-auto max-w-[350px] object-contain',
                     'style' => 'height: '.$logoHeight,
-                    'alt' => $adminLogo['alt'],
-                    'lightSrc' => $adminLogo['light_url'],
-                    'darkSrc' => $adminLogo['dark_url'],
+                    'alt' => 'NEXA Suite',
+                    'lightSrc' => \App\Support\NexaBranding::defaultLogoUrl(),
+                    'darkSrc' => \App\Support\NexaBranding::defaultLogoDarkUrl(),
                 ])
-                <img class="small-logo h-[26px] w-[26px] shrink-0 object-contain" src="{{ $collapsedMarkUrl }}" alt="NEXA Suite" />
+                <img class="small-logo h-[26px] w-[26px] shrink-0 object-contain" src="{{ $nexaMarkUrl }}" alt="NEXA Suite" />
             </a>
             <button
                 type="button"
@@ -247,13 +246,8 @@
                             $routeExists = false;
                         }
 
-                        if (!$routeExists && !empty($menuItem['route'])) {
-                            try {
-                                $routeUrl = url('/admin/' . $menuItem['module'] . '/' . str_replace('admin.' . $menuItem['module'] . '.', '', $menuItem['route']));
-                                $routeExists = true;
-                            } catch (\Exception $e) {
-                                $routeExists = false;
-                            }
+                        if (!$routeExists && $moduleMenuChildren === []) {
+                            continue;
                         }
 
                         $routePrefix = !empty($menuItem['route']) ? str_replace('.index', '', $menuItem['route']) : '';

@@ -232,11 +232,20 @@
         }
     }
 
-    /* Filter-/select-dropdowns altijd boven lijstkaarten */
+    /* Filter-/select-dropdowns altijd boven lijstkaarten (geen fixed zonder coords) */
     .kt-card-header .kt-select-dropdown,
     .kt-card-header .kt-select-options,
     .kt-card-header [data-kt-select-dropdown],
-    .kt-card-header [data-kt-select-options],
+    .kt-card-header [data-kt-select-options] {
+        z-index: 10050 !important;
+        background-color: var(--popover, #ffffff) !important;
+        color: var(--popover-foreground, var(--foreground)) !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
     .kt-card-header .kt-menu-dropdown {
         position: fixed !important;
         z-index: 10050 !important;
@@ -281,7 +290,7 @@
         <h1 class="text-xl font-medium leading-none text-mono">
             Permissies Beheer
         </h1>
-        <div class="flex items-center gap-2.5">
+        <div class="admin-page-actions flex flex-wrap items-center gap-2.5">
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-permissions'))
             <a href="{{ route('admin.permissions.create') }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i>

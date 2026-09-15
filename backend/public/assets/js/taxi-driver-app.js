@@ -15,16 +15,28 @@
     const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'];
     const RIDE_ALERT_TONE_DEFAULT = 'classic';
     const GPS_COORDS_KEY = 'nexa_taxi_driver_last_gps';
+    const GPS_BG_NOTICE_KEY = 'nexa_taxi_gps_bg_notice_shown';
     const GPS_FIX_OPTIONS = {
         enableHighAccuracy: true,
         timeout: 20000,
         maximumAge: 0
     };
+    const GPS_BACKGROUND_FIX_OPTIONS = {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 20000
+    };
+    const GPS_BACKGROUND_COARSE_OPTIONS = {
+        enableHighAccuracy: false,
+        timeout: 25000,
+        maximumAge: 30000
+    };
     const GPS_SEND_INTERVAL_MS = 1000;
     const GPS_HEARTBEAT_MS = 1500;
+    const GPS_BACKGROUND_HEARTBEAT_MS = 4000;
     const GPS_STALE_HEARTBEAT_MS = 15000;
     const GPS_MAX_ACCURACY_METERS = 320;
-    const GPS_BACKGROUND_ACCURACY_METERS = 480;
+    const GPS_BACKGROUND_ACCURACY_METERS = 800;
     const GPS_MOVE_ACCEPT_METERS = 18;
     const GPS_MAX_SPEED_MPS = 55;
     const VALID_TABS = ['requests', 'trips', 'planning', 'navigation', 'earnings', 'profile'];
@@ -32,7 +44,9 @@
     const RIDE_KIND_KEY = 'nexa_taxi_driver_ride_kind';
     const DEFAULT_RIDE_DURATION_SECONDS = 45 * 60;
     const RIDE_SCHEDULE_BUFFER_SECONDS = 10 * 60;
-    const TOKEN_MAX_AGE = 14 * 24 * 60 * 60;
+    const TOKEN_MAX_AGE = 400 * 24 * 60 * 60;
+    const AUTH_IDB_NAME = 'nexa-taxi-driver-auth';
+    const AUTH_IDB_STORE = 'kv';
 
     function readCookie(name) {
         try {
@@ -47,11 +61,11 @@
     }
 
     function writeAuthCookie(name, value, maxAge) {
-        let cookie = name + '=' + encodeURIComponent(value) + '; path=/taxi; max-age=' + maxAge + '; SameSite=Lax';
-        if (window.location.protocol === 'https:') {
-            cookie += '; Secure';
-        }
-        document.cookie = cookie;
+        const encoded = encodeURIComponent(value);
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        const suffix = '; max-age=' + maxAge + '; SameSite=Lax' + secure;
+        document.cookie = name + '=' + encoded + '; path=/' + suffix;
+        document.cookie = name + '=' + encoded + '; path=/taxi' + suffix;
     }
 
     function clearAuthCookie(name) {
@@ -83,6 +97,98 @@
         }
     }
 
+    function openAuthDb() {
+        return new Promise(function (resolve) {
+            if (!window.indexedDB) {
+                resolve(null);
+                return;
+            }
+            try {
+                const req = indexedDB.open(AUTH_IDB_NAME, 1);
+                req.onupgradeneeded = function () {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(AUTH_IDB_STORE)) {
+                        db.createObjectStore(AUTH_IDB_STORE);
+                    }
+                };
+                req.onsuccess = function () {
+                    resolve(req.result);
+                };
+                req.onerror = function () {
+                    resolve(null);
+                };
+            } catch (e) {
+                resolve(null);
+            }
+        });
+    }
+
+    function idbSet(key, value) {
+        return openAuthDb().then(function (db) {
+            if (!db) {
+                return;
+            }
+            return new Promise(function (resolve) {
+                try {
+                    const tx = db.transaction(AUTH_IDB_STORE, 'readwrite');
+                    tx.objectStore(AUTH_IDB_STORE).put(value, key);
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        resolve();
+                    };
+                } catch (e) {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    function idbGet(key) {
+        return openAuthDb().then(function (db) {
+            if (!db) {
+                return '';
+            }
+            return new Promise(function (resolve) {
+                try {
+                    const tx = db.transaction(AUTH_IDB_STORE, 'readonly');
+                    const req = tx.objectStore(AUTH_IDB_STORE).get(key);
+                    req.onsuccess = function () {
+                        resolve(req.result ? String(req.result) : '');
+                    };
+                    req.onerror = function () {
+                        resolve('');
+                    };
+                } catch (e) {
+                    resolve('');
+                }
+            });
+        });
+    }
+
+    function idbRemove(key) {
+        return openAuthDb().then(function (db) {
+            if (!db) {
+                return;
+            }
+            return new Promise(function (resolve) {
+                try {
+                    const tx = db.transaction(AUTH_IDB_STORE, 'readwrite');
+                    tx.objectStore(AUTH_IDB_STORE).delete(key);
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        resolve();
+                    };
+                } catch (e) {
+                    resolve();
+                }
+            });
+        });
+    }
+
     function persistToken(value, expiresAt) {
         if (!value) {
             clearPersistedAuth();
@@ -94,10 +200,11 @@
         if (expiresAt) {
             const ts = Date.parse(expiresAt);
             if (!isNaN(ts)) {
-                maxAge = Math.max(60, Math.floor((ts - Date.now()) / 1000));
+                maxAge = Math.max(TOKEN_MAX_AGE, Math.floor((ts - Date.now()) / 1000));
             }
         }
         writeAuthCookie(STORAGE_KEY, value, maxAge);
+        idbSet(STORAGE_KEY, value);
     }
 
     function clearPersistedAuth() {
@@ -108,6 +215,8 @@
         storageRemove(sessionStorage, COMPANY_KEY);
         storageRemove(sessionStorage, UI_STATE_KEY);
         clearAuthCookie(STORAGE_KEY);
+        idbRemove(STORAGE_KEY);
+        idbRemove(COMPANY_KEY);
     }
 
     function readPersistedToken() {
@@ -127,6 +236,24 @@
             return cookie;
         }
         return '';
+    }
+
+    async function restorePersistedTokenFromIdb() {
+        if (token) {
+            persistToken(token);
+            return token;
+        }
+        const stored = await idbGet(STORAGE_KEY);
+        if (!stored) {
+            return '';
+        }
+        persistToken(stored);
+        token = stored;
+        const cid = await idbGet(COMPANY_KEY);
+        if (cid) {
+            persistCompanyId(cid);
+        }
+        return token;
     }
 
     let deferredInstallPrompt = null;
@@ -228,7 +355,11 @@
     let lastGpsAccuracy = null;
     let lastGpsFixAt = 0;
     let gpsWatchId = null;
+    let gpsCoarseWatchId = null;
     let gpsHeartbeatTimer = null;
+    let gpsBackgroundKeepAliveTimer = null;
+    let gpsFixInFlight = false;
+    let noSleepResumeTimer = null;
     let rideTrackBuffer = [];
     let rideTrackRideId = null;
     let companyId = (function () {
@@ -689,8 +820,13 @@
             data = null;
         }
         if (res.status === 401) {
-            logout(false);
-            throw new Error('Sessie verlopen. Log opnieuw in.');
+            const err = new Error('Sessie verlopen. Log opnieuw in.');
+            err.status = 401;
+            err.unauthenticated = true;
+            if (!opts.keepalive && !opts.keepSessionOn401) {
+                logout(false);
+            }
+            throw err;
         }
         if (!res.ok) {
             if (data && data.error === 'driver_not_active') {
@@ -699,6 +835,7 @@
             const msg = (data && data.message) || 'Er ging iets mis.';
             const err = new Error(msg);
             err.code = data && data.error;
+            err.status = res.status;
             throw err;
         }
         return data;
@@ -2242,9 +2379,64 @@
         startNoSleepHtmlAudio();
         startNoSleepInlineVideo();
         tuneKeepAliveMediaForVisibility();
+        bindNoSleepMediaKeepAlive();
         if (isIosDevice() && document.visibilityState === 'visible') {
             startNoSleepCanvasPulse();
         }
+    }
+
+    function bindNoSleepMediaKeepAlive() {
+        const audioEl = document.getElementById('nosleep-audio');
+        if (audioEl && audioEl.getAttribute('data-gps-keep-bound') !== '1') {
+            audioEl.setAttribute('data-gps-keep-bound', '1');
+            audioEl.addEventListener('pause', resumeNoSleepAfterInterruption);
+            audioEl.addEventListener('ended', resumeNoSleepAfterInterruption);
+        }
+        const videoEl = document.getElementById('nosleep-video');
+        if (videoEl && videoEl.getAttribute('data-gps-keep-bound') !== '1') {
+            videoEl.setAttribute('data-gps-keep-bound', '1');
+            videoEl.addEventListener('pause', resumeNoSleepAfterInterruption);
+            videoEl.addEventListener('ended', resumeNoSleepAfterInterruption);
+        }
+    }
+
+    function resumeNoSleepAfterInterruption() {
+        if (document.visibilityState === 'visible' || !shouldKeepGpsAlive()) {
+            return;
+        }
+        if (noSleepResumeTimer) {
+            return;
+        }
+        noSleepResumeTimer = setTimeout(function () {
+            noSleepResumeTimer = null;
+            if (shouldKeepGpsAlive() && document.visibilityState !== 'visible') {
+                startNoSleepFallback();
+            }
+        }, 800);
+    }
+
+    function stopGpsBackgroundKeepAlive() {
+        if (gpsBackgroundKeepAliveTimer) {
+            clearInterval(gpsBackgroundKeepAliveTimer);
+            gpsBackgroundKeepAliveTimer = null;
+        }
+    }
+
+    function startGpsBackgroundKeepAlive() {
+        stopGpsBackgroundKeepAlive();
+        if (!shouldKeepGpsAlive() || isPageVisible()) {
+            return;
+        }
+        gpsBackgroundKeepAliveTimer = setInterval(function () {
+            if (!shouldKeepGpsAlive() || isPageVisible()) {
+                stopGpsBackgroundKeepAlive();
+                return;
+            }
+            ensureNoSleepMediaPlaying();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(function () {});
+            }
+        }, 8000);
     }
 
     function releaseScreenWakeLock() {
@@ -2557,7 +2749,7 @@
         }
         if (!serviceWorkerReadyPromise) {
             serviceWorkerReadyPromise = navigator.serviceWorker
-                .register('/taxi-chauffeur-sw.js', { scope: '/' })
+                .register('/taxi-chauffeur-sw.js?v=11', { scope: '/', updateViaCache: 'none' })
                 .then(function (reg) {
                     if (reg.active) {
                         return reg;
@@ -2929,6 +3121,25 @@
                 }
             }
         } catch (e) {}
+    }
+
+    function hasShownGpsBackgroundNotice() {
+        return storageGet(localStorage, GPS_BG_NOTICE_KEY) === '1';
+    }
+
+    function markGpsBackgroundNoticeShown() {
+        storageSet(localStorage, GPS_BG_NOTICE_KEY, '1');
+    }
+
+    async function maybeShowGpsBackgroundNoticeOnce() {
+        if (!shouldKeepGpsAlive() || hasShownGpsBackgroundNotice()) {
+            return;
+        }
+        if (!notificationsApiAvailable() || getNotificationPermission() !== 'granted') {
+            return;
+        }
+        markGpsBackgroundNoticeShown();
+        await showOnlineGpsNotification();
     }
 
     async function hideOnlineGpsNotification() {
@@ -5432,6 +5643,22 @@
         return (bearing + 360) % 360;
     }
 
+    function isPageVisible() {
+        return document.visibilityState === 'visible';
+    }
+
+    function currentGpsFixOptions() {
+        return isPageVisible() ? GPS_FIX_OPTIONS : GPS_BACKGROUND_FIX_OPTIONS;
+    }
+
+    function currentGpsHeartbeatMs() {
+        return isPageVisible() ? GPS_HEARTBEAT_MS : GPS_BACKGROUND_HEARTBEAT_MS;
+    }
+
+    function currentGpsAccuracyCap() {
+        return isPageVisible() ? GPS_MAX_ACCURACY_METERS : GPS_BACKGROUND_ACCURACY_METERS;
+    }
+
     function shouldAcceptGpsFix(next) {
         if (!next || !Number.isFinite(next.lat) || !Number.isFinite(next.lng)) {
             return false;
@@ -5452,9 +5679,7 @@
         if (moved >= GPS_MOVE_ACCEPT_METERS && (!Number.isFinite(acc) || acc <= 500)) {
             return true;
         }
-        const maxAcc = document.visibilityState === 'visible'
-            ? GPS_MAX_ACCURACY_METERS
-            : GPS_BACKGROUND_ACCURACY_METERS;
+        const maxAcc = currentGpsAccuracyCap();
         if (Number.isFinite(acc) && acc > maxAcc && moved < GPS_MOVE_ACCEPT_METERS) {
             return false;
         }
@@ -5468,8 +5693,8 @@
     function getDriverPosition() {
         const cachedIsFresh = lastGpsCoords
             && lastGpsFixAt
-            && (Date.now() - lastGpsFixAt) < 8000
-            && (!Number.isFinite(lastGpsAccuracy) || lastGpsAccuracy <= GPS_MAX_ACCURACY_METERS);
+            && (Date.now() - lastGpsFixAt) < (isPageVisible() ? 8000 : 60000)
+            && (!Number.isFinite(lastGpsAccuracy) || lastGpsAccuracy <= currentGpsAccuracyCap());
         if (cachedIsFresh) {
             refreshDriverPosition();
             return Promise.resolve(lastGpsCoords);
@@ -5483,8 +5708,14 @@
                 resolve(lastGpsCoords);
                 return;
             }
+            if (gpsFixInFlight) {
+                resolve(lastGpsCoords);
+                return;
+            }
+            gpsFixInFlight = true;
             navigator.geolocation.getCurrentPosition(
                 function (pos) {
+                    gpsFixInFlight = false;
                     const coords = coordsFromGeolocation(pos);
                     if (coords && shouldAcceptGpsFix(coords)) {
                         persistLastGpsCoords(coords);
@@ -5494,9 +5725,10 @@
                     resolve(lastGpsCoords);
                 },
                 function () {
+                    gpsFixInFlight = false;
                     resolve(lastGpsCoords);
                 },
-                GPS_FIX_OPTIONS
+                currentGpsFixOptions()
             );
         });
     }
@@ -5563,11 +5795,15 @@
 
     function maybeSendHeartbeatLocation(coords) {
         if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+            coords = lastGpsCoords;
+        }
+        if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
             return;
         }
         const now = Date.now();
         const fixAt = Number.isFinite(coords.at) ? coords.at : now;
-        if (now - fixAt > 12000) {
+        const maxAgeMs = isPageVisible() ? 12000 : 180000;
+        if (now - fixAt > maxAgeMs) {
             return;
         }
         const moved = lastSentGpsCoords
@@ -5619,52 +5855,105 @@
         }
     }
 
+    function clearGpsWatches() {
+        if (gpsWatchId != null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+        }
+        gpsWatchId = null;
+        if (gpsCoarseWatchId != null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(gpsCoarseWatchId);
+        }
+        gpsCoarseWatchId = null;
+    }
+
+    function onGpsWatchPosition(pos) {
+        const coords = coordsFromGeolocation(pos);
+        if (!coords || !shouldAcceptGpsFix(coords)) {
+            return;
+        }
+        sendDriverLocation(coords, true);
+    }
+
+    function startGpsWatch() {
+        if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
+            return false;
+        }
+        clearGpsWatches();
+        gpsWatchId = navigator.geolocation.watchPosition(
+            onGpsWatchPosition,
+            function () {},
+            currentGpsFixOptions()
+        );
+        if (!isPageVisible()) {
+            gpsCoarseWatchId = navigator.geolocation.watchPosition(
+                onGpsWatchPosition,
+                function () {},
+                GPS_BACKGROUND_COARSE_OPTIONS
+            );
+        }
+        return true;
+    }
+
+    function restartGpsHeartbeat() {
+        if (gpsHeartbeatTimer) {
+            clearInterval(gpsHeartbeatTimer);
+            gpsHeartbeatTimer = null;
+        }
+        gpsHeartbeatTimer = setInterval(function () {
+            refreshDriverPosition().then(maybeSendHeartbeatLocation);
+        }, currentGpsHeartbeatMs());
+    }
+
+    function restartGpsForVisibility() {
+        if (!shouldKeepGpsTracking()) {
+            return;
+        }
+        startGpsWatch();
+        restartGpsHeartbeat();
+    }
+
+    function flushGpsForBackground() {
+        if (!shouldKeepGpsTracking()) {
+            return;
+        }
+        if (lastGpsCoords) {
+            sendDriverLocation(lastGpsCoords, true, true);
+        }
+        refreshDriverPosition().then(function (coords) {
+            if (coords) {
+                sendDriverLocation(coords, true, true);
+            }
+        });
+    }
+
     function startGpsTracking() {
-        stopGpsTracking();
+        clearGpsWatches();
+        if (gpsHeartbeatTimer) {
+            clearInterval(gpsHeartbeatTimer);
+            gpsHeartbeatTimer = null;
+        }
         refreshDriverPosition().then(function (coords) {
             maybeSendHeartbeatLocation(coords);
         });
-        if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
-            gpsHeartbeatTimer = setInterval(function () {
-                refreshDriverPosition().then(maybeSendHeartbeatLocation);
-            }, GPS_HEARTBEAT_MS);
-            if (isOnline) {
-                showOnlineGpsNotification();
-            } else {
-                hideOnlineGpsNotification();
-            }
-            return;
-        }
-        gpsWatchId = navigator.geolocation.watchPosition(
-            function (pos) {
-                const coords = coordsFromGeolocation(pos);
-                if (!coords || !shouldAcceptGpsFix(coords)) {
-                    return;
-                }
-                sendDriverLocation(coords, true);
-            },
-            function () {},
-            GPS_FIX_OPTIONS
-        );
-        gpsHeartbeatTimer = setInterval(function () {
-            refreshDriverPosition().then(maybeSendHeartbeatLocation);
-        }, GPS_HEARTBEAT_MS);
-        if (isOnline) {
-            showOnlineGpsNotification();
+        startGpsWatch();
+        restartGpsHeartbeat();
+        if (isOnline && !isPageVisible()) {
+            startGpsBackgroundKeepAlive();
         } else {
+            stopGpsBackgroundKeepAlive();
+        }
+        if (!isOnline) {
             hideOnlineGpsNotification();
         }
     }
 
     function stopGpsTracking() {
-        if (gpsWatchId != null && navigator.geolocation) {
-            navigator.geolocation.clearWatch(gpsWatchId);
-            gpsWatchId = null;
-        }
+        clearGpsWatches();
         if (gpsHeartbeatTimer) {
             clearInterval(gpsHeartbeatTimer);
             gpsHeartbeatTimer = null;
         }
+        stopGpsBackgroundKeepAlive();
         hideOnlineGpsNotification();
     }
 
@@ -10418,6 +10707,7 @@
         companyId = parsed;
         storageSet(localStorage, COMPANY_KEY, String(parsed));
         storageSet(sessionStorage, COMPANY_KEY, String(parsed));
+        idbSet(COMPANY_KEY, String(parsed));
     }
 
     function applyOnlineStateFromServer(isOnlineOnServer) {
@@ -10619,6 +10909,7 @@
 
     async function bootstrap() {
         updateNotificationsHint();
+        await restorePersistedTokenFromIdb();
         if (!token) {
             showScreen('login');
             return;
@@ -10628,7 +10919,8 @@
         showScreen('dispatch');
         prefetchGoogleMapsSdk();
         try {
-            const me = await api('/me');
+            const me = await api('/me', { keepSessionOn401: true });
+            persistToken(token);
             if (me.user && me.user.company_id) {
                 persistCompanyId(me.user.company_id);
             }
@@ -10656,15 +10948,13 @@
                 updateEmptyState();
                 return;
             }
-            companyId = null;
-            clearPersistedAuth();
-            mainTab = 'requests';
-            inboxView = 'offers';
-            planningView = 'day';
-            planningSelectedDate = null;
-            planningWeekFrom = null;
-            renderProfileUser(null);
-            showScreen('login');
+            if (e && e.unauthenticated) {
+                logout(false);
+                return;
+            }
+            if (accountActive && isOnline) {
+                startInboxSync();
+            }
         }
         syncScreenWakeLock();
     }
@@ -11264,12 +11554,18 @@
                 refreshInbox();
             }
             if (shouldKeepGpsTracking()) {
+                stopGpsBackgroundKeepAlive();
+                restartGpsForVisibility();
                 refreshDriverPosition().then(function (coords) {
                     sendDriverLocation(coords, true, true);
                 });
             }
             return;
         }
+        onPageHidden();
+    });
+
+    function onPageHidden() {
         if (screenWakeLock) {
             screenWakeLock.release().catch(function () {});
             screenWakeLock = null;
@@ -11278,21 +11574,35 @@
         if (shouldKeepGpsTracking()) {
             if (isOnline) {
                 startNoSleepFallback();
-                showOnlineGpsNotification();
+                startGpsBackgroundKeepAlive();
+                maybeShowGpsBackgroundNoticeOnce();
             } else {
                 stopNoSleepFallback();
+                stopGpsBackgroundKeepAlive();
                 hideOnlineGpsNotification();
             }
-            refreshDriverPosition().then(function (coords) {
-                sendDriverLocation(coords, true, true);
-            });
+            restartGpsForVisibility();
+            flushGpsForBackground();
         } else {
             stopNoSleepFallback();
+            stopGpsBackgroundKeepAlive();
         }
+    }
+
+    window.addEventListener('pagehide', function () {
+        flushGpsForBackground();
+    });
+
+    document.addEventListener('freeze', function () {
+        flushGpsForBackground();
     });
 
     window.addEventListener('pageshow', function () {
         onPageBecameVisible();
+        if (document.visibilityState === 'visible' && shouldKeepGpsTracking()) {
+            stopGpsBackgroundKeepAlive();
+            restartGpsForVisibility();
+        }
     });
 
     window.addEventListener('focus', function () {

@@ -4133,7 +4133,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=157" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=159" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

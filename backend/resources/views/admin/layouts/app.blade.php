@@ -284,25 +284,22 @@
             padding-top: 14px;
         }
 
-        /* Zorg dat alle dropdown opties volledig zichtbaar zijn in filter dropdowns */
-        .kt-select-dropdown {
-            min-width: max-content !important;
-            width: auto !important;
-            max-width: 500px !important;
-        }
-
-        /* Zorg dat de dropdown breder kan zijn dan de select button */
-        .kt-select-wrapper .kt-select-dropdown {
-            min-width: max-content !important;
-            width: auto !important;
-        }
-
-        .kt-select-options {
-            min-width: max-content !important;
+        /* Select-dropdown in de wrapper: zelfde breedte als de trigger */
+        .kt-select-wrapper .kt-select-dropdown,
+        .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
+            min-width: 100% !important;
             width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
         }
 
-        /* Zorg dat de optie tekst volledig zichtbaar is (geen ellipsis) */
+        .kt-select-options,
+        [data-kt-select-options] {
+            min-width: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
         .kt-select-option-text {
             overflow: visible !important;
             white-space: normal !important;
@@ -311,22 +308,16 @@
             word-break: break-word !important;
         }
 
-        /* Zorg dat de optie zelf ook volledig zichtbaar is */
         .kt-select-option {
             white-space: normal !important;
             word-wrap: break-word !important;
             word-break: break-word !important;
-            min-width: max-content !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
         }
 
-        /* Zorg dat de dropdown container de volledige breedte kan gebruiken */
         .kt-select-wrapper {
             position: relative !important;
-        }
-
-        .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
-            min-width: max-content !important;
-            width: auto !important;
         }
 
         /* Select-dropdown: ondoorzichtige achtergrond (ook bij position:fixed) */
@@ -357,6 +348,28 @@
         .dark [data-kt-select-options] {
             background-color: #111827 !important;
             color: #f3f4f6 !important;
+        }
+
+        #header .admin-mobile-menu-toggle,
+        #header .admin-mobile-menu-toggle.kt-btn {
+            border: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            outline: none !important;
+        }
+        #header .admin-mobile-menu-toggle .ki-filled,
+        #header .admin-mobile-menu-icon {
+            font-size: 1.5rem !important;
+            pointer-events: none;
+        }
+
+        /* Mobiel: sidebar off-canvas vóór Vite/KT Drawer (geen jump-open bij navigatie). */
+        @media (max-width: 1023px) {
+            #sidebar:not(.open) {
+                pointer-events: none !important;
+                transform: translate3d(-100%, 0, 0) !important;
+                translate: -100% 0 !important;
+            }
         }
 
         /* Fix for passive event listener warnings in responsive mode */

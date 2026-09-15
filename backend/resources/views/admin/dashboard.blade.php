@@ -734,13 +734,15 @@
                     Vacatures & bedrijven
                 </h3>
                 @php
-                    $vacanciesRoute = Route::has('admin.skillmatching.vacancies.index') 
-                        ? route('admin.skillmatching.vacancies.index') 
-                        : (Route::has('admin.vacancies.index') ? route('admin.vacancies.index') : '#');
+                    $vacanciesRoute = Route::has('admin.skillmatching.vacancies.index')
+                        ? route('admin.skillmatching.vacancies.index')
+                        : null;
                 @endphp
+                @if($vacanciesRoute)
                 <a href="{{ $vacanciesRoute }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
                     Bekijk alle
                 </a>
+                @endif
             </div>
             <div class="kt-card-content p-0 min-w-0">
                 <div class="kt-scrollable-x-auto admin-dashboard-table-scroll">

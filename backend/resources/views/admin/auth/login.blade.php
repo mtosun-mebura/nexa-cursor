@@ -7,7 +7,7 @@ Author: Keenthemes
 <html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
 <head>
     <base href="{{ url('/') }}">
-    <title>Admin Login - NEXA</title>
+    <title>Admin Login - NEXA Suite</title>
     <meta charset="utf-8"/>
     <meta name="csrf-token" content="{{ csrf_token() }}"/>
     <meta content="follow, index" name="robots"/>

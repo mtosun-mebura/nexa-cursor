@@ -104,11 +104,15 @@
                                 'color' => 'primary'
                             ];
                         }
-                        if (in_array('view-vacancies', $userPermissions)) {
+                        if (
+                            (in_array('view-vacancies', $userPermissions) || in_array('skillmatching.vacancies.view', $userPermissions))
+                            && app(\App\Services\ModuleManager::class)->isActive('skillmatching')
+                            && Route::has('admin.skillmatching.vacancies.index')
+                        ) {
                             $availableActions[] = [
                                 'title' => 'Vacatures',
                                 'description' => 'Bekijk en beheer vacatures',
-                                'route' => 'admin.vacancies.index',
+                                'route' => 'admin.skillmatching.vacancies.index',
                                 'icon' => 'ki-filled ki-briefcase',
                                 'color' => 'primary'
                             ];
@@ -122,20 +126,28 @@
                                 'color' => 'primary'
                             ];
                         }
-                        if (in_array('view-matches', $userPermissions)) {
+                        if (
+                            (in_array('view-matches', $userPermissions) || in_array('skillmatching.matches.view', $userPermissions))
+                            && app(\App\Services\ModuleManager::class)->isActive('skillmatching')
+                            && Route::has('admin.skillmatching.matches.index')
+                        ) {
                             $availableActions[] = [
                                 'title' => 'Matches',
                                 'description' => 'Bekijk matches',
-                                'route' => 'admin.matches.index',
+                                'route' => 'admin.skillmatching.matches.index',
                                 'icon' => 'ki-filled ki-heart',
                                 'color' => 'primary'
                             ];
                         }
-                        if (in_array('view-interviews', $userPermissions)) {
+                        if (
+                            (in_array('view-interviews', $userPermissions) || in_array('skillmatching.interviews.view', $userPermissions))
+                            && app(\App\Services\ModuleManager::class)->isActive('skillmatching')
+                            && Route::has('admin.skillmatching.interviews.index')
+                        ) {
                             $availableActions[] = [
                                 'title' => 'Interviews',
                                 'description' => 'Beheer interviews',
-                                'route' => 'admin.interviews.index',
+                                'route' => 'admin.skillmatching.interviews.index',
                                 'icon' => 'ki-filled ki-chat',
                                 'color' => 'primary'
                             ];

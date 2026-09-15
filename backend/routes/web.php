@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminIncidentController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminJobConfigurationController;
+use App\Http\Controllers\Admin\AdminLegacyVacancyRedirectController;
 // AdminVacancyController moved to Skillmatching module
 // AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminJobConfigurationTypeController;
@@ -430,6 +431,11 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
 
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
+
+    // Legacy /admin/vacancies: nooit een kapotte 404; door naar skillmatching of dashboard.
+    Route::any('vacancies/{path?}', AdminLegacyVacancyRedirectController::class)
+        ->middleware('admin.skillmatching')
+        ->where('path', '.*');
     Route::post('wachtwoord-wijzigen', [AdminForcePasswordController::class, 'update'])->name('password.force.update');
 
     Route::get('abonnementen', [AdminCompanySubscriptionController::class, 'show'])->name('subscriptions.show');
