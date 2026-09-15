@@ -2841,20 +2841,9 @@
             }
             return;
         }
-        if (isInBrowserTabOnIos()) {
-            hint.hidden = false;
-            if (hintText) {
-                hintText.textContent =
-                    'Installeer via Safari → Deel → Zet op beginscherm om de app op je telefoon te gebruiken.';
-            }
-            if (btn) {
-                btn.hidden = true;
-            }
-            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
-                window.nexaPwaSyncThemeToggleTop();
-            }
-            return;
-        }
+        // Op iOS staat de uitleg over Safari -> Deel -> Zet op beginscherm al in de
+        // meldingen-hint. Deze banner blijft daarom voor browsers met een eigen
+        // installatieprompt, zodat de chauffeur die tekst niet twee keer ziet.
         hint.hidden = true;
         if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
             window.nexaPwaSyncThemeToggleTop();

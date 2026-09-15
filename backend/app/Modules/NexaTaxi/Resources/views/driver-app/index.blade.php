@@ -147,28 +147,6 @@
             box-shadow: 0 0 0 2px var(--orange);
         }
         #app { height: 100%; min-height: 100%; display: flex; flex-direction: column; }
-        .app-top-chrome {
-            flex-shrink: 0;
-            background: var(--chrome);
-            padding-top: var(--safe-top);
-            padding-left: env(safe-area-inset-left, 0px);
-            padding-right: env(safe-area-inset-right, 0px);
-        }
-        @media (max-width: 48rem) {
-            .app-top-chrome {
-                /* Notch / Dynamic Island: env() is in Safari soms 0, camera blijft dan over de banner */
-                padding-top: max(var(--safe-top), 3.75rem);
-            }
-        }
-        .app-top-chrome:not(:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden]))) {
-            display: none;
-        }
-        #app:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden])) #screen-login.screen {
-            padding-top: 1rem;
-        }
-        #app:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden])) .dispatch-top {
-            padding-top: 0.65rem;
-        }
         .screen {
             display: none;
             flex: 1;
@@ -416,6 +394,7 @@
         }
         .dispatch-banners .banner-ios-awake,
         .dispatch-banners .banner-notifications-hint,
+        .dispatch-banners .banner-install-app,
         .dispatch-banners .banner-guide-hint,
         .dispatch-banners .banner-inactive,
         .dispatch-banners #notifications-feedback {
@@ -3150,17 +3129,6 @@
             margin-bottom: 1rem;
             line-height: 1.45;
         }
-        #install-app-hint {
-            margin: 0.65rem 1rem 0;
-            flex-shrink: 0;
-        }
-        #guide-hint {
-            margin: 0.65rem 1rem 0.85rem;
-            flex-shrink: 0;
-        }
-        #guide-hint + #install-app-hint:not([hidden]) {
-            margin-top: 0.65rem;
-        }
         .banner-dismiss-btn {
             position: absolute;
             top: 0.35rem;
@@ -3519,24 +3487,6 @@
 <body>
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
-    <div class="app-top-chrome">
-        <div id="guide-hint" class="banner-guide-hint" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
-            <div class="banner-guide-hint__body">
-                <p class="banner-guide-hint__text">
-                    <strong>Handleiding.</strong>
-                    Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
-                    Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
-                </p>
-                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
-            </div>
-        </div>
-        <div id="install-app-hint" class="banner-install-app" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
-            <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
-            <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
-        </div>
-    </div>
     @include('taxi::partials.tenant-logo-bar')
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Chauffeur inloggen</h1>
@@ -3652,6 +3602,22 @@
                     <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
                     <span id="notifications-feedback-text"></span>
                 </p>
+                <div id="install-app-hint" class="banner-install-app" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
+                    <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
+                    <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
+                </div>
+                <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+                    <div class="banner-guide-hint__body">
+                        <p class="banner-guide-hint__text">
+                            <strong>Handleiding.</strong>
+                            Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
+                            Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+                        </p>
+                        <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
+                    </div>
+                </div>
             </div>
             <div class="card toggle-row">
                 <span>Online voor ritten</span>
@@ -4131,7 +4097,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=161" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=162" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
