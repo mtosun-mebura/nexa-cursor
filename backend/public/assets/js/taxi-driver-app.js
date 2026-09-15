@@ -312,6 +312,7 @@
     let parkedAssignedRides = [];
     let viewingActiveRideId = null;
     const STOP_ARRIVE_RADIUS_M = 120;
+    const MAPS_MAX_WAYPOINTS = 9;
     const NAV_SESSION_KEY = 'nexa_taxi_nav_session';
     let navigationWatchId = null;
     let stopGeofenceWatchId = null;
@@ -4460,8 +4461,10 @@
         return { lat: Number(point.lat), lng: Number(point.lng) };
     }
 
+    // Adres eerst, net als in de Google Maps-URL: dezelfde invoer geeft dezelfde route
+    // in de kaart van de app en in Google Maps.
     function stopLocation(stop) {
-        return asLatLng(stop) || (stop && String(stop.address || '').trim()) || null;
+        return (stop && String(stop.address || '').trim()) || asLatLng(stop) || null;
     }
 
     function stopPointKey(stop) {
@@ -4499,30 +4502,120 @@
         return unique;
     }
 
-    function navigationDirUrl(origin, stops) {
-        const points = navigationRoutePoints(origin, stops);
-        if (!points.length) {
-            return '';
+    // Google Maps krijgt het adres, niet de coordinaten: dat leest de chauffeur terug
+    // als "van" en "naar". Zonder adres blijven de coordinaten de terugval.
+    function mapsPointToken(point) {
+        const address = String((point && point.address) || '').trim();
+        if (address) {
+            return address;
         }
-        const path = points
-            .map(function (point) {
-                const coords = asLatLng(point);
-                if (coords) {
-                    return coords.lat + ',' + coords.lng;
-                }
-                return String(point.address || '').trim();
-            })
-            .filter(Boolean);
+        const coords = asLatLng(point);
+        return coords ? coords.lat + ',' + coords.lng : '';
+    }
+
+    function mapsRoutePath(origin, stops) {
+        return navigationRoutePoints(origin, stops).map(mapsPointToken).filter(Boolean);
+    }
+
+    function navigationDirUrl(origin, stops) {
+        const path = mapsRoutePath(origin, stops);
         if (!path.length) {
             return '';
         }
-        if (path.length === 1) {
-            return (
-                'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' +
-                encodeURIComponent(path[0])
-            );
+        const params = ['api=1', 'travelmode=driving'];
+        // Turn-by-turn alleen als de route bij de chauffeur zelf begint. Bij het
+        // overzicht van de hele rit blijft het een routeweergave, zoals in de app.
+        if (path.length === 1 || hasLatLng(origin)) {
+            params.push('dir_action=navigate');
         }
-        return 'https://www.google.com/maps/dir/' + path.map(encodeURIComponent).join('/');
+        if (path.length === 1) {
+            params.push('destination=' + encodeURIComponent(path[0]));
+        } else {
+            params.push('origin=' + encodeURIComponent(path[0]));
+            params.push('destination=' + encodeURIComponent(path[path.length - 1]));
+            const via = path.slice(1, -1).slice(0, MAPS_MAX_WAYPOINTS);
+            if (via.length) {
+                params.push('waypoints=' + via.map(encodeURIComponent).join('%7C'));
+            }
+        }
+        return 'https://www.google.com/maps/dir/?' + params.join('&');
+    }
+
+    // comgooglemapsurl:// geeft de complete Maps-URL door aan de app, dus alle stops
+    // blijven staan. Met comgooglemaps://?daddr= zou alleen de eerste stop overblijven
+    // en week de route af van de kaart in de app.
+    function mapsAppSchemes(webUrl, path) {
+        const points = (path || []).filter(Boolean);
+        const last = encodeURIComponent(points[points.length - 1] || '');
+        return {
+            googleScheme: 'comgooglemapsurl://' + webUrl.replace(/^https?:\/\//, ''),
+            appleScheme: points.length > 1
+                ? 'maps://?saddr=' + encodeURIComponent(points[0]) + '&daddr=' + last + '&dirflg=d'
+                : 'maps://?daddr=' + last + '&dirflg=d',
+        };
+    }
+
+    function mapsTargetForStops(origin, stops) {
+        const path = mapsRoutePath(origin, stops);
+        const webUrl = navigationDirUrl(origin, stops);
+        if (!webUrl) {
+            return null;
+        }
+        const schemes = mapsAppSchemes(webUrl, path);
+        return {
+            webUrl: webUrl,
+            googleScheme: schemes.googleScheme,
+            appleScheme: schemes.appleScheme,
+        };
+    }
+
+    function mapsTargetForAddress(address) {
+        const webUrl = mapsSearchUrl(address);
+        if (!webUrl) {
+            return null;
+        }
+        const encoded = encodeURIComponent(String(address).trim());
+        return {
+            webUrl: webUrl,
+            googleScheme: 'comgooglemaps://?q=' + encoded,
+            appleScheme: 'maps://?q=' + encoded,
+        };
+    }
+
+    function mapsTargetFromLink(href) {
+        const raw = String(href || '');
+        if (!raw) {
+            return null;
+        }
+        let query = '';
+        try {
+            const parsed = new URL(raw, window.location.origin);
+            query = parsed.searchParams.get('query') || parsed.searchParams.get('destination') || '';
+        } catch (e) {
+            query = '';
+        }
+        return query ? mapsTargetForAddress(query) : { webUrl: raw };
+    }
+
+    // Op iOS laat window.open een lege browserweergave in de PWA achter zodra de
+    // kaart-app het overneemt. Een app-scheme wisselt direct van app, zonder die weergave.
+    function openMapsTarget(target) {
+        if (!target || !target.webUrl) {
+            return;
+        }
+        if (!isIosDevice() || !target.googleScheme) {
+            window.open(target.webUrl, '_blank', 'noopener');
+            return;
+        }
+        window.location.href = target.googleScheme;
+        if (!target.appleScheme) {
+            return;
+        }
+        setTimeout(function () {
+            if (document.visibilityState === 'visible' && document.hasFocus()) {
+                window.location.href = target.appleScheme;
+            }
+        }, 1200);
     }
 
     function loadGoogleMapsSdk() {
@@ -5039,10 +5132,7 @@
             drawNavigationRoute(origin, remainingNavigationStops(navigationStops, session)).catch(function () {});
         }
         if (nextDest && nextDest.address) {
-            const url = navigationDirUrl(origin, [nextDest]);
-            if (url) {
-                window.open(url, '_blank', 'noopener');
-            }
+            openMapsTarget(mapsTargetForStops(origin, [nextDest]));
         }
     }
 
@@ -5168,10 +5258,7 @@
                 return ensureStopCoords(stop);
             })
         );
-        const url = navigationDirUrl(null, stops);
-        if (url) {
-            window.open(url, '_blank', 'noopener');
-        }
+        openMapsTarget(mapsTargetForStops(null, stops));
         startNavigationWatch();
         const dest = remaining[0];
         setNavigationStatus(navigationStatusText(session, dest));
@@ -11698,6 +11785,22 @@
 
     ['touchstart', 'touchend', 'pointerdown'].forEach(function (eventName) {
         document.addEventListener(eventName, onUserKeepAwakeGesture, { passive: true });
+    });
+
+    document.addEventListener('click', function (ev) {
+        if (!isIosDevice() || !ev.target || !ev.target.closest) {
+            return;
+        }
+        const link = ev.target.closest('a[href*="google.com/maps"]');
+        if (!link) {
+            return;
+        }
+        const target = mapsTargetFromLink(link.getAttribute('href'));
+        if (!target) {
+            return;
+        }
+        ev.preventDefault();
+        openMapsTarget(target);
     });
 
     document.addEventListener('click', function () {
