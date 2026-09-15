@@ -42,7 +42,6 @@
             --soft-text: #d1d5db;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --bottom-nav-h: 4.75rem;
         }
         html[data-theme="dark"] {
             --nexa-pwa-bg: #121214;
@@ -186,7 +185,7 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
-            padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
+            padding: 0;
         }
         .dispatch-top {
             flex: 0 0 auto;
@@ -364,16 +363,14 @@
         }
         .driver-tab-panel[hidden] { display: none !important; }
         .driver-bottom-nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: relative;
+            flex: 0 0 auto;
             z-index: 40;
             display: none;
             align-items: stretch;
             justify-content: center;
             gap: 0.15rem;
-            padding: 0.45rem 0.35rem calc(0.45rem + var(--safe-bottom));
+            padding: 0.3rem 0.35rem calc(0.3rem + var(--safe-bottom) * 0.5);
             background: var(--chrome);
             border-top: 1px solid var(--line);
             backdrop-filter: blur(12px);
@@ -388,21 +385,22 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.2rem;
+            gap: 0.15rem;
             min-width: 0;
-            min-height: 3.6rem;
+            min-height: 2.85rem;
             border: none;
             background: transparent;
             color: var(--muted);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
+            line-height: 1.15;
             cursor: pointer;
             border-radius: 0.75rem;
-            padding: 0.35rem 0.2rem;
+            padding: 0.25rem 0.2rem;
         }
         .driver-bottom-nav__btn svg {
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 1.3rem;
+            height: 1.3rem;
         }
         .driver-bottom-nav__btn.is-active {
             color: var(--orange);
@@ -4133,7 +4131,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=159" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=161" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
