@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
             'taxi.contract' => \App\Http\Middleware\EnsureTaxiContractPortal::class,
             'skillmatching.portal' => \App\Http\Middleware\EnsureSkillmatchingModule::class,
+            'admin.skillmatching' => \App\Http\Middleware\EnsureAdminSkillmatchingModule::class,
             'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
             'taxi.portal.password' => \App\Http\Middleware\EnsureTaxiKlantPasswordIsSet::class,
             'admin.password.changed' => \App\Http\Middleware\EnsureAdminPasswordChanged::class,
@@ -116,6 +118,26 @@ return Application::configure(basePath: dirname(__DIR__))
                     'exceptionMessage' => $message !== '' ? $message : null,
                 ], 403)
                 ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        });
+
+        // Vacatures/skillmatching-admin zonder actieve module: geen kapotte 404-chrome.
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+                return null;
+            }
+            if (! $request->is('admin/vacancies', 'admin/vacancies/*', 'admin/skillmatching', 'admin/skillmatching/*')) {
+                return null;
+            }
+            if (! auth()->check()) {
+                return null;
+            }
+            if (app(\App\Services\AdminDashboardModuleContext::class)->skillmatchingAvailable()) {
+                return null;
+            }
+
+            return redirect()
+                ->route('admin.dashboard')
+                ->with('warning', 'Nexa Skillmatching is niet actief. Je bent naar het dashboard gestuurd.');
         });
 
         // Ensure JSON response for favorite routes so frontend can show the error

@@ -60,8 +60,8 @@ return [
     /** SSE: interval tussen cache-checks (ms). */
     'stream_tick_ms' => (int) env('TAXI_DISPATCH_STREAM_TICK_MS', 500),
 
-    /** Sanctum token geldigheid voor chauffeur-app (dagen). */
-    'token_expiry_days' => (int) env('TAXI_DRIVER_TOKEN_DAYS', 14),
+    /** Sanctum token geldigheid voor chauffeur-app (dagen). 0 = tot uitloggen. */
+    'token_expiry_days' => (int) env('TAXI_DRIVER_TOKEN_DAYS', 0),
 
     /**
      * Mollie testmodus: in local/staging ook providers met test_-sleutel of testmodus-vinkje,

@@ -4,21 +4,20 @@
     <!-- Container -->
     <div class="kt-container-fixed flex w-full items-stretch justify-between gap-2 lg:justify-end lg:gap-4" id="headerContainer">
         <!-- Mobiel: hamburger links, daarna logo met buiten-padding -->
-        <div class="admin-mobile-header-start flex items-center gap-2.5 lg:hidden min-w-0 shrink-0">
+        <div class="admin-mobile-header-start flex items-center gap-2 lg:hidden min-w-0">
             <button
                 type="button"
-                class="kt-btn kt-btn-icon kt-btn-ghost admin-mobile-menu-toggle shrink-0"
+                class="admin-mobile-menu-toggle shrink-0"
                 data-kt-drawer-toggle="#sidebar"
                 aria-label="Menu openen">
-                <i class="ki-filled ki-menu" aria-hidden="true"></i>
+                <svg class="admin-mobile-menu-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+                    <path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/>
+                </svg>
             </button>
-            <a class="shrink-0 flex items-center" href="{{ route('admin.dashboard') }}">
-                @php $adminHeaderLogo = \App\Support\AdminLogo::displayUrls(); @endphp
+            <a class="admin-mobile-header-brand min-w-0 flex items-center" href="{{ route('admin.dashboard') }}">
                 @include('partials.nexa-brand-logo', [
-                    'class' => 'h-[30px] w-auto max-w-[220px] object-contain',
-                    'alt' => $adminHeaderLogo['alt'],
-                    'lightSrc' => $adminHeaderLogo['light_url'],
-                    'darkSrc' => $adminHeaderLogo['dark_url'],
+                    'class' => 'admin-mobile-header-lockup',
+                    'alt' => 'NEXA Suite',
                 ])
             </a>
         </div>
@@ -26,7 +25,7 @@
             @include('admin.layouts.partials.header-flash')
         </div>
         <!-- Topbar -->
-        <div class="flex items-center gap-2.5 shrink-0 ms-auto">
+        <div class="admin-header-actions flex items-center gap-2.5 shrink-0 ms-auto">
             @include('admin.layouts.partials.ai-chatbot-trigger')
             @include('partials.topbar-notification-dropdown')
             @include('partials.topbar-chat')

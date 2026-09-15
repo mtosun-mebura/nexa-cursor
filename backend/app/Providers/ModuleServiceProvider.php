@@ -33,6 +33,8 @@ class ModuleServiceProvider extends ServiceProvider
                     $this->registerModuleViews($module);
                 }
             }
+
+            $this->registerInactiveSkillmatchingAdminFallback($moduleManager);
         } catch (\Exception $e) {
             // Silently fail if modules table doesn't exist yet
             // This allows migrations to run without errors
@@ -50,7 +52,11 @@ class ModuleServiceProvider extends ServiceProvider
 
         // Register web routes
         if (file_exists($routesPath . '/web.php')) {
-            Route::middleware(['web', 'admin'])
+            $webMiddleware = ['web', 'admin'];
+            if ($moduleName === 'skillmatching') {
+                $webMiddleware[] = 'admin.skillmatching';
+            }
+            Route::middleware($webMiddleware)
                 ->prefix("admin/{$moduleName}")
                 ->name("admin.{$moduleName}.")
                 ->group($routesPath . '/web.php');
@@ -96,5 +102,24 @@ class ModuleServiceProvider extends ServiceProvider
         if ($viewsPath && is_dir($viewsPath)) {
             $this->loadViewsFrom($viewsPath, $module->getName());
         }
+    }
+
+    /**
+     * Directe /admin/skillmatching/*-URL's mogen geen kapotte 404-chrome tonen
+     * wanneer de module uit staat: zelfde admin-middleware, daarna doorsturen.
+     */
+    protected function registerInactiveSkillmatchingAdminFallback(ModuleManager $moduleManager): void
+    {
+        if ($moduleManager->isActive('skillmatching')) {
+            return;
+        }
+
+        Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.skillmatching'])
+            ->prefix('admin/skillmatching')
+            ->group(function () {
+                Route::any('{path?}', function () {
+                    return redirect()->route('admin.dashboard');
+                })->where('path', '.*');
+            });
     }
 }

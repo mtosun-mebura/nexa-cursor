@@ -288,7 +288,7 @@
                                     <i class="ki-filled ki-briefcase text-base text-secondary-foreground"></i>
                                 </div>
                                 <div class="flex flex-col justify-start gap-1">
-                                    <a class="text-sm font-semibold leading-none kt-link" href="{{ route('admin.vacancies.show', $vacancy) }}">
+                                    <a class="text-sm font-semibold leading-none kt-link" href="{{ Route::has('admin.skillmatching.vacancies.show') ? route('admin.skillmatching.vacancies.show', $vacancy) : route('admin.dashboard') }}">
                                         {{ $vacancy->category->name ?? 'Vacature' }}
                                     </a>
                                     <span class="text-sm font-medium text-mono">
@@ -312,7 +312,7 @@
                     </div>
                     @if($activeVacancies->count() > 10)
                     <div class="kt-card-footer justify-center">
-                        <a class="kt-link kt-link-underlined kt-link-dashed" href="{{ route('admin.vacancies.index', ['company_id' => $company->id]) }}">
+                        <a class="kt-link kt-link-underlined kt-link-dashed" href="{{ Route::has('admin.skillmatching.vacancies.index') ? route('admin.skillmatching.vacancies.index', ['company_id' => $company->id]) : route('admin.dashboard') }}">
                             Bekijk alle vacatures
                         </a>
                     </div>

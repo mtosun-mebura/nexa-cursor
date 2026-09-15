@@ -155,7 +155,13 @@ class TaxiAppFirstLoginTest extends TestCase
             'password' => 'NieuwWacht1',
         ])
             ->assertOk()
-            ->assertJsonStructure(['token']);
+            ->assertJsonStructure(['token'])
+            ->assertJsonPath('expires_at', null);
+
+        $this->assertNull(
+            $user->tokens()->where('name', 'taxi-driver')->value('expires_at'),
+            'Chauffeur-tokens blijven geldig tot de gebruiker zelf uitlogt.'
+        );
     }
 
     #[Test]

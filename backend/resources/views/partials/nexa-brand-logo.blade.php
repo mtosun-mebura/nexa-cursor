@@ -7,6 +7,20 @@
     $nexaLogoLightSrc = $lightSrc ?? '/images/nexa-logo.png';
     $nexaLogoDarkSrc = $darkSrc ?? '/images/nexa-logo-dark.png';
 @endphp
+@once
+<style>
+    .nexa-brand-lockup { display: inline-flex; align-items: center; max-width: 100%; }
+    .nexa-brand-lockup > .logo-light { display: block; }
+    .nexa-brand-lockup > .logo-dark { display: none; }
+    html.dark .nexa-brand-lockup > .logo-light,
+    body.dark .nexa-brand-lockup > .logo-light,
+    .dark .nexa-brand-lockup > .logo-light { display: none; }
+    html.dark .nexa-brand-lockup > .logo-dark,
+    body.dark .nexa-brand-lockup > .logo-dark,
+    .dark .nexa-brand-lockup > .logo-dark { display: block; }
+</style>
+@endonce
+<span class="nexa-brand-lockup">
 @if($nexaLogoTheme === 'dark')
     <img
         src="{{ $nexaLogoDarkSrc }}"
@@ -47,3 +61,4 @@
         decoding="async"
     />
 @endif
+</span>
