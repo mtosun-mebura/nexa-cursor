@@ -663,8 +663,8 @@
         }
         #payment-panel .payment-actions .btn {
             width: 100%;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            min-height: 2.9rem;
+            font-size: 1rem;
             margin: 0;
         }
         #payment-panel #btn-cash-paid {
@@ -829,7 +829,7 @@
             gap: 0.625rem;
         }
         .driver-dialog__actions .btn {
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .driver-dialog__actions .btn-cash-confirm {
             background: #0d9488;
@@ -1003,7 +1003,7 @@
             font-size: 0.88rem;
             font-weight: 700;
             padding: 0.5rem 0.4rem;
-            min-height: 3.15rem;
+            min-height: 2.8rem;
             text-align: center;
         }
         h1 { font-size: 1.25rem; margin: 0 0 1rem; font-weight: 600; }
@@ -1106,10 +1106,10 @@
             justify-content: center;
             gap: 0.5rem;
             width: 100%;
-            min-height: 3rem;
+            min-height: 2.7rem;
             border: none;
             border-radius: 0.75rem;
-            font-size: 1rem;
+            font-size: 0.9375rem;
             font-weight: 700;
             cursor: pointer;
             touch-action: manipulation;
@@ -1253,15 +1253,15 @@
         #btn-start-return {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            min-height: 2.9rem;
+            font-size: 1rem;
             background: #7c3aed;
             color: #fff;
         }
         #btn-release-return {
             width: 100%;
             margin-top: 0.5rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
             font-size: 1rem;
             background: transparent;
             color: var(--soft-text);
@@ -1385,7 +1385,7 @@
         .active-ride-collapsed-banner .btn {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .parked-assigned-ride-card.is-active-ride {
             border-color: rgba(34, 197, 94, 0.45);
@@ -1407,7 +1407,7 @@
         .parked-assigned-ride-card .btn {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .scheduled-ride-card.is-contract-ride .scheduled-ride-toggle-text .offer-title {
             display: inline;
@@ -4097,7 +4097,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=162" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=163" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

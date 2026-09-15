@@ -2361,12 +2361,15 @@
         return true;
     }
 
+    // iOS bevriest de pagina zodra die niet op het scherm staat, dus hoorbare audio houdt
+    // de GPS niet in leven; het pakt alleen de audiosessie af van de muziek of de
+    // navigatiestem van de chauffeur. De keep-alive media blijft daarom altijd gedempt en
+    // dient enkel om het scherm aan te houden terwijl de app open is.
     function tuneKeepAliveMediaForVisibility() {
-        const hidden = document.visibilityState !== 'visible';
         const audioEl = document.getElementById('nosleep-audio');
         if (audioEl) {
-            audioEl.muted = !hidden;
-            audioEl.volume = hidden ? 0.02 : 0;
+            audioEl.muted = true;
+            audioEl.volume = 0;
         }
     }
 
@@ -3098,7 +3101,7 @@
         const payload = {
             type: 'SHOW_ONLINE_GPS_NOTIFICATION',
             title: 'Je bent online',
-            body: 'Locatie wordt gedeeld met de GPS-tracker, ook als de app op de achtergrond staat.',
+            body: 'Zolang deze app niet op je scherm staat, geeft je telefoon geen locatie door. Open de app weer om verder te delen.',
             icon: cfg.notificationIcon || '/favicon.ico',
             tag: 'nexa-driver-online-gps',
             url: cfg.appUrl || '/taxi/chauffeur',
