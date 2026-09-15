@@ -2,6 +2,25 @@
     'use strict';
 
     const cfg = window.NEXA_TAXI_DRIVER || {};
+    function toPageOriginUrl(value) {
+        if (!value || typeof value !== 'string') {
+            return value;
+        }
+        try {
+            const parsed = new URL(value, window.location.origin);
+            if (parsed.origin !== window.location.origin) {
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+            return value;
+        } catch (e) {
+            return value;
+        }
+    }
+    ['apiBase', 'loginUrl', 'loginCodeRequestUrl', 'loginCodeVerifyUrl', 'appUrl', 'guideUrl', 'notificationIcon'].forEach(function (key) {
+        if (cfg[key]) {
+            cfg[key] = toPageOriginUrl(cfg[key]);
+        }
+    });
     const STORAGE_KEY = 'nexa_taxi_driver_token';
     const COMPANY_KEY = 'nexa_taxi_driver_company_id';
     const ONLINE_KEY = 'nexa_taxi_driver_online';
@@ -312,6 +331,7 @@
     let parkedAssignedRides = [];
     let viewingActiveRideId = null;
     const STOP_ARRIVE_RADIUS_M = 120;
+    const NATIVE_GPS_DISTANCE_FILTER_M = 10;
     const MAPS_MAX_WAYPOINTS = 9;
     const NAV_SESSION_KEY = 'nexa_taxi_nav_session';
     let navigationWatchId = null;
@@ -357,6 +377,7 @@
     let lastGpsFixAt = 0;
     let gpsWatchId = null;
     let gpsCoarseWatchId = null;
+    let nativeGpsActive = false;
     let gpsHeartbeatTimer = null;
     let gpsBackgroundKeepAliveTimer = null;
     let gpsFixInFlight = false;
@@ -2169,6 +2190,11 @@
     }
 
     function shouldKeepScreenAwake() {
+        // Het scherm aanhouden is een noodgreep om de GPS in de browser levend te houden.
+        // Levert de native plugin de fixes, dan is dat alleen accuverspilling.
+        if (nativeGpsActive) {
+            return false;
+        }
         return !!(
             shouldKeepGpsAlive() &&
             screenDispatch &&
@@ -2374,7 +2400,7 @@
     }
 
     function startNoSleepFallback() {
-        if (!shouldKeepGpsAlive()) {
+        if (!shouldKeepGpsAlive() || nativeGpsActive) {
             stopNoSleepFallback();
             return;
         }
@@ -2428,7 +2454,7 @@
 
     function startGpsBackgroundKeepAlive() {
         stopGpsBackgroundKeepAlive();
-        if (!shouldKeepGpsAlive() || isPageVisible()) {
+        if (!shouldKeepGpsAlive() || isPageVisible() || nativeGpsActive) {
             return;
         }
         gpsBackgroundKeepAliveTimer = setInterval(function () {
@@ -2753,7 +2779,7 @@
         }
         if (!serviceWorkerReadyPromise) {
             serviceWorkerReadyPromise = navigator.serviceWorker
-                .register('/taxi-chauffeur-sw.js?v=11', { scope: '/', updateViaCache: 'none' })
+                .register('/taxi-chauffeur-sw.js?v=12', { scope: '/', updateViaCache: 'none' })
                 .then(function (reg) {
                     if (reg.active) {
                         return reg;
@@ -3126,6 +3152,10 @@
 
     async function maybeShowGpsBackgroundNoticeOnce() {
         if (!shouldKeepGpsAlive() || hasShownGpsBackgroundNotice()) {
+            return;
+        }
+        // In het native omhulsel loopt het volgen wel door, dus dan klopt de melding niet.
+        if (nativeGpsActive) {
             return;
         }
         if (!notificationsApiAvailable() || getNotificationPermission() !== 'granted') {
@@ -5934,6 +5964,64 @@
         }
     }
 
+    // In het native omhulsel houdt de plugin de GPS-sessie aan als de app niet op het
+    // scherm staat; in de browser kan dat niet en blijft watchPosition de bron.
+    function nativeGpsPlugin() {
+        const plugins = window.Capacitor && window.Capacitor.Plugins;
+        const plugin = plugins && plugins.BackgroundGeolocation;
+        return plugin && typeof plugin.start === 'function' ? plugin : null;
+    }
+
+    function startNativeGpsWatch() {
+        const plugin = nativeGpsPlugin();
+        if (!plugin) {
+            return false;
+        }
+        if (nativeGpsActive) {
+            return true;
+        }
+        nativeGpsActive = true;
+        plugin
+            .start(
+                {
+                    backgroundTitle: 'Nexa Chauffeur',
+                    backgroundMessage: 'Je locatie wordt gedeeld zolang je online staat.',
+                    requestPermissions: true,
+                    stale: false,
+                    distanceFilter: NATIVE_GPS_DISTANCE_FILTER_M,
+                },
+                function (position, error) {
+                    if (error || !position) {
+                        return;
+                    }
+                    onGpsWatchPosition({
+                        coords: {
+                            latitude: position.latitude,
+                            longitude: position.longitude,
+                            accuracy: position.accuracy,
+                            heading: position.bearing,
+                            speed: position.speed,
+                        },
+                    });
+                }
+            )
+            .catch(function () {
+                nativeGpsActive = false;
+            });
+        return true;
+    }
+
+    function stopNativeGpsWatch() {
+        const plugin = nativeGpsPlugin();
+        if (!plugin || !nativeGpsActive) {
+            return;
+        }
+        nativeGpsActive = false;
+        if (typeof plugin.stop === 'function') {
+            plugin.stop().catch(function () {});
+        }
+    }
+
     function clearGpsWatches() {
         if (gpsWatchId != null && navigator.geolocation) {
             navigator.geolocation.clearWatch(gpsWatchId);
@@ -5954,6 +6042,10 @@
     }
 
     function startGpsWatch() {
+        if (startNativeGpsWatch()) {
+            clearGpsWatches();
+            return true;
+        }
         if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
             return false;
         }
@@ -6027,6 +6119,7 @@
     }
 
     function stopGpsTracking() {
+        stopNativeGpsWatch();
         clearGpsWatches();
         if (gpsHeartbeatTimer) {
             clearInterval(gpsHeartbeatTimer);

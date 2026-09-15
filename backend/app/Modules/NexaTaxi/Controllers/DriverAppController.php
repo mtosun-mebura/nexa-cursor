@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Controllers;
 use App\Http\Controllers\Controller;
 use App\Services\EnvService;
 use App\Services\WebsiteBuilderService;
+use App\Support\SameOriginPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
@@ -15,11 +16,15 @@ class DriverAppController extends Controller
         $favicon = $this->driverFaviconMeta();
 
         return view('taxi::driver-app.index', [
-            'apiBase' => url('/api/taxi/v1/driver'),
+            'apiBase' => '/api/taxi/v1/driver',
             'pollMs' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 2000),
             'streamEnabled' => (bool) config('taxi-dispatch.stream_enabled', false),
-            'appUrl' => $this->chauffeurNamedUrl('taxi.chauffeur.index', '/taxi/chauffeur'),
-            'guideUrl' => $this->chauffeurNamedUrl('taxi.chauffeur.handleiding', '/taxi/chauffeur/handleiding'),
+            'loginUrl' => '/api/taxi/v1/driver/login',
+            'loginCodeRequestUrl' => '/api/taxi/v1/driver/login-code/request',
+            'loginCodeVerifyUrl' => '/api/taxi/v1/driver/login-code/verify',
+            'appUrl' => SameOriginPath::namedRoute('taxi.chauffeur.index', '/taxi/chauffeur'),
+            'guideUrl' => SameOriginPath::namedRoute('taxi.chauffeur.handleiding', '/taxi/chauffeur/handleiding'),
+            'manifestUrl' => SameOriginPath::namedRoute('taxi.chauffeur.manifest', '/taxi/chauffeur/manifest.webmanifest'),
             'faviconUrl' => $favicon['url'],
             'faviconType' => $favicon['type'],
             'notificationIcon' => $favicon['url'],
@@ -35,7 +40,7 @@ class DriverAppController extends Controller
         $favicon = $this->driverFaviconMeta();
 
         return view('taxi::driver-app.handleiding', [
-            'appUrl' => $this->chauffeurNamedUrl('taxi.chauffeur.index', '/taxi/chauffeur'),
+            'appUrl' => SameOriginPath::namedRoute('taxi.chauffeur.index', '/taxi/chauffeur'),
             'faviconUrl' => $favicon['url'],
             'faviconType' => $favicon['type'],
         ]);
@@ -49,7 +54,7 @@ class DriverAppController extends Controller
             'name' => 'Nexa Taxi Chauffeur',
             'short_name' => 'Chauffeur',
             'description' => 'Ritten accepteren en beheren',
-            'start_url' => $this->chauffeurNamedUrl('taxi.chauffeur.index', '/taxi/chauffeur'),
+            'start_url' => SameOriginPath::namedRoute('taxi.chauffeur.index', '/taxi/chauffeur'),
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#0f172a',
@@ -76,13 +81,9 @@ class DriverAppController extends Controller
      */
     private function driverFaviconMeta(): array
     {
-        return app(WebsiteBuilderService::class)->publicFaviconMeta();
-    }
+        $meta = app(WebsiteBuilderService::class)->publicFaviconMeta();
+        $meta['url'] = SameOriginPath::fromUrl($meta['url']);
 
-    private function chauffeurNamedUrl(string $routeName, string $fallbackPath): string
-    {
-        return \Illuminate\Support\Facades\Route::has($routeName)
-            ? route($routeName)
-            : url($fallbackPath);
+        return $meta;
     }
 }

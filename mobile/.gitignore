@@ -1,0 +1,12 @@
+node_modules/
+
+# Xcode-werkbestanden en CocoaPods-artefacten; het project zelf hoort wel in git.
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/App/build/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+ios/DerivedData/
+DerivedData/
+*.xcuserstate

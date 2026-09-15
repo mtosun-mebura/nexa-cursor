@@ -1,0 +1,22 @@
+{
+    "name": "nexa-chauffeur-mobile",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "description": "Native omhulsel om de Nexa chauffeur-app, zodat de locatie ook op de achtergrond doorkomt.",
+    "scripts": {
+        "sync": "cap sync",
+        "ios:add": "cap add ios",
+        "ios:open": "cap open ios",
+        "doctor": "cap doctor"
+    },
+    "dependencies": {
+        "@capacitor/core": "^8.5.2",
+        "@capacitor/ios": "^8.5.2",
+        "@capgo/background-geolocation": "^8.4.5"
+    },
+    "devDependencies": {
+        "@capacitor/cli": "^8.5.2",
+        "typescript": "^7.0.2"
+    }
+}

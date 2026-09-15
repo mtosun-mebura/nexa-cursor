@@ -26,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Achter reverse proxy (Apache/Varnish/Nginx): juiste scheme/host voor URL’s, sessiecookies en CSRF.
         $middleware->trustProxies(at: '*');
 
+        // Lokaal/LAN: genereer URL’s op de Host-header (192.168.x.x) i.p.v. APP_URL=localhost.
+        $middleware->prepend(\App\Http\Middleware\ForceLocalDevRootUrl::class);
+
         // Op https: forceer upgrade van http:// subresources naar https:// (geen mixed-content/"niet beveiligd").
         $middleware->append(\App\Http\Middleware\UpgradeInsecureRequests::class);
 
