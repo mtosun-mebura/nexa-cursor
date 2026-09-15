@@ -35,7 +35,6 @@
             --soft-text: #d1d5db;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --bottom-nav-h: 4.75rem;
         }
         html[data-theme="dark"] {
             --nexa-pwa-bg: #121214;
@@ -115,7 +114,7 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
-            padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
+            padding: 0;
         }
         .home-top {
             flex: 0 0 auto;
@@ -153,16 +152,14 @@
             padding: 0.75rem 1rem 0.35rem;
         }
         .contract-bottom-nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: relative;
+            flex: 0 0 auto;
             z-index: 40;
             display: none;
             align-items: stretch;
             justify-content: center;
             gap: 0.15rem;
-            padding: 0.45rem 0.35rem calc(0.45rem + var(--safe-bottom));
+            padding: 0.3rem 0.35rem calc(0.3rem + var(--safe-bottom) * 0.5);
             background: var(--chrome);
             border-top: 1px solid var(--line);
             backdrop-filter: blur(12px);
@@ -177,21 +174,22 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.2rem;
+            gap: 0.15rem;
             min-width: 0;
-            min-height: 3.6rem;
+            min-height: 2.85rem;
             border: none;
             background: transparent;
             color: var(--muted);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
+            line-height: 1.15;
             cursor: pointer;
             border-radius: 0.75rem;
-            padding: 0.35rem 0.2rem;
+            padding: 0.25rem 0.2rem;
         }
         .contract-bottom-nav__btn svg {
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 1.3rem;
+            height: 1.3rem;
         }
         .contract-bottom-nav__btn.is-active {
             color: var(--orange);
@@ -202,7 +200,7 @@
         @media (max-width: 420px) {
             .contract-bottom-nav__btn {
                 font-size: 0.62rem;
-                padding: 0.3rem 0.1rem;
+                padding: 0.22rem 0.1rem;
             }
         }
         #screen-home.is-nav-tab .home-scroll {
@@ -550,7 +548,7 @@
             gap: 0.4rem;
             border: 0;
             border-radius: 0.625rem;
-            padding: 0.75rem 1rem;
+            padding: 0.6rem 1rem;
             font-size: 0.9375rem;
             font-weight: 600;
             cursor: pointer;
@@ -1398,7 +1396,7 @@
         }
         .dialog.contract-notice .dialog-actions .btn,
         .dialog.contract-confirm .dialog-actions .btn {
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         html[data-theme="light"] .card {
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
