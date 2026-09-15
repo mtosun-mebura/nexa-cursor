@@ -197,8 +197,10 @@
             $backUrl = route('admin.dashboard');
             $user = auth()->user();
             if (str_contains($currentUrl, '/admin/vacancies/') || str_contains($currentUrl, '/admin/skillmatching/vacancies/')) {
-                if ($user->hasRole('super-admin') || $user->can('view-vacancies') || $user->can('skillmatching.vacancies.view')) {
-                    $backUrl = \Illuminate\Support\Facades\Route::has('admin.skillmatching.vacancies.index') ? route('admin.skillmatching.vacancies.index') : route('admin.dashboard');
+                if (($user->hasRole('super-admin') || $user->can('view-vacancies') || $user->can('skillmatching.vacancies.view'))
+                    && app(\App\Services\AdminDashboardModuleContext::class)->skillmatchingAvailable()
+                    && \Illuminate\Support\Facades\Route::has('admin.skillmatching.vacancies.index')) {
+                    $backUrl = route('admin.skillmatching.vacancies.index');
                 }
             } elseif (str_contains($currentUrl, '/admin/companies/')) {
                 if ($user->hasRole('super-admin') || $user->can('view-companies')) {

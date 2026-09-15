@@ -156,7 +156,7 @@
                                                 @if($contactUser)
                                                     <img src="{{ $contactUser && $contactUser->photo_blob ? route('secure.photo', ['token' => $contactUser->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
                                                 @else
-                                                    <img src="{{ route('admin.vacancies.contact-photo', $match->vacancy) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                                    <img src="{{ Route::has('admin.skillmatching.vacancies.contact-photo') ? route('admin.skillmatching.vacancies.contact-photo', $match->vacancy) : asset('assets/media/avatars/300-2.png') }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
                                                 @endif
                                             @endif
                                             <div class="flex flex-col gap-1">

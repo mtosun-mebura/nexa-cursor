@@ -47,7 +47,7 @@ main#content {
 }
 
 main#content {
-    overflow-x: clip;
+    overflow: visible;
     max-width: 100%;
     width: 100%;
 }
@@ -94,45 +94,155 @@ body.dark #header [data-ai-chat-toggle] svg,
     #header #headerContainer {
         justify-content: space-between !important;
         padding-inline-start: max(0.25rem, env(safe-area-inset-left, 0px)) !important;
+        gap: 0.75rem !important;
+    }
+
+    #header #admin-header-flash:not(:has(.admin-header-toast)) {
+        display: none;
+        flex: 0 0 0;
+        width: 0;
+        margin: 0;
+    }
+
+    #header #admin-header-flash:has(.admin-header-toast) {
+        flex: 0 0 0;
+        width: 0;
+        margin: 0;
+        position: relative;
+        overflow: visible;
     }
 
     #header .admin-mobile-header-start {
-        flex: 0 1 auto;
-        max-width: calc(100% - 8rem);
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: none;
+        margin-inline-end: 0.75rem;
         margin-inline-start: 0;
         padding-inline-start: 0;
+        overflow: hidden;
     }
 
-    #header .admin-mobile-menu-toggle {
-        margin-inline-start: -0.25rem;
-        width: 2.75rem;
-        height: 2.75rem;
-        min-width: 2.75rem;
-        min-height: 2.75rem;
-        padding: 0;
-        border: none;
-        background: transparent;
+    #header .admin-mobile-header-brand {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
     }
 
-    #header .admin-mobile-menu-toggle .ki-filled {
-        font-size: 1.5rem;
-        line-height: 1;
+    #header .admin-header-actions {
+        flex: 0 0 auto;
+        margin-inline-start: 0.25rem;
+    }
+
+    #header .admin-mobile-menu-toggle,
+    #header .admin-mobile-menu-toggle.kt-btn,
+    #header .admin-mobile-menu-toggle.kt-btn-ghost,
+    #header .admin-mobile-menu-toggle.kt-btn-icon {
+        position: relative;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: -0.15rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        padding: 0 !important;
+        border: 0 !important;
+        border-width: 0 !important;
+        border-color: transparent !important;
+        border-radius: 0 !important;
+        outline: none !important;
+        box-shadow: none !important;
+        --tw-shadow: 0 0 #0000;
+        --tw-ring-shadow: 0 0 #0000;
+        --tw-ring-offset-shadow: 0 0 #0000;
+        --tw-inset-shadow: 0 0 #0000;
+        --tw-inset-ring-shadow: 0 0 #0000;
+        background: transparent !important;
+        appearance: none;
+        -webkit-appearance: none;
+        color: var(--foreground);
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #header .admin-mobile-menu-toggle:hover,
+    #header .admin-mobile-menu-toggle:focus,
+    #header .admin-mobile-menu-toggle:focus-visible,
+    #header .admin-mobile-menu-toggle.active {
+        border: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        outline: none !important;
         color: var(--foreground);
     }
 
+    #header .admin-mobile-menu-icon {
+        display: block;
+        width: 1.5rem;
+        height: 1.5rem;
+        color: inherit;
+        pointer-events: none;
+    }
+
+    #header .admin-mobile-menu-toggle .ki-filled,
+    #header .admin-mobile-menu-toggle .ki-menu {
+        font-size: 1.5rem !important;
+        line-height: 1 !important;
+        color: var(--foreground);
+        pointer-events: none;
+    }
+
+    #header .admin-mobile-header-lockup,
+    #header .admin-mobile-header-mark {
+        display: block;
+        height: 1.5rem;
+        width: auto;
+        max-width: 100%;
+        max-height: 1.5rem;
+        object-fit: contain;
+        object-position: left center;
+    }
+
+    html.dark #header .admin-mobile-menu-toggle,
+    body.dark #header .admin-mobile-menu-toggle,
+    .dark #header .admin-mobile-menu-toggle,
     html.dark #header .admin-mobile-menu-toggle .ki-filled,
     body.dark #header .admin-mobile-menu-toggle .ki-filled,
     .dark #header .admin-mobile-menu-toggle .ki-filled {
         color: #fff;
     }
 
-    /* Drawer boven vaste header; logo-rij verborgen (staat al in topbar), tenant-switcher blijft zichtbaar */
+    /* Drawer boven vaste header. Logo staat in de topbar (NEXA Suite-woordmerk).
+       Alleen de OPEN drawer mag boven de header (z-index 9999) liggen — een
+       gesloten drawer met z-index 10050 vangt anders hamburger/content-clicks.
+       Gesloten: altijd off-canvas. KT Drawer zet kt-drawer-start pas ná JS;
+       zonder translate blijft `fixed` + `flex` de kolom over de pagina tekenen. */
     .kt-drawer-backdrop {
         z-index: 10040 !important;
     }
 
-    #sidebar#sidebar {
+    #sidebar#sidebar:not(.open) {
+        pointer-events: none !important;
+        z-index: 20 !important;
+        transform: translate3d(-100%, 0, 0) !important;
+        translate: -100% 0 !important;
+    }
+
+    #sidebar#sidebar.open {
+        pointer-events: auto !important;
         z-index: 10050 !important;
+        transform: none !important;
+        translate: 0 !important;
+    }
+
+    /* Achtergebleven drawer-backdrop vangt anders alle clicks.
+       Alleen pointer-events uitzetten — display niet forceren, anders
+       opent Metronic de sluier niet meer als de sidebar wél open is. */
+    body:not(:has(#sidebar.open)) .kt-drawer-backdrop {
+        pointer-events: none !important;
     }
 
     #sidebar .kt-sidebar-header {
@@ -239,6 +349,10 @@ body.dark #header [data-ai-chat-toggle] svg,
         height: 26px;
         margin-inline: auto;
     }
+    .demo1.kt-sidebar-collapse #sidebar:not(:hover) .kt-sidebar-header .logo-light.default-logo,
+    .demo1.kt-sidebar-collapse #sidebar:not(:hover) .kt-sidebar-header .logo-dark.default-logo {
+        display: none !important;
+    }
 
     /* De knop krijgt via Metronic's ".active"-status normaal een geaccentueerde
        achtergrond (bedoeld als "ingedrukt"-stijl voor knoppen). Voor de in-/uitklap-
@@ -267,9 +381,24 @@ body.dark #header [data-ai-chat-toggle] svg,
 }
 
 /* Footer blijft altijd zichtbaar onderin het scherm (scrollt niet mee), net als de
-   fixed header. Extra padding zodat de onderste kaarten niet tegen de footer plakken. */
+   fixed header. Compacte balk: ongeveer de helft van de oude py-5-hoogte. */
+.kt-footer {
+    min-height: 0;
+}
+
+.kt-footer > .kt-container-fixed > .flex {
+    min-height: 0;
+    padding-block: 0.5rem !important;
+    gap: 0.5rem !important;
+}
+
+.kt-footer .text-sm {
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
 #content {
-    padding-bottom: 6.5rem;
+    padding-bottom: 3.25rem;
 }
 
 @media (min-width: 1024px) {
@@ -953,6 +1082,17 @@ html.dark #content .admin-calendar-toolbar__title,
         flex: 1 1 100%;
         width: 100%;
     }
+
+    #content .admin-page-actions .kt-menu,
+    #content .admin-page-actions .kt-menu-item {
+        width: 100%;
+        display: flex;
+    }
+
+    #content .admin-page-actions .kt-menu .kt-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 /* --- Filter-toolbar (mobiel/tablet) --- */
@@ -1029,6 +1169,10 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         justify-content: center;
         align-items: center;
         gap: 0.5rem;
+        position: relative;
+        z-index: 2;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .admin-filter-toggle__badge {
@@ -1077,41 +1221,13 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         justify-content: center;
     }
 
-    #content .kt-card-header:has(.admin-filter-panel) .kt-select-dropdown,
-    #content .kt-card-header:has(.admin-filter-panel) .kt-select-options,
-    #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-dropdown],
-    #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-options],
-    #content .kt-card-header:has(.admin-filter-panel) .kt-menu-dropdown {
-        position: fixed !important;
-        z-index: 10050 !important;
-        background-color: var(--popover, #ffffff) !important;
-        color: var(--popover-foreground, var(--foreground)) !important;
-        border: 1px solid var(--border) !important;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
-        -webkit-backdrop-filter: none !important;
-        backdrop-filter: none !important;
-    }
-
-    html.dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-dropdown,
-    html.dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-options,
-    html.dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-dropdown],
-    html.dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-options],
-    .dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-dropdown,
-    .dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-options,
-    .dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-dropdown],
-    .dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-options] {
-        background-color: #111827 !important;
-        color: #f3f4f6 !important;
-    }
-
-    #content .kt-card-header:has(.admin-filter-panel) .kt-select-wrapper,
-    #content .kt-card-header:has(.admin-filter-panel) .kt-menu {
-        position: relative;
-        z-index: 31 !important;
-    }
-
     #content .kt-card:has(.admin-filter-panel) > .kt-card-header {
         position: relative !important;
+        z-index: 1 !important;
+        overflow: visible !important;
+    }
+
+    #content .kt-card:has(.kt-select-dropdown.open) > .kt-card-header {
         z-index: 30 !important;
     }
 
@@ -1171,6 +1287,153 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     width: 2.125rem;
     padding: 0;
     box-sizing: border-box;
+}
+
+/*
+ * kt-select menu's: altijd direct onder de gekozen select, boven volgende velden.
+ * Popper zet anders transform/overflow zodat opties achter latere selects of
+ * onderaan het formulier belanden. !important wint van Popper-inline styles.
+ */
+#content .kt-card:has(.kt-select-wrapper),
+#content .kt-card-header,
+#content .kt-card-header:has(.kt-select-wrapper),
+#content .admin-filter-panel,
+#content form:has(.kt-select-wrapper),
+#content .admin-calendar-toolbar__filters,
+#content .flex:has(> .kt-select-wrapper),
+#content .flex:has(> form .kt-select-wrapper) {
+    overflow: visible !important;
+}
+
+#content .kt-select-wrapper,
+#content [data-kt-select-wrapper] {
+    position: relative !important;
+    z-index: 1;
+    max-width: 100%;
+    min-width: 0;
+}
+
+#content .kt-select-wrapper:has(.kt-select-dropdown.open),
+#content .kt-select-wrapper:has([data-kt-select-dropdown].open),
+#content .kt-select-wrapper.is-dropdown-open,
+#content [data-kt-select-wrapper].is-dropdown-open {
+    z-index: 80 !important;
+}
+
+#content .kt-select-dropdown,
+#content .kt-select-dropdown[data-kt-select-dropdown],
+#content [data-kt-select-dropdown] {
+    z-index: 81 !important;
+}
+
+#content .kt-select-dropdown.hidden,
+#content [data-kt-select-dropdown].hidden,
+#content .kt-select-dropdown:not(.open):not(.show),
+#content [data-kt-select-dropdown]:not(.open):not(.show) {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+#content .kt-select-wrapper .kt-select-dropdown.open,
+#content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+#content .kt-select-wrapper:has(.kt-select-dropdown.open) .kt-select-dropdown.open,
+#content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open {
+    position: absolute !important;
+    top: calc(100% + 4px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    transform: none !important;
+    margin: 0 !important;
+    z-index: 90 !important;
+    max-height: min(280px, 50vh) !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    pointer-events: auto;
+}
+
+#content [data-kt-select-display],
+#content .kt-select-display,
+#content .kt-select-wrapper .kt-select-toggle,
+#content .kt-select-wrapper button {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#content .kt-input,
+#content input.kt-input,
+#content .kt-input > input {
+    min-width: 0;
+    max-width: 100%;
+}
+
+html.admin-kt-select-open main#content,
+html.admin-kt-select-open #content .kt-card,
+html.admin-kt-select-open #content .kt-card-header,
+html.admin-kt-select-open #content .kt-card-content,
+html.admin-kt-select-open #content .admin-filter-panel {
+    overflow: visible !important;
+}
+
+@media (max-width: 1023px) {
+    #content .kt-select,
+    #content .kt-select-wrapper,
+    #content .kt-input,
+    #content input,
+    #content select,
+    #content textarea {
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    #content .kt-btn {
+        max-width: 100%;
+        white-space: normal;
+    }
+}
+
+/* Statistiekbalken: op smalle schermen 3 kolommen als dat past, compactere typografie */
+@media (max-width: 1023px) {
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: center;
+        column-gap: 0.35rem;
+        row-gap: 0.45rem;
+        padding-block: 0.15rem !important;
+        padding-inline: 0 !important;
+        flex-wrap: nowrap;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) > span {
+        display: none !important;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) > .grid {
+        min-width: 0 !important;
+        gap: 0.1rem !important;
+        padding-inline: 0.15rem;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) .text-2xl,
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) .text-xl {
+        font-size: 1.125rem !important;
+        line-height: 1.1 !important;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) .text-sm {
+        font-size: 0.6875rem !important;
+        line-height: 1.2 !important;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+    }
 }
 
 /* --- Lijst: tabel vs. kaarten --- */
@@ -1258,33 +1521,46 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 }
 
 .admin-list-card__body {
-    padding: 1rem 1rem 0.75rem;
+    padding: 0.875rem 0.875rem 0.625rem;
     flex: 1;
     min-width: 0;
 }
 
 .admin-list-card__title {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--foreground);
-    line-height: 1.35;
-    margin-bottom: 0.75rem;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
     word-break: break-word;
+}
+
+.admin-list-card__title .size-9 {
+    width: 2rem;
+    height: 2rem;
+}
+
+.admin-list-card__title .text-sm {
+    font-size: 0.8125rem;
 }
 
 .admin-list-card__fields {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.375rem;
     margin: 0;
 }
 
 .admin-list-card__field {
     display: grid;
-    grid-template-columns: minmax(5.5rem, 38%) 1fr;
-    gap: 0.5rem 0.75rem;
-    align-items: start;
-    font-size: 0.875rem;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    gap: 0.25rem 0.625rem;
+    align-items: center;
+    font-size: 0.8125rem;
+}
+
+.admin-list-card__field--value-only {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .admin-list-card__field dt {
@@ -1292,6 +1568,7 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     font-weight: 500;
     color: var(--muted-foreground);
     word-break: break-word;
+    line-height: 1.3;
 }
 
 .admin-list-card__field dd {
@@ -1299,23 +1576,38 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     color: var(--foreground);
     min-width: 0;
     word-break: break-word;
+    line-height: 1.3;
+}
+
+.admin-list-card__field dd .flex.flex-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.admin-list-card__field dd .kt-badge {
+    font-size: 0.6875rem;
 }
 
 .admin-list-card__actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    gap: 0.375rem;
+    padding: 0.625rem 0.75rem 0.75rem;
     border-top: 1px solid var(--border);
-    background: color-mix(in oklab, var(--muted) 35%, transparent);
+    background: transparent;
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
 }
 
 .admin-list-card__action-buttons {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     align-items: stretch;
-    gap: 0.5rem;
+    gap: 0.375rem;
     width: 100%;
 }
 
@@ -1323,11 +1615,37 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 .admin-list-card__action-buttons .admin-card-action-form--labeled .kt-btn {
     width: 100%;
     justify-content: center;
-    gap: 0.5rem;
-    min-height: 2.5rem;
-    white-space: normal;
+    gap: 0.375rem;
+    min-height: 2.25rem;
+    padding-inline: 0.5rem;
+    white-space: nowrap;
     text-align: center;
-    line-height: 1.3;
+    line-height: 1.2;
+    font-size: 0.8125rem;
+}
+
+.admin-list-card__action-buttons .admin-card-action-form--labeled {
+    min-width: 0;
+}
+
+.admin-list-card__action-buttons .admin-card-action-form--danger .kt-btn,
+.admin-list-card__action-buttons > a.text-danger {
+    color: var(--destructive, #dc2626);
+    border-color: color-mix(in srgb, var(--destructive, #dc2626) 45%, transparent);
+    background-color: color-mix(in srgb, var(--destructive, #dc2626) 8%, transparent);
+}
+
+.admin-list-card__action-buttons .admin-card-action-form--danger .kt-btn:hover,
+.admin-list-card__action-buttons > a.text-danger:hover {
+    background-color: color-mix(in srgb, var(--destructive, #dc2626) 14%, transparent);
+}
+
+.admin-list-card__action-buttons i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .admin-list-card__action-label {
@@ -1411,18 +1729,6 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 @media (max-width: 1023px) {
     #content .kt-card .flex.flex-col.sm\:flex-row.lg\:px-10 {
         padding-inline: 0.75rem;
-    }
-}
-
-@media (max-width: 639px) {
-    #content .kt-card .flex.flex-col.sm\:flex-row.lg\:px-10 {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
-    }
-
-    #content .kt-card .flex.flex-col.sm\:flex-row.lg\:px-10 > span.hidden.sm\:block {
-        display: none !important;
     }
 }
 

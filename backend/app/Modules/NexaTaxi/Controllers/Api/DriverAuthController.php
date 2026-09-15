@@ -206,12 +206,7 @@ class DriverAuthController extends Controller
 
         $user->tokens()->where('name', 'taxi-driver')->delete();
 
-        $expiryDays = (int) config('taxi-dispatch.token_expiry_days', 14);
-        $token = $user->createToken(
-            'taxi-driver',
-            ['taxi:driver'],
-            now()->addDays($expiryDays)
-        );
+        $token = $user->createToken('taxi-driver', ['taxi:driver']);
 
         $availability = $this->driverAvailability($moduleDb, (int) $user->id);
         $isOnline = $availability && $availability->is_online;
