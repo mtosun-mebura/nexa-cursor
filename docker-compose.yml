@@ -14,7 +14,7 @@ services:
     container_name: nexa_backend
     entrypoint: ["/var/www/html/docker-entrypoint.sh"]
     ports:
-      - "8085:8000"
+      - "0.0.0.0:8085:8000"
     depends_on:
       db:
         condition: service_healthy

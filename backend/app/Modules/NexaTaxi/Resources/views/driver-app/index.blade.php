@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://maps.googleapis.com">
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
-    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.chauffeur.manifest') ? route('taxi.chauffeur.manifest') : url('/taxi/chauffeur/manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ $manifestUrl ?? '/taxi/chauffeur/manifest.webmanifest' }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -3615,7 +3615,7 @@
                             Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
                             Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
                         </p>
-                        <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
+                        <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">Handleiding openen</a>
                     </div>
                 </div>
             </div>
@@ -3890,7 +3890,7 @@
                 @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                 @include('taxi::partials.ride-alert-tone', ['section' => 'picker'])
                 <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
-                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">
+                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">
                     <strong>Handleiding</strong>
                     <span>Openen →</span>
                 </a>
@@ -4073,22 +4073,22 @@
 
 <div id="nosleep-media-wrap" aria-hidden="true">
     <video id="nosleep-video" loop muted playsinline webkit-playsinline preload="auto" disablePictureInPicture
-        src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.mp4') }}"></video>
+        src="/assets/media/app/nexa-chauffeur-nosleep.mp4"></video>
 </div>
 <audio id="nosleep-audio" loop preload="auto" muted playsinline webkit-playsinline aria-hidden="true"
-    src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.wav') }}"></audio>
+    src="/assets/media/app/nexa-chauffeur-nosleep.wav"></audio>
 <canvas id="nosleep-canvas" width="1" height="1" aria-hidden="true"></canvas>
 
 <script>
 window.NEXA_TAXI_DRIVER = {
-    apiBase: @json($apiBase),
+    apiBase: @json($apiBase ?? '/api/taxi/v1/driver'),
     pollMs: {{ (int) $pollMs }},
     streamEnabled: @json($streamEnabled ?? false),
-    loginUrl: @json(url('/api/taxi/v1/driver/login')),
-    loginCodeRequestUrl: @json(url('/api/taxi/v1/driver/login-code/request')),
-    loginCodeVerifyUrl: @json(url('/api/taxi/v1/driver/login-code/verify')),
-    appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
-    guideUrl: @json($guideUrl ?? url('/taxi/chauffeur/handleiding')),
+    loginUrl: @json($loginUrl ?? '/api/taxi/v1/driver/login'),
+    loginCodeRequestUrl: @json($loginCodeRequestUrl ?? '/api/taxi/v1/driver/login-code/request'),
+    loginCodeVerifyUrl: @json($loginCodeVerifyUrl ?? '/api/taxi/v1/driver/login-code/verify'),
+    appUrl: @json($appUrl ?? '/taxi/chauffeur'),
+    guideUrl: @json($guideUrl ?? '/taxi/chauffeur/handleiding'),
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
     googleMapsApiKey: @json($googleMapsApiKey ?? ''),
     googleMapsMapId: @json($googleMapsMapId ?? ''),
@@ -4096,8 +4096,8 @@ window.NEXA_TAXI_DRIVER = {
     googleMapsCenterLng: @json($googleMapsCenterLng ?? '4.9041'),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=163" defer></script>
+<script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=164" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

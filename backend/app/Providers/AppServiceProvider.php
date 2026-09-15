@@ -13,7 +13,6 @@ use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
 use App\Support\Admin\AdminTenantScope;
 use App\Support\DestructiveDatabaseGuard;
-use App\Support\Tenancy\CentralDomains;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Mail\Events\MessageSending;
@@ -24,7 +23,6 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -62,7 +60,6 @@ class AppServiceProvider extends ServiceProvider
         $this->registerModuleDatabaseConnections();
         $this->registerWebsitePageRouteBinding();
         $this->syncMapsConfigFromSettings();
-        $this->forceLocalDevRootUrlFromRequest();
 
         View::composer('admin.layouts.app', function ($view) {
             if (! auth()->check()) {
@@ -254,35 +251,6 @@ class AppServiceProvider extends ServiceProvider
     private function syncMapsConfigFromSettings(): void
     {
         app(EnvService::class)->syncMapsConfig();
-    }
-
-    /**
-     * LAN/mobiel dev: APP_URL is vaak localhost, maar de browser opent 192.168.x.x.
-     * Zonder dit wijzen redirects en gegenereerde URL's naar localhost → geen sessie op de telefoon.
-     */
-    private function forceLocalDevRootUrlFromRequest(): void
-    {
-        if ($this->app->runningInConsole() || app()->isProduction()) {
-            return;
-        }
-
-        $request = request();
-        if ($request === null) {
-            return;
-        }
-
-        $host = $request->getHost();
-        if (! CentralDomains::isLocalDevEntryHost($host)) {
-            return;
-        }
-
-        $root = $request->getScheme().'://'.$host;
-        $port = $request->getPort();
-        if ($port && ! in_array($port, [80, 443], true)) {
-            $root .= ':'.$port;
-        }
-
-        URL::forceRootUrl($root);
     }
 
     /**

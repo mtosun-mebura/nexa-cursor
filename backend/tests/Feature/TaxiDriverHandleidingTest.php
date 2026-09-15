@@ -102,4 +102,19 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('data-planning-view="week"', $html);
         $this->assertStringNotContainsString('data-planning-view="month"', $html);
     }
+
+    #[Test]
+    public function chauffeur_app_on_lan_host_does_not_point_scripts_or_api_at_localhost(): void
+    {
+        $html = $this->get('http://192.168.2.70:8085/taxi/chauffeur')
+            ->assertOk()
+            ->assertSee('Chauffeur inloggen', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('http://localhost', $html);
+        $this->assertStringContainsString('taxi-driver-app.js', $html);
+        $this->assertStringContainsString('taxi/chauffeur/manifest.webmanifest', $html);
+        $this->assertStringContainsString('apiBase:', $html);
+        $this->assertStringContainsString('v1\/driver', $html);
+    }
 }

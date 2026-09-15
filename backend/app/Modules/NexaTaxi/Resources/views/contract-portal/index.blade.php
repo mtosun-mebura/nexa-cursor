@@ -10,7 +10,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     @include('taxi::partials.pwa-accent', ['section' => 'boot'])
-    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.contract.manifest') ? route('taxi.contract.manifest') : url('/taxi/contract/manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ $manifestUrl ?? '/taxi/contract/manifest.webmanifest' }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -1415,7 +1415,7 @@
                     Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, ritten en afmelden.
                     Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
                 </p>
-                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">Handleiding openen</a>
+                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? '/taxi/contract/handleiding' }}">Handleiding openen</a>
             </div>
         </div>
     </div>
@@ -1515,7 +1515,7 @@
                     </div>
                     @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                     <p class="muted profile-session-note">Gegevens zijn alleen ter inzage.</p>
-                    <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">
+                    <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/contract/handleiding' }}">
                         <strong>Handleiding</strong>
                     </a>
                     <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
@@ -1592,12 +1592,12 @@
 
 <script>
 window.NEXA_TAXI_CONTRACT = {
-    apiBase: @json($apiBase),
-    loginUrl: @json(url('/api/taxi/v1/contract/login')),
-    loginCodeRequestUrl: @json(url('/api/taxi/v1/contract/login-code/request')),
-    loginCodeVerifyUrl: @json(url('/api/taxi/v1/contract/login-code/verify')),
-    appUrl: @json($appUrl ?? url('/taxi/contract')),
-    guideUrl: @json($guideUrl ?? url('/taxi/contract/handleiding')),
+    apiBase: @json($apiBase ?? '/api/taxi/v1/contract'),
+    loginUrl: @json($loginUrl ?? '/api/taxi/v1/contract/login'),
+    loginCodeRequestUrl: @json($loginCodeRequestUrl ?? '/api/taxi/v1/contract/login-code/request'),
+    loginCodeVerifyUrl: @json($loginCodeVerifyUrl ?? '/api/taxi/v1/contract/login-code/verify'),
+    appUrl: @json($appUrl ?? '/taxi/contract'),
+    guideUrl: @json($guideUrl ?? '/taxi/contract/handleiding'),
     pollMs: {{ (int) ($pollMs ?? 15000) }},
     googleMapsApiKey: @json($googleMapsApiKey ?? ''),
     googleMapsMapId: @json($googleMapsMapId ?? ''),
@@ -1605,8 +1605,8 @@ window.NEXA_TAXI_CONTRACT = {
     googleMapsCenterLng: @json($googleMapsCenterLng ?? '4.9041'),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=45" defer></script>
+<script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
+<script src="/assets/js/taxi-contract-app.js?v=46" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
