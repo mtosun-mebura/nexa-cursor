@@ -2689,6 +2689,38 @@ class AdminWebsitePageController extends Controller
         return $raw;
     }
 
+    /**
+     * @param  array<string, mixed>  $raw
+     * @return array<string, mixed>
+     */
+    private function normalizeLandwindFaqSection(array $raw): array
+    {
+        $raw['eyebrow'] = FrontendComponentService::plainTextFromHtml($raw['eyebrow'] ?? '');
+        $raw['title'] = FrontendComponentService::plainTextFromHtml($raw['title'] ?? '');
+        $raw['subtitle'] = FrontendComponentService::plainTextFromHtml($raw['subtitle'] ?? '');
+        $raw['width_percent'] = max(30, min(100, (int) ($raw['width_percent'] ?? 60)));
+
+        $items = isset($raw['items']) && is_array($raw['items']) ? array_values($raw['items']) : [];
+        $normalizedItems = [];
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $question = FrontendComponentService::plainTextFromHtml($item['question'] ?? '');
+            $answer = FrontendComponentService::plainTextFromHtml($item['answer'] ?? '');
+            if ($question === '' && $answer === '') {
+                continue;
+            }
+            $normalizedItems[] = [
+                'question' => $question,
+                'answer' => $answer,
+            ];
+        }
+        $raw['items'] = $normalizedItems;
+
+        return $raw;
+    }
+
     private function normalizeNexaModulesOverviewSection(array $raw): array
     {
         $toPlainTextLines = static function ($value): array {
@@ -2946,6 +2978,10 @@ class AdminWebsitePageController extends Controller
                     );
                 } elseif ($sectionKey === 'component:website.pricing_packages') {
                     $sections[$sectionKey] = $this->normalizePricingPackagesSection(
+                        $input[$sectionKey] ?? []
+                    );
+                } elseif ($sectionKey === 'component:landwind.faq') {
+                    $sections[$sectionKey] = $this->normalizeLandwindFaqSection(
                         $input[$sectionKey] ?? []
                     );
                 } else {

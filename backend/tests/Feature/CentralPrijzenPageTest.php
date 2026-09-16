@@ -39,7 +39,12 @@ class CentralPrijzenPageTest extends TestCase
             ->assertSee('Business', false)
             ->assertSee('Website live zetten', false)
             ->assertSee('nexa-plan-absent', false)
-            ->assertSee('Niet inbegrepen', false);
+            ->assertSee('Niet inbegrepen', false)
+            ->assertSee('nexa-pricing-cards', false)
+            ->assertSee('nexa-pricing-table-wrap', false)
+            ->assertSee('De pakketten staan hierboven', false)
+            ->assertDontSee('<p>De pakketten', false)
+            ->assertDontSee('&lt;p&gt;', false);
     }
 
     #[Test]
