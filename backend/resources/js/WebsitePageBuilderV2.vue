@@ -374,6 +374,10 @@ watch(configModalOpen, (open) => {
   document.body.style.overflow = open || pageInfoModalOpen.value ? 'hidden' : ''
 })
 
+function flashAdminHeader(type: 'success' | 'error' | 'warning', message: string) {
+  window.showAdminHeaderFlash?.(type, message)
+}
+
 let saveMessageTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(saveMessage, (message) => {
@@ -384,10 +388,18 @@ watch(saveMessage, (message) => {
   if (!message) {
     return
   }
+  flashAdminHeader('success', message)
   saveMessageTimer = setTimeout(() => {
     saveMessage.value = null
     saveMessageTimer = null
   }, 5000)
+})
+
+watch(saveError, (message) => {
+  if (!message) {
+    return
+  }
+  flashAdminHeader('error', message)
 })
 
 onMounted(() => {
@@ -474,7 +486,7 @@ onUnmounted(() => {
       </div>
 
       <div class="builder-toolbar__right">
-        <div v-if="dirty || saveError" class="builder-toolbar__status">
+        <div class="builder-toolbar__status" role="status" aria-live="polite">
           <span v-if="dirty" class="builder-status builder-status--dirty">Niet opgeslagen</span>
           <span v-if="saveError" class="builder-status builder-status--error">{{ saveError }}</span>
         </div>
@@ -511,11 +523,6 @@ onUnmounted(() => {
         </div>
       </div>
     </header>
-
-    <div v-if="saveMessage" class="builder-save-banner" role="status" aria-live="polite">
-      <i class="ki-filled ki-check-circle" aria-hidden="true" />
-      <span>{{ saveMessage }}</span>
-    </div>
 
     <div
       v-if="bootstrap.taxiBookingSetupNotice"
@@ -802,7 +809,9 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 0.35rem;
+  min-height: 1.5rem;
 }
 
 .builder-toolbar__actions {

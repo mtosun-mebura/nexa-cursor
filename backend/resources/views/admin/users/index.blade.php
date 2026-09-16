@@ -71,10 +71,19 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 justify-between items-center">
-                <h3 class="kt-card-title text-sm mb-0">
-                    Toon 1 tot {{ $users->count() }} van {{ $users->count() }} gebruikers
-                </h3>
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 justify-between items-center admin-bulk-header">
+                @can('delete-users')
+                <button type="button"
+                        id="users-bulk-delete"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
+                        hidden
+                        aria-label="Geselecteerde gebruikers verwijderen"
+                        title="Verwijderen">
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count">(<span data-users-selected-count>0</span>)</span>
+                </button>
+                @endcan
+                {{-- Het aantal staat rechtsonder in de tabelvoet (data-admin-datatable-info), niet in de kop. --}}
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full sm:w-auto ml-auto">
                     <!-- Search -->
                     <div class="flex w-full sm:w-auto justify-end">
@@ -189,20 +198,9 @@
                                 <tr>
                                     @can('delete-users')
                                     <th class="admin-table__check-col text-center" data-no-row-link data-label="">
-                                        <div class="users-check-col-head">
-                                            <button type="button"
-                                                    id="users-bulk-delete"
-                                                    class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive hidden"
-                                                    hidden
-                                                    aria-label="Geselecteerde gebruikers verwijderen"
-                                                    title="Verwijderen">
-                                                <i class="ki-filled ki-trash" aria-hidden="true"></i>
-                                                <span class="users-bulk-delete-count">(<span data-users-selected-count>0</span>)</span>
-                                            </button>
-                                            <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
-                                                <input type="checkbox" class="kt-checkbox" id="users-select-all" aria-label="Alles selecteren">
-                                            </label>
-                                        </div>
+                                        <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                            <input type="checkbox" class="kt-checkbox" id="users-select-all" aria-label="Alles selecteren">
+                                        </label>
                                     </th>
                                     @endcan
                                     <th data-label="Gebruiker">
@@ -620,18 +618,24 @@
 </script>
 <script>
 (function () {
-    const tableRoot = document.getElementById('users_table');
-    const selectAll = document.getElementById('users-select-all');
-    const bulkBtn = document.getElementById('users-bulk-delete');
-    const bulkForm = document.getElementById('users-bulk-delete-form');
-    const bulkIds = document.getElementById('users-bulk-delete-ids');
-    const countEl = document.querySelector('[data-users-selected-count]');
-    if (!tableRoot || !selectAll || !bulkBtn || !bulkForm) {
-        return;
+    // Het live filter vervangt de inhoud van de kaart met innerHTML, dus de tabel en de
+    // checkboxes zijn na een filteractie andere elementen. Daarom niets vasthouden: elk
+    // element wordt bij gebruik opnieuw opgezocht en de listeners hangen aan document.
+    function tableRoot() {
+        return document.getElementById('users_table');
+    }
+
+    function selectAllBox() {
+        return document.getElementById('users-select-all');
+    }
+
+    function bulkBtn() {
+        return document.getElementById('users-bulk-delete');
     }
 
     function rowCheckboxes() {
-        return Array.from(tableRoot.querySelectorAll('.user-row-checkbox'));
+        const root = tableRoot();
+        return root ? Array.from(root.querySelectorAll('.user-row-checkbox')) : [];
     }
 
     function visibleRowCheckboxes() {
@@ -650,22 +654,30 @@
     }
 
     function syncUsersBulkSelection() {
+        const selectAll = selectAllBox();
+        const btn = bulkBtn();
+        const countEl = document.querySelector('[data-users-selected-count]');
         const visible = visibleRowCheckboxes();
         const selectedVisible = visible.filter(function (cb) { return cb.checked; });
         const selected = selectedCheckboxes();
-        selectAll.checked = visible.length > 0 && selectedVisible.length === visible.length;
-        selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+        if (selectAll) {
+            selectAll.checked = visible.length > 0 && selectedVisible.length === visible.length;
+            selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+        }
         if (countEl) {
             countEl.textContent = String(selected.length);
         }
-        const show = selected.length > 0;
-        bulkBtn.hidden = !show;
-        bulkBtn.classList.toggle('hidden', !show);
+        if (btn) {
+            const show = selected.length > 0;
+            btn.hidden = !show;
+            btn.classList.toggle('hidden', !show);
+        }
     }
 
     window.syncUsersBulkSelection = syncUsersBulkSelection;
 
     function fillBulkForm() {
+        const bulkIds = document.getElementById('users-bulk-delete-ids');
         if (!bulkIds) {
             return;
         }
@@ -679,24 +691,33 @@
         });
     }
 
-    selectAll.addEventListener('change', function () {
-        const checked = selectAll.checked;
-        visibleRowCheckboxes().forEach(function (cb) {
-            cb.checked = checked;
-        });
-        syncUsersBulkSelection();
-    });
-
-    tableRoot.addEventListener('change', function (e) {
-        if (e.target && e.target.classList.contains('user-row-checkbox')) {
+    document.addEventListener('change', function (e) {
+        const target = e.target;
+        if (!target || !tableRoot()) {
+            return;
+        }
+        if (target.id === 'users-select-all') {
+            const checked = target.checked;
+            visibleRowCheckboxes().forEach(function (cb) {
+                cb.checked = checked;
+            });
+            syncUsersBulkSelection();
+            return;
+        }
+        if (target.classList && target.classList.contains('user-row-checkbox')) {
             syncUsersBulkSelection();
         }
     });
 
-    bulkBtn.addEventListener('click', function (e) {
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest ? e.target.closest('#users-bulk-delete') : null;
+        if (!btn) {
+            return;
+        }
         e.preventDefault();
+        const bulkForm = document.getElementById('users-bulk-delete-form');
         const selected = selectedCheckboxes();
-        if (!selected.length) {
+        if (!bulkForm || !selected.length) {
             return;
         }
         const count = selected.length;
@@ -1032,58 +1053,6 @@
     #users_table .admin-table__check-col .kt-checkbox {
         margin: 0;
     }
-    #users_table .users-check-col-head {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.125rem;
-        width: 100%;
-    }
-    #users_table #users-bulk-delete {
-        border: 0 !important;
-        box-shadow: none !important;
-        background-color: transparent !important;
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        height: auto;
-        min-height: 0;
-        padding: 0 !important;
-        margin: 0;
-        gap: 0.05rem;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-variant-numeric: tabular-nums;
-        color: var(--destructive, #dc2626) !important;
-    }
-    #users_table #users-bulk-delete:not(.hidden):not([hidden]) {
-        display: inline-flex !important;
-    }
-    #users_table #users-bulk-delete:hover,
-    #users_table #users-bulk-delete:focus,
-    #users_table #users-bulk-delete:focus-visible,
-    #users_table #users-bulk-delete:active {
-        background-color: transparent !important;
-        color: var(--destructive, #dc2626) !important;
-    }
-    #users_table #users-bulk-delete i,
-    #users_table #users-bulk-delete:hover i,
-    #users_table #users-bulk-delete:focus i,
-    #users_table #users-bulk-delete:active i {
-        font-size: 1.25rem !important;
-        line-height: 1 !important;
-        color: inherit !important;
-    }
-    #users_table #users-bulk-delete .users-bulk-delete-count {
-        font-size: 0.625rem;
-        line-height: 1;
-    }
-    #users_table #users-bulk-delete.hidden {
-        display: none !important;
-    }
-
     #content #users_table .admin-fluid-table.has-user-check th:nth-child(2),
     #content #users_table .admin-fluid-table.has-user-check td:nth-child(2),
     #content #users_table .admin-fluid-table:not(.has-user-check) th:nth-child(1),

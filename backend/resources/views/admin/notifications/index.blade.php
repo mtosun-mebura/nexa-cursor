@@ -65,20 +65,19 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header px-5 py-5 flex-wrap gap-2">
-                <div class="flex flex-wrap items-center gap-2">
-                    <h3 class="kt-card-title text-sm mb-0">
-                        Toon 1 tot {{ $notifications->count() }} van {{ $notifications->count() }} notificaties
-                    </h3>
-                    @if($canDeleteNotifications)
-                    <button type="button"
-                            id="notifications-bulk-delete"
-                            class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive hidden"
-                            hidden
-                            aria-label="Geselecteerde notificaties verwijderen"
-                            title="Verwijderen"><i class="ki-filled ki-trash"></i><span>(<span data-notifications-selected-count>0</span>)</span></button>
-                    @endif
-                </div>
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 admin-bulk-header">
+                @if($canDeleteNotifications)
+                <button type="button"
+                        id="notifications-bulk-delete"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
+                        hidden
+                        aria-label="Geselecteerde notificaties verwijderen"
+                        title="Verwijderen">
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count">(<span data-notifications-selected-count>0</span>)</span>
+                </button>
+                @endif
+                {{-- Het aantal staat rechtsonder in de tabelvoet, niet in de kop. --}}
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full sm:w-auto sm:ml-auto">
                     <!-- Search -->
                     <div class="flex w-full sm:w-auto justify-end">
@@ -181,7 +180,7 @@
 
             <div class="kt-card-content">
                 @if($notifications->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="notifications_table" data-admin-datatable-label="notificaties">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="notifications_table" data-admin-datatable-label="notificaties" data-admin-datatable-on-page="syncNotificationsBulkSelection">
                         <div class="kt-scrollable-x-auto">
                             <table class="kt-table table-auto kt-table-border">
                             <thead>
@@ -710,37 +709,6 @@
     .notification-row:hover {
         background-color: var(--muted) !important;
     }
-    #notifications-bulk-delete {
-        border: 0 !important;
-        box-shadow: none !important;
-        background-color: transparent !important;
-        padding-inline: 0.25rem;
-        gap: 0.15rem;
-        height: auto;
-        align-items: center;
-        font-variant-numeric: tabular-nums;
-        color: var(--destructive) !important;
-    }
-    #notifications-bulk-delete:hover,
-    #notifications-bulk-delete:focus,
-    #notifications-bulk-delete:focus-visible,
-    #notifications-bulk-delete:active {
-        background-color: transparent !important;
-        color: var(--destructive) !important;
-    }
-    #notifications-bulk-delete i,
-    #notifications-bulk-delete:hover i,
-    #notifications-bulk-delete:focus i,
-    #notifications-bulk-delete:active i {
-        font-size: 1.15rem !important;
-        line-height: 1 !important;
-        color: inherit !important;
-    }
-    #notifications-bulk-delete span {
-        font-size: 0.8125rem !important;
-        line-height: 1 !important;
-        color: inherit !important;
-    }
     .notifications-delete-panel {
         background-color: #ffffff;
         color: #0f172a;
@@ -867,22 +835,29 @@
 @push('scripts')
 <script>
 (function () {
-    const table = document.querySelector('#notifications_table table');
-    const bulkBtn = document.getElementById('notifications-bulk-delete');
-    const bulkForm = document.getElementById('notifications-bulk-delete-form');
-    const bulkIds = document.getElementById('notifications-bulk-delete-ids');
-    const modal = document.getElementById('notifications-delete-modal');
-    if (!table) {
-        return;
+    // Het live filter vervangt de inhoud van de kaart met innerHTML, dus de tabel en de
+    // checkboxes zijn na een filteractie andere elementen. Daarom niets vasthouden: elk
+    // element wordt bij gebruik opnieuw opgezocht en de listeners hangen aan document.
+    function table() {
+        return document.querySelector('#notifications_table table');
     }
 
+    function bulkBtn() {
+        return document.getElementById('notifications-bulk-delete');
+    }
+
+    function bulkForm() {
+        return document.getElementById('notifications-bulk-delete-form');
+    }
+
+    const modal = document.getElementById('notifications-delete-modal');
     const titleEl = document.getElementById('notifications-delete-modal-title');
     const messageEl = modal ? modal.querySelector('[data-notifications-delete-message]') : null;
-    const countEl = document.querySelector('[data-notifications-selected-count]');
     let pendingForm = null;
 
     function rowCheckboxes() {
-        return Array.from(table.querySelectorAll('.notification-row-checkbox'));
+        const root = table();
+        return root ? Array.from(root.querySelectorAll('.notification-row-checkbox')) : [];
     }
 
     function selectedCheckboxes() {
@@ -902,15 +877,19 @@
             selectAll.checked = allChecked;
             selectAll.indeterminate = someChecked;
         });
+        const countEl = document.querySelector('[data-notifications-selected-count]');
         if (countEl) {
             countEl.textContent = String(selected.length);
         }
-        if (bulkBtn) {
+        const btn = bulkBtn();
+        if (btn) {
             const show = selected.length > 0;
-            bulkBtn.hidden = !show;
-            bulkBtn.classList.toggle('hidden', !show);
+            btn.hidden = !show;
+            btn.classList.toggle('hidden', !show);
         }
     }
+
+    window.syncNotificationsBulkSelection = syncSelection;
 
     function openModal(title, message, form) {
         if (!modal) {
@@ -939,6 +918,7 @@
     }
 
     function fillBulkForm() {
+        const bulkIds = document.getElementById('notifications-bulk-delete-ids');
         if (!bulkIds) {
             return;
         }
@@ -952,66 +932,66 @@
         });
     }
 
-    table.addEventListener('change', function (e) {
-        if (e.target && e.target.classList.contains('notification-row-checkbox')) {
-            syncSelection();
-        }
-        if (e.target && e.target.classList.contains('notifications-select-all')) {
-            const checked = e.target.checked;
-            rowCheckboxes().forEach(function (cb) {
-                cb.checked = checked;
-            });
-            syncSelection();
-        }
-    });
-
     document.addEventListener('change', function (e) {
-        if (e.target && e.target.classList.contains('notifications-select-all')) {
-            const checked = e.target.checked;
+        const target = e.target;
+        if (!target || !target.classList || !table()) {
+            return;
+        }
+        if (target.classList.contains('notifications-select-all')) {
+            const checked = target.checked;
             rowCheckboxes().forEach(function (cb) {
                 cb.checked = checked;
             });
             syncSelection();
+            return;
+        }
+        if (target.classList.contains('notification-row-checkbox')) {
+            syncSelection();
         }
     });
 
-    table.querySelectorAll('.notification-delete-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (form.adminConfirmAccepted || typeof window.showAdminConfirm === 'function') {
-                return;
-            }
-            e.preventDefault();
-            openModal(
-                form.getAttribute('data-confirm-title') || 'Notificatie verwijderen',
-                form.getAttribute('data-confirm-message') || 'Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-                form
-            );
-        });
+    document.addEventListener('submit', function (e) {
+        const form = e.target && e.target.closest ? e.target.closest('.notification-delete-form') : null;
+        if (!form) {
+            return;
+        }
+        if (form.adminConfirmAccepted || typeof window.showAdminConfirm === 'function') {
+            return;
+        }
+        e.preventDefault();
+        openModal(
+            form.getAttribute('data-confirm-title') || 'Notificatie verwijderen',
+            form.getAttribute('data-confirm-message') || 'Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+            form
+        );
     });
 
-    if (bulkBtn && bulkForm) {
-        bulkBtn.addEventListener('click', function () {
-            const count = selectedCheckboxes().length;
-            if (count === 0) {
-                return;
-            }
-            fillBulkForm();
-            const title = count === 1 ? 'Notificatie verwijderen' : 'Notificaties verwijderen';
-            const message = count === 1
-                ? 'Weet je zeker dat je de geselecteerde notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-                : 'Weet je zeker dat je de ' + count + ' geselecteerde notificaties wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
-            if (typeof window.showAdminConfirm === 'function') {
-                window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
-                    if (ok) {
-                        bulkForm.adminConfirmAccepted = true;
-                        bulkForm.submit();
-                    }
-                });
-                return;
-            }
-            openModal(title, message, bulkForm);
-        });
-    }
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest ? e.target.closest('#notifications-bulk-delete') : null;
+        if (!btn) {
+            return;
+        }
+        const form = bulkForm();
+        const count = selectedCheckboxes().length;
+        if (!form || count === 0) {
+            return;
+        }
+        fillBulkForm();
+        const title = count === 1 ? 'Notificatie verwijderen' : 'Notificaties verwijderen';
+        const message = count === 1
+            ? 'Weet je zeker dat je de geselecteerde notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+            : 'Weet je zeker dat je de ' + count + ' geselecteerde notificaties wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+        if (typeof window.showAdminConfirm === 'function') {
+            window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
+                if (ok) {
+                    form.adminConfirmAccepted = true;
+                    form.submit();
+                }
+            });
+            return;
+        }
+        openModal(title, message, form);
+    });
 
     if (modal) {
         modal.querySelectorAll('[data-notifications-delete-dismiss]').forEach(function (el) {

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WebsitePage;
+use App\Support\NexaMarketplaceFeeCopy;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -447,7 +448,7 @@ class CentralWelcomePageService
         $sections['features']['section_title'] = 'Wat de SaaS vandaag kan';
         $sections['features']['items'] = [
             [
-                'title' => 'Multi-tenant basis',
+                'title' => 'Meerdere klanten',
                 'description' => 'Bedrijven, modules, gebruikers, rollen, website builder, e-mailtemplates, agenda, SaaS-facturatie en AI-chatlaag.',
                 'icon' => 'building-office',
                 'icon_size' => 'medium',
@@ -469,7 +470,7 @@ class CentralWelcomePageService
             ],
             [
                 'title' => 'Website builder',
-                'description' => 'Merkbare tenant-sites met boekingsmodule, reviews en SEO, zonder apart CMS.',
+                'description' => 'Merkbare klantwebsites met boekingsmodule, reviews en SEO, zonder apart CMS.',
                 'icon' => 'computer-desktop',
                 'icon_size' => 'medium',
                 'icon_align' => 'center',
@@ -897,7 +898,7 @@ class CentralWelcomePageService
             'title' => 'Vragen over vaste ritten',
             'subtitle' => 'School, zorg, zakelijk en privé: dezelfde planning, dezelfde factuur.',
             'items' => [
-                ['question' => 'Is contractvervoer een apart product?', 'answer' => 'Nee. Het is de B2B-upsell op Nexa Taxi: dezelfde tenant, dezelfde chauffeurs, extra contracten, groepen en ouderportaal.'],
+                ['question' => 'Is contractvervoer een apart product?', 'answer' => 'Nee. Het is de B2B-upsell op Nexa Taxi: dezelfde klant, dezelfde chauffeurs, extra contracten, groepen en ouderportaal.'],
                 ['question' => 'Kunnen ouders of de school zelf afmelden?', 'answer' => 'Ja. In het contractportaal meld je af van–tot. De chauffeur ziet skipped stops; geen loze kilometers.'],
                 ['question' => 'Welke contracttypes passen erin?', 'answer' => 'Leerlingenvervoer, zorg, ziekenhuisvervoer, zakelijk, privé en shuttles. Vaste routes en groepen, maandfacturatie naar de opdrachtgever.'],
                 ['question' => 'Hoe werkt de planning?', 'answer' => 'Passagiers, groepen, vaste chauffeur of voertuig. Planning tot 14 dagen vooruit, plus uitzonderingen en verstoringenbanners.'],
@@ -927,7 +928,7 @@ class CentralWelcomePageService
 
         $sections['hero']['title'] = 'Website builder: merk + boeking zonder apart CMS';
         $sections['hero']['title_highlight'] = 'Website builder';
-        $sections['hero']['subtitle'] = 'Elke tenant krijgt een eigen site met thema’s, secties, SEO en inzetbare modules (boeking, reviews, vacatures).';
+        $sections['hero']['subtitle'] = 'Elke klant krijgt een eigen site met thema’s, secties, SEO en inzetbare modules (boeking, reviews, vacatures).';
         $sections['hero']['cta_primary_text'] = 'Bekijk Nexa Taxi';
         $sections['hero']['cta_primary_url'] = '/taxi';
         $sections['hero']['cta_secondary_text'] = 'Naar overzicht';
@@ -987,11 +988,11 @@ class CentralWelcomePageService
         $faqKey = 'component:landwind.faq';
         $sections[$faqKey] = $this->nexaMarketingFaq([
             'eyebrow' => 'Website builder',
-            'title' => 'Vragen over de tenant-site',
+            'title' => 'Vragen over de klantwebsite',
             'subtitle' => 'De website is het voorportaal; boeking en reviews zitten op dezelfde site.',
             'items' => [
-                ['question' => 'Hebben we nog een apart CMS nodig?', 'answer' => 'Nee. Elke tenant krijgt een eigen site met thema’s, secties en SEO. Pagina’s beheer je in de website builder.'],
-                ['question' => 'Kan de boeking op dezelfde site?', 'answer' => 'Ja. De boekingsmodule, reviews en vacatures zitten op dezelfde tenant-site — korte weg van bezoek naar rit.'],
+                ['question' => 'Hebben we nog een apart CMS nodig?', 'answer' => 'Nee. Elke klant krijgt een eigen site met thema’s, secties en SEO. Pagina’s beheer je in de website builder.'],
+                ['question' => 'Kan de boeking op dezelfde site?', 'answer' => 'Ja. De boekingsmodule, reviews en vacatures zitten op dezelfde klantwebsite — korte weg van bezoek naar rit.'],
                 ['question' => 'Ziet de site eruit als ons merk?', 'answer' => 'White-label: merkkleuren, logo en eigen domein. Jij levert het platform; de centrale houdt het gezicht naar de klant.'],
                 ['question' => 'Kunnen we later van thema wisselen?', 'answer' => 'Ja. Pagina’s en inhoud blijven staan; alleen het jasje van de site verandert.'],
             ],
@@ -1044,8 +1045,8 @@ class CentralWelcomePageService
                     'icon_align' => 'center',
                 ],
                 [
-                    'title' => 'Geen commissie per rit',
-                    'description' => 'Je betaalt een vast maandbedrag. De ritomzet blijft van jou, niet van een marktplaats.',
+                    'title' => NexaMarketplaceFeeCopy::featureTitle(),
+                    'description' => NexaMarketplaceFeeCopy::featureDescription(),
                     'icon' => 'receipt-percent',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
@@ -1073,9 +1074,9 @@ class CentralWelcomePageService
         $sections[$faqKey] = $this->nexaMarketingFaq([
             'eyebrow' => 'Prijzen',
             'title' => 'Vragen over pakketten',
-            'subtitle' => 'Vast maandbedrag. Geen commissie per rit.',
+            'subtitle' => NexaMarketplaceFeeCopy::faqSubtitle(),
             'items' => [
-                ['question' => 'Betaal ik commissie per rit?', 'answer' => 'Nee. Je betaalt een vast maandbedrag. De ritomzet blijft van jou, niet van een marktplaats.'],
+                ['question' => NexaMarketplaceFeeCopy::FAQ_QUESTION, 'answer' => NexaMarketplaceFeeCopy::faqAnswer()],
                 ['question' => 'Wat zit er in Start, Pro en Business?', 'answer' => 'De pakketten staan hierboven. Start is de instap; Pro voegt dispatch en chauffeur-app toe; Business is voor meerdere vestigingen en contractvervoer.'],
                 ['question' => 'Wat kost de website live zetten?', 'answer' => 'Live-zetten vanaf € '.$websitePrice.'. Daarna groei je met contractvervoer of extra vestigingen, zonder opnieuw te beginnen.'],
                 ['question' => 'Kan ik later upgraden?', 'answer' => 'Ja. Begin met taxi; voeg contractvervoer of extra modules toe wanneer je klaar bent.'],
@@ -1178,13 +1179,13 @@ class CentralWelcomePageService
                 ['text' => 'Boekingsmodule op eigen website + tarieven'],
                 ['text' => 'Dispatch + chauffeur-PWA met inbox'],
                 ['text' => 'Contractportaal met status & afmeldingen'],
-                ['text' => 'Alles in één SaaS, white-label per tenant'],
+                ['text' => 'Alles in één SaaS, white-label per klant'],
             ],
             'rows' => [
                 ['left' => 'Geen online boekingen / verloren calls', 'right' => 'Boekingsmodule op eigen website + tarieven'],
                 ['left' => 'Chauffeurs via WhatsApp/Excel', 'right' => 'Dispatch + chauffeur-PWA met inbox'],
                 ['left' => 'Schoolvervoer handmatig afmelden', 'right' => 'Contractportaal met status & afmeldingen'],
-                ['left' => 'Losse website + losse app', 'right' => 'Alles in één SaaS, white-label per tenant'],
+                ['left' => 'Losse website + losse app', 'right' => 'Alles in één SaaS, white-label per klant'],
             ],
         ];
 
@@ -1262,12 +1263,12 @@ class CentralWelcomePageService
         return [
             'eyebrow' => 'In het kort',
             'title' => 'Wat je krijgt, zonder kleine lettertjes',
-            'subtitle' => 'Eén platform. Geen commissie per rit. Altijd boekbaar.',
+            'subtitle' => NexaMarketplaceFeeCopy::statsSubtitle(),
             'items' => [
                 ['value' => '24', 'suffix' => '/7', 'label' => 'Online boekbaar'],
                 ['value' => '1', 'suffix' => '', 'label' => 'Platform voor website, dispatch en app'],
-                ['value' => '0', 'suffix' => '', 'label' => 'Commissie per rit'],
-                ['value' => '100', 'suffix' => '%', 'label' => 'White-label per tenant'],
+                ['value' => '0', 'suffix' => '', 'label' => NexaMarketplaceFeeCopy::ownSiteStatsLabel()],
+                ['value' => '100', 'suffix' => '%', 'label' => 'White-label per klant'],
             ],
         ];
     }
@@ -1306,7 +1307,7 @@ class CentralWelcomePageService
                 ['question' => 'Kunnen klanten 24/7 boeken?', 'answer' => 'Ja. De boekingsmodule staat op jullie website. Geen gemiste calls ’s avonds of in het weekend.'],
                 ['question' => 'Werkt de chauffeur-app op elke telefoon?', 'answer' => 'Het is een PWA: online/offline, inbox, rit starten en afronden. Geen aparte store-app verplicht.'],
                 ['question' => 'Rijden we ook school- of zorgvervoer?', 'answer' => 'Contractvervoer is de upsell op Nexa Taxi: vaste routes, groepen, ouderportaal en afmeldingen van–tot.'],
-                ['question' => 'Betaal ik commissie per rit?', 'answer' => 'Nee. Vast maandbedrag per pakket. De ritomzet blijft van jou.'],
+                ['question' => NexaMarketplaceFeeCopy::FAQ_QUESTION, 'answer' => NexaMarketplaceFeeCopy::faqAnswer()],
                 ['question' => 'Hoe starten we?', 'answer' => 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien. Daarna onboarding met jullie merkkleuren.'],
             ],
         ];
@@ -1320,7 +1321,7 @@ class CentralWelcomePageService
      */
     private function centralFooter(array $footer): array
     {
-        $footer['tagline'] = 'Modulair SaaS voor taxibedrijven: website, online boeking, chauffeur-app en contractvervoer. White-label per tenant.';
+        $footer['tagline'] = 'Modulair SaaS voor taxibedrijven: website, online boeking, chauffeur-app en contractvervoer. White-label per klant.';
         $footer['quick_links_title'] = 'Product';
         $footer['quick_links'] = [
             ['label' => 'Home', 'url' => '/'],
@@ -1328,11 +1329,42 @@ class CentralWelcomePageService
             ['label' => 'Contractvervoer', 'url' => '/contractvervoer'],
             ['label' => 'Website', 'url' => '/website'],
         ];
-        $footer['support_links_title'] = 'Account';
+        $footer['support_links_title'] = 'Info';
         $footer['support_links'] = [
             ['label' => 'Admin', 'url' => '/admin/login'],
             ['label' => 'Privacy', 'url' => '/privacy'],
+            ['label' => 'Voorwaarden', 'url' => '/voorwaarden'],
+            ['label' => 'Disclaimer', 'url' => '/disclaimer'],
         ];
+
+        return self::withLegalSupportLinks($footer);
+    }
+
+    /**
+     * Voegt ontbrekende juridische footerlinks toe (centrale marketingwebsite).
+     *
+     * @param  array<string, mixed>  $footer
+     * @return array<string, mixed>
+     */
+    public static function withLegalSupportLinks(array $footer): array
+    {
+        $links = is_array($footer['support_links'] ?? null) ? $footer['support_links'] : [];
+        $have = [];
+        foreach ($links as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+            $path = strtolower(trim((string) ($link['url'] ?? '')));
+            $path = '/'.ltrim(explode('#', $path)[0], '/');
+            $have[$path] = true;
+        }
+        if (! isset($have['/voorwaarden']) && ! isset($have['/terms'])) {
+            $links[] = ['label' => 'Voorwaarden', 'url' => '/voorwaarden'];
+        }
+        if (! isset($have['/disclaimer'])) {
+            $links[] = ['label' => 'Disclaimer', 'url' => '/disclaimer'];
+        }
+        $footer['support_links'] = $links;
 
         return $footer;
     }

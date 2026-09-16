@@ -39,6 +39,7 @@
     $comparisonRows = $packages !== [] ? $pricingService->featureComparison($sectionData) : [];
     $packageCount = count($packages);
     $isPrijzenPage = request()->is('prijzen');
+    $showMarketplaceFeeNotice = app(\App\Services\WebsiteBuilderService::class)->isCentralPublicSite($page ?? null);
     $lastRowIndex = count($comparisonRows) - 1;
 
     $signupLabel = static function (array $package): string {
@@ -497,6 +498,12 @@
             @endif
             @if($subtitle !== '')
             <p class="text-gray-600 dark:text-gray-300 nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 140ms;">{{ $subtitle }}</p>
+            @endif
+            @if($showMarketplaceFeeNotice)
+            <div class="mt-6 text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-5 py-4 text-sm text-gray-600 dark:text-gray-300 leading-relaxed nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 200ms;">
+                <p class="mb-2">{{ \App\Support\NexaMarketplaceFeeCopy::pricingNoticeOwnSite() }}</p>
+                <p class="mb-0">{{ \App\Support\NexaMarketplaceFeeCopy::pricingNoticeMarketplace() }} <a href="{{ url('/voorwaarden') }}" class="text-blue-600 dark:text-blue-400 hover:underline">Algemene voorwaarden</a>.</p>
+            </div>
             @endif
         </div>
         @endif

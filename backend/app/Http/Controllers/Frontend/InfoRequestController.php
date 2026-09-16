@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\EmailTemplate;
 use App\Models\GeneralSetting;
 use App\Models\InfoRequestFormField;
+use App\Services\ContactFormAcknowledgementMailer;
 use App\Services\EmailTemplateService;
 use App\Services\ModuleDatabaseService;
 use App\Services\PublicFormProtection;
@@ -127,6 +128,7 @@ class InfoRequestController extends Controller
                 $companyName,
                 $variables
             );
+            app(ContactFormAcknowledgementMailer::class)->sendSafely($template, $variables, $companyName);
             $successMessage = GeneralSetting::get('info_request_success_title', 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.');
 
             return $this->respond($request, redirect: fn () => redirect()->back()->with('info_request_sent', true)->with('success', $successMessage), json: fn () => response()->json(['success' => true, 'message' => $successMessage]));

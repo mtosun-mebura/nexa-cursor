@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
+use App\Http\Controllers\Admin\AdminFinancialOverviewController;
 use App\Http\Controllers\Admin\AdminForcePasswordController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
 use App\Http\Controllers\Admin\AdminFrontendComponentController;
@@ -424,7 +425,7 @@ Route::post('/admin/password/reset', [AdminAuthController::class, 'reset'])->mid
 Route::get('/admin/password/changed', [AdminAuthController::class, 'showPasswordChanged'])->name('admin.password.changed');
 
 // Admin Protected Routes
-Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('ai-chat/message', [AdminAiChatController::class, 'sendMessage'])
         ->middleware('throttle:60,1')
         ->name('ai-chat.message');
@@ -461,6 +462,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed'])->prefix('admin')->
         ->name('tenant-customer-invoices.send-payment-link');
     Route::get('tenant-customer-invoices/{invoice}/pdf', [AdminTenantCustomerInvoiceController::class, 'downloadPdf'])
         ->name('tenant-customer-invoices.pdf');
+
+    Route::get('payments/overzichten', [AdminFinancialOverviewController::class, 'index'])->name('payments.overzichten');
+    Route::get('payments/overzichten/preview', [AdminFinancialOverviewController::class, 'preview'])->name('payments.overzichten.preview');
+    Route::post('payments/overzichten/download', [AdminFinancialOverviewController::class, 'download'])->name('payments.overzichten.download');
 
     Route::get('handleiding', [AdminHandleidingController::class, 'index'])->name('handleiding.index');
     Route::get('handleiding/{slug}', [AdminHandleidingController::class, 'show'])
@@ -1231,9 +1236,9 @@ Route::get('/privacy', function () {
     return view('frontend.pages.privacy');
 })->name('privacy');
 
-Route::get('/terms', function () {
-    return view('frontend.pages.terms');
-})->name('terms');
+Route::get('/voorwaarden', [\App\Http\Controllers\Frontend\LegalPagesController::class, 'terms'])->name('terms');
+Route::redirect('/terms', '/voorwaarden', 301);
+Route::get('/disclaimer', [\App\Http\Controllers\Frontend\LegalPagesController::class, 'disclaimer'])->name('disclaimer');
 
 // Nexa Taxi website booking (JSON; CSRF via meta op frontend-pagina's)
 Route::prefix('nexa-taxi/booking')->group(function () {

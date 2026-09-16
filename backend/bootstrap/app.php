@@ -44,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
             'taxi.portal.password' => \App\Http\Middleware\EnsureTaxiKlantPasswordIsSet::class,
             'admin.password.changed' => \App\Http\Middleware\EnsureAdminPasswordChanged::class,
+            'admin.tenant.sync' => \App\Http\Middleware\SyncAdminSelectedTenantFromQuery::class,
             'auth.query.token' => \App\Http\Middleware\AppendBearerTokenFromQuery::class,
             'tenant.billing' => \App\Http\Middleware\EnforceTenantBillingRestriction::class,
         ]);

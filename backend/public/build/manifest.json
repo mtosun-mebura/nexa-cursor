@@ -2184,7 +2184,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-105RuI3j.css",
+    "file": "assets/app-DEy7gqrQ.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2192,7 +2192,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-ChlJUwlJ.js",
+    "file": "assets/app-l_5f1dgW.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2200,7 +2200,7 @@
       "_bootstrap-BzoQaoha.js"
     ],
     "css": [
-      "assets/app-BV8xOhnm.css",
+      "assets/app-BSp1Hw7h.css",
       "assets/nexa-smooth-accordion-CT5NIOwF.css"
     ]
   },
@@ -2248,7 +2248,7 @@
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-1yHfLYdM.js",
+    "file": "assets/website-page-builder-v2-HlGnB8uo.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
@@ -2257,7 +2257,7 @@
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-BnebUnHO.css",
+      "assets/website-page-builder-v2-CV3cDj-Z.css",
       "assets/nexa-smooth-accordion-CT5NIOwF.css"
     ]
   }

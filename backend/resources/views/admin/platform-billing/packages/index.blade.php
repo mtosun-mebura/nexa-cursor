@@ -24,15 +24,20 @@
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header px-5 py-5 flex-wrap gap-3 justify-between items-center">
             <div class="flex flex-wrap items-center gap-2">
+                {{-- Titel en filters staan hier op één regel, dus loopt de prullenbak mee in
+                     de regel in plaats van boven de vinkjeskolom. --}}
+                <button type="button"
+                        id="packages-bulk-delete"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
+                        hidden
+                        aria-label="Geselecteerde pakketten verwijderen"
+                        title="Verwijderen">
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count">(<span data-packages-selected-count>0</span>)</span>
+                </button>
                 <h3 class="kt-card-title text-sm mb-0">
                     Pakketten
                 </h3>
-                <button type="button"
-                        id="packages-bulk-delete"
-                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive hidden"
-                        hidden
-                        aria-label="Geselecteerde pakketten verwijderen"
-                        title="Verwijderen"><i class="ki-filled ki-trash"></i><span>(<span data-packages-selected-count>0</span>)</span></button>
             </div>
             <form method="GET" action="{{ route('admin.platform-billing.packages.index') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
                 <label class="kt-input w-full sm:w-56 min-w-0">
@@ -201,41 +206,6 @@
         z-index: 80;
     }
 
-    #packages-bulk-delete {
-        border: 0 !important;
-        box-shadow: none !important;
-        background-color: transparent !important;
-        padding-inline: 0.25rem;
-        gap: 0.15rem;
-        height: auto;
-        align-items: center;
-        font-variant-numeric: tabular-nums;
-        color: var(--destructive) !important;
-    }
-
-    #packages-bulk-delete:hover,
-    #packages-bulk-delete:focus,
-    #packages-bulk-delete:focus-visible,
-    #packages-bulk-delete:active {
-        background-color: transparent !important;
-        color: var(--destructive) !important;
-    }
-
-    #packages-bulk-delete i,
-    #packages-bulk-delete:hover i,
-    #packages-bulk-delete:focus i,
-    #packages-bulk-delete:active i {
-        font-size: 1.15rem !important;
-        line-height: 1 !important;
-        color: inherit !important;
-    }
-
-    #packages-bulk-delete span {
-        font-size: 0.8125rem !important;
-        line-height: 1 !important;
-        color: inherit !important;
-    }
-
     #content #platform-billing-packages-table col.platform-billing-packages-col-check {
         width: 2.75rem;
     }
@@ -307,23 +277,37 @@
 <script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
 <script>
 (function () {
-    const table = document.getElementById('platform-billing-packages-table');
-    const selectAll = document.getElementById('packages-select-all');
-    const bulkBtn = document.getElementById('packages-bulk-delete');
-    const bulkForm = document.getElementById('packages-bulk-delete-form');
-    const bulkIds = document.getElementById('packages-bulk-delete-ids');
+    // Het live filter vervangt de inhoud van de kaart met innerHTML, dus de tabel en de
+    // checkboxes zijn na een filteractie andere elementen. Daarom niets vasthouden: elk
+    // element wordt bij gebruik opnieuw opgezocht en de listeners hangen aan document.
+    function table() {
+        return document.getElementById('platform-billing-packages-table');
+    }
+
+    function selectAllBox() {
+        return document.getElementById('packages-select-all');
+    }
+
+    function bulkBtn() {
+        return document.getElementById('packages-bulk-delete');
+    }
+
+    function bulkForm() {
+        return document.getElementById('packages-bulk-delete-form');
+    }
+
     const modal = document.getElementById('package-delete-modal');
-    if (!table || !modal) {
+    if (!modal) {
         return;
     }
 
     const titleEl = document.getElementById('package-delete-modal-title');
     const messageEl = modal.querySelector('[data-package-delete-message]');
-    const countEl = document.querySelector('[data-packages-selected-count]');
     let pendingForm = null;
 
     function rowCheckboxes() {
-        return Array.from(table.querySelectorAll('.package-row-checkbox'));
+        const root = table();
+        return root ? Array.from(root.querySelectorAll('.package-row-checkbox')) : [];
     }
 
     function selectedCheckboxes() {
@@ -333,19 +317,24 @@
     function syncSelection() {
         const boxes = rowCheckboxes();
         const selected = selectedCheckboxes();
+        const selectAll = selectAllBox();
         if (selectAll) {
             selectAll.checked = boxes.length > 0 && selected.length === boxes.length;
             selectAll.indeterminate = selected.length > 0 && selected.length < boxes.length;
         }
+        const countEl = document.querySelector('[data-packages-selected-count]');
         if (countEl) {
             countEl.textContent = String(selected.length);
         }
-        if (bulkBtn) {
+        const btn = bulkBtn();
+        if (btn) {
             const show = selected.length > 0;
-            bulkBtn.hidden = !show;
-            bulkBtn.classList.toggle('hidden', !show);
+            btn.hidden = !show;
+            btn.classList.toggle('hidden', !show);
         }
     }
+
+    window.syncPackagesBulkSelection = syncSelection;
 
     function openModal(title, message, form) {
         pendingForm = form;
@@ -368,6 +357,7 @@
     }
 
     function fillBulkForm() {
+        const bulkIds = document.getElementById('packages-bulk-delete-ids');
         if (!bulkIds) {
             return;
         }
@@ -381,58 +371,66 @@
         });
     }
 
-    table.addEventListener('change', function (e) {
-        if (e.target && e.target.classList.contains('package-row-checkbox')) {
+    document.addEventListener('change', function (e) {
+        const target = e.target;
+        if (!target || !table()) {
+            return;
+        }
+        if (target.id === 'packages-select-all') {
+            const checked = target.checked;
+            rowCheckboxes().forEach(function (cb) {
+                cb.checked = checked;
+            });
+            syncSelection();
+            return;
+        }
+        if (target.classList && target.classList.contains('package-row-checkbox')) {
             syncSelection();
         }
     });
 
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            rowCheckboxes().forEach(function (cb) {
-                cb.checked = selectAll.checked;
-            });
-            syncSelection();
-        });
-    }
-
-    table.querySelectorAll('.package-delete-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (form.adminConfirmAccepted || typeof window.showAdminConfirm === 'function') {
-                return;
-            }
-            e.preventDefault();
-            openModal(
-                form.getAttribute('data-confirm-title') || 'Pakket verwijderen',
-                form.getAttribute('data-confirm-message') || 'Weet je zeker dat je dit pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-                form
-            );
-        });
+    document.addEventListener('submit', function (e) {
+        const form = e.target && e.target.closest ? e.target.closest('.package-delete-form') : null;
+        if (!form) {
+            return;
+        }
+        if (form.adminConfirmAccepted || typeof window.showAdminConfirm === 'function') {
+            return;
+        }
+        e.preventDefault();
+        openModal(
+            form.getAttribute('data-confirm-title') || 'Pakket verwijderen',
+            form.getAttribute('data-confirm-message') || 'Weet je zeker dat je dit pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+            form
+        );
     });
 
-    if (bulkBtn && bulkForm) {
-        bulkBtn.addEventListener('click', function () {
-            const count = selectedCheckboxes().length;
-            if (count === 0) {
-                return;
-            }
-            fillBulkForm();
-            const title = count === 1 ? 'Pakket verwijderen' : 'Pakketten verwijderen';
-            const message = count === 1
-                ? 'Weet je zeker dat je het geselecteerde pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-                : 'Weet je zeker dat je de ' + count + ' geselecteerde pakketten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
-            if (typeof window.showAdminConfirm === 'function') {
-                window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
-                    if (ok) {
-                        bulkForm.adminConfirmAccepted = true;
-                        bulkForm.submit();
-                    }
-                });
-                return;
-            }
-            openModal(title, message, bulkForm);
-        });
-    }
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest ? e.target.closest('#packages-bulk-delete') : null;
+        if (!btn) {
+            return;
+        }
+        const form = bulkForm();
+        const count = selectedCheckboxes().length;
+        if (!form || count === 0) {
+            return;
+        }
+        fillBulkForm();
+        const title = count === 1 ? 'Pakket verwijderen' : 'Pakketten verwijderen';
+        const message = count === 1
+            ? 'Weet je zeker dat je het geselecteerde pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+            : 'Weet je zeker dat je de ' + count + ' geselecteerde pakketten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+        if (typeof window.showAdminConfirm === 'function') {
+            window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
+                if (ok) {
+                    form.adminConfirmAccepted = true;
+                    form.submit();
+                }
+            });
+            return;
+        }
+        openModal(title, message, form);
+    });
 
     modal.querySelectorAll('[data-package-delete-dismiss]').forEach(function (el) {
         el.addEventListener('click', closeModal);

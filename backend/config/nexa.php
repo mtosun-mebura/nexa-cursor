@@ -47,4 +47,11 @@ return [
   |--------------------------------------------------------------------------
   */
     'default_avatar_fade_new_company_hours' => env('NEXA_DEFAULT_AVATAR_FADE_NEW_COMPANY_HOURS', 72),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Publieke marketingwebsite (juridische pagina's in e-mails)
+    |--------------------------------------------------------------------------
+    */
+    'marketing_url' => env('NEXA_MARKETING_URL', ''),
 ];

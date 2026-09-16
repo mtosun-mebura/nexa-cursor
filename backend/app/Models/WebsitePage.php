@@ -415,6 +415,7 @@ class WebsitePage extends Model
                     ['label' => 'Help & FAQ', 'url' => '/help'],
                     ['label' => 'Privacy', 'url' => '/privacy'],
                     ['label' => 'Voorwaarden', 'url' => '/voorwaarden'],
+                    ['label' => 'Disclaimer', 'url' => '/disclaimer'],
                     ['label' => 'Cookies', 'url' => '/privacy#cookies'],
                 ],
                 'map_postcode' => '',

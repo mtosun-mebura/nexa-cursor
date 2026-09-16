@@ -124,6 +124,7 @@ const MENU_ACTION_ICON_BY_TITLE = {
     bekijken: 'ki-eye',
     details: 'ki-eye',
     bewerken: 'ki-pencil',
+    uitloggen: 'ki-entrance-left',
     'status aanpassen': 'ki-pencil',
     verwijderen: 'ki-trash',
     dupliceren: 'ki-copy',
@@ -162,6 +163,10 @@ function getMenuActionLabel(linkEl) {
 }
 
 function getMenuActionIconClass(linkEl, label) {
+    const key = (label || '').toLowerCase().replace(/\s*\(\d+\)\s*$/, '').trim();
+    if (MENU_ACTION_ICON_BY_TITLE[key]) {
+        return `ki-filled ${MENU_ACTION_ICON_BY_TITLE[key]}`;
+    }
     const iconEl = linkEl.querySelector('.kt-menu-icon i[class*="ki-"]');
     if (iconEl) {
         const classes = Array.from(iconEl.classList).filter((c) => c.startsWith('ki-'));
@@ -169,9 +174,7 @@ function getMenuActionIconClass(linkEl, label) {
             return classes.join(' ');
         }
     }
-    const key = label.toLowerCase().replace(/\s*\(\d+\)\s*$/, '').trim();
-    const ki = MENU_ACTION_ICON_BY_TITLE[key] || 'ki-eye';
-    return `ki-filled ${ki}`;
+    return 'ki-filled ki-eye';
 }
 
 /** Icoon uit menu-link (SVG of ki), voor gelabelde mobiele knoppen. */
@@ -190,7 +193,7 @@ function getMenuActionIconMarkup(linkEl, label) {
 
 function createLabeledActionButton({ href, label, iconMarkup, isDanger, formElement }) {
     const btnClass =
-        'kt-btn kt-btn-sm kt-btn-outline w-full justify-center gap-2 min-h-9' +
+            'kt-btn kt-btn-sm kt-btn-outline justify-center gap-2 min-h-9' +
         (isDanger ? ' text-danger border-destructive/40 hover:bg-destructive/10' : '');
 
     if (formElement) {
@@ -267,31 +270,71 @@ function buildLabeledButtonFromMenuLink(linkEl) {
     return null;
 }
 
+function actionCaptionText(label) {
+    return (label || '').replace(/\s*\(\d+\)\s*$/, '').trim();
+}
+
+function isDangerAction(linkEl, label) {
+    const key = actionCaptionText(label).toLowerCase();
+    return (
+        Boolean(linkEl?.classList.contains('text-danger')) ||
+        key.startsWith('verwijderen') ||
+        key === 'delete'
+    );
+}
+
+function iconActionBtnClass(isDanger) {
+    return (
+        'admin-list-card__action kt-btn kt-btn-sm kt-btn-ghost' +
+        (isDanger ? ' text-danger admin-list-card__action--danger' : '')
+    );
+}
+
+function fillIconActionButton(btn, { iconClass, iconNode, label, isDanger }) {
+    const caption = actionCaptionText(label);
+    btn.className = iconActionBtnClass(isDanger);
+    btn.replaceChildren();
+
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'admin-list-card__action-icon';
+    iconWrap.setAttribute('aria-hidden', 'true');
+    if (iconNode) {
+        iconWrap.appendChild(iconNode);
+    } else {
+        const icon = document.createElement('i');
+        icon.className = iconClass || 'ki-filled ki-eye';
+        iconWrap.appendChild(icon);
+    }
+
+    const captionEl = document.createElement('span');
+    captionEl.className = 'admin-list-card__action-caption';
+    captionEl.textContent = caption;
+
+    btn.appendChild(iconWrap);
+    btn.appendChild(captionEl);
+    if (caption) {
+        btn.setAttribute('title', caption);
+        btn.setAttribute('aria-label', caption);
+    }
+}
+
 function createIconActionButton({ href, label, iconClass, isDanger, isSubmit, formHtml }) {
     if (formHtml) {
         const wrap = document.createElement('div');
-        wrap.className = 'admin-card-action-form';
+        wrap.className =
+            'admin-card-action-form' + (isDanger ? ' admin-card-action-form--danger' : '');
         wrap.innerHTML = formHtml;
-        const form = wrap.querySelector('form');
         const btn = wrap.querySelector('button[type="submit"]');
         if (btn) {
-            btn.className =
-                'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
-            btn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
-            btn.setAttribute('title', label);
-            btn.setAttribute('aria-label', label);
+            fillIconActionButton(btn, { iconClass, label, isDanger });
         }
         stopCardNavigation(wrap);
         return wrap;
     }
 
     const btn = document.createElement('a');
-    btn.className =
-        'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
     btn.href = href || '#';
-    btn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
-    btn.setAttribute('title', label);
-    btn.setAttribute('aria-label', label);
+    fillIconActionButton(btn, { iconClass, label, isDanger });
     if (isSubmit) {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -308,10 +351,7 @@ function buildIconButtonFromMenuLink(linkEl) {
         return null;
     }
 
-    const isDanger =
-        linkEl.classList.contains('text-danger') ||
-        label.toLowerCase() === 'verwijderen' ||
-        label.toLowerCase() === 'delete';
+    const isDanger = isDangerAction(linkEl, label);
     const iconClass = getMenuActionIconClass(linkEl, label);
 
     const parentForm = linkEl.closest('form');
@@ -321,13 +361,10 @@ function buildIconButtonFromMenuLink(linkEl) {
         if (!submitBtn) {
             return null;
         }
-        submitBtn.className =
-            'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
-        submitBtn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
-        submitBtn.setAttribute('title', label);
-        submitBtn.setAttribute('aria-label', label);
+        fillIconActionButton(submitBtn, { iconClass, label, isDanger });
         const wrap = document.createElement('div');
-        wrap.className = 'admin-card-action-form';
+        wrap.className =
+            'admin-card-action-form' + (isDanger ? ' admin-card-action-form--danger' : '');
         wrap.appendChild(formClone);
         stopCardNavigation(wrap);
         return wrap;
@@ -345,7 +382,7 @@ function buildIconButtonFromMenuLink(linkEl) {
     return null;
 }
 
-/** Zet kt-menu dropdown-acties om naar duidelijke knoppen met tekst (mobiele kaarten). */
+/** Zet kt-menu dropdown-acties om naar icoonknoppen (mobiele kaarten). */
 function buildCardActionIcons(actionsTd, options = {}) {
     const toolbar = document.createElement('div');
     toolbar.className = 'admin-list-card__action-buttons';
@@ -361,9 +398,9 @@ function buildCardActionIcons(actionsTd, options = {}) {
         if (form) {
             const submitBtn = form.querySelector('button[type="submit"], button.kt-menu-link');
             if (submitBtn) {
-                const labeledBtn = buildLabeledButtonFromMenuLink(submitBtn);
-                if (labeledBtn) {
-                    toolbar.appendChild(labeledBtn);
+                const iconBtn = buildIconButtonFromMenuLink(submitBtn);
+                if (iconBtn) {
+                    toolbar.appendChild(iconBtn);
                 }
             }
             return;
@@ -379,14 +416,13 @@ function buildCardActionIcons(actionsTd, options = {}) {
             ) {
                 return;
             }
-            const labeledBtn = buildLabeledButtonFromMenuLink(link);
-            if (labeledBtn) {
-                toolbar.appendChild(labeledBtn);
+            const iconBtn = buildIconButtonFromMenuLink(link);
+            if (iconBtn) {
+                toolbar.appendChild(iconBtn);
             }
         }
     });
 
-    // Losse knoppen buiten dropdown (zonder kt-menu)
     actionsTd.querySelectorAll(':scope > a.kt-btn, :scope > button.kt-btn, :scope > form').forEach((el) => {
         if (el.closest('.kt-menu')) {
             return;
@@ -394,9 +430,9 @@ function buildCardActionIcons(actionsTd, options = {}) {
         if (el.tagName === 'FORM') {
             const submitBtn = el.querySelector('button[type="submit"]');
             if (submitBtn) {
-                const labeledBtn = buildLabeledButtonFromMenuLink(submitBtn);
-                if (labeledBtn) {
-                    toolbar.appendChild(labeledBtn);
+                const iconBtn = buildIconButtonFromMenuLink(submitBtn);
+                if (iconBtn) {
+                    toolbar.appendChild(iconBtn);
                 }
             }
             return;
@@ -404,16 +440,128 @@ function buildCardActionIcons(actionsTd, options = {}) {
         if (el.classList.contains('kt-menu-toggle')) {
             return;
         }
-        const clone = el.cloneNode(true);
-        clone.classList.remove('kt-btn-icon', 'kt-btn-ghost');
-        if (!clone.classList.contains('w-full')) {
-            clone.classList.add('kt-btn-sm', 'kt-btn-outline', 'w-full', 'justify-center');
+        const iconBtn = buildIconButtonFromMenuLink(el);
+        if (iconBtn) {
+            toolbar.appendChild(iconBtn);
+            return;
         }
+        const clone = el.cloneNode(true);
+        const label = (clone.getAttribute('aria-label') || clone.getAttribute('title') || clone.textContent || '').trim();
+        const icon = clone.querySelector('i[class*="ki-"], svg');
+        fillIconActionButton(clone, {
+            iconNode: icon,
+            label,
+            isDanger: clone.classList.contains('text-danger') || isDangerAction(el, label),
+        });
         stopCardNavigation(clone);
         toolbar.appendChild(clone);
     });
 
     return toolbar.childNodes.length > 0 ? toolbar : null;
+}
+
+const IDENTITY_TITLE_LABELS = /^(gebruiker|bedrijf|klant|naam|vacature|rit|chauffeur|titel|contactpersoon)$/i;
+const SUBTITLE_LABELS = /^(locatie|bedrijf|contact|e-mail|email|rol|functie)$/i;
+const STATUS_LABELS = /^(status|actief)$/i;
+const MUTED_META_LABELS = /^(aangemaakt|bijgewerkt|laatst)/i;
+
+function initialsFromName(name) {
+    const parts = String(name || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (parts.length === 0) {
+        return '';
+    }
+    if (parts.length === 1) {
+        return parts[0].slice(0, 2).toUpperCase();
+    }
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function statusActiveFromHtml(html) {
+    const text = stripHtmlToText(html).toLowerCase();
+    if (!text || text === '—' || text === '-') {
+        return null;
+    }
+    if (text.includes('inactief') || text === 'nee') {
+        return false;
+    }
+    if (text.includes('actief') || text === 'ja') {
+        return true;
+    }
+    return null;
+}
+
+function extractTitleParts(html) {
+    const root = document.createElement('div');
+    root.innerHTML = html;
+
+    let avatar = null;
+    const img = root.querySelector('img');
+    if (img) {
+        avatar = {
+            type: 'img',
+            src: img.getAttribute('src') || '',
+            alt: img.getAttribute('alt') || '',
+        };
+        const imgWrap = img.closest('.rounded-full, .size-9') || img;
+        imgWrap.remove();
+    } else {
+        const fallback = root.querySelector('.rounded-full');
+        if (fallback) {
+            const text = fallback.textContent.trim();
+            if (text) {
+                avatar = { type: 'initials', text: text.slice(0, 3).toUpperCase() };
+            }
+            fallback.remove();
+        }
+    }
+
+    root.querySelectorAll('.user-email-copy, .admin-email-copy, button').forEach((el) => el.remove());
+
+    const nameLink = root.querySelector('a[href]:not([href="#"]):not([href^="javascript:"])');
+    let nameHtml = '';
+    let nameText = '';
+    if (nameLink) {
+        nameText = nameLink.textContent.trim().replace(/\s+/g, ' ');
+        nameLink.classList.add('admin-list-card__name');
+        nameHtml = nameLink.outerHTML;
+        nameLink.remove();
+    } else {
+        const nameEl = root.querySelector('.font-medium, .text-mono, [data-company-id], [data-user-id]');
+        if (nameEl) {
+            nameText = nameEl.textContent.trim().replace(/\s+/g, ' ');
+            nameEl.remove();
+        }
+    }
+
+    const extra = stripHtmlToText(root.innerHTML);
+    return { avatar, nameHtml, nameText, extra };
+}
+
+function createAvatarEl(avatar, nameText, isActive) {
+    const wrap = document.createElement('div');
+    wrap.className = 'admin-list-card__avatar';
+    if (avatar?.type === 'img' && avatar.src) {
+        const img = document.createElement('img');
+        img.src = avatar.src;
+        img.alt = avatar.alt || nameText || '';
+        wrap.appendChild(img);
+    } else {
+        const fallback = document.createElement('div');
+        fallback.className = 'admin-list-card__avatar-fallback';
+        fallback.textContent = avatar?.text || initialsFromName(nameText) || '•';
+        wrap.appendChild(fallback);
+    }
+    if (isActive === true || isActive === false) {
+        const dot = document.createElement('span');
+        dot.className =
+            'admin-list-card__status-dot' + (isActive ? '' : ' admin-list-card__status-dot--off');
+        dot.setAttribute('aria-hidden', 'true');
+        wrap.appendChild(dot);
+    }
+    return wrap;
 }
 
 function buildListCard(tr, labels, table) {
@@ -442,11 +590,8 @@ function buildListCard(tr, labels, table) {
     const body = document.createElement('div');
     body.className = 'admin-list-card__body';
 
-    const fields = document.createElement('dl');
-    fields.className = 'admin-list-card__fields';
-
-    let titleSet = false;
     let actionsTd = null;
+    const collected = [];
 
     cells.forEach((td, index) => {
         if (cellHasCheckbox(td)) {
@@ -468,42 +613,97 @@ function buildListCard(tr, labels, table) {
             return;
         }
 
-        if (!titleSet && labels.length > 0) {
-            const title = document.createElement('div');
-            title.className = 'admin-list-card__title';
-            title.innerHTML = valueHtml;
-            body.appendChild(title);
-            titleSet = true;
-            return;
-        }
-
-        const field = document.createElement('div');
-        field.className = 'admin-list-card__field' + (label ? '' : ' admin-list-card__field--value-only');
-        if (label) {
-            const dt = document.createElement('dt');
-            dt.textContent = label;
-            field.appendChild(dt);
-        }
-        const dd = document.createElement('dd');
-        dd.innerHTML = valueHtml;
-        field.appendChild(dd);
-        fields.appendChild(field);
+        collected.push({ label, valueHtml, plain, index });
     });
 
-    if (!titleSet && fields.children.length > 0) {
-        const first = fields.children[0];
-        const dd = first.querySelector('dd');
-        if (dd) {
-            const title = document.createElement('div');
-            title.className = 'admin-list-card__title';
-            title.innerHTML = dd.innerHTML;
-            body.appendChild(title);
-            first.remove();
-        }
+    if (collected.length === 0) {
+        return null;
     }
 
-    if (fields.children.length > 0) {
-        body.appendChild(fields);
+    const titleItem = collected.shift();
+    const titleParts = extractTitleParts(titleItem.valueHtml);
+    let nameText = titleParts.nameText || titleItem.plain;
+    const showAvatar =
+        Boolean(titleParts.avatar) ||
+        IDENTITY_TITLE_LABELS.test(titleItem.label) ||
+        labels.length >= 3 ||
+        Boolean(tr.querySelector('img, [data-user-id], [data-company-id]'));
+
+    let statusHtml = '';
+    let isActive = null;
+    const rest = [];
+    collected.forEach((item) => {
+        if (STATUS_LABELS.test(item.label)) {
+            statusHtml = item.valueHtml;
+            isActive = statusActiveFromHtml(item.valueHtml);
+            return;
+        }
+        rest.push(item);
+    });
+
+    let subtitleHtml = titleParts.extra;
+    const remaining = [];
+    rest.forEach((item) => {
+        if (!subtitleHtml && SUBTITLE_LABELS.test(item.label)) {
+            subtitleHtml = item.valueHtml;
+            return;
+        }
+        remaining.push(item);
+    });
+    if (!subtitleHtml && remaining[0] && !MUTED_META_LABELS.test(remaining[0].label)) {
+        const first = remaining.shift();
+        subtitleHtml = first.valueHtml;
+    }
+
+    if (showAvatar) {
+        body.appendChild(createAvatarEl(titleParts.avatar, nameText, isActive));
+    }
+
+    const title = document.createElement('div');
+    title.className = 'admin-list-card__title';
+    if (titleParts.nameHtml) {
+        title.innerHTML = titleParts.nameHtml;
+    } else {
+        title.textContent = nameText;
+    }
+    if (href) {
+        const nameLink = title.querySelector('a[href]');
+        if (!nameLink) {
+            const link = document.createElement('a');
+            link.href = href;
+            link.className = 'admin-list-card__name';
+            link.textContent = nameText;
+            title.replaceChildren(link);
+        }
+    }
+    body.appendChild(title);
+
+    if (subtitleHtml) {
+        const subtitle = document.createElement('div');
+        subtitle.className = 'admin-list-card__subtitle';
+        subtitle.innerHTML = subtitleHtml;
+        body.appendChild(subtitle);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'admin-list-card__meta';
+    if (statusHtml && isActive === null) {
+        const statusEl = document.createElement('div');
+        statusEl.className = 'admin-list-card__meta-item';
+        statusEl.innerHTML = statusHtml;
+        meta.appendChild(statusEl);
+    }
+    remaining.forEach((item) => {
+        if (MUTED_META_LABELS.test(item.label)) {
+            return;
+        }
+        const metaItem = document.createElement('div');
+        metaItem.className = 'admin-list-card__meta-item';
+        metaItem.innerHTML = item.valueHtml;
+        meta.appendChild(metaItem);
+    });
+    if (meta.childNodes.length > 0) {
+        body.appendChild(meta);
     }
 
     card.appendChild(body);
@@ -615,8 +815,56 @@ function wrapTablesForScroll() {
     });
 }
 
+function isKeyValueDetailTable(table) {
+    if (!table.closest('.kt-card-table')) {
+        return false;
+    }
+    if (table.closest('[data-kt-datatable]')) {
+        return false;
+    }
+    if (table.querySelector('thead')) {
+        return false;
+    }
+    const rows = Array.from(table.querySelectorAll('tr')).filter((tr) => {
+        const tds = tr.querySelectorAll(':scope > td');
+        return tds.length > 0 && !tr.querySelector('td[colspan]');
+    });
+    if (rows.length === 0) {
+        return false;
+    }
+    return rows.every((tr) => tr.querySelectorAll(':scope > td').length === 2);
+}
+
+function markKeyValueTables() {
+    const root = document.getElementById('content');
+    if (!root) {
+        return;
+    }
+    root.querySelectorAll('.kt-card-table table.kt-table').forEach((table) => {
+        if (!isKeyValueDetailTable(table)) {
+            return;
+        }
+        table.classList.add('admin-kv-table');
+        table.closest('.kt-card-table')?.classList.add('admin-kv-table-wrap');
+    });
+}
+
+function teardownMobileList(table) {
+    const list = getMobileListForTable(table);
+    if (list) {
+        list.remove();
+    }
+    table.closest('.admin-desktop-table-wrap, .kt-scrollable-x-auto, .kt-card-table')?.classList.remove(
+        'admin-desktop-table-wrap'
+    );
+    delete table.dataset.adminCardsEnhanced;
+}
+
 function isListContextTable(table) {
     if (table.dataset.adminNoCards === 'true' || table.classList.contains('admin-keep-table-layout')) {
+        return false;
+    }
+    if (isKeyValueDetailTable(table)) {
         return false;
     }
     if (table.closest('form:not([method="GET"])')) {
@@ -812,11 +1060,17 @@ function enhanceListTables() {
         return;
     }
 
+    markKeyValueTables();
+
     root.querySelectorAll(
         '.kt-scrollable-x-auto table.kt-table, .kt-card-table table.kt-table, .kt-table-responsive table.kt-table, .admin-table-scroll-wrap table.kt-table'
     ).forEach((table) => {
         if (table.dataset.adminCardsEnhanced === '1') {
-            if (!getMobileListForTable(table) && isListContextTable(table)) {
+            if (!isListContextTable(table)) {
+                teardownMobileList(table);
+                return;
+            }
+            if (!getMobileListForTable(table)) {
                 delete table.dataset.adminCardsEnhanced;
             } else {
                 syncMobileCardsVisibility(table);

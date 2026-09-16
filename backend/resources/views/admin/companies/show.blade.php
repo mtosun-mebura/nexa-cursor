@@ -80,6 +80,11 @@
     .company-show-section {
         scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 4.5rem);
     }
+    @media (max-width: 1023px) {
+        .company-show-section {
+            scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 7.5rem);
+        }
+    }
     .company-show-scroll-end {
         height: min(50vh, 28rem);
         pointer-events: none;

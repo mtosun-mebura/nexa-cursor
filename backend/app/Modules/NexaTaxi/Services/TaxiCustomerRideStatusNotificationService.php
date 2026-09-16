@@ -16,7 +16,8 @@ class TaxiCustomerRideStatusNotificationService
     public function __construct(
         protected WhatsAppBookingMessageComposer $composer,
         protected WhatsAppBusinessService $whatsapp,
-        protected TaxiRideNotificationLogService $notificationLogs
+        protected TaxiRideNotificationLogService $notificationLogs,
+        protected TaxiDispatchSettingsService $dispatchSettings
     ) {}
 
     /**
@@ -35,12 +36,12 @@ class TaxiCustomerRideStatusNotificationService
             $ride = $ride->fresh() ?? $ride;
         }
 
-        if (! $force && ! $this->composer->statusEventEnabled($event)) {
-            return false;
-        }
-
         $companyId = (int) ($ride->company_id ?? 0);
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
+
+        if (! $this->dispatchSettings->customerWhatsappStatusEventEnabled($event, $settingsCompanyId)) {
+            return false;
+        }
         $rideId = (int) $ride->id;
         $logDetail = self::LOG_CONTEXT_PREFIX.':'.$event;
 
@@ -49,7 +50,7 @@ class TaxiCustomerRideStatusNotificationService
             WhatsAppBookingMessageComposer::EVENT_REDISPATCHED,
             WhatsAppBookingMessageComposer::EVENT_DECLINED,
         ], true);
-        if ($idempotent && $this->alreadySent($conn, $rideId, $logDetail)) {
+        if ($idempotent && ! $force && $this->alreadySent($conn, $rideId, $logDetail)) {
             return true;
         }
 

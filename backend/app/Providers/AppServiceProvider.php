@@ -168,6 +168,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(MessageSending::class, function () {
             return app(\App\Services\NexaDemoAccountService::class)->shouldSuppressOutgoingMail() ? false : null;
         });
+        Event::listen(MessageSending::class, \App\Listeners\AddLegalLinksToOutgoingMail::class);
 
         // Register SMS notification channel
         Notification::extend('sms', function ($app) {

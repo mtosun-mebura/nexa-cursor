@@ -1267,7 +1267,7 @@ class AdminWebsitePageController extends Controller
                 'template_id' => app(\App\Services\NexaContactAanvraagEmailTemplateService::class)->ensureExists()->id,
             ],
             'text_block' => array_merge($base, [
-                'content' => '<h2>Voorbeeld tekstblok</h2><p>Hier komt je eigen content: uitleg, USP’s of een korte intro. Rechts of links kun je later een afbeelding of formulier koppelen.</p><ul><li>White-label per tenant</li><li>Website + boeking + chauffeur-app</li><li>Optioneel contractvervoer</li></ul>',
+                'content' => '<h2>Voorbeeld tekstblok</h2><p>Hier komt je eigen content: uitleg, USP’s of een korte intro. Rechts of links kun je later een afbeelding of formulier koppelen.</p><ul><li>White-label per klant</li><li>Website + boeking + chauffeur-app</li><li>Optioneel contractvervoer</li></ul>',
                 'alignment' => 'left',
                 'image_url' => $img('feature-website-builder.png'),
                 'width_percent' => 100,
@@ -1276,7 +1276,7 @@ class AdminWebsitePageController extends Controller
                 'items' => [
                     ['value' => '24/7', 'label' => 'Online boeken', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
                     ['value' => '1 SaaS', 'label' => 'Alles gekoppeld', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '0%', 'label' => 'Commissie per rit', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '0%', 'label' => 'Commissie op je eigen website', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
                     ['value' => 'White-label', 'label' => 'Jouw merk', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
                 ],
             ]),

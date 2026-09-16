@@ -55,6 +55,7 @@
                             <li><a href="{{ route('help') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Help & FAQ</a></li>
                             <li><a href="{{ route('privacy') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Privacy</a></li>
                             <li><a href="{{ route('terms') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Voorwaarden</a></li>
+                            <li><a href="{{ route('disclaimer') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Disclaimer</a></li>
                             <li><a href="{{ route('privacy') }}#cookies" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Cookies</a></li>
                         </ul>
                     </div>
