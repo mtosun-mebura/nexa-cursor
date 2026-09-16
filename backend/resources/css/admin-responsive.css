@@ -2237,15 +2237,32 @@ html.admin-kt-select-open #content .admin-filter-panel {
     max-width: 28rem;
 }
 #admin-user-form #user-create-password-row .user-create-password-fields,
-#admin-user-form #user-create-password-row .flex.items-center {
+#admin-user-form #user-create-password-row .user-create-password-actions {
     width: 100%;
-    max-width: 28rem;
+    max-width: 36rem;
+}
+#admin-user-form #user-create-password-row .user-create-password-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+#admin-user-form #user-create-password-row .user-create-password-actions .kt-input {
+    flex: 1 1 12rem;
+    min-width: 0;
+    max-width: none;
+    width: auto;
 }
 #admin-user-form #user-create-password {
-    width: auto;
+    width: 100%;
     max-width: none;
-    flex: 1 1 0%;
     min-width: 0;
+}
+#admin-user-form .user-create-password-generate {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
 }
 #admin-user-form [data-required-checkbox-group="roles"] {
     max-width: 36rem;
@@ -2886,6 +2903,40 @@ html.admin-kt-select-open #content .admin-filter-panel {
     width: auto !important;
     min-width: 0;
     white-space: nowrap;
+}
+
+#content .admin-company-profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+    #content .admin-company-profile-layout {
+        grid-template-columns: minmax(22rem, 5fr) minmax(0, 7fr);
+        gap: 1.875rem;
+    }
+}
+
+#content .admin-company-profile-hq {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+    margin-bottom: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+    #content .admin-company-profile-hq {
+        grid-template-columns: minmax(0, 1fr) minmax(16rem, 1fr);
+        gap: 2rem;
+    }
+}
+
+#content .admin-company-profile-hq a,
+#content .admin-company-profile-hq span {
+    overflow-wrap: break-word;
+    word-break: normal;
 }
 
 @media (max-width: 639px) {

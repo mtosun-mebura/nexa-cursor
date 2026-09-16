@@ -78,6 +78,8 @@ class AdminChromeBrandingTest extends TestCase
         $this->assertStringContainsString('.admin-mobile-header-lockup', $css);
         $this->assertStringContainsString('grid-template-columns: repeat(3, minmax(0, 1fr))', $css);
         $this->assertStringContainsString('padding-block: 0.5rem !important', $css);
+        $this->assertStringContainsString('#content .admin-company-profile-layout', $css);
+        $this->assertStringContainsString('minmax(22rem, 5fr) minmax(0, 7fr)', $css);
 
         $js = file_get_contents(resource_path('js/admin-responsive.js'));
         $this->assertIsString($js);
@@ -121,6 +123,7 @@ class AdminChromeBrandingTest extends TestCase
         $this->assertStringContainsString('admin-list-card__action-caption', $js);
         $this->assertStringContainsString('.admin-list-card__action-caption', $css);
         $this->assertStringContainsString('.admin-card-action-form--danger .admin-list-card__action-icon', $css);
+        $this->assertStringNotContainsString('form.requestSubmit(submitBtn)', $js);
     }
 
     #[Test]

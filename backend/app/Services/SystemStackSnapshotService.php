@@ -9,6 +9,14 @@ use Symfony\Component\Process\Process;
 
 class SystemStackSnapshotService
 {
+    private const PROD_DNS_HOST = 'nexasuite.nl';
+
+    /** @var list<string> */
+    private const FALLBACK_CUSTOMER_MX = [
+        'mx1.hostinger.com',
+        'mx2.hostinger.com',
+    ];
+
     public function currentReleaseVersion(): string
     {
         $stored = GeneralSetting::get('nexa_release_version');
@@ -33,6 +41,7 @@ class SystemStackSnapshotService
             'server_ip' => $this->detectServerIp(),
             'public_ip' => $this->detectPublicIp(),
             'app_url_dns' => $this->detectAppUrlDnsIp(),
+            'customer_domain_dns' => $this->detectCustomerDomainDns(),
             'os' => $this->detectOs(),
             'php' => PHP_VERSION,
             'laravel' => Application::VERSION,
@@ -65,6 +74,7 @@ class SystemStackSnapshotService
             'server_ip' => 'Server-IP',
             'public_ip' => 'Publiek IP',
             'app_url_dns' => 'APP_URL → IP',
+            'customer_domain_dns' => 'DNS (klantdomeinen)',
             'os' => 'OS',
             'php' => 'PHP',
             'laravel' => 'Laravel',
@@ -209,6 +219,69 @@ class SystemStackSnapshotService
         }
 
         return '—';
+    }
+
+    /**
+     * MX-records die klantdomeinen moeten gebruiken (Hostinger).
+     * Leest live DNS uit; lokaal of bij een mislukte lookup valt terug op productie.
+     */
+    private function detectCustomerDomainDns(): string
+    {
+        $fallback = implode(', ', self::FALLBACK_CUSTOMER_MX);
+
+        if (app()->environment('testing')) {
+            return $fallback;
+        }
+
+        $hosts = [];
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if (is_string($appHost) && $this->isLookupableHost($appHost)) {
+            $hosts[] = strtolower(trim($appHost));
+        }
+        $hosts[] = self::PROD_DNS_HOST;
+
+        foreach (array_values(array_unique($hosts)) as $host) {
+            $mx = $this->mxHostsFor($host);
+            if ($mx !== []) {
+                return implode(', ', $mx);
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function mxHostsFor(string $host): array
+    {
+        $records = @dns_get_record($host, DNS_MX);
+        if (! is_array($records) || $records === []) {
+            return [];
+        }
+
+        usort($records, static function (array $a, array $b): int {
+            return ((int) ($a['pri'] ?? 10)) <=> ((int) ($b['pri'] ?? 10));
+        });
+
+        $hosts = [];
+        foreach ($records as $record) {
+            $target = strtolower(rtrim((string) ($record['target'] ?? ''), '.'));
+            if ($target !== '' && filter_var($target, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
+                $hosts[] = $target;
+            }
+        }
+
+        return array_values(array_unique($hosts));
+    }
+
+    private function isLookupableHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        return $host !== ''
+            && ! in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+            && ! str_ends_with($host, '.localhost');
     }
 
     private function detectOs(): string

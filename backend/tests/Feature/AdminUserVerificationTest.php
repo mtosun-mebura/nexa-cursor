@@ -249,7 +249,11 @@ class AdminUserVerificationTest extends TestCase
             ->assertOk()
             ->assertSee('id="users-select-all"', false)
             ->assertSee('id="users-bulk-delete"', false)
-            ->assertSee('user-row-checkbox', false);
+            ->assertSee('user-row-checkbox', false)
+            ->assertSee('id="admin-confirm-modal"', false)
+            ->assertSee('form="users-bulk-delete-form"', false)
+            ->assertSee('data-admin-confirm="Weet je zeker dat je deze gebruiker wilt verwijderen?', false)
+            ->assertSee('data-admin-confirm="Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen?', false);
     }
 
     #[Test]
