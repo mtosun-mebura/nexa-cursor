@@ -73,7 +73,8 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header px-5 py-5 flex-wrap gap-2 justify-between items-center admin-bulk-header">
                 @can('delete-users')
-                <button type="button"
+                <button type="submit"
+                        form="users-bulk-delete-form"
                         id="users-bulk-delete"
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
                         hidden
@@ -453,7 +454,9 @@
                                                             <form action="{{ route('admin.users.destroy', $user) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je deze gebruiker wilt verwijderen?')">
+                                                                  data-admin-confirm="Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
+                                                                  data-admin-confirm-title="Gebruiker verwijderen"
+                                                                  data-admin-confirm-label="Verwijderen">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
@@ -505,7 +508,10 @@
 <form method="POST"
       action="{{ route('admin.users.bulk-destroy') }}"
       id="users-bulk-delete-form"
-      class="hidden">
+      class="hidden"
+      data-admin-confirm="Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
+      data-admin-confirm-title="Gebruikers verwijderen"
+      data-admin-confirm-label="Verwijderen">
     @csrf
     @method('DELETE')
     <div id="users-bulk-delete-ids"></div>
@@ -672,6 +678,22 @@
             btn.hidden = !show;
             btn.classList.toggle('hidden', !show);
         }
+        fillBulkForm();
+        const bulkForm = document.getElementById('users-bulk-delete-form');
+        if (bulkForm) {
+            const count = selected.length;
+            bulkForm.setAttribute(
+                'data-admin-confirm',
+                count === 1
+                    ? 'Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                    : 'Weet je zeker dat je ' + count + ' gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+            );
+            bulkForm.setAttribute(
+                'data-admin-confirm-title',
+                count === 1 ? 'Gebruiker verwijderen' : 'Gebruikers verwijderen'
+            );
+            bulkForm.setAttribute('data-admin-confirm-label', 'Verwijderen');
+        }
     }
 
     window.syncUsersBulkSelection = syncUsersBulkSelection;
@@ -707,28 +729,6 @@
         if (target.classList && target.classList.contains('user-row-checkbox')) {
             syncUsersBulkSelection();
         }
-    });
-
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest ? e.target.closest('#users-bulk-delete') : null;
-        if (!btn) {
-            return;
-        }
-        e.preventDefault();
-        const bulkForm = document.getElementById('users-bulk-delete-form');
-        const selected = selectedCheckboxes();
-        if (!bulkForm || !selected.length) {
-            return;
-        }
-        const count = selected.length;
-        const message = count === 1
-            ? 'Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-            : 'Weet je zeker dat je ' + count + ' gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
-        if (!window.confirm(message)) {
-            return;
-        }
-        fillBulkForm();
-        bulkForm.submit();
     });
 
     syncUsersBulkSelection();

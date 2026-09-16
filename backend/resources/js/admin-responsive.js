@@ -1859,15 +1859,9 @@ function bindAdminTableActionMenus() {
                 if (submitBtn) {
                     const form = submitBtn.closest('form');
                     if (form) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        event.stopImmediatePropagation();
                         closeAdminTableActionMenus();
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit(submitBtn);
-                        } else {
-                            form.submit();
-                        }
+                        // Laat de klik door naar de gedeelde bevestigingsmodal. Hier
+                        // stoppen + form.submit() slaat die modal over.
                     }
                 }
                 return;

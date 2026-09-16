@@ -21,6 +21,7 @@ class SystemStackSnapshotTest extends TestCase
         $this->assertArrayHasKey('server_ip', $stack);
         $this->assertArrayHasKey('public_ip', $stack);
         $this->assertArrayHasKey('app_url_dns', $stack);
+        $this->assertArrayHasKey('customer_domain_dns', $stack);
         $this->assertArrayHasKey('os', $stack);
         $this->assertArrayHasKey('app_env', $stack);
         $this->assertSame(PHP_VERSION, $stack['php']);
@@ -55,5 +56,18 @@ class SystemStackSnapshotTest extends TestCase
         $this->assertNotNull($publicIp);
         $this->assertSame('Publiek IP', $publicIp['label']);
         $this->assertSame('152.239.119.238', $publicIp['value']);
+
+        $dns = collect($rows)->firstWhere('key', 'customer_domain_dns');
+        $this->assertNotNull($dns);
+        $this->assertSame('DNS (klantdomeinen)', $dns['label']);
+    }
+
+    #[Test]
+    public function capture_uses_hostinger_mx_fallback_in_tests(): void
+    {
+        $service = app(SystemStackSnapshotService::class);
+        $stack = $service->capture();
+
+        $this->assertSame('mx1.hostinger.com, mx2.hostinger.com', $stack['customer_domain_dns']);
     }
 }

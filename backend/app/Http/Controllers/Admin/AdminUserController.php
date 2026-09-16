@@ -15,6 +15,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerSmsService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Services\AdminFirstLoginService;
 use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
 use App\Services\UserRoleAssignmentService;
@@ -231,16 +232,15 @@ class AdminUserController extends Controller
             ? ['company-admin']
             : $request->validated()['roles'];
 
-        $firstLogin = app(TaxiAppFirstLoginService::class);
-        $welcomeRole = $willBeFirstUserForCompany ? null : $firstLogin->welcomeRoleForRoles($roleNames);
-        if ($welcomeRole !== null) {
-            $userData['password'] = $firstLogin->unusablePasswordHash();
-            $flags = $firstLogin->provisionFlags();
-            unset($flags['email_verified_at']);
-            $userData = array_merge($userData, $flags);
-        } else {
-            $userData['password'] = Hash::make($request->validated()['password']);
-        }
+        $appFirstLogin = app(TaxiAppFirstLoginService::class);
+        $welcomeRole = $appFirstLogin->welcomeRoleForRoles($roleNames);
+        $provisioner = $welcomeRole !== null
+            ? $appFirstLogin
+            : app(AdminFirstLoginService::class);
+        $userData['password'] = $provisioner->unusablePasswordHash();
+        $flags = $provisioner->provisionFlags();
+        unset($flags['email_verified_at']);
+        $userData = array_merge($userData, $flags);
 
         if ($companyId && ! $willBeFirstUserForCompany) {
             $company = Company::query()->find($companyId);
