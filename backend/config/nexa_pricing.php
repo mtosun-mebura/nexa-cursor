@@ -9,7 +9,7 @@ return [
     'vat_note' => 'Prijzen exclusief btw. Standaardtermijn 12 maanden; daarna maandelijks opzegbaar.',
     'eyebrow' => 'Prijzen',
     'title' => 'Start klein. Groei mee als de ritten toenemen.',
-    'subtitle' => 'Een vast maandbedrag voor het platform. Een eenmalig bedrag om jouw website live te zetten. Geen marktplaats-commissie.',
+    'subtitle' => 'Een vast maandbedrag voor het platform en je eigen website. Een eenmalig bedrag om jouw website live te zetten. Geen provisie over ritten via jouw eigen site.',
 
     'packages' => [
         [

@@ -28,31 +28,31 @@
             <h3 class="kt-card-title mb-0">Nieuwe uitzonderingsdag</h3>
         </div>
         <div class="kt-card-content p-4">
-            <form method="POST" action="{{ route('admin.taxi.transport_schedule_exceptions.store') }}" class="flex flex-wrap items-end gap-3">
+            <form method="POST" action="{{ route('admin.taxi.transport_schedule_exceptions.store') }}" class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-3 w-full min-w-0">
                 @csrf
-                <div class="w-fit max-w-full shrink-0">
+                <div class="w-full min-w-0 sm:w-fit shrink-0">
                     <label class="text-sm text-secondary-foreground block mb-1">Datum</label>
                     @include('taxi::admin.transport_customers.partials.date-picker-input', [
                         'name' => 'exception_date',
                         'value' => old('exception_date'),
                         'required' => true,
-                        'wrapperClass' => 'w-[10.5rem] shrink-0',
+                        'wrapperClass' => 'w-full sm:w-[10.5rem] min-w-0 shrink-0',
                     ])
                 </div>
-                <div class="w-fit min-w-[28rem] max-w-lg shrink-0">
+                <div class="w-full min-w-0 max-w-lg">
                     <label class="text-sm text-secondary-foreground block mb-1">Omschrijving</label>
-                    <input type="text" name="name" value="{{ old('name') }}" class="kt-input w-full min-w-[28rem]" maxlength="200" placeholder="Bijv. Hemelvaartsdag" required>
+                    <input type="text" name="name" value="{{ old('name') }}" class="kt-input w-full min-w-0 max-w-full" maxlength="200" placeholder="Bijv. Hemelvaartsdag" required>
                 </div>
-                <div class="w-fit min-w-[10rem] shrink-0">
+                <div class="w-full min-w-0 sm:w-fit sm:min-w-[10rem]">
                     <label class="text-sm text-secondary-foreground block mb-1">Scope</label>
-                    <select name="transport_contract_id" class="kt-select min-w-[10rem] w-full">
+                    <select name="transport_contract_id" class="kt-select w-full min-w-0">
                         <option value="">Hele bedrijf</option>
                         @foreach($contracts as $contract)
                             <option value="{{ $contract->id }}" @selected(old('transport_contract_id') == $contract->id)>{{ $contract->name }}</option>
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary shrink-0">Toevoegen</button>
+                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary w-full sm:w-auto shrink-0">Toevoegen</button>
             </form>
         </div>
     </div>
@@ -63,8 +63,11 @@
             <h3 class="kt-card-title mb-0">Overzicht</h3>
         </div>
         <div class="kt-card-content p-0 min-w-0">
+            @if($exceptions->isEmpty())
+                <p class="p-5 text-sm text-muted-foreground mb-0">Geen uitzonderingsdagen ingesteld.</p>
+            @else
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap transport-schedule-exceptions-table-wrap">
-                <table id="transport-schedule-exceptions-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                <table id="transport-schedule-exceptions-table" class="kt-table kt-table-border align-middle text-sm w-full min-w-0">
                     <thead>
                         <tr>
                             <th>Datum</th>
@@ -77,7 +80,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($exceptions as $exception)
+                        @foreach($exceptions as $exception)
                         <tr>
                             <td class="whitespace-nowrap">{{ $exception->exception_date?->format('d-m-Y') }}</td>
                             <td>{{ $exception->name }}</td>
@@ -103,14 +106,11 @@
                             </td>
                             @endcan
                         </tr>
-                        @empty
-                        <tr>
-                            <td colspan="{{ auth()->user()->can('rides.delete') ? 5 : 4 }}" class="text-center text-muted-foreground py-6">Geen uitzonderingsdagen ingesteld.</td>
-                        </tr>
-                        @endforelse
+                        @endforeach
                     </tbody>
                 </table>
             </div>
+            @endif
             @if($exceptions->hasPages())
             <div class="px-3 sm:px-5 py-4">{{ $exceptions->links() }}</div>
             @endif

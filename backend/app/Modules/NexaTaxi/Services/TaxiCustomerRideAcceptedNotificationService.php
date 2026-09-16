@@ -365,6 +365,13 @@ class TaxiCustomerRideAcceptedNotificationService
 
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
 
+        if (! $this->dispatchSettings->customerWhatsappStatusEventEnabled(
+            WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+            $settingsCompanyId
+        )) {
+            return;
+        }
+
         if (app(WhatsAppBookingMessageComposer::class)->statusTemplateName() !== '') {
             // Na eerdere afwijzing / nieuw ophaalmoment: forceer status-update zodat klant
             // weer een rit_status_update (accepted) met actuele tijd krijgt.
@@ -455,7 +462,11 @@ class TaxiCustomerRideAcceptedNotificationService
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
 
         if (! $this->dispatchSettings->customerAcceptNotificationEnabled($settingsCompanyId)
-            || ! $this->dispatchSettings->customerAcceptWhatsappEnabled($settingsCompanyId)) {
+            || ! $this->dispatchSettings->customerAcceptWhatsappEnabled($settingsCompanyId)
+            || ! $this->dispatchSettings->customerWhatsappStatusEventEnabled(
+                WhatsAppBookingMessageComposer::EVENT_DECLINED,
+                $settingsCompanyId
+            )) {
             return;
         }
 

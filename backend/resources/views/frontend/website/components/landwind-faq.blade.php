@@ -10,10 +10,11 @@
         : ($defaults['items'] ?? []);
     $uid = 'lw-faq-'.substr(md5($sectionKey), 0, 8);
     $primary = $themeSettings['primary_color'] ?? '#7e3af2';
+    $widthPercent = max(30, min(100, (int) ($data['width_percent'] ?? 100)));
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
 <section class="py-10 md:py-14 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="landwind.faq" data-theme-anim="wipe" data-scroll-reveal>
-    <div class="website-section-inner max-w-3xl mx-auto">
+    <div class="website-section-inner lw-faq__inner mx-auto" style="--lw-faq-width: {{ $widthPercent }}%; width: var(--lw-faq-width); max-width: var(--lw-faq-width);">
         <div class="theme-fade" style="--theme-reveal-delay: 0ms;">
             <p class="mb-3 text-sm font-semibold uppercase tracking-[0.2em]" style="color: {{ $primary }}">{{ $data['eyebrow'] ?? 'FAQ' }}</p>
             <h2 class="mb-3 text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">{{ $data['title'] ?? 'Veelgestelde vragen' }}</h2>

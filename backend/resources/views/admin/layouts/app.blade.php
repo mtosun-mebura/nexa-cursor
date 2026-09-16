@@ -611,6 +611,15 @@
             line-height: 1.25;
             white-space: normal;
         }
+        @media (max-width: 1023px) {
+            #admin-header-flash .admin-header-toast {
+                display: flex !important;
+                align-items: flex-start;
+                width: 100% !important;
+                max-width: none !important;
+                flex: 1 1 auto;
+            }
+        }
         #admin-header-flash .admin-header-toast .ki-filled {
             flex-shrink: 0;
         }

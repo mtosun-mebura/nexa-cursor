@@ -85,21 +85,22 @@
             </form>
 
             <div class="rounded-md border border-border overflow-hidden min-w-0" id="database-backups-list">
-                <div class="px-3 sm:px-4 py-3 border-b border-border bg-muted/20 flex flex-col gap-3">
+                <div class="px-3 sm:px-4 py-3 border-b border-border bg-muted/20 flex flex-col gap-3 admin-bulk-header">
+                    {{-- Los van de knoppenrij, zodat de prullenbak boven de vinkjeskolom staat. --}}
+                    <button type="button"
+                            id="database-backups-bulk-delete"
+                            class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
+                            hidden
+                            data-url="{{ route('admin.settings.database-backups.bulk-delete') }}"
+                            aria-label="Geselecteerde backups verwijderen"
+                            title="Verwijderen"
+                            disabled>
+                        <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                        <span class="admin-bulk-delete__count">(<span id="database-backups-bulk-count">0</span>)</span>
+                    </button>
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <h4 class="text-sm font-medium text-foreground mb-0">Beschikbare backups</h4>
                         <div class="flex items-center gap-2 shrink-0">
-                            <button type="button"
-                                    id="database-backups-bulk-delete"
-                                    class="kt-btn kt-btn-sm kt-btn-outline shrink-0 hidden text-destructive"
-                                    data-url="{{ route('admin.settings.database-backups.bulk-delete') }}"
-                                    aria-label="Geselecteerde backups verwijderen"
-                                    title="Geselecteerde backups verwijderen"
-                                    disabled>
-                                <i class="ki-filled ki-trash" aria-hidden="true"></i>
-                                <span class="ms-1.5 hidden sm:inline">Verwijderen</span>
-                                <span id="database-backups-bulk-count" class="ms-1 tabular-nums"></span>
-                            </button>
                             <button type="button"
                                     id="database-backups-refresh"
                                     class="kt-btn kt-btn-sm kt-btn-outline shrink-0"
@@ -212,6 +213,11 @@
         min-width: 2.75rem;
         max-width: 2.75rem;
         padding-inline: 0.375rem !important;
+    }
+
+    /* Deze lijstkop heeft py-3 in plaats van py-5, dus zakt de prullenbak mee. */
+    #content #database-backups-bulk-delete {
+        --admin-bulk-bottom: 0.75rem;
     }
 
     #content #database-backups-table col.database-backups-col-db {
@@ -416,9 +422,10 @@
         if (bulkDeleteBtn) {
             const n = selected.length;
             bulkDeleteBtn.disabled = n === 0;
+            bulkDeleteBtn.hidden = n === 0;
             bulkDeleteBtn.classList.toggle('hidden', n === 0);
             if (bulkCountEl) {
-                bulkCountEl.textContent = n ? '(' + n + ')' : '';
+                bulkCountEl.textContent = String(n);
             }
         }
     }

@@ -109,7 +109,7 @@
                        x-ref="messageInput"
                        class="input flex-1 text-sm min-w-0"
                        :disabled="isTyping"
-                       :placeholder="config.requiresTenant ? 'Selecteer eerst een tenant…' : 'Typ je vraag...'"
+                       :placeholder="config.requiresTenant ? 'Selecteer eerst een klant…' : 'Typ je vraag...'"
                        autocomplete="off">
                 <button type="submit"
                         :disabled="!canSubmitTextInput()"

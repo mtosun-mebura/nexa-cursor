@@ -163,7 +163,6 @@ TXT;
             self::EVENT_ACCEPTED,
             self::EVENT_DECLINED,
             self::EVENT_STARTED,
-            self::EVENT_COMPLETED,
             self::EVENT_CANCELLED,
             self::EVENT_REDISPATCHED,
         ];

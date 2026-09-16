@@ -104,25 +104,9 @@
         --tw-ring-offset-width: 2px;
     }
 
-    /* Bulk delete button - alleen rode prullenbak zonder achtergrond */
-    #bulk-delete-btn {
-        background: transparent !important;
-        border: none !important;
-        color: #ef4444 !important;
-        padding: 0.5rem !important;
-        margin-left: -0.5rem !important;
-    }
-
-    #bulk-delete-btn:hover {
-        background: rgba(239, 68, 68, 0.1) !important;
-        border-radius: 0.375rem !important;
-    }
-
-    #bulk-delete-btn i {
-        color: #ef4444 !important;
-        width: 24px !important;
-        height: 24px !important;
-        font-size: 24px !important;
+    /* Het vinkje staat hier 30px vanaf de kaartrand, dus schuift de prullenbak mee. */
+    #content #bulk-delete-btn {
+        --admin-bulk-col-width: 60px;
     }
 
     /* Card header sticky alleen op desktop (>=1024px); responsive scrollt mee */
@@ -419,28 +403,30 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm pb-3 w-full">
-                    Toon 1 tot {{ $allPermissions->count() }} van {{ $allPermissions->count() }} permissie(s)
-                </h3>
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 admin-bulk-header">
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-permissions'))
+                {{-- Los van het formulier, zodat de absolute plaatsing vanaf de kaartkop rekent. --}}
+                <button type="button"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
+                        hidden
+                        id="bulk-delete-btn"
+                        aria-label="Geselecteerde permissies verwijderen"
+                        title="Verwijderen">
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count">(<span data-permissions-selected-count>0</span>)</span>
+                </button>
+                @endif
+                {{-- Het aantal staat rechtsonder in de tabelvoet, niet in de kop. --}}
                 <div class="flex flex-wrap gap-2 lg:gap-5 w-full items-center">
                     <!-- Bulk Delete Button (hidden by default, shown when items are selected) - Links uitgelijnd -->
                     @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-permissions'))
                     <form method="POST"
                           action="{{ route('admin.permissions.bulk-delete') }}"
                           id="bulk-delete-form"
-                          style="display: none;">
+                          hidden>
                         @csrf
                         @method('DELETE')
                         <div id="selected-permissions-container"></div>
-                        <button type="button"
-                                class="kt-btn kt-btn-icon"
-                                id="bulk-delete-btn"
-                                title="Verwijder geselecteerde permissies"
-                                onclick="handleBulkDelete()"
-                                style="display: none; background: transparent; border: none; color: #ef4444;">
-                            <i class="ki-filled ki-trash" style="color: #ef4444;"></i>
-                        </button>
                     </form>
                     @endif
 
@@ -544,7 +530,7 @@
 
             <div class="kt-card-content">
                 @if($allPermissions->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="permissions_table" data-permissions-table="true" data-admin-datatable-label="permissies">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="permissions_table" data-permissions-table="true" data-admin-datatable-label="permissies" data-admin-datatable-on-page="syncPermissionsBulkSelection">
                         <div class="kt-scrollable-x-auto">
                             <table class="kt-table table-auto kt-table-border">
                             <thead>
@@ -889,88 +875,69 @@
             tableObserver.observe(permissionsTable, { childList: true, subtree: true });
         }
 
-        // Select All functionality - Wait for elements to be available
+        // Bulkselectie. Het live filter vervangt de inhoud van de kaart met innerHTML, dus
+        // de tabel en de checkboxes zijn na een filteractie andere elementen. Daarom niets
+        // vasthouden: elk element wordt bij gebruik opnieuw opgezocht en de listeners
+        // hangen aan document.
         function initSelectAll() {
-            // Try multiple ways to find the checkbox
-            let selectAllCheckbox = document.getElementById('select-all-permissions');
-
-            // If not found by ID, try finding it in the table header
-            if (!selectAllCheckbox) {
-                const tableHeader = document.querySelector('#permissions_table thead th');
-                if (tableHeader) {
-                    selectAllCheckbox = tableHeader.querySelector('input#select-all-permissions');
-                }
-            }
-
-            // If still not found, try querySelector on the table
-            if (!selectAllCheckbox) {
-                selectAllCheckbox = document.querySelector('#permissions_table input#select-all-permissions');
-            }
-
-            const bulkDeleteForm = document.getElementById('bulk-delete-form');
-            const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
-            const selectedPermissionsContainer = document.getElementById('selected-permissions-container');
-
-            if (!selectAllCheckbox || !bulkDeleteBtn || !bulkDeleteForm || !selectedPermissionsContainer) {
-                // Retry if elements not found yet - but limit retries
-                if (typeof initSelectAll.retryCount === 'undefined') {
-                    initSelectAll.retryCount = 0;
-                }
-                initSelectAll.retryCount++;
-                if (initSelectAll.retryCount < 20) { // Max 2 seconds
-                    setTimeout(initSelectAll, 100);
-                }
+            if (initSelectAll.gebonden) {
+                updateBulkDeleteButton();
                 return;
             }
+            initSelectAll.gebonden = true;
 
             function getPermissionCheckboxes() {
-                return document.querySelectorAll('#permissions_table input.permission-checkbox');
+                const root = document.getElementById('permissions_table');
+                return root ? root.querySelectorAll('input.permission-checkbox') : [];
             }
 
             function updateBulkDeleteButton() {
-                const checkboxes = getPermissionCheckboxes();
-                const selected = Array.from(checkboxes).filter(function(cb) { return cb.checked; });
-                const selectedIds = selected.map(function(cb) { return cb.value; });
+                const checkboxes = Array.from(getPermissionCheckboxes());
+                const selected = checkboxes.filter(function(cb) { return cb.checked; });
+                const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+                const selectedPermissionsContainer = document.getElementById('selected-permissions-container');
+                const countEl = document.querySelector('[data-permissions-selected-count]');
 
-                // Show/hide button
-                if (selectedIds.length > 0) {
-                    bulkDeleteBtn.style.display = 'inline-flex';
-                    bulkDeleteForm.style.display = 'inline-block';
-                } else {
-                    bulkDeleteBtn.style.display = 'none';
-                    bulkDeleteForm.style.display = 'none';
+                if (bulkDeleteBtn) {
+                    const show = selected.length > 0;
+                    bulkDeleteBtn.hidden = !show;
+                    bulkDeleteBtn.classList.toggle('hidden', !show);
+                }
+                if (countEl) {
+                    countEl.textContent = String(selected.length);
                 }
 
-                // Update form inputs
-                selectedPermissionsContainer.innerHTML = '';
-                selectedIds.forEach(function(id) {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'permissions[]';
-                    input.value = id;
-                    selectedPermissionsContainer.appendChild(input);
-                });
+                if (selectedPermissionsContainer) {
+                    selectedPermissionsContainer.innerHTML = '';
+                    selected.forEach(function(cb) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'permissions[]';
+                        input.value = cb.value;
+                        selectedPermissionsContainer.appendChild(input);
+                    });
+                }
 
-                // Update select all state
-                const visibleCheckboxes = Array.from(checkboxes).filter(cb => {
-                    const row = cb.closest('tr');
-                    return row && window.getComputedStyle(row).display !== 'none' && !cb.disabled;
-                });
-
-                if (visibleCheckboxes.length > 0) {
-                    const allChecked = visibleCheckboxes.every(cb => cb.checked);
-                    const someChecked = visibleCheckboxes.some(cb => cb.checked);
-                    selectAllCheckbox.checked = allChecked;
-                    selectAllCheckbox.indeterminate = someChecked && !allChecked;
+                const selectAllCheckbox = document.getElementById('select-all-permissions');
+                if (selectAllCheckbox) {
+                    const visibleCheckboxes = checkboxes.filter(function(cb) {
+                        const row = cb.closest('tr');
+                        return row && window.getComputedStyle(row).display !== 'none' && !cb.disabled;
+                    });
+                    const selectedVisible = visibleCheckboxes.filter(function(cb) { return cb.checked; });
+                    selectAllCheckbox.checked = visibleCheckboxes.length > 0 && selectedVisible.length === visibleCheckboxes.length;
+                    selectAllCheckbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleCheckboxes.length;
                 }
             }
 
+            window.syncPermissionsBulkSelection = updateBulkDeleteButton;
+
             window.handleBulkDelete = function() {
+                const bulkDeleteForm = document.getElementById('bulk-delete-form');
                 const checkboxes = getPermissionCheckboxes();
                 const selected = Array.from(checkboxes).filter(cb => cb.checked);
 
-                if (selected.length === 0) {
-                    alert('Selecteer minimaal één permissie om te verwijderen.');
+                if (!bulkDeleteForm || selected.length === 0) {
                     return;
                 }
 
@@ -1010,75 +977,36 @@
                 }
             };
 
-            // Select all handler - use event delegation to ensure it works even if checkbox is replaced
-            const selectAllHandler = function(e) {
-                // Find checkbox fresh each time in case it was replaced
-                let checkbox = document.getElementById('select-all-permissions');
-                if (!checkbox) {
-                    checkbox = document.querySelector('#permissions_table input#select-all-permissions');
+            document.addEventListener('change', function(e) {
+                const target = e.target;
+                if (!target || !document.getElementById('permissions_table')) {
+                    return;
                 }
-
-                if (checkbox && (e.target === checkbox || e.target.id === 'select-all-permissions')) {
-                    e.stopPropagation();
-                    const isChecked = checkbox.checked;
-                    const checkboxes = getPermissionCheckboxes();
-
-                    checkboxes.forEach(cb => {
+                if (target.id === 'select-all-permissions') {
+                    const checked = target.checked;
+                    Array.from(getPermissionCheckboxes()).forEach(function(cb) {
                         if (!cb.disabled) {
-                            cb.checked = isChecked;
+                            cb.checked = checked;
                         }
                     });
-
                     updateBulkDeleteButton();
+                    return;
                 }
-            };
-
-            // Add listener to checkbox directly
-            if (selectAllCheckbox) {
-                selectAllCheckbox.addEventListener('change', selectAllHandler);
-            }
-
-            // Also add listener to document as fallback (event delegation)
-            document.addEventListener('change', selectAllHandler);
-
-            // Also listen for click events - but only for select-all checkbox
-            // Use bubble phase (false) to avoid interfering with KTMenu and other handlers
-            document.addEventListener('click', function(e) {
-                // Skip if click is on sidebar menu
-                const sidebarMenuEl = document.getElementById('sidebar_menu');
-                if (sidebarMenuEl && sidebarMenuEl.contains(e.target)) {
-                    return; // Don't interfere with sidebar clicks
-                }
-
-                // Only handle clicks on the select-all checkbox, ignore everything else
-                if (e.target && e.target.id === 'select-all-permissions') {
-                    e.stopPropagation(); // Prevent event from bubbling to other handlers
-                    setTimeout(function() {
-                        selectAllHandler(e);
-                    }, 10);
-                }
-            }, false); // Use bubble phase to avoid interfering with KTMenu
-
-            // Individual checkbox handlers
-            document.addEventListener('change', function(e) {
-                if (e.target && e.target.classList && e.target.classList.contains('permission-checkbox')) {
+                if (target.classList && target.classList.contains('permission-checkbox')) {
                     updateBulkDeleteButton();
                 }
             });
 
-            // Watch table for changes
-            const permissionsTable = document.getElementById('permissions_table');
-            if (permissionsTable) {
-                const observer = new MutationObserver(function() {
-                    setTimeout(updateBulkDeleteButton, 50);
-                });
-                observer.observe(permissionsTable, { childList: true, subtree: true });
-            }
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest ? e.target.closest('#bulk-delete-btn') : null;
+                if (!btn) {
+                    return;
+                }
+                e.preventDefault();
+                window.handleBulkDelete();
+            });
 
-            // Initial update
             updateBulkDeleteButton();
-            setTimeout(updateBulkDeleteButton, 100);
-            setTimeout(updateBulkDeleteButton, 500);
         }
 
         // Initialize with retry mechanism - wait a bit longer for datatable to initialize

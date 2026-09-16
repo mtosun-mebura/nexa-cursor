@@ -13,8 +13,6 @@ class InfoRequestSubmitTest extends TestCase
 {
     public function test_info_request_form_submits_via_registered_route(): void
     {
-        Mail::fake();
-
         $company = Company::query()->create([
             'name' => 'Test Taxi BV',
             'is_active' => true,
@@ -56,6 +54,26 @@ class InfoRequestSubmitTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true);
+
+        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $this->assertGreaterThanOrEqual(2, $messages->count());
+        $recipients = $messages->map(function ($message) {
+            $to = $message->getOriginalMessage()->getTo();
+            $first = $to[0] ?? null;
+
+            return $first ? $first->getAddress() : '';
+        });
+        $this->assertTrue($recipients->contains('ontvanger@example.com'));
+        $this->assertTrue($recipients->contains('jan@example.com'));
+        $ackHtml = (string) $messages->first(function ($message) {
+            $to = $message->getOriginalMessage()->getTo();
+            $first = $to[0] ?? null;
+
+            return $first && $first->getAddress() === 'jan@example.com';
+        })?->getOriginalMessage()->getHtmlBody();
+        $this->assertStringContainsString('Beste Jan Jansen', $ackHtml);
+        $this->assertStringContainsString('in goede orde bij ons is binnengekomen', $ackHtml);
+        $this->assertStringContainsString('zo spoedig mogelijk', $ackHtml);
     }
 
     public function test_info_request_route_is_registered(): void

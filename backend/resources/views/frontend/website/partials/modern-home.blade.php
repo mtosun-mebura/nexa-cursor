@@ -305,11 +305,11 @@
                 </h2>
             </div>
             @endif
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
                 @foreach(($sectionData['items'] ?? []) as $fi => $item)
                 @if($visibility[$sectionKey . '_item_' . $fi] ?? $visibility['features_item_'.$fi] ?? true)
-                <div class="scroll-reveal-item h-full" data-scroll-reveal-item style="{{ $featuresRevealStyle }}">
-                    @include('frontend.website.components.features-card', ['item' => $item, 'index' => $fi, 'class' => 'h-full'])
+                <div class="scroll-reveal-item h-full flex" data-scroll-reveal-item style="{{ $featuresRevealStyle }}">
+                    @include('frontend.website.components.features-card', ['item' => $item, 'index' => $fi, 'class' => 'h-full w-full'])
                 </div>
                 @endif
                 @endforeach
@@ -330,9 +330,31 @@
         opacity: 1;
         transform: translateY(0) scale(1);
     }
+    .modern-home-features .grid {
+        grid-auto-rows: 1fr;
+        align-items: stretch;
+    }
+    .modern-home-features .grid > .scroll-reveal-item {
+        min-height: 0;
+    }
+    .modern-home-features .grid > .scroll-reveal-item .features-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+    }
+    .modern-home-features .grid > .scroll-reveal-item .features-card > div {
+        flex: 1 1 auto;
+        height: 100%;
+    }
     @media (min-width: 768px) {
         .modern-home-features.scroll-reveal-section .grid > .scroll-reveal-item:nth-child(even) {
             transition-delay: 0.16s;
+        }
+        .modern-home-features.scroll-reveal-section .grid > .scroll-reveal-item:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+            justify-self: center;
+            width: calc((100% - 2rem) / 2);
         }
     }
     @media (prefers-reduced-motion: reduce) {

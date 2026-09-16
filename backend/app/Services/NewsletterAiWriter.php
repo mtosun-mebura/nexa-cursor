@@ -17,7 +17,7 @@ class NewsletterAiWriter
             'hero_image' => $images['hero'] ?? 'assets/marketing/images/hero-nexa-platform.png',
             'eyebrow' => 'Voor taxibedrijven',
             'title' => 'Ritten, chauffeurs en contracten in één systeem',
-            'intro' => "NEXA Suite is het complete platform voor taxibedrijven: een eigen website met boekingsknop, dispatch, chauffeur-app en contractvervoer. Geen marktplaats-commissie. U houdt de klant, de rit en de factuur in eigen hand.\n\nIn vijf minuten ziet u of het past. Meld u aan via de contactpagina; we zetten het systeem klaar voor uw bedrijf.",
+            'intro' => "NEXA Suite is het complete platform voor taxibedrijven: een eigen website met boekingsknop, dispatch, chauffeur-app en contractvervoer. Ritten via uw eigen website vallen onder het maandabonnement, zonder provisie per rit. Alleen ritten via nexasuite.nl kennen een provisie. U houdt de klant, de rit en de factuur in eigen hand.\n\nIn vijf minuten ziet u of het past. Meld u aan via de contactpagina; we zetten het systeem klaar voor uw bedrijf.",
             'features' => [
                 [
                     'image' => $images['booking'] ?? '',
@@ -72,7 +72,7 @@ class NewsletterAiWriter
                     'Website met boekingsmodule in eigen merk',
                     'Dispatch en chauffeur-app',
                     'Contractvervoer met ouder-app en maandfactuur',
-                    'Vast maandbedrag, geen marktplaats-commissie',
+                    'Vast maandbedrag voor ritten via uw eigen website',
                     'Pakketten Start 49, Pro 99, Business 179 euro per maand excl. btw',
                 ],
             ],

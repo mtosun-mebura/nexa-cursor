@@ -6,7 +6,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 //
 // Zet de omgeving die je test in NEXA_APP_URL, bijvoorbeeld:
 //   NEXA_APP_URL=http://192.168.178.116:8085/taxi/chauffeur npx cap sync ios
-const serverUrl = process.env.NEXA_APP_URL || 'https://taxitosun.nexasuite.online/taxi/chauffeur';
+const serverUrl = process.env.NEXA_APP_URL || 'https://nexasuite.online/taxi/chauffeur';
 
 const config: CapacitorConfig = {
     appId: 'nl.nexasuite.chauffeur',

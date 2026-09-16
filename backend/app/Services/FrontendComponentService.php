@@ -219,11 +219,12 @@ class FrontendComponentService
                 'eyebrow' => 'FAQ',
                 'title' => 'Veelgestelde vragen',
                 'subtitle' => 'Antwoorden op de vragen die ondernemers het vaakst stellen.',
+                'width_percent' => 100,
                 'items' => [
                     ['question' => 'Hoe snel is de website live?', 'answer' => 'Na koppeling van het Landwind-thema vult u de teksten in de pagina-editor. De FAQ, logo’s en overige blokken staan direct klaar.'],
                     ['question' => 'Kan ik teksten zelf aanpassen?', 'answer' => 'Ja. Elke vraag en elk antwoord is bewerkbaar in de sectie-editor, zonder code te wijzigen.'],
                     ['question' => 'Werkt dit op mobiel?', 'answer' => 'De accordion is opgebouwd met Tailwind en Flowbite-patronen: één kolom, grote tikvlakken en donkere modus.'],
-                    ['question' => 'Voor welk thema is dit blok?', 'answer' => 'Dit FAQ-blok komt uit Landwind, maar u sleept het op elke websitepagina — ook als de tenant een ander thema heeft.'],
+                    ['question' => 'Voor welk thema is dit blok?', 'answer' => 'Dit FAQ-blok komt uit Landwind, maar u sleept het op elke websitepagina — ook als de klant een ander thema heeft.'],
                 ],
             ],
             'landwind.trusted_by' => [

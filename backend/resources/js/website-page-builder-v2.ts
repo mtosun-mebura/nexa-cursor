@@ -6,6 +6,7 @@ import '../css/nexa-smooth-accordion.css'
 declare global {
   interface Window {
     __WEBSITE_BUILDER_V2__?: BuilderBootstrap
+    showAdminHeaderFlash?: (type: string, message: string) => void
   }
 }
 

@@ -35,6 +35,22 @@
                 $themeField('subtitle', $themeMerged['subtitle'] ?? '', $themeCompId === 'vue_material.author_header' ? 'Functie' : 'Subtitel', 'textarea');
             @endphp
         @endif
+        @if($themeCompId === 'landwind.faq')
+            @php
+                $faqWidth = max(30, min(100, (int) ($themeMerged['width_percent'] ?? 100)));
+            @endphp
+            <tr>
+                <td class="min-w-40 text-secondary-foreground font-normal align-top pt-3">Blokbreedte</td>
+                <td class="w-full pt-2 pb-2">
+                    <select class="kt-input w-full max-w-[8rem] text-sm" name="home_sections[{{ $sectionKey }}][width_percent]" title="Breedte van dit blok ten opzichte van de pagina">
+                        @foreach([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
+                            <option value="{{ $pct }}" @selected($faqWidth === $pct)>{{ $pct }}%</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1 mb-0">Breedte van de FAQ ten opzichte van de pagina. 100% is volle breedte.</p>
+                </td>
+            </tr>
+        @endif
         @if($themeCompId === 'play.video_spotlight')
             @php
                 $themeField('video_url', $themeMerged['video_url'] ?? '', 'Video-URL (YouTube)');

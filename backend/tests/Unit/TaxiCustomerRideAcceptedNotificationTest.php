@@ -67,6 +67,33 @@ class TaxiCustomerRideAcceptedNotificationTest extends TestCase
     }
 
     #[Test]
+    public function completed_whatsapp_status_is_skipped_until_explicitly_enabled(): void
+    {
+        $company = Company::query()->create(['name' => 'Taxi BV Skip Complete']);
+        $ride = new RideRequest([
+            'company_id' => $company->id,
+            'status' => RideRequest::STATUS_COMPLETED,
+            'customer_phone' => '0612345678',
+            'customer_name' => 'Piet',
+        ]);
+        $ride->id = 501;
+
+        $ok = app(\App\Modules\NexaTaxi\Services\TaxiCustomerRideStatusNotificationService::class)
+            ->notify((string) config('database.default'), $ride, \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED);
+
+        $this->assertFalse($ok);
+
+        app(TaxiDispatchSettingsService::class)->setCustomerWhatsappStatusEvents([
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+        ], $company->id);
+
+        $this->assertTrue(app(TaxiDispatchSettingsService::class)->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+            $company->id
+        ));
+    }
+
+    #[Test]
     public function plain_message_replaces_placeholders(): void
     {
         $company = Company::query()->create(['name' => 'Taxi Co']);

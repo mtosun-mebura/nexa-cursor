@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\NexaMarketplaceFeeCopy;
+use App\Support\NexaPublicCopy;
 use App\Support\Tenancy\TenantFrontendUrl;
 
 class WebsiteBuilderService
@@ -1374,9 +1376,47 @@ class WebsiteBuilderService
             $this->shouldShowSkillmatchingFrontendAppLinks()
         );
 
-        return $this->applyTenantCompanyAddressToFooterMap(
+        $prepared = $this->applyTenantCompanyAddressToFooterMap(
             $this->filterFooterLinksToExistingPages($prepared, $page),
             $page
+        );
+
+        $tenantId = $page !== null
+            ? $this->tenantCompanyIdForPage($page)
+            : $this->resolvedPublicTenantCompanyId();
+        if ($tenantId === null || $tenantId <= 0) {
+            $footer = is_array($prepared['footer'] ?? null) ? $prepared['footer'] : [];
+            $prepared['footer'] = CentralWelcomePageService::withLegalSupportLinks($footer);
+            $prepared = NexaPublicCopy::replaceTenantWordingIn($prepared);
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Centrale marketing-site (nexasuite.nl), niet een tenant-website.
+     */
+    public function isCentralPublicSite(?WebsitePage $page = null): bool
+    {
+        $tenantId = $page !== null
+            ? $this->tenantCompanyIdForPage($page)
+            : $this->resolvedPublicTenantCompanyId();
+
+        return $tenantId === null || $tenantId <= 0;
+    }
+
+    /**
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public function applyPublicMarketplaceFeeCopy(array $homeSections, ?WebsitePage $page = null): array
+    {
+        if (! $this->isCentralPublicSite($page)) {
+            return $homeSections;
+        }
+
+        return NexaPublicCopy::replaceTenantWordingIn(
+            NexaMarketplaceFeeCopy::applyToHomeSections($homeSections)
         );
     }
 

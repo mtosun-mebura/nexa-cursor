@@ -73,9 +73,6 @@
                     Testdata aanmaken
                 </button>
             </form>
-            <button type="button" id="whatsapp-mock-bulk-delete" class="kt-btn kt-btn-destructive" hidden disabled>
-                Geselecteerde verwijderen
-            </button>
             @if($hasSeededRides)
                 <form method="POST" action="{{ route('admin.whatsapp-pickup-proposal-mock.clear') }}"
                       onsubmit="return confirm('Gegenereerde WhatsApp-testritten wissen? Voorstellen uit de chauffeur-app blijven staan.');">
@@ -94,8 +91,22 @@
          data-csrf="{{ csrf_token() }}"
          data-mock-allowed="{{ $mockAllowed ? '1' : '0' }}"
          data-fingerprint="{{ $listFingerprint }}">
-        <div class="kt-card-header flex flex-wrap items-center justify-between gap-2">
-            <h3 class="kt-card-title text-base mb-0">Voorstellen</h3>
+        <div class="kt-card-header flex flex-wrap items-center justify-between gap-2 px-5 py-5">
+            <div class="flex items-center gap-2 min-w-0">
+                {{-- Titel en het live-label staan op één regel, dus loopt de prullenbak mee
+                     in de regel in plaats van boven de vinkjeskolom. --}}
+                <button type="button"
+                        id="whatsapp-mock-bulk-delete"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
+                        hidden
+                        disabled
+                        aria-label="Geselecteerde voorstellen verwijderen"
+                        title="Verwijderen">
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count">(<span id="whatsapp-mock-bulk-count">0</span>)</span>
+                </button>
+                <h3 class="kt-card-title text-base mb-0">Voorstellen</h3>
+            </div>
             <span class="text-xs text-muted-foreground" id="whatsapp-mock-live-label">Live · nieuwste bovenaan</span>
         </div>
         <div class="kt-card-content p-0" id="whatsapp-mock-list-body">
@@ -402,9 +413,11 @@ html.dark .whatsapp-mock-message-modal__backdrop {
         const hasSelection = selectedIds.size > 0;
         bulkBtn.hidden = !hasSelection;
         bulkBtn.disabled = !hasSelection;
-        bulkBtn.textContent = hasSelection
-            ? 'Geselecteerde verwijderen (' + selectedIds.size + ')'
-            : 'Geselecteerde verwijderen';
+        bulkBtn.classList.toggle('hidden', !hasSelection);
+        const countEl = document.getElementById('whatsapp-mock-bulk-count');
+        if (countEl) {
+            countEl.textContent = String(selectedIds.size);
+        }
     }
 
     function showFlash(message) {

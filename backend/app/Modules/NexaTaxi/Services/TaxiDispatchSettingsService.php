@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Services\EnvService;
 use App\Services\PaymentProviderService;
+use App\Services\WhatsAppBookingMessageComposer;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -50,6 +51,8 @@ class TaxiDispatchSettingsService
     public const KEY_CUSTOMER_ACCEPT_WHATSAPP_TEMPLATE = 'taxi_dispatch_customer_accept_whatsapp_template';
 
     public const KEY_CUSTOMER_ACCEPT_WHATSAPP_TEMPLATE_LANG = 'taxi_dispatch_customer_accept_whatsapp_template_lang';
+
+    public const KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS = 'taxi_dispatch_customer_whatsapp_status_events';
 
     public const KEY_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES = 'taxi_dispatch_customer_login_code_expires_minutes';
 
@@ -535,6 +538,90 @@ class TaxiDispatchSettingsService
     public function setCustomerAcceptWhatsappTemplateLanguage(string $language, ?int $companyId = null): void
     {
         GeneralSetting::set(self::KEY_CUSTOMER_ACCEPT_WHATSAPP_TEMPLATE_LANG, trim($language) ?: 'nl', $companyId);
+    }
+
+    /**
+     * @return array<string, string> event => NL-label
+     */
+    public static function customerWhatsappStatusEventLabels(): array
+    {
+        return WhatsAppBookingMessageComposer::statusEventLabels();
+    }
+
+    /**
+     * WhatsApp-statusberichten naar de klant. Tenant-instelling gaat voor; anders platform/default.
+     * Rit afgerond staat standaard uit.
+     *
+     * @return list<string>
+     */
+    public function customerWhatsappStatusEvents(?int $companyId = null): array
+    {
+        $stored = GeneralSetting::get(self::KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS, null, $companyId);
+        if ($stored !== null && $stored !== '') {
+            return $this->normalizeCustomerWhatsappStatusEvents($stored, allowEmpty: true);
+        }
+
+        $fallback = $this->normalizeCustomerWhatsappStatusEvents(
+            app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+            allowEmpty: false
+        );
+
+        return array_values(array_filter(
+            $fallback,
+            fn (string $event): bool => $event !== WhatsAppBookingMessageComposer::EVENT_COMPLETED
+        ));
+    }
+
+    public function customerWhatsappStatusEventEnabled(string $event, ?int $companyId = null): bool
+    {
+        return in_array($event, $this->customerWhatsappStatusEvents($companyId), true);
+    }
+
+    /**
+     * @param  list<string>|string  $events
+     */
+    public function setCustomerWhatsappStatusEvents(array|string $events, ?int $companyId = null): void
+    {
+        $normalized = $this->normalizeCustomerWhatsappStatusEvents($events, allowEmpty: true);
+        GeneralSetting::set(
+            self::KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS,
+            json_encode(array_values($normalized), JSON_UNESCAPED_UNICODE),
+            $companyId
+        );
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return list<string>
+     */
+    public function normalizeCustomerWhatsappStatusEvents(mixed $raw, bool $allowEmpty = false): array
+    {
+        $available = array_keys(self::customerWhatsappStatusEventLabels());
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (! is_array($decoded)) {
+                $decoded = preg_split('/\s*,\s*/', $raw) ?: [];
+            }
+            $raw = $decoded;
+        }
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+
+        $events = [];
+        foreach ($raw as $key) {
+            $key = is_string($key) ? trim($key) : '';
+            if ($key !== '' && in_array($key, $available, true)) {
+                $events[] = $key;
+            }
+        }
+        $events = array_values(array_unique($events));
+
+        if ($events === [] && ! $allowEmpty) {
+            return WhatsAppBookingMessageComposer::defaultStatusEvents();
+        }
+
+        return $events;
     }
 
     /**
