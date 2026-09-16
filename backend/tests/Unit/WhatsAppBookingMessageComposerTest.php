@@ -126,4 +126,17 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertStringContainsString("Referentie: rit #1042\nTelefoon:", $sample['details']);
         $this->assertStringNotContainsString(' · ', $sample['preview']);
     }
+
+    #[Test]
+    public function default_status_events_exclude_completed(): void
+    {
+        $events = WhatsAppBookingMessageComposer::defaultStatusEvents();
+
+        $this->assertContains(WhatsAppBookingMessageComposer::EVENT_ACCEPTED, $events);
+        $this->assertContains(WhatsAppBookingMessageComposer::EVENT_STARTED, $events);
+        $this->assertContains(WhatsAppBookingMessageComposer::EVENT_DECLINED, $events);
+        $this->assertContains(WhatsAppBookingMessageComposer::EVENT_CANCELLED, $events);
+        $this->assertContains(WhatsAppBookingMessageComposer::EVENT_REDISPATCHED, $events);
+        $this->assertNotContains(WhatsAppBookingMessageComposer::EVENT_COMPLETED, $events);
+    }
 }

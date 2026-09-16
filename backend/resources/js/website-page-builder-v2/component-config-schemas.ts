@@ -482,6 +482,14 @@ COMPONENT_SCHEMAS['component:landwind.faq'] = [
   { type: 'text', key: 'title', label: 'Titel' },
   { type: 'text', key: 'subtitle', label: 'Subtitel' },
   {
+    type: 'select',
+    key: 'width_percent',
+    label: 'Breedte',
+    options: sectionWidthPercentOptions,
+    defaultValue: '60',
+    hint: 'Op desktop en iPad. Op mobiel altijd volle breedte met zijpadding.',
+  },
+  {
     type: 'item-list',
     key: 'items',
     label: 'Vragen',

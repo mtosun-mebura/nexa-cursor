@@ -886,11 +886,19 @@
       max-width: 100% !important;
       flex: 1 1 100% !important;
     }
+    .lw-faq__inner {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
   }
   @media (min-width: 768px) {
     .text-block-section__inner {
       padding-left: 2.5rem;
       padding-right: 2.5rem;
+    }
+    .lw-faq__inner.website-section-inner {
+      width: var(--lw-faq-width, 60%);
+      max-width: var(--lw-faq-width, 60%);
     }
   }
 

@@ -4,8 +4,8 @@
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
-    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <div class="min-w-0 flex-1">
+    <div class="flex flex-col gap-4 pb-7.5">
+        <div class="w-full min-w-0">
             <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
             @if($activeTheme || !empty($activeModuleName))
                 <p class="text-sm text-muted-foreground mt-1">
@@ -41,7 +41,7 @@
                 </p>
             @endif
         </div>
-        <div class="flex flex-wrap items-center gap-2 shrink-0 admin-page-actions">
+        <div class="flex flex-wrap items-center justify-end gap-2 w-full admin-page-actions">
             @php
                 $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('home', [
                     'nexa_admin_preview' => 1,

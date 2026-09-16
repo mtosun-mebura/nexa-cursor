@@ -247,7 +247,39 @@
                             </p>
                         @endif
                     </td>
-                </tr>                <tr class="customer-accept-channel-row">
+                </tr>
+                <tr class="customer-accept-channel-row">
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp communicatie klant</td>
+                    <td class="min-w-48 w-full pt-4">
+                        @php
+                            $selectedCustomerWhatsappStatusEvents = old('customer_whatsapp_status_events', $customerWhatsappStatusEvents ?? []);
+                            if (! is_array($selectedCustomerWhatsappStatusEvents)) {
+                                $selectedCustomerWhatsappStatusEvents = [];
+                            }
+                        @endphp
+                        <p class="text-sm text-secondary-foreground mb-2">
+                            Kies welke WhatsApp-statusberichten de klant ontvangt nadat een chauffeur de rit via dispatch heeft geaccepteerd.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl">
+                            @foreach($whatsappStatusEventLabels as $eventKey => $eventLabel)
+                                <label class="inline-flex items-start gap-2 text-sm text-secondary-foreground cursor-pointer">
+                                    <input type="checkbox"
+                                           class="kt-checkbox mt-0.5"
+                                           name="customer_whatsapp_status_events[]"
+                                           value="{{ $eventKey }}"
+                                           @checked(in_array($eventKey, $selectedCustomerWhatsappStatusEvents, true))>
+                                    <span>{{ $eventLabel }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0 max-w-xl">
+                            Uitgevinkte statussen worden niet naar de klant gestuurd. <strong>Rit afgerond</strong> staat standaard uit.
+                            Sjabloon: <code class="text-xs">rit_status_update</code> onder
+                            <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">Algemene configuraties → WhatsApp</a>.
+                        </p>
+                    </td>
+                </tr>
+                <tr class="customer-accept-channel-row">
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">SMS naar klant</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2 mb-2">

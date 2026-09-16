@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://maps.googleapis.com">
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
-    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.chauffeur.manifest') ? route('taxi.chauffeur.manifest') : url('/taxi/chauffeur/manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ $manifestUrl ?? '/taxi/chauffeur/manifest.webmanifest' }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -42,7 +42,6 @@
             --soft-text: #d1d5db;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --bottom-nav-h: 4.75rem;
         }
         html[data-theme="dark"] {
             --nexa-pwa-bg: #121214;
@@ -148,28 +147,6 @@
             box-shadow: 0 0 0 2px var(--orange);
         }
         #app { height: 100%; min-height: 100%; display: flex; flex-direction: column; }
-        .app-top-chrome {
-            flex-shrink: 0;
-            background: var(--chrome);
-            padding-top: var(--safe-top);
-            padding-left: env(safe-area-inset-left, 0px);
-            padding-right: env(safe-area-inset-right, 0px);
-        }
-        @media (max-width: 48rem) {
-            .app-top-chrome {
-                /* Notch / Dynamic Island: env() is in Safari soms 0, camera blijft dan over de banner */
-                padding-top: max(var(--safe-top), 3.75rem);
-            }
-        }
-        .app-top-chrome:not(:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden]))) {
-            display: none;
-        }
-        #app:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden])) #screen-login.screen {
-            padding-top: 1rem;
-        }
-        #app:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden])) .dispatch-top {
-            padding-top: 0.65rem;
-        }
         .screen {
             display: none;
             flex: 1;
@@ -186,7 +163,7 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
-            padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
+            padding: 0;
         }
         .dispatch-top {
             flex: 0 0 auto;
@@ -364,16 +341,14 @@
         }
         .driver-tab-panel[hidden] { display: none !important; }
         .driver-bottom-nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: relative;
+            flex: 0 0 auto;
             z-index: 40;
             display: none;
             align-items: stretch;
             justify-content: center;
             gap: 0.15rem;
-            padding: 0.45rem 0.35rem calc(0.45rem + var(--safe-bottom));
+            padding: 0.3rem 0.35rem calc(0.3rem + var(--safe-bottom) * 0.5);
             background: var(--chrome);
             border-top: 1px solid var(--line);
             backdrop-filter: blur(12px);
@@ -388,21 +363,22 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.2rem;
+            gap: 0.15rem;
             min-width: 0;
-            min-height: 3.6rem;
+            min-height: 2.85rem;
             border: none;
             background: transparent;
             color: var(--muted);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
+            line-height: 1.15;
             cursor: pointer;
             border-radius: 0.75rem;
-            padding: 0.35rem 0.2rem;
+            padding: 0.25rem 0.2rem;
         }
         .driver-bottom-nav__btn svg {
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 1.3rem;
+            height: 1.3rem;
         }
         .driver-bottom-nav__btn.is-active {
             color: var(--orange);
@@ -418,6 +394,7 @@
         }
         .dispatch-banners .banner-ios-awake,
         .dispatch-banners .banner-notifications-hint,
+        .dispatch-banners .banner-install-app,
         .dispatch-banners .banner-guide-hint,
         .dispatch-banners .banner-inactive,
         .dispatch-banners #notifications-feedback {
@@ -686,8 +663,8 @@
         }
         #payment-panel .payment-actions .btn {
             width: 100%;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            min-height: 2.9rem;
+            font-size: 1rem;
             margin: 0;
         }
         #payment-panel #btn-cash-paid {
@@ -852,7 +829,7 @@
             gap: 0.625rem;
         }
         .driver-dialog__actions .btn {
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .driver-dialog__actions .btn-cash-confirm {
             background: #0d9488;
@@ -1026,7 +1003,7 @@
             font-size: 0.88rem;
             font-weight: 700;
             padding: 0.5rem 0.4rem;
-            min-height: 3.15rem;
+            min-height: 2.8rem;
             text-align: center;
         }
         h1 { font-size: 1.25rem; margin: 0 0 1rem; font-weight: 600; }
@@ -1129,10 +1106,10 @@
             justify-content: center;
             gap: 0.5rem;
             width: 100%;
-            min-height: 3rem;
+            min-height: 2.7rem;
             border: none;
             border-radius: 0.75rem;
-            font-size: 1rem;
+            font-size: 0.9375rem;
             font-weight: 700;
             cursor: pointer;
             touch-action: manipulation;
@@ -1276,15 +1253,15 @@
         #btn-start-return {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            min-height: 2.9rem;
+            font-size: 1rem;
             background: #7c3aed;
             color: #fff;
         }
         #btn-release-return {
             width: 100%;
             margin-top: 0.5rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
             font-size: 1rem;
             background: transparent;
             color: var(--soft-text);
@@ -1408,7 +1385,7 @@
         .active-ride-collapsed-banner .btn {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .parked-assigned-ride-card.is-active-ride {
             border-color: rgba(34, 197, 94, 0.45);
@@ -1430,7 +1407,7 @@
         .parked-assigned-ride-card .btn {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .scheduled-ride-card.is-contract-ride .scheduled-ride-toggle-text .offer-title {
             display: inline;
@@ -3152,17 +3129,6 @@
             margin-bottom: 1rem;
             line-height: 1.45;
         }
-        #install-app-hint {
-            margin: 0.65rem 1rem 0;
-            flex-shrink: 0;
-        }
-        #guide-hint {
-            margin: 0.65rem 1rem 0.85rem;
-            flex-shrink: 0;
-        }
-        #guide-hint + #install-app-hint:not([hidden]) {
-            margin-top: 0.65rem;
-        }
         .banner-dismiss-btn {
             position: absolute;
             top: 0.35rem;
@@ -3521,24 +3487,6 @@
 <body>
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
-    <div class="app-top-chrome">
-        <div id="guide-hint" class="banner-guide-hint" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
-            <div class="banner-guide-hint__body">
-                <p class="banner-guide-hint__text">
-                    <strong>Handleiding.</strong>
-                    Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
-                    Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
-                </p>
-                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
-            </div>
-        </div>
-        <div id="install-app-hint" class="banner-install-app" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
-            <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
-            <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
-        </div>
-    </div>
     @include('taxi::partials.tenant-logo-bar')
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Chauffeur inloggen</h1>
@@ -3654,6 +3602,22 @@
                     <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
                     <span id="notifications-feedback-text"></span>
                 </p>
+                <div id="install-app-hint" class="banner-install-app" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
+                    <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
+                    <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
+                </div>
+                <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+                    <div class="banner-guide-hint__body">
+                        <p class="banner-guide-hint__text">
+                            <strong>Handleiding.</strong>
+                            Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
+                            Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+                        </p>
+                        <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">Handleiding openen</a>
+                    </div>
+                </div>
             </div>
             <div class="card toggle-row">
                 <span>Online voor ritten</span>
@@ -3926,7 +3890,7 @@
                 @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                 @include('taxi::partials.ride-alert-tone', ['section' => 'picker'])
                 <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
-                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">
+                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">
                     <strong>Handleiding</strong>
                     <span>Openen →</span>
                 </a>
@@ -4109,22 +4073,22 @@
 
 <div id="nosleep-media-wrap" aria-hidden="true">
     <video id="nosleep-video" loop muted playsinline webkit-playsinline preload="auto" disablePictureInPicture
-        src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.mp4') }}"></video>
+        src="/assets/media/app/nexa-chauffeur-nosleep.mp4"></video>
 </div>
 <audio id="nosleep-audio" loop preload="auto" muted playsinline webkit-playsinline aria-hidden="true"
-    src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.wav') }}"></audio>
+    src="/assets/media/app/nexa-chauffeur-nosleep.wav"></audio>
 <canvas id="nosleep-canvas" width="1" height="1" aria-hidden="true"></canvas>
 
 <script>
 window.NEXA_TAXI_DRIVER = {
-    apiBase: @json($apiBase),
+    apiBase: @json($apiBase ?? '/api/taxi/v1/driver'),
     pollMs: {{ (int) $pollMs }},
     streamEnabled: @json($streamEnabled ?? false),
-    loginUrl: @json(url('/api/taxi/v1/driver/login')),
-    loginCodeRequestUrl: @json(url('/api/taxi/v1/driver/login-code/request')),
-    loginCodeVerifyUrl: @json(url('/api/taxi/v1/driver/login-code/verify')),
-    appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
-    guideUrl: @json($guideUrl ?? url('/taxi/chauffeur/handleiding')),
+    loginUrl: @json($loginUrl ?? '/api/taxi/v1/driver/login'),
+    loginCodeRequestUrl: @json($loginCodeRequestUrl ?? '/api/taxi/v1/driver/login-code/request'),
+    loginCodeVerifyUrl: @json($loginCodeVerifyUrl ?? '/api/taxi/v1/driver/login-code/verify'),
+    appUrl: @json($appUrl ?? '/taxi/chauffeur'),
+    guideUrl: @json($guideUrl ?? '/taxi/chauffeur/handleiding'),
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
     googleMapsApiKey: @json($googleMapsApiKey ?? ''),
     googleMapsMapId: @json($googleMapsMapId ?? ''),
@@ -4132,8 +4096,8 @@ window.NEXA_TAXI_DRIVER = {
     googleMapsCenterLng: @json($googleMapsCenterLng ?? '4.9041'),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=159" defer></script>
+<script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=164" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

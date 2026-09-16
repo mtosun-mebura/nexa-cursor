@@ -6,7 +6,7 @@
             @php
                 $waStatus = is_array($whatsappConnectionStatus ?? null) ? $whatsappConnectionStatus : null;
             @endphp
-            <div class="mx-5 mt-4 mb-4 space-y-3">
+            <div class="mx-0 sm:mx-5 mt-4 mb-4 space-y-3">
                 @if($waStatus !== null && !empty($waStatus['ok']))
                     <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300 break-words" id="whatsapp-connection-status">
                         Verbinding OK
@@ -205,7 +205,7 @@
                     $statusEventOptions = $whatsappRideStatusEventOptions ?? [];
                 @endphp
 
-                <div class="mx-5 mt-4 mb-2 border border-border rounded-lg overflow-hidden whatsapp-template-sections">
+                <div class="mx-0 sm:mx-5 mt-4 mb-2 border border-border rounded-lg overflow-hidden whatsapp-template-sections">
                     <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="whatsapp-booking-templates">
                         @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-message-text-2 me-2"></i> Boekingssjablonen'])
                         <div class="settings-collapsible-body">
@@ -379,6 +379,13 @@
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
                                             Eén Meta-template voor acceptatie, afwijzing (met optionele opmerking), start, afronding, annulering en herdispatch.
+                                            Welke statussen de klant ontvangt, stel je per bedrijf in onder
+                                            @if(\Illuminate\Support\Facades\Route::has('admin.taxi.dispatch_settings.edit'))
+                                                <a href="{{ route('admin.taxi.dispatch_settings.edit') }}#dispatch-customer-accept" class="underline">Chauffeur dispatch → Klantmelding bij acceptatie</a>
+                                            @else
+                                                Chauffeur dispatch → Klantmelding bij acceptatie
+                                            @endif
+                                            (WhatsApp communicatie klant). Rit afgerond staat standaard uit.
                                             Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> opmerking, <code>@{{5}}</code> chauffeur, <code>@{{6}}</code> ophaalmoment, <code>@{{7}}</code> ophaaladres.
                                         </p>
                                     </td>

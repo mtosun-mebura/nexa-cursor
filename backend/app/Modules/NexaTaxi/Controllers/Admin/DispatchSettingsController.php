@@ -54,6 +54,8 @@ class DispatchSettingsController extends Controller
             'customerAcceptWhatsappEnabled' => $this->dispatchSettings->customerAcceptWhatsappEnabled($companyId),
             'customerAcceptSmsEnabled' => $this->dispatchSettings->customerAcceptSmsEnabled($companyId),
             'customerAcceptSmsProvider' => $this->dispatchSettings->customerAcceptSmsProvider($companyId),
+            'whatsappStatusEventLabels' => TaxiDispatchSettingsService::customerWhatsappStatusEventLabels(),
+            'customerWhatsappStatusEvents' => $this->dispatchSettings->customerWhatsappStatusEvents($companyId),
             'whatsappApiConfigured' => $this->dispatchSettings->whatsappApiConfigured($companyId),
             'smsProviderOptions' => TaxiDispatchSettingsService::smsProviderOptions(),
             'vonageConfigured' => $this->customerSms->isVonageConfigured(),
@@ -138,6 +140,8 @@ class DispatchSettingsController extends Controller
             'customer_accept_whatsapp_enabled' => ['nullable', 'in:0,1'],
             'customer_accept_sms_enabled' => ['nullable', 'in:0,1'],
             'customer_accept_sms_provider' => ['nullable', 'string', 'in:off,demo,vonage'],
+            'customer_whatsapp_status_events' => ['nullable', 'array'],
+            'customer_whatsapp_status_events.*' => ['string', 'in:'.implode(',', array_keys(TaxiDispatchSettingsService::customerWhatsappStatusEventLabels()))],
         ], [
             'offer_ttl_minutes.required' => 'Vul de acceptatietijd in.',
             'offer_ttl_minutes.integer' => 'Acceptatietijd moet een heel getal zijn.',
@@ -178,6 +182,10 @@ class DispatchSettingsController extends Controller
         $this->dispatchSettings->setCustomerAcceptSmsEnabled($acceptEnabled && $request->boolean('customer_accept_sms_enabled'), $companyId);
         $this->dispatchSettings->setCustomerAcceptSmsProvider(
             (string) ($validated['customer_accept_sms_provider'] ?? TaxiDispatchSettingsService::SMS_PROVIDER_OFF),
+            $companyId
+        );
+        $this->dispatchSettings->setCustomerWhatsappStatusEvents(
+            $request->input('customer_whatsapp_status_events', []),
             $companyId
         );
 

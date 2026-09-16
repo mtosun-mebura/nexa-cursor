@@ -5,12 +5,8 @@
     $isSuperAdmin = $authUser && $authUser->isSuperAdmin();
     $showChauffeurAppLaunch = $isSuperAdmin || ($authUser && $eligibility->rolesIncludeChauffeur($roleNames));
     $showContractAppLaunch = $isSuperAdmin || ($authUser && $eligibility->rolesIncludeContract($roleNames));
-    $chauffeurAppUrl = \Illuminate\Support\Facades\Route::has('taxi.chauffeur.index')
-        ? route('taxi.chauffeur.index')
-        : url('/taxi/chauffeur');
-    $contractAppUrl = \Illuminate\Support\Facades\Route::has('taxi.contract.index')
-        ? route('taxi.contract.index')
-        : url('/taxi/contract');
+    $chauffeurAppUrl = '/taxi/chauffeur';
+    $contractAppUrl = '/taxi/contract';
 @endphp
 
 @if($showChauffeurAppLaunch || $showContractAppLaunch)

@@ -63,6 +63,13 @@ final class AiChatProductFaqService
             ],
             [
                 'needles' => [
+                    'commissie', 'provisie', 'fee per rit', 'kosten per rit', 'marktplaats',
+                    'nexasuite.nl rit', 'ritten via nexa', 'boekingsfee',
+                ],
+                'answer' => \App\Support\NexaMarketplaceFeeCopy::chatAnswer(),
+            ],
+            [
+                'needles' => [
                     'aanbieding', 'aanbiedingen', 'korting', 'kortingen', 'actieprijs',
                     'actie', 'acties', 'deal', 'deals', 'promotie', 'promo',
                     'kortingscode', 'vouchercode', 'introductieprijs', 'aanbiedingsprijs',

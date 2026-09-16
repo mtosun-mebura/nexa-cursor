@@ -1018,7 +1018,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
                 @update:model-value="patchItemField(field.key, index, sub.key, $event)"
               />
             </div>
-            <label v-else-if="sub.type === 'textarea' && sub.key === 'features_text'" class="builder-field">
+            <label v-else-if="sub.type === 'textarea' && (sub.key === 'features_text' || sub.key === 'answer')" class="builder-field">
               <span>{{ sub.label }}</span>
               <textarea
                 class="kt-input"

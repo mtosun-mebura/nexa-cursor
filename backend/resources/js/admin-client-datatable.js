@@ -171,7 +171,7 @@ export class AdminClientDatatable {
         this.clientFilters = this.findClientFilters();
         this.resetBtn = this.findResetButton();
         this.paginationEl = root.querySelector('[data-admin-datatable-pagination]');
-        this.infoEls = this.card?.querySelectorAll('[data-admin-datatable-info]')
+        this.infoEls = this.card?.querySelectorAll('.admin-datatable-footer [data-admin-datatable-info], .admin-datatable-footer__info')
             || root.querySelectorAll('[data-admin-datatable-info]');
         this.sizeSelect = root.querySelector('[data-admin-datatable-size]');
         this.itemLabel = root.dataset.adminDatatableLabel || 'items';

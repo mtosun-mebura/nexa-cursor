@@ -115,4 +115,26 @@ class FrontendComponentServiceTest extends TestCase
         $this->assertContains('play.blog_preview', $vue);
         $this->assertTrue($vue->search('vue_material.author_header') < $vue->search('play.blog_preview'));
     }
+
+    public function test_landwind_faq_defaults_to_sixty_percent_width(): void
+    {
+        $data = app(FrontendComponentService::class)->defaultSectionData('landwind.faq');
+
+        $this->assertSame(60, $data['width_percent'] ?? null);
+    }
+
+    public function test_plain_text_from_html_strips_faq_paragraph_tags(): void
+    {
+        $this->assertSame(
+            'De pakketten staan hierboven. Start is de instap.',
+            FrontendComponentService::plainTextFromHtml(
+                '<p>De pakketten staan hierboven. Start is de instap.</p>'
+            )
+        );
+        $this->assertSame(
+            "Eerste zin.\nTweede zin.",
+            FrontendComponentService::plainTextFromHtml('<p>Eerste zin.</p><p>Tweede zin.</p>')
+        );
+        $this->assertSame('Ja.', FrontendComponentService::plainTextFromHtml('Ja.'));
+    }
 }

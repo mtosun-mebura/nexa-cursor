@@ -122,12 +122,12 @@
                 <td class="voor">Hard super-admin, ook al heeft company-admin de oude permissie view-email-templates.</td>
             </tr>
             <tr>
-                <td>Klantfacturen (los item onder Beheer)</td>
+                <td>Klantfacturen + Overzichten (Betalingen)</td>
                 <td class="c no">Nee*</td>
                 <td class="c yes">Ja</td>
                 <td class="c no">Nee</td>
                 <td class="c no">Nee</td>
-                <td class="voor">Alleen company-admin die geen super-admin is. Super-admin ziet Klantfacturen onder Systeem &gt; Betalingen.</td>
+                <td class="voor">Company-admin ziet Betalingen met Klantfacturen en Overzichten. Super-admin ziet dezelfde Overzichten onder Systeem &gt; Betalingen.</td>
             </tr>
             <tr>
                 <td>Abonnementen</td>
@@ -256,12 +256,12 @@
                 <td class="voor">hasRole(super-admin). Blijft zichtbaar ook als een tenant is gekozen.</td>
             </tr>
             <tr>
-                <td>Betalingen: Overzicht, Openstaand, Voldaan, Ritfacturen, Klantfacturen, Betalingsproviders, Instellingen</td>
+                <td>Betalingen: Overzicht, Openstaand, Voldaan, Overzichten, Ritfacturen, Klantfacturen, Betalingsproviders, Instellingen</td>
                 <td class="c yes">Ja</td>
                 <td class="c no">Nee</td>
                 <td class="c no">Nee</td>
                 <td class="c no">Nee</td>
-                <td class="voor">Hele accordion alleen super-admin.</td>
+                <td class="voor">Hele accordion alleen super-admin, behalve Overzichten (ook company-admin).</td>
             </tr>
             <tr>
                 <td>NEXA facturatie: NEXA-facturen, Tenant-abonnementen, Factuurregels, Facturatie-instellingen</td>
@@ -346,7 +346,7 @@
     <h2>3. Praktische samenvatting per rol</h2>
     <ul>
         <li><strong>Super-admin:</strong> hele zijbalk, inclusief Systeem en Email communicatie. Taxi- en skillmatching-items volgen de gekozen tenant (modules + pakket). Zonder tenant: alle actieve modules, geen pakketfilter. Mag tenants aanmaken.</li>
-        <li><strong>Company-admin:</strong> Dashboard, Handleiding, Bedrijf, Gebruikers, Agenda, Notificaties, Abonnementen, Klantfacturen, Email communicatie, plus module-items van het eigen bedrijf. Geen Systeem, geen e-mailtemplates, geen AI-chatbot, geen nieuwe tenant.</li>
+        <li><strong>Company-admin:</strong> Dashboard, Handleiding, Bedrijf, Gebruikers, Agenda, Notificaties, Abonnementen, Betalingen (Klantfacturen, Overzichten), Email communicatie, plus module-items van het eigen bedrijf. Geen Systeem, geen e-mailtemplates, geen AI-chatbot, geen nieuwe tenant.</li>
         <li><strong>Staff:</strong> Dashboard, Handleiding, Agenda, Notificaties. Geen Bedrijven/Gebruikers, geen taxi-items (mist vehicles.view / rides.view), geen skillmatching-items (mist skillmatching.*.view), geen Systeem.</li>
         <li><strong>Demo:</strong> Dashboard, Handleiding, plus de taxi-keys Voertuigen, Tarieven, Ritten, Contractvervoer en Chauffeur dispatch (daarna nog het pakketfilter van het demobedrijf).</li>
     </ul>

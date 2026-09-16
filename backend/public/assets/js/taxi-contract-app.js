@@ -2,6 +2,25 @@
     'use strict';
 
     const cfg = window.NEXA_TAXI_CONTRACT || {};
+    function toPageOriginUrl(value) {
+        if (!value || typeof value !== 'string') {
+            return value;
+        }
+        try {
+            const parsed = new URL(value, window.location.origin);
+            if (parsed.origin !== window.location.origin) {
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+            return value;
+        } catch (e) {
+            return value;
+        }
+    }
+    ['apiBase', 'loginUrl', 'loginCodeRequestUrl', 'loginCodeVerifyUrl', 'appUrl', 'guideUrl'].forEach(function (key) {
+        if (cfg[key]) {
+            cfg[key] = toPageOriginUrl(cfg[key]);
+        }
+    });
     const STORAGE_KEY = 'nexa_taxi_contract_token';
     const UI_STATE_KEY = 'nexa_taxi_contract_ui';
     const GUIDE_HINT_KEY = 'nexa_taxi_contract_dismiss_guide';

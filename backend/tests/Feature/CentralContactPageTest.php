@@ -93,11 +93,11 @@ class CentralContactPageTest extends TestCase
         ]))->assertOk()->assertJsonPath('success', true);
 
         $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
-        $this->assertNotEmpty($messages);
-        $html = (string) $messages->last()->getOriginalMessage()->getHtmlBody();
-        $this->assertStringContainsString('Start', $html);
-        $this->assertStringContainsString('Pakket', $html);
-        $this->assertStringNotContainsString(EmailTemplateService::TEMPLATE_SAMPLE_NOTICE, $html);
+        $this->assertGreaterThanOrEqual(2, $messages->count());
+        $htmls = $messages->map(fn ($message) => (string) $message->getOriginalMessage()->getHtmlBody());
+        $this->assertTrue($htmls->contains(fn (string $html) => str_contains($html, 'Start') && str_contains($html, 'Pakket')));
+        $this->assertTrue($htmls->contains(fn (string $html) => str_contains($html, 'in goede orde bij ons is binnengekomen')));
+        $this->assertStringNotContainsString(EmailTemplateService::TEMPLATE_SAMPLE_NOTICE, $htmls->implode("\n"));
     }
 
     #[Test]

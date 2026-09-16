@@ -156,7 +156,7 @@
                     <p class="px-3 sm:px-5 py-4 text-muted-foreground text-sm mb-0">Nog geen ritten met dit voertuig.</p>
                 @else
                     <div class="kt-table-responsive kt-scrollable-x-auto admin-table-scroll-wrap px-3 sm:px-5 pb-3">
-                        <table class="kt-table kt-table-border-dashed align-middle text-sm w-full min-w-[32rem]">
+                        <table class="kt-table kt-table-border-dashed align-middle text-sm w-full min-w-0">
                             <thead>
                                 <tr>
                                     <th class="text-secondary-foreground font-normal text-left" data-label="Datum">Datum</th>
@@ -169,7 +169,17 @@
                                 @foreach($vehicle->rideRequests as $r)
                                 <tr>
                                     <td>{{ $r->pickup_at->format('d-m-Y H:i') }}</td>
-                                    <td class="min-w-0 max-w-xs sm:max-w-none">{{ Str::limit($r->pickup_address, 25) }} → {{ Str::limit($r->dropoff_address, 25) }}</td>
+                                    <td class="min-w-0">
+                                        <div class="rides-route-stack" title="{{ $r->pickup_address }} → {{ $r->dropoff_address }}">
+                                            <span class="rides-route-stack__address">{{ $r->pickup_address ?: '—' }}</span>
+                                            <span class="rides-route-stack__arrow" aria-hidden="true">
+                                                <svg class="rides-route-stack__arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M20 12 18.59 10.59 13 16.17V4h-2v12.17l-5.59-5.58L4 12l8 8 8-8z"/>
+                                                </svg>
+                                            </span>
+                                            <span class="rides-route-stack__address">{{ $r->dropoff_address ?: '—' }}</span>
+                                        </div>
+                                    </td>
                                     <td>{{ $r->status_label }}</td>
                                     <td>{{ $r->quoted_price !== null ? '€ '.number_format($r->quoted_price, 2, ',', '.') : '—' }}</td>
                                 </tr>

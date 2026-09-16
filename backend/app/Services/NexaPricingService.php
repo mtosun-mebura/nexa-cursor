@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\GeneralSetting;
 use App\Models\WebsitePage;
+use App\Support\NexaMarketplaceFeeCopy;
 use App\Support\TenantPackageAddon;
 use App\Support\TenantPackageCapability;
 
@@ -41,7 +42,13 @@ class NexaPricingService
             return $this->defaults();
         }
 
-        return $this->normalize($decoded);
+        $pricing = $this->normalize($decoded);
+        $subtitle = mb_strtolower((string) ($pricing['subtitle'] ?? ''));
+        if (str_contains($subtitle, 'marktplaats-commissie')) {
+            $pricing['subtitle'] = NexaMarketplaceFeeCopy::packagesSubtitle();
+        }
+
+        return $pricing;
     }
 
     /**
@@ -519,8 +526,8 @@ class NexaPricingService
         }
 
         $intro = $blocks === []
-            ? 'NEXA Suite heeft een vast maandbedrag voor het platform. Geen marktplaats-commissie.'
-            : 'NEXA Suite heeft '.count($blocks).' maandpakketten. Een vast bedrag, geen marktplaats-commissie.';
+            ? 'NEXA Suite heeft een vast maandbedrag voor het platform en je eigen website. Over ritten via jouw eigen site geen provisie. Alleen ritten via nexasuite.nl kennen een provisie van '.NexaMarketplaceFeeCopy::percent().'%.'
+            : 'NEXA Suite heeft '.count($blocks).' maandpakketten. Een vast bedrag voor het platform en je eigen website: daarover geen provisie per rit. Alleen ritten via nexasuite.nl kennen een provisie van '.NexaMarketplaceFeeCopy::percent().'%.';
 
         $parts = [$intro, implode("\n\n", $blocks)];
         $website = $this->formatFaqWebsiteBlock($pricing);

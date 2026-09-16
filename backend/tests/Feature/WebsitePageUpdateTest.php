@@ -515,6 +515,61 @@ class WebsitePageUpdateTest extends TestCase
 
     #[Test]
     #[Group('website-pages')]
+    public function builder_v2_json_update_strips_html_from_landwind_faq_answers(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $faqKey = 'component:landwind.faq';
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'faq-html',
+            'title' => 'FAQ',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => [$faqKey],
+                'visibility' => [$faqKey => true, 'footer' => true],
+                $faqKey => ['title' => 'Vragen'],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->putJson(route('admin.website-pages.builder-v2.update', $page), [
+            'home_sections' => [
+                'section_order' => [$faqKey],
+                'visibility' => [$faqKey => true, 'footer' => true],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+                $faqKey => [
+                    'title' => 'Vragen',
+                    'items' => [
+                        [
+                            'question' => 'Wat zit er in Start, Pro en Business?',
+                            'answer' => '<p>De pakketten staan hierboven.</p>',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $page->refresh();
+        $this->assertSame(
+            'De pakketten staan hierboven.',
+            $page->getHomeSections()[$faqKey]['items'][0]['answer'] ?? null
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
     public function builder_v2_json_update_persists_nexa_modules_overview_width_percent(): void
     {
         ['company_id' => $companyId] = $this->websitePageCompanyForTests();

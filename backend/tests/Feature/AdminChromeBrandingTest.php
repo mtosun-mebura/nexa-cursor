@@ -93,8 +93,13 @@ class AdminChromeBrandingTest extends TestCase
         $this->assertStringNotContainsString("observer.observe(document.body", $js);
         $this->assertStringContainsString('skipViewAction', $js);
         $this->assertStringContainsString('isPrimaryViewActionLabel', $js);
-        $this->assertStringContainsString('grid-template-columns: 1fr 1fr', $css);
-        $this->assertStringContainsString('admin-list-card__field--value-only', $js);
+        $this->assertStringContainsString('admin-list-card__avatar', $js);
+        $this->assertStringContainsString('admin-list-card__subtitle', $js);
+        $this->assertStringContainsString('.admin-list-card__avatar', $css);
+        $this->assertStringContainsString('buildIconButtonFromMenuLink', $js);
+        $this->assertStringContainsString('isKeyValueDetailTable', $js);
+        $this->assertStringContainsString('admin-kv-table', $js);
+        $this->assertStringContainsString('.kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child', $css);
         $this->assertStringContainsString('.admin-list-card__field--value-only', $css);
         $this->assertDoesNotMatchRegularExpression(
             '/function isListContextTable\([^)]*\) \{[\s\S]*?if \(!table\.querySelector\(\'thead\'\)\)/',
@@ -111,8 +116,11 @@ class AdminChromeBrandingTest extends TestCase
             '/\.admin-list-card__action-buttons\s*>\s*a\.text-danger[\s\S]{0,80}grid-column:\s*1\s*\/\s*-1/',
             $css
         );
-        $this->assertStringContainsString('.admin-list-card__action-buttons i', $css);
-        $this->assertStringContainsString('.admin-card-action-form--danger .kt-btn', $css);
+        $this->assertStringContainsString('iconActionBtnClass', $js);
+        $this->assertStringContainsString('fillIconActionButton', $js);
+        $this->assertStringContainsString('admin-list-card__action-caption', $js);
+        $this->assertStringContainsString('.admin-list-card__action-caption', $css);
+        $this->assertStringContainsString('.admin-card-action-form--danger .admin-list-card__action-icon', $css);
     }
 
     #[Test]

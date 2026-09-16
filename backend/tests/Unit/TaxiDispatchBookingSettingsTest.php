@@ -206,6 +206,45 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         $this->assertSame('+31600112233', $service->bookingWhatsappNumber((int) $company->id));
     }
 
+    public function test_customer_whatsapp_status_events_default_excludes_completed(): void
+    {
+        $company = Company::query()->create(['name' => 'WA Status Co', 'slug' => 'wa-status-'.uniqid()]);
+        $service = app(TaxiDispatchSettingsService::class);
+
+        $events = $service->customerWhatsappStatusEvents((int) $company->id);
+
+        $this->assertContains(\App\Services\WhatsAppBookingMessageComposer::EVENT_ACCEPTED, $events);
+        $this->assertContains(\App\Services\WhatsAppBookingMessageComposer::EVENT_STARTED, $events);
+        $this->assertNotContains(\App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED, $events);
+        $this->assertFalse($service->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+            (int) $company->id
+        ));
+        $this->assertTrue($service->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_STARTED,
+            (int) $company->id
+        ));
+    }
+
+    public function test_customer_whatsapp_status_events_can_enable_completed(): void
+    {
+        $company = Company::query()->create(['name' => 'WA Status On Co', 'slug' => 'wa-status-on-'.uniqid()]);
+        $service = app(TaxiDispatchSettingsService::class);
+
+        $service->setCustomerWhatsappStatusEvents([
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+        ], (int) $company->id);
+
+        $this->assertTrue($service->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+            (int) $company->id
+        ));
+        $this->assertFalse($service->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+            (int) $company->id
+        ));
+    }
+
     public function test_company_booking_notify_uses_platform_switch_and_tenant_number(): void
     {
         $company = Company::query()->create(['name' => 'Notify Co', 'slug' => 'notify-'.uniqid()]);

@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\TenantCustomerEmail;
 use App\Models\User;
+use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\CompanyEmailLogoService;
@@ -16,7 +17,9 @@ use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
 use App\Services\TenantCustomerMailService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class TaxiRideInvoiceService
@@ -454,7 +457,7 @@ class TaxiRideInvoiceService
         $returnNet = $this->grossToNetAmount($returnGross, $taxRate);
         $taxAmount = round($totalGross * ($taxRate / (100 + $taxRate)), 2);
         $netAmount = round($totalGross - $taxAmount, 2);
-        $invoiceDate = now();
+        $invoiceDate = $this->invoiceDateForPaidRide($ride);
         $dueDate = $invoiceDate->copy()->addDays((int) $settings->payment_terms_days);
         $company = Company::find($companyId);
 
@@ -517,7 +520,7 @@ class TaxiRideInvoiceService
         $taxRate = (float) $settings->default_tax_rate;
         $taxAmount = round($grossAmount * ($taxRate / (100 + $taxRate)), 2);
         $netAmount = round($grossAmount - $taxAmount, 2);
-        $invoiceDate = now();
+        $invoiceDate = $this->invoiceDateForPaidRide($ride);
         $dueDate = $invoiceDate->copy()->addDays((int) $settings->payment_terms_days);
 
         $companyDetails = array_merge(
@@ -557,6 +560,28 @@ class TaxiRideInvoiceService
             ],
             'company_details' => $companyDetails,
         ]);
+    }
+
+    protected function invoiceDateForPaidRide(RideRequest $ride): Carbon
+    {
+        try {
+            $conn = $ride->getConnectionName();
+            if ($conn && Schema::connection($conn)->hasTable('ride_payments')) {
+                $paidAt = RidePayment::on($conn)
+                    ->where('ride_request_id', $ride->id)
+                    ->where('status', RidePayment::STATUS_PAID)
+                    ->whereNotNull('paid_at')
+                    ->orderByDesc('paid_at')
+                    ->value('paid_at');
+                if ($paidAt) {
+                    return Carbon::parse($paidAt, (string) config('app.timezone'))->timezone((string) config('app.timezone'));
+                }
+            }
+        } catch (\Throwable) {
+            // Factuurdatum valt terug op nu.
+        }
+
+        return now();
     }
 
     protected function legRouteDescription(RideRequest $ride, string $billingPeriod): string

@@ -102,6 +102,9 @@ class NexaPricingServiceTest extends TestCase
         $this->assertStringContainsString('**Pro**', $overview);
         $this->assertStringContainsString('Website live zetten', $overview);
         $this->assertStringContainsString('info@nexasuite.nl', $overview);
+        $this->assertStringContainsString('nexasuite.nl', $overview);
+        $this->assertStringContainsString('eigen website', $overview);
+        $this->assertStringNotContainsString('geen marktplaats-commissie', mb_strtolower($overview));
         $pro = $service->faqPackageAnswer('Pro', 'info@nexasuite.nl');
         $this->assertStringContainsString('**Pro**', $pro);
         $this->assertStringContainsString('pakket=Pro', $pro);

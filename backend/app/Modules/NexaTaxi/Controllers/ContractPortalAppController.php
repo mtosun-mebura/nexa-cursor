@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Controllers;
 use App\Http\Controllers\Controller;
 use App\Services\EnvService;
 use App\Services\WebsiteBuilderService;
+use App\Support\SameOriginPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
@@ -15,9 +16,13 @@ class ContractPortalAppController extends Controller
         $favicon = $this->faviconMeta();
 
         return view('taxi::contract-portal.index', [
-            'apiBase' => url('/api/taxi/v1/contract'),
-            'appUrl' => $this->contractNamedUrl('taxi.contract.index', '/taxi/contract'),
-            'guideUrl' => $this->contractNamedUrl('taxi.contract.handleiding', '/taxi/contract/handleiding'),
+            'apiBase' => '/api/taxi/v1/contract',
+            'loginUrl' => '/api/taxi/v1/contract/login',
+            'loginCodeRequestUrl' => '/api/taxi/v1/contract/login-code/request',
+            'loginCodeVerifyUrl' => '/api/taxi/v1/contract/login-code/verify',
+            'appUrl' => SameOriginPath::namedRoute('taxi.contract.index', '/taxi/contract'),
+            'guideUrl' => SameOriginPath::namedRoute('taxi.contract.handleiding', '/taxi/contract/handleiding'),
+            'manifestUrl' => SameOriginPath::namedRoute('taxi.contract.manifest', '/taxi/contract/manifest.webmanifest'),
             'faviconUrl' => $favicon['url'],
             'faviconType' => $favicon['type'],
             'pollMs' => 15000,
@@ -33,7 +38,7 @@ class ContractPortalAppController extends Controller
         $favicon = $this->faviconMeta();
 
         return view('taxi::contract-portal.handleiding', [
-            'appUrl' => $this->contractNamedUrl('taxi.contract.index', '/taxi/contract'),
+            'appUrl' => SameOriginPath::namedRoute('taxi.contract.index', '/taxi/contract'),
             'faviconUrl' => $favicon['url'],
             'faviconType' => $favicon['type'],
         ]);
@@ -47,7 +52,7 @@ class ContractPortalAppController extends Controller
             'name' => 'Nexa Taxi Contract',
             'short_name' => 'Contract',
             'description' => 'Leerlingen en status volgen, afmelden bij afwezigheid',
-            'start_url' => $this->contractNamedUrl('taxi.contract.index', '/taxi/contract'),
+            'start_url' => SameOriginPath::namedRoute('taxi.contract.index', '/taxi/contract'),
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#0f172a',
@@ -74,13 +79,9 @@ class ContractPortalAppController extends Controller
      */
     private function faviconMeta(): array
     {
-        return app(WebsiteBuilderService::class)->publicFaviconMeta();
-    }
+        $meta = app(WebsiteBuilderService::class)->publicFaviconMeta();
+        $meta['url'] = SameOriginPath::fromUrl($meta['url']);
 
-    private function contractNamedUrl(string $routeName, string $fallbackPath): string
-    {
-        return \Illuminate\Support\Facades\Route::has($routeName)
-            ? route($routeName)
-            : url($fallbackPath);
+        return $meta;
     }
 }

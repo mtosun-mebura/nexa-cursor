@@ -40,6 +40,10 @@
                 fn () => \App\Models\Company::query()->orderBy('name')->get(['id', 'name'])
             );
             $selectedTenant = session('selected_tenant');
+            $requestTenant = request()->input('tenant_company', request()->input('wizard_company'));
+            if ($requestTenant !== null && $requestTenant !== '' && is_numeric($requestTenant) && (int) $requestTenant > 0) {
+                $selectedTenant = (int) $requestTenant;
+            }
             $selectedCompany = $selectedTenant
                 ? $companies->firstWhere('id', (int) $selectedTenant)
                 : null;
@@ -639,6 +643,15 @@
                                 </span>
                             </a>
                         </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payments.overzichten*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                href="{{ route('admin.payments.overzichten') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                    Overzichten
+                                </span>
+                            </a>
+                        </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.invoices.index') || request()->routeIs('admin.invoices.show') || request()->routeIs('admin.invoices.create') || request()->routeIs('admin.invoices.edit') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                 href="{{ route('admin.invoices.index') }}" tabindex="0">
@@ -759,15 +772,36 @@
                 </div>
                 @endif
                 @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" href="{{ route('admin.tenant-customer-invoices.index') }}">
+                <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payments.overzichten*') ? 'here show' : '' }}"
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" tabindex="0">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-document text-lg"></i>
+                            <i class="ki-filled ki-wallet text-lg"></i>
                         </span>
-                        <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
-                            Klantfacturen
+                        <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Betalingen
                         </span>
-                    </a>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
+                            <span class="hidden kt-menu-item-show:inline-flex"><i class="ki-filled ki-minus text-[11px]"></i></span>
+                        </span>
+                    </div>
+                    <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                               href="{{ route('admin.tenant-customer-invoices.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Klantfacturen</span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payments.overzichten*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                               href="{{ route('admin.payments.overzichten') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Overzichten</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 @endif
 

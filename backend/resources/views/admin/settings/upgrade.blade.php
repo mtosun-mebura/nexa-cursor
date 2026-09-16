@@ -365,17 +365,20 @@
 
     <div class="kt-card min-w-0">
         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-            <h3 class="kt-card-title mb-0">Upgradegeschiedenis</h3>
-            <button type="button"
-                    id="btn-upgrade-history-delete"
-                    class="kt-btn kt-btn-sm kt-btn-ghost"
-                    data-url="{{ route('admin.settings.upgrade.history.destroy') }}"
-                    title="Geselecteerde regels verwijderen"
-                    aria-label="Geselecteerde regels verwijderen (0)"
-                    @disabled($upgradeHistory->isEmpty())>
-                <i class="ki-filled ki-trash" aria-hidden="true"></i>
-                <span class="upgrade-history-delete-count" aria-hidden="true">(<span id="upgrade-history-selected-count">0</span>)</span>
-            </button>
+            <div class="flex items-center gap-2 min-w-0">
+                <button type="button"
+                        id="btn-upgrade-history-delete"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
+                        hidden
+                        data-url="{{ route('admin.settings.upgrade.history.destroy') }}"
+                        title="Verwijderen"
+                        aria-label="Geselecteerde regels verwijderen (0)"
+                        @disabled($upgradeHistory->isEmpty())>
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count" aria-hidden="true">(<span id="upgrade-history-selected-count">0</span>)</span>
+                </button>
+                <h3 class="kt-card-title mb-0">Upgradegeschiedenis</h3>
+            </div>
         </div>
         <div class="kt-card-body p-5 lg:p-6 min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
@@ -676,6 +679,7 @@
     #content #upgrade-history-table.admin-fluid-table :is(th, td) {
         vertical-align: middle;
     }
+
 
     #docker-container-table .admin-table__check-col .kt-label,
     #upgrade-history-table .admin-table__check-col .kt-label {
@@ -2006,6 +2010,8 @@ function announceUpgradeSuccess(message) {
                 selectAll.indeterminate = selected.length > 0 && selected.length < boxes.length;
             }
             deleteBtn.disabled = selected.length === 0;
+            deleteBtn.hidden = selected.length === 0;
+            deleteBtn.classList.toggle('hidden', selected.length === 0);
             setHistoryDeleteCount(selected.length);
         }
 
@@ -2017,6 +2023,8 @@ function announceUpgradeSuccess(message) {
                 selectAll.disabled = true;
             }
             deleteBtn.disabled = true;
+            deleteBtn.hidden = true;
+            deleteBtn.classList.add('hidden');
             setHistoryDeleteCount(0);
         }
 
