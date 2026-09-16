@@ -99,7 +99,7 @@ class AdminChromeBrandingTest extends TestCase
         $this->assertStringContainsString('buildIconButtonFromMenuLink', $js);
         $this->assertStringContainsString('isKeyValueDetailTable', $js);
         $this->assertStringContainsString('admin-kv-table', $js);
-        $this->assertStringContainsString('.admin-kv-table td:first-child', $css);
+        $this->assertStringContainsString('.kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child', $css);
         $this->assertStringContainsString('.admin-list-card__field--value-only', $css);
         $this->assertDoesNotMatchRegularExpression(
             '/function isListContextTable\([^)]*\) \{[\s\S]*?if \(!table\.querySelector\(\'thead\'\)\)/',
