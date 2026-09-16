@@ -82,6 +82,38 @@ class AdminDashboardAppLaunchBarTest extends TestCase
     }
 
     #[Test]
+    public function company_profile_uses_explicit_two_column_layout(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Taxi Layout BV',
+            'is_active' => true,
+            'email' => 'layout@example.com',
+            'website' => 'https://layout.example.com',
+            'phone' => '+31123456789',
+        ]);
+        $this->actingAs($this->makeCompanyAdmin(['company-admin']), 'web');
+
+        $html = view('admin.dashboard.company-profile', [
+            'company' => $company,
+            'stats' => [],
+            'financials' => [],
+            'showSkillmatching' => false,
+            'showTaxi' => false,
+            'taxiStats' => [],
+            'recent_rides' => collect(),
+            'subscriptionSnapshot' => null,
+        ])->render();
+
+        $this->assertStringContainsString('admin-company-profile-layout', $html);
+        $this->assertStringContainsString('admin-company-profile-hq', $html);
+        $this->assertStringContainsString('grid-template-columns:minmax(22rem,5fr)minmax(0,7fr)', preg_replace('/\s+/', '', $html));
+        $this->assertStringNotContainsString('lg:grid-cols-12', $html);
+        $this->assertStringNotContainsString('lg:col-span-5', $html);
+        $this->assertStringNotContainsString('lg:col-span-7', $html);
+        $this->assertStringContainsString('break-words', $html);
+    }
+
+    #[Test]
     public function super_admin_always_sees_both_app_buttons(): void
     {
         $user = $this->makeCompanyAdmin(['super-admin']);

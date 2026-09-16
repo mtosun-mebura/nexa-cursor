@@ -51,6 +51,8 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
             ->assertOk()
             ->assertSee('Geïnstalleerde stack', false)
             ->assertSee('upgrade-installed-stack', false)
+            ->assertSee('DNS (klantdomeinen)', false)
+            ->assertSee('mx1.hostinger.com', false)
             ->assertSee('settings-collapsible-toggle', false)
             ->assertSee('Laravel bijwerken', false)
             ->assertSee('PHP in Docker bijwerken', false)

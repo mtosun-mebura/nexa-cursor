@@ -51,7 +51,7 @@ class FormValidationTest extends TestCase
         $this->assertArrayHasKey('first_name', $validator->errors()->toArray());
         $this->assertArrayHasKey('last_name', $validator->errors()->toArray());
         $this->assertArrayHasKey('email', $validator->errors()->toArray());
-        $this->assertArrayHasKey('password', $validator->errors()->toArray());
+        $this->assertArrayNotHasKey('password', $validator->errors()->toArray());
         $this->assertArrayHasKey('roles', $validator->errors()->toArray());
     }
 

@@ -85,7 +85,15 @@ class AdminFirstLoginService
             $this->applyPermissionsTeam($user);
         }
 
-        if (! $user || ! $user->canAccessAdminPanel()) {
+        if (! $user) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Dit is een ongeldig e-mailadres.',
+            ];
+        }
+
+        if (! $user->canAccessAdminPanel()) {
             return [
                 'ok' => false,
                 'status' => 422,

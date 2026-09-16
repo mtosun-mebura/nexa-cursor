@@ -2184,7 +2184,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DEy7gqrQ.css",
+    "file": "assets/app-B57n50A5.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2192,7 +2192,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-l_5f1dgW.js",
+    "file": "assets/app-Ca2lUzGe.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2248,7 +2248,7 @@
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-HlGnB8uo.js",
+    "file": "assets/website-page-builder-v2-BSPC0jez.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
@@ -2257,7 +2257,7 @@
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-CV3cDj-Z.css",
+      "assets/website-page-builder-v2-C9D9BghX.css",
       "assets/nexa-smooth-accordion-CT5NIOwF.css"
     ]
   }

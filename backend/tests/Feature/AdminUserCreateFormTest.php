@@ -40,7 +40,7 @@ class AdminUserCreateFormTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('id="user-create-password-generate"', false)
-            ->assertSee('Genereer een tijdelijk wachtwoord', false)
+            ->assertSee('Genereer wachtwoord', false)
             ->getContent();
 
         $this->assertFunctionRowHidden($html, true);
@@ -61,7 +61,7 @@ class AdminUserCreateFormTest extends TestCase
                 'company_id' => $company->id,
             ]))
             ->assertOk()
-            ->assertSee('Optioneel bij chauffeur, contractant en contractouder', false)
+            ->assertSee('Niet verplicht. Nieuwe gebruikers (ook admin) loggen de eerste keer in met een eenmalige code', false)
             ->getContent();
 
         $this->assertMatchesRegularExpression(
@@ -142,7 +142,6 @@ class AdminUserCreateFormTest extends TestCase
                 'first_name' => 'Nieuwe',
                 'last_name' => 'Gebruiker',
                 'email' => 'nieuwe.gebruiker@example.com',
-                'password' => 'Password1',
                 'function' => 'Chauffeur planner',
                 'company_id' => $company->id,
                 'roles' => ['company-staff'],
@@ -152,6 +151,7 @@ class AdminUserCreateFormTest extends TestCase
         $created = User::query()->where('email', 'nieuwe.gebruiker@example.com')->first();
         $this->assertNotNull($created);
         $this->assertTrue($created->must_change_password);
+        $this->assertTrue($created->password_must_be_set);
         if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'function')) {
             $this->assertNull($created->function);
         }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use Illuminate\Validation\Rule;
 
 /**
@@ -51,7 +50,6 @@ class StoreUserRequest extends BaseFormRequest
                 'regex:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/',
             ],
             'password' => [
-                Rule::requiredIf(fn () => ! $this->usesAppFirstLogin()),
                 'nullable',
                 'string',
                 'min:8',
@@ -123,16 +121,6 @@ class StoreUserRequest extends BaseFormRequest
         });
     }
 
-    private function usesAppFirstLogin(): bool
-    {
-        $roles = $this->input('roles', []);
-        if (! is_array($roles)) {
-            return false;
-        }
-
-        return app(TaxiAppFirstLoginService::class)->welcomeRoleForRoles($roles) !== null;
-    }
-
     public function messages(): array
     {
         return [
@@ -147,7 +135,6 @@ class StoreUserRequest extends BaseFormRequest
             'email.required' => 'E-mailadres is verplicht.',
             'email.unique' => 'Dit e-mailadres is al in gebruik.',
             'email.regex' => 'E-mailadres moet een geldig e-mailadres zijn.',
-            'password.required' => 'Wachtwoord is verplicht.',
             'password.min' => 'Wachtwoord moet minimaal 8 karakters lang zijn.',
             'password.regex' => 'Wachtwoord moet minimaal 1 kleine letter, 1 hoofdletter en 1 cijfer bevatten.',
             'phone.regex' => 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).',

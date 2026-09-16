@@ -28,6 +28,35 @@
     .dark .hero-bg {
         background-image: url('assets/media/images/2600x1200/bg-1-dark.png');
     }
+    .admin-company-profile-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.25rem;
+    }
+    @media (min-width: 1024px) {
+        .admin-company-profile-layout {
+            grid-template-columns: minmax(22rem, 5fr) minmax(0, 7fr);
+            gap: 1.875rem;
+        }
+    }
+    .admin-company-profile-hq {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: stretch;
+        margin-bottom: 2.5rem;
+    }
+    @media (min-width: 1024px) {
+        .admin-company-profile-hq {
+            grid-template-columns: minmax(0, 1fr) minmax(16rem, 1fr);
+            gap: 2rem;
+        }
+    }
+    .admin-company-profile-hq a,
+    .admin-company-profile-hq span {
+        overflow-wrap: break-word;
+        word-break: normal;
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -123,8 +152,8 @@
 </div>
 
 <div class="kt-container-fixed">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-7.5 mt-5 lg:mt-7.5">
-        <div class="col-span-1">
+    <div class="admin-company-profile-layout mt-5 lg:mt-7.5">
+        <div class="admin-company-profile-layout__side min-w-0">
             <div class="flex flex-col gap-5 lg:gap-7.5">
                 {{-- Bedrijfsinformatie --}}
                 <div class="kt-card">
@@ -323,15 +352,15 @@
                 {{-- Gebruikers --}}
                 @if($companyUsers->count() > 0)
                 <div class="kt-card">
-                    <div class="kt-card-header gap-2">
+                    <div class="kt-card-header gap-2 px-5 py-5">
                         <h3 class="kt-card-title">
                             Gebruikers
                         </h3>
                     </div>
-                    <div class="kt-card-content">
+                    <div class="kt-card-content p-5">
                         <div class="flex flex-col gap-3">
                             @foreach($companyUsers as $user)
-                                <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-3 min-w-0">
                                     @if($user->photo_blob)
                                         <img class="rounded-full h-[36px] w-[36px] object-cover shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="{{ $user->first_name }} {{ $user->last_name }}"/>
                                     @else
@@ -341,12 +370,12 @@
                                             </span>
                                         </div>
                                     @endif
-                                    <div class="flex flex-col">
+                                    <div class="flex flex-col min-w-0 flex-1">
                                         <span class="text-sm font-semibold text-foreground leading-none">
                                             {{ $user->first_name }} {{ $user->last_name }}
                                         </span>
                                         @if($user->email)
-                                        <span class="text-xs text-secondary-foreground leading-none mt-1">
+                                        <span class="admin-email-text text-xs text-secondary-foreground leading-snug mt-1 break-all">
                                             {{ $user->email }}
                                         </span>
                                         @endif
@@ -367,7 +396,7 @@
             </div>
         </div>
 
-        <div class="col-span-1 lg:col-span-2">
+        <div class="admin-company-profile-layout__main min-w-0">
             <div class="flex flex-col gap-5 lg:gap-7.5">
                 {{-- Company Profile --}}
                 <div class="kt-card">
@@ -385,7 +414,7 @@
                         <h3 class="text-base font-semibold text-mono leading-none mb-5">
                             Hoofdkantoor
                         </h3>
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-10 items-stretch">
+                        <div class="admin-company-profile-hq">
                             {{-- Expliciete px-hoogte: Google Maps vult anders een 0px canvas in grid/flex layouts. --}}
                             <div class="w-full min-w-0 min-h-[220px] self-stretch">
                                 <div id="company_profile_map" class="w-full rounded-xl overflow-hidden bg-muted/20 shadow-sm" style="height: 220px; min-height: 220px; position: relative;" aria-label="Kaart hoofdkantoor"></div>
@@ -394,7 +423,7 @@
                                 @if($company->website)
                                 <div class="flex items-start gap-3">
                                     <i class="ki-filled ki-dribbble text-lg text-muted-foreground shrink-0 mt-0.5" aria-hidden="true"></i>
-                                    <a class="link text-sm font-medium text-foreground leading-snug break-all min-w-0" href="{{ $company->website }}" target="_blank" rel="noopener noreferrer">
+                                    <a class="link text-sm font-medium text-foreground leading-snug break-words min-w-0" href="{{ $company->website }}" target="_blank" rel="noopener noreferrer">
                                         {{ $company->website }}
                                     </a>
                                 </div>
@@ -402,7 +431,7 @@
                                 @if($company->email)
                                 <div class="flex items-start gap-3">
                                     <i class="ki-filled ki-sms text-lg text-muted-foreground shrink-0 mt-0.5" aria-hidden="true"></i>
-                                    <a class="link text-sm font-medium text-foreground leading-snug break-all min-w-0" href="mailto:{{ $company->email }}">
+                                    <a class="link text-sm font-medium text-foreground leading-snug break-words min-w-0" href="mailto:{{ $company->email }}">
                                         {{ $company->email }}
                                     </a>
                                 </div>
