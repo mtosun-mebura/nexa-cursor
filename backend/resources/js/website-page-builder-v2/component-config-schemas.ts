@@ -486,8 +486,8 @@ COMPONENT_SCHEMAS['component:landwind.faq'] = [
     key: 'width_percent',
     label: 'Breedte',
     options: sectionWidthPercentOptions,
-    defaultValue: '100',
-    hint: 'Percentage van de paginabreedte.',
+    defaultValue: '60',
+    hint: 'Op desktop en iPad. Op mobiel altijd volle breedte met zijpadding.',
   },
   {
     type: 'item-list',

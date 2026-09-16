@@ -1302,6 +1302,7 @@ class CentralWelcomePageService
             'eyebrow' => 'FAQ',
             'title' => 'Veelgestelde vragen',
             'subtitle' => 'Antwoorden voor taxiondernemers die online willen groeien.',
+            'width_percent' => 60,
             'items' => [
                 ['question' => 'Is NEXA white-label?', 'answer' => 'Ja. Website, boeking en chauffeur-app lopen in jullie merkkleuren en logo. Klanten zien jullie centrale, niet een marktplaats.'],
                 ['question' => 'Kunnen klanten 24/7 boeken?', 'answer' => 'Ja. De boekingsmodule staat op jullie website. Geen gemiste calls ’s avonds of in het weekend.'],

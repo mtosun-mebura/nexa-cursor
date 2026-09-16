@@ -10,11 +10,11 @@
         : ($defaults['items'] ?? []);
     $uid = 'lw-faq-'.substr(md5($sectionKey), 0, 8);
     $primary = $themeSettings['primary_color'] ?? '#7e3af2';
-    $widthPercent = max(30, min(100, (int) ($data['width_percent'] ?? 100)));
+    $widthPercent = max(30, min(100, (int) ($data['width_percent'] ?? 60)));
 @endphp
 @include('frontend.website.components.partials.theme-component-scroll-reveal')
 <section class="py-10 md:py-14 bg-white dark:bg-gray-900 theme-scroll-reveal" data-theme-component="landwind.faq" data-theme-anim="wipe" data-scroll-reveal>
-    <div class="website-section-inner lw-faq__inner mx-auto" style="--lw-faq-width: {{ $widthPercent }}%; width: var(--lw-faq-width); max-width: var(--lw-faq-width);">
+    <div class="website-section-inner lw-faq__inner mx-auto" style="--lw-faq-width: {{ $widthPercent }}%;">
         <div class="theme-fade" style="--theme-reveal-delay: 0ms;">
             <p class="mb-3 text-sm font-semibold uppercase tracking-[0.2em]" style="color: {{ $primary }}">{{ $data['eyebrow'] ?? 'FAQ' }}</p>
             <h2 class="mb-3 text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">{{ $data['title'] ?? 'Veelgestelde vragen' }}</h2>
@@ -25,8 +25,8 @@
         <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             @foreach($items as $i => $item)
                 @php
-                    $q = trim((string) ($item['question'] ?? ''));
-                    $a = trim((string) ($item['answer'] ?? ''));
+                    $q = \App\Services\FrontendComponentService::plainTextFromHtml($item['question'] ?? '');
+                    $a = \App\Services\FrontendComponentService::plainTextFromHtml($item['answer'] ?? '');
                     if ($q === '') continue;
                     $itemId = $uid.'-'.$i;
                     $delay = 120 + ($i * 90);
@@ -40,7 +40,7 @@
                     <div class="lw-faq-panel">
                         <div class="lw-faq-panel-clip">
                             <div id="{{ $itemId }}" class="lw-faq-panel-inner border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-gray-600 dark:text-gray-300 leading-relaxed">
-                                {{ $a }}
+                                {!! nl2br(e($a), false) !!}
                             </div>
                         </div>
                     </div>
@@ -51,6 +51,17 @@
 </section>
 @once
 <style>
+    .lw-faq__inner.website-section-inner {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    @media (min-width: 768px) {
+        .lw-faq__inner.website-section-inner {
+            width: var(--lw-faq-width, 60%);
+            max-width: var(--lw-faq-width, 60%);
+        }
+    }
     .lw-faq-summary {
         appearance: none;
         background: transparent;

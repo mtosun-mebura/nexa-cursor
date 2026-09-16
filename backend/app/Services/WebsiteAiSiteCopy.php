@@ -534,6 +534,7 @@ class WebsiteAiSiteCopy
             'eyebrow' => 'FAQ',
             'title' => 'Veelgestelde vragen over '.$brand,
             'subtitle' => 'Kort en concreet, zoals we ook rijden.',
+            'width_percent' => 60,
             'items' => $items,
         ];
     }

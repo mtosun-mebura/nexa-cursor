@@ -37,7 +37,7 @@
         @endif
         @if($themeCompId === 'landwind.faq')
             @php
-                $faqWidth = max(30, min(100, (int) ($themeMerged['width_percent'] ?? 100)));
+                $faqWidth = max(30, min(100, (int) ($themeMerged['width_percent'] ?? 60)));
             @endphp
             <tr>
                 <td class="min-w-40 text-secondary-foreground font-normal align-top pt-3">Blokbreedte</td>
@@ -47,7 +47,7 @@
                             <option value="{{ $pct }}" @selected($faqWidth === $pct)>{{ $pct }}%</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1 mb-0">Breedte van de FAQ ten opzichte van de pagina. 100% is volle breedte.</p>
+                    <p class="text-xs text-muted-foreground mt-1 mb-0">Op desktop en iPad. Op mobiel altijd volle breedte met zijpadding.</p>
                 </td>
             </tr>
         @endif
