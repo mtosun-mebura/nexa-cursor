@@ -58,7 +58,8 @@
     const GPS_BACKGROUND_ACCURACY_METERS = 800;
     const GPS_MOVE_ACCEPT_METERS = 18;
     const GPS_MAX_SPEED_MPS = 55;
-    const VALID_TABS = ['requests', 'trips', 'planning', 'navigation', 'earnings', 'profile'];
+    const VALID_TABS = ['trips', 'requests', 'planning', 'navigation', 'earnings', 'profile'];
+    const HOME_TABS = ['trips', 'requests'];
     const VALID_RIDE_KINDS = ['all', 'taxi', 'contract'];
     const RIDE_KIND_KEY = 'nexa_taxi_driver_ride_kind';
     const DEFAULT_RIDE_DURATION_SECONDS = 45 * 60;
@@ -409,6 +410,7 @@
     let inboxView = 'offers';
     let inboxLoading = false;
     let inboxHasLoaded = false;
+    let homeTabSettled = false;
     let lastInboxRefreshAt = 0;
     let inboxRefreshInFlight = false;
     let canViewEarnings = false;
@@ -914,6 +916,57 @@
         return false;
     }
 
+    function tripsStartableCount() {
+        const overdueOnly = (overdueScheduledRides || []).filter(function (ride) {
+            if (!ride || ride.id == null) {
+                return false;
+            }
+            if (isOpenPickupProposalRide(ride)) {
+                return false;
+            }
+            return !(scheduledRides || []).some(function (item) {
+                return String(item.id) === String(ride.id);
+            });
+        });
+        let count = (scheduledRides || []).length + overdueOnly.length;
+        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+            count += 1;
+        }
+        if (Array.isArray(parkedAssignedRides)) {
+            count += parkedAssignedRides.length;
+        }
+        return count;
+    }
+
+    function preferredHomeTab() {
+        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+            return 'trips';
+        }
+        if (offersViewHasVisibleRides() || mainInboxRideCount > 0) {
+            return 'requests';
+        }
+        return 'trips';
+    }
+
+    function applySmartHomeTab() {
+        if (homeTabSettled || !inboxHasLoaded) {
+            return;
+        }
+        if (HOME_TABS.indexOf(mainTab) === -1) {
+            homeTabSettled = true;
+            return;
+        }
+        if (mainTab === 'requests' && isSecondaryInboxView(inboxView)) {
+            homeTabSettled = true;
+            return;
+        }
+        const preferred = preferredHomeTab();
+        if (preferred !== mainTab) {
+            setMainTab(preferred, { keepInbox: true });
+        }
+        homeTabSettled = true;
+    }
+
     const INBOX_EMPTY_ICONS = {
         'no-rides':
             '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14" /><path d="M6 11l1.2-3.6A1.5 1.5 0 0 1 8.62 6h6.76a1.5 1.5 0 0 1 1.42 1.04L18 11" /><path d="M6 11v5a1 1 0 0 0 1 1h1" /><path d="M16 17h1a1 1 0 0 0 1-1v-5" /><circle cx="8" cy="17" r="1.35" /><circle cx="16" cy="17" r="1.35" /><path d="M9 17h6" /></svg>',
@@ -941,6 +994,7 @@
         const title = $('#inbox-empty-title');
         const hint = $('#inbox-empty-hint');
         const actions = $('#inbox-empty-actions');
+        const btnEmptyTrips = $('#btn-empty-show-trips');
         const btnEmptyOverdue = $('#btn-empty-show-overdue');
         const btnEmptyDeclined = $('#btn-empty-show-declined');
         const btnEmptyArchivedInbox = $('#btn-empty-show-archived-inbox');
@@ -951,6 +1005,9 @@
         function hideEmptyActions() {
             if (actions) {
                 actions.hidden = true;
+            }
+            if (btnEmptyTrips) {
+                btnEmptyTrips.hidden = true;
             }
             if (btnEmptyOverdue) {
                 btnEmptyOverdue.hidden = true;
@@ -1000,10 +1057,18 @@
             }
             setInboxEmptyIcon('no-rides');
             title.textContent = 'Geen nieuwe ritten.';
-            if (overdueCount || declinedCount || archivedCount) {
+            const tripsCount = tripsStartableCount();
+            if (tripsCount > 0) {
+                hint.textContent = 'Je kunt je ritten starten onder Ritten. Nieuwe aanvragen verschijnen hier automatisch.';
+            } else if (overdueCount || declinedCount || archivedCount) {
                 hint.textContent = 'Nieuwe ritten verschijnen hier automatisch. Eerdere ritten staan onder Verlopen, Afgewezen of Archief.';
             } else {
                 hint.textContent = 'Nieuwe ritten verschijnen hier automatisch.';
+            }
+            if (btnEmptyTrips) {
+                btnEmptyTrips.hidden = tripsCount < 1;
+                btnEmptyTrips.textContent =
+                    tripsCount === 1 ? 'Naar ritten (1)' : 'Naar ritten (' + tripsCount + ')';
             }
             if (btnEmptyOverdue) {
                 btnEmptyOverdue.hidden = overdueCount < 1;
@@ -1028,7 +1093,7 @@
                         : 'Bekijk ' + archivedCount + ' gearchiveerde ritten';
             }
             if (actions) {
-                actions.hidden = overdueCount < 1 && declinedCount < 1 && archivedCount < 1;
+                actions.hidden = tripsCount < 1 && overdueCount < 1 && declinedCount < 1 && archivedCount < 1;
             }
             return;
         }
@@ -1077,6 +1142,7 @@
             }
         }
         setToolbarBadge(offersCount, mainInboxRideCount, btnOffers, 'Open');
+        syncRequestsNavBadge();
         setToolbarBadge(declinedCount, declinedOffers.length, btnDeclined, 'Afgewezen');
         setToolbarBadge(overdueCount, overdueInboxCount(), btnOverdue, 'Verlopen');
         setToolbarBadge(archivedCount, archivedOffers.length, btnArchived, 'Archief');
@@ -1099,6 +1165,19 @@
             btnArchived.hidden = inboxView !== 'archived' && !archivedOffers.length;
             btnArchived.classList.toggle('is-active', inboxView === 'archived');
             btnArchived.setAttribute('aria-current', inboxView === 'archived' ? 'page' : 'false');
+        }
+    }
+
+    function syncRequestsNavBadge() {
+        const badge = $('#nav-requests-count');
+        const btn = document.querySelector('[data-main-tab="requests"]');
+        const count = mainInboxRideCount;
+        if (badge) {
+            badge.textContent = String(count);
+            badge.hidden = count < 1;
+        }
+        if (btn) {
+            btn.setAttribute('aria-label', count > 0 ? 'Aanvragen (' + count + ')' : 'Aanvragen');
         }
     }
 
@@ -2178,7 +2257,7 @@
         screenLogin.classList.toggle('is-active', name === 'login');
         screenDispatch.classList.toggle('is-active', name === 'dispatch');
         if (name === 'dispatch') {
-            setMainTab(mainTab || 'requests', { keepInbox: true });
+            setMainTab(mainTab || 'trips', { keepInbox: true });
         }
         syncScreenWakeLock();
         if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
@@ -3557,7 +3636,7 @@
         updateIosAwakeHint();
     }
 
-    let mainTab = 'requests';
+    let mainTab = 'trips';
 
     function isIsoDate(value) {
         return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -3593,9 +3672,15 @@
             }
             if (VALID_TABS.indexOf(data.tab) >= 0) {
                 mainTab = data.tab;
+                if (HOME_TABS.indexOf(data.tab) === -1) {
+                    homeTabSettled = true;
+                }
             }
             if (data.inboxView === 'offers' || data.inboxView === 'declined' || data.inboxView === 'overdue' || data.inboxView === 'archived') {
                 inboxView = data.inboxView;
+                if (isSecondaryInboxView(data.inboxView)) {
+                    homeTabSettled = true;
+                }
             }
             if (data.planningView === 'week' || data.planningView === 'day') {
                 planningView = data.planningView;
@@ -3628,9 +3713,9 @@
     }
     function setMainTab(tab, options) {
         const opts = options || {};
-        let next = VALID_TABS.indexOf(tab) !== -1 ? tab : 'requests';
+        let next = VALID_TABS.indexOf(tab) !== -1 ? tab : 'trips';
         if (next === 'earnings' && !canViewEarnings) {
-            next = 'requests';
+            next = 'trips';
         }
         // Overlay-pagina's (betaling/factuur) sluiten bij tabwissel; header/footer blijven.
         if (isPaymentPanelOpen() || isInvoicePanelOpen()) {
@@ -3733,28 +3818,7 @@
     }
 
     function tripsListHasContent() {
-        const overdueOnly = (overdueScheduledRides || []).filter(function (ride) {
-            if (!ride || ride.id == null) {
-                return false;
-            }
-            if (isOpenPickupProposalRide(ride)) {
-                return false;
-            }
-            return !(scheduledRides || []).some(function (item) {
-                return String(item.id) === String(ride.id);
-            });
-        });
-        const scheduledCount = (scheduledRides || []).length + overdueOnly.length;
-        if (scheduledCount > 0) {
-            return true;
-        }
-        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
-            return true;
-        }
-        if (Array.isArray(parkedAssignedRides) && parkedAssignedRides.length > 0) {
-            return true;
-        }
-        return false;
+        return tripsStartableCount() > 0;
     }
 
     function syncTripsEmptyState() {
@@ -3778,7 +3842,7 @@
             nav.hidden = !canViewEarnings;
         }
         if (!canViewEarnings && mainTab === 'earnings') {
-            setMainTab('requests');
+            setMainTab('trips');
         }
         if (!canViewMonthEarnings && earningsPeriod === 'month') {
             earningsPeriod = 'day';
@@ -9450,8 +9514,10 @@
                 renderActiveRide(null);
             }
             renderScheduledRides(scheduled);
+            inboxHasLoaded = true;
             updateEmptyState();
             syncTripsEmptyState();
+            applySmartHomeTab();
         } catch (e) {
             /* ignore — offline preview is best-effort */
         }
@@ -9677,13 +9743,18 @@
                 updateEmptyState();
             }
             if (proposalDecision === 'accepted') {
+                homeTabSettled = true;
                 setMainTab('trips');
             } else if (proposalDecision === 'reopened_offer') {
+                homeTabSettled = true;
                 setMainTab('requests');
                 setInboxView('offers');
             } else if (proposalDecision === 'declined') {
+                homeTabSettled = true;
                 setMainTab('requests');
                 setInboxView('declined');
+            } else {
+                applySmartHomeTab();
             }
             if (savedScroll !== null && scrollEl) {
                 requestAnimationFrame(function () {
@@ -9934,7 +10005,8 @@
         }
         companyId = null;
         clearPersistedAuth();
-        mainTab = 'requests';
+        mainTab = 'trips';
+        homeTabSettled = false;
         inboxView = 'offers';
         planningView = 'day';
         planningSelectedDate = null;
@@ -11520,6 +11592,7 @@
             if (tabBtn) {
                 ev.preventDefault();
                 const tab = tabBtn.getAttribute('data-main-tab');
+                homeTabSettled = true;
                 if (tab === 'trips') {
                     // Altijd rittenoverzicht, ook tijdens een open actieve rit.
                     showAllRidesInbox();
@@ -11662,7 +11735,14 @@
             const jump = ev.target.closest('[data-main-tab-jump]');
             if (jump) {
                 ev.preventDefault();
+                homeTabSettled = true;
                 setMainTab(jump.getAttribute('data-main-tab-jump'));
+                return;
+            }
+            if (ev.target.closest('#btn-empty-show-trips')) {
+                ev.preventDefault();
+                homeTabSettled = true;
+                showAllRidesInbox();
                 return;
             }
             if (ev.target.closest('#btn-accept') || ev.target.closest('.btn-accept-declined') || ev.target.closest('.btn-accept-overdue')) {
