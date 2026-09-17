@@ -89,6 +89,36 @@
         height: min(50vh, 28rem);
         pointer-events: none;
     }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: 0.15rem;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status i {
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status--done i,
+    #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--done i,
+    #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--done i {
+        color: #16a34a;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status--todo i,
+    #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--todo i,
+    #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--todo i {
+        color: #d97706;
+    }
+    html.dark #company-show-tabs a.kt-tab-toggle .company-show-tab-status--done i,
+    html.dark #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--done i,
+    html.dark #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--done i {
+        color: #4ade80;
+    }
+    html.dark #company-show-tabs a.kt-tab-toggle .company-show-tab-status--todo i,
+    html.dark #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--todo i,
+    html.dark #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--todo i {
+        color: #fbbf24;
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -214,13 +244,23 @@
         $companyShowCanSeeDomains ? ['id' => 'company-domains', 'label' => 'Domeinen', 'icon' => 'ki-filled ki-abstract-26'] : null,
         ['id' => 'company-locations', 'label' => 'Vestigingen', 'icon' => 'ki-filled ki-home-2'],
     ]));
+    $companyShowTabs = \App\Support\CompanyShowWizardStatus::decorateTabs($company, $companyShowTabs);
 @endphp
 <div class="kt-container-fixed company-show-section-nav sticky mb-5 lg:mb-7.5">
     <nav class="kt-tabs kt-tabs-line admin-page-tabs min-w-0" aria-label="Onderdelen op deze pagina" id="company-show-tabs">
         @foreach($companyShowTabs as $tab)
-            <a href="#{{ $tab['id'] }}" class="kt-tab-toggle{{ $loop->first ? ' active' : '' }}" data-company-show-tab="{{ $tab['id'] }}" @if($loop->first) aria-current="page" @endif>
+            <a href="#{{ $tab['id'] }}"
+               class="kt-tab-toggle{{ $loop->first ? ' active' : '' }}"
+               data-company-show-tab="{{ $tab['id'] }}"
+               data-wizard-complete="{{ ! empty($tab['done']) ? '1' : '0' }}"
+               title="{{ $tab['label'] }} — {{ $tab['status_label'] }}"
+               @if($loop->first) aria-current="page" @endif>
                 <i class="{{ $tab['icon'] }}" aria-hidden="true"></i>
                 <span class="kt-tab-title">{{ $tab['label'] }}</span>
+                <span class="company-show-tab-status company-show-tab-status--{{ ! empty($tab['done']) ? 'done' : 'todo' }}" aria-hidden="true">
+                    <i class="ki-filled {{ ! empty($tab['done']) ? 'ki-check-circle' : 'ki-information-2' }}"></i>
+                </span>
+                <span class="sr-only">{{ $tab['status_label'] }}</span>
             </a>
         @endforeach
     </nav>
@@ -257,10 +297,31 @@
                         <td class="text-foreground font-normal">
                             @php
                                 $packageLabel = app(\App\Services\NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''));
+                                $subscriptionService = app(\App\Services\PlatformBilling\TenantSubscriptionService::class);
+                                $billingProfile = $company->billingProfile;
+                                $addonsInTrial = $billingProfile && $subscriptionService->isInTrial($billingProfile);
+                                $packageStartLabel = null;
+                                $packageTrialEndLabel = null;
+                                if ($billingProfile) {
+                                    $packageStartLabel = $subscriptionService->contractStart($billingProfile)->translatedFormat('j F Y');
+                                } elseif ($company->created_at && filled($company->package_key)) {
+                                    $packageStartLabel = $company->created_at->copy()->startOfDay()->translatedFormat('j F Y');
+                                }
+                                if ($addonsInTrial && $billingProfile?->trial_ends_at) {
+                                    $packageTrialEndLabel = \Carbon\Carbon::parse($billingProfile->trial_ends_at)->translatedFormat('j F Y');
+                                }
                             @endphp
                             @if($packageLabel)
-                                <span>{{ $packageLabel['name'] ?? $company->package_key }}</span>
-                                <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
+                                <div>
+                                    <span>{{ $packageLabel['name'] ?? $company->package_key }}</span>
+                                    <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
+                                </div>
+                                @if($packageStartLabel)
+                                    <div class="text-xs text-muted-foreground mt-0.5">Ingang {{ $packageStartLabel }}</div>
+                                @endif
+                                @if($packageTrialEndLabel)
+                                    <div class="text-xs text-muted-foreground">Gratis periode tot {{ $packageTrialEndLabel }}</div>
+                                @endif
                             @else
                                 <span class="text-muted-foreground">Geen pakket gekoppeld</span>
                             @endif
@@ -304,8 +365,6 @@
                                     } elseif (\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at'])) {
                                         $badge = 'Wijziging';
                                         $meta = (int) ($record['active_quantity'] ?? 0).' tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y').', daarna '.$quantity;
-                                    } elseif (! empty($record['starts_at'])) {
-                                        $meta = 'Ingang '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y');
                                     }
                                     if (! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0) {
                                         $badge = 'Nog niet actief';
@@ -314,6 +373,8 @@
                                         'icon' => $addonIconByKey[$addon['key']] ?? 'ki-filled ki-element-11',
                                         'title' => $title,
                                         'meta' => $meta,
+                                        'start_label' => $packageStartLabel,
+                                        'trial_end_label' => $packageTrialEndLabel,
                                         'badge' => $badge,
                                     ];
                                 }
@@ -321,10 +382,10 @@
                                     'icon' => 'ki-filled ki-people',
                                     'title' => 'Contractklanten',
                                     'meta' => 'Limiet: '.$entitlements->contractClientLimitLabel($company),
+                                    'start_label' => $packageStartLabel,
+                                    'trial_end_label' => $packageTrialEndLabel,
                                     'badge' => null,
                                 ];
-                                $addonsInTrial = $company->billingProfile
-                                    && app(\App\Services\PlatformBilling\TenantSubscriptionService::class)->isInTrial($company->billingProfile);
                             @endphp
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
                                 @foreach($addonModuleCards as $moduleCard)
@@ -336,6 +397,12 @@
                                             <div class="text-sm font-semibold text-foreground leading-snug break-normal">{{ $moduleCard['title'] }}</div>
                                             @if($moduleCard['meta'])
                                                 <div class="text-xs text-muted-foreground mt-0.5">{{ $moduleCard['meta'] }}</div>
+                                            @endif
+                                            @if(! empty($moduleCard['start_label']))
+                                                <div class="text-xs text-muted-foreground{{ $moduleCard['meta'] ? '' : ' mt-0.5' }}">Ingang {{ $moduleCard['start_label'] }}</div>
+                                            @endif
+                                            @if(! empty($moduleCard['trial_end_label']))
+                                                <div class="text-xs text-muted-foreground">Gratis periode tot {{ $moduleCard['trial_end_label'] }}</div>
                                             @endif
                                             @if($moduleCard['badge'])
                                                 <span class="kt-badge kt-badge-sm kt-badge-warning mt-1.5">{{ $moduleCard['badge'] }}</span>
@@ -392,15 +459,24 @@
                         <td class="text-foreground font-normal">
                             @php
                                 $bi = (int) ($company->building_image ?? 0);
-                                $biLabels = [1 => 'Oranje gevel', 2 => 'Twee torens', 3 => 'Wit minimalisme'];
+                                $biOption = \App\Support\CompanyBuildingImages::options()[$bi] ?? null;
                             @endphp
-                            @if(isset($biLabels[$bi]))
-                                <span class="inline-flex items-center gap-2">
-                                    @if($company->buildingImageAssetUrl())
-                                        <img src="{{ $company->buildingImageAssetUrl() }}" alt="" class="h-10 w-auto rounded border border-border" width="40" height="40">
-                                    @endif
-                                    <span>{{ $biLabels[$bi] }}</span>
-                                </span>
+                            @if($biOption)
+                                @if(! empty($biOption['src']))
+                                    <button type="button"
+                                            class="inline-flex items-center gap-2 rounded-lg bg-transparent p-0 text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                            data-building-lightbox-open
+                                            data-building-lightbox-src="{{ $biOption['src'] }}"
+                                            data-building-lightbox-alt="{{ $biOption['label'] }}"
+                                            aria-haspopup="dialog"
+                                            aria-controls="company-building-lightbox"
+                                            title="Klik om te vergroten">
+                                        <img src="{{ $biOption['src'] }}" alt="" class="h-10 w-auto rounded border border-border cursor-pointer" width="40" height="40">
+                                        <span>{{ $biOption['label'] }}</span>
+                                    </button>
+                                @else
+                                    <span class="inline-flex items-center gap-2">{{ $biOption['label'] }}</span>
+                                @endif
                             @else
                                 —
                             @endif
@@ -983,7 +1059,94 @@
 <!-- End of Container -->
 <div class="company-show-scroll-end" aria-hidden="true"></div>
 
+<div id="company-building-lightbox"
+     class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="company-building-lightbox-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-building-lightbox-dismiss></div>
+    <div class="company-building-lightbox__panel relative z-10 max-w-[92vw] max-h-[92vh] rounded-2xl border border-border p-3">
+        <button type="button" class="company-building-lightbox__close kt-btn kt-btn-icon kt-btn-outline" data-building-lightbox-close aria-label="Sluiten">
+            <i class="ki-filled ki-cross"></i>
+        </button>
+        <h2 id="company-building-lightbox-title" class="sr-only">Gebouw-illustratie</h2>
+        <img src="" alt="" class="company-building-lightbox__img">
+    </div>
+</div>
+
 @push('scripts')
+<script>
+(function () {
+    function initBuildingLightbox() {
+        var lightbox = document.getElementById('company-building-lightbox');
+        if (!lightbox || lightbox.getAttribute('data-bound') === '1') {
+            return;
+        }
+        lightbox.setAttribute('data-bound', '1');
+    var img = lightbox.querySelector('.company-building-lightbox__img');
+    var title = document.getElementById('company-building-lightbox-title');
+    var lastFocus = null;
+
+    function mountOverlay(el) {
+        if (el && el.parentElement !== document.body) {
+            document.body.appendChild(el);
+        }
+    }
+    function openLightbox(src, alt) {
+        lastFocus = document.activeElement;
+        mountOverlay(lightbox);
+        img.src = src;
+        img.alt = alt || '';
+        if (title) {
+            title.textContent = alt || 'Gebouw-illustratie';
+        }
+        lightbox.hidden = false;
+        lightbox.classList.remove('hidden');
+        lightbox.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        var closeBtn = lightbox.querySelector('[data-building-lightbox-close]');
+        if (closeBtn) {
+            closeBtn.focus();
+        }
+    }
+    function closeLightbox() {
+        if (lightbox.hidden) {
+            return;
+        }
+        lightbox.hidden = true;
+        lightbox.classList.add('hidden');
+        lightbox.classList.remove('flex');
+        img.src = '';
+        document.body.style.overflow = '';
+        if (lastFocus && typeof lastFocus.focus === 'function') {
+            lastFocus.focus();
+        }
+    }
+    mountOverlay(lightbox);
+    document.querySelectorAll('[data-building-lightbox-open]').forEach(function (trigger) {
+        trigger.addEventListener('click', function () {
+            openLightbox(
+                trigger.getAttribute('data-building-lightbox-src') || '',
+                trigger.getAttribute('data-building-lightbox-alt') || ''
+            );
+        });
+    });
+        lightbox.querySelector('[data-building-lightbox-dismiss]').addEventListener('click', closeLightbox);
+        lightbox.querySelector('[data-building-lightbox-close]').addEventListener('click', closeLightbox);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBuildingLightbox);
+    } else {
+        initBuildingLightbox();
+    }
+})();
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('company-show-tabs');
@@ -1647,6 +1810,33 @@ document.addEventListener('DOMContentLoaded', function () {
         .location-row:hover {
             background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
         }
+    }
+    .company-building-lightbox__panel {
+        background-color: #ffffff;
+        box-shadow:
+            0 25px 50px -12px rgba(2, 6, 23, 0.35),
+            0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+    html.dark .company-building-lightbox__panel,
+    .dark .company-building-lightbox__panel {
+        background-color: #0b0f19;
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.65),
+            0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    .company-building-lightbox__img {
+        display: block;
+        max-width: min(92vw, 720px);
+        max-height: 80vh;
+        width: auto;
+        height: auto;
+        border-radius: 0.75rem;
+    }
+    .company-building-lightbox__close {
+        position: absolute;
+        top: -0.75rem;
+        right: -0.75rem;
+        z-index: 1;
     }
 </style>
 @endpush

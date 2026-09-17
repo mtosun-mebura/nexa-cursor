@@ -818,8 +818,12 @@
                 </div>
                 @endif
 
-                <!-- Configuraties (Super Admin only) -->
-                @if(auth()->user()?->hasRole('super-admin'))
+                <!-- Configuraties: super-admin volledig; overige rollen alleen mailserver via permissie -->
+                @php
+                    $isSuperAdminSettings = auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin');
+                    $canViewMailSettings = auth()->user()?->canViewMailSettings();
+                @endphp
+                @if($isSuperAdminSettings || $canViewMailSettings)
                 <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
@@ -845,6 +849,7 @@
                     </div>
                     <div
                         class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        @if($isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.general.index') }}" tabindex="0">
@@ -857,6 +862,7 @@
                                 </span>
                             </a>
                         </div>
+                        @endif
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.index') }}" tabindex="0">
@@ -865,10 +871,11 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Systeem configuraties
+                                    {{ $isSuperAdminSettings ? 'Systeem configuraties' : 'Mailserver' }}
                                 </span>
                             </a>
                         </div>
+                        @if($isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.upgrade.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.upgrade.index') }}" tabindex="0">
@@ -893,6 +900,7 @@
                                 </span>
                             </a>
                         </div>
+                        @endif
                     </div>
                 </div>
                 @endif

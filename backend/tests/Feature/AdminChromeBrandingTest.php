@@ -122,7 +122,11 @@ class AdminChromeBrandingTest extends TestCase
         $this->assertStringContainsString('fillIconActionButton', $js);
         $this->assertStringContainsString('admin-list-card__action-caption', $js);
         $this->assertStringContainsString('.admin-list-card__action-caption', $css);
-        $this->assertStringContainsString('.admin-card-action-form--danger .admin-list-card__action-icon', $css);
+        $this->assertStringContainsString('configureren: \'ki-setting-2\'', $js);
+        $this->assertStringContainsString("'migraties opnieuw': 'ki-tablet'", $js);
+        $this->assertStringContainsString("'database dummydata': 'ki-cube-2'", $js);
+        $this->assertStringContainsString('getMenuActionIconNode', $js);
+        $this->assertStringContainsString('grid-template-columns: repeat(3, minmax(0, 1fr))', $css);
         $this->assertStringNotContainsString('form.requestSubmit(submitBtn)', $js);
     }
 

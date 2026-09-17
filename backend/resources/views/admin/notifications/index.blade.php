@@ -160,9 +160,12 @@
                                     data-kt-select-placeholder="Sortering"
                                     id="sort-filter">
                                 <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
+                                <option value="user" {{ request('sort') == 'user' ? 'selected' : '' }}>Gebruiker</option>
+                                <option value="sender" {{ request('sort') == 'sender' ? 'selected' : '' }}>Afzender</option>
+                                <option value="content" {{ request('sort') == 'content' ? 'selected' : '' }}>Inhoud</option>
+                                <option value="status" {{ request('sort') == 'status' ? 'selected' : '' }}>Status</option>
                                 <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
                                 <option value="type" {{ request('sort') == 'type' ? 'selected' : '' }}>Type</option>
-                                <option value="status" {{ request('sort') == 'status' ? 'selected' : '' }}>Status</option>
                             </select>
                         </form>
                         @if(request('status') || request('type') || request('priority') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
@@ -181,9 +184,26 @@
             <div class="kt-card-content">
                 @if($notifications->count() > 0)
                     <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="notifications_table" data-admin-datatable-label="notificaties" data-admin-datatable-on-page="syncNotificationsBulkSelection">
-                        <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border">
+                        <div class="kt-scrollable-x-auto notifications-table-wrap min-w-0">
+                            <table class="kt-table kt-table-border admin-fluid-table w-full @if($canDeleteNotifications) has-notification-check @endif">
                             <thead>
+                                @php
+                                    $notifSort = request('sort', 'created_at');
+                                    $notifDir = request('direction', 'desc');
+                                    if (! in_array($notifDir, ['asc', 'desc'], true)) {
+                                        $notifDir = 'desc';
+                                    }
+                                    $notifSortHref = function (string $field, string $defaultDir = 'asc') use ($notifSort, $notifDir) {
+                                        $next = $notifSort === $field
+                                            ? ($notifDir === 'asc' ? 'desc' : 'asc')
+                                            : $defaultDir;
+
+                                        return request()->fullUrlWithQuery([
+                                            'sort' => $field,
+                                            'direction' => $next,
+                                        ]);
+                                    };
+                                @endphp
                                 <tr>
                                     @if($canDeleteNotifications)
                                     <th class="notifications-check-col" data-no-row-link>
@@ -194,61 +214,37 @@
                                         </label>
                                     </th>
                                     @endif
-                                    <th class="min-w-[250px]">
-                                        <span class="kt-table-col">
+                                    <th class="notifications-user-col" @if($notifSort === 'user') aria-sort="{{ $notifDir }}" @endif>
+                                        <a href="{{ $notifSortHref('user') }}" class="kt-table-col" aria-label="Sorteer op gebruiker">
                                             <span class="kt-table-col-label">Gebruiker</span>
-                                            <span class="kt-table-col-sort"></span>
-                                        </span>
+                                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                                        </a>
                                     </th>
-                                    <th class="min-w-[200px]">
-                                        <span class="kt-table-col">
+                                    <th class="notifications-sender-col" @if($notifSort === 'sender') aria-sort="{{ $notifDir }}" @endif>
+                                        <a href="{{ $notifSortHref('sender') }}" class="kt-table-col" aria-label="Sorteer op afzender">
                                             <span class="kt-table-col-label">Afzender</span>
-                                            <span class="kt-table-col-sort"></span>
-                                        </span>
+                                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                                        </a>
                                     </th>
-                                    <th class="min-w-[300px]">
-                                        <span class="kt-table-col">
+                                    <th class="notifications-content-col" @if($notifSort === 'content') aria-sort="{{ $notifDir }}" @endif>
+                                        <a href="{{ $notifSortHref('content') }}" class="kt-table-col" aria-label="Sorteer op inhoud">
                                             <span class="kt-table-col-label">Inhoud</span>
-                                            <span class="kt-table-col-sort"></span>
-                                        </span>
+                                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                                        </a>
                                     </th>
-                                    <th class="min-w-[120px]">
-                                        <span class="kt-table-col">
+                                    <th class="notifications-status-col" @if($notifSort === 'status') aria-sort="{{ $notifDir }}" @endif>
+                                        <a href="{{ $notifSortHref('status') }}" class="kt-table-col" aria-label="Sorteer op status">
                                             <span class="kt-table-col-label">Status</span>
-                                            <span class="kt-table-col-sort">
-                                                @php
-                                                    $currentSort = request('sort');
-                                                    $currentDirection = request('direction');
-                                                    if ($currentSort == 'status') {
-                                                        $nextDirection = ($currentDirection == 'asc') ? 'desc' : 'asc';
-                                                    } else {
-                                                        $nextDirection = 'asc';
-                                                    }
-                                                @endphp
-                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'direction' => $nextDirection]) }}"
-                                                   class="kt-table-col-sort-btn"></a>
-                                            </span>
-                                        </span>
+                                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                                        </a>
                                     </th>
-                                    <th class="min-w-[150px]">
-                                        <span class="kt-table-col">
+                                    <th class="notifications-date-col" @if($notifSort === 'created_at') aria-sort="{{ $notifDir }}" @endif>
+                                        <a href="{{ $notifSortHref('created_at', 'desc') }}" class="kt-table-col" aria-label="Sorteer op datum">
                                             <span class="kt-table-col-label">Gemaakt op</span>
-                                            <span class="kt-table-col-sort">
-                                                @php
-                                                    $currentSort = request('sort');
-                                                    $currentDirection = request('direction');
-                                                    if ($currentSort == 'created_at') {
-                                                        $nextDirection = ($currentDirection == 'desc') ? 'asc' : 'desc';
-                                                    } else {
-                                                        $nextDirection = 'desc';
-                                                    }
-                                                @endphp
-                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => $nextDirection]) }}"
-                                                   class="kt-table-col-sort-btn"></a>
-                                            </span>
-                                        </span>
+                                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                                        </a>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="notifications-actions-col text-center">Acties</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -264,9 +260,9 @@
                                             </label>
                                         </td>
                                         @endif
-                                        <td>
+                                        <td class="notifications-user-col">
                                             @if($notification->user)
-                                                <div class="flex flex-col">
+                                                <div class="flex flex-col min-w-0">
                                                     <span class="text-sm font-medium text-mono mb-px">
                                                         {{ $notification->user->first_name }} {{ $notification->user->last_name }}
                                                     </span>
@@ -278,9 +274,9 @@
                                                 <span class="text-sm text-muted-foreground">Gebruiker niet gevonden</span>
                                             @endif
                                         </td>
-                                        <td>
+                                        <td class="notifications-sender-col">
                                             @if($notification->sender)
-                                                <div class="flex flex-col">
+                                                <div class="flex flex-col min-w-0">
                                                     <span class="text-sm font-medium text-mono mb-px">
                                                         {{ $notification->sender->first_name }} {{ $notification->sender->last_name }}
                                                     </span>
@@ -292,10 +288,10 @@
                                                 <span class="text-sm text-muted-foreground">Systeem</span>
                                             @endif
                                         </td>
-                                        <td class="text-foreground font-normal">
-                                            <div class="flex flex-col">
+                                        <td class="notifications-content-col">
+                                            <div class="flex flex-col min-w-0">
                                                 @if($notification->title)
-                                                    <span class="text-sm font-medium mb-1">{{ $notification->title }}</span>
+                                                    <span class="text-sm font-medium text-mono mb-px">{{ $notification->title }}</span>
                                                 @endif
                                                 @php
                                                     $messageText = $notification->message;
@@ -309,20 +305,21 @@
                                                         $messageText = trim($messageText);
                                                     }
                                                 @endphp
-                                                <span class="text-sm text-secondary-foreground">{{ Str::limit($messageText, 80) }}</span>
+                                                <span class="text-sm font-medium text-mono">{{ Str::limit($messageText, 48) }}</span>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td class="notifications-status-col">
                                             @if($notification->read_at)
                                                 <span class="kt-badge kt-badge-sm kt-badge-success">Gelezen</span>
                                             @else
                                                 <span class="kt-badge kt-badge-sm kt-badge-warning">Ongelezen</span>
                                             @endif
                                         </td>
-                                        <td class="text-foreground font-normal">
-                                            <span class="text-sm">{{ $notification->created_at->format('d-m-Y H:i') }}</span>
+                                        <td class="notifications-date-col text-foreground font-normal">
+                                            <span class="notifications-date-col__date">{{ $notification->created_at->format('d-m-Y') }}</span>
+                                            <span class="notifications-date-col__time">{{ $notification->created_at->format('H:i') }}</span>
                                         </td>
-                                        <td class="w-[60px] text-center admin-table__actions-col" data-no-row-link>
+                                        <td class="notifications-actions-col text-center admin-table__actions-col" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
@@ -668,14 +665,50 @@
 @push('styles')
 <style>
     /* Table column sorting */
-    .kt-table-col {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        width: 100% !important;
+    #notifications_table thead th:has(> a.kt-table-col) {
+        padding: 0;
+        cursor: pointer;
     }
-    .kt-table-col-sort {
-        margin-left: auto !important;
+    #notifications_table thead a.kt-table-col {
+        display: flex !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        gap: 0.35rem;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-height: 2.5rem;
+        padding: 0.5rem 1rem;
+        color: inherit;
+        text-decoration: none;
+        box-sizing: border-box;
+    }
+    #notifications_table thead th.notifications-date-col a.kt-table-col {
+        padding-inline: 0.5rem;
+    }
+    #notifications_table .kt-table-col-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #notifications_table thead th.notifications-date-col .kt-table-col-label {
+        overflow: visible;
+        text-overflow: clip;
+        min-width: auto;
+        flex: 0 0 auto;
+    }
+    #notifications_table .kt-table-col-sort {
+        flex: 0 0 0.975rem;
+        display: inline-flex !important;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 0.975rem;
+        min-width: 0.975rem;
+        height: 0.975rem;
+        margin-left: 0 !important;
+        overflow: visible;
     }
 
     /* Reset button visibility */
@@ -792,16 +825,111 @@
         color: #ffffff !important;
         border-color: #dc2626 !important;
     }
-    #notifications_table colgroup col:first-child {
-        width: 44px !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
+    #content #notifications_table {
+        min-width: 0;
+        max-width: 100%;
+    }
+    #content #notifications_table .notifications-table-wrap,
+    #content #notifications_table .kt-scrollable-x-auto,
+    #content #notifications_table .admin-desktop-table-wrap {
+        overflow-x: hidden !important;
+        max-width: 100%;
+        min-width: 0;
+        width: 100%;
+    }
+    #content #notifications_table table.admin-fluid-table {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100%;
+        table-layout: fixed;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-user-col,
+    #content #notifications_table .admin-fluid-table .notifications-sender-col,
+    #content #notifications_table .admin-fluid-table .notifications-content-col {
+        overflow-wrap: break-word;
+        word-break: break-word;
+        min-width: 0 !important;
+        vertical-align: middle;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-user-col span,
+    #content #notifications_table .admin-fluid-table .notifications-sender-col span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-content-col .flex {
+        min-width: 0;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-content-col span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.875rem !important;
+        line-height: 1.25rem;
+        font-weight: 500;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-user-col {
+        width: 18%;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-sender-col {
+        width: 16%;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-content-col {
+        width: auto;
+    }
+    #content #notifications_table .admin-fluid-table .notifications-date-col {
+        width: 8.75rem;
+        min-width: 8.75rem !important;
+        max-width: 8.75rem;
+        white-space: normal;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+        vertical-align: middle;
+    }
+    #content #notifications_table .admin-fluid-table th.notifications-date-col {
+        padding-inline: 0;
+        overflow: visible;
+    }
+    #content #notifications_table .admin-fluid-table td.notifications-date-col {
+        font-size: 0.75rem;
+        line-height: 1.25;
+    }
+    #content #notifications_table .notifications-date-col__date,
+    #content #notifications_table .notifications-date-col__time {
+        display: block;
+        white-space: nowrap;
+    }
+    #content #notifications_table .notifications-date-col__time {
+        color: var(--muted-foreground);
+        font-size: 0.6875rem;
+    }
+    #content #notifications_table .admin-fluid-table th.notifications-actions-col,
+    #content #notifications_table .admin-fluid-table td.notifications-actions-col,
+    #content #notifications_table .admin-fluid-table th:last-child,
+    #content #notifications_table .admin-fluid-table td.admin-table__actions-col {
+        width: 5.25rem !important;
+        min-width: 5.25rem !important;
+        max-width: 5.25rem !important;
+        padding-inline: 0.5rem !important;
+        white-space: nowrap;
+        vertical-align: middle;
+        text-align: center;
+    }
+    #content #notifications_table .admin-fluid-table th.notifications-actions-col,
+    #content #notifications_table .admin-fluid-table th:last-child {
+        overflow: hidden;
+    }
+    #content #notifications_table .admin-fluid-table td.notifications-actions-col,
+    #content #notifications_table .admin-fluid-table td.admin-table__actions-col {
+        overflow: visible;
     }
     #notifications_table .notifications-check-col {
         position: relative;
-        width: 44px !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
+        width: 2.75rem !important;
+        min-width: 2.75rem !important;
+        max-width: 2.75rem !important;
         padding: 0 !important;
         text-align: center !important;
         vertical-align: middle !important;
@@ -823,6 +951,24 @@
     #notifications_table .notifications-check-label .kt-checkbox {
         margin: 0 !important;
         flex-shrink: 0;
+    }
+    #content #notifications_table .admin-fluid-table th.notifications-status-col,
+    #content #notifications_table .admin-fluid-table td.notifications-status-col {
+        width: 7.75rem !important;
+        min-width: 7.75rem !important;
+        max-width: 7.75rem !important;
+        white-space: nowrap;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+        overflow: visible;
+        vertical-align: middle !important;
+    }
+    #content #notifications_table .notifications-status-col .kt-badge {
+        display: inline-flex;
+        align-items: center;
+        vertical-align: middle;
+        white-space: nowrap;
+        max-width: none;
     }
     @supports (color: color-mix(in lab, red, red)) {
         .notification-row:hover {

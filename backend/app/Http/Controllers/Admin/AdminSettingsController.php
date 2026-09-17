@@ -81,6 +81,22 @@ class AdminSettingsController extends Controller
         }
     }
 
+    protected function ensureCanViewMailSettings(): void
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->canViewMailSettings()) {
+            abort(403, 'Je hebt geen rechten om de mailserver in te stellen.');
+        }
+    }
+
+    protected function ensureCanEditMailSettings(): void
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->canEditMailSettings()) {
+            abort(403, 'Je hebt geen rechten om de mailserver te wijzigen.');
+        }
+    }
+
     /**
      * Actieve tenant (company_id) voor per-tenant configuratie in admin.
      * Super-admin: sessie selected_tenant; overige admins: company_id van de gebruiker.
@@ -148,7 +164,7 @@ class AdminSettingsController extends Controller
      */
     public function index()
     {
-        $this->ensureSuperAdmin();
+        $this->ensureCanViewMailSettings();
 
         $settingsCompanyId = $this->settingsCompanyId();
         $tenantScopedSettingsActive = $settingsCompanyId !== null;
@@ -238,6 +254,10 @@ class AdminSettingsController extends Controller
         $databaseBackupSettings = $this->databaseBackupSettings->formSettings();
         $databaseBackups = $this->databaseBackupService->listBackups(100);
 
+        $canManageFullSettings = auth()->user()?->hasRole('super-admin') === true
+            || auth()->user()?->isSuperAdmin() === true;
+        $canEditMailSettings = auth()->user()?->canEditMailSettings() === true;
+
         return view('admin.settings.index', compact(
             'mailSettings',
             'mailDeliveryHint',
@@ -272,6 +292,8 @@ class AdminSettingsController extends Controller
             'defaultTaxiWebhookUrl',
             'databaseBackupSettings',
             'databaseBackups',
+            'canManageFullSettings',
+            'canEditMailSettings',
         ));
     }
 
@@ -873,9 +895,13 @@ class AdminSettingsController extends Controller
      */
     public function updateMail(Request $request)
     {
-        $this->ensureSuperAdmin();
+        $this->ensureCanEditMailSettings();
 
         $companyId = $this->settingsCompanyId();
+        $user = auth()->user();
+        if ($companyId === null && ! $user->isSuperAdmin() && ! $user->hasRole('super-admin')) {
+            abort(403, 'Geen bedrijf gekoppeld aan dit account.');
+        }
 
         $validator = Validator::make($request->all(), [
             'MAIL_MAILER' => 'required|in:log,smtp,sendmail,mailgun,ses,postmark,resend',
@@ -939,7 +965,7 @@ class AdminSettingsController extends Controller
      */
     public function testEmail(Request $request)
     {
-        $this->ensureSuperAdmin();
+        $this->ensureCanEditMailSettings();
 
         $validator = Validator::make($request->all(), [
             'test_email' => 'required|email',

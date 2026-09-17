@@ -288,6 +288,14 @@
                 <td class="voor">Alleen super-admin.</td>
             </tr>
             <tr>
+                <td>Configuraties: Mailserver</td>
+                <td class="c yes">Ja</td>
+                <td class="c yes">Ja</td>
+                <td class="c no">Nee</td>
+                <td class="c no">Nee</td>
+                <td class="voor">Permissies view-mailserver / edit-mailserver; standaard aan voor company-admin.</td>
+            </tr>
+            <tr>
                 <td>Front-end: Coming Soon, Welkom, Pagina's, Thema's, Componenten, Componenten catalogus</td>
                 <td class="c yes">Ja</td>
                 <td class="c no">Nee</td>

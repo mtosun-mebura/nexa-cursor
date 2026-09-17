@@ -78,7 +78,7 @@
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <table class="kt-table kt-table-border-dashed admin-modules-table align-middle text-sm text-muted-foreground">
                     <thead>
                         <tr>
                             <th class="min-w-[200px] text-secondary-foreground font-normal">Module</th>
@@ -364,6 +364,37 @@
     @keyframes modules-spin {
         to { transform: rotate(360deg); }
     }
+    /* Scheidingslijn tussen modules (admin-responsive haalt row-borders van dashed-tabellen weg) */
+    #content .kt-card-table .kt-table.admin-modules-table tbody tr:not(:last-child) > td {
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* Mobiele module-acties: 3 knoppen per rij, leesbare labels */
+    .admin-list-card__action-buttons {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: start !important;
+        gap: 0.75rem 0.5rem !important;
+        width: 100% !important;
+        flex-wrap: unset !important;
+    }
+    .admin-list-card__action-buttons > .admin-list-card__action,
+    .admin-list-card__action-buttons .admin-card-action-form {
+        max-width: none !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        flex: none !important;
+    }
+    .admin-list-card__action-caption {
+        display: block !important;
+        overflow: visible !important;
+        -webkit-line-clamp: unset !important;
+        font-size: 0.75rem !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+    }
+
     /* Ensure dropdown can overflow table cells without stretching them */
     .kt-card-table td:last-child {
         position: relative;

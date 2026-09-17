@@ -409,7 +409,7 @@ class TaxiTenantSetupService
             return null;
         }
 
-        if ($user->isSuperAdmin() || $user->hasRole('super-admin')) {
+        if ($user->isSuperAdmin() || $user->hasRole('super-admin') || $user->canViewMailSettings()) {
             return $this->safeRoute('admin.settings.index');
         }
 

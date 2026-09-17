@@ -60,7 +60,7 @@
 
     <div class="grid gap-5 lg:gap-7.5 min-w-0 w-full max-w-full" id="settings-collapsible-root">
         <!-- Mail Server Instellingen: NEXA Suite (Alle Tenants) of per tenant -->
-        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
+        <div class="kt-card min-w-full settings-collapsible-card {{ ($canManageFullSettings ?? true) ? 'settings-collapsible-card--collapsed' : '' }}" id="mail">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => ($mailSettingsIsPlatform ?? false)
                 ? '<i class="ki-filled ki-sms me-2"></i> NEXA Suite Mail Server'
                 : '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
@@ -235,6 +235,7 @@
                         </tr>
                     </table>
                     <div class="kt-card-footer flex justify-between items-start gap-5 pt-4 pb-2 border-t border-border">
+                        @if($canEditMailSettings ?? true)
                         <button type="submit" class="kt-btn kt-btn-primary mt-6">
                             <i class="ki-filled ki-check me-2"></i> Mail Instellingen Opslaan
                         </button>
@@ -261,12 +262,14 @@
                                 <span id="test-email-status" class="hidden inline-flex items-center justify-center shrink-0 w-8 h-8 mt-0.5" role="status" aria-live="polite"></span>
                             </div>
                         </div>
+                        @endif
                     </div>
                 </form>
             </div>
             </div>
         </div>
 
+        @if($canManageFullSettings ?? false)
     @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
         <!-- Google SEO Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
@@ -1435,6 +1438,7 @@
         </div>
 
         @include('admin.settings.partials.database-backups')
+        @endif
 
     </div>
 </div>
