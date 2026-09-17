@@ -17,7 +17,7 @@ class RideDispatchService
         protected TaxiDispatchSettingsService $dispatchSettings
     ) {}
 
-    public function startDispatch(string $conn, RideRequest $ride, int $companyId, array $excludeDriverIds = []): void
+    public function startDispatch(string $conn, RideRequest $ride, int $companyId, array $excludeDriverIds = [], bool $assignCompany = true): void
     {
         if ($companyId <= 0) {
             return;
@@ -44,7 +44,7 @@ class RideDispatchService
             return;
         }
 
-        DB::connection($conn)->transaction(function () use ($conn, $ride, $companyId, $driverIds, $ttl) {
+        DB::connection($conn)->transaction(function () use ($conn, $ride, $companyId, $driverIds, $ttl, $assignCompany) {
             $locked = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->first();
             if (! $locked || $locked->driver_id || $locked->hasPendingPickupProposal()) {
                 return;
@@ -76,13 +76,39 @@ class RideDispatchService
                 );
             }
 
-            $locked->update([
+            $updates = [
                 'status' => RideRequest::STATUS_OFFERED,
-                'company_id' => $locked->company_id ?: $companyId,
-            ]);
+            ];
+            if ($assignCompany && ! $locked->company_id) {
+                $updates['company_id'] = $companyId;
+            }
+            $locked->update($updates);
         });
 
         $this->push->notifyDrivers($driverIds, (int) $ride->id);
+    }
+
+    /**
+     * @param  list<int>  $companyIds
+     */
+    public function startDispatchForCompanies(
+        string $conn,
+        RideRequest $ride,
+        array $companyIds,
+        bool $assignCompany = true
+    ): void {
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $companyIds),
+            static fn (int $id): bool => $id > 0
+        )));
+
+        foreach ($ids as $companyId) {
+            $current = $ride->fresh() ?? $ride;
+            if ($current->driver_id) {
+                return;
+            }
+            $this->startDispatch($conn, $current, $companyId, [], $assignCompany);
+        }
     }
 
     public function expireStaleOffers(string $conn, ?int $rideId = null): int
@@ -137,12 +163,15 @@ class RideDispatchService
             return;
         }
 
-        $companyId = (int) $ride->company_id;
-        if ($companyId <= 0) {
+        $companyIds = (int) $ride->company_id > 0
+            ? [(int) $ride->company_id]
+            : $ride->marketplaceCandidateCompanyIds();
+        if ($companyIds === []) {
             return;
         }
 
-        $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
+        $pickupCutoffCompanyId = $companyIds[0];
+        $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($pickupCutoffCompanyId);
         if ($ride->pickup_at && $ride->pickup_at->lt($pickupCutoff)) {
             return;
         }
@@ -151,42 +180,45 @@ class RideDispatchService
             return;
         }
 
-        $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
-        $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
-        $driverIds = $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
+        $now = now();
+        $driverIdsToNotify = [];
 
-        if ($driverIds === []) {
-            return;
+        foreach ($companyIds as $companyId) {
+            $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
+            $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
+            $driverIds = $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
+            $expires = $now->copy()->addSeconds($ttl);
+
+            foreach ($driverIds as $driverId) {
+                if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
+                    continue;
+                }
+
+                RideDispatchOffer::on($conn)->updateOrCreate(
+                    [
+                        'ride_request_id' => $ride->id,
+                        'driver_id' => $driverId,
+                    ],
+                    [
+                        'company_id' => $companyId,
+                        'status' => RideDispatchOffer::STATUS_PENDING,
+                        'wave' => 1,
+                        'offered_at' => $now,
+                        'expires_at' => $expires,
+                        'responded_at' => null,
+                        'archived_at' => null,
+                    ]
+                );
+
+                $driverIdsToNotify[] = $driverId;
+            }
         }
 
-        $now = now();
-        $expires = $now->copy()->addSeconds($ttl);
-
-        foreach ($driverIds as $driverId) {
-            if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
-                continue;
-            }
-
-            RideDispatchOffer::on($conn)->updateOrCreate(
-                [
-                    'ride_request_id' => $ride->id,
-                    'driver_id' => $driverId,
-                ],
-                [
-                    'company_id' => $companyId,
-                    'status' => RideDispatchOffer::STATUS_PENDING,
-                    'wave' => 1,
-                    'offered_at' => $now,
-                    'expires_at' => $expires,
-                    'responded_at' => null,
-                    'archived_at' => null,
-                ]
-            );
-
+        foreach (array_unique($driverIdsToNotify) as $driverId) {
             $this->push->notifyDriver($driverId, (int) $ride->id);
         }
 
-        if ($ride->status === RideRequest::STATUS_PENDING_DISPATCH) {
+        if ($ride->status === RideRequest::STATUS_PENDING_DISPATCH && $driverIdsToNotify !== []) {
             $ride->update(['status' => RideRequest::STATUS_OFFERED]);
         }
     }
@@ -211,7 +243,7 @@ class RideDispatchService
         $expires = $now->copy()->addSeconds($ttl);
 
         $rides = RideRequest::on($conn)
-            ->where('company_id', $companyId)
+            ->ownedOrUnclaimedMarketplaceForCompany($companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
             ->withoutPendingPickupProposal()
@@ -299,7 +331,7 @@ class RideDispatchService
         $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
 
         $rides = RideRequest::on($conn)
-            ->where('company_id', $companyId)
+            ->ownedOrUnclaimedMarketplaceForCompany($companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
             ->withoutPendingPickupProposal()

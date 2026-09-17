@@ -61,6 +61,8 @@ class TaxiDispatchPaymentSettingsTest extends TestCase
 
         $options = $service->paymentOptionsForTenant($companyId);
         $this->assertFalse($options['booking']);
+        $this->assertTrue($options['driver']);
+        $this->assertTrue($options['cash']);
         $this->assertFalse($options['mollie_configured']);
 
         PaymentProvider::create([
@@ -76,6 +78,7 @@ class TaxiDispatchPaymentSettingsTest extends TestCase
         $options = $service->paymentOptionsForTenant($companyId);
         $this->assertTrue($options['booking']);
         $this->assertTrue($options['driver']);
+        $this->assertTrue($options['cash']);
         $this->assertTrue($options['mollie_configured']);
     }
 

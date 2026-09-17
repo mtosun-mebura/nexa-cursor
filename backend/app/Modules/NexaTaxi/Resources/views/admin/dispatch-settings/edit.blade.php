@@ -397,7 +397,7 @@
                                    name="payment_booking_enabled"
                                    value="1"
                                    {{ old('payment_booking_enabled', $paymentBookingEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Klant betaalt direct via Mollie na het bevestigen van de boeking</span>
+                            <span class="text-sm text-secondary-foreground">Klant kan daarnaast direct via Mollie betalen na het bevestigen van de boeking</span>
                         </label>
                     </td>
                 </tr>
@@ -411,10 +411,10 @@
                                    name="payment_driver_enabled"
                                    value="1"
                                    {{ old('payment_driver_enabled', $paymentDriverEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Chauffeur toont QR-code; rit afronden pas na betaling</span>
+                            <span class="text-sm text-secondary-foreground">Daarnaast QR-code via Mollie in de chauffeur-app</span>
                         </label>
                         <p class="text-xs text-muted-foreground mt-1">
-                            Als beide opties aan staan, kiest de klant bij de boeking. Vereist een actieve Mollie-provider voor dit bedrijf (zie hierboven).
+                            Contant betalen is altijd beschikbaar. De rit wordt pas afgerond na betaling; daarna kan de chauffeur een factuur naar de klant sturen. Deze vinkjes voegen online betalen bij boeking of QR in de app toe. QR en boeking vereisen een actieve Mollie-provider voor dit bedrijf (zie hierboven).
                         </p>
                     </td>
                 </tr>

@@ -115,6 +115,15 @@ class CentralWelcomePageServiceTest extends TestCase
         $this->assertSame('Online boeking, chauffeur-app en contractvervoer in één platform.', $sections['hero']['subtitle'] ?? null);
         $this->assertStringContainsString('hero-nexa-platform.png', (string) ($sections['hero']['background_image_url'] ?? ''));
         $this->assertContains('component:website.screenshot_gallery', $sections['section_order'] ?? []);
+        $this->assertContains(CentralWelcomePageService::HOME_BOOKING_SECTION_KEY, $sections['section_order'] ?? []);
+        $this->assertSame(
+            'hero',
+            ($sections['section_order'] ?? [])[0] ?? null
+        );
+        $this->assertSame(
+            CentralWelcomePageService::HOME_BOOKING_SECTION_KEY,
+            ($sections['section_order'] ?? [])[1] ?? null
+        );
         $this->assertContains('component:website.comparison_table', $sections['section_order'] ?? []);
         $this->assertContains('component:vue_material.elevated_cards', $sections['section_order'] ?? []);
         $this->assertContains('component:landwind.stats_strip', $sections['section_order'] ?? []);
@@ -231,5 +240,42 @@ class CentralWelcomePageServiceTest extends TestCase
         $central->ensurePricingOnHomePage($page->fresh());
         $page->refresh();
         $this->assertNotContains($key, $page->getHomeSections()['section_order'] ?? []);
+    }
+
+    #[Test]
+    public function ensure_booking_module_on_home_inserts_the_module_after_hero(): void
+    {
+        if (! Schema::hasTable('website_pages')) {
+            $this->markTestSkipped('website_pages table required');
+        }
+
+        FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+
+        $central = app(CentralWelcomePageService::class);
+        $page = $central->ensurePageExists();
+        $key = CentralWelcomePageService::HOME_BOOKING_SECTION_KEY;
+        $sections = $page->getHomeSections();
+        $sections['section_order'] = array_values(array_filter(
+            is_array($sections['section_order'] ?? null) ? $sections['section_order'] : [],
+            fn ($item) => $item !== $key
+        ));
+        unset($sections[$key]);
+        $page->home_sections = $sections;
+        $page->save();
+
+        $central->ensureBookingModuleOnHomePage($page->fresh());
+        $page->refresh();
+        $order = $page->getHomeSections()['section_order'] ?? [];
+        $this->assertContains($key, $order);
+        $heroAt = array_search('hero', $order, true);
+        $bookingAt = array_search($key, $order, true);
+        $this->assertNotFalse($heroAt);
+        $this->assertSame($heroAt + 1, $bookingAt);
+        $this->assertNotEmpty($page->getHomeSections()[$key] ?? null);
+        $this->assertSame('person_range', $page->getHomeSections()[$key]['logic']['offer_display_mode'] ?? null);
+        $this->assertSame(10.0, (float) ($page->getHomeSections()[$key]['logic']['marketplace_radius_km'] ?? 0));
     }
 }

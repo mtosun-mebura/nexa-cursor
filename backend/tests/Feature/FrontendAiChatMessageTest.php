@@ -243,6 +243,38 @@ class FrontendAiChatMessageTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_central_website_chat_starts_booking_flow_for_travel_intent(): void
+    {
+        Http::fake();
+
+        config()->set('tenancy.central_domains', ['localhost']);
+        config()->set('app.url', 'http://localhost:8085');
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\ResolveTenantFromHost::class,
+            \App\Http\Middleware\TenantMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ])->postJson('/ai-chat/message', [
+            'message' => 'ik wil naar Dusseldorf Airport',
+            'module' => 'nexa',
+            'sessionId' => 'central-dusseldorf-booking',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('input.type', 'address')
+            ->assertJsonPath('input.step', 'pickup');
+
+        $reply = mb_strtolower((string) $response->json('reply'));
+        $this->assertTrue(
+            str_contains($reply, 'dusseldorf') || str_contains($reply, 'düsseldorf'),
+            $reply
+        );
+        $this->assertStringContainsString('vanaf welk adres', $reply);
+
+        Http::assertNothingSent();
+    }
+
     public function test_central_website_chat_answers_package_questions(): void
     {
         Http::fake();

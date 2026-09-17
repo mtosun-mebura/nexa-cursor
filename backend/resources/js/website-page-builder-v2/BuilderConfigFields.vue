@@ -1456,7 +1456,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           :min="field.min"
           :max="field.max"
           :step="field.step ?? 1"
-          :value="num(field.key, field.min ?? 0)"
+          :value="num(field.key, field.defaultValue ?? field.min ?? 0)"
           @input="updateField(field.key, Number(($event.target as HTMLInputElement).value))"
         />
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>

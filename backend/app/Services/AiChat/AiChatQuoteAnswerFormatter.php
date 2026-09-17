@@ -50,7 +50,7 @@ final class AiChatQuoteAnswerFormatter
             }
         }
 
-        if (count($offers) > 1) {
+        if (count($offers) > 1 && ! str_starts_with((string) ($cheapest['id'] ?? ''), 'person_range_')) {
             $lines[] = 'Andere opties:';
             foreach (array_slice($offers, 1, 3) as $offer) {
                 $lines[] = '- '.trim((string) ($offer['title'] ?? 'Optie')).': € '.$this->formatMoney((float) ($offer['price'] ?? 0));

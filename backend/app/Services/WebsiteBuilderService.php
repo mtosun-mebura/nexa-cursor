@@ -1969,6 +1969,10 @@ class WebsiteBuilderService
             return app(CentralWelcomePageService::class)->ensurePageExists();
         }
 
+        if ($page !== null && $this->resolvedPublicTenantCompanyId() === null) {
+            return app(CentralWelcomePageService::class)->ensureBookingModuleOnHomePage($page);
+        }
+
         return $page;
     }
 

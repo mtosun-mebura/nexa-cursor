@@ -62,6 +62,7 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertSame('nexa', $config['module']);
         $this->assertSame('NEXA-assistent', $config['title']);
         $this->assertStringContainsString('NEXA Suite', $config['greeting']);
+        $this->assertStringContainsString('Düsseldorf Airport', $config['greeting']);
     }
 
     public function test_frontend_config_uses_product_copy_on_central_website_even_when_branding_is_taxi(): void
@@ -79,6 +80,7 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertSame('nexa', $config['module']);
         $this->assertSame('NEXA-assistent', $config['title']);
         $this->assertStringContainsString('NEXA Suite', $config['greeting']);
+        $this->assertStringContainsString('Düsseldorf Airport', $config['greeting']);
         $this->assertSame('ai-chat-messages-public-nexa-central-guest', $config['storageKey']);
     }
 
@@ -154,6 +156,9 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertFalse($config['requiresTenant']);
         $this->assertStringContainsString('alle tenants', $config['subtitle']);
         $this->assertStringContainsString('NEXA-facturen', $config['greeting']);
+        $this->assertSame('/admin/ai-chat/message', $config['endpoint']);
+        $this->assertStringStartsWith('/', $config['addressSearchUrl']);
+        $this->assertStringNotContainsString('://', $config['endpoint']);
     }
 
     public function test_admin_config_for_company_admin_mentions_omzet_and_planning(): void

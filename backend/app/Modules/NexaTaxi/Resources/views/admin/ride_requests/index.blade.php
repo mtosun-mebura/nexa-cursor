@@ -12,8 +12,23 @@
 
     @include('taxi::admin.ride_requests.partials.monthly-stats')
 
+    @php
+        $canDeleteRides = auth()->user()->hasRole('super-admin') || auth()->user()->can('rides.delete');
+    @endphp
     <div class="kt-card w-full min-w-0 scroll-mt-[calc(var(--kt-header-height,4.375rem)+1rem)]" id="ritten-overzicht" data-admin-restore-anchor>
-        <div class="kt-card-header py-5 px-5 flex-wrap gap-2 min-w-0">
+        <div class="kt-card-header py-5 px-5 flex-wrap gap-2 min-w-0 admin-bulk-header">
+            @if($canDeleteRides)
+            <button type="submit"
+                    form="rides-bulk-delete-form"
+                    id="rides-bulk-delete"
+                    class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
+                    hidden
+                    aria-label="Geselecteerde ritten verwijderen"
+                    title="Verwijderen">
+                <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                <span class="admin-bulk-delete__count">(<span data-rides-selected-count>0</span>)</span>
+            </button>
+            @endif
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Overzicht ritten</h3>
             <div class="flex flex-col sm:flex-row flex-wrap gap-2 gap-2.5 w-full justify-end items-stretch sm:items-center min-w-0">
                 <form method="GET" action="{{ route('admin.taxi.ride_requests.index') }}" id="ride-filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
@@ -62,14 +77,21 @@
             @if($rideRequests->count() > 0)
             <div class="rides-list-table-wrap min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
-            <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full rides-list-table">
+            <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full rides-list-table @if($canDeleteRides) has-ride-check @endif">
                 <thead>
                     <tr>
-                        <th class="text-secondary-foreground font-normal text-left" data-label="Datum/tijd">Datum/tijd</th>
-                        <th class="text-secondary-foreground font-normal text-left" data-label="Klant">Klant</th>
-                        <th class="text-secondary-foreground font-normal text-left" data-label="Route">Route</th>
-                        <th class="text-secondary-foreground font-normal text-left" data-label="Status">Status</th>
-                        <th class="text-secondary-foreground font-normal text-left" data-label="Prijs">Prijs</th>
+                        @if($canDeleteRides)
+                        <th class="admin-table__check-col text-center" data-no-row-link data-label="">
+                            <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" class="kt-checkbox" id="rides-select-all" aria-label="Alles selecteren">
+                            </label>
+                        </th>
+                        @endif
+                        <th class="rides-list-table__datetime text-secondary-foreground font-normal text-left" data-label="Datum/tijd">Datum/tijd</th>
+                        <th class="rides-list-table__customer text-secondary-foreground font-normal text-left" data-label="Klant">Klant</th>
+                        <th class="rides-list-table__route text-secondary-foreground font-normal text-left" data-label="Route">Route</th>
+                        <th class="rides-list-table__status text-secondary-foreground font-normal text-left" data-label="Status">Status</th>
+                        <th class="rides-list-table__price text-secondary-foreground font-normal text-left" data-label="Prijs">Prijs</th>
                         <th class="rides-list-table__actions-col text-secondary-foreground font-normal" data-label="Acties">Acties</th>
                     </tr>
                 </thead>
@@ -114,6 +136,16 @@
                             aria-label="Bekijk rit #{{ $r->id }}"
                         @endif
                     >
+                        @if($canDeleteRides)
+                        <td class="admin-table__check-col text-center" data-no-row-link data-label="" onclick="event.stopPropagation();">
+                            <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox"
+                                       class="kt-checkbox ride-row-checkbox"
+                                       value="{{ $r->id }}"
+                                       aria-label="Selecteer rit #{{ $r->id }}">
+                            </label>
+                        </td>
+                        @endif
                         <td class="rides-list-table__datetime">
                             <span class="rides-list-table__date block whitespace-nowrap">{{ $r->pickup_at->format('d-m-Y') }}</span>
                             <span class="rides-list-table__time block whitespace-nowrap text-muted-foreground text-xs">{{ $r->pickup_at->format('H:i') }}</span>
@@ -234,6 +266,19 @@
         @endif
     </div>
 </div>
+@if($canDeleteRides)
+<form method="POST"
+      action="{{ route('admin.taxi.ride_requests.bulk-destroy') }}"
+      id="rides-bulk-delete-form"
+      class="hidden"
+      data-admin-confirm="Weet je zeker dat je de geselecteerde ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
+      data-admin-confirm-title="Ritten verwijderen"
+      data-admin-confirm-label="Verwijderen">
+    @csrf
+    @method('DELETE')
+    <div id="rides-bulk-delete-ids"></div>
+</form>
+@endif
 @push('styles')
 <style>
     #ride-stats-collapsible-root .settings-collapsible-toggle:hover .kt-card-title {
@@ -261,28 +306,44 @@
         min-width: 100%;
     }
 
-    #content .rides-list-table th:nth-child(1),
-    #content .rides-list-table td:nth-child(1) {
+    #content .rides-list-table th.admin-table__check-col,
+    #content .rides-list-table td.admin-table__check-col {
+        width: 2.75rem !important;
+        min-width: 2.75rem !important;
+        max-width: 2.75rem !important;
+        padding-inline: 0.375rem !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+    #content .rides-list-table .admin-table__check-col .kt-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 2rem;
+        margin: 0;
+    }
+    #content .rides-list-table .admin-table__check-col .kt-checkbox {
+        margin: 0;
+    }
+
+    #content .rides-list-table .rides-list-table__datetime {
         width: 15%;
     }
 
-    #content .rides-list-table th:nth-child(2),
-    #content .rides-list-table td:nth-child(2) {
+    #content .rides-list-table .rides-list-table__customer {
         width: 16%;
     }
 
-    #content .rides-list-table th:nth-child(3),
-    #content .rides-list-table td:nth-child(3) {
+    #content .rides-list-table .rides-list-table__route {
         width: 32%;
     }
 
-    #content .rides-list-table th:nth-child(4),
-    #content .rides-list-table td:nth-child(4) {
+    #content .rides-list-table .rides-list-table__status {
         width: 16%;
     }
 
-    #content .rides-list-table th:nth-child(5),
-    #content .rides-list-table td:nth-child(5) {
+    #content .rides-list-table .rides-list-table__price {
         width: 11%;
     }
 
@@ -499,23 +560,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     { name: 'Voltooid', type: 'column', data: daily.map(function (d) { return d.completed; }) },
                     { name: 'Omzet', type: 'line', data: daily.map(function (d) { return d.revenue; }) }
                 ],
-                chart: { height: 280, type: 'line', toolbar: { show: false }, fontFamily: 'inherit', zoom: { enabled: false } },
-                stroke: { width: [0, 3], curve: 'smooth' },
+                chart: { height: 168, type: 'line', toolbar: { show: false }, fontFamily: 'inherit', zoom: { enabled: false }, parentHeightOffset: 0 },
+                stroke: { width: [0, 2], curve: 'smooth' },
                 colors: [primary, success],
-                plotOptions: { bar: { columnWidth: '42%', borderRadius: 3 } },
+                plotOptions: { bar: { columnWidth: '42%', borderRadius: 2 } },
                 dataLabels: { enabled: false },
                 xaxis: {
                     categories: daily.map(function (d) { return d.label; }),
-                    labels: { style: { colors: labelColor, fontSize: '11px' } },
+                    labels: { style: { colors: labelColor, fontSize: '10px' } },
                     axisBorder: { show: false },
                     axisTicks: { show: false }
                 },
                 yaxis: [
-                    { labels: { style: { colors: labelColor, fontSize: '11px' } }, min: 0, forceNiceScale: true },
-                    { opposite: true, labels: { style: { colors: labelColor, fontSize: '11px' }, formatter: euro }, min: 0 }
+                    { labels: { style: { colors: labelColor, fontSize: '10px' } }, min: 0, forceNiceScale: true },
+                    { opposite: true, labels: { style: { colors: labelColor, fontSize: '10px' }, formatter: euro }, min: 0 }
                 ],
-                legend: { position: 'top', horizontalAlign: 'left', labels: { colors: labelColor } },
-                grid: { borderColor: gridColor, strokeDashArray: 4, xaxis: { lines: { show: false } } },
+                legend: { position: 'top', horizontalAlign: 'left', fontSize: '11px', itemMargin: { horizontal: 8, vertical: 0 }, labels: { colors: labelColor } },
+                grid: { borderColor: gridColor, strokeDashArray: 4, padding: { top: 0, right: 4, bottom: 0, left: 0 }, xaxis: { lines: { show: false } } },
                 tooltip: {
                     shared: true,
                     y: [
@@ -535,16 +596,16 @@ document.addEventListener('DOMContentLoaded', function() {
             var paymentChart = new ApexCharts(paymentEl, {
                 series: (cash === 0 && mollie === 0) ? [1] : [cash, mollie],
                 labels: (cash === 0 && mollie === 0) ? ['Geen omzet'] : ['Cash', 'Mollie'],
-                chart: { type: 'donut', height: 220, fontFamily: 'inherit' },
+                chart: { type: 'donut', height: 140, fontFamily: 'inherit', parentHeightOffset: 0 },
                 colors: (cash === 0 && mollie === 0) ? ['#94a3b8'] : [warning, primary],
-                legend: { position: 'bottom', labels: { colors: labelColor } },
-                dataLabels: { enabled: cash + mollie > 0 },
+                legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: labelColor } },
+                dataLabels: { enabled: false },
                 stroke: { width: 0 },
                 tooltip: {
                     y: { formatter: function (val) { return (cash === 0 && mollie === 0) ? '—' : euro(val); } }
                 },
                 plotOptions: {
-                    pie: { donut: { size: '68%', labels: { show: true, total: { show: true, label: 'Totaal', formatter: function () { return euro(cash + mollie); } } } } }
+                    pie: { donut: { size: '70%', labels: { show: true, name: { fontSize: '11px' }, value: { fontSize: '13px' }, total: { show: true, label: 'Totaal', fontSize: '11px', formatter: function () { return euro(cash + mollie); } } } } }
                 }
             });
             paymentChart.render();
@@ -557,11 +618,11 @@ document.addEventListener('DOMContentLoaded', function() {
             var statusChart = new ApexCharts(statusEl, {
                 series: statusRows.length ? statusRows.map(function (row) { return row.value; }) : [1],
                 labels: statusRows.length ? statusRows.map(function (row) { return row.label; }) : ['Geen ritten'],
-                chart: { type: 'donut', height: 220, fontFamily: 'inherit' },
-                legend: { position: 'bottom', labels: { colors: labelColor } },
-                dataLabels: { enabled: statusRows.length > 0 },
+                chart: { type: 'donut', height: 140, fontFamily: 'inherit', parentHeightOffset: 0 },
+                legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: labelColor } },
+                dataLabels: { enabled: false },
                 stroke: { width: 0 },
-                plotOptions: { pie: { donut: { size: '68%' } } }
+                plotOptions: { pie: { donut: { size: '70%', labels: { show: true, name: { fontSize: '11px' }, value: { fontSize: '13px' } } } } }
             });
             statusChart.render();
             window.rideStatsCharts.push(statusChart);
@@ -588,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         row.addEventListener('keydown', function(event) {
             if (event.key === 'Enter' || event.key === ' ') {
-                if (event.target.closest('[data-no-row-link]')) {
+                if (event.target.closest('[data-no-row-link], input[type="checkbox"]')) {
                     return;
                 }
                 event.preventDefault();
@@ -596,6 +657,100 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    (function bindRidesBulkDelete() {
+        var table = document.querySelector('.rides-list-table');
+        if (!table || !document.getElementById('rides-select-all')) {
+            return;
+        }
+
+        function selectAllBox() {
+            return document.getElementById('rides-select-all');
+        }
+
+        function bulkBtn() {
+            return document.getElementById('rides-bulk-delete');
+        }
+
+        function rowCheckboxes() {
+            return Array.from(document.querySelectorAll('.ride-row-checkbox'));
+        }
+
+        function selectedCheckboxes() {
+            return rowCheckboxes().filter(function (cb) { return cb.checked; });
+        }
+
+        function fillBulkForm() {
+            var bulkIds = document.getElementById('rides-bulk-delete-ids');
+            if (!bulkIds) {
+                return;
+            }
+            bulkIds.innerHTML = '';
+            selectedCheckboxes().forEach(function (cb) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = cb.value;
+                bulkIds.appendChild(input);
+            });
+        }
+
+        function syncRidesBulkSelection() {
+            var selectAll = selectAllBox();
+            var btn = bulkBtn();
+            var countEl = document.querySelector('[data-rides-selected-count]');
+            var rows = rowCheckboxes();
+            var selected = selectedCheckboxes();
+            if (selectAll) {
+                selectAll.checked = rows.length > 0 && selected.length === rows.length;
+                selectAll.indeterminate = selected.length > 0 && selected.length < rows.length;
+            }
+            if (countEl) {
+                countEl.textContent = String(selected.length);
+            }
+            if (btn) {
+                var show = selected.length > 0;
+                btn.hidden = !show;
+                btn.classList.toggle('hidden', !show);
+            }
+            fillBulkForm();
+            var bulkForm = document.getElementById('rides-bulk-delete-form');
+            if (bulkForm) {
+                var count = selected.length;
+                bulkForm.setAttribute(
+                    'data-admin-confirm',
+                    count === 1
+                        ? 'Weet je zeker dat je deze rit wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                        : 'Weet je zeker dat je ' + count + ' ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                );
+                bulkForm.setAttribute(
+                    'data-admin-confirm-title',
+                    count === 1 ? 'Rit verwijderen' : 'Ritten verwijderen'
+                );
+                bulkForm.setAttribute('data-admin-confirm-label', 'Verwijderen');
+            }
+        }
+
+        document.addEventListener('change', function (e) {
+            var target = e.target;
+            if (!target) {
+                return;
+            }
+            if (target.id === 'rides-select-all') {
+                var checked = target.checked;
+                rowCheckboxes().forEach(function (cb) {
+                    cb.checked = checked;
+                });
+                syncRidesBulkSelection();
+                return;
+            }
+            if (target.classList && target.classList.contains('ride-row-checkbox')) {
+                syncRidesBulkSelection();
+            }
+        });
+
+        syncRidesBulkSelection();
+    })();
 });
 </script>
 @endpush

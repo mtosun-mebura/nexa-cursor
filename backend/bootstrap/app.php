@@ -169,9 +169,13 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($intended === null && ! $request->is('admin/login') && ! $request->is('admin/meld/*')) {
                 $intended = AdminReturnUrl::resolveIntended($request->fullUrl());
             }
+            $isJson = $request->expectsJson() || $request->ajax() || $request->wantsJson();
             if (! $isFirstLoginJson && $intended !== null && $request->hasSession()) {
                 $request->session()->put('url.intended', $intended);
-                $request->session()->regenerateToken();
+                // JSON-clients (AI-chat) houden hun meta-token; geef het huidige token terug i.p.v. te roteren.
+                if (! $isJson) {
+                    $request->session()->regenerateToken();
+                }
             }
             $loginUrl = AdminReturnUrl::loginUrlWithIntended($intended);
             $meldUrl = '/admin/meld/sessie-verlopen?'.http_build_query(array_filter([
@@ -180,11 +184,13 @@ return Application::configure(basePath: dirname(__DIR__))
             $message = 'Uw sessie is verlopen. Log opnieuw in.';
 
             if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+                $csrfToken = $request->hasSession() ? $request->session()->token() : null;
+
                 if ($isFirstLoginJson) {
                     return response()->json([
                         'message' => 'De beveiligingstoken is vernieuwd. Probeer het opnieuw.',
                         'code' => 'csrf_mismatch',
-                        'csrf_token' => $request->hasSession() ? $request->session()->token() : null,
+                        'csrf_token' => $csrfToken,
                     ], 419);
                 }
 
@@ -193,7 +199,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
 
                 return response()->json([
+                    'success' => false,
+                    'error' => $message,
                     'message' => $message,
+                    'code' => 'csrf_mismatch',
+                    'csrf_token' => $csrfToken,
                     'redirect' => $request->is('admin/login') ? $loginUrl : $meldUrl,
                 ], 419);
             }
