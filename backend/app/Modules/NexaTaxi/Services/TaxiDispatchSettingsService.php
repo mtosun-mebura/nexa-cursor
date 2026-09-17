@@ -404,16 +404,11 @@ class TaxiDispatchSettingsService
      */
     public function paymentOptionsForTenant(?int $companyId = null): array
     {
-        $cacheKey = 'payopt:'.(int) ($companyId ?? 0);
-        if (isset($this->requestCache[$cacheKey]) && is_array($this->requestCache[$cacheKey])) {
-            return $this->requestCache[$cacheKey];
-        }
-
         $mollieAllowed = app(\App\Services\CompanyEntitlementService::class)
             ->allowsCompanyId($companyId, \App\Support\TenantPackageCapability::MOLLIE_PAYMENTS);
         $mollieConfigured = $mollieAllowed && $this->hasMollieConfigured($companyId);
 
-        return $this->requestCache[$cacheKey] = [
+        return [
             'booking' => $mollieConfigured && $this->paymentBookingEnabled($companyId),
             'driver' => $mollieAllowed && $this->paymentDriverEnabled($companyId),
             'cash' => true,

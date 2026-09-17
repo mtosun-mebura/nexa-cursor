@@ -350,12 +350,16 @@ class RideRequest extends Model
                 ->orWhere(function ($marketplace) use ($companyId) {
                     $marketplace->where(function ($source) {
                         $source->where('source', self::SOURCE_NEXA_SUITE)
-                            ->orWhere('booking_payload->channel', self::SOURCE_NEXA_SUITE);
+                            ->orWhere(function ($payload) {
+                                $payload->whereNotNull('booking_payload')
+                                    ->where('booking_payload->channel', self::SOURCE_NEXA_SUITE);
+                            });
                     })
                         ->whereNull('driver_id')
                         ->where(function ($company) {
                             $company->whereNull('company_id')->orWhere('company_id', 0);
                         })
+                        ->whereNotNull('booking_payload')
                         ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
                 });
         });

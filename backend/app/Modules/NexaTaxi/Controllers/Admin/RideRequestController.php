@@ -455,7 +455,10 @@ class RideRequestController extends Controller
                     ->orWhere(function ($marketplace) use ($tenantId) {
                         $marketplace->where(function ($source) {
                             $source->where('source', RideRequest::SOURCE_NEXA_SUITE)
-                                ->orWhere('booking_payload->channel', RideRequest::SOURCE_NEXA_SUITE);
+                                ->orWhere(function ($payload) {
+                                    $payload->whereNotNull('booking_payload')
+                                        ->where('booking_payload->channel', RideRequest::SOURCE_NEXA_SUITE);
+                                });
                         })
                             ->whereNull('driver_id')
                             ->where(function ($company) use ($tenantId) {
@@ -463,6 +466,7 @@ class RideRequestController extends Controller
                                     ->orWhere('company_id', 0)
                                     ->orWhere('company_id', $tenantId);
                             })
+                            ->whereNotNull('booking_payload')
                             ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $tenantId);
                     });
             });
@@ -478,7 +482,10 @@ class RideRequestController extends Controller
                     ->orWhere(function ($marketplace) use ($companyId) {
                         $marketplace->where(function ($source) {
                             $source->where('source', RideRequest::SOURCE_NEXA_SUITE)
-                                ->orWhere('booking_payload->channel', RideRequest::SOURCE_NEXA_SUITE);
+                                ->orWhere(function ($payload) {
+                                    $payload->whereNotNull('booking_payload')
+                                        ->where('booking_payload->channel', RideRequest::SOURCE_NEXA_SUITE);
+                                });
                         })
                             ->whereNull('driver_id')
                             ->where(function ($company) use ($companyId) {
@@ -486,6 +493,7 @@ class RideRequestController extends Controller
                                     ->orWhere('company_id', 0)
                                     ->orWhere('company_id', $companyId);
                             })
+                            ->whereNotNull('booking_payload')
                             ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
                     });
             });

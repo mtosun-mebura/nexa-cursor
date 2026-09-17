@@ -135,15 +135,25 @@ final class TaxiDispatchSchema
         self::$ready[$key] = true;
     }
 
+    public static function resetCache(): void
+    {
+        self::$ready = [];
+    }
+
     /**
      * @param  callable(): bool  $callback
      */
     private static function remember(string $key, callable $callback): bool
     {
-        if (array_key_exists($key, self::$ready)) {
-            return self::$ready[$key];
+        if (! empty(self::$ready[$key])) {
+            return true;
         }
 
-        return self::$ready[$key] = (bool) $callback();
+        $result = (bool) $callback();
+        if ($result) {
+            self::$ready[$key] = true;
+        }
+
+        return $result;
     }
 }

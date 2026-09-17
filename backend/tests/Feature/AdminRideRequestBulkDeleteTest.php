@@ -75,6 +75,7 @@ class AdminRideRequestBulkDeleteTest extends TestCase
             $table->dateTime('pickup_at');
             $table->string('customer_name')->nullable();
             $table->decimal('quoted_price', 10, 2)->nullable();
+            $table->json('booking_payload')->nullable();
             $table->timestamps();
         });
 
