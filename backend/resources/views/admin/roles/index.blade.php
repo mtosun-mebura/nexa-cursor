@@ -62,14 +62,14 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm pb-3 w-full">
+            <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
+                <h3 class="kt-card-title text-sm pb-3 w-full mb-0">
                     Toon 1 tot {{ $roles->count() }} van {{ $roles->count() }} rollen
                 </h3>
-                <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end w-full min-w-0">
                     <!-- Search -->
-                    <div class="flex">
-                        <form method="GET" action="{{ route('admin.roles.index') }}" class="flex gap-2" id="search-form">
+                    <div class="flex w-full sm:w-auto min-w-0">
+                        <form method="GET" action="{{ route('admin.roles.index') }}" class="flex w-full min-w-0 gap-2" id="search-form">
                             @if(request('type'))
                                 <input type="hidden" name="type" value="{{ request('type') }}">
                             @endif
@@ -91,7 +91,7 @@
                             @if(request('status'))
                                 <input type="hidden" name="status" value="{{ request('status') }}">
                             @endif
-                            <label class="kt-input w-64" style="position: relative !important;">
+                            <label class="kt-input w-full sm:w-64 min-w-0" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
                                 <input placeholder="Zoek rollen..." 
                                        type="text" 
@@ -103,13 +103,13 @@
                         </form>
                     </div>
                     <!-- Filters -->
-                    <div class="flex flex-wrap gap-2.5 items-center">
-                        <form method="GET" action="{{ route('admin.roles.index') }}" id="filters-form" class="flex gap-2.5">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-stretch sm:items-center w-full sm:w-auto min-w-0">
+                        <form method="GET" action="{{ route('admin.roles.index') }}" id="filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full min-w-0">
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
                             @endif
                             
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="type" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Type"
@@ -119,7 +119,7 @@
                                 <option value="custom" {{ request('type') == 'custom' ? 'selected' : '' }}>Aangepast</option>
                             </select>
                             
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="users" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Gebruikers"
@@ -129,7 +129,7 @@
                                 <option value="without_users" {{ request('users') == 'without_users' ? 'selected' : '' }}>Zonder gebruikers</option>
                             </select>
                             
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="status" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Status"
@@ -139,7 +139,7 @@
                                 <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
                             </select>
                             
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="sort" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Sortering"
@@ -287,7 +287,7 @@
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            <span class="kt-badge kt-badge-sm kt-badge-info">{{ $role->permissions->count() }}</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-info">{{ app(\App\Support\PermissionModuleVisibility::class)->filter($role->permissions)->count() }}</span>
                                         </td>
                                         <td class="text-foreground font-normal">
                                             <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $role->users_count ?? $role->users->count() }}</span>
@@ -415,6 +415,54 @@
 
 @push('styles')
 <style>
+    /* Filtervelden tot tablet onder elkaar; vanaf desktop compact naast elkaar */
+    @media (max-width: 1023px) {
+        #content .kt-card-header .admin-filter-panel,
+        #content .kt-card-header .admin-filter-panel.is-open,
+        #filters-form,
+        #search-form {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+        }
+        #content .kt-card-header .admin-filter-panel > .flex,
+        #filters-form,
+        #search-form {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+        }
+        #content .kt-card-header .admin-filter-panel .kt-input,
+        #content .kt-card-header .admin-filter-panel .kt-select-wrapper,
+        #content .kt-card-header .admin-filter-panel [data-kt-select-wrapper],
+        #search-form .kt-input,
+        #filters-form .kt-select-wrapper,
+        #filters-form [data-kt-select-wrapper] {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box;
+        }
+    }
+    @media (min-width: 1024px) {
+        #filters-form .kt-select-wrapper,
+        #filters-form [data-kt-select-wrapper] {
+            width: 9rem !important;
+            max-width: 9rem !important;
+            flex: 0 0 9rem !important;
+        }
+        #search-form .kt-input {
+            width: 16rem !important;
+            max-width: 16rem !important;
+        }
+        #filters-form {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            width: auto !important;
+        }
+    }
+
     /* Table row hover styling (same as users) */
     .role-row {
         cursor: pointer !important;

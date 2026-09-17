@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\PermissionModuleVisibility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
@@ -90,7 +91,8 @@ class AdminPermissionController extends Controller
         }
         
         // Get all permissions
-        $allPermissions = $query->get();
+        $visibility = app(PermissionModuleVisibility::class);
+        $allPermissions = $visibility->filter($query->get());
 
         $roles = Role::where('guard_name', 'web')->get();
         
@@ -141,6 +143,7 @@ class AdminPermissionController extends Controller
             'notifications' => 'view-notifications',
             'email-templates' => 'view-email-templates',
             'email_templates' => 'view-email-templates',
+            'mailserver' => 'view-mailserver',
             'companies' => 'view-companies',
             'branches' => 'view-branches',
             'roles' => 'view-roles',
@@ -181,15 +184,18 @@ class AdminPermissionController extends Controller
             $accessibleModules->push('instellingen');
         }
         
-        $modules = $accessibleModules->unique()->sort()->values();
+        $modules = $visibility->filterResourceKeys($accessibleModules->unique())->sort()->values();
 
         // Statistieken voor dashboard
-        $viewCount = Permission::where('guard_name', 'web')->where('name', 'like', 'view-%')->count();
-        $createCount = Permission::where('guard_name', 'web')->where('name', 'like', 'create-%')->count();
-        $editCount = Permission::where('guard_name', 'web')->where('name', 'like', 'edit-%')->count();
-        $deleteCount = Permission::where('guard_name', 'web')->where('name', 'like', 'delete-%')->count();
-        $totalCount = Permission::where('guard_name', 'web')->count();
+        $visibleNames = $visibility->filter(Permission::where('guard_name', 'web')->pluck('name'));
+        $viewCount = $visibleNames->filter(fn ($name) => str_starts_with((string) $name, 'view-'))->count();
+        $createCount = $visibleNames->filter(fn ($name) => str_starts_with((string) $name, 'create-'))->count();
+        $editCount = $visibleNames->filter(fn ($name) => str_starts_with((string) $name, 'edit-'))->count();
+        $deleteCount = $visibleNames->filter(fn ($name) => str_starts_with((string) $name, 'delete-'))->count();
+        $totalCount = $visibleNames->count();
         $otherCount = $totalCount - $viewCount - $createCount - $editCount - $deleteCount;
+
+        $visibleNameSet = $visibleNames->map(fn ($name) => (string) $name)->all();
 
         $stats = [
             'total_permissions' => $totalCount,
@@ -197,7 +203,8 @@ class AdminPermissionController extends Controller
                 ->selectRaw('"group", count(*) as count')
                 ->groupBy('group')
                 ->orderBy('count', 'desc')
-                ->get(),
+                ->get()
+                ->filter(fn ($row) => $visibility->isVisibleResourceKey((string) ($row->group ?? ''))),
             'permissions_by_type' => [
                 'view' => $viewCount,
                 'create' => $createCount,
@@ -207,15 +214,21 @@ class AdminPermissionController extends Controller
             ],
             'assigned_permissions' => Permission::where('guard_name', 'web')
                 ->whereHas('roles')
+                ->get()
+                ->filter(fn ($permission) => in_array($permission->name, $visibleNameSet, true))
                 ->count(),
             'unassigned_permissions' => Permission::where('guard_name', 'web')
                 ->whereDoesntHave('roles')
+                ->get()
+                ->filter(fn ($permission) => in_array($permission->name, $visibleNameSet, true))
                 ->count(),
             'most_used_permissions' => Permission::where('guard_name', 'web')
                 ->withCount('roles')
                 ->orderBy('roles_count', 'desc')
-                ->take(5)
                 ->get()
+                ->filter(fn ($permission) => in_array($permission->name, $visibleNameSet, true))
+                ->take(5)
+                ->values(),
         ];
 
         return view('admin.permissions.index', compact('allPermissions', 'roles', 'stats', 'modules'));
@@ -360,7 +373,11 @@ class AdminPermissionController extends Controller
         }
         
         // Re-sort after adding new modules and convert to array
-        $allModules = $allModules->unique()->sort()->values()->toArray();
+        $allModules = app(PermissionModuleVisibility::class)
+            ->filterResourceKeys($allModules->unique())
+            ->sort()
+            ->values()
+            ->toArray();
         
         // Create module display names mapping
         // Use exact names from sidebar menu items
@@ -372,6 +389,7 @@ class AdminPermissionController extends Controller
             'notifications' => 'Notificaties',
             'email-templates' => 'E-mail Templates',
             'email_templates' => 'E-mail Templates',
+            'mailserver' => 'Mailserver',
             'tenant-dashboard' => 'Dashboard',
             'tenant_dashboard' => 'Dashboard',
             'agenda' => 'Agenda',
@@ -532,7 +550,9 @@ class AdminPermissionController extends Controller
             'actions.*' => 'in:' . implode(',', $validActions)
         ]);
 
-        $modules = $request->modules;
+        $modules = app(PermissionModuleVisibility::class)
+            ->filterResourceKeys($request->modules)
+            ->all();
         $actions = $request->actions;
         $createdPermissions = [];
         
@@ -574,6 +594,7 @@ class AdminPermissionController extends Controller
             'notifications' => 'Notificaties',
             'email-templates' => 'E-mail Templates',
             'email_templates' => 'E-mail Templates',
+            'mailserver' => 'Mailserver',
             'tenant-dashboard' => 'Dashboard',
             'tenant_dashboard' => 'Dashboard',
             'agenda' => 'Agenda',
@@ -643,6 +664,10 @@ class AdminPermissionController extends Controller
         }
         
         $selectedModule = $request->get('module'); // Single module selected from dropdown
+        $visibility = app(PermissionModuleVisibility::class);
+        if (is_string($selectedModule) && $selectedModule !== '' && ! $visibility->isVisibleResourceKey($selectedModule)) {
+            abort(404);
+        }
         
         // Get all modules dynamically from database (same as bulkCreate)
         $modulesFromGroup = Permission::where('guard_name', 'web')
@@ -688,7 +713,7 @@ class AdminPermissionController extends Controller
             }
         }
         
-        $allModules = $allModules->unique()->sort()->values()->toArray();
+        $allModules = $visibility->filterResourceKeys($allModules->unique())->sort()->values()->toArray();
         
         // Base module display names mapping
         // Use exact names from sidebar menu items
@@ -700,6 +725,7 @@ class AdminPermissionController extends Controller
             'notifications' => 'Notificaties',
             'email-templates' => 'E-mail Templates',
             'email_templates' => 'E-mail Templates',
+            'mailserver' => 'Mailserver',
             'tenant-dashboard' => 'Dashboard',
             'tenant_dashboard' => 'Dashboard',
             'agenda' => 'Agenda',
@@ -807,7 +833,9 @@ class AdminPermissionController extends Controller
             'actions.*' => 'in:' . implode(',', $validActions)
         ]);
 
-        $modules = $request->modules;
+        $modules = app(PermissionModuleVisibility::class)
+            ->filterResourceKeys($request->modules)
+            ->all();
         $actions = $request->actions;
         
         // Get all modules dynamically from database
@@ -848,6 +876,7 @@ class AdminPermissionController extends Controller
             'notifications' => 'Notificaties',
             'email-templates' => 'E-mail Templates',
             'email_templates' => 'E-mail Templates',
+            'mailserver' => 'Mailserver',
             'tenant-dashboard' => 'Dashboard',
             'tenant_dashboard' => 'Dashboard',
             'agenda' => 'Agenda',

@@ -319,10 +319,11 @@
                     <div class="kt-card-table kt-scrollable-x-auto pb-3 w-full -mx-5" style="border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1);" data-required-checkbox-group="permissions[]">
 
                     @php
-                        $allPermissions = collect($permissions)->flatten();
+                        $visibility = app(\App\Support\PermissionModuleVisibility::class);
+                        $allPermissions = $visibility->filter(collect($permissions)->flatten())->values();
 
                         // Modulepermissies toevoegen (zelfde logica als edit)
-                        $resourceToModuleMap = [];
+                        $resourceToModuleMap = $visibility->resourceToProductModule();
                         if (isset($modulePermissions) && count($modulePermissions) > 0) {
                             foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
                                 $moduleKey = $moduleData['module'];
@@ -358,6 +359,8 @@
                                 }
                             }
                         }
+
+                        $allPermissions = $visibility->filter($allPermissions)->values();
 
                         // Group by module/resource (ondersteunt "action-module", "module.resource.action", "resource.action")
                         $permissionModules = $allPermissions->groupBy(function($permission) use ($resourceToModuleMap) {
@@ -429,6 +432,7 @@
                             'notifications' => 'Notificaties',
                             'email-templates' => 'E-mail Templates',
                             'email_templates' => 'E-mail Templates',
+                            'mailserver' => 'Mailserver',
                             'tenant-dashboard' => 'Tenant Dashboard',
                             'tenant_dashboard' => 'Tenant Dashboard',
                             'agenda' => 'Agenda',
@@ -438,6 +442,8 @@
                             'roles' => 'Rollen en Permissies',
                             'permissions' => 'Permissies',
                             'dashboard' => 'Dashboard',
+                            'earnings' => 'Inkomsten',
+                            'taxi-earnings' => 'Inkomsten',
                         ];
                         if (isset($modulePermissions) && is_array($modulePermissions)) {
                             foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
@@ -448,7 +454,7 @@
                                         $resource = $p[0];
                                         $key = $moduleKey . '-' . $resource;
                                         if (!isset($moduleNames[$key])) {
-                                            $moduleNames[$key] = ucfirst($resource);
+                                            $moduleNames[$key] = $moduleNames[$resource] ?? ucfirst($resource);
                                         }
                                     }
                                 }

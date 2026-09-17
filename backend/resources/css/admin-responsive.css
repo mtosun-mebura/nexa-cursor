@@ -673,12 +673,18 @@ html.dark #content .admin-calendar-toolbar__title,
 
 #content [data-admin-datatable="true"] table.admin-datatable-cols-locked {
     table-layout: fixed;
-    width: 100% !important;
     min-width: 100%;
 }
 
 #content [data-admin-datatable="true"] table.admin-datatable-cols-locked td {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+}
+
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked td:has(.kt-badge),
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked .notifications-status-col {
+    overflow-wrap: normal;
+    word-break: normal;
+    white-space: nowrap;
 }
 
 #content [data-admin-datatable="true"] table.admin-datatable-cols-locked td:last-child {
@@ -1345,19 +1351,29 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         display: flex;
     }
 
-    .admin-filter-panel .flex.w-full.sm\:w-auto,
+    .admin-filter-panel > .flex,
     .admin-filter-panel form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
         width: 100% !important;
-        max-width: 100%;
+        max-width: 100% !important;
+        min-width: 0 !important;
     }
 
     .admin-filter-panel .kt-input,
     .admin-filter-panel .kt-select,
+    .admin-filter-panel .kt-select-wrapper,
+    .admin-filter-panel [data-kt-select-wrapper],
     .admin-filter-panel select,
     .admin-filter-panel input[type="text"],
     .admin-filter-panel input[type="search"] {
         width: 100% !important;
-        max-width: 100%;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 0 0 auto !important;
+        box-sizing: border-box;
     }
 
     .admin-filter-panel .kt-btn {
@@ -1869,20 +1885,19 @@ html.admin-kt-select-open #content .admin-filter-panel {
 }
 
 .admin-list-card__action-buttons {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: flex-start;
-    justify-content: space-evenly;
-    gap: 0.125rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    justify-items: stretch;
+    gap: 0.75rem 0.5rem;
     width: 100%;
 }
 
 .admin-list-card__action-buttons > .admin-list-card__action,
 .admin-list-card__action-buttons .admin-card-action-form {
-    flex: 1 1 0;
     min-width: 0;
-    max-width: 5.5rem;
-    width: auto;
+    max-width: none;
+    width: 100%;
 }
 
 .admin-list-card__action-buttons .admin-card-action-form form {
@@ -1932,18 +1947,25 @@ html.admin-kt-select-open #content .admin-filter-panel {
     background: color-mix(in srgb, var(--muted) 45%, transparent);
 }
 
+.admin-list-card__action-icon svg,
+.admin-list-card__action-svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    display: block;
+}
+
 .admin-list-card__action-caption {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
+    display: block;
+    overflow: visible;
     width: 100%;
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 500;
-    line-height: 1.2;
+    line-height: 1.25;
     letter-spacing: 0.01em;
     color: var(--muted-foreground);
     text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .admin-list-card__action--danger .admin-list-card__action-icon,
@@ -2705,21 +2727,52 @@ html.admin-kt-select-open #content .admin-filter-panel {
     margin: 1rem;
 }
 
-#admin-role-form .role-permissions-scroll {
+#admin-role-form .role-permissions-scroll,
+#content form #admin-role-form .role-permissions-scroll.kt-card-table,
+.role-assigned-permissions.role-permissions-scroll.kt-card-table {
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     -webkit-overflow-scrolling: touch;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    max-width: 100%;
 }
 
-@media (min-width: 1024px) {
-    #admin-role-form .role-permissions-scroll {
-        overflow-x: auto;
-    }
+#admin-role-form .role-permissions-matrix,
+.role-assigned-permissions .role-permissions-matrix {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    table-layout: fixed;
 }
 
-#admin-role-form .role-permissions-matrix {
-    width: max-content;
-    min-width: 100%;
+#admin-role-form .role-permissions-matrix th,
+#admin-role-form .role-permissions-matrix td,
+.role-assigned-permissions .role-permissions-matrix th,
+.role-assigned-permissions .role-permissions-matrix td {
+    min-width: 0 !important;
+}
+
+#admin-role-form .role-permissions-matrix th:first-child,
+#admin-role-form .role-permissions-matrix td.role-permission-resource-name,
+.role-assigned-permissions .role-permissions-matrix th:first-child,
+.role-assigned-permissions .role-permissions-matrix td.role-permission-resource-name {
+    width: 22%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#admin-role-form .role-permissions-matrix th:not(:first-child),
+#admin-role-form .role-permissions-matrix td.role-permission-action-cell,
+.role-assigned-permissions .role-permissions-matrix th:not(:first-child),
+.role-assigned-permissions .role-permissions-matrix td.role-permission-action-cell {
+    width: auto;
+    text-align: center;
+    white-space: nowrap;
+    padding-inline: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media (max-width: 1023px) {
@@ -2739,7 +2792,7 @@ html.admin-kt-select-open #content .admin-filter-panel {
     }
 
     #admin-role-form .role-permissions-scroll {
-        overflow: visible;
+        overflow: visible !important;
         border: none;
     }
 
@@ -2835,6 +2888,104 @@ html.admin-kt-select-open #content .admin-filter-panel {
 
     #admin-role-form .permission-set-btn {
         min-height: 5rem !important;
+    }
+
+    .role-assigned-permissions.role-permissions-scroll.kt-card-table {
+        overflow: visible !important;
+        padding: 0.75rem 1.25rem 1.25rem;
+        border: none;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix {
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: auto;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix thead {
+        display: none;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tbody,
+    .role-assigned-permissions .role-permissions-matrix tr {
+        display: block;
+        width: 100%;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row {
+        margin-top: 0.75rem;
+        margin-bottom: 0.375rem;
+        border-radius: 0.5rem;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row:first-child {
+        margin-top: 0;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row td {
+        display: block;
+        width: 100% !important;
+        padding: 0.5rem 0.75rem !important;
+        border: none !important;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem 0.5rem;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--card, var(--background));
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td {
+        border: none !important;
+        overflow: visible !important;
+        text-overflow: unset;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-resource-name {
+        display: block;
+        flex: 1 0 100%;
+        width: 100% !important;
+        padding: 0 0 0.25rem !important;
+        white-space: normal;
+        text-align: left;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:not(:has(svg)) {
+        display: none !important;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:has(svg) {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 0.25rem;
+        width: auto !important;
+        padding: 0.25rem 0.625rem !important;
+        border-radius: 9999px;
+        background: color-mix(in oklab, var(--primary) 14%, transparent);
+        white-space: nowrap;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:has(svg)::before {
+        content: attr(data-permission-action);
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--foreground);
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        margin: 0 !important;
+        flex: 0 0 auto;
     }
 }
 

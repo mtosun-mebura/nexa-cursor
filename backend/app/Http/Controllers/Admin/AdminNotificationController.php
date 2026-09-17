@@ -219,37 +219,16 @@ class AdminNotificationController extends Controller
         // Sortering
         $sortField = $request->get('sort', 'created_at');
         $sortDirection = $request->get('direction', 'desc');
-        
-        // Valideer sorteer veld
-        $allowedSortFields = ['id', 'user_id', 'type', 'status', 'created_at'];
-        if (!in_array($sortField, $allowedSortFields)) {
+        $allowedSortFields = ['id', 'user_id', 'user', 'sender', 'content', 'type', 'status', 'created_at'];
+        if (! in_array($sortField, $allowedSortFields, true)) {
             $sortField = 'created_at';
         }
-        
-        // Set default direction based on sort field
-        if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
-            if (in_array($sortField, ['created_at'])) {
-                $sortDirection = 'desc';
-            } else {
-                $sortDirection = 'asc';
-            }
+        if (! in_array($sortDirection, ['asc', 'desc'], true)) {
+            $sortDirection = in_array($sortField, ['created_at', 'id'], true) ? 'desc' : 'asc';
         }
-        
-        // Speciale behandeling voor status sortering
-        if ($sortField === 'status') {
-            // Sorteer op status met logische volgorde: Ongelezen, Gelezen
-            $query->orderByRaw("
-                CASE 
-                    WHEN read_at IS NULL THEN 1
-                    WHEN read_at IS NOT NULL THEN 2
-                END " . $sortDirection
-            )->orderBy('id', 'asc');
-        } else {
-            $query->orderBy($sortField, $sortDirection)->orderBy('id', 'asc');
-        }
-        
+
         // Load all notifications for client-side pagination
-        $notifications = $query->get()->map(function($notification) {
+        $notifications = $query->orderBy('created_at', 'desc')->orderBy('id', 'asc')->get()->map(function($notification) {
             // Get sender info from notification data
             $sender = null;
             if ($notification->data) {
@@ -271,6 +250,8 @@ class AdminNotificationController extends Controller
             $notification->sender = $sender;
             return $notification;
         });
+
+        $notifications = $this->sortNotificationRows($notifications, $sortField, $sortDirection);
         
         // Calculate statistics
         $statsQuery = Notification::query();
@@ -284,6 +265,27 @@ class AdminNotificationController extends Controller
         ];
         
         return view('admin.notifications.index', compact('notifications', 'stats'));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \App\Models\Notification>  $notifications
+     * @return \Illuminate\Support\Collection<int, \App\Models\Notification>
+     */
+    protected function sortNotificationRows(Collection $notifications, string $sortField, string $sortDirection): Collection
+    {
+        $sorted = $notifications->sortBy(function (Notification $notification) use ($sortField) {
+            return match ($sortField) {
+                'user', 'user_id' => mb_strtolower(trim(($notification->user->first_name ?? '').' '.($notification->user->last_name ?? ''))),
+                'sender' => mb_strtolower(trim(($notification->sender->first_name ?? '').' '.($notification->sender->last_name ?? '')) ?: 'systeem'),
+                'content' => mb_strtolower(trim(($notification->title ?? '').' '.($notification->message ?? ''))),
+                'type' => mb_strtolower((string) $notification->type),
+                'status' => $notification->read_at ? 1 : 0,
+                'id' => $notification->id,
+                default => $notification->created_at?->getTimestamp() ?? 0,
+            };
+        }, SORT_NATURAL)->values();
+
+        return $sortDirection === 'desc' ? $sorted->reverse()->values() : $sorted;
     }
 
     public function create()

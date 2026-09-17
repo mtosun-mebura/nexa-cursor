@@ -19,7 +19,7 @@ class Module extends BaseModule
 
     public function getVersion(): string
     {
-        return '1.0.0';
+        return '1.0.33';
     }
 
     public function getDescription(): string
