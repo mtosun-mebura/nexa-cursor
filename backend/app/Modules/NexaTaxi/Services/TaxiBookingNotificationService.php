@@ -32,7 +32,9 @@ class TaxiBookingNotificationService
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
         $companyId = (int) ($ride->company_id ?? 0);
-        if (app(\App\Services\NexaDemoAccountService::class)->isDemoCompanyId($companyId)) {
+        $candidateIds = $ride->marketplaceCandidateCompanyIds();
+        $demo = app(\App\Services\NexaDemoAccountService::class);
+        if ($companyId > 0 && $demo->isDemoCompanyId($companyId)) {
             Log::info('Demo company: booking notifications skipped', ['ride_id' => $ride->id]);
 
             return;
@@ -43,11 +45,21 @@ class TaxiBookingNotificationService
             $companyId > 0 ? $companyId : null,
             isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
         );
+        if (($settingsCompanyId === null || $settingsCompanyId <= 0) && $candidateIds !== []) {
+            $settingsCompanyId = $candidateIds[0];
+        }
 
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
-        $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, $settingsCompanyId, $context);
-        $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+
+        $companyNotifyIds = $companyId > 0 ? [$companyId] : $candidateIds;
+        foreach ($companyNotifyIds as $notifyCompanyId) {
+            if ($demo->isDemoCompanyId((int) $notifyCompanyId)) {
+                continue;
+            }
+            $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, (int) $notifyCompanyId, $context);
+            $this->sendDriverEmails($conn, (int) $notifyCompanyId, $ride, $summary, (int) $notifyCompanyId);
+        }
     }
 
     protected function resolveSettingsCompanyId(?int $companyId, ?int $fallbackCompanyId = null): ?int

@@ -70,6 +70,8 @@ Route::post('ride_requests/{ride_request}/reoffer-dispatch', [RideRequestControl
     ->name('ride_requests.reoffer_dispatch');
 Route::get('ride_requests/{ride_request}/notificatielog', [RideRequestController::class, 'notificationLog'])
     ->name('ride_requests.notification_log');
+Route::delete('ride_requests/bulk-destroy', [RideRequestController::class, 'bulkDestroy'])
+    ->name('ride_requests.bulk-destroy');
 Route::resource('ride_requests', RideRequestController::class);
 Route::post('vehicles/upload-image', [VehicleController::class, 'uploadImage'])->name('vehicles.upload-image');
 Route::resource('vehicles', VehicleController::class);

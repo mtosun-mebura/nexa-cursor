@@ -207,6 +207,12 @@ export function registerAiChatbot(Alpine) {
         baggageShowSpecial: false,
         remarksValue: '',
         datetimeValue: '',
+        datetimePickerOpen: false,
+        datetimeViewYear: null,
+        datetimeViewMonth: null,
+        datetimeWeekdays: ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'],
+        datetimeHours: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')),
+        datetimeMinutes: ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'],
         numberValue: '',
         mapsReady: false,
         mapsLoading: false,
@@ -229,9 +235,15 @@ export function registerAiChatbot(Alpine) {
 
             this._onToggle = () => this.toggleChat();
             this._onEscape = (event) => {
-                if (event.key === 'Escape' && this.isOpen) {
-                    this.closeChat();
+                if (event.key !== 'Escape' || !this.isOpen) {
+                    return;
                 }
+                if (this.datetimePickerOpen) {
+                    this.datetimePickerOpen = false;
+                    event.preventDefault();
+                    return;
+                }
+                this.closeChat();
             };
             window.addEventListener('ai-chat-toggle', this._onToggle);
             document.addEventListener('keydown', this._onEscape);
@@ -382,6 +394,8 @@ export function registerAiChatbot(Alpine) {
 
             if (input.type === 'datetime') {
                 this.datetimeValue = '';
+                this.datetimePickerOpen = false;
+                this.$nextTick(() => this.openDatetimePicker());
                 return;
             }
 
@@ -420,6 +434,7 @@ export function registerAiChatbot(Alpine) {
             this.baggageShowSpecial = false;
             this.remarksValue = '';
             this.datetimeValue = '';
+            this.datetimePickerOpen = false;
             this.numberValue = '';
         },
 
@@ -451,6 +466,32 @@ export function registerAiChatbot(Alpine) {
             this.isExpanded = false;
             this.resetMobileViewport();
             this.syncHeaderTriggerState();
+        },
+
+        onChatLinkClick(event) {
+            const link = event.target.closest?.('a.ai-chat-link');
+            if (!link) {
+                return;
+            }
+
+            const href = link.getAttribute('href');
+            if (!href || href.startsWith('javascript:')) {
+                return;
+            }
+
+            const openInNewTab = link.target === '_blank'
+                || event.metaKey
+                || event.ctrlKey
+                || event.shiftKey
+                || event.button === 1;
+            if (openInNewTab) {
+                this.closeChat();
+                return;
+            }
+
+            event.preventDefault();
+            this.closeChat();
+            window.location.assign(link.href);
         },
 
         toggleExpand() {
@@ -560,12 +601,249 @@ export function registerAiChatbot(Alpine) {
             if (active.type === 'address') {
                 this.$refs.addressInput?.focus();
             } else if (active.type === 'datetime') {
-                this.$refs.datetimeInput?.focus();
+                this.openDatetimePicker();
             } else if (active.type === 'number') {
                 this.$refs.numberInput?.focus();
             } else if (active.type === 'text') {
                 this.$refs.remarksInput?.focus();
             }
+        },
+
+        parseDatetimeLocal(value) {
+            const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+            if (!match) {
+                return null;
+            }
+
+            return new Date(
+                Number(match[1]),
+                Number(match[2]) - 1,
+                Number(match[3]),
+                Number(match[4]),
+                Number(match[5]),
+            );
+        },
+
+        formatDatetimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(Math.min(55, Math.round(date.getMinutes() / 5) * 5)).padStart(2, '0');
+
+            return `${year}-${month}-${day}T${hour}:${minute}`;
+        },
+
+        datetimeMinDate() {
+            return this.parseDatetimeLocal(this.activeQuoteInput()?.min) || new Date();
+        },
+
+        roundDatetimeUp(date) {
+            const next = new Date(date.getTime());
+            next.setSeconds(0, 0);
+            const leftover = next.getMinutes() % 5;
+            if (leftover !== 0) {
+                next.setMinutes(next.getMinutes() + (5 - leftover));
+            }
+
+            return next;
+        },
+
+        ensureDatetimeValue() {
+            let current = this.parseDatetimeLocal(this.datetimeValue);
+            const min = this.datetimeMinDate();
+            if (!current || current < min) {
+                current = this.roundDatetimeUp(new Date() > min ? new Date() : min);
+                this.datetimeValue = this.formatDatetimeLocal(current);
+            }
+
+            this.datetimeViewYear = current.getFullYear();
+            this.datetimeViewMonth = current.getMonth();
+        },
+
+        datetimeDisplayLabel() {
+            const date = this.parseDatetimeLocal(this.datetimeValue);
+            if (!date) {
+                return 'Kies datum en tijd';
+            }
+
+            return date.toLocaleString('nl-NL', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        },
+
+        datetimeMonthLabel() {
+            const year = this.datetimeViewYear ?? new Date().getFullYear();
+            const month = this.datetimeViewMonth ?? new Date().getMonth();
+
+            return new Date(year, month, 1).toLocaleString('nl-NL', {
+                month: 'long',
+                year: 'numeric',
+            });
+        },
+
+        datetimeCalendarDays() {
+            const year = this.datetimeViewYear ?? new Date().getFullYear();
+            const month = this.datetimeViewMonth ?? new Date().getMonth();
+            const first = new Date(year, month, 1);
+            let startOffset = first.getDay() - 1;
+            if (startOffset < 0) {
+                startOffset = 6;
+            }
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const cells = [];
+            for (let i = 0; i < startOffset; i += 1) {
+                cells.push(null);
+            }
+            for (let day = 1; day <= daysInMonth; day += 1) {
+                cells.push(day);
+            }
+
+            return cells;
+        },
+
+        datetimeSelectedParts() {
+            const date = this.parseDatetimeLocal(this.datetimeValue) || this.roundDatetimeUp(this.datetimeMinDate());
+
+            return {
+                year: date.getFullYear(),
+                month: date.getMonth(),
+                day: date.getDate(),
+                hour: String(date.getHours()).padStart(2, '0'),
+                minute: String(Math.min(55, Math.round(date.getMinutes() / 5) * 5)).padStart(2, '0'),
+            };
+        },
+
+        datetimeSelectedHour() {
+            return this.datetimeSelectedParts().hour;
+        },
+
+        datetimeSelectedMinute() {
+            return this.datetimeSelectedParts().minute;
+        },
+
+        isDatetimeDayDisabled(day) {
+            if (!day) {
+                return true;
+            }
+
+            const min = this.datetimeMinDate();
+            const minDay = new Date(min.getFullYear(), min.getMonth(), min.getDate());
+            const candidate = new Date(this.datetimeViewYear, this.datetimeViewMonth, day);
+
+            return candidate < minDay;
+        },
+
+        isDatetimeDaySelected(day) {
+            if (!day) {
+                return false;
+            }
+
+            const selected = this.datetimeSelectedParts();
+
+            return day === selected.day
+                && this.datetimeViewMonth === selected.month
+                && this.datetimeViewYear === selected.year;
+        },
+
+        applyDatetimeParts(parts) {
+            const next = new Date(
+                parts.year,
+                parts.month,
+                parts.day,
+                Number(parts.hour),
+                Number(parts.minute),
+            );
+            const min = this.datetimeMinDate();
+            this.datetimeValue = this.formatDatetimeLocal(next < min ? min : next);
+        },
+
+        selectDatetimeDay(day) {
+            if (this.isDatetimeDayDisabled(day)) {
+                return;
+            }
+
+            const selected = this.datetimeSelectedParts();
+            this.applyDatetimeParts({
+                year: this.datetimeViewYear,
+                month: this.datetimeViewMonth,
+                day,
+                hour: selected.hour,
+                minute: selected.minute,
+            });
+        },
+
+        selectDatetimeHour(hour) {
+            const selected = this.datetimeSelectedParts();
+            this.applyDatetimeParts({ ...selected, hour });
+        },
+
+        selectDatetimeMinute(minute) {
+            const selected = this.datetimeSelectedParts();
+            this.applyDatetimeParts({ ...selected, minute });
+        },
+
+        shiftDatetimeMonth(delta) {
+            let month = (this.datetimeViewMonth ?? new Date().getMonth()) + delta;
+            let year = this.datetimeViewYear ?? new Date().getFullYear();
+            if (month < 0) {
+                month = 11;
+                year -= 1;
+            } else if (month > 11) {
+                month = 0;
+                year += 1;
+            }
+
+            this.datetimeViewYear = year;
+            this.datetimeViewMonth = month;
+        },
+
+        toggleDatetimePicker() {
+            if (this.isTyping) {
+                return;
+            }
+
+            if (this.datetimePickerOpen) {
+                this.datetimePickerOpen = false;
+                return;
+            }
+
+            this.openDatetimePicker();
+        },
+
+        openDatetimePicker() {
+            if (this.isTyping) {
+                return;
+            }
+
+            this.ensureDatetimeValue();
+            this.datetimePickerOpen = true;
+            this.$nextTick(() => {
+                this.scrollToBottom();
+                this.scrollDatetimeTimeIntoView();
+            });
+        },
+
+        scrollDatetimeTimeIntoView() {
+            const scrollSelected = (col) => {
+                const active = col?.querySelector('.is-active');
+                if (!col || !active) {
+                    return;
+                }
+
+                const colRect = col.getBoundingClientRect();
+                const activeRect = active.getBoundingClientRect();
+                col.scrollTop += activeRect.top - colRect.top - (col.clientHeight / 2) + (active.offsetHeight / 2);
+            };
+
+            scrollSelected(this.$refs.datetimeHourCol);
+            scrollSelected(this.$refs.datetimeMinuteCol);
         },
 
         canSubmitStructuredInput() {
@@ -625,7 +903,8 @@ export function registerAiChatbot(Alpine) {
             if (active.type === 'address') {
                 outgoing = this.addressQuery.trim();
             } else if (active.type === 'datetime') {
-                outgoing = this.datetimeValue.trim();
+                outgoing = this.formatUserMessage(this.datetimeValue.trim());
+                this.datetimePickerOpen = false;
             } else if (active.type === 'number') {
                 outgoing = String(this.numberValue);
             } else if (active.type === 'baggage') {
@@ -1347,8 +1626,30 @@ export function registerAiChatbot(Alpine) {
             return parts.length > 0 ? parts.join(', ') : 'Geen bagage';
         },
 
-        async callAssistantAPI(message, quoteAddress = null, quoteBaggage = null) {
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        csrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        },
+
+        applyCsrfToken(token) {
+            if (!token) {
+                return;
+            }
+
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            if (meta) {
+                meta.setAttribute('content', token);
+            }
+        },
+
+        assistantErrorMessage(data) {
+            const text = (data && (data.error || data.message)) || '';
+            const trimmed = String(text).trim();
+
+            return trimmed || 'Assistant request failed';
+        },
+
+        async callAssistantAPI(message, quoteAddress = null, quoteBaggage = null, retried = false) {
+            const token = this.csrfToken();
             const controller = new AbortController();
             const timeoutId = window.setTimeout(() => controller.abort(), 60000);
             let response;
@@ -1356,6 +1657,7 @@ export function registerAiChatbot(Alpine) {
             try {
                 response = await fetch(this.config.endpoint || '/ai-chat/message', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
@@ -1383,8 +1685,13 @@ export function registerAiChatbot(Alpine) {
             }
 
             const data = await response.json().catch(() => ({}));
+            if (response.status === 419 && !retried && data.csrf_token) {
+                this.applyCsrfToken(data.csrf_token);
+                return this.callAssistantAPI(message, quoteAddress, quoteBaggage, true);
+            }
+
             if (!response.ok || !data.success || !data.reply) {
-                throw new Error(data.error || 'Assistant request failed');
+                throw new Error(this.assistantErrorMessage(data));
             }
 
             return {
@@ -1406,6 +1713,13 @@ export function registerAiChatbot(Alpine) {
             localStorage.setItem(this.config.storageKey || 'ai-chat-messages', JSON.stringify(this.messages));
         },
 
+        formatUserMessage(text) {
+            return String(text || '').replace(
+                /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?)$/,
+                '$1 $2',
+            );
+        },
+
         formatChatMessage(text) {
             if (!text || typeof text !== 'string') {
                 return '';
@@ -1424,15 +1738,34 @@ export function registerAiChatbot(Alpine) {
         },
 
         unglueChatText(text) {
-            return String(text)
+            const placeholders = [];
+            const protect = (match) => {
+                const token = `§UG${placeholders.length}§`;
+                placeholders.push([token, match]);
+                return token;
+            };
+
+            let value = String(text)
                 .replace(/\u00a0/g, ' ')
+                .replace(/\r\n?/g, '\n')
+                .replace(/\[[^\]]+\]\([^)]+\)/g, protect)
+                .replace(/\b[a-zà-ÿ]{1,2}[A-ZÀ-Ý][A-Za-zÀ-ÿ]*\b/gu, protect)
                 .replace(/([.!?])([A-ZÀ-Ý])/gu, '$1 $2')
-                .replace(/([a-zà-ÿ])([A-ZÀ-Ý])/gu, '$1\n\n$2')
+                .replace(
+                    /([a-zà-ÿ])(De|Het|Een|In|Op|Voor|Na|Bij|Met|Van|Aan|Uit|Over|Onder|Deze|Dit|Dat|Die|Als|Wanneer|Artikel|The|This|That|For|With|From)(?=\s|$|[.!,?;:])/gu,
+                    '$1\n\n$2',
+                )
                 .replace(/\b(artikel\s+\d+)/giu, '\n\n$1')
                 .replace(/[ \t]+\n/g, '\n')
                 .replace(/\n{3,}/g, '\n\n')
                 .replace(/[ \t]{2,}/g, ' ')
                 .trim();
+
+            placeholders.forEach(([token, original]) => {
+                value = value.split(token).join(original);
+            });
+
+            return value;
         },
 
         formatInlineMarkdown(text) {

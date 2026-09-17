@@ -37,6 +37,7 @@ class AdminReturnUrlTest extends TestCase
         $this->assertNull(AdminReturnUrl::resolveIntended('/admin/login'));
         $this->assertNull(AdminReturnUrl::resolveIntended('http://localhost:8085/admin/login'));
         $this->assertNull(AdminReturnUrl::resolveIntended('/admin/meld/sessie-verlopen'));
+        $this->assertNull(AdminReturnUrl::resolveIntended('/admin/ai-chat/message'));
         $this->assertSame(
             'http://localhost:8085/admin/website-pages/1/edit',
             AdminReturnUrl::resolveIntended('http://localhost:8085/admin/website-pages/1/edit')

@@ -215,11 +215,13 @@ class NexaTaxiBookingController extends Controller
         $vehicleId = isset($selected['vehicle_id']) && is_numeric($selected['vehicle_id'])
             ? (int) $selected['vehicle_id']
             : null;
+        $isMarketplace = ! empty($resolved['marketplace']);
 
         // Fallback: bij person-range kan vehicle_id ontbreken; kies dan een actief voertuig in die range.
         // Altijd scopen op de tenant van de website waarop geboekt wordt, anders kan hier per ongeluk
         // een voertuig (en dus company_id) van een andere tenant gekozen worden.
-        if ($vehicleId === null) {
+        // Marketplace: geen auto toewijzen tot een centrale de rit accepteert.
+        if (! $isMarketplace && $vehicleId === null) {
             $personRange = isset($selected['person_range']) ? trim((string) $selected['person_range']) : '';
             $vehicleQuery = Vehicle::on($conn)->where('active', true);
             if (! empty($resolved['tenant_company_id'])) {
@@ -234,10 +236,14 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
-        $resolvedVehicle = $vehicleId ? Vehicle::on($conn)->find($vehicleId) : null;
+        $resolvedVehicle = (! $isMarketplace && $vehicleId) ? Vehicle::on($conn)->find($vehicleId) : null;
         $companyId = $resolvedVehicle?->company_id ? (int) $resolvedVehicle->company_id : null;
-        if (($companyId === null || $companyId <= 0) && ! empty($resolved['tenant_company_id'])) {
+        if (($companyId === null || $companyId <= 0) && ! $isMarketplace && ! empty($resolved['tenant_company_id'])) {
             $companyId = (int) $resolved['tenant_company_id'];
+        }
+        if ($isMarketplace) {
+            $vehicleId = null;
+            $companyId = null;
         }
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
@@ -429,9 +435,16 @@ class NexaTaxiBookingController extends Controller
         // Succes: eventuele bewaarde boeking opruimen.
         $request->session()->forget('nexataxi.pending_booking');
 
-        if ($rideCompanyId && $rideCompanyId > 0 && ! $payAtBooking) {
-            // Na de HTTP-response: gebruiker ziet sneller “gelukt”, dispatch loopt op de achtergrond.
-            StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
+        $marketplaceCompanyIds = array_values(array_filter(array_map(
+            'intval',
+            $resolved['marketplace']['candidate_company_ids'] ?? []
+        )));
+        if (! $payAtBooking) {
+            if ($marketplaceCompanyIds !== []) {
+                StartRideDispatchJob::dispatch((int) $ride->id, 0, $marketplaceCompanyIds, false)->afterResponse();
+            } elseif ($rideCompanyId && $rideCompanyId > 0) {
+                StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
+            }
         }
 
         $checkoutUrl = null;
@@ -833,8 +846,16 @@ class NexaTaxiBookingController extends Controller
             ];
         }
 
-        $match = app(NearestTaxiTenantResolver::class)->resolve($lat, $lng);
-        if ($match === null) {
+        $radiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
+            $resolved['config']['logic']['marketplace_radius_km'] ?? null
+        );
+        $matches = app(NearestTaxiTenantResolver::class)->resolveNearby(
+            $lat,
+            $lng,
+            NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
+            $radiusKm
+        );
+        if ($matches === []) {
             return [
                 'resolved' => $resolved,
                 'error' => response()->json([
@@ -844,15 +865,31 @@ class NexaTaxiBookingController extends Controller
             ];
         }
 
-        /** @var Company $company */
-        $company = $match['company'];
-        $resolved['tenant_company_id'] = (int) $company->id;
+        $candidates = [];
+        $candidateIds = [];
+        foreach ($matches as $match) {
+            /** @var Company $company */
+            $company = $match['company'];
+            $candidateIds[] = (int) $company->id;
+            $candidates[] = [
+                'company_id' => (int) $company->id,
+                'company_name' => $company->name,
+                'distance_km' => $match['distance_km'],
+            ];
+        }
+
+        $nearest = $candidates[0];
+        $resolved['tenant_company_id'] = null;
+        $resolved['config']['logic']['offer_display_mode'] = 'person_range';
         $resolved['marketplace'] = [
             'source' => RideRequest::SOURCE_NEXA_SUITE,
             'label' => 'NEXA Suite',
-            'company_id' => (int) $company->id,
-            'company_name' => $company->name,
-            'distance_km' => $match['distance_km'],
+            'company_id' => $nearest['company_id'],
+            'company_name' => $nearest['company_name'],
+            'distance_km' => $nearest['distance_km'],
+            'radius_km' => $radiusKm,
+            'candidate_company_ids' => $candidateIds,
+            'candidates' => $candidates,
         ];
 
         return ['resolved' => $resolved, 'error' => null];

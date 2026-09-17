@@ -60,7 +60,37 @@ class TaxiRideInvoiceServiceTest extends TestCase
         $this->assertNull($payload['invoice_id']);
         $this->assertNull($payload['invoice_number']);
         $this->assertSame('klant@example.com', $payload['customer_email']);
-        $this->assertTrue($payload['can_send']);
+        $this->assertFalse($payload['can_send']);
+    }
+
+    public function test_driver_invoice_payload_skips_creation_when_ensure_is_false(): void
+    {
+        $service = Mockery::mock(
+            TaxiRideInvoiceService::class,
+            [
+                Mockery::mock(InvoicePdfService::class),
+                Mockery::mock(EmailTemplateService::class),
+                Mockery::mock(EnvService::class),
+                Mockery::mock(CompanyEmailLogoService::class),
+            ]
+        )->makePartial();
+
+        $ride = Mockery::mock(RideRequest::class)->makePartial();
+        $ride->payment_status = RideRequest::PAYMENT_STATUS_PAID;
+        $ride->customer_email = 'klant@example.com';
+        $ride->customer_name = 'Klant';
+        $ride->shouldReceive('getConnectionName')->andReturn('module_taxi');
+        $ride->shouldReceive('requiresPerLegDriverPayment')->andReturn(false);
+
+        $service->shouldReceive('findInvoiceForRide')->with($ride, Mockery::any())->andReturn(null);
+        $service->shouldReceive('findInvoiceForRide')->with($ride)->andReturn(null);
+        $service->shouldReceive('resolveSendableInvoiceBillingPeriod')->with($ride)->andReturn('');
+        $service->shouldReceive('ensureInvoiceForPaidRide')->never();
+
+        $payload = $service->driverInvoicePayload($ride, false);
+
+        $this->assertFalse($payload['has_invoice']);
+        $this->assertFalse($payload['can_send']);
     }
 
     public function test_preview_next_invoice_number_does_not_increment_counter(): void

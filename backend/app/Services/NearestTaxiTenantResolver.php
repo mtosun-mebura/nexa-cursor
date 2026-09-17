@@ -11,6 +11,28 @@ use Illuminate\Support\Facades\Schema;
 
 class NearestTaxiTenantResolver
 {
+    public const MARKETPLACE_RADIUS_KM = 10.0;
+
+    public const MARKETPLACE_RADIUS_MIN_KM = 1.0;
+
+    public const MARKETPLACE_RADIUS_MAX_KM = 100.0;
+
+    public const MARKETPLACE_MAX_TENANTS = 5;
+
+    public static function normalizeRadiusKm(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            return self::MARKETPLACE_RADIUS_KM;
+        }
+
+        $radius = (float) $value;
+        if ($radius <= 0) {
+            return self::MARKETPLACE_RADIUS_KM;
+        }
+
+        return max(self::MARKETPLACE_RADIUS_MIN_KM, min(self::MARKETPLACE_RADIUS_MAX_KM, $radius));
+    }
+
     public function __construct(
         protected ModuleDatabaseService $moduleDb,
         protected TenantBillingAccessService $billingAccess,
@@ -22,9 +44,28 @@ class NearestTaxiTenantResolver
      */
     public function resolve(float $pickupLat, float $pickupLng, array $excludeCompanyIds = []): ?array
     {
-        $ranked = $this->rankedCandidates($pickupLat, $pickupLng, $excludeCompanyIds);
+        $nearby = $this->resolveNearby($pickupLat, $pickupLng, 1, null, $excludeCompanyIds);
 
-        foreach ($ranked as $candidate) {
+        return $nearby[0] ?? null;
+    }
+
+    /**
+     * Dichtstbijzijnde geschikte taxicentrales. Met een radius alleen bedrijven daarbinnen
+     * (tot $limit stuks). Zonder radius ($radiusKm = null) de allerdichtste.
+     *
+     * @return list<array{company: Company, distance_km: float}>
+     */
+    public function resolveNearby(
+        float $pickupLat,
+        float $pickupLng,
+        int $limit = self::MARKETPLACE_MAX_TENANTS,
+        ?float $radiusKm = self::MARKETPLACE_RADIUS_KM,
+        array $excludeCompanyIds = []
+    ): array {
+        $limit = max(1, $limit);
+        $eligible = [];
+
+        foreach ($this->rankedCandidates($pickupLat, $pickupLng, $excludeCompanyIds) as $candidate) {
             /** @var Company $company */
             $company = $candidate['company'];
             if ($this->billingAccess->isBookingBlocked($company)) {
@@ -37,10 +78,23 @@ class NearestTaxiTenantResolver
                 continue;
             }
 
-            return $candidate;
+            $eligible[] = $candidate;
         }
 
-        return null;
+        if ($eligible === []) {
+            return [];
+        }
+
+        if ($radiusKm !== null && $radiusKm > 0) {
+            $nearby = array_values(array_filter(
+                $eligible,
+                static fn (array $candidate): bool => (float) $candidate['distance_km'] <= $radiusKm
+            ));
+
+            return array_slice($nearby, 0, $limit);
+        }
+
+        return array_slice($eligible, 0, $limit);
     }
 
     /**
@@ -82,10 +136,7 @@ class NearestTaxiTenantResolver
     {
         $query = Company::query()
             ->with(['modules', 'mainLocation'])
-            ->where('is_active', true)
-            ->where(function ($q) {
-                $q->where('is_main', false)->orWhereNull('is_main');
-            });
+            ->where('is_active', true);
 
         if (Schema::hasColumn('companies', 'accepts_nexa_suite_bookings')) {
             $query->where('accepts_nexa_suite_bookings', true);

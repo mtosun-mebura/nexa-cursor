@@ -153,19 +153,19 @@
             </span>
         </div>
         <div class="settings-collapsible-body kt-card-content p-5" id="ride-stats-verloop-body">
-            <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 min-w-0">
-                <div class="xl:col-span-8 min-w-0">
-                    <div class="text-xs font-medium text-secondary-foreground mb-3">Ritten en omzet per dag</div>
-                    <div id="ride-stats-trend-chart" class="min-h-[280px]"></div>
+            <div class="flex flex-col gap-4 min-w-0">
+                <div class="min-w-0">
+                    <div class="text-xs font-medium text-secondary-foreground mb-1.5">Ritten en omzet per dag</div>
+                    <div id="ride-stats-trend-chart" class="min-h-[168px]"></div>
                 </div>
-                <div class="xl:col-span-4 min-w-0 flex flex-col gap-8">
-                    <div>
-                        <div class="text-xs font-medium text-secondary-foreground mb-3">Betaalmix</div>
-                        <div id="ride-stats-payment-chart" class="min-h-[220px]"></div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-secondary-foreground mb-1.5">Betaalmix</div>
+                        <div id="ride-stats-payment-chart" class="min-h-[140px]"></div>
                     </div>
-                    <div>
-                        <div class="text-xs font-medium text-secondary-foreground mb-3">Statusverdeling</div>
-                        <div id="ride-stats-status-chart" class="min-h-[220px]"></div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-secondary-foreground mb-1.5">Statusverdeling</div>
+                        <div id="ride-stats-status-chart" class="min-h-[140px]"></div>
                     </div>
                 </div>
             </div>

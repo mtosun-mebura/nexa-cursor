@@ -101,10 +101,7 @@ final class AiChatQuoteConversationService
     {
         $route = $this->parser->parseRouteFromQuestion($message);
         $defaults = $this->pricing->getDefaultSectionConfig();
-        $bookingConfig = $this->websiteBuilder->resolveBookingModuleSection(
-            'component:taxi.boekingsmodule',
-            $context->module,
-        )['config'] ?? $defaults;
+        $bookingConfig = $this->resolveBookingSection($context)['config'] ?? $defaults;
 
         return [
             'flow' => $this->parser->resolveFlow($message, $context->isPublicChannel()),
@@ -167,10 +164,7 @@ final class AiChatQuoteConversationService
     private function ensureBaggageCatalog(array &$session, AiChatRequestContext $context): bool
     {
         $defaults = $this->pricing->getDefaultSectionConfig();
-        $bookingConfig = $this->websiteBuilder->resolveBookingModuleSection(
-            'component:taxi.boekingsmodule',
-            $context->module,
-        )['config'] ?? $defaults;
+        $bookingConfig = $this->resolveBookingSection($context)['config'] ?? $defaults;
 
         $changed = false;
 
@@ -506,7 +500,7 @@ final class AiChatQuoteConversationService
 
         $this->ensureBaggageCatalog($session, $context);
 
-        $resolved = $this->websiteBuilder->resolveBookingModuleSection('component:taxi.boekingsmodule', $context->module);
+        $resolved = $this->resolveBookingSection($context);
         $quoteInput = [
             'distance_meters' => $route['distance_meters'],
             'duration_seconds' => $route['duration_seconds'],
@@ -582,7 +576,7 @@ final class AiChatQuoteConversationService
 
         $query = http_build_query($params);
 
-        return url('/').($query !== '' ? '?'.$query : '').'#boek-rit';
+        return rtrim(url('/'), '/').'/'.($query !== '' ? '?'.$query : '').'#boek-rit';
     }
 
     /**
@@ -651,6 +645,27 @@ final class AiChatQuoteConversationService
         }
 
         return $meta !== [] ? $meta : null;
+    }
+
+    /**
+     * @return array{config: array<string, mixed>, tenant_company_id: ?int, page: mixed}
+     */
+    private function resolveBookingSection(AiChatRequestContext $context): array
+    {
+        $sectionKey = $context->isCentralWebsite()
+            ? 'component:taxi.algemene_boekingsmodule'
+            : 'component:taxi.boekingsmodule';
+        $module = $context->isCentralWebsite() ? 'nexa' : $context->module;
+
+        $resolved = $this->websiteBuilder->resolveBookingModuleSection($sectionKey, $module);
+        if ($context->isCentralWebsite()) {
+            $config = $this->pricing->mergeSectionConfig(is_array($resolved['config'] ?? null) ? $resolved['config'] : []);
+            $config['logic']['offer_display_mode'] = 'person_range';
+            $resolved['config'] = $config;
+            $resolved['tenant_company_id'] = null;
+        }
+
+        return $resolved;
     }
 
     private function cacheKey(AiChatRequestContext $context, string $sessionId): string

@@ -16,7 +16,26 @@ class TaxiRidePaymentServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_can_complete_when_no_payment_method(): void
+    public function test_requires_cash_when_no_mollie_method_and_amount_due(): void
+    {
+        $settings = Mockery::mock(TaxiDispatchSettingsService::class);
+        $service = new TaxiRidePaymentService(
+            $settings,
+            new \App\Modules\NexaTaxi\Services\TaxiMolliePaymentService(),
+            app(\App\Services\PaymentProviderService::class)
+        );
+
+        $ride = new RideRequest([
+            'payment_method' => null,
+            'payment_status' => null,
+            'quoted_price' => 42.50,
+        ]);
+
+        $this->assertTrue($service->requiresPaymentBeforeComplete($ride));
+        $this->assertFalse($service->canCompleteRide($ride));
+    }
+
+    public function test_can_complete_when_no_chargeable_amount(): void
     {
         $settings = Mockery::mock(TaxiDispatchSettingsService::class);
         $service = new TaxiRidePaymentService(
@@ -36,7 +55,6 @@ class TaxiRidePaymentServiceTest extends TestCase
     public function test_requires_payment_for_driver_method_until_paid(): void
     {
         $settings = Mockery::mock(TaxiDispatchSettingsService::class);
-        $settings->shouldReceive('paymentDriverEnabled')->with(5)->andReturn(true);
 
         $service = new TaxiRidePaymentService(
             $settings,
@@ -48,6 +66,7 @@ class TaxiRidePaymentServiceTest extends TestCase
             'company_id' => 5,
             'payment_method' => RideRequest::PAYMENT_METHOD_DRIVER,
             'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
+            'quoted_price' => 25.00,
         ]);
 
         $this->assertFalse($service->canCompleteRide($ride));
@@ -86,12 +105,12 @@ class TaxiRidePaymentServiceTest extends TestCase
         $summary = $service->paymentSummaryForRide($paidRide);
         $this->assertArrayHasKey('payment_error', $summary);
         $this->assertNull($summary['payment_error']);
+        $this->assertTrue($summary['cash_payment_enabled']);
     }
 
     public function test_cash_paid_rejects_already_paid_ride(): void
     {
         $settings = Mockery::mock(TaxiDispatchSettingsService::class);
-        $settings->shouldReceive('paymentDriverEnabled')->with(5)->andReturn(true);
 
         $service = new TaxiRidePaymentService(
             $settings,
@@ -131,10 +150,35 @@ class TaxiRidePaymentServiceTest extends TestCase
         );
     }
 
+    public function test_validate_defaults_to_driver_cash_when_mollie_options_off(): void
+    {
+        $settings = Mockery::mock(TaxiDispatchSettingsService::class);
+        $settings->shouldReceive('paymentOptionsForTenant')->with(3)->andReturn([
+            'booking' => false,
+            'driver' => false,
+            'cash' => true,
+            'mollie_configured' => false,
+        ]);
+
+        $service = new TaxiRidePaymentService(
+            $settings,
+            new \App\Modules\NexaTaxi\Services\TaxiMolliePaymentService(),
+            app(\App\Services\PaymentProviderService::class)
+        );
+
+        $this->assertSame(
+            RideRequest::PAYMENT_METHOD_DRIVER,
+            $service->validatePaymentMethodChoice(null, 3)
+        );
+        $this->assertSame(
+            RideRequest::PAYMENT_METHOD_DRIVER,
+            $service->validatePaymentMethodChoice('booking', 3)
+        );
+    }
+
     public function test_return_trip_outbound_requires_driver_payment_before_complete(): void
     {
         $settings = Mockery::mock(TaxiDispatchSettingsService::class);
-        $settings->shouldReceive('paymentDriverEnabled')->with(5)->andReturn(true);
         $settings->shouldReceive('paymentOptionsForTenant')->with(5)->andReturn([
             'booking' => false,
             'driver' => true,

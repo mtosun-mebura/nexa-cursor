@@ -122,6 +122,7 @@ class AiChatProductFaqServiceTest extends TestCase
 
         $this->assertStringContainsString('ouder', mb_strtolower($reply));
         $this->assertStringContainsString('afmelden', mb_strtolower($reply));
+        $this->assertStringContainsString('iPhone, iPad en Android', $reply);
         $this->assertStringContainsString('/contractvervoer', $reply);
     }
 

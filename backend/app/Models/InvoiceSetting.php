@@ -208,7 +208,7 @@ class InvoiceSetting extends Model
     public function generateInvoiceNumber(bool $isPartial = false, ?string $parentInvoiceNumber = null, ?int $partialNumber = null): string
     {
         $year = date('Y');
-        
+
         // Reset counter if year changed
         if ($this->current_year != $year) {
             $this->current_year = $year;
@@ -216,24 +216,39 @@ class InvoiceSetting extends Model
             $this->save();
         }
 
-        $number = str_pad($this->next_invoice_number, 4, '0', STR_PAD_LEFT);
-        
         if ($isPartial && $parentInvoiceNumber && $partialNumber) {
-            // Partial invoice: NX2025-0001-1
-            $invoiceNumber = $parentInvoiceNumber . '-' . $partialNumber;
-        } else {
-            // Regular invoice: NX2025-0001
-            $invoiceNumber = str_replace(
-                ['{prefix}', '{year}', '{number}'],
-                [$this->invoice_number_prefix, $year, $number],
-                $this->invoice_number_format
-            );
-            
-            // Increment for next invoice
-            $this->next_invoice_number++;
-            $this->save();
+            return $parentInvoiceNumber.'-'.$partialNumber;
         }
 
-        return $invoiceNumber;
+        $format = trim((string) ($this->invoice_number_format ?: '{prefix}{year}-{number}'));
+        if ($format === '') {
+            $format = '{prefix}{year}-{number}';
+        }
+
+        for ($attempt = 0; $attempt < 1000; $attempt++) {
+            $padded = str_pad((string) max(1, (int) $this->next_invoice_number), 4, '0', STR_PAD_LEFT);
+            $invoiceNumber = str_replace(
+                ['{prefix}', '{year}', '{number}'],
+                [(string) $this->invoice_number_prefix, $year, $padded],
+                $format
+            );
+            $this->next_invoice_number = (int) $this->next_invoice_number + 1;
+            $this->save();
+
+            if ($invoiceNumber !== '' && ! $this->invoiceNumberIsTaken($invoiceNumber)) {
+                return $invoiceNumber;
+            }
+        }
+
+        return rtrim((string) $this->invoice_number_prefix, '-').$year.'-'.strtoupper(substr(uniqid('', true), -8));
+    }
+
+    protected function invoiceNumberIsTaken(string $invoiceNumber): bool
+    {
+        try {
+            return Invoice::query()->where('invoice_number', $invoiceNumber)->exists();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

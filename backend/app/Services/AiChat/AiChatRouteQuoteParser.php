@@ -265,7 +265,7 @@ final class AiChatRouteQuoteParser
             return null;
         }
 
-        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $value)) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}$/', $value)) {
             $value = str_replace('T', ' ', $value).':00';
         }
 

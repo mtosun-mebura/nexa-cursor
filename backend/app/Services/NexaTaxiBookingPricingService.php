@@ -59,6 +59,7 @@ class NexaTaxiBookingPricingService
                 'max_stopovers' => 3,
                 'return_price_multiplier' => 2.0,
                 'offer_display_mode' => 'vehicle',
+                'marketplace_radius_km' => \App\Services\NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM,
                 'person_range_base_price_multiplier' => 1.0,
                 'person_range_base_old_price_multiplier' => 1.2,
                 'use_evening_night_tariff' => true,
@@ -204,6 +205,9 @@ class NexaTaxiBookingPricingService
         $section['logic']['return_price_multiplier'] = max(1, min(3, (float) ($logic['return_price_multiplier'] ?? $defaults['logic']['return_price_multiplier'])));
         $section['logic']['offer_display_mode'] = $this->normalizeOfferDisplayMode(
             $logic['offer_display_mode'] ?? $defaults['logic']['offer_display_mode']
+        );
+        $section['logic']['marketplace_radius_km'] = NearestTaxiTenantResolver::normalizeRadiusKm(
+            $logic['marketplace_radius_km'] ?? $defaults['logic']['marketplace_radius_km']
         );
         $section['logic']['use_evening_night_tariff'] = ! empty($logic['use_evening_night_tariff']);
         $section['logic']['person_range_base_price_multiplier'] = max(0.1, min(5, (float) ($logic['person_range_base_price_multiplier'] ?? $defaults['logic']['person_range_base_price_multiplier'])));

@@ -16,6 +16,9 @@ use Illuminate\Support\Carbon;
  */
 class TaxiDispatchSettingsService
 {
+    /** @var array<string, mixed> */
+    private array $requestCache = [];
+
     public const KEY_OFFER_TTL_SECONDS = 'taxi_dispatch_offer_ttl_seconds';
 
     public const KEY_PAST_PICKUP_GRACE_HOURS = 'taxi_dispatch_past_pickup_grace_hours';
@@ -85,14 +88,19 @@ class TaxiDispatchSettingsService
 
     public function offerTtlSeconds(?int $companyId = null): int
     {
+        $cacheKey = 'ttl:'.(int) ($companyId ?? 0);
+        if (array_key_exists($cacheKey, $this->requestCache)) {
+            return (int) $this->requestCache[$cacheKey];
+        }
+
         $default = (int) config('taxi-dispatch.offer_ttl_seconds', 300);
         $raw = GeneralSetting::get(self::KEY_OFFER_TTL_SECONDS, null, $companyId);
 
-        if ($raw === null || $raw === '') {
-            return $this->clampTtl($default);
-        }
+        $ttl = ($raw === null || $raw === '')
+            ? $this->clampTtl($default)
+            : $this->clampTtl((int) $raw);
 
-        return $this->clampTtl((int) $raw);
+        return $this->requestCache[$cacheKey] = $ttl;
     }
 
     public function setOfferTtlSeconds(int $seconds, ?int $companyId = null): void
@@ -392,7 +400,7 @@ class TaxiDispatchSettingsService
     }
 
     /**
-     * @return array{booking: bool, driver: bool, mollie_configured: bool, mollie_package_allowed: bool}
+     * @return array{booking: bool, driver: bool, cash: bool, mollie_configured: bool, mollie_package_allowed: bool}
      */
     public function paymentOptionsForTenant(?int $companyId = null): array
     {
@@ -402,7 +410,8 @@ class TaxiDispatchSettingsService
 
         return [
             'booking' => $mollieConfigured && $this->paymentBookingEnabled($companyId),
-            'driver' => $mollieConfigured && $this->paymentDriverEnabled($companyId),
+            'driver' => $mollieAllowed && $this->paymentDriverEnabled($companyId),
+            'cash' => true,
             'mollie_configured' => $mollieConfigured,
             'mollie_package_allowed' => $mollieAllowed,
         ];

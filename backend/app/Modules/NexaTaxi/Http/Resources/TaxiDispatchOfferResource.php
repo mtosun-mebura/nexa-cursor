@@ -15,8 +15,51 @@ use Carbon\Carbon;
 
 class TaxiDispatchOfferResource
 {
-    public static function fromOffer(RideDispatchOffer $offer, ?RideRequest $ride = null, bool $isScheduledOverdue = false): array
+    /** @var array<int, true>|null */
+    private static ?array $noResponseRideIds = null;
+
+    /** @var array<int, int> */
+    private static array $offerTtlByCompany = [];
+
+    /**
+     * @param  list<int>  $rideIds
+     */
+    public static function preloadWaitingState(string $conn, array $rideIds): void
     {
+        self::$noResponseRideIds = [];
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $rideIds),
+            fn (int $id) => $id > 0
+        )));
+        if ($ids === []) {
+            return;
+        }
+
+        $found = RideDispatchOffer::on($conn)
+            ->whereIn('ride_request_id', $ids)
+            ->whereIn('status', [
+                RideDispatchOffer::STATUS_EXPIRED,
+                RideDispatchOffer::STATUS_DECLINED,
+            ])
+            ->pluck('ride_request_id');
+
+        foreach ($found as $id) {
+            self::$noResponseRideIds[(int) $id] = true;
+        }
+    }
+
+    public static function clearWaitingStatePreload(): void
+    {
+        self::$noResponseRideIds = null;
+        self::$offerTtlByCompany = [];
+    }
+
+    public static function fromOffer(
+        RideDispatchOffer $offer,
+        ?RideRequest $ride = null,
+        bool $isScheduledOverdue = false,
+        bool $includeBilling = false
+    ): array {
         $ride ??= $offer->relationLoaded('rideRequest') ? $offer->rideRequest : null;
 
         $secondsRemaining = $offer->expires_at
@@ -35,16 +78,19 @@ class TaxiDispatchOfferResource
             }
             $companyId = (int) ($ride->company_id ?: $offer->company_id);
             $dispatchSettings = app(TaxiDispatchSettingsService::class);
-            $offerTtlSeconds = $dispatchSettings->offerTtlSeconds($companyId);
+            $offerTtlSeconds = self::$offerTtlByCompany[$companyId]
+                ?? (self::$offerTtlByCompany[$companyId] = $dispatchSettings->offerTtlSeconds($companyId));
             $isPickupOverdue = $dispatchSettings->offerPickupIsPast($ride);
 
-            $hadNoResponse = RideDispatchOffer::on($conn)
-                ->where('ride_request_id', $ride->id)
-                ->whereIn('status', [
-                    RideDispatchOffer::STATUS_EXPIRED,
-                    RideDispatchOffer::STATUS_DECLINED,
-                ])
-                ->exists();
+            $hadNoResponse = self::$noResponseRideIds !== null
+                ? isset(self::$noResponseRideIds[(int) $ride->id])
+                : RideDispatchOffer::on($conn)
+                    ->where('ride_request_id', $ride->id)
+                    ->whereIn('status', [
+                        RideDispatchOffer::STATUS_EXPIRED,
+                        RideDispatchOffer::STATUS_DECLINED,
+                    ])
+                    ->exists();
 
             // Blijft wachten zolang de rit openstaat en de acceptatietijd minstens één keer is verstreken
             // (ook na vernieuwd aanbod — anders verdwijnt "verlopen" door updateOrCreate).
@@ -71,7 +117,7 @@ class TaxiDispatchOfferResource
             'is_pickup_overdue' => $isPickupOverdue,
             'urgency' => $urgency,
             'ride' => $ride ? array_merge(
-                self::rideSummary($ride, $isScheduledOverdue),
+                self::rideSummary($ride, $isScheduledOverdue, $includeBilling),
                 ['is_pickup_overdue' => $isPickupOverdue || $isScheduledOverdue]
             ) : null,
             'actions' => [
@@ -81,7 +127,7 @@ class TaxiDispatchOfferResource
         ];
     }
 
-    public static function rideSummary(RideRequest $ride, bool $isScheduledOverdue = false): array
+    public static function rideSummary(RideRequest $ride, bool $isScheduledOverdue = false, bool $includeBilling = true): array
     {
         $payments = app(TaxiRidePaymentService::class);
         $conn = $ride->getConnectionName();
@@ -178,8 +224,10 @@ class TaxiDispatchOfferResource
             'duration_minutes' => $ride->duration_minutes,
             'stops' => $stopsMeta,
             'schedule' => $schedule,
-            'payment' => $payments->paymentSummaryForRide($ride),
-            'invoice' => $isContract ? null : app(TaxiRideInvoiceService::class)->driverInvoicePayload($ride),
+            'payment' => $includeBilling ? $payments->paymentSummaryForRide($ride) : null,
+            'invoice' => ($includeBilling && ! $isContract)
+                ? app(TaxiRideInvoiceService::class)->driverInvoicePayload($ride)
+                : null,
             'actions' => [
                 'start' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start"),
                 'release' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release"),

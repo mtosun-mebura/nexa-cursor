@@ -398,6 +398,7 @@
     const waitingRideIds = new Set();
     let configuredOfferTtlSeconds = 300;
     let driverPaymentEnabled = false;
+    let cashPaymentEnabled = true;
     let firstLoginEmail = '';
     let declinedOffers = [];
     let pendingApprovalOffers = [];
@@ -408,11 +409,15 @@
     let inboxView = 'offers';
     let inboxLoading = false;
     let inboxHasLoaded = false;
+    let lastInboxRefreshAt = 0;
+    let inboxRefreshInFlight = false;
     let canViewEarnings = false;
     let canViewMonthEarnings = false;
     let earningsDate = null;
+    let earningsPeriod = 'day';
     let earningsLoading = false;
     let paymentPollTimer = null;
+    let paidStampAnimatedRideId = null;
     let cachedOpenPayment = null;
     let audioCtx = null;
     let screenWakeLock = null;
@@ -2778,22 +2783,31 @@
             return Promise.resolve(null);
         }
         if (!serviceWorkerReadyPromise) {
-            serviceWorkerReadyPromise = navigator.serviceWorker
+            const ready = navigator.serviceWorker
                 .register('/taxi-chauffeur-sw.js?v=12', { scope: '/', updateViaCache: 'none' })
                 .then(function (reg) {
                     if (reg.active) {
                         return reg;
                     }
-                    const installing = reg.installing || reg.waiting;
-                    if (!installing) {
+                    const worker = reg.installing || reg.waiting;
+                    if (!worker) {
+                        return reg;
+                    }
+                    if (worker.state === 'activated' || worker.state === 'redundant') {
                         return reg;
                     }
                     return new Promise(function (resolve) {
-                        installing.addEventListener('statechange', function () {
-                            if (installing.state === 'activated') {
-                                resolve(reg);
+                        const finish = function () {
+                            worker.removeEventListener('statechange', onState);
+                            resolve(reg);
+                        };
+                        const onState = function () {
+                            if (worker.state === 'activated' || worker.state === 'redundant') {
+                                finish();
                             }
-                        });
+                        };
+                        worker.addEventListener('statechange', onState);
+                        onState();
                     });
                 })
                 .then(function () {
@@ -2803,6 +2817,14 @@
                     serviceWorkerReadyPromise = null;
                     return null;
                 });
+            serviceWorkerReadyPromise = Promise.race([
+                ready,
+                new Promise(function (resolve) {
+                    setTimeout(function () {
+                        resolve(null);
+                    }, 1200);
+                }),
+            ]);
         }
         return serviceWorkerReadyPromise;
     }
@@ -3680,7 +3702,7 @@
         }
         syncTripsEmptyState();
         if (next === 'earnings') {
-            loadEarnings(earningsDate);
+            loadEarnings(earningsDate, earningsPeriod);
         }
         if (next === 'planning') {
             loadPlanning();
@@ -3696,6 +3718,18 @@
         }
         persistUiState();
         syncActiveRideJumpButton();
+    }
+
+    function syncEarningsPeriodButtons() {
+        document.querySelectorAll('[data-earnings-period]').forEach(function (btn) {
+            const period = btn.getAttribute('data-earnings-period') || 'day';
+            const active = period === earningsPeriod;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            if (period === 'month') {
+                btn.hidden = !canViewMonthEarnings;
+            }
+        });
     }
 
     function tripsListHasContent() {
@@ -3746,6 +3780,10 @@
         if (!canViewEarnings && mainTab === 'earnings') {
             setMainTab('requests');
         }
+        if (!canViewMonthEarnings && earningsPeriod === 'month') {
+            earningsPeriod = 'day';
+        }
+        syncEarningsPeriodButtons();
     }
 
     function todayLocalIsoDate() {
@@ -3763,6 +3801,23 @@
         }
         const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
         dt.setDate(dt.getDate() + deltaDays);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function shiftIsoMonth(isoDate, deltaMonths) {
+        const parts = String(isoDate || '').split('-');
+        if (parts.length !== 3) {
+            return todayLocalIsoDate();
+        }
+        const year = Number(parts[0]);
+        const monthIndex = Number(parts[1]) - 1 + deltaMonths;
+        const day = Number(parts[2]);
+        const dt = new Date(year, monthIndex, 1);
+        const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+        dt.setDate(Math.min(day, lastDay));
         const y = dt.getFullYear();
         const m = String(dt.getMonth() + 1).padStart(2, '0');
         const d = String(dt.getDate()).padStart(2, '0');
@@ -5305,6 +5360,7 @@
         const daySub = $('#earnings-day-sub');
         const dayTotal = $('#earnings-day-total');
         const dayCount = $('#earnings-day-count');
+        const dayTotalLabel = $('#earnings-day-total-label');
         const monthCard = $('#earnings-month-card');
         const prevBtn = $('#btn-earnings-prev');
         const nextBtn = $('#btn-earnings-next');
@@ -5335,14 +5391,22 @@
         }
 
         earningsDate = data.date || todayLocalIsoDate();
+        earningsPeriod = data.period === 'week' || data.period === 'month' ? data.period : 'day';
+        if (earningsPeriod === 'month' && !canViewMonthEarnings) {
+            earningsPeriod = 'day';
+        }
+        syncEarningsPeriodButtons();
         if (dayLabel) {
             dayLabel.textContent = data.label || earningsDate;
         }
         if (daySub) {
-            daySub.textContent = earningsDate;
+            daySub.textContent = data.sub_label || data.from || earningsDate;
+        }
+        if (dayTotalLabel) {
+            dayTotalLabel.textContent = data.total_label || 'Totaal deze dag';
         }
         if (dayTotal) {
-            dayTotal.textContent = formatEuro(data.day_total || 0);
+            dayTotal.textContent = formatEuro(data.period_total != null ? data.period_total : data.day_total || 0);
         }
         if (dayCount) {
             const n = data.ride_count || 0;
@@ -5352,7 +5416,7 @@
             summary.hidden = false;
         }
         if (monthCard) {
-            if (canViewMonthEarnings && data.month) {
+            if (canViewMonthEarnings && earningsPeriod === 'day' && data.month) {
                 monthCard.hidden = false;
                 const monthLabel = $('#earnings-month-label');
                 const monthTotal = $('#earnings-month-total');
@@ -5373,12 +5437,23 @@
         }
         if (prevBtn) {
             prevBtn.disabled = false;
+            prevBtn.setAttribute(
+                'aria-label',
+                earningsPeriod === 'week' ? 'Vorige week' : earningsPeriod === 'month' ? 'Vorige maand' : 'Vorige dag'
+            );
         }
         if (nextBtn) {
-            nextBtn.disabled = !!data.is_today;
+            nextBtn.disabled = !!data.is_current || !!data.is_today;
+            nextBtn.setAttribute(
+                'aria-label',
+                earningsPeriod === 'week' ? 'Volgende week' : earningsPeriod === 'month' ? 'Volgende maand' : 'Volgende dag'
+            );
         }
         if (todayBtn) {
-            todayBtn.disabled = !!data.is_today;
+            todayBtn.disabled = false;
+        }
+        if (empty) {
+            empty.textContent = data.empty_message || 'Geen afgeronde ritten op deze dag.';
         }
 
         const rides = Array.isArray(data.rides) ? data.rides : [];
@@ -5498,12 +5573,15 @@
         }
     }
 
-    async function loadEarnings(dateIso) {
+    async function loadEarnings(dateIso, period) {
         if (!canViewEarnings || earningsLoading) {
             return;
         }
+        const nextPeriod = period || earningsPeriod || 'day';
+        earningsPeriod = nextPeriod === 'month' && !canViewMonthEarnings ? 'day' : nextPeriod;
         const date = dateIso || earningsDate || todayLocalIsoDate();
         earningsLoading = true;
+        syncEarningsPeriodButtons();
         const loading = $('#earnings-loading');
         const error = $('#earnings-error');
         const empty = $('#earnings-empty');
@@ -5521,7 +5599,9 @@
             list.innerHTML = '';
         }
         try {
-            const res = await api('/earnings?date=' + encodeURIComponent(date));
+            const res = await api(
+                '/earnings?date=' + encodeURIComponent(date) + '&period=' + encodeURIComponent(earningsPeriod)
+            );
             if (res && res.permissions) {
                 applyEarningsPermissions(res.permissions);
             }
@@ -5553,7 +5633,7 @@
         updateProfileOnlineStatus();
         updateNotificationsHint();
         if (isOnline) {
-            await prepareDriverAlerts();
+            prepareDriverAlerts();
             requestScreenWakeLockFromGesture();
             await refreshDriverVehicles();
         }
@@ -5561,12 +5641,11 @@
             return;
         }
         try {
-            const coords = await getDriverPosition() || lastGpsCoords;
+            const coords = lastGpsCoords;
             const body = { is_online: isOnline };
             if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
                 body.lat = coords.lat;
                 body.lng = coords.lng;
-                persistLastGpsCoords(coords);
             }
             if (selectedVehicleId) {
                 body.vehicle_id = selectedVehicleId;
@@ -5575,6 +5654,22 @@
                 method: 'PUT',
                 body: body,
             });
+            if (isOnline) {
+                getDriverPosition().then(function (fresh) {
+                    if (!token || !isOnline || !fresh) {
+                        return;
+                    }
+                    if (!Number.isFinite(fresh.lat) || !Number.isFinite(fresh.lng)) {
+                        return;
+                    }
+                    persistLastGpsCoords(fresh);
+                    const next = { is_online: true, lat: fresh.lat, lng: fresh.lng };
+                    if (selectedVehicleId) {
+                        next.vehicle_id = selectedVehicleId;
+                    }
+                    api('/availability', { method: 'PUT', body: next }).catch(function () {});
+                });
+            }
         } catch (e) {
             if (e.code === 'driver_not_active') {
                 return;
@@ -6332,6 +6427,7 @@
         }
         if (!visible) {
             setCompleteRideButtonVisible(false);
+            syncPaidRideStamp(null);
         }
         syncActiveRideJumpButton();
         syncTripsEmptyState();
@@ -6676,6 +6772,54 @@
         return payment.status === 'paid';
     }
 
+    function syncPaidRideStamp(ride) {
+        const strip = $('#active-ride-strip');
+        const stamp = $('#ride-paid-stamp');
+        if (!strip || !stamp) {
+            return;
+        }
+        const show =
+            !!(ride &&
+                isDriverInProgressRide(ride) &&
+                !isContractRide(ride) &&
+                isRidePaymentPaid(ride));
+        if (!show) {
+            strip.classList.remove('is-paid', 'is-paid-animating');
+            stamp.hidden = true;
+            stamp.setAttribute('aria-hidden', 'true');
+            paidStampAnimatedRideId = null;
+            return;
+        }
+        const rideId = String(ride.id);
+        stamp.hidden = false;
+        stamp.setAttribute('aria-hidden', 'false');
+        strip.classList.add('is-paid');
+        const tripsPanel = document.querySelector('[data-main-tab-panel="trips"]');
+        const rideVisible = !strip.hidden && (!tripsPanel || !tripsPanel.hidden) && !isPaymentPanelOpen();
+        if (!rideVisible) {
+            strip.classList.remove('is-paid-animating');
+            return;
+        }
+        if (paidStampAnimatedRideId === rideId) {
+            strip.classList.remove('is-paid-animating');
+            return;
+        }
+        strip.classList.remove('is-paid-animating');
+        void stamp.offsetWidth;
+        strip.classList.add('is-paid-animating');
+        paidStampAnimatedRideId = rideId;
+        const stampInner = stamp.querySelector('.ride-paid-stamp');
+        function settlePaidStamp() {
+            strip.classList.remove('is-paid-animating');
+            if (stampInner) {
+                stampInner.removeEventListener('animationend', settlePaidStamp);
+            }
+        }
+        if (stampInner) {
+            stampInner.addEventListener('animationend', settlePaidStamp, { once: true });
+        }
+    }
+
     function canCompleteActiveRide(ride) {
         if (!ride) {
             return false;
@@ -6788,7 +6932,7 @@
         if (!btn) {
             return;
         }
-        if (!ride || !isDriverInProgressRide(ride) || !driverPaymentEnabled || isContractRide(ride)) {
+        if (!ride || !isDriverInProgressRide(ride) || isContractRide(ride)) {
             setSendInvoiceButtonVisible(false);
             btn.disabled = true;
             btn.classList.remove('is-disabled');
@@ -6831,6 +6975,14 @@
         return Math.round(amount * 100) / 100;
     }
 
+    function isDriverQrPaymentEnabled(ride) {
+        const payment = ride && ride.payment ? ride.payment : {};
+        if (typeof payment.driver_payment_enabled === 'boolean') {
+            return !!payment.driver_payment_enabled;
+        }
+        return driverPaymentEnabled;
+    }
+
     function isPaymentQrVisible() {
         const qrSection = $('#payment-qr-section');
         return !!(qrSection && !qrSection.hidden);
@@ -6846,12 +6998,13 @@
     function syncPaymentPanelUi(options) {
         const opts = options || {};
         const qrVisible = !!opts.qrVisible;
+        const qrAllowed = isDriverQrPaymentEnabled(currentActiveRide);
         const createBtn = $('#btn-payment-create');
         const cashBtn = $('#btn-cash-paid');
         const amountInput = $('#payment-amount');
         if (createBtn) {
-            createBtn.hidden = qrVisible;
-            if (!qrVisible) {
+            createBtn.hidden = qrVisible || !qrAllowed;
+            if (!qrVisible && qrAllowed) {
                 clearButtonLoading(createBtn);
                 createBtn.disabled = false;
             }
@@ -6906,6 +7059,7 @@
             setPayRideButtonVisible(false);
             syncSendInvoiceButton(null);
             syncCompleteRideButton(null);
+            syncPaidRideStamp(null);
             if (errEl) {
                 errEl.hidden = true;
                 errEl.textContent = '';
@@ -6917,6 +7071,7 @@
             setPayRideButtonVisible(false);
             syncSendInvoiceButton(null);
             syncCompleteRideButton(ride);
+            syncPaidRideStamp(null);
             if (errEl) {
                 errEl.hidden = true;
                 errEl.textContent = '';
@@ -6931,7 +7086,7 @@
             !isReturnTripRide(ride) || leg === 'outbound' || leg === 'return';
         const showPayButton =
             !isContractRide(ride) &&
-            driverPaymentEnabled &&
+            (cashPaymentEnabled || isDriverQrPaymentEnabled(ride)) &&
             payAllowedLeg &&
             (payment.requires_payment_before_complete || isPaid);
         const paymentError = isPaid ? '' : resolvePaymentError(ride, openPayment);
@@ -6949,6 +7104,7 @@
                 payBtn.removeAttribute('aria-disabled');
             }
         }
+        syncPaidRideStamp(showPayButton || isPaid ? ride : null);
         if (errEl) {
             if (paymentError) {
                 errEl.hidden = false;
@@ -7114,6 +7270,7 @@
                 syncRideActionButtons(data.ride, data.open_payment);
                 if (data.open_payment && data.open_payment.status === 'paid') {
                     stopPaymentPoll();
+                    activeRideInboxCollapsed = false;
                     closePaymentPanel();
                     renderActiveRide(data.ride);
                     return;
@@ -7125,6 +7282,7 @@
                         statusText.textContent = 'Betaling ontvangen.';
                     }
                     setTimeout(function () {
+                        activeRideInboxCollapsed = false;
                         closePaymentPanel();
                         renderActiveRide(data.ride);
                         refreshActiveRideInvoiceState();
@@ -7137,6 +7295,9 @@
     }
 
     async function createRidePayment() {
+        if (!isDriverQrPaymentEnabled(currentActiveRide)) {
+            return;
+        }
         const rideId = resolveActiveRideId();
         if (!rideId) {
             return;
@@ -7310,6 +7471,7 @@
             closePaymentPanel();
             if (res.data && res.data.ride) {
                 currentActiveRide = res.data.ride;
+                activeRideInboxCollapsed = false;
                 renderActiveRide(res.data.ride);
                 refreshActiveRideInvoiceState();
             } else {
@@ -7391,10 +7553,11 @@
         }
         if (numberInput) {
             numberInput.value = data.invoice_number || '';
+            numberInput.readOnly = true;
         }
         const sendBtn = $('#btn-invoice-send');
         if (sendBtn) {
-            sendBtn.disabled = !data.invoice_number;
+            sendBtn.disabled = false;
             sendBtn.textContent = data.includes_total_invoice
                 ? 'Versturen (incl. totaalfactuur)'
                 : 'Versturen';
@@ -7472,10 +7635,6 @@
         const invoiceNumber = numberInput ? String(numberInput.value).trim() : '';
         if (!email) {
             alert('Vul een e-mailadres in.');
-            return;
-        }
-        if (!invoiceNumber) {
-            alert('Factuurnummer ontbreekt. Sluit dit venster en open factuur versturen opnieuw.');
             return;
         }
         const sendBtn = $('#btn-invoice-send');
@@ -9302,6 +9461,10 @@
         if (!token || !isOnline) {
             return;
         }
+        if (inboxRefreshInFlight) {
+            return;
+        }
+        inboxRefreshInFlight = true;
         if (Date.now() - lastVehiclesRefreshAt > 15000) {
             refreshDriverVehicles();
         }
@@ -9330,6 +9493,10 @@
                     configuredOfferTtlSeconds = Math.max(15, parseInt(res.meta.offer_ttl_seconds, 10) || 300);
                 }
                 driverPaymentEnabled = !!res.meta.driver;
+                cashPaymentEnabled = res.meta.cash !== false;
+                if (isPaymentPanelOpen()) {
+                    syncPaymentPanelUi({ qrVisible: isPaymentQrVisible() });
+                }
                 unclaimedRides = res.meta.unclaimed_rides || [];
             }
             const active = res.data && res.data.active_ride;
@@ -9362,6 +9529,7 @@
             updateDeclinedNavButton();
             updateOverdueNavButton();
             inboxHasLoaded = true;
+            lastInboxRefreshAt = Date.now();
             inboxLoading = false;
             if (active) {
                 parkedAssignedRides = (res.data && res.data.parked_assigned_rides) || [];
@@ -9503,6 +9671,7 @@
                 hint.textContent = e.message || 'Probeer opnieuw of log opnieuw in.';
             }
         } finally {
+            inboxRefreshInFlight = false;
             if (inboxLoading) {
                 inboxLoading = false;
                 updateEmptyState();
@@ -9570,7 +9739,9 @@
     }
 
     function startInboxSync() {
-        refreshInbox();
+        if (!inboxHasLoaded || Date.now() - lastInboxRefreshAt > 1500) {
+            refreshInbox();
+        }
         connectPushStream();
         stopPolling();
         const ms = cfg.pollMs || (cfg.streamEnabled ? 15000 : 2000);
@@ -11375,21 +11546,55 @@
             }
             if (ev.target.closest('#btn-earnings-prev')) {
                 ev.preventDefault();
-                loadEarnings(shiftIsoDate(earningsDate || todayLocalIsoDate(), -1));
+                const from = earningsDate || todayLocalIsoDate();
+                if (earningsPeriod === 'week') {
+                    loadEarnings(shiftIsoDate(from, -7), 'week');
+                } else if (earningsPeriod === 'month') {
+                    loadEarnings(shiftIsoMonth(from, -1), 'month');
+                } else {
+                    loadEarnings(shiftIsoDate(from, -1), 'day');
+                }
                 return;
             }
             if (ev.target.closest('#btn-earnings-next')) {
                 ev.preventDefault();
-                if (earningsDate && earningsDate < todayLocalIsoDate()) {
-                    loadEarnings(shiftIsoDate(earningsDate, 1));
+                const today = todayLocalIsoDate();
+                const from = earningsDate || today;
+                if (earningsPeriod === 'week') {
+                    const next = shiftIsoDate(from, 7);
+                    if (next <= today) {
+                        loadEarnings(next, 'week');
+                    }
+                } else if (earningsPeriod === 'month') {
+                    const next = shiftIsoMonth(from, 1);
+                    if (next <= today) {
+                        loadEarnings(next, 'month');
+                    }
+                } else if (from < today) {
+                    loadEarnings(shiftIsoDate(from, 1), 'day');
                 }
                 return;
             }
-            if (ev.target.closest('#btn-earnings-today')) {
+            const earningsPeriodBtn = ev.target.closest('[data-earnings-period]');
+            if (earningsPeriodBtn) {
                 ev.preventDefault();
-                if (earningsDate !== todayLocalIsoDate()) {
-                    loadEarnings(todayLocalIsoDate());
+                const nextPeriod = earningsPeriodBtn.getAttribute('data-earnings-period') || 'day';
+                if (nextPeriod === 'month' && !canViewMonthEarnings) {
+                    return;
                 }
+                const today = todayLocalIsoDate();
+                if (nextPeriod === earningsPeriod) {
+                    if (nextPeriod === 'day' && (!earningsDate || earningsDate === today)) {
+                        return;
+                    }
+                    if (nextPeriod === 'week' && earningsDate && planningMondayIso(earningsDate) === planningMondayIso(today)) {
+                        return;
+                    }
+                    if (nextPeriod === 'month' && earningsDate && String(earningsDate).slice(0, 7) === today.slice(0, 7)) {
+                        return;
+                    }
+                }
+                loadEarnings(today, nextPeriod);
                 return;
             }
             const planningViewBtn = ev.target.closest('[data-planning-view]');
