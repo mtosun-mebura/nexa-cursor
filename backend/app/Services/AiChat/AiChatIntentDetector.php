@@ -381,7 +381,7 @@ final class AiChatIntentDetector
             return true;
         }
 
-        if ($this->matchesAny($text, ['schiphol', 'airport', 'luchthaven', 'duesseldorf', 'düsseldorf', 'duisburg'])) {
+        if ($this->matchesAny($text, ['schiphol', 'airport', 'luchthaven', 'dusseldorf', 'duesseldorf', 'düsseldorf', 'duisburg'])) {
             return true;
         }
 
@@ -409,7 +409,7 @@ final class AiChatIntentDetector
             return true;
         }
 
-        if ($this->matchesAny($text, ['schiphol', 'airport', 'luchthaven', 'duesseldorf', 'düsseldorf', 'duisburg'])) {
+        if ($this->matchesAny($text, ['schiphol', 'airport', 'luchthaven', 'dusseldorf', 'duesseldorf', 'düsseldorf', 'duisburg'])) {
             return true;
         }
 

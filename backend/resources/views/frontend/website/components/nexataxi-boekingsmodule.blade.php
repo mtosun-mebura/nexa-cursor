@@ -3,6 +3,11 @@
     $bookingConfig = (isset($bookingConfig) && is_array($bookingConfig))
         ? $bookingConfig
         : app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig(is_array($sectionConfigRaw) ? $sectionConfigRaw : []);
+    $bookingMarketplacePersonRange = ! empty($bookingMarketplacePersonRange)
+        || (isset($sectionKey) && str_contains((string) $sectionKey, 'algemene_boekingsmodule'));
+    if ($bookingMarketplacePersonRange) {
+        $bookingConfig['logic']['offer_display_mode'] = 'person_range';
+    }
     $bookingPageId = isset($page) ? ($page->id ?? null) : null;
     $mapsApiKey = trim((string) ($googleMapsApiKey ?? ''));
     $sectionStyle = $bookingConfig['style'] ?? [];
@@ -10,6 +15,7 @@
     $stepLabels = $bookingConfig['step_labels'] ?? [];
     $texts = $bookingConfig['texts'] ?? [];
     $logic = $bookingConfig['logic'] ?? [];
+    $skipOffersStep = ($logic['offer_display_mode'] ?? '') === 'person_range';
     $stepOrder = $bookingConfig['step_order'] ?? ['trip', 'baggage', 'offers', 'contact', 'confirm'];
     if (!is_array($stepOrder) || count($stepOrder) !== 5) {
         $stepOrder = ['trip', 'baggage', 'offers', 'contact', 'confirm'];
@@ -234,7 +240,7 @@
                                 <button type="button"
                                     class="booking-step-select-menu-item w-full text-left px-4 py-2 text-sm text-heading hover:bg-neutral-secondary-soft disabled:opacity-40 disabled:cursor-not-allowed"
                                     data-booking-step-key="{{ $stepKey }}"
-                                    @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>
+                                    @if(($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) || ($stepKey === 'offers' && !empty($skipOffersStep))) hidden disabled @endif>
                                     {{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}
                                 </button>
                             @endforeach
@@ -242,14 +248,14 @@
 
                         <select id="booking-steps-select" data-booking-step-select class="sr-only">
                         @foreach($stepOrder as $stepKey)
-                            <option value="{{ $stepKey }}" @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>{{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}</option>
+                            <option value="{{ $stepKey }}" @if(($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) || ($stepKey === 'offers' && !empty($skipOffersStep))) hidden disabled @endif>{{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}</option>
                         @endforeach
                         </select>
                     </div>
                 </div>
                 <ul class="booking-steps-nav flex flex-wrap -mb-px text-sm font-medium text-center text-body" data-booking-steps-nav role="tablist">
                     @foreach($stepOrder as $idx => $stepKey)
-                    <li class="me-2 @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden @endif">
+                    <li class="me-2 @if(($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) || ($stepKey === 'offers' && !empty($skipOffersStep))) hidden @endif">
                         <button
                             id="booking-tab-{{ $stepKey }}"
                             data-step-index="{{ $idx + 1 }}"
@@ -696,6 +702,7 @@
                 <div class="hidden w-full" id="booking-panel-confirm" role="tabpanel" aria-labelledby="booking-tab-confirm" data-step-panel="confirm">
                     <div class="booking-confirm-root w-full max-w-none mx-0">
                         <h3 class="booking-module-step-heading font-semibold mb-2" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
+                        <p class="hidden mb-3 text-sm text-slate-600 dark:text-slate-300" data-marketplace-note role="status"></p>
 
                         <div class="booking-confirm-wireframe rounded-2xl border bg-stone-100/90 dark:bg-slate-950/40 shadow-[0_2px_12px_rgba(15,23,42,0.06)] overflow-hidden w-full">
                             {{-- Route volle breedte; daaronder voertuig links + details rechts — compact, zonder interne scroll --}}
@@ -740,7 +747,7 @@
                                     </div>
                                     <div class="booking-confirm-surface rounded-xl border bg-neutral-primary shadow-sm overflow-hidden text-center">
                                         <div class="px-2.5 pt-2 pb-0.5">
-                                            <div class="booking-confirm-label text-slate-500 dark:text-slate-400">Voertuig / aanbieding</div>
+                                            <div class="booking-confirm-label text-slate-500 dark:text-slate-400" data-summary-offer-label>{{ !empty($skipOffersStep) ? 'Tarief' : 'Voertuig / aanbieding' }}</div>
                                         </div>
                                         <div class="hidden w-full" data-summary-vehicle-image-wrap>
                                             <div class="flex items-center justify-center px-2 py-1.5 min-h-[6.5rem] sm:min-h-[7.5rem]">
@@ -783,7 +790,6 @@
                                 $payDriver = !empty($bookingConfig['payment']['driver']);
                                 $payChoiceVisible = $payBooking && $payDriver;
                             @endphp
-                            @if($payBooking || $payDriver)
                             <div class="booking-confirm-section-divider border-t border-slate-200/90 dark:border-slate-600/40" aria-hidden="true"></div>
                             <div class="booking-confirm-surface mx-2.5 sm:mx-3 my-2 rounded-xl bg-neutral-primary px-2.5 py-2 shadow-sm text-center" data-booking-payment-block>
                                 <div class="booking-confirm-label text-slate-500 dark:text-slate-400 mb-1">Betaalwijze</div>
@@ -795,18 +801,20 @@
                                     </label>
                                     <label class="flex items-start gap-2 cursor-pointer">
                                         <input type="radio" name="booking_payment_method" value="driver" class="mt-0.5" data-booking-payment-radio>
-                                        <span><strong>Betalen in de taxi</strong><br><span class="text-slate-500 dark:text-slate-400">De chauffeur ontvangt een QR-code na de rit.</span></span>
+                                        <span><strong>Betalen in de taxi</strong><br><span class="text-slate-500 dark:text-slate-400">De chauffeur ontvangt een QR-code na de rit, of je betaalt contant.</span></span>
                                     </label>
                                 </div>
                                 @elseif($payBooking)
                                 <p class="text-sm text-body">Je betaalt direct online na het bevestigen van je boeking.</p>
                                 <input type="hidden" data-booking-payment-fixed value="booking">
-                                @else
+                                @elseif($payDriver)
                                 <p class="text-sm text-body">Je betaalt in de taxi via de chauffeur-app (QR-code) of contant.</p>
+                                <input type="hidden" data-booking-payment-fixed value="driver">
+                                @else
+                                <p class="text-sm text-body">Je betaalt contant in de taxi. De chauffeur kan daarna een factuur mailen.</p>
                                 <input type="hidden" data-booking-payment-fixed value="driver">
                                 @endif
                             </div>
-                            @endif
 
                             <div class="booking-confirm-total-strip flex flex-row items-center justify-between gap-3 border-t border-slate-200/90 dark:border-slate-600/40 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/80 dark:bg-slate-900/50">
                                 <div class="min-w-0">
@@ -3245,6 +3253,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     stepOrder = stepOrder.slice(0, 5);
 
     var skipBaggageStep = !!(config.logic && config.logic.skip_baggage_step);
+    var skipOffersStep = !!(config.logic && config.logic.offer_display_mode === 'person_range');
     var state = {
         step: 1,
         maxStep: 1,
@@ -4166,6 +4175,12 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
 
                 return;
             }
+            if (key === 'offers' && skipOffersStep) {
+                opt.hidden = true;
+                opt.disabled = true;
+
+                return;
+            }
             opt.hidden = false;
             opt.disabled = !isStepReachable(key);
         });
@@ -4237,6 +4252,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         for (var i = idx + 1; i < stepOrder.length; i += 1) {
             var candidate = stepOrder[i];
             if (candidate === 'baggage' && !state.has_baggage) continue;
+            if (candidate === 'offers' && skipOffersStep) continue;
             return candidate;
         }
         return null;
@@ -4248,6 +4264,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         for (var i = idx - 1; i >= 0; i -= 1) {
             var candidate = stepOrder[i];
             if (candidate === 'baggage' && !state.has_baggage) continue;
+            if (candidate === 'offers' && skipOffersStep) continue;
             return candidate;
         }
         return null;
@@ -4260,7 +4277,16 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         }
         updateBookingStepSelectOptions();
         if (!state.has_baggage && getCurrentStepKey() === 'baggage') {
-            setStepByKey('offers');
+            setStepByKey(getNextStepKey('baggage') || 'contact');
+        }
+        if (skipOffersStep) {
+            var offersTab = root.querySelector('.booking-step-tab[data-step-key="offers"]');
+            if (offersTab && offersTab.closest('li')) {
+                offersTab.closest('li').classList.add('hidden');
+            }
+            if (getCurrentStepKey() === 'offers') {
+                setStepByKey(getNextStepKey('offers') || 'contact');
+            }
         }
     }
 
@@ -4365,6 +4391,17 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         options = options || {};
         if (bookingNoVehicles) {
             nextStep = 1;
+        }
+        var intendedIndex = Math.max(1, Math.min(stepOrder.length, nextStep)) - 1;
+        var intendedKey = stepOrder[intendedIndex] || '';
+        if (skipOffersStep && intendedKey === 'offers') {
+            var skipTo = (nextStep >= state.step)
+                ? getNextStepKey('offers')
+                : getPrevStepKey('offers');
+            if (skipTo) {
+                setStepByKey(skipTo, options);
+                return;
+            }
         }
         var previousStep = state.step;
         state.step = Math.max(1, Math.min(stepOrder.length, nextStep));
@@ -6073,6 +6110,9 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         route += ' → ' + (compactAddress(state.dropoff_address || '') || '—');
         var total = (selected && hasCompleteRoute) ? formatEuro(selected.price) : '—';
         var offerName = (selected && hasCompleteRoute) ? selected.title : '—';
+        if (selected && hasCompleteRoute && skipOffersStep && total !== '—') {
+            offerName = offerName + ' — ' + total;
+        }
         var pickupAt = formatDateTimeNl(state.pickup_at || '');
 
         var routeStackEl = root.querySelector('[data-summary-route-stacked]');
@@ -6135,11 +6175,15 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
 
         var vehicleImageWrapEl = root.querySelector('[data-summary-vehicle-image-wrap]');
         var vehicleImageEl = root.querySelector('[data-summary-vehicle-image]');
-        var selectedImageUrl = resolveSelectedOfferImageUrl(selected);
+        var selectedImageUrl = skipOffersStep
+            ? String(bookingVehiclePlaceholderUrl || '').trim()
+            : resolveSelectedOfferImageUrl(selected);
         if (vehicleImageWrapEl && vehicleImageEl) {
             if (selected && hasCompleteRoute && selectedImageUrl) {
                 vehicleImageEl.src = selectedImageUrl;
-                vehicleImageEl.alt = selected.title ? ('Voertuig: ' + selected.title) : 'Gekozen voertuig';
+                vehicleImageEl.alt = skipOffersStep
+                    ? 'Taxi'
+                    : (selected.title ? ('Voertuig: ' + selected.title) : 'Gekozen voertuig');
                 vehicleImageWrapEl.classList.remove('hidden');
                 vehicleImageWrapEl.removeAttribute('hidden');
             } else {
@@ -6275,15 +6319,17 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         if (showVehicle && selected) {
             title = selected.title || selected.vehicle_name || 'Voertuig';
             if (personMode || String(selected.id || '').indexOf('person_range_') === 0) {
-                note = '(het voertuig kan afwijken van het weergegeven plaatje)';
+                note = '';
+                imageUrl = '';
+            } else {
+                imageUrl = resolveSelectedOfferImageUrl(selected);
             }
-            imageUrl = resolveSelectedOfferImageUrl(selected);
         } else if (personMode && hasCompleteRoute) {
             title = (estimateOffer && estimateOffer.title)
                 ? String(estimateOffer.title)
                 : ((state.person_range || (passengers <= 4 ? '1-4' : '5-8')) + ' personen');
-            note = '(het voertuig kan afwijken van het weergegeven plaatje)';
-            imageUrl = resolveSelectedOfferImageUrl(estimateOffer);
+            note = '';
+            imageUrl = '';
         }
 
         cards.forEach(function(card) {
@@ -6450,18 +6496,24 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             if (configOfferMode === 'person_range' && state.offer_display_mode !== 'person_range') {
                 state.offer_display_mode = 'person_range';
             }
+            skipOffersStep = state.offer_display_mode === 'person_range';
             state.person_range = data.person_range || (state.passengers <= 4 ? '1-4' : '5-8');
             state.baggage_van_upgrade = !!data.baggage_van_upgrade;
-            var marketplaceNote = root.querySelector('[data-marketplace-note]');
-            if (marketplaceNote) {
+            var marketplaceNotes = root.querySelectorAll('[data-marketplace-note]');
+            marketplaceNotes.forEach(function(marketplaceNote) {
                 if (payload && payload.marketplace && payload.marketplace.label) {
-                    marketplaceNote.textContent = 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxicentrale.';
+                    var candidateCount = Array.isArray(payload.marketplace.candidate_company_ids)
+                        ? payload.marketplace.candidate_company_ids.length
+                        : 0;
+                    marketplaceNote.textContent = candidateCount > 1
+                        ? 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxicentrales. Wie accepteert, krijgt de klant.'
+                        : 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxicentrale.';
                     marketplaceNote.classList.remove('hidden');
                 } else {
                     marketplaceNote.textContent = '';
                     marketplaceNote.classList.add('hidden');
                 }
-            }
+            });
             var visible = offersForDisplayMode();
             if (!visible.some(function(offer) { return offer.id === state.selected_offer_id; })) {
                 state.selected_offer_id = visible[0] ? visible[0].id : null;
@@ -8319,7 +8371,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
 
     function getSelectedPaymentMethod() {
         var paymentCfg = config.payment || {};
-        if (!paymentCfg.booking && !paymentCfg.driver) return null;
+        if (!paymentCfg.booking && !paymentCfg.driver) return 'driver';
         if (paymentCfg.booking && !paymentCfg.driver) return 'booking';
         if (paymentCfg.driver && !paymentCfg.booking) return 'driver';
         var checked = root.querySelector('[data-booking-payment-radio]:checked');

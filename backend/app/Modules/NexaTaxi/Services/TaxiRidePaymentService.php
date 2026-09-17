@@ -26,25 +26,14 @@ class TaxiRidePaymentService
             return false;
         }
 
-        if ($ride->payment_method === RideRequest::PAYMENT_METHOD_BOOKING) {
-            return true;
-        }
-
-        if ($ride->payment_method === RideRequest::PAYMENT_METHOD_DRIVER) {
-            $companyId = (int) ($ride->company_id ?? 0);
-            if (! $this->dispatchSettings->paymentDriverEnabled($companyId > 0 ? $companyId : null)) {
-                return false;
-            }
-
-            return $ride->payment_status !== RideRequest::PAYMENT_STATUS_PAID;
-        }
-
         // Contractritten worden gefactureerd op abonnementsniveau; geen betaling vóór afronden in de chauffeur-app.
         if ($ride->payment_method === RideRequest::PAYMENT_METHOD_CONTRACT) {
             return false;
         }
 
-        return false;
+        $amount = $ride->chargeableAmount();
+
+        return $amount !== null && $amount >= 0.01;
     }
 
     public function canCompleteRide(RideRequest $ride): bool
@@ -70,6 +59,7 @@ class TaxiRidePaymentService
             'final_price' => $ride->final_price !== null ? (float) $ride->final_price : null,
             'can_complete' => $this->canCompleteRide($ride),
             'requires_payment_before_complete' => $this->requiresPaymentBeforeComplete($ride),
+            'cash_payment_enabled' => true,
             'driver_payment_enabled' => $options['driver'],
             'booking_payment_enabled' => $options['booking'],
             'payment_error' => $this->driverPaymentErrorMessage($ride),
@@ -123,7 +113,7 @@ class TaxiRidePaymentService
                 return RideRequest::PAYMENT_METHOD_CONTRACT;
             }
 
-            return null;
+            return RideRequest::PAYMENT_METHOD_DRIVER;
         }
 
         if ($booking && ! $driver) {
@@ -150,11 +140,6 @@ class TaxiRidePaymentService
     public function markDriverCashPaid(string $conn, RideRequest $ride, ?float $amount = null): RideRequest
     {
         $companyId = (int) ($ride->company_id ?? 0);
-        if (! $this->dispatchSettings->paymentDriverEnabled($companyId > 0 ? $companyId : null)) {
-            throw ValidationException::withMessages([
-                'payment' => ['Betaling via de chauffeur-app is niet ingeschakeld.'],
-            ]);
-        }
 
         if ((int) $ride->driver_id <= 0) {
             throw ValidationException::withMessages([
@@ -182,6 +167,15 @@ class TaxiRidePaymentService
                 throw ValidationException::withMessages([
                     'payment' => ['Deze rit is al betaald.'],
                 ]);
+            }
+
+            if (! in_array($ride->payment_method, [
+                RideRequest::PAYMENT_METHOD_BOOKING,
+                RideRequest::PAYMENT_METHOD_DRIVER,
+                RideRequest::PAYMENT_METHOD_CONTRACT,
+            ], true)) {
+                $ride->payment_method = RideRequest::PAYMENT_METHOD_DRIVER;
+                $ride->save();
             }
 
             RidePayment::on($conn)

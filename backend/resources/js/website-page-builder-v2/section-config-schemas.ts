@@ -13,7 +13,7 @@ export type ConfigField =
   | { type: 'wysiwyg'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen; defaultValue?: string }
   | { type: 'dynamic-select'; key: string; label: string; source: 'sideComponents' | 'emailTemplates'; hint?: string; visibleWhen?: FieldVisibleWhen }
-  | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen; inputWidth?: 'digits' }
+  | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; visibleWhen?: FieldVisibleWhen; inputWidth?: 'digits'; defaultValue?: number }
   | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
   | { type: 'color'; key: string; label: string; hint?: string; defaultValue?: string; presets?: { hex: string; label: string }[]; colSpan?: 2 | 3 }
   | { type: 'image'; key: string; label: string; hint?: string; generateImage?: boolean }

@@ -56,4 +56,16 @@ class AiChatRichTextFormatterTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/TaxiDe/', $result);
         $this->assertDoesNotMatchRegularExpression('/2020\.Artikel/', $result);
     }
+
+    public function test_does_not_split_product_names_or_markdown_links(): void
+    {
+        $formatter = new AiChatRichTextFormatter();
+        $source = 'Werkt op iPhone, iPad en Android. Meer: [Contractvervoer](/contractvervoer). Interesse: [contact](/contact).';
+
+        $this->assertSame($source, $formatter->ungluePdfText($source));
+        $this->assertSame(
+            'Chauffeurs zetten hem op WhatsApp, MacBook of iOS.',
+            $formatter->ungluePdfText('Chauffeurs zetten hem op WhatsApp, MacBook of iOS.')
+        );
+    }
 }

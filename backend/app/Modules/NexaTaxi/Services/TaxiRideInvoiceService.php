@@ -52,14 +52,14 @@ class TaxiRideInvoiceService
                 RideRequest::on($conn)->whereKey($ride->id)->update(['invoice_id' => $existing->id]);
             }
 
-            return $existing;
+            return $this->ensureInvoiceHasNumber($existing);
         }
 
         return DB::transaction(function () use ($conn, $ride, $companyId, $generatePdf) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             $existing = $this->findInvoiceForRide($ride);
             if ($existing) {
-                return $existing;
+                return $this->ensureInvoiceHasNumber($existing);
             }
 
             $invoice = $this->createInvoiceFromRide($ride, $companyId);
@@ -86,14 +86,14 @@ class TaxiRideInvoiceService
 
         $existing = $this->findInvoiceForRide($ride, $billingPeriod);
         if ($existing) {
-            return $existing;
+            return $this->ensureInvoiceHasNumber($existing);
         }
 
         return DB::transaction(function () use ($conn, $ride, $companyId, $billingPeriod, $generatePdf) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             $existing = $this->findInvoiceForRide($ride, $billingPeriod);
             if ($existing) {
-                return $existing;
+                return $this->ensureInvoiceHasNumber($existing);
             }
 
             $amounts = $ride->splitReturnTripLegAmounts();
@@ -155,7 +155,7 @@ class TaxiRideInvoiceService
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             $existing = $this->findInvoiceForRide($ride);
             if ($existing) {
-                return $existing;
+                return $this->ensureInvoiceHasNumber($existing);
             }
 
             $companyId = $this->resolveCompanyIdForRide($ride);
@@ -237,7 +237,7 @@ class TaxiRideInvoiceService
     /**
      * @return array<string, mixed>
      */
-    public function driverInvoicePayload(RideRequest $ride): array
+    public function driverInvoicePayload(RideRequest $ride, bool $ensureInvoice = true): array
     {
         $conn = $ride->getConnectionName();
         $sendableLeg = $this->resolveSendableInvoiceBillingPeriod($ride);
@@ -247,7 +247,7 @@ class TaxiRideInvoiceService
             ? $this->findInvoiceForRide($ride, $billingPeriod)
             : $this->findInvoiceForRide($ride);
 
-        if (! $invoice && $sendableLeg !== null) {
+        if ($ensureInvoice && ! $invoice && $sendableLeg !== null) {
             try {
                 if ($ride->requiresPerLegDriverPayment() && $sendableLeg !== '') {
                     $invoice = $this->ensureInvoiceForLeg($conn, $ride->fresh(), $sendableLeg, false);
@@ -263,6 +263,10 @@ class TaxiRideInvoiceService
             } catch (\Throwable $e) {
                 report($e);
             }
+        }
+
+        if ($ensureInvoice && $invoice) {
+            $invoice = $this->ensureInvoiceHasNumber($invoice);
         }
 
         $outboundInvoice = $ride->requiresPerLegDriverPayment()
@@ -287,6 +291,7 @@ class TaxiRideInvoiceService
             'includes_total_invoice' => $sendableLeg === RideRequest::INVOICE_BILLING_TERUG
                 && $ride->returnPaidAmount() !== null,
             'can_send' => $sendableLeg !== null
+                && filled($invoice?->invoice_number)
                 && $invoice?->status !== 'sent'
                 && $this->invoicePdfAllowedForRide($ride),
         ];
@@ -326,8 +331,13 @@ class TaxiRideInvoiceService
             ]);
         }
 
+        $invoice = $this->ensureInvoiceHasNumber($invoice);
+
         return DB::transaction(function () use ($conn, $ride, $invoice, $email, $invoiceNumber, $sendableLeg) {
             $invoice = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+            if (trim((string) $invoice->invoice_number) === '') {
+                $invoice = $this->ensureInvoiceHasNumber($invoice);
+            }
 
             $submittedNumber = $invoiceNumber !== null ? trim($invoiceNumber) : '';
             if ($submittedNumber !== '' && $submittedNumber !== $invoice->invoice_number) {
@@ -870,6 +880,21 @@ class TaxiRideInvoiceService
         }
 
         return $text;
+    }
+
+    public function ensureInvoiceHasNumber(Invoice $invoice): Invoice
+    {
+        if (trim((string) $invoice->invoice_number) !== '') {
+            return $invoice;
+        }
+
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $settings = InvoiceSetting::getSettingsForCompany($companyId > 0 ? $companyId : null);
+        $invoice->update([
+            'invoice_number' => $settings->generateInvoiceNumber(),
+        ]);
+
+        return $invoice->fresh() ?? $invoice;
     }
 
     protected function resolveCompanyIdForRide(RideRequest $ride): int

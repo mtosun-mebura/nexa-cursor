@@ -585,9 +585,97 @@
         #btn-pay-ride { background: var(--orange); color: var(--accent-on, #fff); }
         #btn-pay-ride:hover { background: var(--orange-hover); color: var(--accent-on, #fff); }
         #btn-pay-ride.is-paid {
-            background: #64748b;
+            background: var(--green);
             color: #fff;
-            cursor: not-allowed;
+            cursor: default;
+            box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+        }
+        #btn-pay-ride.is-paid:hover {
+            background: var(--green);
+            color: #fff;
+        }
+        .active-ride-body {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+        #ride-paid-stamp {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            background: rgba(8, 12, 20, 0.28);
+            perspective: 720px;
+        }
+        #active-ride-strip.is-paid #ride-paid-stamp {
+            display: flex;
+        }
+        .ride-paid-stamp {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            color: var(--green);
+            transform-style: preserve-3d;
+            opacity: 0;
+            transform: scale(0.14) translateZ(-160px);
+            filter: drop-shadow(0 18px 28px rgba(34, 197, 94, 0.28));
+        }
+        #active-ride-strip.is-paid:not(.is-paid-animating) .ride-paid-stamp {
+            opacity: 1;
+            transform: none;
+        }
+        #active-ride-strip.is-paid.is-paid-animating .ride-paid-stamp {
+            animation: ride-paid-stamp-pop 0.95s cubic-bezier(0.2, 0.7, 0.25, 1) both;
+        }
+        .ride-paid-stamp__icon {
+            width: 5.75rem;
+            height: 5.75rem;
+            display: block;
+        }
+        .ride-paid-stamp__label {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--green);
+            text-shadow: 0 2px 12px rgba(8, 12, 20, 0.45);
+        }
+        @keyframes ride-paid-stamp-pop {
+            0% {
+                opacity: 0;
+                transform: scale(0.12) translateZ(-180px);
+            }
+            28% {
+                opacity: 1;
+                transform: scale(0.42) translateZ(-70px);
+            }
+            68% {
+                opacity: 1;
+                transform: scale(1.18) translateZ(42px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateZ(0);
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #active-ride-strip.is-paid.is-paid-animating .ride-paid-stamp {
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }
+        }
+        html[data-theme="light"] #ride-paid-stamp {
+            background: rgba(255, 255, 255, 0.32);
+        }
+        html[data-theme="light"] .ride-paid-stamp__label {
+            text-shadow: 0 1px 8px rgba(255, 255, 255, 0.8);
         }
         #payment-ride-error {
             margin-top: 0.75rem;
@@ -1987,7 +2075,8 @@
         .driver-bottom-nav__btn[hidden] {
             display: none !important;
         }
-        .planning-view-toggle {
+        .planning-view-toggle,
+        .earnings-period-toggle {
             display: inline-flex;
             align-items: stretch;
             flex-shrink: 0;
@@ -1996,7 +2085,8 @@
             overflow: hidden;
             background: var(--card-elevated);
         }
-        .planning-view-toggle__btn {
+        .planning-view-toggle__btn,
+        .earnings-period-toggle__btn {
             border: none;
             background: transparent;
             color: var(--muted);
@@ -2006,7 +2096,8 @@
             cursor: pointer;
             min-height: 2rem;
         }
-        .planning-view-toggle__btn.is-active {
+        .planning-view-toggle__btn.is-active,
+        .earnings-period-toggle__btn.is-active {
             background: rgba(var(--accent-rgb), 0.18);
             color: var(--orange);
         }
@@ -3254,7 +3345,8 @@
             box-shadow: 0 0 0 2px var(--chrome);
         }
         html[data-theme="light"] .earnings-day-nav__btn,
-        html[data-theme="light"] .driver-section-head__today {
+        html[data-theme="light"] .driver-section-head__today,
+        html[data-theme="light"] .earnings-period-toggle {
             background: var(--card-elevated);
             border-color: var(--line);
             color: var(--text);
@@ -3780,7 +3872,18 @@
             <div id="scheduled-rides-list"></div>
         </div>
         <div id="active-ride-strip" class="card offer-card active-ride-card" hidden>
-            <div id="active-ride"></div>
+            <div class="active-ride-body">
+                <div id="active-ride"></div>
+                <div id="ride-paid-stamp" hidden aria-hidden="true">
+                    <div class="ride-paid-stamp" role="status" aria-live="polite">
+                        <svg class="ride-paid-stamp__icon" viewBox="0 0 88 88" aria-hidden="true" focusable="false">
+                            <circle cx="44" cy="44" r="42" fill="currentColor"></circle>
+                            <path d="M26.5 45.5 38.8 58.2 62.5 31.8" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        <p class="ride-paid-stamp__label">Betaald</p>
+                    </div>
+                </div>
+            </div>
             <p id="payment-ride-error" hidden role="alert"></p>
             <div class="offer-actions active-ride-actions" id="active-ride-actions">
                 <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
@@ -3828,7 +3931,11 @@
         <div id="tab-panel-earnings" class="driver-tab-panel earnings-panel" data-main-tab-panel="earnings" hidden>
             <div class="driver-section-head">
                 <h2>Inkomsten</h2>
-                <button type="button" class="driver-section-head__today" id="btn-earnings-today" disabled>Vandaag</button>
+                <div class="earnings-period-toggle" role="tablist" aria-label="Inkomstenperiode">
+                    <button type="button" class="earnings-period-toggle__btn is-active" data-earnings-period="day" id="btn-earnings-today" aria-selected="true">Vandaag</button>
+                    <button type="button" class="earnings-period-toggle__btn" data-earnings-period="week" id="btn-earnings-week" aria-selected="false">Week</button>
+                    <button type="button" class="earnings-period-toggle__btn" data-earnings-period="month" id="btn-earnings-month" aria-selected="false">Maand</button>
+                </div>
             </div>
             <div class="earnings-day-nav" id="earnings-day-nav">
                 <button type="button" class="earnings-day-nav__btn" id="btn-earnings-prev" aria-label="Vorige dag">
@@ -3844,7 +3951,7 @@
             </div>
             <div class="earnings-summary" id="earnings-summary" hidden>
                 <div class="card offer-card earnings-summary__card">
-                    <p class="earnings-summary__label">Totaal deze dag</p>
+                    <p class="earnings-summary__label" id="earnings-day-total-label">Totaal deze dag</p>
                     <p class="earnings-summary__value" id="earnings-day-total">€&nbsp;0,00</p>
                     <p class="earnings-summary__hint" id="earnings-day-count">0 ritten</p>
                 </div>
@@ -4097,7 +4204,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
-<script src="/assets/js/taxi-driver-app.js?v=164" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=171" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

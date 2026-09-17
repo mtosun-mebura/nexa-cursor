@@ -45,6 +45,10 @@ class AiChatRouteQuoteParserTest extends TestCase
         $this->assertSame(2, $this->parser->parseBaggagePieces('2 koffers'));
         $this->assertNotNull($this->parser->parsePickupDatetime('morgen 10:00'));
         $this->assertNotNull($this->parser->parsePickupDatetime('2026-12-15T14:30'));
+        $this->assertSame(
+            '2026-12-15 14:30:00',
+            $this->parser->parsePickupDatetime('2026-12-15 14:30'),
+        );
     }
 
     public function test_validates_contact_fields(): void

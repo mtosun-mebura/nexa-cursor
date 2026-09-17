@@ -278,7 +278,7 @@ class RideRequest extends Model
             return false;
         }
 
-        return (int) ($this->company_id ?? 0) > 0;
+        return (int) ($this->company_id ?? 0) > 0 || $this->isUnclaimedMarketplaceBooking();
     }
 
     public function isNexaSuiteBooking(): bool
@@ -294,6 +294,71 @@ class RideRequest extends Model
         }
 
         return false;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function marketplaceCandidateCompanyIds(): array
+    {
+        $payload = $this->booking_payload;
+        $ids = is_array($payload) ? ($payload['marketplace']['candidate_company_ids'] ?? []) : [];
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('intval', $ids),
+            static fn (int $id): bool => $id > 0
+        )));
+    }
+
+    public function isUnclaimedMarketplaceBooking(): bool
+    {
+        return $this->isNexaSuiteBooking()
+            && ! $this->driver_id
+            && (int) ($this->company_id ?? 0) <= 0;
+    }
+
+    public function isVisibleToMarketplaceTenant(int $companyId): bool
+    {
+        if ($companyId <= 0) {
+            return false;
+        }
+        if ((int) ($this->company_id ?? 0) === $companyId) {
+            return true;
+        }
+        if (! $this->isUnclaimedMarketplaceBooking()) {
+            return false;
+        }
+
+        return in_array($companyId, $this->marketplaceCandidateCompanyIds(), true);
+    }
+
+    /**
+     * Eigen ritten van dit bedrijf, plus onopgeëiste NEXA Suite-ritten waar dit bedrijf kandidaat voor is.
+     */
+    public function scopeOwnedOrUnclaimedMarketplaceForCompany($query, int $companyId)
+    {
+        $companyId = (int) $companyId;
+        if ($companyId <= 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($q) use ($companyId) {
+            $q->where('company_id', $companyId)
+                ->orWhere(function ($marketplace) use ($companyId) {
+                    $marketplace->where(function ($source) {
+                        $source->where('source', self::SOURCE_NEXA_SUITE)
+                            ->orWhere('booking_payload->channel', self::SOURCE_NEXA_SUITE);
+                    })
+                        ->whereNull('driver_id')
+                        ->where(function ($company) {
+                            $company->whereNull('company_id')->orWhere('company_id', 0);
+                        })
+                        ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
+                });
+        });
     }
 
     public function nexaSuiteLabel(): string

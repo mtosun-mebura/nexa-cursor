@@ -23,6 +23,8 @@ class CentralWelcomePageService
 
     public const COMPARISON_SLUG = 'voor-en-nadelen';
 
+    public const HOME_BOOKING_SECTION_KEY = 'component:taxi.algemene_boekingsmodule';
+
     /** @return list<string> */
     public static function marketingSlugs(): array
     {
@@ -55,10 +57,12 @@ class CentralWelcomePageService
      */
     public function ensurePageExists(): WebsitePage
     {
-        return $this->firstOrCreateCentralPage(
+        $page = $this->firstOrCreateCentralPage(
             WebsitePage::CENTRAL_WELCOME_SLUG,
             $this->welcomePageAttributes()
         );
+
+        return $this->ensureBookingModuleOnHomePage($page);
     }
 
     /**
@@ -80,6 +84,95 @@ class CentralWelcomePageService
         ]);
 
         return $pages->filter()->values();
+    }
+
+    /**
+     * Zet de algemene boekingsmodule op de centrale homepage, zodat AI-chat
+     * “Boek deze rit” de home van nexasuite.nl kan voorinvullen.
+     */
+    public function ensureBookingModuleOnHomePage(?WebsitePage $page = null): WebsitePage
+    {
+        $page ??= $this->findCentralPage(WebsitePage::CENTRAL_WELCOME_SLUG) ?? $this->firstOrCreateCentralPage(
+            WebsitePage::CENTRAL_WELCOME_SLUG,
+            $this->welcomePageAttributes()
+        );
+        $key = self::HOME_BOOKING_SECTION_KEY;
+        $sections = $page->getHomeSections();
+        $order = isset($sections['section_order']) && is_array($sections['section_order'])
+            ? array_values($sections['section_order'])
+            : [];
+        $removedRaw = $sections['removed_section_keys'] ?? '';
+        $removed = is_array($removedRaw)
+            ? $removedRaw
+            : array_values(array_filter(array_map('trim', explode(',', (string) $removedRaw))));
+
+        if (in_array($key, $removed, true)) {
+            return $page;
+        }
+        if (isset($sections['visibility'][$key]) && $sections['visibility'][$key] === false) {
+            return $page;
+        }
+
+        $changed = false;
+        if (! in_array($key, $order, true)) {
+            $heroAt = array_search('hero', $order, true);
+            $insertAt = $heroAt === false ? 0 : $heroAt + 1;
+            array_splice($order, $insertAt, 0, [$key]);
+            $sections['section_order'] = $order;
+            $changed = true;
+        }
+
+        $visibility = isset($sections['visibility']) && is_array($sections['visibility'])
+            ? $sections['visibility']
+            : [];
+        if (! array_key_exists($key, $visibility)) {
+            $visibility[$key] = true;
+            $sections['visibility'] = $visibility;
+            $changed = true;
+        }
+
+        $existing = $sections[$key] ?? null;
+        if (! is_array($existing) || $existing === []) {
+            $sections[$key] = $this->centralHomeBookingSectionConfig();
+            $changed = true;
+        } else {
+            $logic = is_array($existing['logic'] ?? null) ? $existing['logic'] : [];
+            $logicChanged = false;
+            if (($logic['offer_display_mode'] ?? '') !== 'person_range') {
+                $logic['offer_display_mode'] = 'person_range';
+                $logicChanged = true;
+            }
+            if (! is_numeric($logic['marketplace_radius_km'] ?? null)) {
+                $logic['marketplace_radius_km'] = NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM;
+                $logicChanged = true;
+            }
+            if ($logicChanged) {
+                $existing['logic'] = $logic;
+                $sections[$key] = $existing;
+                $changed = true;
+            }
+        }
+
+        if ($changed) {
+            $page->home_sections = $sections;
+            $page->save();
+        }
+
+        return $page->fresh() ?? $page;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function centralHomeBookingSectionConfig(): array
+    {
+        $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+        $bookingDefaults['title'] = 'Boek via NEXA Suite';
+        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales. Wie accepteert, krijgt de klant.';
+        $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
+        $bookingDefaults['logic']['marketplace_radius_km'] = NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM;
+
+        return $bookingDefaults;
     }
 
     /**
@@ -567,10 +660,14 @@ class CentralWelcomePageService
             ],
         ];
 
+        $bookingKey = self::HOME_BOOKING_SECTION_KEY;
+        $sections[$bookingKey] = $this->centralHomeBookingSectionConfig();
+
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = [
             'hero',
+            $bookingKey,
             'features',
             $tableKey,
             $galleryKey,
@@ -581,6 +678,7 @@ class CentralWelcomePageService
             $faqKey,
             'cta',
         ];
+        $sections['visibility'][$bookingKey] = true;
         $sections['visibility'][$tableKey] = true;
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility'][$modulesKey] = true;
@@ -687,7 +785,8 @@ class CentralWelcomePageService
         $bookingKey = 'component:taxi.algemene_boekingsmodule';
         $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
         $bookingDefaults['title'] = 'Boek via NEXA Suite';
-        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrale.';
+        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales. Wie accepteert, krijgt de klant.';
+        $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
         $sections[$bookingKey] = $bookingDefaults;
 
         $sections['cta'] = [
@@ -731,7 +830,8 @@ class CentralWelcomePageService
         $bookingKey = 'component:taxi.algemene_boekingsmodule';
         $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
         $bookingDefaults['title'] = 'Boek een taxi';
-        $bookingDefaults['subtitle'] = 'Algemene boeking via NEXA Suite. We koppelen je rit aan de dichtstbijzijnde aangesloten taxicentrale.';
+        $bookingDefaults['subtitle'] = 'Algemene boeking via NEXA Suite. We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales; wie accepteert, krijgt de klant.';
+        $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
         $sections[$bookingKey] = $bookingDefaults;
 
         $sections['hero']['title'] = 'Boek een taxi. Wij zoeken de dichtstbijzijnde centrale.';

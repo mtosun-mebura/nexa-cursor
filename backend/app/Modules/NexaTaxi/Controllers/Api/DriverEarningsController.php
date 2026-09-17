@@ -31,11 +31,16 @@ class DriverEarningsController extends Controller
 
         $data = $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d'],
+            'period' => ['nullable', 'in:day,week,month'],
         ]);
 
         $tz = ContractTransportTimezone::TIMEZONE;
         $today = Carbon::now($tz)->toDateString();
         $date = $data['date'] ?? $today;
+        $period = $data['period'] ?? TaxiDriverEarningsService::PERIOD_DAY;
+        if ($period === TaxiDriverEarningsService::PERIOD_MONTH && ! $perms['view_month']) {
+            $period = TaxiDriverEarningsService::PERIOD_DAY;
+        }
 
         try {
             $parsed = Carbon::createFromFormat('Y-m-d', $date, $tz);
@@ -49,10 +54,11 @@ class DriverEarningsController extends Controller
             $date = $today;
         }
 
-        $payload = $earnings->forDriverDay(
+        $payload = $earnings->forDriverPeriod(
             $companyId,
             (int) $user->id,
             $date,
+            $period,
             $perms['view_month']
         );
 

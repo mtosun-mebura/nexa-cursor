@@ -43,18 +43,18 @@ class AiChatAssistantService
         if ($companyId === null && $this->isCentralPublicChat()) {
             return array_merge([
                 'module' => 'nexa',
-                'endpoint' => route('frontend.ai-chat.message'),
+                'endpoint' => $this->chatEndpoint('frontend.ai-chat.message'),
                 'channel' => 'public',
-                'greeting' => 'Hallo! Ik help je met vragen over NEXA Suite: de taxi-applicatie, contractvervoer, prijzen en pakketten, je website en hoe je contact opneemt. Waar kan ik je mee helpen?',
+                'greeting' => 'Hallo! Ik help je met vragen over NEXA Suite: de taxi-applicatie, contractvervoer, prijzen en pakketten, je website en hoe je contact opneemt. Je kunt hier ook een taxi boeken — bijvoorbeeld: ik wil naar Düsseldorf Airport. Waar kan ik je mee helpen?',
                 'title' => 'NEXA-assistent',
-                'subtitle' => 'Vragen over het platform',
+                'subtitle' => 'Vragen over het platform · taxi boeken',
                 'storageKey' => $this->chatStorageKey('public', 'nexa', null, $userId),
             ], $this->chatMapsConfig());
         }
 
         return array_merge([
             'module' => $isTaxi ? 'taxi' : 'default',
-            'endpoint' => route('frontend.ai-chat.message'),
+            'endpoint' => $this->chatEndpoint('frontend.ai-chat.message'),
             'channel' => 'public',
             'greeting' => $messages->greeting($companyId, $settingsModule),
             'title' => $messages->title($companyId, $settingsModule),
@@ -78,7 +78,7 @@ class AiChatAssistantService
 
         return array_merge([
             'module' => 'taxi',
-            'endpoint' => route('taxi.portal.api.ai-chat.message'),
+            'endpoint' => $this->chatEndpoint('taxi.portal.api.ai-chat.message'),
             'channel' => 'mijn_taxi',
             'greeting' => $messages->greeting($companyId, 'taxi'),
             'title' => 'Mijn Taxi assistent',
@@ -142,7 +142,7 @@ class AiChatAssistantService
 
         return array_merge([
             'module' => 'taxi',
-            'endpoint' => route('admin.ai-chat.message'),
+            'endpoint' => $this->chatEndpoint('admin.ai-chat.message'),
             'greeting' => $greeting,
             'title' => 'Taxi-assistent',
             'subtitle' => $subtitle,
@@ -165,6 +165,14 @@ class AiChatAssistantService
     }
 
     /**
+     * Relatief pad zodat www/apex dezelfde sessiecookie gebruiken.
+     */
+    protected function chatEndpoint(string $routeName): string
+    {
+        return route($routeName, absolute: false);
+    }
+
+    /**
      * @return array{googleMapsApiKey: string, addressSearchUrl: string}
      */
     protected function chatMapsConfig(): array
@@ -173,7 +181,7 @@ class AiChatAssistantService
 
         return [
             'googleMapsApiKey' => $mapsKey,
-            'addressSearchUrl' => route('nexataxi.booking.address-search'),
+            'addressSearchUrl' => $this->chatEndpoint('nexataxi.booking.address-search'),
         ];
     }
 

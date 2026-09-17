@@ -57,6 +57,26 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $this->assertSame('pickup', $reply->input['step'] ?? null);
     }
 
+    public function test_central_website_travel_intent_starts_booking_flow(): void
+    {
+        $service = $this->makeService();
+        $context = new AiChatRequestContext(
+            companyId: 0,
+            channel: AiChatChannel::Public,
+            sessionId: 'quote-test-central',
+            module: 'nexa',
+            isCentralWebsite: true,
+        );
+
+        $reply = $service->handle($context, 'Ik wil naar Dusseldorf Airport');
+
+        $this->assertStringContainsString('Dusseldorf', $reply->reply);
+        $this->assertStringContainsString('Vanaf welk adres', $reply->reply);
+        $this->assertTrue($service->hasActiveSession($context));
+        $this->assertSame('address', $reply->input['type'] ?? null);
+        $this->assertSame('pickup', $reply->input['step'] ?? null);
+    }
+
     public function test_full_route_question_asks_to_confirm_pickup_before_passengers(): void
     {
         $service = $this->makeService();
@@ -104,6 +124,42 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $this->assertSame('Wat is je e-mailadres?', $formatter->questionForStep('email', $session));
         $this->assertTrue($formatter->inputSpecForStep('email', $session)['required'] ?? false);
         $this->assertStringNotContainsString('optioneel', $formatter->questionForStep('email', $session));
+    }
+
+    public function test_quote_summary_uses_person_range_tariff_without_other_vehicles(): void
+    {
+        $formatter = new AiChatQuoteAnswerFormatter();
+        $text = $formatter->formatQuote(
+            [
+                'flow' => 'booking',
+                'pickup_address' => 'Deurningerstraat 155, Enschede, Nederland',
+                'dropoff_address' => 'Schiphol Plaza, Vertrekpassage, Schiphol, Nederland',
+                'pickup_at' => '2026-09-18 14:55:00',
+                'passengers' => 4,
+            ],
+            [
+                'distance_meters' => 172969,
+                'duration_seconds' => 8074,
+                'offers' => [
+                    [
+                        'id' => 'person_range_1_4',
+                        'title' => 't/m 4 personen',
+                        'price' => 479.18,
+                    ],
+                    [
+                        'id' => 'offer_1',
+                        'title' => 'Demo personenauto',
+                        'price' => 500,
+                    ],
+                ],
+            ],
+            'http://localhost:8085/?book_offer=person_range_1_4#boek-rit',
+        );
+
+        $this->assertStringContainsString('Tarief: t/m 4 personen — € 479,18', $text);
+        $this->assertStringNotContainsString('Demo personenauto', $text);
+        $this->assertStringNotContainsString('Andere opties', $text);
+        $this->assertStringContainsString('Boek deze rit', $text);
     }
 
     public function test_booking_flow_asks_for_contact_after_remarks(): void
@@ -167,6 +223,29 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $reply = $service->handle($context, 'geen');
 
         $this->assertNotSame('first_name', $reply->input['step'] ?? null);
+    }
+
+    public function test_booking_url_points_to_homepage_with_hash(): void
+    {
+        $service = $this->makeService();
+        $method = new \ReflectionMethod($service, 'buildBookingUrl');
+        $method->setAccessible(true);
+
+        $url = $method->invoke($service, [
+            'pickup_address' => 'Deurningerstraat 155, Enschede',
+            'dropoff_address' => 'Schiphol Plaza',
+            'passengers' => 4,
+            'pickup_at' => '2026-09-18 14:55:00',
+        ], ['id' => 'offer_1'], [
+            'distance_meters' => 172969,
+            'duration_seconds' => 8074,
+        ]);
+
+        $this->assertStringContainsString('/?', $url);
+        $this->assertStringEndsWith('#boek-rit', $url);
+        $this->assertStringContainsString('book_pickup=', $url);
+        $this->assertStringContainsString('book_step=confirm', $url);
+        $this->assertDoesNotMatchRegularExpression('#https?://[^/]+\?#', $url);
     }
 
     private function makeService(): AiChatQuoteConversationService

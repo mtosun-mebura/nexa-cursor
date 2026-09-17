@@ -230,6 +230,38 @@ function withGpsFleetGroup(schema: ConfigField[]): ConfigField[] {
   })
 }
 
+function withMarketplaceRadiusGroup(schema: ConfigField[]): ConfigField[] {
+  return schema.map((field) => {
+    if (field.type !== 'group' || field.label !== 'Uiterlijk & titel') {
+      return field
+    }
+    return {
+      ...field,
+      fields: [
+        ...field.fields,
+        {
+          type: 'group',
+          label: 'Taxicentrales in de buurt',
+          alwaysOpen: true,
+          layout: 'row',
+          fields: [
+            {
+              type: 'number',
+              key: 'logic.marketplace_radius_km',
+              label: 'Straal (km)',
+              min: 1,
+              max: 100,
+              step: 1,
+              defaultValue: 10,
+              hint: 'Vanaf het ophaaladres. Aangesloten taxicentrales binnen deze afstand ontvangen de rit. Wie als eerste accepteert, krijgt de boeking.',
+            },
+          ],
+        },
+      ],
+    }
+  })
+}
+
 export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
   ...withGpsFleetGroup(TAXI_BOOKING_MODULE_SCHEMA),
   { type: 'group', label: 'Live kaart (v2)', fields: [
@@ -240,10 +272,12 @@ export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
   ]},
 ]
 
+export const TAXI_ALGEMENE_BOOKING_MODULE_SCHEMA: ConfigField[] = withMarketplaceRadiusGroup(TAXI_BOOKING_MODULE_V2_SCHEMA)
+
 const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
   'component:taxi.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.boekingsmodule_v2': TAXI_BOOKING_MODULE_V2_SCHEMA,
-  'component:taxi.algemene_boekingsmodule': TAXI_BOOKING_MODULE_V2_SCHEMA,
+  'component:taxi.algemene_boekingsmodule': TAXI_ALGEMENE_BOOKING_MODULE_SCHEMA,
   'component:taxiroyaal.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.tarieven': [
     { type: 'text', key: 'title', label: 'Bloktitel' },
