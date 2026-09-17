@@ -376,9 +376,25 @@
             border-radius: 0.75rem;
             padding: 0.25rem 0.2rem;
         }
+        .driver-bottom-nav__icon {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
         .driver-bottom-nav__btn svg {
             width: 1.3rem;
             height: 1.3rem;
+        }
+        .driver-bottom-nav__icon .toolbar-nav-badge {
+            top: -0.4rem;
+            right: -0.55rem;
+            min-width: 1.05rem;
+            height: 1.05rem;
+            padding: 0 0.22rem;
+            font-size: 0.65rem;
+            line-height: 1.05rem;
+            box-shadow: 0 0 0 2px var(--chrome);
         }
         .driver-bottom-nav__btn.is-active {
             color: var(--orange);
@@ -3715,10 +3731,10 @@
                 <span>Online voor ritten</span>
                 <button type="button" id="online-toggle-legacy" class="switch" aria-pressed="false" aria-label="Online" hidden disabled></button>
             </div>
-            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Aanvragen</h1>
+            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
         </div>
         <div class="dispatch-scroll">
-        <div id="tab-panel-requests" class="driver-tab-panel" data-main-tab-panel="requests">
+        <div id="tab-panel-requests" class="driver-tab-panel" data-main-tab-panel="requests" hidden>
         <div class="driver-section-head driver-section-head--with-filter" id="requests-section-head">
             <h2 id="requests-section-title">Nieuwe ritaanvraag</h2>
             <div class="ride-kind-filter" role="group" aria-label="Toon rittype" hidden>
@@ -3847,6 +3863,7 @@
             <p id="inbox-empty-title">Geen openstaande ritten.</p>
             <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
             <div id="inbox-empty-actions" class="inbox-empty-actions" hidden>
+                <button type="button" class="btn btn-primary" id="btn-empty-show-trips" hidden>Naar ritten</button>
                 <button type="button" class="btn btn-ghost" id="btn-empty-show-overdue" hidden>Bekijk verlopen ritten</button>
                 <button type="button" class="btn btn-ghost" id="btn-empty-show-declined" hidden>Bekijk afgewezen ritten</button>
                 <button type="button" class="btn btn-ghost" id="btn-empty-show-archived-inbox" hidden>Bekijk archief</button>
@@ -3854,7 +3871,7 @@
         </div>
         </div>
 
-        <div id="tab-panel-trips" class="driver-tab-panel" data-main-tab-panel="trips" hidden>
+        <div id="tab-panel-trips" class="driver-tab-panel" data-main-tab-panel="trips">
         <div class="driver-section-head driver-section-head--with-filter">
             <h2>Ritten</h2>
             <div class="ride-kind-filter" role="group" aria-label="Toon rittype" hidden>
@@ -4048,13 +4065,16 @@
         </div>
         <div class="dispatch-footer"></div>
         <nav class="driver-bottom-nav" aria-label="Hoofdnavigatie">
-            <button type="button" class="driver-bottom-nav__btn is-active" data-main-tab="requests" aria-current="page">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
-                <span>Aanvragen</span>
-            </button>
-            <button type="button" class="driver-bottom-nav__btn" data-main-tab="trips">
+            <button type="button" class="driver-bottom-nav__btn is-active" data-main-tab="trips" aria-current="page">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
                 <span>Ritten</span>
+            </button>
+            <button type="button" class="driver-bottom-nav__btn" data-main-tab="requests" aria-label="Aanvragen">
+                <span class="driver-bottom-nav__icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                    <span id="nav-requests-count" class="toolbar-nav-badge" hidden>0</span>
+                </span>
+                <span>Aanvragen</span>
             </button>
             <button type="button" class="driver-bottom-nav__btn" data-main-tab="planning">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
@@ -4204,7 +4224,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
-<script src="/assets/js/taxi-driver-app.js?v=171" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=172" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

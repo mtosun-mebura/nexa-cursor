@@ -51,6 +51,8 @@ class TaxiDriverHandleidingTest extends TestCase
             ->assertSee('Betalen en factuur', false)
             ->assertSee('8. Navigatie', false)
             ->assertSee('Tabbladen onderin', false)
+            ->assertSee('Na het inloggen kom je op', false)
+            ->assertSee('Dit is het startscherm.', false)
             ->assertSee('Start navigatie', false)
             ->assertSee('van je actieve rit', false)
             ->assertSee('naam van de klant staat boven Ophalen', false)
@@ -89,6 +91,9 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('data-main-tab-panel="planning"', $html);
         $this->assertStringContainsString('data-main-tab="navigation"', $html);
         $this->assertStringContainsString('data-main-tab-panel="navigation"', $html);
+        $this->assertMatchesRegularExpression('/data-main-tab="trips"[\s\S]+data-main-tab="requests"/', $html);
+        $this->assertStringContainsString('id="nav-requests-count"', $html);
+        $this->assertStringContainsString('id="btn-empty-show-trips"', $html);
         $this->assertStringContainsString('id="btn-start-navigation"', $html);
         $this->assertStringContainsString('maps.googleapis.com', $html);
         $this->assertStringContainsString('rel="preconnect"', $html);
