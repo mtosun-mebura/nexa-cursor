@@ -164,6 +164,45 @@
     .kt-alert-danger i {
         color: #ef4444 !important;
     }
+
+    /* Permissiematrix: volle kaartbreedte, laatste kolom niet afsnijden */
+    #admin-role-form .role-permissions-scroll.kt-card-table {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        max-width: 100%;
+    }
+
+    #admin-role-form .role-permissions-matrix {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100%;
+        table-layout: fixed;
+    }
+
+    #admin-role-form .role-permissions-matrix th,
+    #admin-role-form .role-permissions-matrix td {
+        min-width: 0 !important;
+    }
+
+    #admin-role-form .role-permissions-matrix th:first-child,
+    #admin-role-form .role-permissions-matrix td.role-permission-resource-name {
+        width: 22%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #admin-role-form .role-permissions-matrix th:not(:first-child),
+    #admin-role-form .role-permissions-matrix td.role-permission-action-cell {
+        white-space: nowrap;
+        padding-inline: 0.25rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #admin-role-form .admin-form-actions {
+        padding-bottom: 2.5rem;
+    }
 </style>
 @endpush
 
@@ -202,7 +241,7 @@
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-key text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $role->permissions->count() }} rechten
+                        {{ app(\App\Support\PermissionModuleVisibility::class)->filter($role->permissions)->count() }} rechten
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
@@ -379,7 +418,8 @@
                     {{-- Module Permissions Info Section --}}
                     @php
                         $menuService = app(\App\Services\MenuService::class);
-                        $modulePermissionsInfo = $menuService->getModulePermissionsGrouped();
+                        $modulePermissionsInfo = app(\App\Support\PermissionModuleVisibility::class)
+                            ->filterModulePermissionGroups($menuService->getModulePermissionsGrouped());
                     @endphp
                     @if(isset($modulePermissionsInfo) && count($modulePermissionsInfo) > 0)
                         <div class="px-3 sm:px-5 mb-5">
@@ -408,8 +448,10 @@
                         // Get currently selected permissions (from old input or role)
                         $rolePermissionNames = old('permissions', $role->permissions->pluck('name')->toArray());
 
+                        $visibility = app(\App\Support\PermissionModuleVisibility::class);
+
                         // Flatten all permissions from grouped structure
-                        $allPermissions = collect($permissions)->flatten();
+                        $allPermissions = $visibility->filter(collect($permissions)->flatten())->values();
                         
                         // Initialize collections and maps (will be built after all permissions are collected)
                         $permissionMap = [];
@@ -423,6 +465,7 @@
                             'notifications' => 'Notificaties',
                             'email-templates' => 'E-mail Templates',
                             'email_templates' => 'E-mail Templates',
+                            'mailserver' => 'Mailserver',
                             'tenant-dashboard' => 'Tenant Dashboard',
                             'tenant_dashboard' => 'Tenant Dashboard',
                             'agenda' => 'Agenda',
@@ -432,6 +475,8 @@
                             'roles' => 'Rollen en Permissies',
                             'permissions' => 'Permissies',
                             'dashboard' => 'Dashboard',
+                            'earnings' => 'Inkomsten',
+                            'taxi-earnings' => 'Inkomsten',
                         ];
 
                         // Resource labels uit module-menu ophalen zodat permissie-rijen
@@ -554,6 +599,8 @@
                                             ->value();
                                         $menuLabelKey = $normalizedModule . '-' . $normalizedResource;
                                         $moduleNames[$displayModuleKey] = $moduleResourceMenuLabels[$menuLabelKey]
+                                            ?? $moduleNames[$resource]
+                                            ?? $moduleNames[str_replace('_', '-', $resource)]
                                             ?? ucfirst($resource);
                                     }
                                     if (!isset($permissionMap[$displayModuleKey])) {
@@ -566,9 +613,11 @@
                                 }
                             }
                         }
+
+                        $allPermissions = $visibility->filter($allPermissions)->values();
                         
                         // Build resource to module mapping (voor 3-delige en 2-delige permissienamen)
-                        $resourceToModuleMap = [];
+                        $resourceToModuleMap = $visibility->resourceToProductModule();
                         if (isset($modulePermissions) && is_array($modulePermissions)) {
                             foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
                                 $moduleKey = $moduleData['module'];
@@ -790,16 +839,18 @@
                             'schedule' => 'Schedule',
                             'send' => 'Send',
                             'assign' => 'Assign',
+                            'view_month' => 'Maand',
+                            'view-month' => 'Maand',
                         ];
                     @endphp
 
                     <table class="kt-table kt-table-border align-middle text-sm w-full admin-keep-table-layout role-permissions-matrix" data-required-checkbox-group="permissions[]">
                         <thead>
                             <tr>
-                                <th class="min-w-[250px] text-left text-secondary-foreground font-normal">Module / Resource</th>
+                                <th class="text-left text-secondary-foreground font-normal">Module / Resource</th>
                                 @foreach($allActions as $action)
-                                    <th class="min-w-[100px] text-center text-secondary-foreground font-normal">
-                                        {{ $actionNames[$action] ?? ucfirst($action) }}
+                                    <th class="text-center text-secondary-foreground font-normal">
+                                        {{ $actionNames[$action] ?? ucfirst(str_replace('_', ' ', $action)) }}
                                     </th>
                                 @endforeach
                             </tr>

@@ -57,6 +57,13 @@ class AdminNotificationBulkDeleteTest extends TestCase
             ->assertOk()
             ->assertSee('notification-row-checkbox', false)
             ->assertSee('notifications-bulk-delete', false)
+            ->assertSee('notifications-status-col', false)
+            ->assertSee('admin-fluid-table', false)
+            ->assertSee('Sorteer op gebruiker')
+            ->assertSee('Sorteer op afzender')
+            ->assertSee('Sorteer op inhoud')
+            ->assertSee('Sorteer op status')
+            ->assertSee('Sorteer op datum')
             ->assertSee('Geselecteerde notificaties verwijderen', false);
     }
 
@@ -77,6 +84,34 @@ class AdminNotificationBulkDeleteTest extends TestCase
             ->assertRedirect(route('admin.notifications.index'));
 
         $this->assertDatabaseHas('notifications', ['id' => $foreign->id]);
+    }
+
+    #[Test]
+    public function index_sorts_notifications_by_user_name(): void
+    {
+        $company = $this->company();
+        $admin = $this->superAdmin();
+        $zulu = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Zulu',
+            'last_name' => 'Laatste',
+        ]);
+        $alpha = User::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Alpha',
+            'last_name' => 'Eerste',
+        ]);
+        $this->notification($zulu, $company, 'Zulu bericht');
+        $this->notification($alpha, $company, 'Alpha bericht');
+
+        $this->actingAs($admin)
+            ->withSession(['selected_tenant' => $company->id])
+            ->get(route('admin.notifications.index', [
+                'sort' => 'user',
+                'direction' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSeeInOrder(['Alpha Eerste', 'Zulu Laatste']);
     }
 
     #[Test]

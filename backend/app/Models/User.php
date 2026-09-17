@@ -80,6 +80,21 @@ class User extends Authenticatable
         return \App\Support\AdminPanelRoles::canAccessPanel($this);
     }
 
+    public function canViewMailSettings(): bool
+    {
+        return $this->isSuperAdmin()
+            || $this->hasRole('super-admin')
+            || $this->can('view-mailserver')
+            || $this->can('edit-mailserver');
+    }
+
+    public function canEditMailSettings(): bool
+    {
+        return $this->isSuperAdmin()
+            || $this->hasRole('super-admin')
+            || $this->can('edit-mailserver');
+    }
+
     /**
      * Alleen de bedrijfsbeheerder (company-admin) mag het SaaS-abonnement en de modules beheren.
      * Super-admin, staff en demo binnen hetzelfde bedrijf niet.

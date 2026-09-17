@@ -28,6 +28,19 @@ final class AdminDashboardModuleContext
     }
 
     /**
+     * Of taxi-onderdelen in de huidige admin-context getoond en bereikbaar mogen zijn.
+     */
+    public function taxiAvailable(?int $tenantId = null): bool
+    {
+        if ($tenantId === null) {
+            $sessionTenant = session('selected_tenant');
+            $tenantId = $sessionTenant ? (int) $sessionTenant : null;
+        }
+
+        return $this->resolve($tenantId)['show_taxi'];
+    }
+
+    /**
      * @return array{show_skillmatching: bool, show_taxi: bool}
      */
     public function resolve(?int $tenantId = null): array

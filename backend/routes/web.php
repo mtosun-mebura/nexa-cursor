@@ -457,6 +457,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::get('email-communicatie/{customerEmail}', [AdminTenantCustomerEmailController::class, 'show'])->name('customer-emails.show');
     Route::post('email-communicatie/{customerEmail}/opnieuw-versturen', [AdminTenantCustomerEmailController::class, 'resend'])->name('customer-emails.resend');
 
+    Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
+    Route::post('settings/mail', [AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
+    Route::post('settings/mail/test', [AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
+
     Route::resource('tenant-customer-invoices', AdminTenantCustomerInvoiceController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('tenant-customer-invoices/{invoice}/send-payment-link', [AdminTenantCustomerInvoiceController::class, 'sendWithPaymentLink'])
         ->name('tenant-customer-invoices.send-payment-link');
@@ -836,10 +840,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::post('job-configuration-types/{jobConfigurationType}/toggle-status', [AdminJobConfigurationTypeController::class, 'toggleStatus'])->name('job-configuration-types.toggle-status');
         Route::match(['get', 'post'], 'job-configuration-types/import', [AdminJobConfigurationTypeController::class, 'import'])->name('job-configuration-types.import');
 
-        // Settings (Super Admin only)
-        Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
-        Route::post('settings/mail', [AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
-        Route::post('settings/mail/test', [AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
+        // Settings (Super Admin only; mail routes staan buiten deze groep)
         Route::post('settings/seo', [AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
         Route::post('settings/seo/test', [AdminSettingsController::class, 'testSeoConnection'])->name('settings.seo.test');
         Route::post('settings/seo/submit-sitemap', [AdminSettingsController::class, 'submitSeoSitemap'])->name('settings.seo.submit-sitemap');

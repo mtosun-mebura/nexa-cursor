@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Services\MenuService;
 use App\Services\PermissionSetService;
 use App\Support\AdminPanelRoles;
+use App\Support\PermissionModuleVisibility;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -110,19 +112,12 @@ class AdminRoleController extends Controller
             abort(403, 'Je hebt geen rechten om rollen aan te maken.');
         }
 
-        $permissions = Permission::where('guard_name', 'web')
-            ->orderBy('name')
-            ->get()
-            ->groupBy(function ($permission) {
-                // Group permissions by their prefix (e.g., 'view-', 'create-', 'edit-', 'delete-')
-                $parts = explode('-', $permission->name);
-
-                return $parts[0] ?? 'other';
-            });
+        $permissions = $this->groupedVisibleWebPermissions();
 
         $permissionSets = PermissionSetService::getSets();
         $menuService = app(MenuService::class);
-        $modulePermissions = $menuService->getModulePermissionsGrouped();
+        $modulePermissions = app(PermissionModuleVisibility::class)
+            ->filterModulePermissionGroups($menuService->getModulePermissionsGrouped());
 
         return view('admin.roles.create', compact('permissions', 'permissionSets', 'modulePermissions'));
     }
@@ -146,7 +141,7 @@ class AdminRoleController extends Controller
             'description' => $request->description,
         ]);
 
-        $role->syncPermissions($request->permissions);
+        $this->syncSubmittedPermissions($role, $request, false);
 
         return redirect()->route('admin.roles.index')
             ->with('success', 'Rol succesvol aangemaakt.');
@@ -159,14 +154,7 @@ class AdminRoleController extends Controller
         }
 
         $role->load(['permissions', 'users.company']);
-        $permissions = Permission::where('guard_name', 'web')
-            ->orderBy('name')
-            ->get()
-            ->groupBy(function ($permission) {
-                $parts = explode('-', $permission->name);
-
-                return $parts[0] ?? 'other';
-            });
+        $permissions = $this->groupedVisibleWebPermissions();
 
         return view('admin.roles.show', compact('role', 'permissions'));
     }
@@ -178,21 +166,13 @@ class AdminRoleController extends Controller
         }
 
         $role->load('permissions');
-        // Pass all permissions (not grouped) like in create method
-        $permissions = Permission::where('guard_name', 'web')
-            ->orderBy('name')
-            ->get()
-            ->groupBy(function ($permission) {
-                $parts = explode('-', $permission->name);
-
-                return $parts[0] ?? 'other';
-            });
+        $permissions = $this->groupedVisibleWebPermissions();
 
         $permissionSets = PermissionSetService::getSets();
 
-        // Get module permissions
         $menuService = app(MenuService::class);
-        $modulePermissions = $menuService->getModulePermissionsGrouped();
+        $modulePermissions = app(PermissionModuleVisibility::class)
+            ->filterModulePermissionGroups($menuService->getModulePermissionsGrouped());
 
         return view('admin.roles.edit', compact('role', 'permissions', 'permissionSets', 'modulePermissions'));
     }
@@ -231,7 +211,7 @@ class AdminRoleController extends Controller
         }
 
         $role->update($updateData);
-        $role->syncPermissions($request->permissions);
+        $this->syncSubmittedPermissions($role, $request, true);
 
         return redirect()->route('admin.roles.index')
             ->with('success', 'Rol succesvol bijgewerkt.');
@@ -325,5 +305,34 @@ class AdminRoleController extends Controller
 
             return back()->with('error', 'Er is een fout opgetreden bij het wijzigen van de status.');
         }
+    }
+
+    /**
+     * @return Collection<string, Collection<int, Permission>>
+     */
+    protected function groupedVisibleWebPermissions(): Collection
+    {
+        return app(PermissionModuleVisibility::class)
+            ->filter(Permission::where('guard_name', 'web')->orderBy('name')->get())
+            ->groupBy(function ($permission) {
+                $parts = explode('-', $permission->name);
+
+                return $parts[0] ?? 'other';
+            });
+    }
+
+    protected function syncSubmittedPermissions(Role $role, Request $request, bool $preserveHidden): void
+    {
+        $visibility = app(PermissionModuleVisibility::class);
+        $submitted = collect($request->input('permissions', []))
+            ->filter(fn ($name) => is_string($name) && $visibility->isVisible($name));
+
+        $hiddenExisting = collect();
+        if ($preserveHidden) {
+            $hiddenExisting = $role->getPermissionNames()
+                ->filter(fn ($name) => ! $visibility->isVisible((string) $name));
+        }
+
+        $role->syncPermissions($submitted->merge($hiddenExisting)->unique()->values()->all());
     }
 }

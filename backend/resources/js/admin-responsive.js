@@ -126,11 +126,21 @@ const MENU_ACTION_ICON_BY_TITLE = {
     bewerken: 'ki-pencil',
     uitloggen: 'ki-entrance-left',
     'status aanpassen': 'ki-pencil',
+    verwijder: 'ki-trash',
     verwijderen: 'ki-trash',
     dupliceren: 'ki-copy',
     archiveren: 'ki-archive',
+    installeer: 'ki-file-down',
+    installeren: 'ki-file-down',
+    configureren: 'ki-setting-2',
+    'migraties opnieuw': 'ki-tablet',
+    activeer: 'ki-check-circle',
     activeren: 'ki-check-circle',
+    deactiveer: 'ki-cross-circle',
     deactiveren: 'ki-cross-circle',
+    test: 'ki-exit-right-corner',
+    'database reset': 'ki-arrows-circle',
+    'database dummydata': 'ki-cube-2',
     downloaden: 'ki-file-down',
     preview: 'ki-eye',
     voorbeeld: 'ki-eye',
@@ -278,9 +288,20 @@ function isDangerAction(linkEl, label) {
     const key = actionCaptionText(label).toLowerCase();
     return (
         Boolean(linkEl?.classList.contains('text-danger')) ||
-        key.startsWith('verwijderen') ||
+        key.startsWith('verwijder') ||
         key === 'delete'
     );
+}
+
+function getMenuActionIconNode(linkEl) {
+    const svg = linkEl.querySelector('.kt-menu-icon svg');
+    if (!svg) {
+        return null;
+    }
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('aria-hidden', 'true');
+    clone.classList.add('admin-list-card__action-svg');
+    return clone;
 }
 
 function iconActionBtnClass(isDanger) {
@@ -318,7 +339,7 @@ function fillIconActionButton(btn, { iconClass, iconNode, label, isDanger }) {
     }
 }
 
-function createIconActionButton({ href, label, iconClass, isDanger, isSubmit, formHtml }) {
+function createIconActionButton({ href, label, iconClass, iconNode, isDanger, isSubmit, formHtml }) {
     if (formHtml) {
         const wrap = document.createElement('div');
         wrap.className =
@@ -326,7 +347,7 @@ function createIconActionButton({ href, label, iconClass, isDanger, isSubmit, fo
         wrap.innerHTML = formHtml;
         const btn = wrap.querySelector('button[type="submit"]');
         if (btn) {
-            fillIconActionButton(btn, { iconClass, label, isDanger });
+            fillIconActionButton(btn, { iconClass, iconNode, label, isDanger });
         }
         stopCardNavigation(wrap);
         return wrap;
@@ -334,7 +355,7 @@ function createIconActionButton({ href, label, iconClass, isDanger, isSubmit, fo
 
     const btn = document.createElement('a');
     btn.href = href || '#';
-    fillIconActionButton(btn, { iconClass, label, isDanger });
+    fillIconActionButton(btn, { iconClass, iconNode, label, isDanger });
     if (isSubmit) {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -352,6 +373,7 @@ function buildIconButtonFromMenuLink(linkEl) {
     }
 
     const isDanger = isDangerAction(linkEl, label);
+    const iconNode = getMenuActionIconNode(linkEl);
     const iconClass = getMenuActionIconClass(linkEl, label);
 
     const parentForm = linkEl.closest('form');
@@ -361,7 +383,7 @@ function buildIconButtonFromMenuLink(linkEl) {
         if (!submitBtn) {
             return null;
         }
-        fillIconActionButton(submitBtn, { iconClass, label, isDanger });
+        fillIconActionButton(submitBtn, { iconClass, iconNode, label, isDanger });
         const wrap = document.createElement('div');
         wrap.className =
             'admin-card-action-form' + (isDanger ? ' admin-card-action-form--danger' : '');
@@ -375,6 +397,7 @@ function buildIconButtonFromMenuLink(linkEl) {
             href: linkEl.getAttribute('href'),
             label,
             iconClass,
+            iconNode,
             isDanger,
         });
     }

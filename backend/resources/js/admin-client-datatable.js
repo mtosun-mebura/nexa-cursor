@@ -331,7 +331,20 @@ export class AdminClientDatatable {
         this.table.style.width = '';
 
         const tableWidth = this.table.getBoundingClientRect().width;
-        const widths = headerCells.map((cell) => cell.getBoundingClientRect().width);
+        const widths = headerCells.map((cell, index) => {
+            const measured = cell.getBoundingClientRect().width;
+            const cssMin = Number.parseFloat(window.getComputedStyle(cell).minWidth) || 0;
+            const attrMin = Number.parseFloat(cell.getAttribute('data-admin-datatable-min-width') || '');
+            let bodyMax = 0;
+            this.allRows.slice(0, 20).forEach(({ row }) => {
+                const bodyCell = row.cells[index];
+                if (bodyCell) {
+                    bodyMax = Math.max(bodyMax, bodyCell.getBoundingClientRect().width);
+                }
+            });
+
+            return Math.max(measured, cssMin, Number.isFinite(attrMin) ? attrMin : 0, bodyMax);
+        });
         if (tableWidth <= 0 || widths.some((width) => width <= 0)) {
             return;
         }
@@ -346,14 +359,17 @@ export class AdminClientDatatable {
         colgroup.replaceChildren(
             ...widths.map((width) => {
                 const col = document.createElement('col');
-                col.style.width = `${(width / tableWidth) * 100}%`;
+                col.style.width = `${Math.round(width)}px`;
+                col.style.minWidth = `${Math.round(width)}px`;
 
                 return col;
             })
         );
 
+        const lockedWidth = widths.reduce((sum, width) => sum + width, 0);
         this.table.style.tableLayout = 'fixed';
-        this.table.style.width = '100%';
+        this.table.style.width = `${Math.round(lockedWidth)}px`;
+        this.table.style.minWidth = `${Math.round(lockedWidth)}px`;
         this.table.classList.add('admin-datatable-cols-locked');
         this.columnWidthsLocked = true;
     }

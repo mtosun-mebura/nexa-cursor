@@ -326,8 +326,8 @@
                                 }
                             }
 
-                            $allModulesForDropdown = $modulesFromGroup->merge($modulesFromName)
-                                ->unique()
+                            $allModulesForDropdown = app(\App\Support\PermissionModuleVisibility::class)
+                                ->filterResourceKeys($modulesFromGroup->merge($modulesFromName)->unique())
                                 ->sort()
                                 ->values();
 
@@ -339,6 +339,7 @@
                                 'interviews' => 'Interviews',
                                 'notifications' => 'Notificaties',
                                 'email-templates' => 'E-mail Templates',
+                                'mailserver' => 'Mailserver',
                                 'tenant-dashboard' => 'Tenant Dashboard',
                                 'agenda' => 'Agenda',
                                 'companies' => 'Bedrijven',
@@ -474,6 +475,7 @@
                                     'notifications' => 'Notificaties',
                                     'email-templates' => 'E-mail Templates',
                                     'email_templates' => 'E-mail Templates',
+                                    'mailserver' => 'Mailserver',
                                     'tenant-dashboard' => 'Tenant Dashboard',
                                     'tenant_dashboard' => 'Tenant Dashboard',
                                     'agenda' => 'Agenda',
