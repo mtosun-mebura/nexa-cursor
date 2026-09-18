@@ -20,7 +20,7 @@
         @else
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                 @class([
-                    'w-full h-full object-contain bg-black',
+                    'w-full h-full object-contain bg-transparent',
                     'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                 ])
                 src="{{ asset(config('nexa.default_user_avatar')) }}" />
@@ -48,7 +48,7 @@
                 <div class="shrink-0 overflow-hidden rounded-full border-2 border-green-500" style="width: 40px; height: 40px;">
                     <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                         @class([
-                            'h-full w-full object-contain bg-black',
+                            'h-full w-full object-contain bg-transparent',
                             'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                         ])
                         src="{{ asset(config('nexa.default_user_avatar')) }}" />

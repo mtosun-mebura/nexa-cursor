@@ -69,7 +69,7 @@ export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
       { type: 'number', key: 'style.border_radius', label: 'Border radius (px)', min: 0, max: 40, step: 1 },
       { type: 'select', key: 'style.align', label: 'Uitlijning blok', options: alignOptions },
       { type: 'select', key: 'logic.offer_display_mode', label: 'Aanbiedingen tonen als', options: offerDisplayOptions },
-      { type: 'checkbox', key: 'logic.use_evening_night_tariff', label: 'Avond/nacht tarief (22:00–06:00 ×1,2)' },
+      { type: 'checkbox', key: 'logic.use_evening_night_tariff', label: 'Avond/nacht tarief toepassen (toeslag staat bij Tarieven)' },
     ]},
   ]},
   { type: 'group', label: 'Staplabels (tabs)', layout: 'row', fields: [

@@ -11,6 +11,12 @@ class DefaultRate extends Model
 {
     protected $table = 'default_rates';
 
+    public const DEFAULT_EVENING_NIGHT_MULTIPLIER = 1.2;
+
+    public const DEFAULT_EVENING_NIGHT_FROM_HOUR = 22;
+
+    public const DEFAULT_EVENING_NIGHT_UNTIL_HOUR = 6;
+
     protected $fillable = [
         'person_range',
         'base_fare',
@@ -18,6 +24,9 @@ class DefaultRate extends Model
         'price_per_km',
         'price_per_min',
         'cleaning_costs',
+        'evening_night_multiplier',
+        'evening_night_from_hour',
+        'evening_night_until_hour',
     ];
 
     protected $casts = [
@@ -26,6 +35,9 @@ class DefaultRate extends Model
         'price_per_km' => 'decimal:2',
         'price_per_min' => 'decimal:2',
         'cleaning_costs' => 'decimal:2',
+        'evening_night_multiplier' => 'decimal:2',
+        'evening_night_from_hour' => 'integer',
+        'evening_night_until_hour' => 'integer',
     ];
 
     /**
@@ -109,6 +121,58 @@ class DefaultRate extends Model
         }
 
         return [1, 4];
+    }
+
+    /**
+     * @return array{multiplier: float, from_hour: int, until_hour: int}
+     */
+    public static function eveningNightSettings(?self $rate): array
+    {
+        $multiplier = (float) ($rate?->evening_night_multiplier ?? self::DEFAULT_EVENING_NIGHT_MULTIPLIER);
+        if ($multiplier < 1) {
+            $multiplier = 1.0;
+        }
+
+        return [
+            'multiplier' => $multiplier,
+            'from_hour' => self::normalizeHour($rate?->evening_night_from_hour ?? self::DEFAULT_EVENING_NIGHT_FROM_HOUR),
+            'until_hour' => self::normalizeHour($rate?->evening_night_until_hour ?? self::DEFAULT_EVENING_NIGHT_UNTIL_HOUR),
+        ];
+    }
+
+    public static function isEveningNightHour(int $hour, int $fromHour, int $untilHour): bool
+    {
+        $hour = self::normalizeHour($hour);
+        $fromHour = self::normalizeHour($fromHour);
+        $untilHour = self::normalizeHour($untilHour);
+
+        if ($fromHour === $untilHour) {
+            return false;
+        }
+
+        if ($fromHour < $untilHour) {
+            return $hour >= $fromHour && $hour < $untilHour;
+        }
+
+        return $hour >= $fromHour || $hour < $untilHour;
+    }
+
+    public static function formatHourLabel(int $hour): string
+    {
+        return str_pad((string) self::normalizeHour($hour), 2, '0', STR_PAD_LEFT).':00';
+    }
+
+    public static function normalizeHour(mixed $hour): int
+    {
+        $value = (int) $hour;
+        if ($value < 0) {
+            return 0;
+        }
+        if ($value > 23) {
+            return 23;
+        }
+
+        return $value;
     }
 
     private static function ensureBaseRanges(string $connection): void

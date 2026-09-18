@@ -779,12 +779,19 @@
         revealRideCard(id);
     }
 
+    function isButtonLoading(btn) {
+        return !!(btn && btn.classList.contains('is-loading'));
+    }
+
     function setButtonLoading(btn, loading, loadingLabel) {
         if (!btn) {
             return;
         }
         if (!loading) {
             clearButtonLoading(btn);
+            return;
+        }
+        if (isButtonLoading(btn)) {
             return;
         }
         if (!btn.dataset.btnOriginalHtml) {
@@ -799,6 +806,11 @@
             '<span class="btn-label">' +
             escapeHtml(label) +
             '</span>';
+    }
+
+    function finishRideActionButtonLoading(btn, options) {
+        clearButtonLoading(btn, options);
+        syncRideActionButtons(currentActiveRide);
     }
 
     function clearButtonLoading(btn, options) {
@@ -6909,7 +6921,7 @@
 
     function syncCompleteRideButton(ride) {
         const btn = $('#btn-complete-ride');
-        if (!btn) {
+        if (!btn || isButtonLoading(btn)) {
             return;
         }
         if (ride && isContractGroupRide(ride)) {
@@ -6972,7 +6984,7 @@
             isDriverInProgressRide(ride) &&
             isReturnTripRide(ride) &&
             returnTripLeg(ride) === 'waiting';
-        if (startBtn) {
+        if (startBtn && !isButtonLoading(startBtn)) {
             startBtn.hidden = !show;
             if (show) {
                 startBtn.dataset.rideId = String(ride.id);
@@ -6980,7 +6992,7 @@
                 delete startBtn.dataset.rideId;
             }
         }
-        if (releaseBtn) {
+        if (releaseBtn && !isButtonLoading(releaseBtn)) {
             const canRelease = show && !!ride.can_release_return;
             releaseBtn.hidden = !canRelease;
             if (canRelease) {
@@ -6993,7 +7005,7 @@
 
     function syncSendInvoiceButton(ride) {
         const btn = $('#btn-send-invoice');
-        if (!btn) {
+        if (!btn || isButtonLoading(btn)) {
             return;
         }
         if (!ride || !isDriverInProgressRide(ride) || isContractRide(ride)) {
@@ -7154,20 +7166,22 @@
             payAllowedLeg &&
             (payment.requires_payment_before_complete || isPaid);
         const paymentError = isPaid ? '' : resolvePaymentError(ride, openPayment);
-        setPayRideButtonVisible(showPayButton);
-        syncSendInvoiceButton(ride);
-        syncCompleteRideButton(ride);
         const payBtn = $('#btn-pay-ride');
-        if (payBtn) {
-            payBtn.disabled = isPaid;
-            payBtn.classList.toggle('is-paid', isPaid);
-            payBtn.textContent = isPaid ? 'Betaald' : 'Betalen';
-            if (isPaid) {
-                payBtn.setAttribute('aria-disabled', 'true');
-            } else {
-                payBtn.removeAttribute('aria-disabled');
+        if (!isButtonLoading(payBtn)) {
+            setPayRideButtonVisible(showPayButton);
+            if (payBtn) {
+                payBtn.disabled = isPaid;
+                payBtn.classList.toggle('is-paid', isPaid);
+                payBtn.textContent = isPaid ? 'Betaald' : 'Betalen';
+                if (isPaid) {
+                    payBtn.setAttribute('aria-disabled', 'true');
+                } else {
+                    payBtn.removeAttribute('aria-disabled');
+                }
             }
         }
+        syncSendInvoiceButton(ride);
+        syncCompleteRideButton(ride);
         syncPaidRideStamp(showPayButton || isPaid ? ride : null);
         if (errEl) {
             if (paymentError) {
@@ -7673,10 +7687,10 @@
             return;
         }
         const sendInvoiceBtn = $('#btn-send-invoice');
-        if (sendInvoiceBtn && (sendInvoiceBtn.disabled || sendInvoiceBtn.hidden)) {
+        if (sendInvoiceBtn && (sendInvoiceBtn.disabled || sendInvoiceBtn.hidden || isButtonLoading(sendInvoiceBtn))) {
             return;
         }
-        setButtonLoading(sendInvoiceBtn, true);
+        setButtonLoading(sendInvoiceBtn, true, 'Laden…');
         try {
             const res = await api('/dispatch/rides/' + rideId + '/invoice');
             const data = res.data || {};
@@ -7684,7 +7698,7 @@
         } catch (e) {
             alert(e.message || 'Factuurgegevens konden niet worden geladen.');
         } finally {
-            clearButtonLoading(sendInvoiceBtn);
+            finishRideActionButtonLoading(sendInvoiceBtn);
         }
     }
 
@@ -7744,20 +7758,21 @@
             return;
         }
         const payBtn = $('#btn-pay-ride');
+        if (isButtonLoading(payBtn)) {
+            return;
+        }
         const payWasPaid = payBtn && payBtn.classList.contains('is-paid');
-        setButtonLoading(payBtn, true);
+        setButtonLoading(payBtn, true, 'Laden…');
         try {
             const data = await loadPaymentState(rideId);
             if (data && data.ride) {
                 currentActiveRide = data.ride;
             }
-            syncRideActionButtons(currentActiveRide, data && data.open_payment);
-            // Altijd eerst de keuze-pagina (bedrag / QR / contant), nooit direct de QR.
             openPaymentPanel(currentActiveRide);
         } catch (e) {
             alert(e.message);
         } finally {
-            clearButtonLoading(payBtn, {
+            finishRideActionButtonLoading(payBtn, {
                 disabled: payWasPaid || (payBtn && payBtn.classList.contains('is-paid')),
             });
         }
@@ -11016,7 +11031,7 @@
             alert(e.message);
             await refreshInbox();
         } finally {
-            clearButtonLoading(btn);
+            finishRideActionButtonLoading(btn);
         }
     }
 
@@ -11048,7 +11063,7 @@
             alert(e.message);
             await refreshInbox();
         } finally {
-            clearButtonLoading(btn);
+            finishRideActionButtonLoading(btn);
         }
     }
 
@@ -11069,6 +11084,9 @@
             return;
         }
         const btn = $('#btn-complete-ride');
+        if (isButtonLoading(btn)) {
+            return;
+        }
         if (
             btn &&
             (btn.disabled || btn.classList.contains('is-disabled'))
@@ -11088,7 +11106,7 @@
             alert('Rond eerst de betaling af voordat je de rit afrondt.');
             return;
         }
-        setButtonLoading(btn, true);
+        setButtonLoading(btn, true, 'Afronden…');
         try {
             const track = snapshotRideTrack(rideId);
             const body = track.length ? { track: track } : {};
@@ -11110,7 +11128,7 @@
             alert(e.message);
             await refreshInbox();
         } finally {
-            clearButtonLoading(btn);
+            finishRideActionButtonLoading(btn);
         }
     }
 
@@ -11912,11 +11930,19 @@
             }
             if (ev.target.closest('#btn-start-return')) {
                 ev.preventDefault();
+                const startBtn = ev.target.closest('#btn-start-return');
+                if (isButtonLoading(startBtn)) {
+                    return;
+                }
                 startReturnLeg(ev);
                 return;
             }
             if (ev.target.closest('#btn-release-return')) {
                 ev.preventDefault();
+                const releaseBtn = ev.target.closest('#btn-release-return');
+                if (isButtonLoading(releaseBtn)) {
+                    return;
+                }
                 releaseReturnLeg(ev);
                 return;
             }
@@ -11925,7 +11951,9 @@
                 const completeBtn = $('#btn-complete-ride');
                 if (
                     completeBtn &&
-                    (completeBtn.disabled || completeBtn.classList.contains('is-disabled'))
+                    (completeBtn.disabled ||
+                        completeBtn.classList.contains('is-disabled') ||
+                        isButtonLoading(completeBtn))
                 ) {
                     return;
                 }
@@ -11940,7 +11968,9 @@
                 const payBtn = $('#btn-pay-ride');
                 if (
                     payBtn &&
-                    (payBtn.disabled || payBtn.classList.contains('is-paid'))
+                    (payBtn.disabled ||
+                        payBtn.classList.contains('is-paid') ||
+                        isButtonLoading(payBtn))
                 ) {
                     return;
                 }
@@ -11973,7 +12003,12 @@
             if (ev.target.closest('#btn-send-invoice')) {
                 ev.preventDefault();
                 const sendInvoiceBtn = $('#btn-send-invoice');
-                if (sendInvoiceBtn && !sendInvoiceBtn.disabled && !sendInvoiceBtn.hidden) {
+                if (
+                    sendInvoiceBtn &&
+                    !sendInvoiceBtn.disabled &&
+                    !sendInvoiceBtn.hidden &&
+                    !isButtonLoading(sendInvoiceBtn)
+                ) {
                     openSendInvoiceFlow();
                 }
                 return;

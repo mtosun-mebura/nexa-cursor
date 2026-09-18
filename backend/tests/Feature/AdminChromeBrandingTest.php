@@ -38,6 +38,8 @@ class AdminChromeBrandingTest extends TestCase
             ->assertSee('admin-mobile-header-lockup', false)
             ->assertSee('admin-mobile-header-brand', false)
             ->assertSee('images/nexa-x-logo.png', false)
+            ->assertSee('object-contain bg-transparent', false)
+            ->assertDontSee('object-contain bg-black', false)
             ->assertSee('default-logo', false)
             ->assertSee('small-logo', false)
             ->getContent();

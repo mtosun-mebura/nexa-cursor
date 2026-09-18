@@ -834,6 +834,15 @@
                 </div>
                 </div>
                 </div>
+                <div class="booking-success-stamp-overlay" data-booking-success-stamp hidden aria-hidden="true">
+                    <div class="booking-success-stamp" data-booking-success-stamp-inner role="status" aria-live="polite">
+                        <svg class="booking-success-stamp__icon" viewBox="0 0 88 88" aria-hidden="true" focusable="false">
+                            <circle cx="44" cy="44" r="42" fill="currentColor"></circle>
+                            <path d="M26.5 45.5 38.8 58.2 62.5 31.8" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        <p class="booking-success-stamp__label">Boeking geslaagd!</p>
+                    </div>
+                </div>
             </div>
 
             @unless($bookingSplitMapInsideContent)
@@ -1415,6 +1424,106 @@
     overflow: visible;
 }
 
+[data-nexataxi-booking-module] .booking-module-body-main {
+    position: relative;
+    isolation: isolate;
+}
+
+[data-nexataxi-booking-module].is-booking-success .booking-module-body-main {
+    overflow: hidden;
+}
+
+[data-nexataxi-booking-module] .booking-success-stamp-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgba(8, 12, 20, 0.32);
+    perspective: 720px;
+    border-radius: 0.75rem;
+}
+
+[data-nexataxi-booking-module].is-booking-success .booking-success-stamp-overlay {
+    display: flex !important;
+}
+
+[data-nexataxi-booking-module] .booking-success-stamp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    color: #22c55e;
+    transform-style: preserve-3d;
+    opacity: 0;
+    transform: scale(0.14) translateZ(-160px);
+    filter: drop-shadow(0 18px 28px rgba(34, 197, 94, 0.28));
+}
+
+[data-nexataxi-booking-module].is-booking-success:not(.is-booking-success-animating) .booking-success-stamp {
+    opacity: 1;
+    transform: none;
+}
+
+[data-nexataxi-booking-module].is-booking-success.is-booking-success-animating .booking-success-stamp {
+    animation: booking-success-stamp-pop 0.95s cubic-bezier(0.2, 0.7, 0.25, 1) both;
+}
+
+[data-nexataxi-booking-module] .booking-success-stamp__icon {
+    width: 5.75rem;
+    height: 5.75rem;
+    display: block;
+}
+
+[data-nexataxi-booking-module] .booking-success-stamp__label {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-align: center;
+    color: #22c55e;
+    text-shadow: 0 2px 12px rgba(8, 12, 20, 0.45);
+}
+
+@keyframes booking-success-stamp-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.12) translateZ(-180px);
+    }
+    28% {
+        opacity: 1;
+        transform: scale(0.42) translateZ(-70px);
+    }
+    68% {
+        opacity: 1;
+        transform: scale(1.18) translateZ(42px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateZ(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-nexataxi-booking-module].is-booking-success.is-booking-success-animating .booking-success-stamp {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+}
+
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-success-stamp-overlay {
+    background: rgba(255, 255, 255, 0.38);
+}
+
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-success-stamp__label {
+    text-shadow: 0 1px 8px rgba(255, 255, 255, 0.8);
+}
+
 [data-nexataxi-booking-module]:not(.booking-module--portal) .booking-module-step-heading {
     margin-bottom: 0.5rem !important;
     font-size: var(--booking-step-heading-size-max, 1.35rem);
@@ -1493,10 +1602,7 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
 }
 
 [data-nexataxi-booking-module] [data-booking-prev].booking-nav--submitted,
-[data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted,
-[data-nexataxi-booking-module] [data-booking-portal-cancel].booking-nav--submitted,
-[data-nexataxi-booking-module] [data-booking-next].booking-nav-btn--primary.booking-nav--submitted,
-[data-nexataxi-booking-module] [data-booking-next].booking-next--final.booking-nav--submitted {
+[data-nexataxi-booking-module] [data-booking-portal-cancel].booking-nav--submitted {
     background: #334155 !important;
     border-color: #475569 !important;
     color: #e2e8f0 !important;
@@ -1506,24 +1612,40 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
     transform: none !important;
     box-shadow: none !important;
 }
+[data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted,
+[data-nexataxi-booking-module] [data-booking-next].booking-nav-btn--primary.booking-nav--submitted,
+[data-nexataxi-booking-module] [data-booking-next].booking-next--final.booking-nav--submitted {
+    background: #22c55e !important;
+    border-color: #16a34a !important;
+    color: #ffffff !important;
+    opacity: 1;
+    cursor: default;
+    pointer-events: none;
+    transform: none !important;
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
 [data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-prev].booking-nav--submitted,
-[data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav--submitted,
-[data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-portal-cancel].booking-nav--submitted,
-[data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav-btn--primary.booking-nav--submitted {
+[data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-portal-cancel].booking-nav--submitted {
     background: #e2e8f0 !important;
     border-color: #cbd5e1 !important;
     color: #475569 !important;
 }
-[data-nexataxi-booking-module] [data-booking-prev].booking-nav--submitted:hover,
-[data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted:hover {
+[data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav--submitted,
+[data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav-btn--primary.booking-nav--submitted {
+    background: #22c55e !important;
+    border-color: #16a34a !important;
+    color: #ffffff !important;
+}
+[data-nexataxi-booking-module] [data-booking-prev].booking-nav--submitted:hover {
     background: #334155 !important;
     border-color: #475569 !important;
     color: #e2e8f0 !important;
 }
+[data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted:hover,
 [data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav--submitted:hover {
-    background: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
-    color: #475569 !important;
+    background: #22c55e !important;
+    border-color: #16a34a !important;
+    color: #ffffff !important;
 }
 
 [data-nexataxi-booking-module] .booking-confirm-label {
@@ -2371,16 +2493,22 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     position: relative;
     width: 100%;
     max-width: 100%;
+    min-width: 0;
+    container-type: inline-size;
+    container-name: booking-dt;
 }
 [data-nexataxi-booking-module] .booking-datetime-control {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     width: 100%;
+    min-width: 0;
     min-height: 3rem;
     padding: 0.45rem 0.7rem 0.45rem 0.45rem;
     border: 1px solid var(--booking-skin-line, rgba(148, 163, 184, 0.35));
     border-radius: 0.85rem;
+    box-sizing: border-box;
+    overflow: hidden;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 68%),
         var(--booking-skin-input, #1e293b);
@@ -2410,6 +2538,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     display: flex;
     flex-direction: column;
     justify-content: center;
+    overflow: hidden;
 }
 [data-nexataxi-booking-module] .booking-datetime-placeholder {
     color: var(--booking-skin-muted, #94a3b8);
@@ -2423,21 +2552,26 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
 [data-nexataxi-booking-module] .booking-datetime-filled {
     display: none;
     align-items: baseline;
-    gap: 0.55rem;
+    gap: 0.45rem;
     min-width: 0;
+    max-width: 100%;
     color: var(--booking-skin-text, #f8fafc);
 }
 [data-nexataxi-booking-module] .booking-datetime-wrap.is-filled .booking-datetime-placeholder {
     display: none;
 }
 [data-nexataxi-booking-module] .booking-datetime-wrap.is-filled .booking-datetime-filled {
-    display: inline-flex;
+    display: flex;
+    flex-wrap: nowrap;
 }
 [data-nexataxi-booking-module] .booking-datetime-date {
     font-size: 0.92rem;
     font-weight: 650;
     letter-spacing: -0.01em;
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 [data-nexataxi-booking-module] .booking-datetime-sep {
     width: 0.28rem;
@@ -2454,6 +2588,38 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     letter-spacing: 0.01em;
     color: color-mix(in srgb, var(--booking-cta, #f97316) 88%, #fff);
     white-space: nowrap;
+    flex-shrink: 0;
+}
+@container booking-dt (max-width: 17.5rem) {
+    [data-nexataxi-booking-module] .booking-datetime-control {
+        gap: 0.5rem;
+        padding-right: 0.55rem;
+    }
+    [data-nexataxi-booking-module] .booking-datetime-icon-wrap {
+        width: 1.9rem;
+        height: 1.9rem;
+    }
+    [data-nexataxi-booking-module] .booking-datetime-meta {
+        display: none;
+    }
+    [data-nexataxi-booking-module] .booking-datetime-filled {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.08rem;
+    }
+    [data-nexataxi-booking-module] .booking-datetime-sep {
+        display: none;
+    }
+    [data-nexataxi-booking-module] .booking-datetime-date {
+        font-size: 0.8rem;
+        line-height: 1.15;
+        overflow: visible;
+        text-overflow: unset;
+    }
+    [data-nexataxi-booking-module] .booking-datetime-time {
+        font-size: 0.88rem;
+        line-height: 1.15;
+    }
 }
 [data-nexataxi-booking-module] .booking-datetime-meta {
     display: inline-flex;
@@ -3039,19 +3205,19 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     transform: none !important;
     box-shadow: none !important;
 }
-/* Inactief na versturen: leesbaar, geen grijs-op-oranje */
+/* Na versturen: groene bevestigingsknop */
 [data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted,
 [data-nexataxi-booking-module] [data-booking-next].booking-nav-btn--primary.booking-nav--submitted,
 [data-nexataxi-booking-module] [data-booking-next].booking-next--final.booking-nav--submitted {
-    background: #334155 !important;
-    border-color: #475569 !important;
-    color: #e2e8f0 !important;
+    background: #22c55e !important;
+    border-color: #16a34a !important;
+    color: #ffffff !important;
 }
 [data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav--submitted,
 [data-nexataxi-booking-module][data-booking-skin="light"] [data-booking-next].booking-nav-btn--primary.booking-nav--submitted {
-    background: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
-    color: #475569 !important;
+    background: #22c55e !important;
+    border-color: #16a34a !important;
+    color: #ffffff !important;
 }
 [data-nexataxi-booking-module] .booking-offer-card[aria-pressed="true"],
 [data-nexataxi-booking-module] .booking-offer-card[aria-pressed="true"]:hover {
@@ -3239,6 +3405,8 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     var bookingSubmitted = false;
     var bookingSubmittedStorageKey = 'nexataxi_submitted_bookings_v1';
     var bookingPortalLoginUrl = @json($bookingPortalLoginUrl !== '' ? $bookingPortalLoginUrl : null);
+    var serverAfterPaymentMessage = @json(session('nexataxi_booking_message'));
+    var serverAfterPaymentPortalLogin = @json(session('nexataxi_booking_portal_login_url'));
     var bookingPortalIntendedUrl = @json(route('taxi.portal.dashboard'));
     var bookingPortalLoginBaseUrl = @json(url('/login'));
     var maxStopovers = parseInt(config.logic && config.logic.max_stopovers != null ? config.logic.max_stopovers : 3, 10);
@@ -3363,6 +3531,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         }
         bookingSubmitted = true;
         applyBookingSubmittedNavState();
+        showBookingSuccessStamp({ animate: false });
         return true;
     }
 
@@ -3917,6 +4086,47 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         el.textContent = '';
     }
 
+    var bookingSuccessStampPlayed = false;
+
+    function playBookingSuccessStampAnimation() {
+        var inner = root.querySelector('[data-booking-success-stamp-inner]');
+        root.classList.remove('is-booking-success-animating');
+        void root.offsetWidth;
+        root.classList.add('is-booking-success-animating');
+        if (!inner) {
+            return;
+        }
+        inner.addEventListener('animationend', function settle() {
+            root.classList.remove('is-booking-success-animating');
+        }, { once: true });
+    }
+
+    function showBookingSuccessStamp(options) {
+        options = options || {};
+        var stamp = root.querySelector('[data-booking-success-stamp]');
+        root.classList.add('is-booking-success');
+        if (stamp) {
+            stamp.hidden = false;
+            stamp.setAttribute('aria-hidden', 'false');
+        }
+        if (options.animate && !bookingSuccessStampPlayed) {
+            bookingSuccessStampPlayed = true;
+            playBookingSuccessStampAnimation();
+        } else if (!options.animate) {
+            root.classList.remove('is-booking-success-animating');
+        }
+    }
+
+    function hideBookingSuccessStamp() {
+        bookingSuccessStampPlayed = false;
+        root.classList.remove('is-booking-success', 'is-booking-success-animating');
+        var stamp = root.querySelector('[data-booking-success-stamp]');
+        if (stamp) {
+            stamp.hidden = true;
+            stamp.setAttribute('aria-hidden', 'true');
+        }
+    }
+
     function showSuccess(message, options) {
         options = options || {};
         var el = root.querySelector('[data-booking-success]');
@@ -3940,14 +4150,17 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
                 if (modal) modal.setAttribute('data-portal-login-url', loginUrl);
             }
         }
+        var modalVisible = false;
         if (modal) {
             if (modalMessage) modalMessage.textContent = text;
             modal.classList.remove('hidden');
             document.documentElement.classList.add('booking-modal-open');
             document.body.classList.add('booking-modal-open');
+            modalVisible = true;
         }
         bookingSubmitted = true;
         applyBookingSubmittedNavState();
+        showBookingSuccessStamp({ animate: !modalVisible });
     }
 
     function resolvePortalLoginUrlFromSources(options) {
@@ -3994,6 +4207,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         document.body.classList.remove('booking-modal-open');
         if (bookingSubmitted) {
             applyBookingSubmittedNavState();
+            showBookingSuccessStamp({ animate: true });
         }
     }
 
@@ -4099,6 +4313,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             document.body.classList.remove('booking-modal-open');
         }
         clearBookingSubmittedNavState();
+        hideBookingSuccessStamp();
         clearChatBookingParamsFromUrl({ clearResumeBooking: true, clearBookingHash: true });
         updateBaggageStepAvailability();
         applyStateToFields();
@@ -4132,6 +4347,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             nextBtn.classList.remove('booking-next--final', 'booking-next-default');
             nextBtn.style.borderColor = '';
             nextBtn.style.color = '';
+            nextBtn.style.backgroundColor = '';
         }
         if (prevBtn) {
             prevBtn.style.borderColor = '';
@@ -8441,6 +8657,14 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         })
         .then(function(data) {
             if (data && data.checkout_url) {
+                try {
+                    sessionStorage.setItem('nexataxi_booking_after_payment', JSON.stringify({
+                        ride_request_id: data.ride_request_id || null,
+                        message: data.after_payment_message || (config.texts && config.texts.success_message ? config.texts.success_message : 'Bedankt! Je boeking is ontvangen.'),
+                        portal_login_url: data.portal_login_url || null,
+                        at: Date.now()
+                    }));
+                } catch (e) {}
                 window.location.href = data.checkout_url;
                 return;
             }
@@ -8483,6 +8707,50 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         }
         setBookingLoginBtnVisible(showLoginBtn);
         openConfirmModalShell();
+    }
+
+    function restorePaidBookingFromPaymentReturn() {
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            var result = String(params.get('boeking') || '').trim();
+            if (result !== 'betaald' && result !== 'betaling-mislukt') {
+                return false;
+            }
+            var pending = null;
+            try {
+                var raw = sessionStorage.getItem('nexataxi_booking_after_payment');
+                pending = raw ? JSON.parse(raw) : null;
+                sessionStorage.removeItem('nexataxi_booking_after_payment');
+            } catch (e) {
+                pending = null;
+            }
+            params.delete('boeking');
+            var nextSearch = params.toString();
+            var next = window.location.pathname + (nextSearch ? '?' + nextSearch : '') + (window.location.hash || '#boek-rit');
+            window.history.replaceState({}, '', next);
+
+            if (result === 'betaling-mislukt') {
+                showError('De betaling is niet voltooid. Controleer je gegevens en probeer opnieuw te boeken.');
+                scrollToBookingModuleAnchor();
+                return true;
+            }
+
+            var message = (pending && pending.message)
+                ? String(pending.message)
+                : (serverAfterPaymentMessage || ((config.texts && config.texts.success_message) ? config.texts.success_message : 'Bedankt! Je boeking is ontvangen.'));
+            if (pending && pending.ride_request_id) {
+                markBookingAsSubmitted(pending.ride_request_id);
+            }
+            showSuccess(message, {
+                portalLoginUrl: (pending && pending.portal_login_url)
+                    ? pending.portal_login_url
+                    : (serverAfterPaymentPortalLogin || null)
+            });
+            scrollToBookingModuleAnchor();
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     function restorePendingBookingFromSession() {
@@ -10023,6 +10291,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         try {
             sessionStorage.removeItem('nexataxi_booking_confirm_dev_v1');
         } catch (e) {}
+        restorePaidBookingFromPaymentReturn();
         restorePendingBookingFromSession();
         applyCustomerPrefill();
         applyChatBookingPrefillFromUrl();
@@ -10068,7 +10337,8 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         try {
             var url = new URL(href, window.location.href);
             return url.hash === '#boek-rit'
-                && url.pathname === window.location.pathname;
+                && url.pathname === window.location.pathname
+                && (url.search === '' || url.search === window.location.search);
         } catch (e) {
             return href === '#boek-rit' || href === '/#boek-rit';
         }

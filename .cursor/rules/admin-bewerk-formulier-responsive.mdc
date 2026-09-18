@@ -100,6 +100,14 @@ Gebruik **geen** `<input type="date">`. Altijd de Metronic **KT datepicker** met
 - Scroll-gedrag: globaal via `resources/js/admin-date-picker.js` + CSS in `admin-responsive.css` (popup `position: fixed`, herpositioneert bij scroll)
 - Referenties: `invoices/create.blade.php`, `users/edit.blade.php`
 
+## Selectboxen
+
+Zo breed als de inhoud, nooit de volle rij of pagina. Geen `w-full` op `kt-select` (die class gaat mee naar de wrapper). Zie `admin-select-inhoudsbreedte.mdc`.
+
+```html
+<select name="status" class="kt-select admin-field-fit" data-kt-select="true">
+```
+
 ## Veelgemaakte fouten (ook in NexaTaxi gevonden)
 
 - `wizard-onboarding-form-table` op een `<p>` of `<label>` — alleen op `<table>`.
@@ -108,6 +116,7 @@ Gebruik **geen** `<input type="date">`. Altijd de Metronic **KT datepicker** met
 - Formulier als enkele `kt-card min-w-full` zonder `px-3 sm:px-5` rond tabellen.
 - Lijst-tabellen alleen in `kt-card-table` zonder `admin-table-scroll-wrap` / `data-label` op `<th>`.
 - `<input type="date">` voor datumvelden — gebruik KT datepicker (zie sectie *Datumvelden*).
+- `w-full` op `<select class="kt-select">` — select is inhoudsbreedte, zie `admin-select-inhoudsbreedte.mdc`.
 
 ## Niet doen
 
@@ -145,6 +154,7 @@ Lijst-tabellen met `<thead>`: `kt-card-content` + `admin-table-scroll-wrap` (mob
 ## Gerelateerd
 
 - `admin-nexa-taxi-responsive.mdc` — NexaTaxi-menu (voertuigen, tarieven, ritten, dispatch)
+- `admin-select-inhoudsbreedte.mdc` — selectbox zo breed als de inhoud, nooit volle pagina
 - `admin-pagina-padding.mdc` — kaart-padding en grid tussen secties
 - `admin-scroll-na-opslaan.mdc` — scroll na POST
 - `admin-inline-validatie-create-edit.mdc` — validatie op create/edit

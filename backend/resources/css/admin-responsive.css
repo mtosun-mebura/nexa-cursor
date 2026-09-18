@@ -1513,6 +1513,63 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     overflow-x: hidden;
     overflow-y: auto;
     pointer-events: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af transparent;
+}
+
+html.dark #content .kt-select-wrapper .kt-select-dropdown.open,
+html.dark #content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+html.dark #content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open,
+.dark #content .kt-select-wrapper .kt-select-dropdown.open,
+.dark #content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+.dark #content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open {
+    scrollbar-color: #94a3b8 transparent;
+}
+
+#content .kt-select-dropdown::-webkit-scrollbar,
+#content [data-kt-select-dropdown]::-webkit-scrollbar,
+#content .kt-select-options::-webkit-scrollbar,
+#content [data-kt-select-options]::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#content .kt-select-dropdown::-webkit-scrollbar-track,
+#content .kt-select-dropdown::-webkit-scrollbar-track-piece,
+#content .kt-select-dropdown::-webkit-scrollbar-corner,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-track,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-track-piece,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-corner,
+#content .kt-select-options::-webkit-scrollbar-track,
+#content .kt-select-options::-webkit-scrollbar-track-piece,
+#content .kt-select-options::-webkit-scrollbar-corner,
+#content [data-kt-select-options]::-webkit-scrollbar-track,
+#content [data-kt-select-options]::-webkit-scrollbar-track-piece,
+#content [data-kt-select-options]::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+#content .kt-select-dropdown::-webkit-scrollbar-thumb,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+#content .kt-select-options::-webkit-scrollbar-thumb,
+#content [data-kt-select-options]::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+html.dark #content .kt-select-dropdown::-webkit-scrollbar-thumb,
+html.dark #content [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+html.dark #content .kt-select-options::-webkit-scrollbar-thumb,
+html.dark #content [data-kt-select-options]::-webkit-scrollbar-thumb,
+.dark #content .kt-select-dropdown::-webkit-scrollbar-thumb,
+.dark #content [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+.dark #content .kt-select-options::-webkit-scrollbar-thumb,
+.dark #content [data-kt-select-options]::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 #content [data-kt-select-display],
@@ -2154,9 +2211,10 @@ html.admin-kt-select-open #content .admin-filter-panel {
  * table-layout:fixed + w-full op de waarde-kolom zet de labelkolom op 0px.
  * Houd het label vast en laat de tweede kolom de rest van de kaart vullen.
  */
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child,
-#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child {
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child:not([colspan]),
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child:not([colspan]) {
     width: 14rem;
+    max-width: 14rem;
 }
 
 #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2),
@@ -2459,10 +2517,8 @@ html.admin-kt-select-open #content .admin-filter-panel {
     }
 
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) [data-kt-select-display],
     #content form .kt-card-table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([data-kt-date-picker]):not([data-admin-time-picker-input]),
-    #content form .kt-card-table textarea,
-    #content form .kt-card-table select {
+    #content form .kt-card-table textarea {
         width: 100% !important;
         max-width: 100%;
         min-width: 0 !important;
@@ -2481,12 +2537,8 @@ html.admin-kt-select-open #content .admin-filter-panel {
 
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input:not(.admin-field-fit),
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input.w-64,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-input,
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .relative:not(.admin-field-fit):not(.admin-time-picker),
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-select,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) [data-kt-select-display] {
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input {
         width: 100% !important;
         max-width: 100%;
         min-width: 0 !important;
@@ -2500,6 +2552,8 @@ html.admin-kt-select-open #content .admin-filter-panel {
     #content form .kt-card-table .kt-select-wrapper .kt-select-display {
         font-size: 0.75rem !important;
         line-height: 1.35 !important;
+        width: max-content !important;
+        max-width: 100% !important;
     }
 
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .flex.items-center.gap-2,
@@ -4188,7 +4242,10 @@ html.dark .admin-time-picker__col + .admin-time-picker__col,
 
 .kt-input.admin-field-fit,
 .admin-time-picker.admin-field-fit,
-.admin-time-picker.admin-field-fit .kt-input {
+.admin-time-picker.admin-field-fit .kt-input,
+.kt-select.admin-field-fit,
+.admin-field-fit.kt-select-wrapper,
+.admin-field-fit[data-kt-select-wrapper] {
     width: max-content !important;
     max-width: 100%;
 }

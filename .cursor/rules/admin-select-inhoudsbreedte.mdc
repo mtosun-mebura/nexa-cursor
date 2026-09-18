@@ -1,0 +1,28 @@
+---
+description: Admin-selectboxen zijn zo breed als de inhoud, nooit de volle paginabreedte.
+globs: backend/**/views/admin/**/*.blade.php, backend/app/Modules/**/Resources/views/admin/**/*.blade.php, backend/resources/css/admin-responsive.css
+alwaysApply: true
+---
+
+# Admin: selectbox op inhoudsbreedte
+
+Een **select** (`kt-select` / `kt-input` op `<select>`) is zo breed als de gekozen waarde plus pijltje. Nooit de volle kaart- of paginabreedte.
+
+## Wel
+
+- Geen `w-full` op `<select class="kt-select">`.
+- Wrapper volgt de inhoud: `width: max-content`, `max-width: 100%`.
+- Optioneel `admin-field-fit` (zelfde patroon als datum/tijd).
+- Dropdown minstens zo breed als het veld, mag meegroeien met langere opties, niet over de hele pagina.
+
+```blade
+<select name="evening_night_from_hour" class="kt-select admin-field-fit" data-kt-select="true">
+```
+
+## Niet
+
+- Geen `class="kt-select w-full"` (KTSelect kopieert `w-full` naar `.kt-select-wrapper`).
+- Geen `width: 100%` op `.kt-select-wrapper` of `[data-kt-select-display]` in formulieren.
+- Geen pagina-specifieke override die de select weer over de volle rij trekt.
+
+Filters in `.admin-filter-panel` en per-page `w-24` blijven compact in hun eigen kolom; ook daar geen volle paginabreedte.
