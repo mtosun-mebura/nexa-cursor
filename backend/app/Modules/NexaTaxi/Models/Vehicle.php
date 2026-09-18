@@ -66,6 +66,13 @@ class Vehicle extends Model
         ];
     }
 
+    public static function placeholderAsset(?string $personRange): string
+    {
+        return $personRange === self::PERSON_RANGE_5_8
+            ? 'modules/nexa-taxi/vehicle-placeholder-van.png'
+            : 'modules/nexa-taxi/vehicle-placeholder.png';
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

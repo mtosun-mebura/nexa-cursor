@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { inject, onUnmounted, provide, ref, watch, type Ref } from 'vue'
 import BuilderConfigFields from './BuilderConfigFields.vue'
+import BuilderFieldInfoHover from './BuilderFieldInfoHover.vue'
 import BuilderFooterLogoField from './BuilderFooterLogoField.vue'
 import BuilderFooterMapField from './BuilderFooterMapField.vue'
 import BuilderFooterSocialIcon from './BuilderFooterSocialIcon.vue'
@@ -1444,12 +1445,15 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </div>
 
-      <label
+      <div
         v-else-if="field.type === 'number'"
         class="builder-field"
         :class="{ 'builder-field--digits': field.inputWidth === 'digits' }"
       >
-        <span>{{ field.label }}</span>
+        <span class="builder-field__label-row">
+          <span>{{ field.label }}</span>
+          <BuilderFieldInfoHover v-if="field.info" :text="field.info" :label="field.label" />
+        </span>
         <input
           type="number"
           class="kt-input"
@@ -1460,7 +1464,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           @input="updateField(field.key, Number(($event.target as HTMLInputElement).value))"
         />
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
-      </label>
+      </div>
 
       <div v-else-if="field.type === 'star-rating'" class="builder-field">
         <span>{{ field.label }}</span>
@@ -1673,17 +1677,23 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         </div>
       </div>
 
-      <label v-else-if="field.type === 'checkbox'" class="builder-checkbox" :class="{ 'builder-checkbox--switch': field.control === 'switch' }">
-        <input
-          type="checkbox"
-          :class="field.control === 'switch' ? 'kt-switch kt-switch-sm shrink-0' : 'kt-checkbox'"
-          :role="field.control === 'switch' ? 'switch' : undefined"
-          :checked="bool(field.key)"
-          @change="updateField(field.key, ($event.target as HTMLInputElement).checked)"
-        />
-        <span>{{ field.label }}</span>
-      </label>
-      <p v-if="field.type === 'checkbox' && field.hint" class="builder-field-hint">{{ field.hint }}</p>
+      <div
+        v-else-if="field.type === 'checkbox'"
+        class="builder-field builder-field--checkbox"
+      >
+        <span class="builder-field__checkbox-spacer" aria-hidden="true">&nbsp;</span>
+        <label class="builder-checkbox" :class="{ 'builder-checkbox--switch': field.control === 'switch' }">
+          <input
+            type="checkbox"
+            :class="field.control === 'switch' ? 'kt-switch kt-switch-sm shrink-0' : 'kt-checkbox'"
+            :role="field.control === 'switch' ? 'switch' : undefined"
+            :checked="bool(field.key)"
+            @change="updateField(field.key, ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ field.label }}</span>
+        </label>
+        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
+      </div>
       </template>
     </template>
   </div>
@@ -2037,7 +2047,8 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   max-width: none;
 }
 
-.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-checkbox) {
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-checkbox),
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-field--checkbox) {
   grid-column: 1 / -1;
   margin-top: 0.1rem;
 }
@@ -2210,7 +2221,11 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 .builder-field__label-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.builder-field__label-row > span:first-child {
   min-width: 0;
 }
 
@@ -2519,6 +2534,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   object-fit: contain;
   border-radius: 0.75rem;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+}
+
+.builder-field__checkbox-spacer {
+  display: none;
 }
 
 .builder-checkbox {

@@ -10,11 +10,11 @@ return [
     'pages' => [
         'aan-de-slag' => [
             'title' => 'Aan de slag',
-            'summary' => 'Inloggen, wachtwoord wijzigen, dashboard en navigatie.',
+            'summary' => 'Inloggen, eenmalige code bij eerste login, wachtwoord en dashboard.',
             'icon' => 'ki-rocket',
             'order' => 10,
             'view' => 'admin.handleiding.pages.aan-de-slag',
-            'estimated_minutes' => 6,
+            'estimated_minutes' => 8,
         ],
         'dashboard' => [
             'title' => 'Dashboard',

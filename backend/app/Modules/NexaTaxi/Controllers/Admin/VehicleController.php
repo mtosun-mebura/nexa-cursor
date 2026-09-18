@@ -117,7 +117,7 @@ class VehicleController extends Controller
             : $user->company_id;
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
-        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn);
+        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn, $resolvedCompanyId);
 
         return view('taxi::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
     }
@@ -145,7 +145,7 @@ class VehicleController extends Controller
             'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
         ]);
 
-        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn));
+        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn, $companyId));
         $validated = $request->validate([
             'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
@@ -187,8 +187,8 @@ class VehicleController extends Controller
         $vehicle->load(['company', 'rideRequests' => fn ($q) => $q->latest('pickup_at')->limit(10)]);
 
         $conn = $this->moduleConnection();
-        $defaultRates = DefaultRate::getByPersonRange($conn, (string) ($vehicle->person_range ?? ''))
-            ?? DefaultRate::getDefault($conn);
+        $defaultRates = DefaultRate::getByPersonRange($conn, (string) ($vehicle->person_range ?? ''), $vehicle->company_id)
+            ?? DefaultRate::getDefault($conn, $vehicle->company_id);
 
         return view('taxi::admin.vehicles.show', compact('vehicle', 'defaultRates'));
     }
@@ -205,7 +205,7 @@ class VehicleController extends Controller
             : $user->company_id;
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
-        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn);
+        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn, $resolvedCompanyId);
 
         return view('taxi::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
     }
@@ -239,7 +239,7 @@ class VehicleController extends Controller
             'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
         ]);
 
-        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn));
+        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn, $companyId));
         $validated = $request->validate([
             'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',

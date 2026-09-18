@@ -21,13 +21,17 @@
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">2</span>
-    <div>De chauffeur logt in op de app en ziet toegewezen ritten in de inbox.</div>
+    <div>De chauffeur opent de chauffeur-app, vult het e-mailadres in en kiest de eerste keer <strong>Inlogcode aanvragen</strong>. Na de 6-cijferige code uit de e-mail kiest hij zelf een wachtwoord. Daarna logt hij in met e-mail en wachtwoord.</div>
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">3</span>
-    <div>Onder <strong>Navigatie</strong> staat de naam van de klant boven Ophalen; Afzetten heeft geen naam erachter. <strong>Start navigatie</strong> opent Google Maps met de route van de actieve rit.</div>
+    <div>In de inbox staan toegewezen ritten.</div>
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">4</span>
+    <div>Onder <strong>Navigatie</strong> staat de naam van de klant boven Ophalen; Afzetten heeft geen naam erachter. <strong>Start navigatie</strong> opent Google Maps met de route van de actieve rit.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">5</span>
     <div>Ritten vanaf nexasuite.nl hebben in de inbox en bij een aanbod het gele label <strong>NEXA Suite</strong>. Verder werkt de rit hetzelfde.</div>
 </div>

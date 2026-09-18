@@ -3382,6 +3382,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     var pendingUrl = @json(route('nexataxi.booking.pending'));
     var pageId = @json($bookingPageId);
     var bookingVehiclePlaceholderUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder.png'));
+    var bookingVehiclePlaceholderVanUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder-van.png'));
     var sectionKey = @json($sectionKey ?? 'component:taxi.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var bookingReturnUrl = @json($bookingReturnUrl !== '' ? $bookingReturnUrl : null);
@@ -6260,6 +6261,12 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         }
     }
 
+    function placeholderUrlForPersonRange(range) {
+        return String(range || '') === '5-8'
+            ? String(bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim()
+            : String(bookingVehiclePlaceholderUrl || '').trim();
+    }
+
     function resolveSelectedOfferImageUrl(selected) {
         var url = '';
         if (selected && selected.image_url) {
@@ -6311,7 +6318,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             }
         }
         if (!url && selected && bookingVehiclePlaceholderUrl) {
-            url = String(bookingVehiclePlaceholderUrl).trim();
+            url = placeholderUrlForPersonRange(selected.person_range || state.person_range);
         }
         return url;
     }
@@ -6392,7 +6399,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         var vehicleImageWrapEl = root.querySelector('[data-summary-vehicle-image-wrap]');
         var vehicleImageEl = root.querySelector('[data-summary-vehicle-image]');
         var selectedImageUrl = skipOffersStep
-            ? String(bookingVehiclePlaceholderUrl || '').trim()
+            ? placeholderUrlForPersonRange(state.person_range)
             : resolveSelectedOfferImageUrl(selected);
         if (vehicleImageWrapEl && vehicleImageEl) {
             if (selected && hasCompleteRoute && selectedImageUrl) {

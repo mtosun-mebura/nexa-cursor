@@ -24,7 +24,7 @@
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">2</span>
-    <div>Zij loggen in op het portaal om ritten in te zien of af te melden.</div>
+    <div>Zij loggen de eerste keer in via <strong>Inlogcode aanvragen</strong> (eenmalige code per e-mail, daarna zelf een wachtwoord). Daarna zien ze ritten of kunnen ze afmelden.</div>
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">3</span>
