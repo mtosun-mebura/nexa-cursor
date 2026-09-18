@@ -1,8 +1,7 @@
-# Opent automatisch een PR naar release/test bij push op elke werkbranch.
-# Wacht eerst op groene "test" — anders wordt er geen PR geopend en blijft
-# alleen Test and Build rood (geen extra rode Open PR / Auto-merge).
-# Na merge start Open PR één Deploy TEST via workflow_dispatch (GITHUB_TOKEN
-# triggert geen on:push naar release/test).
+# Enige pad naar TEST: wacht op groene "test", open PR, merge, start Deploy TEST.
+# Geen aparte Auto-merge-workflow: PRs van github-actions[bot] vereisen
+# Actions-goedkeuring; die run verloopt rood zodra deze job de PR merget.
+# GITHUB_TOKEN triggert geen on:push naar release/test, daarom workflow_dispatch.
 
 name: Open PR to release/test
 
