@@ -1906,7 +1906,7 @@
                     @php $useEveningNightTariff = old('home_sections.'.$sectionKey.'.logic.use_evening_night_tariff', $bookingData['logic']['use_evening_night_tariff'] ?? true); @endphp
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][logic][use_evening_night_tariff]" value="0">
                     <input type="checkbox" id="bookingsmodule-use-evening-night-{{ $sectionKey }}" name="home_sections[{{ $sectionKey }}][logic][use_evening_night_tariff]" value="1" class="kt-switch kt-switch-sm" {{ $useEveningNightTariff ? 'checked' : '' }}>
-                    <label for="bookingsmodule-use-evening-night-{{ $sectionKey }}" class="text-sm text-muted-foreground cursor-pointer">Avond/nacht tarief gebruiken (22:00–06:00 ×1,2)</label>
+                    <label for="bookingsmodule-use-evening-night-{{ $sectionKey }}" class="text-sm text-muted-foreground cursor-pointer">Avond/nacht tarief toepassen (toeslag staat bij Tarieven)</label>
                 </div>
             </div>
 

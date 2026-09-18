@@ -140,8 +140,24 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
             ->assertSee('>Website</a>', false)
             ->assertSee('>Prijzen</a>', false)
             ->assertSee('>Contact</a>', false)
+            ->assertSee('Voor taxibedrijven', false)
+            ->assertSee('>Boek een rit</a>', false)
+            ->assertSee('/boek', false)
+            ->assertDontSee('>Boeken</a>', false)
+            ->assertDontSee('data-nexataxi-booking-module', false)
             ->assertDontSee(WebsitePage::CENTRAL_WELCOME_SLUG, false)
             ->assertDontSee('id="prijzen-pakketten"', false);
+    }
+
+    #[Test]
+    public function central_boek_page_shows_booking_module(): void
+    {
+        $this->get('http://localhost:8085/boek')
+            ->assertOk()
+            ->assertSee('data-nexataxi-booking-module', false)
+            ->assertSee('id="boek-rit"', false)
+            ->assertSee('>Boek een rit</a>', false)
+            ->assertSee('Voor taxibedrijven', false);
     }
 
     #[Test]

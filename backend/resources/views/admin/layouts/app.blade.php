@@ -284,6 +284,12 @@
             padding-top: 14px;
         }
 
+        /* Labelkolom: vaste 14rem, niet laten meegroeien (geen colspan-rij als eerste kolom) */
+        #content form .kt-table.kt-table-border-dashed td:first-child:not([colspan]) {
+            width: 14rem;
+            max-width: 14rem;
+        }
+
         /* Select-dropdown in de wrapper: zelfde breedte als de trigger */
         .kt-select-wrapper .kt-select-dropdown,
         .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
@@ -320,6 +326,32 @@
             position: relative !important;
         }
 
+        /* Select: inhoudsbreedte, nooit volle pagina (KTSelect-wrapper + native select) */
+        #content form .kt-select-wrapper,
+        #content form .kt-select-wrapper.w-full,
+        #content form [data-kt-select-wrapper] {
+            display: inline-flex !important;
+            width: max-content !important;
+            max-width: 100% !important;
+            min-width: 0;
+            vertical-align: middle;
+        }
+        #content form select.kt-select,
+        #content form select.kt-select.w-full,
+        #content form select.kt-input:not([multiple]),
+        #content form [data-kt-select-display],
+        #content form .kt-select-display {
+            width: max-content !important;
+            max-width: 100% !important;
+            min-width: 0;
+        }
+        #content form .kt-select-wrapper .kt-select-dropdown.open,
+        #content form .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open {
+            width: max-content !important;
+            min-width: 100% !important;
+            max-width: min(24rem, calc(100vw - 2rem)) !important;
+        }
+
         /* Select-dropdown: ondoorzichtige achtergrond (ook bij position:fixed) */
         .kt-select-dropdown,
         .kt-select-dropdown[data-kt-select-dropdown],
@@ -334,20 +366,86 @@
 
         .kt-select-options,
         [data-kt-select-options] {
-            background-color: var(--popover, #ffffff) !important;
-            color: var(--popover-foreground, var(--foreground)) !important;
+            background-color: transparent !important;
+            color: inherit !important;
         }
 
         html.dark .kt-select-dropdown,
         html.dark [data-kt-select-dropdown],
         .dark .kt-select-dropdown,
-        .dark [data-kt-select-dropdown],
+        .dark [data-kt-select-dropdown] {
+            background-color: #111827 !important;
+            color: #f3f4f6 !important;
+        }
+
         html.dark .kt-select-options,
         html.dark [data-kt-select-options],
         .dark .kt-select-options,
         .dark [data-kt-select-options] {
-            background-color: #111827 !important;
-            color: #f3f4f6 !important;
+            background-color: transparent !important;
+            color: inherit !important;
+        }
+
+        /* Scrollbalk in dropdowns: geen track-put, kleuren per modus */
+        .kt-select-dropdown,
+        .kt-select-dropdown[data-kt-select-dropdown],
+        [data-kt-select-dropdown],
+        .kt-select-options,
+        [data-kt-select-options] {
+            scrollbar-width: thin;
+            scrollbar-color: #9ca3af transparent;
+        }
+        html.dark .kt-select-dropdown,
+        html.dark [data-kt-select-dropdown],
+        html.dark .kt-select-options,
+        html.dark [data-kt-select-options],
+        .dark .kt-select-dropdown,
+        .dark [data-kt-select-dropdown],
+        .dark .kt-select-options,
+        .dark [data-kt-select-options] {
+            scrollbar-color: #94a3b8 transparent;
+        }
+        .kt-select-dropdown::-webkit-scrollbar,
+        [data-kt-select-dropdown]::-webkit-scrollbar,
+        .kt-select-options::-webkit-scrollbar,
+        [data-kt-select-options]::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .kt-select-dropdown::-webkit-scrollbar-track,
+        .kt-select-dropdown::-webkit-scrollbar-track-piece,
+        .kt-select-dropdown::-webkit-scrollbar-corner,
+        [data-kt-select-dropdown]::-webkit-scrollbar-track,
+        [data-kt-select-dropdown]::-webkit-scrollbar-track-piece,
+        [data-kt-select-dropdown]::-webkit-scrollbar-corner,
+        .kt-select-options::-webkit-scrollbar-track,
+        .kt-select-options::-webkit-scrollbar-track-piece,
+        .kt-select-options::-webkit-scrollbar-corner,
+        [data-kt-select-options]::-webkit-scrollbar-track,
+        [data-kt-select-options]::-webkit-scrollbar-track-piece,
+        [data-kt-select-options]::-webkit-scrollbar-corner {
+            background: transparent !important;
+        }
+        .kt-select-dropdown::-webkit-scrollbar-thumb,
+        [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+        .kt-select-options::-webkit-scrollbar-thumb,
+        [data-kt-select-options]::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        html.dark .kt-select-dropdown::-webkit-scrollbar-thumb,
+        html.dark [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+        html.dark .kt-select-options::-webkit-scrollbar-thumb,
+        html.dark [data-kt-select-options]::-webkit-scrollbar-thumb,
+        .dark .kt-select-dropdown::-webkit-scrollbar-thumb,
+        .dark [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+        .dark .kt-select-options::-webkit-scrollbar-thumb,
+        .dark [data-kt-select-options]::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border: 2px solid transparent;
+            background-clip: padding-box;
         }
 
         #header .admin-mobile-menu-toggle,
@@ -386,6 +484,48 @@
         .photo-container,
         #photo-container {
             touch-action: none;
+        }
+
+        /* Pagina-scrollbar: geen track-put, kleuren per light/dark */
+        html {
+            color-scheme: light;
+        }
+        html.dark {
+            color-scheme: dark;
+        }
+        html, body {
+            scrollbar-width: thin;
+            scrollbar-color: #9ca3af transparent;
+        }
+        html.dark, html.dark body, .dark body {
+            scrollbar-color: #94a3b8 transparent;
+        }
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        html::-webkit-scrollbar-track,
+        html::-webkit-scrollbar-track-piece,
+        html::-webkit-scrollbar-corner,
+        body::-webkit-scrollbar-track,
+        body::-webkit-scrollbar-track-piece,
+        body::-webkit-scrollbar-corner {
+            background: transparent !important;
+        }
+        html::-webkit-scrollbar-thumb,
+        body::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        html.dark::-webkit-scrollbar-thumb,
+        html.dark body::-webkit-scrollbar-thumb,
+        .dark body::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border: 2px solid transparent;
+            background-clip: padding-box;
         }
 
         /* Ensure background stays consistent - white in light mode, black in dark mode */

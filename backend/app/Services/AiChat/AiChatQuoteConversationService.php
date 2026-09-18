@@ -517,7 +517,7 @@ final class AiChatQuoteConversationService
         );
 
         $cheapestOffer = $this->cheapestOffer($quoteData);
-        $bookingUrl = $this->buildBookingUrl($session, $cheapestOffer, $route);
+        $bookingUrl = $this->buildBookingUrl($session, $cheapestOffer, $route, $context);
 
         $this->clearSession($context);
 
@@ -545,7 +545,7 @@ final class AiChatQuoteConversationService
      * @param  array<string, mixed>|null  $offer
      * @param  array{distance_meters?: int, duration_seconds?: int, polyline?: ?string}|null  $route
      */
-    private function buildBookingUrl(array $session, ?array $offer, ?array $route = null): string
+    private function buildBookingUrl(array $session, ?array $offer, ?array $route = null, ?AiChatRequestContext $context = null): string
     {
         $baggage = is_array($session['baggage'] ?? null) ? $session['baggage'] : [];
         $specialBaggage = is_array($session['special_baggage'] ?? null) ? $session['special_baggage'] : [];
@@ -575,8 +575,13 @@ final class AiChatQuoteConversationService
         ], fn ($value) => $value !== null && $value !== '');
 
         $query = http_build_query($params);
+        $path = ($context !== null && $context->isCentralWebsite()) ? '/boek' : '/';
+        $base = rtrim(url($path), '/');
+        if ($path === '/') {
+            $base .= '/';
+        }
 
-        return rtrim(url('/'), '/').'/'.($query !== '' ? '?'.$query : '').'#boek-rit';
+        return $base.($query !== '' ? '?'.$query : '').'#boek-rit';
     }
 
     /**

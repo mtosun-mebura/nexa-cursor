@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Models\WebsitePage;
+use App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController;
 use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
 use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
@@ -502,26 +503,29 @@ class NexaTaxiBookingController extends Controller
             ])->afterResponse();
         }
 
-        $successMessage = $payAtBooking
-            ? 'Je wordt doorgestuurd naar de betaling.'
-            : ($sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.');
+        $receivedMessage = $sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.';
         if ($createdCustomer) {
             if ($loginCodeEmailSent) {
-                $successMessage .= ' We hebben een account voor u aangemaakt. Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
+                $receivedMessage .= ' We hebben een account voor u aangemaakt. Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
             } else {
-                $successMessage .= ' We hebben een account voor u aangemaakt. De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
+                $receivedMessage .= ' We hebben een account voor u aangemaakt. De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
             }
         } elseif ($linkedExistingCustomer && $pendingLoginCodeSend !== null) {
             if ($loginCodeEmailSent) {
-                $successMessage .= ' Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
+                $receivedMessage .= ' Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
             } else {
-                $successMessage .= ' De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
+                $receivedMessage .= ' De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
             }
         }
+
+        $successMessage = $payAtBooking
+            ? 'Je wordt doorgestuurd naar de betaling.'
+            : $receivedMessage;
 
         $response = [
             'success' => true,
             'message' => $successMessage,
+            'after_payment_message' => $receivedMessage,
             'ride_request_id' => $ride->id,
             'payment_required' => $payAtBooking,
             'checkout_url' => $checkoutUrl,
@@ -539,6 +543,22 @@ class NexaTaxiBookingController extends Controller
                 $loginParams['email'] = $accountEmail;
             }
             $response['portal_login_url'] = route('login', $loginParams);
+        }
+
+        if ($payAtBooking && $checkoutUrl) {
+            $paymentReturn = [
+                'return_url' => TaxiBookingPaymentController::safeReturnUrl(
+                    is_string($request->input('return_url')) ? $request->input('return_url') : null,
+                    $request,
+                    $rideCompanyId
+                ),
+                'message' => $receivedMessage,
+                'portal_login_url' => $response['portal_login_url'] ?? null,
+            ];
+            $request->session()->put('nexataxi.booking_payment.'.$ride->id, $paymentReturn);
+            $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+            $payload['payment_return'] = $paymentReturn;
+            $ride->update(['booking_payload' => $payload]);
         }
 
         return response()->json($response);

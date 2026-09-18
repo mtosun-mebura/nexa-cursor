@@ -297,6 +297,62 @@
         html.dark footer a { color: #e5e7eb !important; }
         html.dark footer a:hover { color: #93c5fd !important; }
         html.dark footer h3 { color: #ffffff !important; }
+        .website-nav-audience {
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
+            margin-right: 0.1rem;
+            padding-right: 0.7rem;
+            border-right: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 0.72rem;
+            font-weight: 650;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        html.dark .website-nav-audience {
+            border-color: #374151;
+            color: #9ca3af;
+        }
+        .website-nav-book-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 0.5rem 0.95rem;
+            border-radius: 0.65rem;
+            background: var(--theme-primary, #2563eb);
+            color: #fff !important;
+            font-size: 0.95rem;
+            font-weight: 650;
+            line-height: 1.2;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .website-nav-book-cta:hover {
+            filter: brightness(1.06);
+            color: #fff !important;
+        }
+        #website-mobile-menu .website-nav-audience {
+            display: block;
+            border: 0;
+            margin: 0.45rem 0 0.1rem;
+            padding: 0.4rem 1rem 0.15rem;
+            font-size: 0.72rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        #website-mobile-menu .website-nav-book-cta {
+            width: calc(100% - 2rem);
+            margin: 0.2rem 1rem 0.7rem;
+        }
+        #website-hamburger-row .website-nav-book-cta {
+            padding: 0.4rem 0.7rem;
+            font-size: 0.85rem;
+        }
+        .website-nav-book-cta.is-active {
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 0 0 4px var(--theme-primary, #2563eb);
+        }
         /* Footer: witte lijntjes grijs in dark mode */
         html.dark footer,
         html.dark footer .border-t { border-color: #4b5563 !important; }
@@ -570,19 +626,39 @@
                         'logoHrefTenantAware' => empty($isStaging),
                     ])
                 </div>
+                @php
+                    $isCentralPublicNav = app(\App\Services\WebsiteBuilderService::class)->isCentralPublicSite($page ?? null);
+                    $boekSlug = \App\Services\CentralWelcomePageService::BOEK_SLUG;
+                    $allNavPages = $menuPages ?? collect();
+                    $boekNavPage = $isCentralPublicNav
+                        ? $allNavPages->first(fn ($navPage) => strtolower((string) $navPage->slug) === $boekSlug)
+                        : null;
+                    $productNavPages = $boekNavPage
+                        ? $allNavPages->reject(fn ($navPage) => (int) $navPage->id === (int) $boekNavPage->id)->values()
+                        : $allNavPages;
+                    $isStagingMode = ! empty($isStaging ?? false);
+                    $stagingParamsForNav = $stagingParams ?? null;
+                    $websiteNavUrl = function ($menuPage) use ($isStagingMode, $stagingParamsForNav) {
+                        $isHomeNav = $menuPage->isPublicHomeNavItem();
+                        if ($isStagingMode && is_array($stagingParamsForNav)) {
+                            $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
+                                ? ($isHomeNav ? 'home' : $menuPage->page_type)
+                                : $menuPage->slug;
+                            return route('admin.frontend-themes.staging', array_merge($stagingParamsForNav, ['page' => $pageParam]));
+                        }
+                        return $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
+                    };
+                    $boekNavUrl = $boekNavPage ? $websiteNavUrl($boekNavPage) : null;
+                    $boekNavActive = $boekNavPage && isset($page) && (int) $page->id === (int) $boekNavPage->id;
+                @endphp
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
                 <nav id="website-desktop-nav" class="flex flex-nowrap items-center gap-4 flex-1 justify-center px-4 min-w-0 overflow-hidden" role="navigation" aria-label="Hoofdnavigatie">
-                    @forelse(($menuPages ?? collect()) as $menuPage)
+                    @if($isCentralPublicNav)
+                        <span class="website-nav-audience">Voor taxibedrijven</span>
+                    @endif
+                    @forelse($productNavPages as $menuPage)
                         @php
-                            $isHomeNav = $menuPage->isPublicHomeNavItem();
-                            if (!empty($isStaging) && isset($stagingParams)) {
-                                $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
-                                    ? ($isHomeNav ? 'home' : $menuPage->page_type)
-                                    : $menuPage->slug;
-                                $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
-                            } else {
-                                $url = $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
-                            }
+                            $url = $websiteNavUrl($menuPage);
                             $isActive = isset($page) && $page->id === $menuPage->id;
                         @endphp
                         <a href="{{ $url }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ $isActive ? 'opacity-100 font-semibold' : '' }}" style="{{ $isActive ? 'color: var(--theme-primary);' : '' }}">{{ $menuPage->publicNavLabel() }}</a>
@@ -603,6 +679,9 @@
                 </nav>
                 {{-- Rechterkant desktop: streep (border-l), thema-toggle + Mijn Nexa/Inloggen; verborgen onder 1025px --}}
                 <div id="website-desktop-right" class="flex items-center gap-2 lg:gap-4 ml-auto flex-shrink-0 pl-4">
+                    @if($boekNavUrl)
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Reiziger: boek een rit">Boek een rit</a>
+                    @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
                     <span class="sr-only">Weergave</span>
                     <button type="button" id="theme-toggle-btn" class="p-2 rounded-md text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white" aria-label="Wissel licht/donker thema" title="Wissel thema">
@@ -627,6 +706,9 @@
                 </div>
                 {{-- Smalle viewport: desktop-kolom met Mijn Nexa is verborgen; knop hier tonen zodat hij niet alleen in het dichte hamburgerpaneel zit --}}
                 <div id="website-hamburger-row" class="hidden items-center gap-1 sm:gap-2 ml-auto flex-shrink-0">
+                    @if($boekNavUrl)
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Reiziger: boek een rit">Boek een rit</a>
+                    @endif
                     @if($branding['dashboard_link_visible'] ?? false)
                     @php
                         $portalUrlMobile = $branding['dashboard_link_url'] ?? route('dashboard');
@@ -652,17 +734,14 @@
         </div>
         <div id="website-mobile-menu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div class="container-custom py-4 space-y-1">
-                @forelse(($menuPages ?? collect()) as $menuPage)
+                @if($boekNavUrl)
+                    <p class="website-nav-audience">Reiziger</p>
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Reiziger: boek een rit">Boek een rit</a>
+                    <p class="website-nav-audience">Voor taxibedrijven</p>
+                @endif
+                @forelse($productNavPages as $menuPage)
                     @php
-                        $isHomeNav = $menuPage->isPublicHomeNavItem();
-                        if (!empty($isStaging) && isset($stagingParams)) {
-                            $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
-                                ? ($isHomeNav ? 'home' : $menuPage->page_type)
-                                : $menuPage->slug;
-                            $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
-                        } else {
-                            $url = $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
-                        }
+                        $url = $websiteNavUrl($menuPage);
                     @endphp
                     <a href="{{ $url }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $menuPage->publicNavLabel() }}</a>
                 @empty

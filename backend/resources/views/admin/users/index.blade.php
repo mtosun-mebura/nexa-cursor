@@ -439,7 +439,7 @@
                                                                         @php
                                                                             $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
                                                                         @endphp
-                                                                        <i class="ki-filled toggle-status-icon {{ $isActive ? 'ki-pause' : 'ki-play' }}"></i>
+                                                                        <i class="ki-filled toggle-status-icon {{ $isActive ? 'ki-cross-circle' : 'ki-check-circle' }}"></i>
                                                                     </span>
                                                                     <span class="kt-menu-title toggle-status-text">{{ $isActive ? 'Deactiveren' : 'Activeren' }}</span>
                                                                 </button>
@@ -899,7 +899,7 @@
                         const text = btn.querySelector('.toggle-status-text');
                         
                         if (icon) {
-                            icon.className = 'ki-filled toggle-status-icon ' + (data.is_active ? 'ki-pause' : 'ki-play');
+                            icon.className = 'ki-filled toggle-status-icon ' + (data.is_active ? 'ki-cross-circle' : 'ki-check-circle');
                         }
                         
                         if (text) {

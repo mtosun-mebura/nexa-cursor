@@ -44,6 +44,10 @@
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                <colgroup>
+                    <col class="w-56">
+                    <col>
+                </colgroup>
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Acceptatietijd (minuten)</td>
                     <td class="min-w-48 w-full">
@@ -100,16 +104,16 @@
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-booking-notifications">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Boekingsmeldingen'])
             <div class="settings-collapsible-body">
+            <p class="text-xs text-muted-foreground leading-relaxed mx-5 mt-4 mb-2 pt-1">
+                Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API.
+                Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).
+            </p>
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
-                <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4" colspan="2">
-                        <p class="text-xs text-muted-foreground mb-2">
-                            Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API.
-                            Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).
-                        </p>
-                    </td>
-                </tr>
+                <colgroup>
+                    <col class="w-56">
+                    <col>
+                </colgroup>
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar chauffeurs</td>
                     <td class="min-w-48 w-full">

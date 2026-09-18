@@ -17,8 +17,9 @@ class TarievenController extends Controller
 
         $conn = $this->moduleConnection();
         $rates = DefaultRate::getRatesForEdit($conn);
+        $eveningNight = DefaultRate::eveningNightSettings($rates->first());
 
-        return view('taxi::admin.tarieven.edit', compact('rates'));
+        return view('taxi::admin.tarieven.edit', compact('rates', 'eveningNight'));
     }
 
     public function update(Request $request)
@@ -46,7 +47,16 @@ class TarievenController extends Controller
             'rates.*.price_per_km' => 'nullable|numeric|min:0',
             'rates.*.price_per_min' => 'nullable|numeric|min:0',
             'rates.*.cleaning_costs' => 'nullable|numeric|min:0',
+            'evening_night_multiplier' => 'required|numeric|min:1|max:5',
+            'evening_night_from_hour' => 'required|integer|min:0|max:23',
+            'evening_night_until_hour' => 'required|integer|min:0|max:23',
         ]);
+
+        $eveningNight = [
+            'evening_night_multiplier' => round((float) $request->input('evening_night_multiplier'), 2),
+            'evening_night_from_hour' => DefaultRate::normalizeHour($request->input('evening_night_from_hour')),
+            'evening_night_until_hour' => DefaultRate::normalizeHour($request->input('evening_night_until_hour')),
+        ];
 
         $normalized = [];
         foreach ($rates as $row) {
@@ -63,6 +73,7 @@ class TarievenController extends Controller
                 'price_per_km' => ($row['price_per_km'] ?? 0) === '' ? 0 : ($row['price_per_km'] ?? 0),
                 'price_per_min' => ($row['price_per_min'] ?? 0) === '' ? 0 : ($row['price_per_min'] ?? 0),
                 'cleaning_costs' => ($row['cleaning_costs'] ?? null) === '' ? null : ($row['cleaning_costs'] ?? null),
+                ...$eveningNight,
             ];
         }
         if (empty($normalized)) {
