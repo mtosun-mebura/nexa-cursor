@@ -1,24 +1,17 @@
 <p>
     Welkom bij NEXA. Deze handleiding hoort bij uw abonnement: u ziet hier alleen de onderdelen
-    die voor uw pakket beschikbaar zijn. Na de eerste login wijzigt u het tijdelijke wachtwoord
-    en komt u hier terecht.
+    die voor uw pakket beschikbaar zijn. Na de eerste login komt u hier terecht.
 </p>
 
 <h2 id="inloggen">1. Inloggen</h2>
 <p>
-    Ga naar <strong>nexasuite.nl/admin</strong>. Gebruik uw <strong>e-mailadres als gebruikersnaam</strong>
-    en het tijdelijke wachtwoord uit de welkomstmail.
+    Ga naar <strong>nexasuite.nl/admin</strong>. Uw <strong>e-mailadres is de gebruikersnaam</strong>.
+    Heeft u al een wachtwoord? Vul e-mail en wachtwoord in en kies <strong>Inloggen</strong>.
+    Optioneel: <strong>Onthoud mij</strong>, zodat u niet elke keer opnieuw hoeft in te loggen.
 </p>
 
-<x-admin.handleiding-screenshot caption="De admin-login op nexasuite.nl/admin." title="Nexa — Inloggen">
-    <x-admin.handleiding-mock-screen active="Dashboard" title="Inloggen">
-        <div class="max-w-sm mx-auto rounded-xl border border-border bg-background p-4 space-y-3">
-            <div class="text-sm font-semibold text-foreground">Welkom terug</div>
-            <div class="h-8 rounded-md border border-border bg-muted/30 px-2 text-[11px] text-muted-foreground flex items-center">e-mailadres</div>
-            <div class="h-8 rounded-md border border-border bg-muted/30 px-2 text-[11px] text-muted-foreground flex items-center">wachtwoord</div>
-            <div class="h-8 rounded-md bg-primary/90 text-primary-foreground text-[11px] font-medium flex items-center justify-center">Inloggen</div>
-        </div>
-    </x-admin.handleiding-mock-screen>
+<x-admin.handleiding-screenshot caption="Het admin-inlogscherm op nexasuite.nl/admin." title="Nexa — Inloggen">
+    <x-admin.handleiding-login-card step="login" />
 </x-admin.handleiding-screenshot>
 
 <div class="handleiding-step">
@@ -27,36 +20,76 @@
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">2</span>
-    <div>Vul het e-mailadres in dat in de welkomstmail staat — dat is uw gebruikersnaam.</div>
+    <div>Vul het e-mailadres in dat bij uw account hoort.</div>
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">3</span>
-    <div>Vul het tijdelijke wachtwoord in. Direct daarna moet u een eigen wachtwoord kiezen.</div>
+    <div>Heeft u al een wachtwoord? Vul dat in en kies <strong>Inloggen</strong>.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">4</span>
+    <div>Is dit uw eerste keer? Kies onderaan <strong>Eerste keer inloggen?</strong> — er staat geen wachtwoord in de welkomstmail.</div>
 </div>
 
-<h2 id="wachtwoord">2. Tijdelijk wachtwoord wijzigen</h2>
+<h2 id="eerste-login">2. Eerste keer inloggen: eenmalige code</h2>
 <p>
-    Het tijdelijke wachtwoord mag <strong>één keer</strong> worden gebruikt om in te loggen.
-    Daarna verschijnt een scherm dat u niet kunt sluiten totdat u een eigen wachtwoord heeft opgeslagen
-    (minimaal 8 tekens, met hoofdletter, kleine letter en cijfer).
+    Nieuwe accounts (beheerder, medewerker) worden <strong>zonder wachtwoord</strong> aangemaakt.
+    In de welkomstmail staat alleen uw e-mailadres. U activeert het account met een
+    <strong>eenmalige code van 6 cijfers</strong> die naar dat adres gaat.
+</p>
+<p>
+    Probeert u toch met een wachtwoord in te loggen voordat het account actief is? Dan opent Nexa
+    automatisch <strong>Eerste keer inloggen</strong> met de melding dat u eerst een code moet aanvragen.
 </p>
 
-<x-admin.handleiding-screenshot caption="Verplicht scherm na de eerste login: het tijdelijke wachtwoord moet worden vervangen." title="Nexa — Wachtwoord wijzigen">
-    <div class="rounded-xl border border-border bg-zinc-950/40 p-6">
-        <div class="max-w-md mx-auto rounded-xl border border-border bg-background p-4">
-            <div class="text-sm font-semibold text-foreground mb-1">Wachtwoord wijzigen</div>
-            <p class="text-[11px] text-muted-foreground mb-3">Kies een eigen wachtwoord voordat u verdergaat.</p>
-            <div class="h-8 rounded-md border border-border bg-muted/20 mb-2"></div>
-            <div class="h-8 rounded-md border border-border bg-muted/20 mb-3"></div>
-            <div class="h-8 rounded-md bg-primary/90 text-[11px] text-primary-foreground flex items-center justify-center">Wachtwoord opslaan</div>
-        </div>
-    </div>
+<x-admin.handleiding-screenshot caption="Eerste login: vraag een eenmalige code aan op het e-mailadres van uw account." title="Nexa — Eerste keer inloggen">
+    <x-admin.handleiding-login-card step="request" />
 </x-admin.handleiding-screenshot>
 
-<h2 id="startscherm">3. Startscherm</h2>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">1</span>
+    <div>Klik op <strong>Eerste keer inloggen?</strong>.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">2</span>
+    <div>Vul hetzelfde e-mailadres in als in de welkomstmail. Dat adres moet al in Nexa staan.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">3</span>
+    <div>Kies <strong>Inlogcode aanvragen</strong>. De code is <strong>15 minuten</strong> geldig. Kijk ook in spam of ongewenste mail.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">4</span>
+    <div>Vul de 6-cijferige <strong>code uit e-mail</strong> in. Kies daarna zelf een wachtwoord (minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer) en herhaal het.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">5</span>
+    <div>Kies <strong>Wachtwoord instellen en inloggen</strong>. Daarna bent u ingelogd en opent de handleiding.</div>
+</div>
+
+<x-admin.handleiding-screenshot caption="Na de e-mail: code invullen, zelf een wachtwoord kiezen en inloggen." title="Nexa — Code en wachtwoord">
+    <x-admin.handleiding-login-card step="verify" />
+</x-admin.handleiding-screenshot>
+
+<div class="handleiding-tip">
+    <strong class="text-foreground">Code verlopen of niet ontvangen?</strong>
+    Kies <strong>Nieuwe code aanvragen</strong>. Er kan ongeveer één minuut tussen twee aanvragen zitten.
+    Een gebruikte of verlopen code werkt niet meer.
+</div>
+
+<h2 id="wachtwoord-vergeten">3. Wachtwoord vergeten</h2>
 <p>
-    Na het inloggen landt u op het <strong>Dashboard</strong>. Links staat het menu met de onderdelen van uw pakket.
-    Onder <strong>Handleiding</strong> vindt u deze uitleg altijd terug.
+    Bent u uw wachtwoord kwijt (ná de eerste login)? Klik op het inlogscherm op
+    <strong>Wachtwoord vergeten?</strong>. Vul uw e-mailadres in en kies <strong>Doorgaan</strong>.
+    U ontvangt een link om een nieuw wachtwoord te zetten. Dat is iets anders dan de eenmalige
+    inlogcode: die code is alleen voor de <strong>eerste</strong> activatie.
+</p>
+
+<h2 id="startscherm">4. Startscherm en navigatie</h2>
+<p>
+    Na de eerste login landt u op deze <strong>Handleiding</strong>. Daarna is het
+    <strong>Dashboard</strong> het startpunt. Links staat het menu met de onderdelen van uw pakket.
+    Onder Handleiding vindt u deze uitleg altijd terug.
 </p>
 
 <x-admin.handleiding-screenshot caption="Na het inloggen opent het dashboard. Het menu links toont de onderdelen van uw pakket." title="Nexa — Dashboard">
@@ -79,6 +112,16 @@
     </div>
 </x-admin.handleiding-screenshot>
 
+<div class="handleiding-step">
+    <span class="handleiding-step-num">1</span>
+    <div>Gebruik het menu links om naar ritten, gebruikers of instellingen te gaan.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">2</span>
+    <div>Rechtsboven opent u via uw profielfoto <strong>Mijn Profiel</strong> of <strong>Uitloggen</strong>.</div>
+</div>
+
 <div class="handleiding-tip">
     <strong class="text-foreground">Tip:</strong> het menu past zich aan uw pakket aan. Onderdelen zoals dispatch of contractvervoer verschijnen alleen als ze in uw abonnement zitten.
+    Chauffeurs en contractouders loggen niet in op /admin, maar in hun eigen app met dezelfde eenmalige code.
 </div>

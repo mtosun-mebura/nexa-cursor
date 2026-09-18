@@ -1,5 +1,7 @@
 @php
-    $placeholderUrl = asset('modules/nexa-taxi/vehicle-placeholder.png');
+    $placeholderUrl = $placeholderUrl ?? asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset(null));
+    $placeholderCarUrl = asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset('1-4'));
+    $placeholderVanUrl = asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset('5-8'));
     $imgUrl = trim((string) ($imgUrl ?? ''));
     $imgDisplayUrl = $imgUrl !== ''
         ? (app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imgUrl) ?: $imgUrl)
@@ -16,6 +18,8 @@
             class="block max-h-[200px] max-w-full h-auto w-auto rounded-2xl"
             src="{{ $imgDisplayUrl }}"
             data-default-src="{{ $placeholderUrl }}"
+            data-placeholder-car="{{ $placeholderCarUrl }}"
+            data-placeholder-van="{{ $placeholderVanUrl }}"
             width="360"
             height="200"
         >
@@ -67,6 +71,19 @@
         preview.src = src || placeholderSrc();
         preview.classList.remove('hidden');
         if (removeBtn) removeBtn.classList.toggle('hidden', !custom);
+    }
+    var rangeSelect = document.querySelector('select[name="person_range"]');
+    if (rangeSelect && preview) {
+        rangeSelect.addEventListener('change', function () {
+            var van = preview.getAttribute('data-placeholder-van') || '';
+            var car = preview.getAttribute('data-placeholder-car') || '';
+            var next = rangeSelect.value === '5-8' ? van : car;
+            if (!next) return;
+            preview.setAttribute('data-default-src', next);
+            if (!urlInput.value) {
+                showPreview(next, false);
+            }
+        });
     }
     function handleFile(file) {
         showVehicleImageMsg('');

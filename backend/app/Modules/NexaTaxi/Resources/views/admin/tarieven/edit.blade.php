@@ -8,9 +8,21 @@
         <div class="min-w-0">
             <h1 class="text-xl font-medium leading-none text-mono">
                 Tarieven
+                @if(!empty($scopeCompanyId))
+                    <span class="text-muted-foreground font-normal">· {{ $scopeCompanyName ?: 'Tenant' }}</span>
+                @else
+                    <span class="text-muted-foreground font-normal">· NEXA Suite</span>
+                @endif
             </h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
-                Algemene standaardtarieven. Worden gebruikt wanneer een voertuig geen eigen tarieven heeft ingesteld. De avond/nacht-toeslag geldt voor alle personenbereiken.
+                @if(!empty($scopeCompanyId))
+                    Standaardtarieven van <span class="text-foreground font-medium">{{ $scopeCompanyName ?: 'deze tenant' }}</span>.
+                    Gelden op de eigen website van dit taxibedrijf, wanneer een voertuig geen eigen tarieven heeft.
+                @else
+                    Standaardtarieven van de <span class="text-foreground font-medium">NEXA Suite-website</span> (Alle tenants).
+                    Deze prijzen gelden voor de tarievenpagina en boekingen op de algemene website. Een marketplace-rit die naar het dichtstbijzijnde taxibedrijf gaat, houdt deze geoffreerde prijs aan — niet de eigen tarieven van die tenant.
+                @endif
+                De avond/nacht-toeslag geldt voor alle personenbereiken.
             </p>
         </div>
     </div>

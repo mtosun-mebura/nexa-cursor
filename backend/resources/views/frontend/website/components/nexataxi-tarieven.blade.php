@@ -11,7 +11,7 @@
         // Wanneer alleen homeSections + sectionKey worden doorgegeven (frontend home), data zelf ophalen
         if (isset($sectionKey) && isset($homeSections) && is_array($homeSections)) {
             $sectionData = $homeSections[$sectionKey] ?? [];
-            $ratesData = $ratesData ?? app(\App\Services\NexaTaxiPublicRatesService::class)->getRatesForDisplay();
+            $ratesData = $ratesData ?? app(\App\Services\NexaTaxiPublicRatesService::class)->getRatesForDisplay($taxiVehiclesCompanyId);
             $sectionItems = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : [];
             $hasRates = $ratesData && ($ratesData['rates_1_4'] || $ratesData['rates_5_8']);
             $hasSectionItemsWithContent = !empty($sectionItems);
@@ -113,8 +113,15 @@
                                 }
                                 return asset(ltrim($u, '/'));
                             })($item['image_url']) : (!empty($item['vehicle_id']) ? $vehicleDisplayService->getImageUrl((int) $item['vehicle_id'], $taxiVehiclesCompanyId) : null);
-                            if (!$isOverigeKosten && !$imageUrl && $fallbackVehicleImages->isNotEmpty()) {
-                                $imageUrl = $fallbackVehicleImages->get($itemIndex % $fallbackVehicleImages->count());
+                            if (!$isOverigeKosten && !$imageUrl) {
+                                if ($fallbackVehicleImages->isNotEmpty()) {
+                                    $imageUrl = $fallbackVehicleImages->get($itemIndex % $fallbackVehicleImages->count());
+                                }
+                                if (!$imageUrl) {
+                                    $imageUrl = $rateType === '5-8'
+                                        ? asset('modules/nexa-taxi/vehicle-placeholder-van.png')
+                                        : asset('modules/nexa-taxi/vehicle-placeholder.png');
+                                }
                             }
                             $cardSize = isset($item['card_size']) ? (string)$item['card_size'] : 'normal';
                             $isMaxWidth = $cardSize === 'max';
@@ -402,8 +409,8 @@
         @else
             @php
                 $formatPrice = fn ($v, $suffix = '') => ($v !== null && $v !== '' && is_numeric($v)) ? ('€ ' . number_format((float) $v, 2, ',', '.') . $suffix) : null;
-                $imgCar = $fallbackVehicleImages->get(0) ?? 'data:image/svg+xml,' . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect fill="#e5e7eb" width="400" height="250"/></svg>');
-                $imgVan = $fallbackVehicleImages->get(1) ?? $fallbackVehicleImages->get(0) ?? 'data:image/svg+xml,' . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect fill="#e5e7eb" width="400" height="250"/></svg>');
+                $imgCar = $fallbackVehicleImages->get(0) ?? asset('modules/nexa-taxi/vehicle-placeholder.png');
+                $imgVan = $fallbackVehicleImages->get(1) ?? asset('modules/nexa-taxi/vehicle-placeholder-van.png');
             @endphp
             @include('frontend.website.partials.nexataxi-pricing-cards', [
                 'rates_1_4' => $ratesData['rates_1_4'],

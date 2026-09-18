@@ -231,8 +231,25 @@ const emailTemplateOptions = computed(() =>
   max-width: 7.25rem;
 }
 
-.builder-config-panel--expanded :deep(.builder-config-group--row .builder-config-group__body > .builder-config-fields > .builder-checkbox) {
+.builder-config-panel--expanded :deep(.builder-config-group--row .builder-config-group__body > .builder-config-fields > .builder-checkbox),
+.builder-config-panel--expanded :deep(.builder-config-group--row .builder-config-group__body > .builder-config-fields > .builder-field--checkbox) {
   grid-column: 1 / -1;
+}
+
+.builder-config-panel--expanded :deep(.builder-field--checkbox > .builder-field__checkbox-spacer) {
+  display: none;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group:not(.builder-config-group--row) .builder-config-fields > .builder-field:not(.builder-field--checkbox) + .builder-field--checkbox > .builder-field__checkbox-spacer),
+.builder-config-panel--expanded :deep(.builder-config-group:not(.builder-config-group--row) .builder-config-fields > .builder-field--checkbox:has(+ .builder-field:not(.builder-field--checkbox)) > .builder-field__checkbox-spacer) {
+  display: block;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.builder-config-panel--expanded :deep(.builder-config-group:not(.builder-config-group--row) .builder-config-fields > .builder-field:not(.builder-field--checkbox) + .builder-field--checkbox .builder-checkbox),
+.builder-config-panel--expanded :deep(.builder-config-group:not(.builder-config-group--row) .builder-config-fields > .builder-field--checkbox:has(+ .builder-field:not(.builder-field--checkbox)) .builder-checkbox) {
+  min-height: 2.125rem;
 }
 
 .builder-config-panel--expanded :deep(.builder-field:has(.builder-image-preview)),
@@ -264,6 +281,14 @@ const emailTemplateOptions = computed(() =>
   .builder-config-panel--expanded :deep(.builder-config-fields),
   .builder-config-panel--expanded :deep(.builder-config-item) {
     grid-template-columns: 1fr;
+  }
+
+  .builder-config-panel--expanded :deep(.builder-field--checkbox > .builder-field__checkbox-spacer) {
+    display: none;
+  }
+
+  .builder-config-panel--expanded :deep(.builder-field--checkbox .builder-checkbox) {
+    min-height: 0;
   }
 }
 </style>

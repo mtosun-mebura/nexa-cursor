@@ -65,7 +65,11 @@ class AdminHandleidingTest extends TestCase
             ->assertOk()
             ->assertSee('Aan de slag')
             ->assertSee('Welkom bij NEXA')
-            ->assertSee('Tijdelijk wachtwoord');
+            ->assertSee('Eerste keer inloggen')
+            ->assertSee('eenmalige code')
+            ->assertSee('Inlogcode aanvragen')
+            ->assertSee('Administratie paneel')
+            ->assertSee('Wachtwoord vergeten');
     }
 
     public function test_unknown_handleiding_slug_returns_not_found(): void

@@ -148,7 +148,7 @@ class TaxiTenantSetupService
         }
 
         try {
-            foreach (DefaultRate::on($conn)->get() as $rate) {
+            foreach (DefaultRate::queryForCompany($conn, $company->id)->get() as $rate) {
                 if ($this->rateLooksConfigured($rate->base_fare, $rate->min_fare, $rate->price_per_km, $rate->price_per_min)) {
                     return true;
                 }

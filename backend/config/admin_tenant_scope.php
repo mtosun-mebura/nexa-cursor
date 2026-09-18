@@ -47,6 +47,7 @@ return [
         'admin.nexa-pricing.*',
         'admin.platform-billing.*',
         'admin.nexa-suite-bookings.*',
+        'admin.taxi.tarieven.*',
         'admin.website-pages.*',
         'admin.website-ai.*',
         'admin.frontend-themes.*',
