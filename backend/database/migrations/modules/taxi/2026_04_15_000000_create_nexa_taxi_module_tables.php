@@ -70,6 +70,7 @@ return new class extends Migration
         if (! Schema::hasTable('default_rates')) {
             Schema::create('default_rates', function (Blueprint $table) {
                 $table->id();
+                $table->unsignedBigInteger('company_id')->nullable()->index();
                 $table->string('person_range', 10)->default('1-4');
                 $table->decimal('base_fare', 10, 2)->nullable();
                 $table->decimal('min_fare', 10, 2)->default(0);

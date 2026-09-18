@@ -253,7 +253,7 @@ class NexaTaxiBookingPricingService
     /**
      * Bouw tarief-offers voor de boekingsmodule.
      *
-     * @param  ?int  $tenantCompanyId  Indien gezet: alleen voertuigen en aanbiedingen van dit bedrijf (website-pagina company).
+     * @param  ?int  $tenantCompanyId  Tenant-website: tarieven en voertuigen van dit bedrijf. Null = NEXA Suite / marketplace (platformtarieven).
      */
     public function buildQuotes(array $sectionConfig, array $input, ?int $tenantCompanyId = null): array
     {
@@ -269,11 +269,11 @@ class NexaTaxiBookingPricingService
         $returnTrip = ! empty($input['return_trip']);
         $pickupAt = isset($input['pickup_at']) && trim((string) $input['pickup_at']) !== '' ? (string) $input['pickup_at'] : null;
         $waitingMinutes = max(0, (float) ($input['waiting_minutes'] ?? 0));
-        $baggageContext = $this->resolveBaggagePersonRangeContext($sectionConfig, $input, $passengers);
+        $baggageContext = $this->resolveBaggagePersonRangeContext($sectionConfig, $input, $passengers, $tenantCompanyId);
         $range = $baggageContext['person_range'];
         $extraTotal = $this->calculateExtraCosts($sectionConfig, $input);
 
-        $defaultRates = $this->getDefaultRates($range);
+        $defaultRates = $this->getDefaultRates($range, $tenantCompanyId);
         $vehicleMap = $this->getActiveVehiclesById($range, $tenantCompanyId);
         $allVehicleMap = $this->getAllActiveVehiclesById($tenantCompanyId);
         $offers = is_array($sectionConfig['offers'] ?? null) ? $sectionConfig['offers'] : [];
@@ -310,6 +310,9 @@ class NexaTaxiBookingPricingService
             $baseOldTotal = round($total * $baseOldMultiplier, 2);
             $rangeTitle = DefaultRate::formatPersonRangeLabel($range);
             $personRangeImageUrl = $this->resolvePersonRangeImageUrl($vehicleMap) ?: $this->resolvePersonRangeImageUrl($allVehicleMap);
+            if ($personRangeImageUrl === null) {
+                $personRangeImageUrl = $this->defaultVehicleImageUrlForPersonRange($range);
+            }
             $resultOffers[] = [
                 'id' => 'person_range_'.str_replace('-', '_', $range),
                 'title' => $rangeTitle,
@@ -384,7 +387,7 @@ class NexaTaxiBookingPricingService
                     'vehicle_id' => $vehicleForDisplay?->id,
                     'vehicle_name' => $vehicleForDisplay?->name,
                     'seats' => $vehicleForDisplay ? max(0, (int) ($vehicleForDisplay->seats ?? 0)) : null,
-                    'image_url' => $this->resolveVehicleImageUrlForOffer($imageVehicle),
+                    'image_url' => $this->resolveVehicleImageUrlForOffer($imageVehicle) ?: $this->defaultVehicleImageUrlForPersonRange($range),
                     'price' => $total,
                     'old_price' => $oldTotal > $total ? $oldTotal : null,
                     'currency' => 'EUR',
@@ -453,13 +456,13 @@ class NexaTaxiBookingPricingService
     /**
      * @return array{baggage_units: float, baggage_car_max_units: int, baggage_van_upgrade: bool, person_range: string}
      */
-    public function resolveBaggagePersonRangeContext(array $sectionConfig, array $input, int $passengers): array
+    public function resolveBaggagePersonRangeContext(array $sectionConfig, array $input, int $passengers, ?int $tenantCompanyId = null): array
     {
-        $passengerRange = $this->resolvePersonRangeForPassengers($passengers);
+        $passengerRange = $this->resolvePersonRangeForPassengers($passengers, $tenantCompanyId);
         $logic = is_array($sectionConfig['logic'] ?? null) ? $sectionConfig['logic'] : [];
         $maxUnits = max(0, (int) ($logic['baggage_car_max_units'] ?? 0));
         $upgradeRange = $this->normalizePersonRange($logic['baggage_upgrade_person_range'] ?? null) ?? '5-8';
-        $baggageUnits = $this->calculateBaggageUnits($sectionConfig, $input);
+        $baggageUnits = $this->calculateTrunkBaggagePieces($sectionConfig, $input);
         $upgradeEnabled = ! empty($logic['baggage_van_upgrade_enabled']) && $maxUnits > 0;
 
         $vanUpgrade = $upgradeEnabled && $baggageUnits > $maxUnits;
@@ -476,14 +479,18 @@ class NexaTaxiBookingPricingService
         ];
     }
 
-    private function calculateBaggageUnits(array $sectionConfig, array $input): float
+    /**
+     * Aantal stuks in de kofferbak. Elke koffer telt als 1, los van passagiers.
+     * Handbagage en huisdieren blijven bij de reiziger en tellen niet mee.
+     */
+    private function calculateTrunkBaggagePieces(array $sectionConfig, array $input): float
     {
         $total = 0.0;
         $selectedBaggage = is_array($input['baggage'] ?? null) ? $input['baggage'] : [];
         $selectedSpecial = is_array($input['special_baggage'] ?? null) ? $input['special_baggage'] : [];
         foreach (array_merge($sectionConfig['baggage_items'] ?? [], $sectionConfig['special_items'] ?? []) as $item) {
             $key = (string) ($item['key'] ?? '');
-            if ($key === '') {
+            if ($key === '' || $this->isCabinBaggageKey($key)) {
                 continue;
             }
             $qty = 0;
@@ -494,11 +501,26 @@ class NexaTaxiBookingPricingService
             }
             $maxQty = max(0, (int) ($item['max_qty'] ?? 0));
             $qty = max(0, min($maxQty > 0 ? $maxQty : 20, $qty));
-            $units = max(0, (float) ($item['baggage_units'] ?? 1));
-            $total += $qty * $units;
+            $total += $qty;
         }
 
         return $total;
+    }
+
+    private function isCabinBaggageKey(string $key): bool
+    {
+        return in_array($key, ['hand', 'pets'], true);
+    }
+
+    public function defaultVehicleImageUrlForPersonRange(?string $range): string
+    {
+        $normalized = $this->normalizePersonRange($range);
+
+        if ($normalized === '5-8') {
+            return asset('modules/nexa-taxi/vehicle-placeholder-van.png');
+        }
+
+        return asset('modules/nexa-taxi/vehicle-placeholder.png');
     }
 
     private function higherPersonRange(string $a, string $b): string
@@ -632,20 +654,15 @@ class NexaTaxiBookingPricingService
         return $total;
     }
 
-    private function getDefaultRates(string $personRange): ?DefaultRate
+    private function getDefaultRates(string $personRange, ?int $tenantCompanyId = null): ?DefaultRate
     {
         $conn = $this->getTaxiConnection();
         if ($conn === null) {
             return null;
         }
 
-        return DefaultRate::on($conn)->where('person_range', $personRange)->first()
-            ?? DefaultRate::on($conn)->where('person_range', '1-4')->first()
-            ?? DefaultRate::on($conn)->get()->sortBy(function (DefaultRate $rate) {
-                [$start, $end] = DefaultRate::parseRangeBounds((string) $rate->person_range);
-
-                return ($start * 1000) + $end;
-            })->first();
+        return DefaultRate::getByPersonRange($conn, $personRange, $tenantCompanyId)
+            ?? DefaultRate::getDefault($conn, $tenantCompanyId);
     }
 
     /**
@@ -695,14 +712,17 @@ class NexaTaxiBookingPricingService
             ->all();
     }
 
-    private function resolvePersonRangeForPassengers(int $passengers): string
+    private function resolvePersonRangeForPassengers(int $passengers, ?int $tenantCompanyId = null): string
     {
         $conn = $this->getTaxiConnection();
         if ($conn === null) {
             return $passengers <= 4 ? '1-4' : '5-8';
         }
 
-        $ranges = DefaultRate::on($conn)->pluck('person_range')->filter()->unique()->values()->all();
+        $ranges = DefaultRate::queryForCompany($conn, $tenantCompanyId)->pluck('person_range')->filter()->unique()->values()->all();
+        if ($ranges === [] && DefaultRate::normalizeCompanyId($tenantCompanyId) !== null) {
+            $ranges = DefaultRate::queryForCompany($conn, null)->pluck('person_range')->filter()->unique()->values()->all();
+        }
         if (empty($ranges)) {
             return $passengers <= 4 ? '1-4' : '5-8';
         }

@@ -122,7 +122,7 @@
                                     @if($v->image_url)
                                         <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($v->image_url) }}" alt="" class="w-[220px] h-[120px] rounded-xl object-contain mx-auto block">
                                     @else
-                                        <img src="{{ asset('modules/nexa-taxi/vehicle-placeholder.png') }}" alt="" width="220" height="120" class="w-[220px] h-[120px] rounded-xl object-cover mx-auto block border border-input bg-muted">
+                                        <img src="{{ asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset($v->person_range)) }}" alt="" width="220" height="120" class="w-[220px] h-[120px] rounded-xl object-cover mx-auto block border border-input bg-muted">
                                     @endif
                                 </td>
                                 <td class="text-sm font-medium text-mono">{{ $v->name }}</td>

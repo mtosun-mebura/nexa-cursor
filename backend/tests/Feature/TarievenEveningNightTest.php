@@ -39,6 +39,7 @@ class TarievenEveningNightTest extends TestCase
 
         Schema::connection('module_taxi')->create('default_rates', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('company_id')->nullable();
             $table->string('person_range')->nullable();
             $table->decimal('base_fare', 10, 2)->nullable();
             $table->decimal('min_fare', 10, 2)->nullable();
@@ -97,6 +98,19 @@ class TarievenEveningNightTest extends TestCase
     }
 
     #[Test]
+    public function tarieven_page_is_editable_for_nexa_suite_without_tenant(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->withSession(['selected_tenant' => null])
+            ->get(route('admin.taxi.tarieven.edit'))
+            ->assertOk()
+            ->assertSee('NEXA Suite-website', false)
+            ->assertSee('Alle tenants', false)
+            ->assertSee('Avond/nacht toeslag', false)
+            ->assertSee('Toeslagfactor', false);
+    }
+
+    #[Test]
     public function evening_night_surcharge_is_saved_on_all_rate_rows(): void
     {
         $company = $this->company();
@@ -127,12 +141,51 @@ class TarievenEveningNightTest extends TestCase
             ->assertRedirect(route('admin.taxi.tarieven.edit'));
 
         foreach (['1-4', '5-8'] as $range) {
-            $rate = DefaultRate::on('module_taxi')->where('person_range', $range)->first();
+            $rate = DefaultRate::queryForCompany('module_taxi', $company->id)->where('person_range', $range)->first();
             $this->assertNotNull($rate);
             $this->assertEquals(1.35, (float) $rate->evening_night_multiplier);
             $this->assertSame(21, (int) $rate->evening_night_from_hour);
             $this->assertSame(5, (int) $rate->evening_night_until_hour);
         }
+
+        $platform = DefaultRate::queryForCompany('module_taxi', null)->where('person_range', '1-4')->first();
+        $this->assertNotNull($platform);
+        $this->assertEquals(1.2, (float) $platform->evening_night_multiplier);
+    }
+
+    #[Test]
+    public function nexa_suite_save_updates_platform_rates(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->withSession(['selected_tenant' => null])
+            ->put(route('admin.taxi.tarieven.update'), [
+                'evening_night_multiplier' => '1.40',
+                'evening_night_from_hour' => '20',
+                'evening_night_until_hour' => '7',
+                'rates' => [
+                    [
+                        'person_range' => '1-4',
+                        'base_fare' => '4.00',
+                        'min_fare' => '0',
+                        'price_per_km' => '2.50',
+                        'price_per_min' => '0.40',
+                    ],
+                    [
+                        'person_range' => '5-8',
+                        'base_fare' => '6.00',
+                        'min_fare' => '0',
+                        'price_per_km' => '3.00',
+                        'price_per_min' => '0.50',
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('admin.taxi.tarieven.edit'));
+
+        $platform = DefaultRate::queryForCompany('module_taxi', null)->where('person_range', '1-4')->first();
+        $this->assertNotNull($platform);
+        $this->assertEquals(4.0, (float) $platform->base_fare);
+        $this->assertEquals(1.4, (float) $platform->evening_night_multiplier);
+        $this->assertNull($platform->company_id);
     }
 
     private function superAdmin(): User

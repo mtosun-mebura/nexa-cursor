@@ -1548,7 +1548,7 @@
                 $tarievenTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
                 $tarievenBlockTitle = old('home_sections.'.$sectionKey.'.title', $tarievenSectionData['title'] ?? 'Onze tarieven');
                 $tarievenImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
-                $tarievenRatesData = app(\App\Services\NexaTaxiPublicRatesService::class)->getRatesForDisplay();
+                $tarievenRatesData = app(\App\Services\NexaTaxiPublicRatesService::class)->getRatesForDisplay($websitePageCompanyIdForTaxiVehicles);
                 $tarievenCleaning1_4 = $tarievenRatesData && $tarievenRatesData['rates_1_4'] !== null && $tarievenRatesData['rates_1_4']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_1_4']->cleaning_costs : null;
                 $tarievenCleaning5_8 = $tarievenRatesData && $tarievenRatesData['rates_5_8'] !== null && $tarievenRatesData['rates_5_8']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_5_8']->cleaning_costs : null;
             @endphp
@@ -1965,14 +1965,14 @@
 
             <div class="p-3 border border-border rounded-lg space-y-3">
                 <h4 class="text-sm font-medium">Bagage → bus/van</h4>
-                <p class="text-xs text-muted-foreground">Tel per item: aantal × eenheden. Overschrijding van het auto-maximum schakelt automatisch naar bus/van-aanbiedingen op de aanbiedingen-stap.</p>
+                <p class="text-xs text-muted-foreground">Personen bepalen de stoelen, koffers de kofferbak. Elke koffer telt als 1 stuk (handbagage niet). Meer stuks dan het maximum → bus/van.</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <label class="inline-flex items-center gap-2 text-sm md:col-span-2 lg:col-span-4">
                         <input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_van_upgrade_enabled]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.baggage_van_upgrade_enabled', $bookingData['logic']['baggage_van_upgrade_enabled'] ?? true) ? 'checked' : '' }}>
                         Automatisch bus/van bij te veel bagage
                     </label>
                     <div>
-                        <label class="text-xs text-muted-foreground">Max eenheden auto</label>
+                        <label class="text-xs text-muted-foreground">Max koffers auto</label>
                         <input type="number" min="0" max="50" step="1" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_car_max_units]" value="{{ old('home_sections.'.$sectionKey.'.logic.baggage_car_max_units', $bookingData['logic']['baggage_car_max_units'] ?? 4) }}">
                     </div>
                     <div>
@@ -2015,7 +2015,7 @@
                             </div>
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}" title="Grote koffer telt bv. als 2"></div>
+                        <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}" title="Niet gebruikt voor voertuigkeuze; die telt koffers per stuk"></div>
                         <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
                     </div>
                     @endforeach
