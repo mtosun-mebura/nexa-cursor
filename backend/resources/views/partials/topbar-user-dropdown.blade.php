@@ -12,12 +12,12 @@
                 data-user-avatar
                 class="h-full w-full object-cover"
                 src="{{ route('user.photo', auth()->id()) }}"
-                onerror="this.onerror=null;this.src='{{ $defaultUserAvatarUrl }}';this.classList.remove('object-cover');this.classList.add('object-contain','bg-black');" />
+                onerror="this.onerror=null;this.src='{{ $defaultUserAvatarUrl }}';this.classList.remove('object-cover','bg-black');this.classList.add('object-contain','bg-transparent');" />
         @else
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                 data-user-avatar
                 @class([
-                    'h-full w-full object-contain bg-black',
+                    'h-full w-full object-contain bg-transparent',
                     'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                 ])
                 src="{{ $defaultUserAvatarUrl }}" />
@@ -31,12 +31,12 @@
                     data-user-avatar
                     class="h-full w-full object-cover"
                     src="{{ route('user.photo', auth()->id()) }}"
-                    onerror="this.onerror=null;this.src='{{ $defaultUserAvatarUrl }}';this.classList.remove('object-cover');this.classList.add('object-contain','bg-black');" />
+                    onerror="this.onerror=null;this.src='{{ $defaultUserAvatarUrl }}';this.classList.remove('object-cover','bg-black');this.classList.add('object-contain','bg-transparent');" />
             @else
                 <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                     data-user-avatar
                     @class([
-                        'h-full w-full object-contain bg-black',
+                        'h-full w-full object-contain bg-transparent',
                         'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                     ])
                     src="{{ $defaultUserAvatarUrl }}" />

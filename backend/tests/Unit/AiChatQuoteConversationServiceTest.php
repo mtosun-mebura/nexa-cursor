@@ -153,7 +153,7 @@ class AiChatQuoteConversationServiceTest extends TestCase
                     ],
                 ],
             ],
-            'http://localhost:8085/?book_offer=person_range_1_4#boek-rit',
+            'http://localhost:8085/boek?book_offer=person_range_1_4#boek-rit',
         );
 
         $this->assertStringContainsString('Tarief: t/m 4 personen — € 479,18', $text);
@@ -225,7 +225,7 @@ class AiChatQuoteConversationServiceTest extends TestCase
         $this->assertNotSame('first_name', $reply->input['step'] ?? null);
     }
 
-    public function test_booking_url_points_to_homepage_with_hash(): void
+    public function test_booking_url_points_to_tenant_homepage_with_hash(): void
     {
         $service = $this->makeService();
         $method = new \ReflectionMethod($service, 'buildBookingUrl');
@@ -242,10 +242,40 @@ class AiChatQuoteConversationServiceTest extends TestCase
         ]);
 
         $this->assertStringContainsString('/?', $url);
+        $this->assertStringNotContainsString('/boek', $url);
         $this->assertStringEndsWith('#boek-rit', $url);
         $this->assertStringContainsString('book_pickup=', $url);
         $this->assertStringContainsString('book_step=confirm', $url);
         $this->assertDoesNotMatchRegularExpression('#https?://[^/]+\?#', $url);
+    }
+
+    public function test_central_booking_url_points_to_boek_page_with_hash(): void
+    {
+        $service = $this->makeService();
+        $method = new \ReflectionMethod($service, 'buildBookingUrl');
+        $method->setAccessible(true);
+        $context = new AiChatRequestContext(
+            companyId: 0,
+            channel: AiChatChannel::Public,
+            sessionId: 'quote-url-central',
+            module: 'nexa',
+            isCentralWebsite: true,
+        );
+
+        $url = $method->invoke($service, [
+            'pickup_address' => 'Deurningerstraat 155, Enschede',
+            'dropoff_address' => 'Schiphol Plaza',
+            'passengers' => 4,
+            'pickup_at' => '2026-09-18 14:55:00',
+        ], ['id' => 'offer_1'], [
+            'distance_meters' => 172969,
+            'duration_seconds' => 8074,
+        ], $context);
+
+        $this->assertStringContainsString('/boek?', $url);
+        $this->assertStringEndsWith('#boek-rit', $url);
+        $this->assertStringContainsString('book_pickup=', $url);
+        $this->assertStringContainsString('book_step=confirm', $url);
     }
 
     private function makeService(): AiChatQuoteConversationService

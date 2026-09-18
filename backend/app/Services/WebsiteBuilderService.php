@@ -1970,7 +1970,7 @@ class WebsiteBuilderService
         }
 
         if ($page !== null && $this->resolvedPublicTenantCompanyId() === null) {
-            return app(CentralWelcomePageService::class)->ensureBookingModuleOnHomePage($page);
+            return app(CentralWelcomePageService::class)->removeBookingModuleFromHomePage($page);
         }
 
         return $page;
@@ -2040,6 +2040,10 @@ class WebsiteBuilderService
         }
         if ($page->module_name !== null && ! $this->moduleManager->isActive($page->module_name)) {
             return null;
+        }
+
+        if ($this->resolvedPublicTenantCompanyId() === null && strtolower($slug) === CentralWelcomePageService::BOEK_SLUG) {
+            return app(CentralWelcomePageService::class)->ensureBookingModuleOnBoekPage($page);
         }
 
         return $page;

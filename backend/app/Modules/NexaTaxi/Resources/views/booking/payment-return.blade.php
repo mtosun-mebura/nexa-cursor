@@ -3,6 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    @if(! empty($refreshUrl))
+        <meta http-equiv="refresh" content="2;url={{ e($refreshUrl) }}">
+    @endif
     <title>Betaling {{ $paid ? 'voltooid' : 'status' }}</title>
     <style>
         body { font-family: system-ui, sans-serif; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; padding: 1.5rem; text-align: center; }
@@ -15,10 +18,10 @@
 <div class="card">
     @if($paid)
         <h1>Betaling ontvangen</h1>
-        <p>Bedankt! Je boeking is bevestigd en wordt verwerkt.</p>
+        <p>Je wordt teruggestuurd naar je boeking…</p>
     @else
         <h1>Betaling wordt verwerkt</h1>
-        <p>Sluit dit venster niet als je net hebt betaald. De status wordt zo bijgewerkt.</p>
+        <p>Even geduld… Sluit dit venster niet. Zodra de betaling binnen is, gaan we terug naar de boekingspagina.</p>
     @endif
 </div>
 </body>

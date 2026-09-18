@@ -61,7 +61,9 @@ class AdminUserForceLogoutTest extends TestCase
             ->get(route('admin.users.index'))
             ->assertOk()
             ->assertSee(route('admin.users.force-logout', $user), false)
-            ->assertSee('Op afstand uitloggen', false);
+            ->assertSee('Op afstand uitloggen', false)
+            ->assertSee('ki-cross-circle', false)
+            ->assertSee('Deactiveren', false);
 
         $this->actingAs($admin, 'web')
             ->withSession(['selected_tenant' => $admin->company_id])

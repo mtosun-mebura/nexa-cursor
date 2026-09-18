@@ -62,7 +62,7 @@ class CentralWelcomePageService
             $this->welcomePageAttributes()
         );
 
-        return $this->ensureBookingModuleOnHomePage($page);
+        return $this->removeBookingModuleFromHomePage($page);
     }
 
     /**
@@ -72,10 +72,11 @@ class CentralWelcomePageService
      */
     public function ensureMarketingPagesExist(): Collection
     {
+        $boekPage = $this->firstOrCreateCentralPage(self::BOEK_SLUG, $this->boekPageAttributes());
         $pages = collect([
             $this->ensurePageExists(),
             $this->firstOrCreateCentralPage(self::TAXI_SLUG, $this->taxiPageAttributes()),
-            $this->firstOrCreateCentralPage(self::BOEK_SLUG, $this->boekPageAttributes()),
+            $this->ensureBookingModuleOnBoekPage($boekPage),
             $this->firstOrCreateCentralPage(self::CONTRACT_SLUG, $this->contractPageAttributes()),
             $this->firstOrCreateCentralPage(self::WEBSITE_SLUG, $this->websiteBuilderPageAttributes()),
             $this->firstOrCreateCentralPage(self::PRIJZEN_SLUG, $this->prijzenPageAttributes()),
@@ -87,14 +88,54 @@ class CentralWelcomePageService
     }
 
     /**
-     * Zet de algemene boekingsmodule op de centrale homepage, zodat AI-chat
-     * “Boek deze rit” de home van nexasuite.nl kan voorinvullen.
+     * Haalt de algemene boekingsmodule van de centrale homepage: boeken gebeurt op /boek.
      */
-    public function ensureBookingModuleOnHomePage(?WebsitePage $page = null): WebsitePage
+    public function removeBookingModuleFromHomePage(?WebsitePage $page = null): WebsitePage
     {
         $page ??= $this->findCentralPage(WebsitePage::CENTRAL_WELCOME_SLUG) ?? $this->firstOrCreateCentralPage(
             WebsitePage::CENTRAL_WELCOME_SLUG,
             $this->welcomePageAttributes()
+        );
+        $key = self::HOME_BOOKING_SECTION_KEY;
+        $sections = $page->getHomeSections();
+        $order = isset($sections['section_order']) && is_array($sections['section_order'])
+            ? array_values($sections['section_order'])
+            : [];
+
+        $changed = false;
+        if (in_array($key, $order, true)) {
+            $sections['section_order'] = array_values(array_filter(
+                $order,
+                fn ($item) => $item !== $key
+            ));
+            $changed = true;
+        }
+
+        $visibility = isset($sections['visibility']) && is_array($sections['visibility'])
+            ? $sections['visibility']
+            : [];
+        if (($visibility[$key] ?? null) !== false) {
+            $visibility[$key] = false;
+            $sections['visibility'] = $visibility;
+            $changed = true;
+        }
+
+        if ($changed) {
+            $page->home_sections = $sections;
+            $page->save();
+        }
+
+        return $page->fresh() ?? $page;
+    }
+
+    /**
+     * Zet de algemene boekingsmodule op /boek, zodat AI-chat “Boek deze rit” daar kan voorinvullen.
+     */
+    public function ensureBookingModuleOnBoekPage(?WebsitePage $page = null): WebsitePage
+    {
+        $page ??= $this->findCentralPage(self::BOEK_SLUG) ?? $this->firstOrCreateCentralPage(
+            self::BOEK_SLUG,
+            $this->boekPageAttributes()
         );
         $key = self::HOME_BOOKING_SECTION_KEY;
         $sections = $page->getHomeSections();
@@ -106,14 +147,12 @@ class CentralWelcomePageService
             ? $removedRaw
             : array_values(array_filter(array_map('trim', explode(',', (string) $removedRaw))));
 
-        if (in_array($key, $removed, true)) {
-            return $page;
-        }
-        if (isset($sections['visibility'][$key]) && $sections['visibility'][$key] === false) {
-            return $page;
-        }
-
         $changed = false;
+        if (in_array($key, $removed, true)) {
+            $removed = array_values(array_filter($removed, fn ($item) => $item !== $key));
+            $sections['removed_section_keys'] = implode(',', $removed);
+            $changed = true;
+        }
         if (! in_array($key, $order, true)) {
             $heroAt = array_search('hero', $order, true);
             $insertAt = $heroAt === false ? 0 : $heroAt + 1;
@@ -125,7 +164,11 @@ class CentralWelcomePageService
         $visibility = isset($sections['visibility']) && is_array($sections['visibility'])
             ? $sections['visibility']
             : [];
-        if (! array_key_exists($key, $visibility)) {
+        if (($visibility[$key] ?? true) !== true) {
+            $visibility[$key] = true;
+            $sections['visibility'] = $visibility;
+            $changed = true;
+        } elseif (! array_key_exists($key, $visibility)) {
             $visibility[$key] = true;
             $sections['visibility'] = $visibility;
             $changed = true;
@@ -660,14 +703,10 @@ class CentralWelcomePageService
             ],
         ];
 
-        $bookingKey = self::HOME_BOOKING_SECTION_KEY;
-        $sections[$bookingKey] = $this->centralHomeBookingSectionConfig();
-
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['copyright'] = '© {year} NEXA Suite. Alle rechten voorbehouden.';
         $sections['section_order'] = [
             'hero',
-            $bookingKey,
             'features',
             $tableKey,
             $galleryKey,
@@ -678,7 +717,6 @@ class CentralWelcomePageService
             $faqKey,
             'cta',
         ];
-        $sections['visibility'][$bookingKey] = true;
         $sections['visibility'][$tableKey] = true;
         $sections['visibility'][$galleryKey] = true;
         $sections['visibility'][$modulesKey] = true;
@@ -690,6 +728,7 @@ class CentralWelcomePageService
         $sections['visibility']['cta'] = true;
         $sections['visibility']['why_nexa'] = false;
         $sections['visibility']['footer_map'] = false;
+        $sections['visibility'][self::HOME_BOOKING_SECTION_KEY] = false;
 
         return $sections;
     }
@@ -832,6 +871,7 @@ class CentralWelcomePageService
         $bookingDefaults['title'] = 'Boek een taxi';
         $bookingDefaults['subtitle'] = 'Algemene boeking via NEXA Suite. We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales; wie accepteert, krijgt de klant.';
         $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
+        $bookingDefaults['logic']['marketplace_radius_km'] = NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM;
         $sections[$bookingKey] = $bookingDefaults;
 
         $sections['hero']['title'] = 'Boek een taxi. Wij zoeken de dichtstbijzijnde centrale.';

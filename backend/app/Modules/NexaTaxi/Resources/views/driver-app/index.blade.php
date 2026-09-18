@@ -1233,18 +1233,24 @@
         }
         .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn.is-loading {
+        .btn.is-loading,
+        .btn.is-loading:disabled {
             pointer-events: none;
-            opacity: 0.85;
+            opacity: 1;
+            cursor: wait;
         }
         .btn-spinner {
             width: 1.125rem;
             height: 1.125rem;
-            border: 2px solid currentColor;
+            border: 2.5px solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             animation: btn-spin 0.65s linear infinite;
             flex-shrink: 0;
+        }
+        #active-ride-actions .btn.is-loading .btn-spinner {
+            width: 1.05rem;
+            height: 1.05rem;
         }
         @keyframes btn-spin {
             to { transform: rotate(360deg); }
@@ -4224,7 +4230,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
-<script src="/assets/js/taxi-driver-app.js?v=172" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=173" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

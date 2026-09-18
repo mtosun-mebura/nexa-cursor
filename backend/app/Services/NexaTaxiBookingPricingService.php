@@ -282,6 +282,7 @@ class NexaTaxiBookingPricingService
             $offerDisplayMode = 'vehicle';
         }
         $useEveningNightTariff = ! empty($sectionConfig['logic']['use_evening_night_tariff'] ?? true);
+        $eveningNight = DefaultRate::eveningNightSettings($defaultRates);
 
         $resultOffers = [];
         if ($offerDisplayMode === 'person_range') {
@@ -300,7 +301,8 @@ class NexaTaxiBookingPricingService
                 (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
                 $pickupAt,
                 $waitingMinutes,
-                $useEveningNightTariff
+                $useEveningNightTariff,
+                $eveningNight
             );
             $baseMultiplier = max(0.1, (float) ($sectionConfig['logic']['person_range_base_price_multiplier'] ?? 1.0));
             $baseOldMultiplier = max(1.0, (float) ($sectionConfig['logic']['person_range_base_old_price_multiplier'] ?? 1.2));
@@ -353,7 +355,8 @@ class NexaTaxiBookingPricingService
                     (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
                     $pickupAt,
                     $waitingMinutes,
-                    $useEveningNightTariff
+                    $useEveningNightTariff,
+                    $eveningNight
                 );
                 $multiplier = max(0.1, (float) ($offer['price_multiplier'] ?? 1.0));
                 $surcharge = max(0, (float) ($offer['fixed_surcharge'] ?? 0));
@@ -769,11 +772,20 @@ class NexaTaxiBookingPricingService
         float $returnMultiplier,
         ?string $rideDateTime = null,
         float $waitingMinutes = 0,
-        bool $useEveningNightTariff = true
+        bool $useEveningNightTariff = true,
+        array $eveningNight = []
     ): float {
         $distanceKm = $distanceMeters / 1000;
         $durationMin = $durationSeconds / 60;
-        $nightMultiplier = ($useEveningNightTariff && $this->isNightRide($rideDateTime)) ? 1.2 : 1.0;
+        $settings = $eveningNight !== [] ? $eveningNight : DefaultRate::eveningNightSettings(null);
+        $nightMultiplier = 1.0;
+        if ($useEveningNightTariff && $this->isNightRide(
+            $rideDateTime,
+            (int) ($settings['from_hour'] ?? DefaultRate::DEFAULT_EVENING_NIGHT_FROM_HOUR),
+            (int) ($settings['until_hour'] ?? DefaultRate::DEFAULT_EVENING_NIGHT_UNTIL_HOUR)
+        )) {
+            $nightMultiplier = max(1.0, (float) ($settings['multiplier'] ?? DefaultRate::DEFAULT_EVENING_NIGHT_MULTIPLIER));
+        }
         $baseFare = (float) ($rate['base_fare'] ?? 0);
         $pricePerKm = (float) ($rate['price_per_km'] ?? 0) * $nightMultiplier;
         $pricePerMin = (float) ($rate['price_per_min'] ?? 0) * $nightMultiplier;
@@ -791,17 +803,18 @@ class NexaTaxiBookingPricingService
         return round(max(0, $fare), 2);
     }
 
-    private function isNightRide(?string $rideDateTime): bool
-    {
+    private function isNightRide(
+        ?string $rideDateTime,
+        int $fromHour = DefaultRate::DEFAULT_EVENING_NIGHT_FROM_HOUR,
+        int $untilHour = DefaultRate::DEFAULT_EVENING_NIGHT_UNTIL_HOUR
+    ): bool {
         try {
             $dt = $rideDateTime ? Carbon::parse($rideDateTime) : now();
         } catch (\Throwable $e) {
             $dt = now();
         }
 
-        $hour = (int) $dt->format('G');
-
-        return $hour >= 22 || $hour < 6;
+        return DefaultRate::isEveningNightHour((int) $dt->format('G'), $fromHour, $untilHour);
     }
 
     private function resolveVehicleImageUrl(?Vehicle $vehicle): ?string
