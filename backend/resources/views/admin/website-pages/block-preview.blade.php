@@ -16,19 +16,52 @@
         html, body {
             margin: 0;
             padding: 0;
-            min-height: 100%;
+            background: transparent;
         }
         html:not(.dark), html:not(.dark) body {
-            background: #f8fafc;
             color: #0f172a;
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
         }
         html.dark, html.dark body {
-            background: #020617;
             color: #f8fafc;
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+        }
+        html:not(.dark)::-webkit-scrollbar,
+        html:not(.dark) body::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        html:not(.dark)::-webkit-scrollbar-track,
+        html:not(.dark) body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        html:not(.dark)::-webkit-scrollbar-thumb,
+        html:not(.dark) body::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        html.dark::-webkit-scrollbar,
+        html.dark body::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        html.dark::-webkit-scrollbar-track,
+        html.dark body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        html.dark::-webkit-scrollbar-thumb,
+        html.dark body::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
         }
         body.theme-modern { --theme-primary: {{ $themeSettings['primary_color'] ?? '#2563eb' }}; }
         #block-preview-root {
-            min-height: 100vh;
             padding: 1rem 0 2rem;
         }
         .website-section-inner {
@@ -87,9 +120,36 @@
             border-color: rgba(148, 163, 184, 0.38) !important;
             box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45) !important;
         }
-        html.dark [data-nexa-block-preview] #block-preview-root,
-        [data-nexa-block-preview].dark #block-preview-root {
-            background: #0b1220;
+        [data-nexa-block-preview] .cards-ronde-hoeken-section {
+            background: transparent !important;
+        }
+
+        /* Google Reviews: toon de echte desktop-opmaak (samenvatting links, 3 kaarten rechts), ook in een smallere iframe. */
+        [data-nexa-block-preview] .google-reviews-section {
+            background: transparent !important;
+        }
+        [data-nexa-block-preview] .google-reviews-section .grw-layout {
+            flex-direction: row !important;
+            align-items: stretch !important;
+            gap: 2rem !important;
+            max-width: 72rem;
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            width: 100%;
+        }
+        [data-nexa-block-preview] .google-reviews-section .grw-summary {
+            width: 280px !important;
+            max-width: 280px !important;
+            flex: 0 0 280px !important;
+            min-height: 260px;
+        }
+        [data-nexa-block-preview] .google-reviews-section .grw-write-btn {
+            width: 100% !important;
+        }
+        [data-nexa-block-preview] .google-reviews-section .grw-slider-wrapper .grw-header--carousel-only {
+            display: block !important;
         }
     </style>
     <script>
@@ -104,8 +164,13 @@
         }
 
         function snapHidden() {
-            document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-item]').forEach(function (el) {
+            document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-item], [data-stats-section]').forEach(function (el) {
                 el.classList.remove('is-in-view');
+            });
+            document.querySelectorAll('.stats-count[data-stat-end]').forEach(function (el) {
+                var prefix = el.getAttribute('data-stat-prefix') || '';
+                var suffix = el.getAttribute('data-stat-suffix') || '';
+                el.textContent = prefix + '0' + suffix;
             });
             document.querySelectorAll('.info-request-section').forEach(function (el) {
                 el.classList.remove('in-view');
@@ -130,9 +195,15 @@
                 document.querySelectorAll(ANIMATED_SEL).forEach(clearInline);
                 void document.body.offsetHeight;
                 requestAnimationFrame(function () {
-                    document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-item]').forEach(function (el) {
+                    document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-item], [data-stats-section]').forEach(function (el) {
                         el.classList.add('is-in-view');
                     });
+                    if (typeof window.nexaRestartStatsCountUp === 'function') {
+                        window.nexaRestartStatsCountUp();
+                    }
+                    if (typeof window.nexaRestartGoogleReviews === 'function') {
+                        window.nexaRestartGoogleReviews();
+                    }
                     document.querySelectorAll('.info-request-section').forEach(function (el) {
                         el.classList.add('in-view');
                     });

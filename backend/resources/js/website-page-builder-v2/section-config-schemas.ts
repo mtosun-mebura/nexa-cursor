@@ -8,7 +8,8 @@ export type FieldVisibleWhen = {
 export type FieldVisibleContext = 'gpsTracking' | 'superAdmin'
 
 export type ConfigField =
-  | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen; colSpan?: 2 | 3 }
+  | { type: 'text'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen; colSpan?: 2 | 3; multiline?: boolean; rows?: number }
+  | { type: 'title-highlight'; key: string; label: string; titleKey?: string; colorKey?: string; hint?: string }
   | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'wysiwyg'; key: string; label: string; placeholder?: string; hint?: string; visibleWhen?: FieldVisibleWhen }
   | { type: 'select'; key: string; label: string; options: SelectOption[]; hint?: string; visibleWhen?: FieldVisibleWhen; defaultValue?: string }
@@ -100,8 +101,8 @@ const ctaButtonFields = (prefix: 'cta_primary' | 'cta_secondary', label: string)
 
 export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
   hero: [
-    { type: 'text', key: 'title', label: 'Titel' },
-    { type: 'text', key: 'title_highlight', label: 'Highlight woord' },
+    { type: 'text', key: 'title', label: 'Titel', multiline: true, rows: 3, hint: 'Enter plaatst de volgende zin op een nieuwe regel.' },
+    { type: 'title-highlight', key: 'title_highlight', label: 'Highlight woord', hint: 'Klik op een woord om het op te lichten. Shift-klik een tweede woord voor een reeks, zoals zelf boeken. Of typ: zelf boeken | boek' },
     { type: 'color', key: 'title_highlight_color', label: 'Highlight kleur' },
     { type: 'wysiwyg', key: 'subtitle', label: 'Ondertitel', placeholder: 'Korte introductietekst op de banner…' },
     { type: 'color', key: 'subtitle_color', label: 'Ondertitel kleur' },

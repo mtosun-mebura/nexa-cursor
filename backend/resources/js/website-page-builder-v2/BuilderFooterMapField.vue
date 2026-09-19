@@ -34,6 +34,10 @@ let mutationObserver: MutationObserver | null = null
 
 const cityOnly = computed(() => !!getByPath(props.data, 'map_city_only'))
 const mapSize = computed(() => String(getByPath(props.data, 'map_size') ?? 'normal'))
+const mapPosition = computed(() => {
+  const value = String(getByPath(props.data, 'map_position') ?? 'bottom')
+  return ['left', 'right', 'bottom'].includes(value) ? value : 'bottom'
+})
 const mapZoom = computed(() => {
   const z = Number(getByPath(props.data, 'map_zoom') ?? 17)
   return z >= 1 && z <= 20 ? z : 17
@@ -336,6 +340,22 @@ onUnmounted(() => {
       Postcode + huisnummer zoeken, of alleen plaats invoeren.
     </p>
 
+    <label class="builder-footer-map__field builder-footer-map__field--position">
+      <span>Positie</span>
+      <select
+        class="kt-input kt-input-sm"
+        :value="mapPosition"
+        @change="patchField('map_position', ($event.target as HTMLSelectElement).value)"
+      >
+        <option value="left">Links</option>
+        <option value="right">Rechts</option>
+        <option value="bottom">Onder</option>
+      </select>
+    </label>
+    <p class="builder-footer-map__hint">
+      Links en rechts nemen de helft van de pagina. Onder is de volle breedte onder de links; social media komt daaronder.
+    </p>
+
     <label class="builder-footer-map__toggle">
       <input
         type="checkbox"
@@ -504,6 +524,11 @@ onUnmounted(() => {
 
 .builder-footer-map__field--huisnr {
   max-width: 4.25rem;
+}
+
+.builder-footer-map__field--position {
+  width: max-content;
+  max-width: 100%;
 }
 
 .builder-footer-map__search-btn {

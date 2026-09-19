@@ -45,7 +45,10 @@
                         $showFooterMap = $footerMapVisible && $googleMapsKeyForView !== '';
                         $footerMapSize = $footerData['map_size'] ?? 'normal';
                         $footerMapHeightPx = $footerMapSize === 'small' ? 200 : ($footerMapSize === 'large' ? 400 : 300);
-                        $footerMapWidthClass = 'w-full';
+                        $footerMapPosition = in_array($footerData['map_position'] ?? '', ['left', 'right', 'bottom'], true)
+                            ? $footerData['map_position']
+                            : 'bottom';
+                        $footerMapIsSide = $footerMapVisible && in_array($footerMapPosition, ['left', 'right'], true);
                         $footerMapCityOnly = !empty($footerData['map_city_only']);
                         $footerMapAddressStr = trim((string) ($footerData['map_address'] ?? ''));
                         if ($footerMapAddressStr === '') {
@@ -64,7 +67,11 @@
                         $showSupportLinks = ($footVis['footer_support_links'] ?? true) && !empty($footerData['support_links']);
                         $footerLinkColumnsCount = ($showQuickLinks ? 1 : 0) + ($showSupportLinks ? 1 : 0);
                         $footerLinkGridCols = $footerLinkColumnsCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
-                        $footerGridWithMapClass = $footerMapVisible ? ' footer-grid-with-map' : '';
+                        $footerGridWithMapClass = $footerMapVisible ? ' footer-grid-with-map footer-grid-with-map--'.$footerMapPosition : '';
+                        $footerLayoutClass = 'flex flex-col gap-6'.$footerGridWithMapClass.($footerMapIsSide ? ' md:flex-row md:items-stretch' : '');
+                        $footerContentClass = $footerMapIsSide
+                            ? 'footer-map-content flex flex-col gap-6 w-full min-w-0 md:w-1/2 md:flex-1'
+                            : 'footer-map-content flex flex-col gap-6 w-full min-w-0';
                         $footerSocialLinks = [];
                         $footerSocialBases = ['social_facebook' => 'https://www.facebook.com/', 'social_instagram' => 'https://www.instagram.com/', 'social_x' => 'https://x.com/', 'social_linkedin' => 'https://www.linkedin.com/', 'social_youtube' => 'https://www.youtube.com/', 'social_tiktok' => 'https://www.tiktok.com/@'];
                         foreach (['facebook' => 'social_facebook', 'instagram' => 'social_instagram', 'x' => 'social_x', 'linkedin' => 'social_linkedin', 'youtube' => 'social_youtube', 'tiktok' => 'social_tiktok'] as $key => $field) {
@@ -78,6 +85,7 @@
                                 $footerSocialLinks[$key] = $base . $id;
                             }
                         }
+                        $showFooterSocial = ($footVis['footer_social'] ?? true) && count($footerSocialLinks) > 0;
                         $footerAnimStepMs = 115;
                         $footerQuickVisible = 0;
                         foreach (($footerData['quick_links'] ?? []) as $_ql) {
@@ -102,7 +110,11 @@
                         $footerDelayMap = min($footerDelayMap, 420);
                     @endphp
                     <div class="footer-reveal-soft">
-                    <div class="flex flex-col gap-6{{ $footerGridWithMapClass }}">
+                    <div class="{{ $footerLayoutClass }}">
+                        @if($footerMapVisible && $footerMapPosition === 'left')
+                            @include('frontend.layouts.partials.website-footer-map', ['footerMapLayout' => 'left'])
+                        @endif
+                        <div class="{{ $footerContentClass }}">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start w-full min-w-0">
                         <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
                             @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
@@ -158,23 +170,24 @@
                         </div>
                         @endif
                         </div>
-                        @if($footerMapVisible)
-                        <div class="footer-map-reveal w-full min-w-0 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
-                            @if($showFooterMap)
-                            <div id="footer-google-map" class="w-full h-full min-h-[200px] block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 200px; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
-                            @else
-                            <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
-                                <span>Stel de Google Maps API-sleutel in via het Admin paneel om de kaart te tonen.</span>
-                            </div>
-                            @endif
-                        </div>
-                        @endif
-                    </div>
-                    @if(($footVis['footer_social'] ?? true) && count($footerSocialLinks) > 0)
-                        <div class="w-full mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                    @if($showFooterSocial && $footerMapPosition !== 'bottom')
+                        <div class="footer-social-row w-full pt-6 border-t border-gray-200 dark:border-gray-600">
                             @include('frontend.layouts.partials.footer-social-icons', ['footerSocialLinks' => $footerSocialLinks, 'footerLogoAlign' => 'center'])
                         </div>
                     @endif
+                        @if($footerMapVisible && $footerMapPosition === 'bottom')
+                            @include('frontend.layouts.partials.website-footer-map', ['footerMapLayout' => 'bottom'])
+                        @endif
+                    @if($showFooterSocial && $footerMapPosition === 'bottom')
+                        <div class="footer-social-row w-full pt-6 border-t border-gray-200 dark:border-gray-600">
+                            @include('frontend.layouts.partials.footer-social-icons', ['footerSocialLinks' => $footerSocialLinks, 'footerLogoAlign' => 'center'])
+                        </div>
+                    @endif
+                        </div>
+                        @if($footerMapVisible && $footerMapPosition === 'right')
+                            @include('frontend.layouts.partials.website-footer-map', ['footerMapLayout' => 'right'])
+                        @endif
+                    </div>
                     </div>
                 </div>
                 @if(!empty($homeSections['copyright']))
