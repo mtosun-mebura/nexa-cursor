@@ -6,6 +6,7 @@ import BuilderFooterLogoField from './BuilderFooterLogoField.vue'
 import BuilderFooterMapField from './BuilderFooterMapField.vue'
 import BuilderFooterSocialIcon from './BuilderFooterSocialIcon.vue'
 import BuilderHeroiconPicker from './BuilderHeroiconPicker.vue'
+import BuilderTitleHighlightPicker from './BuilderTitleHighlightPicker.vue'
 import BuilderPricingPackagesPreview from './BuilderPricingPackagesPreview.vue'
 import BuilderWysiwygField from './BuilderWysiwygField.vue'
 import type { ConfigField, FieldVisibleContext, FieldVisibleWhen, SelectOption } from './section-config-schemas'
@@ -1342,6 +1343,16 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
 
+      <BuilderTitleHighlightPicker
+        v-else-if="field.type === 'title-highlight'"
+        :label="field.label"
+        :hint="field.hint ?? 'Klik op een woord om het op te lichten.'"
+        :title="str(field.titleKey ?? 'title')"
+        :model-value="str(field.key)"
+        :highlight-color="str(field.colorKey ?? 'title_highlight_color')"
+        @update:model-value="updateField(field.key, $event)"
+      />
+
       <label
         v-else-if="field.type === 'text'"
         class="builder-field"
@@ -1362,7 +1373,16 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           />
           <span>{{ field.label }}</span>
         </span>
+        <textarea
+          v-if="field.multiline"
+          class="kt-input builder-field__multiline"
+          :rows="field.rows ?? 3"
+          :value="str(field.key)"
+          :placeholder="field.placeholder"
+          @input="updateField(field.key, ($event.target as HTMLTextAreaElement).value)"
+        />
         <input
+          v-else
           class="kt-input"
           :value="str(field.key)"
           :placeholder="field.placeholder"
@@ -2265,6 +2285,15 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   width: auto;
   max-width: 100%;
   min-width: 4.5rem;
+}
+
+.builder-field__multiline {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.4;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  white-space: pre-wrap;
 }
 
 .builder-field-hint {

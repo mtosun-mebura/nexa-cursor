@@ -81,11 +81,7 @@
                             $heroHighlightColor = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroHighlightColor) ? $heroHighlightColor : $primaryColor;
                             $parts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                         @endphp
-                        @if(count($parts) === 2)
-                            {{ trim($parts[0]) }} <span style="color: {{ $heroHighlightColor }};">{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
-                        @else
-                            {{ $heroTitle }}
-                        @endif
+                        {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColor) !!}
                     </h1>
                     @endif
                     @if($v('_subtitle') && !empty($sectionData['subtitle']))

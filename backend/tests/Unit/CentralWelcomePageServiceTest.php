@@ -113,6 +113,10 @@ class CentralWelcomePageServiceTest extends TestCase
         $sections = $home->getHomeSections();
         $this->assertSame('Mis je ritten aan de telefoon? Laat klanten zelf boeken.', $sections['hero']['title'] ?? null);
         $this->assertSame('Online boeking, chauffeur-app en contractvervoer in één platform.', $sections['hero']['subtitle'] ?? null);
+        $this->assertSame('Voor taxibedrijven', $sections['hero']['cta_primary_text'] ?? null);
+        $this->assertSame('/contact', $sections['hero']['cta_primary_url'] ?? null);
+        $this->assertSame('Boek een rit', $sections['hero']['cta_secondary_text'] ?? null);
+        $this->assertSame('/boek', $sections['hero']['cta_secondary_url'] ?? null);
         $this->assertStringContainsString('hero-nexa-platform.png', (string) ($sections['hero']['background_image_url'] ?? ''));
         $this->assertContains('component:website.screenshot_gallery', $sections['section_order'] ?? []);
         $this->assertNotContains(CentralWelcomePageService::HOME_BOOKING_SECTION_KEY, $sections['section_order'] ?? []);
@@ -273,6 +277,43 @@ class CentralWelcomePageServiceTest extends TestCase
         $page->refresh();
         $this->assertNotContains($key, $page->getHomeSections()['section_order'] ?? []);
         $this->assertFalse((bool) ($page->getHomeSections()['visibility'][$key] ?? true));
+    }
+
+    #[Test]
+    public function remove_booking_module_migrates_home_hero_to_audience_buttons(): void
+    {
+        if (! Schema::hasTable('website_pages')) {
+            $this->markTestSkipped('website_pages table required');
+        }
+
+        FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+
+        $central = app(CentralWelcomePageService::class);
+        $page = $central->ensurePageExists();
+        $sections = $page->getHomeSections();
+        $sections['hero']['cta_primary_text'] = 'Neem contact op';
+        $sections['hero']['cta_primary_url'] = '/contact';
+        $sections['hero']['cta_secondary_text'] = 'Bekijk Nexa Taxi';
+        $sections['hero']['cta_secondary_url'] = '/taxi';
+        $sections['visibility']['hero_cta'] = true;
+        $sections['visibility']['hero_cta_primary'] = false;
+        $sections['visibility']['hero_cta_secondary'] = true;
+        $page->home_sections = $sections;
+        $page->save();
+
+        $central->removeBookingModuleFromHomePage($page->fresh());
+        $page->refresh();
+        $home = $page->getHomeSections();
+        $hero = $home['hero'] ?? [];
+        $this->assertSame('Voor taxibedrijven', $hero['cta_primary_text'] ?? null);
+        $this->assertSame('/contact', $hero['cta_primary_url'] ?? null);
+        $this->assertSame('Boek een rit', $hero['cta_secondary_text'] ?? null);
+        $this->assertSame('/boek', $hero['cta_secondary_url'] ?? null);
+        $this->assertTrue((bool) ($home['visibility']['hero_cta_primary'] ?? false));
+        $this->assertTrue((bool) ($home['visibility']['hero_cta_secondary'] ?? false));
     }
 
     #[Test]

@@ -120,12 +120,62 @@ class CentralWelcomePageService
             $changed = true;
         }
 
+        if ($this->applyHomeAudienceHeroCtas($sections)) {
+            $changed = true;
+        }
+
         if ($changed) {
             $page->home_sections = $sections;
             $page->save();
         }
 
         return $page->fresh() ?? $page;
+    }
+
+    /**
+     * Home-banner: taxibedrijf vs reiziger via knoppen (niet meer in de header).
+     *
+     * @param  array<string, mixed>  $sections
+     */
+    private function applyHomeAudienceHeroCtas(array &$sections): bool
+    {
+        $hero = is_array($sections['hero'] ?? null) ? $sections['hero'] : [];
+        $primary = trim((string) ($hero['cta_primary_text'] ?? ''));
+        $primaryUrl = trim((string) ($hero['cta_primary_url'] ?? ''));
+        $secondary = trim((string) ($hero['cta_secondary_text'] ?? ''));
+        $secondaryUrl = trim((string) ($hero['cta_secondary_url'] ?? ''));
+
+        $alreadyAudience = $primary === 'Voor taxibedrijven' && $secondary === 'Boek een rit'
+            && ($primaryUrl === '/contact' || $primaryUrl === '')
+            && ($secondaryUrl === '/boek' || $secondaryUrl === '');
+        $legacyCompanyPrimary = $primary === 'Neem contact op' && ($primaryUrl === '/contact' || $primaryUrl === '');
+        $legacyCompanySecondary = $secondary === 'Bekijk Nexa Taxi' && ($secondaryUrl === '/taxi' || $secondaryUrl === '');
+        if (! $alreadyAudience && ! $legacyCompanyPrimary && ! $legacyCompanySecondary) {
+            return false;
+        }
+
+        $changed = false;
+        if (! $alreadyAudience) {
+            $hero['cta_primary_text'] = 'Voor taxibedrijven';
+            $hero['cta_primary_url'] = '/contact';
+            $hero['cta_secondary_text'] = 'Boek een rit';
+            $hero['cta_secondary_url'] = '/boek';
+            $sections['hero'] = $hero;
+            $changed = true;
+        }
+
+        $visibility = is_array($sections['visibility'] ?? null) ? $sections['visibility'] : [];
+        foreach (['hero', 'hero_cta', 'hero_cta_primary', 'hero_cta_secondary'] as $flag) {
+            if (($visibility[$flag] ?? true) !== true) {
+                $visibility[$flag] = true;
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $sections['visibility'] = $visibility;
+        }
+
+        return $changed;
     }
 
     /**
@@ -574,10 +624,10 @@ class CentralWelcomePageService
         $sections['hero']['title'] = 'Mis je ritten aan de telefoon? Laat klanten zelf boeken.';
         $sections['hero']['title_highlight'] = 'zelf boeken';
         $sections['hero']['subtitle'] = 'Online boeking, chauffeur-app en contractvervoer in één platform.';
-        $sections['hero']['cta_primary_text'] = 'Neem contact op';
+        $sections['hero']['cta_primary_text'] = 'Voor taxibedrijven';
         $sections['hero']['cta_primary_url'] = '/contact';
-        $sections['hero']['cta_secondary_text'] = 'Bekijk Nexa Taxi';
-        $sections['hero']['cta_secondary_url'] = '/taxi';
+        $sections['hero']['cta_secondary_text'] = 'Boek een rit';
+        $sections['hero']['cta_secondary_url'] = '/boek';
         $sections['hero']['background_image_url'] = $this->marketingImage('hero-nexa-platform.png');
         $sections['hero']['overlay'] = true;
 

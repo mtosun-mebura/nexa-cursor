@@ -484,8 +484,10 @@
                 if (lngEl) footerPayload.map_lng = lngEl.value || '';
                 var mapSizeEl = document.querySelector('[name="home_sections[footer][map_size]"]');
                 var mapZoomEl = document.getElementById('footer-map-zoom');
+                var mapPositionEl = document.getElementById('footer-map-position');
                 if (mapSizeEl) footerPayload.map_size = mapSizeEl.value || '';
                 if (mapZoomEl) footerPayload.map_zoom = mapZoomEl.value || '';
+                if (mapPositionEl) footerPayload.map_position = mapPositionEl.value || 'bottom';
                 var cityOnlyEl = document.querySelector('[name="home_sections[footer][map_city_only]"]');
                 if (cityOnlyEl && cityOnlyEl.type === 'checkbox') footerPayload.map_city_only = cityOnlyEl.checked ? 1 : 0;
                 var balloonEl = document.getElementById('footer-map-show-address-balloon');

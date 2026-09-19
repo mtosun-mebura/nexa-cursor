@@ -168,7 +168,9 @@
                 $heroTitleRightDelayMs = 500;
             @endphp
             <h1 class="{{ $heroHasImage ? 'hero-caption-title font-bold text-white mb-2 sm:mb-3 leading-snug' : 'text-4xl md:text-6xl font-bold text-white mb-6 leading-tight' }}"@if($heroHasImage) style="--hero-title-size-max: {{ $heroTitleSizePx }}px;"@endif>
-                @if(count($heroTitleParts) === 2)
+                @if(preg_match('/\R/u', (string) $heroTitle) || str_contains((string) $heroHighlight, '|'))
+                    {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColor, $heroHighlightColor === '' ? 'text-blue-200 dark:text-blue-300' : '') !!}
+                @elseif(count($heroTitleParts) === 2)
                     <span class="scroll-reveal-item hero-reveal-title-left hero-title-part inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="hero-title-spacer inline-block" aria-hidden="true">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right hero-title-part inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
                     @php
