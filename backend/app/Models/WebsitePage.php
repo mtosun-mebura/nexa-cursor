@@ -426,6 +426,7 @@ class WebsitePage extends Model
                 'map_lat' => null,
                 'map_lng' => null,
                 'map_size' => 'normal',
+                'map_position' => 'bottom',
                 'map_zoom' => 17,
                 'map_show_address_balloon' => false,
             ],

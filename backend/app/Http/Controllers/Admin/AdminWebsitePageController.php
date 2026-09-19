@@ -1274,10 +1274,10 @@ class AdminWebsitePageController extends Controller
             ]),
             'stats' => array_merge($base !== [] ? $base : [], [
                 'items' => [
-                    ['value' => '24/7', 'label' => 'Online boeken', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '1 SaaS', 'label' => 'Alles gekoppeld', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '0%', 'label' => 'Commissie op je eigen website', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => 'White-label', 'label' => 'Jouw merk', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '100+', 'label' => 'Tevreden klanten', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '10+', 'label' => 'Jaar ervaring', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '24/7', 'label' => 'Bereikbaar', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '98%', 'label' => 'Aanbevolen', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
                 ],
             ]),
             'why_nexa' => array_merge($base, [
@@ -2097,7 +2097,7 @@ class AdminWebsitePageController extends Controller
             }
         }
 
-        foreach (['map_postcode', 'map_huisnummer', 'map_street', 'map_city', 'map_lat', 'map_lng', 'map_size', 'map_zoom'] as $mapKey) {
+        foreach (['map_postcode', 'map_huisnummer', 'map_street', 'map_city', 'map_lat', 'map_lng', 'map_size', 'map_zoom', 'map_position'] as $mapKey) {
             if (! array_key_exists($mapKey, $footerInput) && array_key_exists($mapKey, $storedFooter)) {
                 $merged[$mapKey] = $storedFooter[$mapKey];
             }
@@ -2877,6 +2877,9 @@ class AdminWebsitePageController extends Controller
 
         if (array_key_exists('map_size', $footerInput) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true)) {
             $footer['map_size'] = $footerInput['map_size'];
+        }
+        if (array_key_exists('map_position', $footerInput) && in_array($footerInput['map_position'], ['left', 'right', 'bottom'], true)) {
+            $footer['map_position'] = $footerInput['map_position'];
         }
         if (array_key_exists('map_zoom', $footerInput) && is_numeric($footerInput['map_zoom'])) {
             $mapZoom = (int) $footerInput['map_zoom'];

@@ -269,6 +269,96 @@ if (! function_exists('transport_admin_back_url')) {
     }
 }
 
+if (! function_exists('nexa_hero_highlight_phrases')) {
+    /**
+     * Highlightwoorden uit het builder-veld, gescheiden met |.
+     *
+     * @return list<string>
+     */
+    function nexa_hero_highlight_phrases(mixed $highlight): array
+    {
+        $phrases = array_map('trim', explode('|', (string) $highlight));
+
+        return array_values(array_filter($phrases, static fn (string $phrase): bool => $phrase !== ''));
+    }
+}
+
+if (! function_exists('nexa_hero_title_html')) {
+    /**
+     * Hero-titel met Enter-regels en highlightwoorden (scheid met |).
+     */
+    function nexa_hero_title_html(
+        mixed $title,
+        mixed $highlight = '',
+        string $highlightColor = '',
+        string $highlightClass = ''
+    ): string {
+        $title = str_replace(["\r\n", "\r"], "\n", (string) $title);
+        $phrases = nexa_hero_highlight_phrases($highlight);
+        usort($phrases, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
+        $colorOk = $highlightColor !== '' && (bool) preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $highlightColor);
+        $withBreaks = static fn (string $text): string => nl2br(e($text), false);
+
+        $spanOpen = '<span';
+        if ($highlightClass !== '') {
+            $spanOpen .= ' class="'.e($highlightClass).'"';
+        }
+        if ($colorOk) {
+            $spanOpen .= ' style="color: '.$highlightColor.';"';
+        }
+        $spanOpen .= '>';
+
+        $matches = [];
+        foreach ($phrases as $phrase) {
+            $offset = 0;
+            $phraseLen = mb_strlen($phrase);
+            while (($pos = mb_strpos($title, $phrase, $offset)) !== false) {
+                $before = $pos > 0 ? mb_substr($title, $pos - 1, 1) : '';
+                $after = mb_substr($title, $pos + $phraseLen, 1);
+                $letter = '/\p{L}/u';
+                $bounded = ($before === '' || ! preg_match($letter, $before))
+                    && ($after === '' || ! preg_match($letter, $after));
+                $overlaps = false;
+                foreach ($matches as $existing) {
+                    if ($pos < $existing['end'] && ($pos + $phraseLen) > $existing['start']) {
+                        $overlaps = true;
+                        break;
+                    }
+                }
+                if ($bounded && ! $overlaps) {
+                    $matches[] = [
+                        'start' => $pos,
+                        'end' => $pos + $phraseLen,
+                        'text' => mb_substr($title, $pos, $phraseLen),
+                    ];
+                }
+                $offset = $pos + max(1, $phraseLen);
+            }
+        }
+
+        if ($matches === []) {
+            return $withBreaks($title);
+        }
+
+        usort($matches, static fn (array $a, array $b): int => $a['start'] <=> $b['start']);
+
+        $html = '';
+        $cursor = 0;
+        foreach ($matches as $match) {
+            if ($match['start'] > $cursor) {
+                $html .= $withBreaks(mb_substr($title, $cursor, $match['start'] - $cursor));
+            }
+            $html .= $spanOpen.e($match['text']).'</span>';
+            $cursor = $match['end'];
+        }
+        if ($cursor < mb_strlen($title)) {
+            $html .= $withBreaks(mb_substr($title, $cursor));
+        }
+
+        return $html;
+    }
+}
+
 if (! function_exists('transport_admin_url_with_return')) {
     /**
      * Voeg ?return= toe zodat Terug naar de vorige pagina kan.

@@ -221,30 +221,52 @@ html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scr
         function initGrwCarousel() {
         var visibleCardsDesktop = @json($visibleCardsDesktop);
         var wrap = document.getElementById(componentId);
-        if (!wrap) return;
+        if (!wrap || wrap.getAttribute('data-grw-inited') === '1') return;
+        wrap.setAttribute('data-grw-inited', '1');
         var viewport = wrap.querySelector('.grw-slider-viewport');
         var track = wrap.querySelector('.grw-slider-track');
         var cards = wrap.querySelectorAll('.grw-review-card');
         var prevBtn = wrap.querySelector('.grw-btn-prev');
         var nextBtn = wrap.querySelector('.grw-btn-next');
-        var total = cards.length;
-        if (total <= 1 || !track || !viewport) return;
+        var originalTotal = cards.length;
+        if (originalTotal <= 1 || !track || !viewport) return;
+
+        var isPreview = document.body && document.body.getAttribute('data-nexa-block-preview') === '1';
+        var autoPlayMs = isPreview ? 2800 : 5000;
 
         function getVisibleCards() {
+            if (isPreview) {
+                return visibleCardsDesktop;
+            }
             var w = window.innerWidth || document.documentElement.clientWidth || 1024;
             if (w < 640) return 1;
             if (w < 1024) return 2;
             return visibleCardsDesktop;
         }
         var visibleCards = getVisibleCards();
+        var looping = isPreview && originalTotal >= 2;
 
-        var maxSlide = Math.max(0, total - visibleCards);
+        if (looping) {
+            for (var ci = 0; ci < originalTotal; ci++) {
+                var clone = cards[ci].cloneNode(true);
+                clone.setAttribute('data-grw-clone', '1');
+                clone.setAttribute('aria-hidden', 'true');
+                track.appendChild(clone);
+            }
+            cards = wrap.querySelectorAll('.grw-review-card');
+        }
+        var total = cards.length;
+        var maxSlide = looping ? originalTotal : Math.max(0, originalTotal - visibleCards);
         var current = 0;
-        var autoPlayMs = 5000;
         var autoPlayTimer = null;
         var cardWidthPx = 0;
+        var snapping = false;
 
         function setSizes() {
+            visibleCards = getVisibleCards();
+            if (!looping) {
+                maxSlide = Math.max(0, originalTotal - visibleCards);
+            }
             var vw = viewport.offsetWidth;
             if (vw <= 0 || total === 0) return;
             cardWidthPx = Math.floor(vw / visibleCards);
@@ -257,21 +279,54 @@ html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scr
             }
         }
 
-        function updateSlider() {
-            current = Math.max(0, Math.min(current, maxSlide));
+        function updateSlider(animate) {
+            if (!looping) {
+                current = Math.max(0, Math.min(current, maxSlide));
+            }
             var offsetPx = -(current * cardWidthPx);
-            track.style.transform = 'translate3d(' + offsetPx + 'px, 0, 0)';
+            if (animate === false) {
+                track.style.transition = 'none';
+                track.style.transform = 'translate3d(' + offsetPx + 'px, 0, 0)';
+                void track.offsetWidth;
+                track.style.transition = '';
+            } else {
+                track.style.transform = 'translate3d(' + offsetPx + 'px, 0, 0)';
+            }
         }
 
         function goNext() {
+            if (snapping) return;
+            if (looping) {
+                current++;
+                updateSlider(true);
+                if (current >= originalTotal) {
+                    snapping = true;
+                    window.setTimeout(function() {
+                        current = 0;
+                        updateSlider(false);
+                        snapping = false;
+                    }, 320);
+                }
+                return;
+            }
             if (current >= maxSlide) current = -1;
             current++;
-            updateSlider();
+            updateSlider(true);
         }
         function goPrev() {
+            if (snapping) return;
+            if (looping) {
+                if (current <= 0) {
+                    current = originalTotal;
+                    updateSlider(false);
+                }
+                current--;
+                updateSlider(true);
+                return;
+            }
             current--;
             if (current < 0) current = maxSlide;
-            updateSlider();
+            updateSlider(true);
         }
         function startAutoPlay() {
             stopAutoPlay();
@@ -323,20 +378,54 @@ html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scr
             e.stopPropagation();
         }, true);
 
-        viewport.addEventListener('mouseenter', stopAutoPlay);
-        viewport.addEventListener('mouseleave', startAutoPlay);
-        viewport.addEventListener('focusin', stopAutoPlay);
-        viewport.addEventListener('focusout', startAutoPlay);
-        window.addEventListener('resize', function() {
-            visibleCards = getVisibleCards();
-            setSizes();
-            maxSlide = Math.max(0, total - visibleCards);
-            current = Math.min(current, maxSlide);
-            updateSlider();
+        viewport.addEventListener('mouseenter', function() {
+            if (!isPreview) stopAutoPlay();
         });
+        viewport.addEventListener('mouseleave', function() {
+            if (!isPreview) startAutoPlay();
+        });
+        viewport.addEventListener('focusin', function() {
+            if (!isPreview) stopAutoPlay();
+        });
+        viewport.addEventListener('focusout', function() {
+            if (!isPreview) startAutoPlay();
+        });
+        window.addEventListener('resize', function() {
+            setSizes();
+            if (!looping) {
+                current = Math.min(current, maxSlide);
+            }
+            updateSlider(false);
+        });
+        if (typeof ResizeObserver !== 'undefined') {
+            var ro = new ResizeObserver(function() {
+                setSizes();
+                updateSlider(false);
+            });
+            ro.observe(viewport);
+        }
+        function restartCarousel() {
+            snapping = false;
+            current = 0;
+            setSizes();
+            updateSlider(false);
+            startAutoPlay();
+        }
+        wrap._grwRestart = restartCarousel;
+        window.nexaRestartGoogleReviews = function() {
+            document.querySelectorAll('.google-reviews-section').forEach(function(el) {
+                if (typeof el._grwRestart === 'function') {
+                    el._grwRestart();
+                }
+            });
+        };
         setSizes();
-        updateSlider();
-        startAutoPlay();
+        updateSlider(false);
+        window.setTimeout(function() {
+            setSizes();
+            updateSlider(false);
+            startAutoPlay();
+        }, 40);
 
         var modal = document.getElementById('grw-review-modal-' + componentId);
         var writeBtn = wrap.querySelector('.grw-write-btn');

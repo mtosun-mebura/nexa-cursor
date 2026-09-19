@@ -1061,7 +1061,7 @@
     }
   }
 
-  /* Footer: kaart onder de linkkolommen, volle breedte */
+  /* Footer: kaart links/rechts (helft) of onder (volle breedte) */
   .footer-map-reveal {
     min-height: 200px;
   }
@@ -1074,6 +1074,20 @@
     .footer-grid-with-map #footer-google-map {
       width: 100% !important;
       min-width: 0;
+    }
+    .footer-grid-with-map--left .footer-map-reveal--side,
+    .footer-grid-with-map--right .footer-map-reveal--side,
+    .footer-grid-with-map--left .footer-map-content,
+    .footer-grid-with-map--right .footer-map-content {
+      width: 50%;
+      max-width: 50%;
+      flex: 1 1 50%;
+    }
+    .footer-map-reveal--side {
+      min-height: 220px;
+    }
+    .footer-map-reveal--side #footer-google-map {
+      height: 100% !important;
     }
   }
 

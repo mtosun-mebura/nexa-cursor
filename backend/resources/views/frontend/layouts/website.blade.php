@@ -297,23 +297,6 @@
         html.dark footer a { color: #e5e7eb !important; }
         html.dark footer a:hover { color: #93c5fd !important; }
         html.dark footer h3 { color: #ffffff !important; }
-        .website-nav-audience {
-            display: inline-flex;
-            align-items: center;
-            flex-shrink: 0;
-            margin-right: 0.1rem;
-            padding-right: 0.7rem;
-            border-right: 1px solid #e5e7eb;
-            color: #6b7280;
-            font-size: 0.72rem;
-            font-weight: 650;
-            line-height: 1.2;
-            white-space: nowrap;
-        }
-        html.dark .website-nav-audience {
-            border-color: #374151;
-            color: #9ca3af;
-        }
         .website-nav-book-cta {
             display: inline-flex;
             align-items: center;
@@ -332,19 +315,6 @@
         .website-nav-book-cta:hover {
             filter: brightness(1.06);
             color: #fff !important;
-        }
-        #website-mobile-menu .website-nav-audience {
-            display: block;
-            border: 0;
-            margin: 0.45rem 0 0.1rem;
-            padding: 0.4rem 1rem 0.15rem;
-            font-size: 0.72rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        #website-mobile-menu .website-nav-book-cta {
-            width: calc(100% - 2rem);
-            margin: 0.2rem 1rem 0.7rem;
         }
         #website-hamburger-row .website-nav-book-cta {
             padding: 0.4rem 0.7rem;
@@ -653,9 +623,6 @@
                 @endphp
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
                 <nav id="website-desktop-nav" class="flex flex-nowrap items-center gap-4 flex-1 justify-center px-4 min-w-0 overflow-hidden" role="navigation" aria-label="Hoofdnavigatie">
-                    @if($isCentralPublicNav)
-                        <span class="website-nav-audience">Voor taxibedrijven</span>
-                    @endif
                     @forelse($productNavPages as $menuPage)
                         @php
                             $url = $websiteNavUrl($menuPage);
@@ -680,7 +647,7 @@
                 {{-- Rechterkant desktop: streep (border-l), thema-toggle + Mijn Nexa/Inloggen; verborgen onder 1025px --}}
                 <div id="website-desktop-right" class="flex items-center gap-2 lg:gap-4 ml-auto flex-shrink-0 pl-4">
                     @if($boekNavUrl)
-                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Reiziger: boek een rit">Boek een rit</a>
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Boek een rit">Boek een rit</a>
                     @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
                     <span class="sr-only">Weergave</span>
@@ -707,7 +674,7 @@
                 {{-- Smalle viewport: desktop-kolom met Mijn Nexa is verborgen; knop hier tonen zodat hij niet alleen in het dichte hamburgerpaneel zit --}}
                 <div id="website-hamburger-row" class="hidden items-center gap-1 sm:gap-2 ml-auto flex-shrink-0">
                     @if($boekNavUrl)
-                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Reiziger: boek een rit">Boek een rit</a>
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Boek een rit">Boek een rit</a>
                     @endif
                     @if($branding['dashboard_link_visible'] ?? false)
                     @php
@@ -734,11 +701,6 @@
         </div>
         <div id="website-mobile-menu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div class="container-custom py-4 space-y-1">
-                @if($boekNavUrl)
-                    <p class="website-nav-audience">Reiziger</p>
-                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Reiziger: boek een rit">Boek een rit</a>
-                    <p class="website-nav-audience">Voor taxibedrijven</p>
-                @endif
                 @forelse($productNavPages as $menuPage)
                     @php
                         $url = $websiteNavUrl($menuPage);
