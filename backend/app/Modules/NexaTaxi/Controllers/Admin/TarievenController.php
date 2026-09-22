@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Modules\NexaTaxi\Models\DefaultRate;
+use App\Modules\NexaTaxi\Support\DefaultRateSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class TarievenController extends Controller
         $this->authorizeOrPermissionAny(['rates.update', 'vehicles.update']);
 
         $conn = $this->moduleConnection();
+        DefaultRateSchema::ensureColumns($conn);
         $scopeCompanyId = app(AdminTenantScope::class)->selectedTenantId();
         $normalize = function (array $arr) {
             $optional = ['base_fare', 'cleaning_costs', 'person_range'];
