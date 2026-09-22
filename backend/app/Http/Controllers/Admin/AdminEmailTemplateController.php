@@ -274,7 +274,11 @@ class AdminEmailTemplateController extends Controller
             return $query;
         }
 
-        return $query->where('company_id', $sidebarTenant);
+        // Tenant-scope: toon tenanttemplates plus platform/algemene templates (company_id null),
+        // anders verdwijnen o.a. saas_billing_start / saas_trial_ending uit de lijst.
+        return $query->where(function ($q) use ($sidebarTenant) {
+            $q->whereNull('company_id')->orWhere('company_id', $sidebarTenant);
+        });
     }
 
     protected function provisionTaxiEmailTemplatesIfNeeded(MenuService $menuService): void

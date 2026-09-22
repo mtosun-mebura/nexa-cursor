@@ -22,8 +22,8 @@
             <h3 class="kt-card-title mb-0">Nieuwe afbeelding genereren</h3>
         </div>
         <div class="kt-card-content p-5">
-            <div class="grid gap-6 lg:grid-cols-2 items-start">
-                <div>
+            <div class="grid gap-6 lg:grid-cols-2 items-stretch">
+                <div class="ai-image-compose-left min-w-0">
                     <div class="flex items-center justify-between gap-2 mb-1.5">
                         <label class="kt-form-label mb-0" for="ai-image-prompt">Omschrijving</label>
                         <button type="button"
@@ -35,15 +35,31 @@
                         </button>
                     </div>
                     <textarea id="ai-image-prompt" class="kt-textarea w-full" rows="6" maxlength="3500" placeholder="Bijv. Een luxe zwarte Mercedes taxi bij avond in een Europese binnenstad, cinematische verlichting, realistische foto"></textarea>
-                    <div id="ai-image-source" class="ai-image-source hidden mt-3 items-center gap-3 rounded-xl border border-border p-3">
-                        <img id="ai-image-source-thumb" src="" alt="" class="size-12 rounded-lg object-cover shrink-0 ring-1 ring-border">
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-foreground mb-0">Bron voor aanpassing</p>
-                            <p class="text-xs text-muted-foreground mb-0">Dit plaatje gaat mee als context bij genereren.</p>
+                    <div class="mt-3">
+                        <label class="kt-form-label mb-1.5" for="ai-image-source-file">Referentie-afbeelding (optioneel)</label>
+                        <div id="ai-image-upload-area"
+                             class="hero-image-upload-area flex flex-col items-center justify-center p-5 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] w-full max-w-full cursor-pointer hover:border-primary transition-colors"
+                             role="button"
+                             tabindex="0"
+                             aria-label="Referentie-afbeelding uploaden">
+                            <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
+                            <span class="text-xs text-muted-foreground text-center">JPG, PNG, WebP (max. 5MB)</span>
                         </div>
-                        <button type="button" id="ai-image-source-clear" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" aria-label="Bron verwijderen" title="Bron verwijderen">
-                            <i class="ki-filled ki-cross"></i>
-                        </button>
+                        <input type="file" id="ai-image-source-file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/webp,image/gif">
+                    </div>
+                    <div id="ai-image-source" class="ai-image-source hidden mt-3 flex-col gap-3 rounded-xl border border-border p-3">
+                        <div class="flex items-start justify-between gap-3 w-full">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-foreground mb-0">Bron voor aanpassing</p>
+                                <p id="ai-image-source-caption" class="text-xs text-muted-foreground mb-0">Dit plaatje gaat mee als context bij genereren.</p>
+                            </div>
+                            <button type="button" id="ai-image-source-clear" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" aria-label="Bron verwijderen" title="Bron verwijderen">
+                                <i class="ki-filled ki-cross"></i>
+                            </button>
+                        </div>
+                        <div class="ai-image-source-preview w-full rounded-lg border border-border bg-muted/20 overflow-hidden flex items-center justify-center p-2">
+                            <img id="ai-image-source-thumb" src="" alt="Referentie-afbeelding" class="max-w-full max-h-64 w-auto h-auto object-contain">
+                        </div>
                     </div>
                     <div class="flex items-center justify-between gap-3 mt-3">
                         <p id="ai-image-prompt-hint" class="text-xs text-muted-foreground mb-0">Pas de tekst aan en genereer opnieuw voor een nieuwe variant — het vorige resultaat blijft in de galerij staan.</p>
@@ -53,9 +69,9 @@
                         </button>
                     </div>
                 </div>
-                <div>
-                    <label class="kt-form-label mb-1.5">Resultaat</label>
-                    <div id="ai-image-preview" class="ai-image-preview-box rounded-lg border border-dashed border-input flex items-center justify-center overflow-hidden bg-muted/30" style="min-height: 16rem;">
+                <div class="ai-image-compose-right min-w-0 flex flex-col h-full">
+                    <label class="kt-form-label mb-1.5 shrink-0">Resultaat</label>
+                    <div id="ai-image-preview" class="ai-image-preview-box rounded-lg border border-dashed border-input flex items-center justify-center overflow-hidden bg-muted/30 flex-1 min-h-[16rem]">
                         <span class="text-sm text-muted-foreground px-4 text-center">Nog geen afbeelding gegenereerd.</span>
                     </div>
                 </div>
@@ -142,6 +158,9 @@
     }
     .ai-image-source:not(.hidden) {
         display: flex;
+    }
+    .ai-image-source-preview img {
+        display: block;
     }
     .ai-image-prompt-clear {
         position: relative;
@@ -237,8 +256,18 @@
     .ai-image-preview-box img {
         display: block;
         max-width: 100%;
-        max-height: 26rem;
+        max-height: 100%;
+        width: auto;
+        height: auto;
         object-fit: contain;
+    }
+    @media (min-width: 1024px) {
+        .ai-image-compose-right {
+            min-height: 100%;
+        }
+        .ai-image-compose-right .ai-image-preview-box {
+            min-height: 0;
+        }
     }
     .ai-image-lightbox__content {
         max-width: 92vw;
@@ -275,10 +304,19 @@
     var sourceBox = document.getElementById('ai-image-source');
     var sourceThumb = document.getElementById('ai-image-source-thumb');
     var sourceClear = document.getElementById('ai-image-source-clear');
+    var sourceCaption = document.getElementById('ai-image-source-caption');
     var promptHint = document.getElementById('ai-image-prompt-hint');
+    var uploadArea = document.getElementById('ai-image-upload-area');
+    var sourceFileInput = document.getElementById('ai-image-source-file');
     var selectedSourceUuid = null;
+    var uploadedSourceFile = null;
+    var uploadedObjectUrl = null;
+    var maxSourceBytes = 5 * 1024 * 1024;
     var defaultHint = 'Pas de tekst aan en genereer opnieuw voor een nieuwe variant — het vorige resultaat blijft in de galerij staan.';
     var sourceHint = 'Beschrijf de aanpassing. Het gekozen plaatje (logo/stijl) gaat als context mee.';
+    var uploadHint = 'Beschrijf wat er op basis van dit plaatje moet ontstaan. De AI kijkt mee naar je upload.';
+    var gallerySourceCaption = 'Dit plaatje uit de galerij gaat mee als context bij genereren.';
+    var uploadSourceCaption = 'Dit geüploade plaatje gaat mee als context bij genereren.';
 
     function showError(message) {
         errorBox.textContent = message;
@@ -313,44 +351,78 @@
     function prependGalleryItem(item) {
         if (emptyMsg) {
             emptyMsg.remove();
+            emptyMsg = null;
+        }
+        var existingEmpty = document.getElementById('ai-image-gallery-empty');
+        if (existingEmpty) {
+            existingEmpty.remove();
         }
         gallery.insertAdjacentHTML('afterbegin', galleryItemHtml(item));
     }
 
+    function revokeUploadedPreview() {
+        if (uploadedObjectUrl) {
+            URL.revokeObjectURL(uploadedObjectUrl);
+            uploadedObjectUrl = null;
+        }
+    }
+
+    function clearGallerySourceHighlight() {
+        gallery.querySelectorAll('.ai-image-card.is-source').forEach(function (card) {
+            card.classList.remove('is-source');
+        });
+    }
+
+    function showSourceChip(url, caption, hint) {
+        if (sourceThumb) {
+            sourceThumb.src = url || '';
+        }
+        if (sourceCaption) {
+            sourceCaption.textContent = caption;
+        }
+        if (sourceBox) {
+            sourceBox.classList.remove('hidden');
+        }
+        if (promptHint) {
+            promptHint.textContent = hint;
+        }
+    }
+
     function clearSource() {
         selectedSourceUuid = null;
+        uploadedSourceFile = null;
+        revokeUploadedPreview();
+        if (sourceFileInput) {
+            sourceFileInput.value = '';
+        }
         if (sourceBox) {
             sourceBox.classList.add('hidden');
         }
         if (sourceThumb) {
             sourceThumb.src = '';
         }
+        if (sourceCaption) {
+            sourceCaption.textContent = gallerySourceCaption;
+        }
         if (promptHint) {
             promptHint.textContent = defaultHint;
         }
-        gallery.querySelectorAll('.ai-image-card.is-source').forEach(function (card) {
-            card.classList.remove('is-source');
-        });
+        clearGallerySourceHighlight();
     }
 
     function selectSource(card) {
         var uuid = card.getAttribute('data-uuid');
         var url = card.getAttribute('data-url');
         var originalPrompt = card.getAttribute('data-prompt') || '';
+        uploadedSourceFile = null;
+        revokeUploadedPreview();
+        if (sourceFileInput) {
+            sourceFileInput.value = '';
+        }
         selectedSourceUuid = uuid;
-        gallery.querySelectorAll('.ai-image-card.is-source').forEach(function (el) {
-            el.classList.remove('is-source');
-        });
+        clearGallerySourceHighlight();
         card.classList.add('is-source');
-        if (sourceThumb) {
-            sourceThumb.src = url;
-        }
-        if (sourceBox) {
-            sourceBox.classList.remove('hidden');
-        }
-        if (promptHint) {
-            promptHint.textContent = sourceHint;
-        }
+        showSourceChip(url, gallerySourceCaption, sourceHint);
         if (promptEl && !(promptEl.value || '').trim() && originalPrompt) {
             promptEl.value = originalPrompt;
         }
@@ -360,8 +432,82 @@
         }
     }
 
+    function acceptUploadedFile(file) {
+        if (!file) {
+            return;
+        }
+        if (!file.type || file.type.indexOf('image/') !== 0) {
+            showError('Kies een afbeeldingsbestand (JPG, PNG, WebP of GIF).');
+            return;
+        }
+        if (file.size > maxSourceBytes) {
+            showError('De afbeelding mag maximaal 5MB zijn.');
+            return;
+        }
+        clearError();
+        selectedSourceUuid = null;
+        clearGallerySourceHighlight();
+        revokeUploadedPreview();
+        uploadedSourceFile = file;
+        uploadedObjectUrl = URL.createObjectURL(file);
+        showSourceChip(uploadedObjectUrl, uploadSourceCaption, uploadHint);
+        if (promptEl) {
+            promptEl.focus();
+        }
+    }
+
+    function openSourcePicker(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (!sourceFileInput) {
+            return;
+        }
+        if (typeof window.openAdminFilePicker === 'function') {
+            window.openAdminFilePicker(sourceFileInput, { clearInputFirst: true });
+        } else {
+            sourceFileInput.value = '';
+            sourceFileInput.click();
+        }
+    }
+
     if (sourceClear) {
         sourceClear.addEventListener('click', clearSource);
+    }
+
+    if (uploadArea && sourceFileInput) {
+        if (typeof window.bindAdminDropzoneClick === 'function') {
+            window.bindAdminDropzoneClick(uploadArea, sourceFileInput, null, { clearInputFirst: true });
+        } else {
+            uploadArea.addEventListener('click', openSourcePicker);
+            uploadArea.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    openSourcePicker(e);
+                }
+            });
+        }
+        ['dragenter', 'dragover'].forEach(function (evt) {
+            uploadArea.addEventListener(evt, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.add('border-primary');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (evt) {
+            uploadArea.addEventListener(evt, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('border-primary');
+            });
+        });
+        uploadArea.addEventListener('drop', function (e) {
+            var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            acceptUploadedFile(file);
+        });
+        sourceFileInput.addEventListener('change', function () {
+            acceptUploadedFile(sourceFileInput.files && sourceFileInput.files[0]);
+        });
     }
 
     var promptClear = document.getElementById('ai-image-prompt-clear');
@@ -384,20 +530,30 @@
         setLoading(true);
         preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">Bezig met genereren…</span>';
 
-        var payload = { prompt: prompt };
-        if (selectedSourceUuid) {
-            payload.source_uuid = selectedSourceUuid;
+        var headers = {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        var body;
+        if (uploadedSourceFile) {
+            var formData = new FormData();
+            formData.append('prompt', prompt);
+            formData.append('source_image', uploadedSourceFile, uploadedSourceFile.name || 'source.png');
+            body = formData;
+        } else {
+            headers['Content-Type'] = 'application/json';
+            var payload = { prompt: prompt };
+            if (selectedSourceUuid) {
+                payload.source_uuid = selectedSourceUuid;
+            }
+            body = JSON.stringify(payload);
         }
 
         fetch(generateUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify(payload),
+            headers: headers,
+            body: body,
         })
         .then(function (res) {
             return res.json().then(function (data) { return { ok: res.ok, data: data }; });

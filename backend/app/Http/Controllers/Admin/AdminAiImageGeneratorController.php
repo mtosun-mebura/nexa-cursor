@@ -33,19 +33,32 @@ class AdminAiImageGeneratorController extends Controller
         $validated = $request->validate([
             'prompt' => ['required', 'string', 'max:3500'],
             'source_uuid' => ['nullable', 'uuid', 'exists:ai_generated_images,website_media_uuid'],
+            'source_image' => ['nullable', 'file', 'image', 'max:5120'],
         ]);
 
         @set_time_limit(180);
 
         $source = null;
-        if (! empty($validated['source_uuid'])) {
+        $sourceUpload = null;
+        $uploaded = $request->file('source_image');
+        if ($uploaded !== null && $uploaded->isValid()) {
+            $binary = file_get_contents($uploaded->getRealPath());
+            if ($binary === false || $binary === '') {
+                return response()->json(['message' => 'Het geüploade plaatje kon niet worden gelezen.'], 422);
+            }
+            $sourceUpload = [
+                'binary' => $binary,
+                'filename' => $uploaded->getClientOriginalName() ?: 'source.png',
+                'mime' => $uploaded->getMimeType() ?: 'image/png',
+            ];
+        } elseif (! empty($validated['source_uuid'])) {
             $source = AiGeneratedImage::query()
                 ->where('website_media_uuid', $validated['source_uuid'])
                 ->first();
         }
 
         try {
-            $image = $this->service->generate($validated['prompt'], $request->user()?->id, $source);
+            $image = $this->service->generate($validated['prompt'], $request->user()?->id, $source, $sourceUpload);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

@@ -17,12 +17,18 @@ class AiImageGeneratorService
 {
     /**
      * Genereer een afbeelding via OpenAI en sla 'm versleuteld op, gekoppeld aan de prompt.
-     * Optioneel: een bestaand galerijplaatje als visuele bron (logo/stijl) meenemen.
+     * Optioneel: een bestaand galerijplaatje of een geüploade referentie als visuele bron.
+     *
+     * @param  array{binary: string, filename: string, mime: string}|null  $sourceUpload
      *
      * @throws RuntimeException als OpenAI niet geconfigureerd is of de aanroep mislukt.
      */
-    public function generate(string $prompt, ?int $userId = null, ?AiGeneratedImage $source = null): AiGeneratedImage
-    {
+    public function generate(
+        string $prompt,
+        ?int $userId = null,
+        ?AiGeneratedImage $source = null,
+        ?array $sourceUpload = null
+    ): AiGeneratedImage {
         $prompt = trim($prompt);
         if ($prompt === '') {
             throw new RuntimeException('Geef een omschrijving van de gewenste afbeelding.');
@@ -34,10 +40,11 @@ class AiImageGeneratorService
         }
 
         $model = (string) config('services.openai.image_model', 'gpt-image-1');
+        $editSource = $this->resolveEditSource($source, $sourceUpload);
 
         try {
-            $binary = $source !== null
-                ? $this->requestEdit($apiKey, $model, $prompt, $source)
+            $binary = $editSource !== null
+                ? $this->requestEdit($apiKey, $model, $prompt, $editSource['binary'], $editSource['filename'], $editSource['mime'])
                 : $this->requestGeneration($apiKey, $model, $prompt);
 
             return $this->storeGeneratedImage($binary, $prompt, $userId);
@@ -47,6 +54,48 @@ class AiImageGeneratorService
             Log::warning('AI image generator: uitzondering', ['error' => $e->getMessage()]);
             throw new RuntimeException('Er ging iets mis bij het genereren van de afbeelding.');
         }
+    }
+
+    /**
+     * @param  array{binary: string, filename: string, mime: string}|null  $sourceUpload
+     * @return array{binary: string, filename: string, mime: string}|null
+     */
+    private function resolveEditSource(?AiGeneratedImage $source, ?array $sourceUpload): ?array
+    {
+        if (is_array($sourceUpload)
+            && isset($sourceUpload['binary'], $sourceUpload['filename'], $sourceUpload['mime'])
+            && is_string($sourceUpload['binary'])
+            && $sourceUpload['binary'] !== ''
+        ) {
+            $mime = is_string($sourceUpload['mime']) && str_starts_with($sourceUpload['mime'], 'image/')
+                ? $sourceUpload['mime']
+                : 'image/png';
+            $filename = is_string($sourceUpload['filename']) && $sourceUpload['filename'] !== ''
+                ? $sourceUpload['filename']
+                : 'source.png';
+
+            return [
+                'binary' => $sourceUpload['binary'],
+                'filename' => $filename,
+                'mime' => $mime,
+            ];
+        }
+
+        if ($source === null) {
+            return null;
+        }
+
+        $media = WebsiteMedia::query()->where('uuid', $source->website_media_uuid)->first();
+        $filename = $media?->original_filename ?: 'source.png';
+        $mime = is_string($media?->mime_type) && str_starts_with($media->mime_type, 'image/')
+            ? $media->mime_type
+            : 'image/png';
+
+        return [
+            'binary' => $this->decryptSourceBinary($source),
+            'filename' => $filename,
+            'mime' => $mime,
+        ];
     }
 
     /**
@@ -83,18 +132,17 @@ class AiImageGeneratorService
         return $this->binaryFromOpenAiResponse($response, 'genereren');
     }
 
-    private function requestEdit(string $apiKey, string $model, string $prompt, AiGeneratedImage $source): string
-    {
+    private function requestEdit(
+        string $apiKey,
+        string $model,
+        string $prompt,
+        string $binary,
+        string $filename,
+        string $mime
+    ): string {
         if (! str_starts_with($model, 'gpt-image') && $model !== 'dall-e-2') {
             throw new RuntimeException('Aanpassen van een bestaand plaatje vereist gpt-image-1.');
         }
-
-        $binary = $this->decryptSourceBinary($source);
-        $media = WebsiteMedia::query()->where('uuid', $source->website_media_uuid)->first();
-        $filename = $media?->original_filename ?: 'source.png';
-        $mime = is_string($media?->mime_type) && str_starts_with($media->mime_type, 'image/')
-            ? $media->mime_type
-            : 'image/png';
 
         $fields = [
             'model' => $model,

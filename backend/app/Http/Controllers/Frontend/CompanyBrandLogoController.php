@@ -23,6 +23,28 @@ class CompanyBrandLogoController extends Controller
         return $this->serve($company, true);
     }
 
+    public function showFavicon(Company $company): Response
+    {
+        if (! $this->canView($company)) {
+            abort(404);
+        }
+
+        if (! $company->favicon_blob) {
+            abort(404);
+        }
+
+        $content = base64_decode($company->favicon_blob, true);
+        if ($content === false) {
+            abort(404);
+        }
+
+        return response($content, 200, [
+            'Content-Type' => $company->favicon_mime_type ?: 'image/png',
+            'Cache-Control' => 'public, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     private function serve(Company $company, bool $dark): Response
     {
         if (! $this->canView($company)) {

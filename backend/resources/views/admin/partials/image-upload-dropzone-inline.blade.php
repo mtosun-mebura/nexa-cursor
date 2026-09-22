@@ -33,7 +33,8 @@
     @if($clientMsgId) data-client-msg-id="{{ e($clientMsgId) }}" @endif
     @if($livePreviewLightId) data-live-preview-light-id="{{ e($livePreviewLightId) }}" @endif
     @if($livePreviewDarkId) data-live-preview-dark-id="{{ e($livePreviewDarkId) }}" @endif
-    @if($logoModeInputId) data-logo-mode-input-id="{{ e($logoModeInputId) }}" @endif>
+    @if($logoModeInputId) data-logo-mode-input-id="{{ e($logoModeInputId) }}" @endif
+    @if(!empty($removeFlagId)) data-remove-flag-id="{{ e($removeFlagId) }}" @endif>
     <div class="flex flex-col items-center w-full shrink-0">
         <div data-logo-preview-frame="1"
             class="flex items-center justify-center w-full max-w-[250px] h-[90px] max-h-[90px] border border-border rounded bg-muted/20 overflow-hidden {{ $existingUrl ? '' : 'hidden' }}">
