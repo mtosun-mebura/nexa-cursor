@@ -12,11 +12,7 @@ Author: Keenthemes
     <meta content="follow, index" name="robots"/>
     <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
     <meta content="Wachtwoord resetten pagina voor NEXA Skillmatching Platform" name="description"/>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('layouts.partials.auth-head-assets')
 </head>
 <body class="antialiased flex h-full text-base text-foreground bg-background">
     <!-- Theme Mode -->
@@ -45,10 +41,10 @@ Author: Keenthemes
     <!-- Page -->
     <style>
         .page-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1200/bg-10.png') }}');
-        }
-        .dark .page-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1200/bg-10-dark.png') }}');
+            background-color: var(--background);
+            background-image:
+                radial-gradient(ellipse at top left, rgb(249 115 22 / 0.10), transparent 52%),
+                radial-gradient(ellipse at bottom right, rgb(37 99 235 / 0.07), transparent 48%);
         }
         
         /* Form input fields 100% width */
@@ -58,6 +54,7 @@ Author: Keenthemes
         
         #reset_password_change_password_form .kt-input input {
             width: 100% !important;
+            padding-right: 2.75rem;
         }
         
         /* Autofill: zelfde achtergrond als kt-input (geen browser-grijs) */
@@ -77,6 +74,29 @@ Author: Keenthemes
             -webkit-text-fill-color: var(--foreground) !important;
             caret-color: var(--foreground);
         }
+
+        .auth-status-danger {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #fca5a5;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        html.dark .auth-status-danger {
+            border-color: rgb(248 113 113 / 0.35);
+            background: rgb(127 29 29 / 0.4);
+            color: #fecaca;
+        }
+        .auth-status-danger i {
+            color: #dc2626;
+            flex-shrink: 0;
+        }
+        html.dark .auth-status-danger i {
+            color: #f87171;
+        }
     </style>
     
     <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
@@ -85,7 +105,13 @@ Author: Keenthemes
                 @csrf
                 <input type="hidden" name="token" value="{{ $token }}">
                 
-                <div class="text-center">
+                <div class="text-center mb-2.5">
+                    <div class="mb-4">
+                        @include('partials.nexa-brand-logo', ['class' => 'h-10 w-auto mx-auto object-contain'])
+                        <div class="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            Administratie paneel
+                        </div>
+                    </div>
                     <h3 class="text-lg font-medium text-mono">
                         Wachtwoord Resetten
                     </h3>
@@ -95,16 +121,16 @@ Author: Keenthemes
                 </div>
 
                 @error('email')
-                    <div class="kt-alert kt-alert-danger flex items-center gap-2.5 p-4 rounded-lg border border-red-500 bg-red-50 dark:bg-red-900/20">
-                        <i class="ki-filled ki-information-5 text-xl text-red-600 dark:text-red-400"></i>
-                        <div class="text-sm font-medium text-red-800 dark:text-red-200">{{ $message }}</div>
+                    <div class="auth-status-danger" role="alert">
+                        <i class="ki-filled ki-information-5 text-xl" aria-hidden="true"></i>
+                        <div class="text-sm font-medium">{{ $message }}</div>
                     </div>
                 @enderror
 
                 @error('password')
-                    <div class="kt-alert kt-alert-danger flex items-center gap-2.5 p-4 rounded-lg border border-red-500 bg-red-50 dark:bg-red-900/20">
-                        <i class="ki-filled ki-information-5 text-xl text-red-600 dark:text-red-400"></i>
-                        <div class="text-sm font-medium text-red-800 dark:text-red-200">{{ $message }}</div>
+                    <div class="auth-status-danger" role="alert">
+                        <i class="ki-filled ki-information-5 text-xl" aria-hidden="true"></i>
+                        <div class="text-sm font-medium">{{ $message }}</div>
                     </div>
                 @enderror
 
@@ -114,7 +140,7 @@ Author: Keenthemes
                     </label>
                     <label class="kt-input" data-kt-toggle-password="true">
                         <input name="password" 
-                               placeholder="Voer een nieuw wachtwoord in" 
+                               placeholder="Nieuw wachtwoord" 
                                type="password" 
                                required/>
                         <div class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true">
@@ -134,7 +160,7 @@ Author: Keenthemes
                     </label>
                     <label class="kt-input" data-kt-toggle-password="true">
                         <input name="password_confirmation" 
-                               placeholder="Voer opnieuw een nieuw wachtwoord in" 
+                               placeholder="Herhaal wachtwoord" 
                                type="password" 
                                required/>
                         <div class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true">
@@ -159,9 +185,7 @@ Author: Keenthemes
     <!-- End of Page -->
     
     <!-- Scripts -->
-    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
-    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
+    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}" defer></script>
     <!-- End of Scripts -->
 </body>
 </html>

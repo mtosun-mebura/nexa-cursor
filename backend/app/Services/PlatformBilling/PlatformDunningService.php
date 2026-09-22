@@ -6,9 +6,9 @@ use App\Models\CompanyBillingProfile;
 use App\Models\PlatformBillingSetting;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformPaymentMandate;
+use App\Support\EmailCardHtml;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class PlatformDunningService
 {
@@ -323,7 +323,7 @@ class PlatformDunningService
             "Vervaldatum: {$dueFormatted}\n".
             "Openstaand bedrag: {$amountFormatted}\n\n".
             "Gelieve binnen {$payWithinDays} dagen te betalen. Blijft betaling uit, dan kunnen wij de boekingsmodule of de volledige omgeving blokkeren.\n\n".
-            "Met vriendelijke groet,\nNexa Suite";
+            "Met vriendelijke groet,\nNEXA Suite";
 
         return [
             'subject' => $subject,
@@ -369,7 +369,7 @@ class PlatformDunningService
             "Uw NEXA-factuur {$invoice->invoice_number} is na twee aanmaningen nog niet betaald.\n".
             "{$consequence}\n\n".
             "Zodra de betaling binnen is, wordt de blokkade automatisch opgeheven.\n\n".
-            "Met vriendelijke groet,\nNexa Suite";
+            "Met vriendelijke groet,\nNEXA Suite";
 
         $this->sendMail($email, 'Account geblokkeerd — NEXA-factuur '.$invoice->invoice_number, $body, $invoice);
     }
@@ -386,12 +386,18 @@ class PlatformDunningService
             $pdf = null;
         }
 
-        Mail::raw($body, function ($message) use ($email, $subject, $invoice, $pdf) {
-            $message->to($email)->subject($subject);
-            if ($pdf && ! empty($pdf['bytes'])) {
-                $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
-                $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
-            }
-        });
+        EmailCardHtml::sendNexa(
+            $email,
+            $subject,
+            $subject,
+            $body,
+            function ($message) use ($invoice, $pdf) {
+                if ($pdf && ! empty($pdf['bytes'])) {
+                    $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
+                    $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
+                }
+            },
+            $invoice->company?->name,
+        );
     }
 }

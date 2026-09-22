@@ -2,9 +2,11 @@
 
 namespace App\Modules\NexaTaxi\Services;
 
+use App\Models\Company;
 use App\Models\TenantCustomerEmail;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
+use App\Services\CompanyEmailLogoService;
 use App\Services\EnvService;
 use App\Services\TenantCustomerMailService;
 use App\Services\WhatsAppBookingMessageComposer;
@@ -330,7 +332,8 @@ class TaxiBookingNotificationService
             }
 
             try {
-                Mail::send('emails.taxi-ride-request-driver', [
+                $brand = $this->companyBrand($companyId);
+                $html = view('emails.taxi-ride-request-driver', [
                     'driver_name' => $driverName,
                     'ride_id' => $ride->id,
                     'pickup_at' => $pickupAt,
@@ -341,10 +344,21 @@ class TaxiBookingNotificationService
                     'customer_email' => $ride->customer_email,
                     'quoted_price' => $ride->quoted_price,
                     'summary_text' => $summary,
-                ], function ($mailMessage) use ($email, $driverName, $subject, $fromAddress, $fromName, $smtpUsername, $ride) {
+                    'company_name' => $brand['name'],
+                    'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+                ])->render();
+
+                Mail::send([], [], function ($mailMessage) use ($email, $driverName, $subject, $fromAddress, $fromName, $smtpUsername, $ride, $html, $brand) {
+                    $htmlBody = app(CompanyEmailLogoService::class)->embedInHtml(
+                        $html,
+                        $mailMessage,
+                        $brand['id'],
+                        $brand['name']
+                    );
                     $mailMessage->to($email, $driverName)
                         ->subject($subject)
-                        ->from($fromAddress, $fromName);
+                        ->from($fromAddress, $fromName)
+                        ->html($htmlBody);
 
                     if ($ride->customer_email) {
                         $mailMessage->replyTo($ride->customer_email, (string) ($ride->customer_name ?: ''));
@@ -430,6 +444,7 @@ class TaxiBookingNotificationService
             ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
             : '—';
         $customerName = trim((string) ($ride->customer_name ?: ''));
+        $brand = $this->companyBrand($settingsCompanyId);
 
         $html = view('emails.taxi-ride-booking-customer', [
             'customer_name' => $customerName,
@@ -439,6 +454,8 @@ class TaxiBookingNotificationService
             'dropoff_address' => $ride->dropoff_address,
             'quoted_price' => $ride->quoted_price,
             'summary_text' => $summary,
+            'company_name' => $brand['name'],
+            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
             'portal_login_url' => route('login', [
                 'code_login' => 1,
                 'intended' => route('taxi.portal.dashboard'),
@@ -511,5 +528,22 @@ class TaxiBookingNotificationService
             'ride_request_id' => $rideId,
             'error' => $record->error_message,
         ]);
+    }
+
+    /**
+     * @return array{id: int|null, name: string}
+     */
+    private function companyBrand(?int $companyId): array
+    {
+        if ($companyId === null || $companyId <= 0) {
+            return ['id' => null, 'name' => 'NEXA Suite'];
+        }
+
+        $name = trim((string) (Company::query()->find($companyId)?->name ?? ''));
+
+        return [
+            'id' => $companyId,
+            'name' => $name !== '' ? $name : 'NEXA Suite',
+        ];
     }
 }

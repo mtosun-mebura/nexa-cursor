@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Services\TenantWelcomeEmailTemplateService;
 use App\Services\UserRoleAssignmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -177,10 +178,12 @@ class AdminUserVerificationTest extends TestCase
             'suiteBrand' => 'Nexa Suite - '.$user->company->name,
         ])->render();
 
-        $this->assertStringContainsString('Je bent geregistreerd bij Nexa Suite - Verify Co.', $html);
-        $this->assertStringContainsString('Als je geen account hebt aangemaakt bij Nexa Suite - Verify Co', $html);
-        $this->assertStringContainsString('<p>Met vriendelijke groet,</p>', $html);
-        $this->assertStringContainsString('<p>NEXA Suite</p>', $html);
+        $this->assertStringContainsString('U bent geregistreerd bij', $html);
+        $this->assertStringContainsString('Nexa Suite - Verify Co.', $html);
+        $this->assertStringContainsString('alt="NEXA Suite"', $html);
+        $this->assertStringContainsString('Heeft u deze e-mail niet verwacht?', $html);
+        $this->assertStringContainsString('text-align:center', $html);
+        $this->assertStringContainsString('Powered by NEXA Suite.', $html);
         $this->assertStringNotContainsString('Skillmatching', $html);
         $this->assertStringNotContainsString('Het Nexa', $html);
     }
@@ -254,6 +257,78 @@ class AdminUserVerificationTest extends TestCase
             ->assertSee('form="users-bulk-delete-form"', false)
             ->assertSee('data-admin-confirm="Weet je zeker dat je deze gebruiker wilt verwijderen?', false)
             ->assertSee('data-admin-confirm="Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen?', false);
+    }
+
+    #[Test]
+    public function email_verification_link_marks_verified_and_sends_welcome_mail(): void
+    {
+        Mail::fake();
+        app(TenantWelcomeEmailTemplateService::class)->ensureExists();
+
+        $company = Company::query()->create([
+            'name' => 'Taxi Welcome',
+            'is_active' => true,
+            'package_key' => 'business',
+            'email' => 'welcome-co@example.com',
+        ]);
+        $user = User::factory()->unverified()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Mert',
+            'last_name' => 'Tosun',
+            'email' => 'welcome.user@example.com',
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['company-admin']);
+
+        $url = URL::temporarySignedRoute('verify-email', now()->addDay(), [
+            'user' => $user->id,
+            'hash' => sha1($user->email),
+        ]);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('succesvol geverifieerd', false)
+            ->assertDontSee('Terug naar')
+            ->assertDontSee('Dashboard');
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertDatabaseHas('tenant_customer_emails', [
+            'company_id' => $company->id,
+            'type' => 'tenant_welcome',
+            'recipient_email' => 'welcome.user@example.com',
+            'status' => 'sent',
+        ]);
+        $mail = \App\Models\TenantCustomerEmail::query()
+            ->where('recipient_email', 'welcome.user@example.com')
+            ->where('type', 'tenant_welcome')
+            ->first();
+        $this->assertNotNull($mail);
+        $this->assertStringContainsString('Bekijk de startvideo', (string) $mail->body_html);
+        $this->assertStringContainsString('/starten', (string) $mail->body_html);
+        $this->assertStringContainsString('#ea580c', (string) $mail->body_html);
+        $this->assertStringContainsString('Open de admin', (string) $mail->body_html);
+        $this->assertStringContainsString('/admin/handleiding', (string) $mail->body_html);
+    }
+
+    #[Test]
+    public function email_verification_link_rejects_hash_for_another_user(): void
+    {
+        $user = User::factory()->unverified()->create([
+            'email' => 'echte@example.com',
+        ]);
+        $url = URL::temporarySignedRoute('verify-email', now()->addDay(), [
+            'user' => $user->id,
+            'hash' => sha1('iemandanders@example.com'),
+        ]);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('Verificatie mislukt', false)
+            ->assertSee('verify-fail-scene', false)
+            ->assertDontSee('illustrations/30.svg', false)
+            ->assertDontSee('Terug naar')
+            ->assertDontSee('Dashboard');
+
+        $this->assertNull($user->fresh()->email_verified_at);
     }
 
     #[Test]

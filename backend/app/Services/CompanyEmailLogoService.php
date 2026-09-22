@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\CompanyDomain;
 use App\Models\GeneralSetting;
+use App\Support\EmailCardHtml;
 use Illuminate\Mail\Message;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -57,7 +58,9 @@ class CompanyEmailLogoService
      */
     public function embedInHtml(string $html, Message $message, ?int $companyId, ?string $fallbackName = null): string
     {
-        $html = \App\Support\NexaBranding::embedInMessage($html, $message);
+        $html = EmailCardHtml::stripRedundantBrandKickerHtml(
+            \App\Support\NexaBranding::embedInMessage($html, $message)
+        );
 
         if (! str_contains($html, self::HTML_PLACEHOLDER)) {
             return $html;
@@ -188,7 +191,9 @@ class CompanyEmailLogoService
             return $html;
         }
 
-        $html = \App\Support\NexaBranding::injectPreviewLogo($html);
+        $html = EmailCardHtml::stripRedundantBrandKickerHtml(
+            \App\Support\NexaBranding::injectPreviewLogo($html)
+        );
 
         $hasPlaceholder = str_contains($html, 'COMPANY_LOGO')
             || str_contains($html, self::HTML_PLACEHOLDER);

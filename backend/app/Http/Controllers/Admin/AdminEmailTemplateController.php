@@ -450,7 +450,9 @@ class AdminEmailTemplateController extends Controller
             <td style="padding: 20px 0; text-align: center;">
                 <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <tr>
-                        <td style="padding: 30px; background-color: #2563eb; border-radius: 8px 8px 0 0;">
+                        <td style="padding: 30px; background-color: #0f172a; border-radius: 8px 8px 0 0;">
+                            {{ COMPANY_LOGO }}
+                            <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ COMPANY_NAME }}</p>
                             <h1 style="margin: 0; color: #ffffff; font-size: 24px;">{{ NOTIFICATION_TITLE }}</h1>
                         </td>
                     </tr>
@@ -497,7 +499,9 @@ class AdminEmailTemplateController extends Controller
             <td style="padding: 20px 0; text-align: center;">
                 <table role="presentation" class="info-request-email-card" width="100%" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-collapse: separate; border-spacing: 0; overflow: hidden;">
                     <tr>
-                        <td class="info-request-email-header" width="100%" bgcolor="#2563eb" style="padding: 24px 30px; background-color: #2563eb; border-radius: 8px 8px 0 0; width: 100%;">
+                        <td class="info-request-email-header" width="100%" bgcolor="#0f172a" style="padding: 24px 30px; background-color: #0f172a; border-radius: 8px 8px 0 0; width: 100%;">
+                            {{ COMPANY_LOGO }}
+                            <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ COMPANY_NAME }}</p>
                             <h1 style="margin: 0; color: #ffffff; font-size: 24px; line-height: 1.3;">Nieuwe informatieaanvraag</h1>
                         </td>
                     </tr>
@@ -506,8 +510,7 @@ class AdminEmailTemplateController extends Controller
                             <p style="margin: 0; color: #333333; font-size: 16px; line-height: 1.5;">
                                 Er is een informatieaanvraag binnengekomen met de volgende gegevens:
                             </p>
-                            <table role="presentation" class="info-request-fields" width="100%" style="width: 100%; border-collapse: collapse; margin: 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left; table-layout: fixed;">
-                                <colgroup><col width="175" style="width: 175px;"><col width="*" style="width: auto;"></colgroup>
+                            <table role="presentation" class="info-request-fields" width="100%" style="width: 100%; max-width: 100%; border-collapse: collapse; margin: 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left; table-layout: auto;">
 {{ DYNAMIC_FORM_FIELDS }}
                             </table>
                             <p style="margin: 0 0 8px 0; color: #333333; font-size: 16px; font-weight: bold;">Omschrijving / vraag:</p>

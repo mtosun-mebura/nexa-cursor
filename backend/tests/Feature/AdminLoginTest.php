@@ -19,6 +19,55 @@ class AdminLoginTest extends TestCase
         
         $response->assertStatus(200);
         $response->assertViewIs('admin.auth.login');
+        $response->assertDontSee('apexcharts', false);
+        $response->assertDontSee('core.bundle.js', false);
+        $response->assertDontSee('resources/js/app.js', false);
+        $response->assertSee('ktui.min.js', false);
+        $response->assertSee('ki-filled ki-eye', false);
+    }
+
+    #[Test]
+    public function forgot_password_page_shows_nexa_logo_and_readable_success_status(): void
+    {
+        $this->withSession([
+            'status' => 'We hebben je een wachtwoord reset link gestuurd!',
+        ])->get('/admin/password/reset')
+            ->assertOk()
+            ->assertViewIs('admin.auth.forgot-password')
+            ->assertSee('nexa-brand-lockup', false)
+            ->assertSee('auth-status-success', false)
+            ->assertSee('We hebben je een wachtwoord reset link gestuurd!', false)
+            ->assertDontSee('kt-alert-success', false);
+    }
+
+    #[Test]
+    public function reset_password_page_shows_nexa_logo_and_full_placeholders(): void
+    {
+        $this->get('/admin/password/reset/test-token?email=admin@test.com')
+            ->assertOk()
+            ->assertViewIs('admin.auth.reset-password')
+            ->assertSee('nexa-brand-lockup', false)
+            ->assertSee('Herhaal wachtwoord', false)
+            ->assertDontSee('Voer opnieuw een nieuw wachtwoord in', false);
+    }
+
+    #[Test]
+    public function admin_pages_without_charts_do_not_load_apexcharts(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'email' => 'admin@test.com',
+            'password' => bcrypt('password'),
+            'email_verified_at' => now(),
+        ]);
+        $user->assignRole('super-admin');
+
+        $this->actingAs($user)
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->assertDontSee('apexcharts.min.js', false)
+            ->assertDontSee('apexcharts.css', false);
     }
 
     #[Test]

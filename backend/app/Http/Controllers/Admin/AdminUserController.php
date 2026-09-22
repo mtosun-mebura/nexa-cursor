@@ -16,10 +16,13 @@ use App\Modules\NexaTaxi\Services\TaxiCustomerSmsService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Services\AdminFirstLoginService;
+use App\Services\CompanyEmailLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\EnvService;
+use App\Services\TenantOnboardingService;
 use App\Services\UserRoleAssignmentService;
 use App\Support\ModuleSchemaAvailability;
+use App\Support\NexaBranding;
 use App\Support\WebRoleFormOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -895,6 +898,7 @@ class AdminUserController extends Controller
         }
 
         $user->forceFill(['email_verified_at' => now()])->save();
+        $this->sendOfficialWelcomeAfterVerification($user);
 
         return back()->with('success', 'E-mailadres is handmatig geverifieerd.');
     }
@@ -916,7 +920,7 @@ class AdminUserController extends Controller
 
     public function verifyPhone(Request $request, User $user)
     {
-        if (! $request->hasValidSignature()) {
+        if (! $request->hasValidSignature() && ! $request->hasValidSignature(false)) {
             return view('auth.email-verification-failed', [
                 'message' => 'Deze link is ongeldig of verlopen. Vraag een nieuwe verificatielink aan via de beheerder.',
             ]);
@@ -975,11 +979,7 @@ class AdminUserController extends Controller
     {
         $envService = app(EnvService::class);
         $this->applyMailSettings($envService);
-        $verificationUrl = URL::temporarySignedRoute(
-            'verify-email',
-            now()->addDays(7),
-            ['user' => $user->id, 'hash' => sha1($user->email)]
-        );
+        $verificationUrl = $this->signedVerificationUrl('verify-email', $user, (string) $user->email);
         $this->sendVerificationMail(
             $user,
             $verificationUrl,
@@ -991,11 +991,7 @@ class AdminUserController extends Controller
     private function dispatchPhoneVerification(User $user, TaxiCustomerSmsService $sms): bool
     {
         $phone = trim((string) ($user->phone ?? ''));
-        $verificationUrl = URL::temporarySignedRoute(
-            'verify-phone',
-            now()->addDays(7),
-            ['user' => $user->id, 'hash' => sha1($phone)]
-        );
+        $verificationUrl = $this->signedVerificationUrl('verify-phone', $user, $phone);
 
         $smsResult = ['ok' => false];
         if ($sms->isVonageConfigured()) {
@@ -1062,14 +1058,25 @@ class AdminUserController extends Controller
         $fromName = $envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
         $smtpUsername = $envService->get('MAIL_USERNAME', '');
 
-        Mail::send($view, [
+        $html = view($view, [
             'user' => $user,
             'verificationUrl' => $verificationUrl,
             'suiteBrand' => $this->nexaSuiteTenantBrand($user),
-        ], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername, $subject) {
+            'nexaLogoHtml' => NexaBranding::EMAIL_LOGO_PLACEHOLDER,
+        ])->render();
+
+        Mail::send([], [], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername, $subject, $html) {
+            $htmlBody = app(CompanyEmailLogoService::class)->embedInHtml(
+                $html,
+                $message,
+                $user->company_id ? (int) $user->company_id : null,
+                'NEXA Suite'
+            );
+
             $message->to($user->email, $user->first_name.' '.$user->last_name)
                 ->subject($subject)
-                ->from($fromAddress, $fromName);
+                ->from($fromAddress, $fromName)
+                ->html($htmlBody);
 
             if (! empty($smtpUsername)) {
                 try {
@@ -1084,6 +1091,39 @@ class AdminUserController extends Controller
                 }
             }
         });
+    }
+
+    private function signedVerificationUrl(string $routeName, User $user, string $hashSource): string
+    {
+        URL::forceRootUrl(rtrim((string) config('app.url'), '/'));
+
+        return URL::temporarySignedRoute(
+            $routeName,
+            now()->addDays(7),
+            ['user' => $user->id, 'hash' => sha1($hashSource)]
+        );
+    }
+
+    private function sendOfficialWelcomeAfterVerification(User $user): void
+    {
+        $user->loadMissing('company');
+        $company = $user->company;
+        if (! $company) {
+            return;
+        }
+        if (! $user->canAccessAdminPanel()) {
+            return;
+        }
+
+        try {
+            app(TenantOnboardingService::class)->sendWelcomeMail($company, $user);
+        } catch (\Throwable $e) {
+            \Log::warning('Welkomstmail na e-mailverificatie niet verzonden.', [
+                'user_id' => $user->id,
+                'company_id' => $company->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function nexaSuiteTenantBrand(User $user): string
@@ -1110,7 +1150,7 @@ class AdminUserController extends Controller
     public function verifyEmail(Request $request, User $user)
     {
         // Verify the signed URL
-        if (! $request->hasValidSignature()) {
+        if (! $request->hasValidSignature() && ! $request->hasValidSignature(false)) {
             return view('auth.email-verification-failed', [
                 'message' => 'Deze link is ongeldig of verlopen. Vraag een nieuwe activatielink aan via de beheerder.',
             ]);
@@ -1128,6 +1168,7 @@ class AdminUserController extends Controller
         if (! $wasAlreadyVerified) {
             $user->email_verified_at = now();
             $user->save();
+            $this->sendOfficialWelcomeAfterVerification($user);
         }
 
         // Show success page

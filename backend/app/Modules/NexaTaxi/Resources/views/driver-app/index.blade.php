@@ -1364,7 +1364,6 @@
             width: 100%;
             margin-top: 0.75rem;
             min-height: 2.9rem;
-            font-size: 1rem;
             background: #7c3aed;
             color: #fff;
         }
@@ -1372,7 +1371,6 @@
             width: 100%;
             margin-top: 0.5rem;
             min-height: 2.7rem;
-            font-size: 1rem;
             background: transparent;
             color: var(--soft-text);
             border: 1px solid var(--line);
@@ -2195,6 +2193,10 @@
         .driver-section-head--with-filter:not(.has-ride-kind-filter) {
             display: flex;
             justify-content: space-between;
+        }
+        #tab-panel-planning .driver-section-head--with-filter.has-ride-kind-filter {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            column-gap: 0.75rem;
         }
         #requests-section-head.has-ride-kind-filter {
             display: grid;
