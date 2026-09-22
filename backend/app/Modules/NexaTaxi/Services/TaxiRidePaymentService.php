@@ -430,6 +430,101 @@ class TaxiRidePaymentService
     }
 
     /**
+     * Volledige terugbetaling van een (vooraf) betaalde rit via Mollie.
+     *
+     * @return array{refunded: bool, payment: ?RidePayment, error: ?string}
+     */
+    public function refundPaidRidePayment(string $conn, RideRequest $ride): array
+    {
+        if ($ride->payment_status === RideRequest::PAYMENT_STATUS_REFUNDED) {
+            return ['refunded' => true, 'payment' => null, 'error' => null];
+        }
+
+        if ($ride->payment_status !== RideRequest::PAYMENT_STATUS_PAID
+            && $ride->payment_status !== RideRequest::PAYMENT_STATUS_REFUND_FAILED
+            && $ride->payment_status !== RideRequest::PAYMENT_STATUS_REFUND_PENDING) {
+            return ['refunded' => false, 'payment' => null, 'error' => null];
+        }
+
+        $payment = RidePayment::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('status', RidePayment::STATUS_PAID)
+            ->whereNotNull('mollie_payment_id')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $payment) {
+            $already = RidePayment::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('status', RidePayment::STATUS_REFUNDED)
+                ->orderByDesc('id')
+                ->first();
+            if ($already) {
+                $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUNDED]);
+
+                return ['refunded' => true, 'payment' => $already, 'error' => null];
+            }
+
+            return ['refunded' => false, 'payment' => null, 'error' => 'Geen betaalde Mollie-betaling gevonden.'];
+        }
+
+        $companyId = $this->resolveRideCompanyId($ride, $payment);
+        $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
+        if (! $apiKey) {
+            $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_FAILED]);
+
+            return ['refunded' => false, 'payment' => $payment, 'error' => 'Mollie is niet geconfigureerd voor terugbetaling.'];
+        }
+
+        $amount = (float) $payment->amount;
+        if ($amount < 0.01) {
+            return ['refunded' => false, 'payment' => $payment, 'error' => 'Ongeldig terug te betalen bedrag.'];
+        }
+
+        $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_PENDING]);
+
+        try {
+            $refund = $this->mollie->createRefund(
+                $apiKey,
+                (string) $payment->mollie_payment_id,
+                $amount,
+                'Terugbetaling taxi rit #'.$ride->id
+            );
+        } catch (\Throwable $e) {
+            $payload = is_array($payment->mollie_payload) ? $payment->mollie_payload : [];
+            $payload['refund_error'] = $e->getMessage();
+            $payment->update([
+                'status' => RidePayment::STATUS_REFUND_FAILED,
+                'mollie_payload' => $payload,
+            ]);
+            $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_FAILED]);
+
+            return ['refunded' => false, 'payment' => $payment->fresh(), 'error' => $e->getMessage()];
+        }
+
+        $payload = is_array($payment->mollie_payload) ? $payment->mollie_payload : [];
+        $payload['refund'] = $refund;
+        $refundStatus = strtolower((string) ($refund['status'] ?? 'pending'));
+        $isDone = in_array($refundStatus, ['refunded', 'paid'], true);
+
+        $payment->update([
+            'status' => $isDone ? RidePayment::STATUS_REFUNDED : RidePayment::STATUS_REFUND_PENDING,
+            'mollie_payload' => $payload,
+        ]);
+        $ride->update([
+            'payment_status' => $isDone
+                ? RideRequest::PAYMENT_STATUS_REFUNDED
+                : RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+        ]);
+
+        return [
+            'refunded' => $isDone || $refundStatus === 'pending' || $refundStatus === 'processing',
+            'payment' => $payment->fresh(),
+            'error' => null,
+        ];
+    }
+
+    /**
      * Bepaal tenant voor Mollie: rit → openstaande betaling → ingelogde chauffeur.
      */
     protected function resolveRideCompanyId(RideRequest $ride, ?RidePayment $ridePayment = null): ?int

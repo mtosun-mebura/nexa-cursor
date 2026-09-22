@@ -38,6 +38,12 @@ class RidePayment extends Model
 
     public const STATUS_EXPIRED = 'expired';
 
+    public const STATUS_REFUNDED = 'refunded';
+
+    public const STATUS_REFUND_PENDING = 'refund_pending';
+
+    public const STATUS_REFUND_FAILED = 'refund_failed';
+
     public const CHANNEL_BOOKING = 'booking';
 
     public const CHANNEL_DRIVER = 'driver';

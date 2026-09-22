@@ -5,10 +5,12 @@ use App\Jobs\ProcessNexaSuiteMarketplaceDunningJob;
 use App\Jobs\ProcessPlatformBillingJob;
 use App\Jobs\ProcessPlatformDunningJob;
 use App\Jobs\ProcessSaasTrialNoticeJob;
+use App\Modules\NexaTaxi\Jobs\CancelUnacceptedTaxiRidesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -47,9 +49,22 @@ Artisan::command('taxi:resync-contract-schedule-times', function () {
     $this->info("Contractrittijden gesynchroniseerd voor {$updated} ritten.");
 })->purpose('Corrigeer geplande tijden van bestaande contract-groepsritten (Europe/Amsterdam)');
 
+Artisan::command('taxi:cancel-unaccepted-rides', function () {
+    $moduleDb = app(ModuleDatabaseService::class);
+    $moduleDb->ensureModuleStorageReady('taxi');
+    $conn = $moduleDb->getModuleConnectionName('taxi');
+    $stats = app(TaxiRideCancellationService::class)->processDueAutoCancels($conn);
+    $this->info("Geannuleerd: {$stats['cancelled']}, teruggestort: {$stats['refunded']}, mislukte terugbetalingen: {$stats['failed_refunds']}.");
+})->purpose('Annuleer niet-geaccepteerde ritten na het ingestelde ophaalvenster (met Mollie-terugbetaling)');
+
 Schedule::command('nexa:reset-demo')
     ->dailyAt('03:00')
     ->name('nexa-reset-demo')
+    ->withoutOverlapping();
+
+Schedule::job(new CancelUnacceptedTaxiRidesJob)
+    ->everyMinute()
+    ->name('taxi-cancel-unaccepted-rides')
     ->withoutOverlapping();
 
 Schedule::command('taxi:generate-contract-occurrences --days=14')

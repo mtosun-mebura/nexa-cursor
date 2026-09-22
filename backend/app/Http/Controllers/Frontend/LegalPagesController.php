@@ -47,8 +47,8 @@ class LegalPagesController extends Controller
                 ['time' => 150, 'title' => 'Dashboard en menu', 'summary' => 'Startscherm, menuitems en wat er bij jouw pakket hoort.'],
                 ['time' => 185, 'title' => 'Bedrijf en gebruikers', 'summary' => 'Gegevens checken en collega’s aanmaken.'],
                 ['time' => 240, 'title' => 'Chauffeur-app', 'summary' => 'Inloggen, ritten, betalen, factuur, navigatie en profiel op je telefoon.'],
-                ['time' => 411, 'title' => 'Profiel', 'summary' => 'Gegevens, themakleur, ritgeluid, handleiding en uitloggen.'],
-                ['time' => 438, 'title' => 'Contract-app', 'summary' => 'Inloggen, vandaag, afmelden en de ophaalroute op de kaart.'],
+                ['time' => 423, 'title' => 'Profiel', 'summary' => 'Gegevens, themakleur, ritgeluid, handleiding en uitloggen.'],
+                ['time' => 451, 'title' => 'Contract-app', 'summary' => 'Inloggen, vandaag, afmelden, planning en de ophaalroute op de kaart.'],
             ],
         ]));
     }

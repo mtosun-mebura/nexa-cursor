@@ -40,6 +40,10 @@ class DispatchSettingsController extends Controller
             'envDefaultPastPickupGraceMinutes' => (int) config('taxi-dispatch.past_pickup_grace_minutes', 60),
             'minPastPickupGraceMinutes' => TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES,
             'maxPastPickupGraceMinutes' => TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES,
+            'unacceptedAutoCancelMinutes' => $this->dispatchSettings->unacceptedAutoCancelMinutes($companyId),
+            'envDefaultUnacceptedAutoCancelMinutes' => (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30),
+            'minUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
+            'maxUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES,
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
             'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
             'paymentBookingEnabled' => $this->dispatchSettings->paymentBookingEnabled($companyId),
@@ -126,10 +130,13 @@ class DispatchSettingsController extends Controller
         $maxLoginCodeMinutes = TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES;
         $minGraceMinutes = TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES;
         $maxGraceMinutes = TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES;
+        $minAutoCancelMinutes = TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES;
+        $maxAutoCancelMinutes = TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES;
 
         $validated = $request->validate([
             'offer_ttl_minutes' => ['required', 'integer', 'min:'.$minMinutes, 'max:'.$maxMinutes],
             'past_pickup_grace_minutes' => ['required', 'integer', 'min:'.$minGraceMinutes, 'max:'.$maxGraceMinutes],
+            'unaccepted_auto_cancel_minutes' => ['required', 'integer', 'min:'.$minAutoCancelMinutes, 'max:'.$maxAutoCancelMinutes],
             'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
             'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
@@ -150,6 +157,9 @@ class DispatchSettingsController extends Controller
             'past_pickup_grace_minutes.required' => 'Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.',
             'past_pickup_grace_minutes.min' => 'Grace-interval moet minimaal '.$minGraceMinutes.' minuten zijn.',
             'past_pickup_grace_minutes.max' => 'Grace-interval mag maximaal '.$maxGraceMinutes.' minuten zijn.',
+            'unaccepted_auto_cancel_minutes.required' => 'Vul in na hoeveel minuten een niet-geaccepteerde rit automatisch wordt geannuleerd.',
+            'unaccepted_auto_cancel_minutes.min' => 'Automatische annulering moet minimaal '.$minAutoCancelMinutes.' minuten zijn (0 = uit).',
+            'unaccepted_auto_cancel_minutes.max' => 'Automatische annulering mag maximaal '.$maxAutoCancelMinutes.' minuten zijn.',
             'customer_login_code_expires_minutes.required' => 'Vul de geldigheid van de inlogcode in.',
             'customer_login_code_expires_minutes.min' => 'Geldigheid moet minimaal '.$minLoginCodeMinutes.' minuten zijn.',
             'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
@@ -164,6 +174,10 @@ class DispatchSettingsController extends Controller
         $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
         $this->dispatchSettings->setPastPickupGraceMinutes(
             (int) $validated['past_pickup_grace_minutes'],
+            $companyId
+        );
+        $this->dispatchSettings->setUnacceptedAutoCancelMinutes(
+            (int) $validated['unaccepted_auto_cancel_minutes'],
             $companyId
         );
         $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(

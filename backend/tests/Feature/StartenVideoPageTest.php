@@ -19,8 +19,8 @@ class StartenVideoPageTest extends TestCase
             ->assertSee('Direct naar het juiste onderwerp in de video gaan?', false)
             ->assertSee('Maak dan je keuze hieronder.', false)
             ->assertSee('04:00', false)
-            ->assertSee('06:51', false)
-            ->assertSee('07:18', false)
+            ->assertSee('07:03', false)
+            ->assertSee('07:31', false)
             ->assertSee('Open de admin', false);
     }
 
