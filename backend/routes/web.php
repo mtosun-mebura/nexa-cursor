@@ -77,6 +77,7 @@ use App\Http\Controllers\NewsletterUnsubscribeController;
 use App\Http\Controllers\PostcodeController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Http\Controllers\SaasTrialStopController;
+use App\Http\Controllers\RobotsTxtController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\WebsiteMediaController;
 use App\Models\Branch;
@@ -155,15 +156,46 @@ Route::get('/email-logo/{company}', EmailCompanyLogoController::class)
 // Browsers vragen vaak /favicon.ico aan (vóór <link rel="icon">). Geen leeg bestand in public/ gebruiken.
 Route::get('/favicon.ico', function () {
     $meta = app(WebsiteBuilderService::class)->publicFaviconMeta();
-    $path = parse_url($meta['url'], PHP_URL_PATH);
+    $url = (string) ($meta['url'] ?? '');
+    $type = (string) ($meta['type'] ?? 'image/png');
+
+    if (str_starts_with($url, 'data:')) {
+        $parts = explode(',', $url, 2);
+        if (count($parts) === 2) {
+            $binary = base64_decode($parts[1], true);
+            if ($binary !== false) {
+                return response($binary, 200, [
+                    'Content-Type' => $type,
+                    'Cache-Control' => 'public, max-age=86400',
+                ]);
+            }
+        }
+    }
+
+    $path = parse_url($url, PHP_URL_PATH);
     if (is_string($path) && str_starts_with($path, '/file/')) {
         $storagePath = str_replace('--', '/', ltrim(substr($path, strlen('/file/')), '/'));
         $file = storage_path('app/public/'.$storagePath);
         if (is_file($file)) {
             return response(file_get_contents($file), 200, [
-                'Content-Type' => $meta['type'],
+                'Content-Type' => $type,
                 'Cache-Control' => 'public, max-age=86400',
             ]);
+        }
+    }
+
+    if (is_string($path) && str_contains($path, '/brand/company/') && str_ends_with($path, '/favicon')) {
+        if (preg_match('#/brand/company/(\d+)/favicon#', $path, $m)) {
+            $company = Company::query()->find((int) $m[1]);
+            if ($company && $company->favicon_blob) {
+                $binary = base64_decode($company->favicon_blob, true);
+                if ($binary !== false) {
+                    return response($binary, 200, [
+                        'Content-Type' => $company->favicon_mime_type ?: $type,
+                        'Cache-Control' => 'public, max-age=86400',
+                    ]);
+                }
+            }
         }
     }
 
@@ -344,11 +376,40 @@ Route::get('/company-logo/{company}/dark', function ($companyId) {
     ]);
 })->name('admin.companies.logo.dark');
 
+// Company favicon (admin preview)
+Route::get('/company-favicon/{company}', function ($companyId) {
+    if (! Auth::check()) {
+        abort(404);
+    }
+
+    $company = Company::find($companyId);
+
+    if (! $company || ! $company->favicon_blob) {
+        abort(404);
+    }
+
+    if (! AdminLogo::userCanViewCompanyLogo(auth()->user(), $company)) {
+        abort(403);
+    }
+
+    $content = base64_decode($company->favicon_blob);
+    $mimeType = $company->favicon_mime_type ?: 'image/png';
+
+    return response($content, 200, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'private, max-age=3600',
+        'X-Content-Type-Options' => 'nosniff',
+        'X-Frame-Options' => 'DENY',
+    ]);
+})->name('admin.companies.favicon');
+
 // Bedrijfslogo voor frontend (tenant-domein of ingelogde gebruiker van hetzelfde bedrijf)
 Route::get('/brand/company/{company}/logo', [CompanyBrandLogoController::class, 'show'])
     ->name('frontend.company-brand.logo');
 Route::get('/brand/company/{company}/logo/dark', [CompanyBrandLogoController::class, 'showDark'])
     ->name('frontend.company-brand.logo.dark');
+Route::get('/brand/company/{company}/favicon', [CompanyBrandLogoController::class, 'showFavicon'])
+    ->name('frontend.company-brand.favicon');
 
 // Publieke vacatures routes - redirect naar /jobs
 Route::get('/vacatures', function () {
@@ -1006,6 +1067,7 @@ Route::get('/starten', [\App\Http\Controllers\Frontend\LegalPagesController::cla
 Route::get('/starten/video', [\App\Http\Controllers\Frontend\LegalPagesController::class, 'startenVideo'])->name('starten.video');
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', RobotsTxtController::class)->name('robots');
 
 // Interne marketing / sales preview (centraal host: localhost, nexasuite.nl)
 // Let op: geen public/marketing/ map — die botst met php artisan serve / static files.

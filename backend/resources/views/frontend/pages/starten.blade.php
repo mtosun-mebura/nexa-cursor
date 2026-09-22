@@ -12,7 +12,7 @@
             In deze video zie je de echte schermen: de link in je welkomstmail, de eerste keer een code aanvragen, een wachtwoord instellen, de handleiding, het dashboard, bedrijfsgegevens, nieuwe gebruikers, en daarna de chauffeur-app en de contract-app op je telefoon.
         </p>
 
-        <div class="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-black shadow-lg mb-8">
+        <div id="nexa-starten-player" class="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-black shadow-lg mb-8 scroll-mt-24">
             <video
                 id="nexa-starten-video"
                 class="w-full aspect-video bg-black"
@@ -103,10 +103,14 @@
             if (!isFinite(video.duration)) {
                 video.load();
             }
+            var player = document.getElementById('nexa-starten-player') || video;
             var seek = function () {
                 video.currentTime = seconds;
                 video.play().catch(function () {});
             };
+            if (typeof player.scrollIntoView === 'function') {
+                player.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             if (video.readyState >= 1) {
                 seek();
             } else {

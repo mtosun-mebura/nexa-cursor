@@ -180,13 +180,21 @@ class AdminSettingsController extends Controller
             'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', 'noreply@nexasuite.nl', $settingsCompanyId),
             'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Suite', $settingsCompanyId),
         ];
+        $mailSmtpProviders = \App\Support\MailSmtpProviderCatalog::allForCompany($settingsCompanyId);
+        $mailSmtpProviderId = \App\Support\MailSmtpProviderCatalog::resolveSelectedId(
+            $settingsCompanyId,
+            \App\Models\GeneralSetting::get(\App\Support\MailSmtpProviderCatalog::SELECTED_SETTING_KEY, '', $settingsCompanyId),
+            $mailSettings['MAIL_HOST'],
+            $mailSettings['MAIL_PORT'],
+            $mailSettings['MAIL_ENCRYPTION']
+        );
         $mailDeliveryHint = $this->envService->mailDeliveryHint($settingsCompanyId);
         $mailSettingsIsPlatform = $settingsCompanyId === null;
         $mailUsingPlatformFallback = false;
         if ($settingsCompanyId !== null) {
             $mailUsingPlatformFallback = ! \App\Models\GeneralSetting::query()
                 ->where('company_id', $settingsCompanyId)
-                ->whereIn('key', \App\Models\GeneralSetting::MAIL_SETTING_KEYS)
+                ->whereIn('key', \App\Models\GeneralSetting::MAIL_DELIVERY_SETTING_KEYS)
                 ->whereNotNull('value')
                 ->where('value', '!=', '')
                 ->exists();
@@ -260,6 +268,8 @@ class AdminSettingsController extends Controller
 
         return view('admin.settings.index', compact(
             'mailSettings',
+            'mailSmtpProviders',
+            'mailSmtpProviderId',
             'mailDeliveryHint',
             'mailSettingsIsPlatform',
             'mailUsingPlatformFallback',
@@ -912,6 +922,8 @@ class AdminSettingsController extends Controller
             'MAIL_ENCRYPTION' => 'nullable|in:tls,ssl,null',
             'MAIL_FROM_ADDRESS' => 'required|email|max:255',
             'MAIL_FROM_NAME' => 'required|string|max:255',
+            'MAIL_SMTP_PROVIDER' => 'nullable|string|max:120',
+            'MAIL_SMTP_PROVIDER_NAME' => 'nullable|string|max:120',
         ], [
             'MAIL_MAILER.required' => 'Mailer is verplicht.',
             'MAIL_MAILER.in' => 'Ongeldige mailer geselecteerd.',
@@ -946,6 +958,30 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
+            $providerId = trim((string) $request->input('MAIL_SMTP_PROVIDER', ''));
+            if (strtolower((string) $mailSettings['MAIL_MAILER']) === 'smtp' && trim((string) $mailSettings['MAIL_HOST']) !== '') {
+                $provider = \App\Support\MailSmtpProviderCatalog::rememberIfNew(
+                    $companyId,
+                    $mailSettings['MAIL_HOST'],
+                    $mailSettings['MAIL_PORT'],
+                    $mailSettings['MAIL_ENCRYPTION'],
+                    $request->input('MAIL_SMTP_PROVIDER_NAME')
+                );
+                if ($provider !== null) {
+                    $providerId = $provider['id'];
+                }
+            }
+            if ($providerId === '' || $providerId === \App\Support\MailSmtpProviderCatalog::MANUAL_ID) {
+                $matched = \App\Support\MailSmtpProviderCatalog::matchBySettings(
+                    \App\Support\MailSmtpProviderCatalog::allForCompany($companyId),
+                    $mailSettings['MAIL_HOST'],
+                    $mailSettings['MAIL_PORT'],
+                    $mailSettings['MAIL_ENCRYPTION']
+                );
+                $providerId = $matched['id'] ?? \App\Support\MailSmtpProviderCatalog::MANUAL_ID;
+            }
+            GeneralSetting::set(\App\Support\MailSmtpProviderCatalog::SELECTED_SETTING_KEY, $providerId, $companyId);
+
             $success = $companyId === null
                 ? 'NEXA Suite-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
                 : 'Mail instellingen van deze tenant opgeslagen.';
@@ -969,6 +1005,8 @@ class AdminSettingsController extends Controller
 
         $validator = Validator::make($request->all(), [
             'test_email' => 'required|email',
+            'from_address' => 'nullable|email|max:255',
+            'from_name' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -981,15 +1019,18 @@ class AdminSettingsController extends Controller
         try {
             $this->envService->applyMailConfigToRuntime($this->settingsCompanyId());
 
-            $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
-            $configuredFromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
-            $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+            $fromAddress = trim((string) $request->input('from_address', ''));
+            $fromName = trim((string) $request->input('from_name', ''));
+            if ($fromAddress === '') {
+                $fromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
+            }
+            if ($fromName === '') {
+                $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+            }
 
-            $fromAddress = (! empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
-
-            \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
+            \Mail::raw('Dit is een test email van NEXA Suite. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
                 $message->to($request->input('test_email'))
-                    ->subject('Test Email - NEXA Skillmatching')
+                    ->subject('Test Email - '.$fromName)
                     ->from($fromAddress, $fromName);
             });
 
