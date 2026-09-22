@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Database\Pre2026Baseline;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
+use App\Modules\NexaTaxi\Support\DefaultRateSchema;
 use App\Support\ModuleMigrationPathResolver;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -403,6 +404,7 @@ class ModuleDatabaseService
         if ($missing === []) {
             if ($slug === 'taxi') {
                 app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($connectionName);
+                DefaultRateSchema::ensureColumns($connectionName);
             }
 
             return;
@@ -439,6 +441,7 @@ class ModuleDatabaseService
 
         if ($slug === 'taxi') {
             app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($connectionName);
+            DefaultRateSchema::ensureColumns($connectionName);
         }
 
         $stillMissing = array_values(array_filter(

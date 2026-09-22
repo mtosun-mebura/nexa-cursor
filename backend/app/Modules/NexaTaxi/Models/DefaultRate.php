@@ -2,6 +2,7 @@
 
 namespace App\Modules\NexaTaxi\Models;
 
+use App\Modules\NexaTaxi\Support\DefaultRateSchema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -126,6 +127,7 @@ class DefaultRate extends Model
      */
     public static function getRatesForEdit(string $connection, mixed $companyId = null): Collection
     {
+        DefaultRateSchema::ensureColumns($connection);
         self::ensureBaseRanges($connection, $companyId);
 
         return self::sortedRates(self::queryForCompany($connection, $companyId)->get());
@@ -281,6 +283,8 @@ class DefaultRate extends Model
 
     private static function ensureBaseRanges(string $connection, mixed $companyId = null): void
     {
+        DefaultRateSchema::ensureColumns($connection);
+
         $normalized = self::normalizeCompanyId($companyId);
         $platformByRange = [];
         if ($normalized !== null && self::hasCompanyIdColumn($connection)) {

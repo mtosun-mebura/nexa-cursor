@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DefaultRate;
+use App\Modules\NexaTaxi\Support\DefaultRateSchema;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,9 @@ class TarievenEveningNightTest extends TestCase
             $table->unsignedTinyInteger('evening_night_until_hour')->default(6);
             $table->timestamps();
         });
+
+        DefaultRateSchema::resetCache();
+        DefaultRate::resetCompanyIdColumnCache();
 
         if (! Route::has('admin.taxi.tarieven.edit')) {
             Route::middleware('web')
@@ -186,6 +190,54 @@ class TarievenEveningNightTest extends TestCase
         $this->assertEquals(4.0, (float) $platform->base_fare);
         $this->assertEquals(1.4, (float) $platform->evening_night_multiplier);
         $this->assertNull($platform->company_id);
+    }
+
+    #[Test]
+    public function evening_night_surcharge_is_saved_when_columns_were_missing(): void
+    {
+        DefaultRateSchema::resetCache();
+        DefaultRate::resetCompanyIdColumnCache();
+
+        Schema::connection('module_taxi')->table('default_rates', function (Blueprint $table) {
+            $table->dropColumn([
+                'evening_night_multiplier',
+                'evening_night_from_hour',
+                'evening_night_until_hour',
+            ]);
+        });
+
+        $company = $this->company();
+
+        $this->actingAs($this->superAdmin())
+            ->withSession(['selected_tenant' => $company->id])
+            ->put(route('admin.taxi.tarieven.update'), [
+                'evening_night_multiplier' => '1.25',
+                'evening_night_from_hour' => '22',
+                'evening_night_until_hour' => '6',
+                'rates' => [
+                    [
+                        'person_range' => '1-4',
+                        'base_fare' => '3.20',
+                        'min_fare' => '0',
+                        'price_per_km' => '2.45',
+                        'price_per_min' => '0.40',
+                    ],
+                    [
+                        'person_range' => '5-8',
+                        'base_fare' => '5.00',
+                        'min_fare' => '0',
+                        'price_per_km' => '2.80',
+                        'price_per_min' => '0.50',
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('admin.taxi.tarieven.edit'));
+
+        $this->assertTrue(Schema::connection('module_taxi')->hasColumn('default_rates', 'evening_night_multiplier'));
+
+        $rate = DefaultRate::queryForCompany('module_taxi', $company->id)->where('person_range', '1-4')->first();
+        $this->assertNotNull($rate);
+        $this->assertEquals(1.25, (float) $rate->evening_night_multiplier);
     }
 
     private function superAdmin(): User
