@@ -445,6 +445,7 @@ class TaxiBookingNotificationService
             : '—';
         $customerName = trim((string) ($ride->customer_name ?: ''));
         $brand = $this->companyBrand($settingsCompanyId);
+        $cancelUrl = app(TaxiRideCancellationService::class)->customerCancelUrl($ride);
 
         $html = view('emails.taxi-ride-booking-customer', [
             'customer_name' => $customerName,
@@ -456,6 +457,8 @@ class TaxiBookingNotificationService
             'summary_text' => $summary,
             'company_name' => $brand['name'],
             'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+            'cancel_url' => $cancelUrl,
+            'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
             'portal_login_url' => route('login', [
                 'code_login' => 1,
                 'intended' => route('taxi.portal.dashboard'),

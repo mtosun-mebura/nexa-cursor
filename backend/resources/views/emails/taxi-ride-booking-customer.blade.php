@@ -25,6 +25,19 @@
     <p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Samenvatting van uw boeking</p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;white-space:pre-wrap;">{{ $summary_text }}</p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">U ontvangt een aparte melding zodra een chauffeur uw rit heeft geaccepteerd.</p>
+    @if(!empty($cancel_url))
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Wilt u de rit toch niet laten doorgaan? U kunt hem hieronder annuleren zolang er nog geen chauffeur is toegewezen.
+        @if(!empty($was_paid))
+        Bij annuleren wordt het vooraf betaalde bedrag teruggestort.
+        @endif
+    </p>
+    <p style="margin:0 0 18px;text-align:center;">
+        <a href="{{ $cancel_url }}" style="display:inline-block;background-color:#ffffff;color:#b91c1c;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;border:1px solid #fecaca;">
+            <span style="color:#b91c1c;">Rit annuleren</span>
+        </a>
+    </p>
+    @endif
     @if(!empty($portal_login_url))
     <p style="margin:0 0 18px;text-align:center;">
         <a href="{{ $portal_login_url }}" style="display:inline-block;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;">

@@ -84,6 +84,7 @@ use App\Models\Company;
 use App\Models\Notification;
 use App\Models\User;
 use App\Models\Vacancy;
+use App\Modules\NexaTaxi\Controllers\TaxiBookingCancelController;
 use App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalAiChatController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
@@ -1255,6 +1256,13 @@ Route::prefix('nexa-taxi/booking')->group(function () {
     Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');
     Route::get('betaling/terug', [TaxiBookingPaymentController::class, 'returnPage'])
         ->name('nexataxi.booking.payment.return');
+    Route::get('annuleren/{ride}', [TaxiBookingCancelController::class, 'show'])
+        ->whereNumber('ride')
+        ->name('nexataxi.booking.cancel.show');
+    Route::post('annuleren/{ride}', [TaxiBookingCancelController::class, 'confirm'])
+        ->whereNumber('ride')
+        ->middleware('throttle:10,1')
+        ->name('nexataxi.booking.cancel.confirm');
 });
 
 // Website-builder: custom/module pagina's op slug (moet na vaste paden staan)

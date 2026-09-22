@@ -26,6 +26,13 @@ return [
     ),
 
     /**
+     * Minuten na het (actuele) ophaalmoment waarna een niet-geaccepteerde rit automatisch
+     * wordt geannuleerd (met terugbetaling bij vooraf betaald). 0 = uit.
+     * Per tenant: GeneralSetting `taxi_dispatch_unaccepted_auto_cancel_minutes`.
+     */
+    'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 30),
+
+    /**
      * Geldigheid eenmalige inlogcode Mijn Taxi (minuten) als er geen waarde in admin staat.
      * Per tenant: GeneralSetting `taxi_dispatch_customer_login_code_expires_minutes`.
      */

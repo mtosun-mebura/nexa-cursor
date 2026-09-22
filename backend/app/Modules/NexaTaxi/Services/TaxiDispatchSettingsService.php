@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\EnvService;
 use App\Services\PaymentProviderService;
 use App\Services\WhatsAppBookingMessageComposer;
@@ -24,6 +25,8 @@ class TaxiDispatchSettingsService
     public const KEY_PAST_PICKUP_GRACE_HOURS = 'taxi_dispatch_past_pickup_grace_hours';
 
     public const KEY_PAST_PICKUP_GRACE_MINUTES = 'taxi_dispatch_past_pickup_grace_minutes';
+
+    public const KEY_UNACCEPTED_AUTO_CANCEL_MINUTES = 'taxi_dispatch_unaccepted_auto_cancel_minutes';
 
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
@@ -80,6 +83,11 @@ class TaxiDispatchSettingsService
     public const MIN_PAST_PICKUP_GRACE_MINUTES = 0;
 
     public const MAX_PAST_PICKUP_GRACE_MINUTES = 4320; // 72 uur
+
+    /** 0 = automatische annulering uit */
+    public const MIN_UNACCEPTED_AUTO_CANCEL_MINUTES = 0;
+
+    public const MAX_UNACCEPTED_AUTO_CANCEL_MINUTES = 1440; // 24 uur
 
     public function __construct(
         protected EnvService $env,
@@ -164,6 +172,73 @@ class TaxiDispatchSettingsService
         return max(self::MIN_PAST_PICKUP_GRACE_MINUTES, min(self::MAX_PAST_PICKUP_GRACE_MINUTES, $minutes));
     }
 
+    public function unacceptedAutoCancelMinutes(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30);
+        $raw = GeneralSetting::get(self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES, null, $companyId);
+        if ($raw === null || $raw === '') {
+            return $this->clampUnacceptedAutoCancelMinutes($default);
+        }
+
+        return $this->clampUnacceptedAutoCancelMinutes((int) $raw);
+    }
+
+    public function setUnacceptedAutoCancelMinutes(int $minutes, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES,
+            (string) $this->clampUnacceptedAutoCancelMinutes($minutes),
+            $companyId
+        );
+    }
+
+    public function clampUnacceptedAutoCancelMinutes(int $minutes): int
+    {
+        return max(
+            self::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
+            min(self::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES, $minutes)
+        );
+    }
+
+    /**
+     * Ophaalmoment dat geldt voor grace / auto-annuleren.
+     * Bij een openstaand voorstel van de chauffeur telt de nieuwe tijd, niet de oude.
+     */
+    public function effectiveDispatchDueAt(RideRequest $ride): ?CarbonInterface
+    {
+        $connection = $ride->getConnectionName();
+        if (is_string($connection) && $connection !== '') {
+            TaxiDispatchSchema::ensurePickupProposalColumns($connection);
+        }
+
+        if ($ride->pickup_proposal_status === RideRequest::PICKUP_PROPOSAL_PENDING
+            && $ride->pickup_proposal_at) {
+            return ContractTransportTimezone::asAmsterdamWall($ride->pickup_proposal_at);
+        }
+
+        return $this->scheduledRideDueAt($ride);
+    }
+
+    /**
+     * Moment waarop een niet-geaccepteerde rit automatisch mag worden geannuleerd.
+     * Null = auto-annulering uit of geen ophaalmoment.
+     */
+    public function unacceptedAutoCancelAt(RideRequest $ride, ?int $companyId = null): ?CarbonInterface
+    {
+        $companyId = $companyId ?? ((int) ($ride->company_id ?? 0) > 0 ? (int) $ride->company_id : null);
+        $minutes = $this->unacceptedAutoCancelMinutes($companyId);
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $dueAt = $this->effectiveDispatchDueAt($ride);
+        if (! $dueAt) {
+            return null;
+        }
+
+        return $dueAt->copy()->addMinutes($minutes);
+    }
+
     /**
      * Ritten met pickup_at vóór dit moment vallen uit de chauffeur-wachtrij.
      * Binding is naïef UTC met Amsterdam-wallclock-cijfers (matcht DB-opslag).
@@ -185,7 +260,7 @@ class TaxiDispatchSettingsService
      */
     public function offerPickupIsPast(RideRequest $ride, ?CarbonInterface $now = null): bool
     {
-        $dueAt = $this->scheduledRideDueAt($ride);
+        $dueAt = $this->effectiveDispatchDueAt($ride);
         if (! $dueAt) {
             return false;
         }
@@ -207,7 +282,7 @@ class TaxiDispatchSettingsService
         $base = $now
             ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
             : now(ContractTransportTimezone::TIMEZONE);
-        $dueAt = $this->scheduledRideDueAt($ride);
+        $dueAt = $this->effectiveDispatchDueAt($ride);
 
         if (! $dueAt) {
             return false;
