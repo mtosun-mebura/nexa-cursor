@@ -58,6 +58,9 @@ class AdminAiImagesPageTest extends TestCase
             ->assertSee('Hergebruiken als bron', false)
             ->assertSee('id="ai-image-source"', false)
             ->assertSee('Bron voor aanpassing', false)
+            ->assertSee('id="ai-image-upload-area"', false)
+            ->assertSee('Referentie-afbeelding (optioneel)', false)
+            ->assertSee('Klik of sleep afbeelding', false)
             ->assertSee('id="ai-image-prompt-clear"', false)
             ->assertSee('ki-eraser ki-duotone', false)
             ->assertSee('data-tooltip="Wist de omschrijving in één keer"', false)
@@ -117,6 +120,37 @@ class AdminAiImagesPageTest extends TestCase
         });
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/images/generations'));
         $this->assertSame(2, AiGeneratedImage::query()->count());
+    }
+
+    #[Test]
+    public function generate_with_uploaded_source_sends_image_to_openai_edits(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.api_key' => 'sk-test-ai-images']);
+        $admin = $this->superAdmin();
+
+        Http::fake([
+            'https://api.openai.com/v1/images/edits' => Http::response([
+                'data' => [['b64_json' => base64_encode('edited-from-upload')]],
+            ], 200),
+        ]);
+
+        $upload = \Illuminate\Http\UploadedFile::fake()->image('referentie.png', 64, 64);
+
+        $this->actingAs($admin)
+            ->post(route('admin.ai-images.generate'), [
+                'prompt' => 'Maak hiervan een hero-banner in blauw',
+                'source_image' => $upload,
+            ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('prompt', 'Maak hiervan een hero-banner in blauw');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.openai.com/v1/images/edits'
+                && str_contains($request->body(), 'Maak hiervan een hero-banner in blauw');
+        });
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/images/generations'));
+        $this->assertSame(1, AiGeneratedImage::query()->count());
     }
 
     private function superAdmin(): User

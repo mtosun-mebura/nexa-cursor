@@ -547,6 +547,7 @@ class WebsiteBuilderService
         }
 
         $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl, $forCompanyId);
+        $this->applyCompanyFaviconFallback($faviconUrl, $forCompanyId);
 
         $logoUrl = $logoUrl ? $this->storageUrlToDisplayUrl($logoUrl) : null;
         $logoDarkUrl = $logoDarkUrl ? $this->storageUrlToDisplayUrl($logoDarkUrl) : null;
@@ -888,12 +889,45 @@ class WebsiteBuilderService
             $forCompanyId = $this->faviconCompanyIdForRequestContext();
         }
 
+        if ($forCompanyId !== null && $forCompanyId > 0) {
+            $company = Company::query()->find($forCompanyId);
+            if ($company && $company->hasFavicon()) {
+                if ($this->isAdminLikeRequest()) {
+                    $dataUri = $this->companyFaviconDataUri($company);
+                    if ($dataUri !== null) {
+                        return [
+                            'url' => $dataUri,
+                            'type' => $company->favicon_mime_type ?: 'image/png',
+                        ];
+                    }
+                }
+
+                return [
+                    'url' => TenantFrontendUrl::for(
+                        route('frontend.company-brand.favicon', $company),
+                        (int) $company->id
+                    ),
+                    'type' => $company->favicon_mime_type ?: 'image/png',
+                ];
+            }
+        }
+
         $path = $forCompanyId !== null
             ? GeneralSetting::get('favicon', null, $forCompanyId)
             : GeneralSetting::get('favicon');
 
         if (! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path)) {
-            return $default;
+            // Platform-favicon als tenant geen eigen heeft
+            if ($forCompanyId !== null) {
+                $platformPath = GeneralSetting::get('favicon', null, null);
+                if (is_string($platformPath) && $platformPath !== '' && Storage::disk('public')->exists($platformPath)) {
+                    $path = $platformPath;
+                } else {
+                    return $default;
+                }
+            } else {
+                return $default;
+            }
         }
 
         $mtime = Storage::disk('public')->lastModified($path);
@@ -903,6 +937,45 @@ class WebsiteBuilderService
             'url' => $this->publicFileUrl(ltrim($path, '/')).'?v='.$mtime,
             'type' => $mime,
         ];
+    }
+
+    private function applyCompanyFaviconFallback(?string &$faviconUrl, ?int $forCompanyId = null): void
+    {
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return;
+        }
+
+        $company = Company::query()->find($companyId);
+        if (! $company || ! $company->hasFavicon()) {
+            return;
+        }
+
+        // Geüpload tenant-favicon wint altijd van GeneralSetting/platform-favicon.
+        if ($this->isAdminLikeRequest()) {
+            $faviconUrl = $this->companyFaviconDataUri($company);
+
+            return;
+        }
+
+        $faviconUrl = TenantFrontendUrl::for(
+            route('frontend.company-brand.favicon', $company),
+            (int) $company->id
+        );
+    }
+
+    private function companyFaviconDataUri(Company $company): ?string
+    {
+        if (! $company->favicon_blob) {
+            return null;
+        }
+        $content = base64_decode($company->favicon_blob, true);
+        if ($content === false) {
+            return null;
+        }
+        $mime = $company->favicon_mime_type ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode($content);
     }
 
     /**

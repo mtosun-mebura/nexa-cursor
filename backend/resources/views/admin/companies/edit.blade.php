@@ -157,6 +157,35 @@
                                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                         @enderror
                                     </div>
+
+                                    <div class="mt-5 pt-4 border-t border-border">
+                                        <p class="text-sm font-medium text-muted-foreground mb-2">Favicon (website)</p>
+                                        <p class="text-xs text-muted-foreground mb-3 max-w-xl">
+                                            Zichtbaar in het browsertabblad wanneer bezoekers de website van deze tenant openen. Zonder eigen favicon wordt het NEXA Suite-icoon gebruikt.
+                                        </p>
+                                        <input type="hidden" name="remove_favicon" id="company-form-remove-favicon" value="0">
+                                        <div class="w-full max-w-md">
+                                            @include('admin.partials.image-upload-dropzone-inline', [
+                                                'name' => 'favicon',
+                                                'inputId' => 'company-form-favicon-input',
+                                                'previewId' => 'company-form-favicon-preview',
+                                                'areaId' => 'company-form-favicon-upload-area',
+                                                'linkId' => 'company-form-favicon-upload-link',
+                                                'removeBtnId' => 'company-form-favicon-remove',
+                                                'existingUrl' => $company->favicon_blob ? route('admin.companies.favicon', $company) : null,
+                                                'dropzoneKey' => 'favicon',
+                                                'clientMsgId' => 'company-form-favicon-client-msg',
+                                                'hintLine' => 'ICO, PNG, JPG, SVG (max. 2MB)',
+                                                'maxFileBytes' => 2 * 1024 * 1024,
+                                                'accept' => 'image/x-icon,image/vnd.microsoft.icon,image/png,image/jpeg,image/jpg,image/svg+xml,image/gif,image/webp,.ico',
+                                                'removeFlagId' => 'company-form-remove-favicon',
+                                            ])
+                                        </div>
+                                        <div id="company-form-favicon-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
+                                        @error('favicon')
+                                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                        @enderror
+                                    </div>
                                     </div>
                                 </div>
                                 </div>

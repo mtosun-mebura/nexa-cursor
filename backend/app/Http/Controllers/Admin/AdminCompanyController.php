@@ -168,6 +168,8 @@ class AdminCompanyController extends Controller
             'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
+            'favicon' => 'nullable|file|mimes:ico,png,jpg,jpeg,svg,gif,webp|max:2048',
+            'remove_favicon' => 'nullable|boolean',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'package_key' => $this->packageKeyRules(),
             ...$this->packageAddonValidationRules(),
@@ -189,6 +191,8 @@ class AdminCompanyController extends Controller
             'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
             'package_key.in' => 'Kies een bestaand pakket of laat leeg.',
+            'favicon.mimes' => 'Favicon moet ICO, PNG, JPG, SVG, GIF of WebP zijn.',
+            'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
             'locations.*.name.required_with' => 'Vestigingsnaam is verplicht wanneer een vestiging wordt toegevoegd.',
             'locations.*.name.min' => 'Vestigingsnaam moet minimaal 2 tekens bevatten.',
             'locations.*.postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
@@ -216,7 +220,7 @@ class AdminCompanyController extends Controller
         unset($companyData['locations']);
 
         // Handle logo upload (must run before create; do not pass UploadedFile to create)
-        unset($companyData['logo'], $companyData['logo_dark'], $companyData['company_logo_mode']);
+        unset($companyData['logo'], $companyData['logo_dark'], $companyData['company_logo_mode'], $companyData['favicon'], $companyData['remove_favicon']);
         $companyData['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
         $this->applyPackageKeyFromRequest($request, $companyData);
         $this->applyPackageAddonsFromRequest($request, $companyData);
@@ -235,6 +239,7 @@ class AdminCompanyController extends Controller
             $companyData['logo_dark_blob'] = null;
             $companyData['logo_dark_mime_type'] = null;
         }
+        $this->applyFaviconFromRequest($request, $companyData);
 
         $company = Company::create($companyData);
 
@@ -475,6 +480,8 @@ class AdminCompanyController extends Controller
             'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
+            'favicon' => 'nullable|file|mimes:ico,png,jpg,jpeg,svg,gif,webp|max:2048',
+            'remove_favicon' => 'nullable|boolean',
             'module_ids' => [Rule::requiredIf(auth()->user()?->hasRole('super-admin') && ModuleModel::query()->exists()), 'array', 'min:1'],
             'module_ids.*' => 'integer|exists:modules,id',
             'apply_module_sync' => 'nullable|boolean',
@@ -498,6 +505,8 @@ class AdminCompanyController extends Controller
             'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
             'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
+            'favicon.mimes' => 'Favicon moet ICO, PNG, JPG, SVG, GIF of WebP zijn.',
+            'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
             'module_ids.required' => 'Selecteer minimaal één module.',
             'module_ids.min' => 'Selecteer minimaal één module.',
             'package_key.in' => 'Kies een bestaand pakket of laat leeg.',
@@ -520,7 +529,7 @@ class AdminCompanyController extends Controller
         // Remove branch_select from data as it's not a database field
         unset($data['branch_select']);
 
-        unset($data['logo'], $data['logo_dark'], $data['company_logo_mode'], $data['module_ids'], $data['apply_module_sync']);
+        unset($data['logo'], $data['logo_dark'], $data['company_logo_mode'], $data['module_ids'], $data['apply_module_sync'], $data['favicon'], $data['remove_favicon']);
         $data['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
         $this->applyPackageKeyFromRequest($request, $data);
         $this->applyPackageAddonsFromRequest($request, $data, $company);
@@ -542,6 +551,7 @@ class AdminCompanyController extends Controller
             $data['logo_dark_blob'] = null;
             $data['logo_dark_mime_type'] = null;
         }
+        $this->applyFaviconFromRequest($request, $data);
 
         $previousPackageKey = trim((string) ($company->package_key ?? ''));
         $previousAddons = is_array($company->package_addons) ? $company->package_addons : [];
@@ -865,5 +875,24 @@ class AdminCompanyController extends Controller
         $key = trim((string) ($value ?? ''));
 
         return $key === '' ? null : $key;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function applyFaviconFromRequest(Request $request, array &$data): void
+    {
+        if ($request->hasFile('favicon')) {
+            $file = $request->file('favicon');
+            $data['favicon_blob'] = base64_encode(file_get_contents($file->getRealPath()));
+            $data['favicon_mime_type'] = $file->getMimeType() ?: 'image/png';
+
+            return;
+        }
+
+        if ($request->boolean('remove_favicon')) {
+            $data['favicon_blob'] = null;
+            $data['favicon_mime_type'] = null;
+        }
     }
 }

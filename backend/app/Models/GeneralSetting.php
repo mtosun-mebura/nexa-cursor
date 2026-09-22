@@ -90,6 +90,20 @@ class GeneralSetting extends Model
         'MAIL_ENCRYPTION',
         'MAIL_FROM_ADDRESS',
         'MAIL_FROM_NAME',
+        'MAIL_SMTP_PROVIDER',
+        'MAIL_SMTP_CUSTOM_PROVIDERS',
+    ];
+
+    /** Keys die aangeven dat de tenant een eigen mailserver heeft (geen provider-meta). */
+    public const MAIL_DELIVERY_SETTING_KEYS = [
+        'MAIL_MAILER',
+        'MAIL_HOST',
+        'MAIL_PORT',
+        'MAIL_USERNAME',
+        'MAIL_PASSWORD',
+        'MAIL_ENCRYPTION',
+        'MAIL_FROM_ADDRESS',
+        'MAIL_FROM_NAME',
     ];
 
     protected $fillable = [

@@ -66,7 +66,7 @@ class AdminEmailTemplateListFilterTest extends TestCase
     }
 
     #[Test]
-    public function selected_tenant_shows_only_that_tenants_templates(): void
+    public function selected_tenant_shows_that_tenants_templates_plus_platform_templates(): void
     {
         [$admin, $tenantA, $tenantB] = $this->seedTemplates();
 
@@ -75,7 +75,7 @@ class AdminEmailTemplateListFilterTest extends TestCase
             ->get(route('admin.email-templates.index'))
             ->assertOk()
             ->assertSee('TenantA Filtertest ZX-A', false)
-            ->assertDontSee('Algemeen Filtertest ZX-GLB', false)
+            ->assertSee('Algemeen Filtertest ZX-GLB', false)
             ->assertDontSee('TenantB Filtertest ZX-B', false)
             ->assertDontSee('id="company-filter"', false);
     }

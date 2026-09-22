@@ -142,16 +142,22 @@
             }
 
             function handleFile(file) {
-                var allowed = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
-                if (!allowed.includes(file.type)) {
-                    showLogoClient('Alleen SVG, PNG, JPG en GIF zijn toegestaan.', true);
+                var allowed = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon'];
+                var isIcoByName = /\.ico$/i.test(file.name || '');
+                if (!allowed.includes(file.type) && !isIcoByName) {
+                    showLogoClient('Alleen SVG, PNG, JPG, GIF, WebP en ICO zijn toegestaan.', true);
                     if (input) input.value = '';
                     return;
                 }
                 if (file.size > maxFileBytes) {
-                    showLogoClient('Het logo mag maximaal ' + Math.round(maxFileBytes / (1024 * 1024)) + 'MB groot zijn.', true);
+                    showLogoClient('Het bestand mag maximaal ' + Math.round(maxFileBytes / (1024 * 1024)) + 'MB groot zijn.', true);
                     if (input) input.value = '';
                     return;
+                }
+                var flagId = wrap.getAttribute('data-remove-flag-id');
+                var flagEl = flagId ? document.getElementById(flagId) : null;
+                if (flagEl) {
+                    flagEl.value = '0';
                 }
                 var dt = new DataTransfer();
                 dt.items.add(file);
@@ -178,7 +184,17 @@
             if (removeBtn && input && preview) {
                 removeBtn.addEventListener('click', function() {
                     input.value = '';
-                    if (existingUrl) {
+                    var flagId = wrap.getAttribute('data-remove-flag-id');
+                    var flagEl = flagId ? document.getElementById(flagId) : null;
+                    if (flagEl) {
+                        flagEl.value = '1';
+                        preview.src = '';
+                        preview.classList.add('hidden');
+                        var frame = preview.closest('[data-logo-preview-frame]');
+                        if (frame) frame.classList.add('hidden');
+                        showRemove(false);
+                        clearLivePreviewStrip();
+                    } else if (existingUrl) {
                         preview.src = existingUrl;
                         preview.classList.remove('hidden');
                         showRemove(true);
@@ -186,8 +202,8 @@
                     } else {
                         preview.src = '';
                         preview.classList.add('hidden');
-                        var frame = preview.closest('[data-logo-preview-frame]');
-                        if (frame) frame.classList.add('hidden');
+                        var frameClear = preview.closest('[data-logo-preview-frame]');
+                        if (frameClear) frameClear.classList.add('hidden');
                         showRemove(false);
                         clearLivePreviewStrip();
                     }
