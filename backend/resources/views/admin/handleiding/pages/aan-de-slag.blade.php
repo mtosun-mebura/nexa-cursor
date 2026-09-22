@@ -2,6 +2,10 @@
     Welkom bij NEXA. Deze handleiding hoort bij uw abonnement: u ziet hier alleen de onderdelen
     die voor uw pakket beschikbaar zijn. Na de eerste login komt u hier terecht.
 </p>
+<p>
+    Liever meekijken? Bekijk de <a href="{{ url('/starten') }}" class="text-primary font-semibold">startvideo</a>
+    (van welkomstmail tot handleiding, gebruikers en de apps).
+</p>
 
 <h2 id="inloggen">1. Inloggen</h2>
 <p>

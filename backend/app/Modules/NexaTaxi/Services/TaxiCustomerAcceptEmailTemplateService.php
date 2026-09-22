@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\EmailTemplate;
 use App\Modules\NexaTaxi\Services\Concerns\ResolvesScopedEmailTemplate;
+use App\Support\EmailCardHtml;
 
 class TaxiCustomerAcceptEmailTemplateService
 {
@@ -112,7 +113,10 @@ class TaxiCustomerAcceptEmailTemplateService
 
     public function ensureGlobalTemplateExists(): EmailTemplate
     {
-        return $this->upsertScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
+        $template = $this->upsertScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
+        EmailCardHtml::upgradeTypeToCardLayout(self::TYPE, fn () => $this->defaultHtmlContent());
+
+        return $template->fresh() ?? $template;
     }
 
     public function findTemplate(?int $companyId): ?EmailTemplate
@@ -149,28 +153,28 @@ class TaxiCustomerAcceptEmailTemplateService
 
     private function defaultHtmlContent(): string
     {
-        return <<<'HTML'
-<!DOCTYPE html>
-<html lang="nl">
-<head><meta charset="UTF-8"><title>Rit geaccepteerd</title></head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0;">
-<div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-    <div style="margin-bottom: 24px;">{{ COMPANY_LOGO }}</div>
-    <p style="margin: 0 0 8px; font-size: 13px; color: #64748b; text-align: left;">{{ COMPANY_NAME }}</p>
-    <h1 style="font-size: 20px; margin: 0 0 16px; text-align: left;">Uw taxirit is geaccepteerd</h1>
-    <p style="text-align: left;">Beste {{ CUSTOMER_NAME }},</p>
-    <p style="text-align: left;">Goed nieuws: uw rit is geaccepteerd door <strong>{{ DRIVER_NAME }}</strong>.</p>
-    <p style="text-align: left;">
-        <strong>Ophaalmoment:</strong> {{ PICKUP_AT }}<br>
-        <strong>Ophalen:</strong> {{ PICKUP_ADDRESS }}<br>
-        <strong>Afzetten:</strong> {{ DROPOFF_ADDRESS }}
-    </p>
-    <p style="text-align: left;">Vragen? Neem contact op via {{ COMPANY_PHONE }} of {{ COMPANY_EMAIL }}.</p>
-    <p style="text-align: left;">Met vriendelijke groet,<br>{{ COMPANY_NAME }}</p>
-</div>
-</body>
-</html>
+        $body = <<<'HTML'
+<p style="margin:0 0 16px;font-size:16px;">Beste {{ CUSTOMER_NAME }},</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Goed nieuws: uw rit is geaccepteerd door <strong>{{ DRIVER_NAME }}</strong>.</p>
+<table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">
+    <tr><td style="padding:16px 18px;border-radius:12px;background-color:#e8eef5;">
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Ophaalmoment:</strong> {{ PICKUP_AT }}</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Ophalen:</strong> {{ PICKUP_ADDRESS }}</p>
+        <p style="margin:0;font-size:15px;line-height:1.6;"><strong>Afzetten:</strong> {{ DROPOFF_ADDRESS }}</p>
+    </td></tr>
+</table>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Vragen? Neem contact op via {{ COMPANY_PHONE }} of {{ COMPANY_EMAIL }}.</p>
+<p style="margin:0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>{{ COMPANY_NAME }}</p>
 HTML;
+
+        return EmailCardHtml::wrap(
+            'Rit geaccepteerd',
+            'Uw taxirit is geaccepteerd',
+            $body,
+            EmailCardHtml::companyLogoMarkup(),
+            EmailCardHtml::poweredByFooter(),
+            '{{ COMPANY_NAME }}',
+        );
     }
 
     private function defaultTextContent(): string

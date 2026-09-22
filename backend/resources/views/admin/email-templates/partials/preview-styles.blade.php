@@ -87,7 +87,7 @@
     .email-preview-content table.info-request-fields {
         width: 100% !important;
         max-width: none !important;
-        table-layout: fixed !important;
+        table-layout: auto !important;
         border-collapse: collapse !important;
         margin: 0 !important;
         margin-left: 0 !important;
@@ -95,12 +95,12 @@
     }
 
     .email-preview-content table.info-request-fields td.info-request-field-label {
-        width: 175px !important;
-        max-width: 175px !important;
-        min-width: 175px !important;
+        width: 1% !important;
+        max-width: none !important;
+        min-width: 0 !important;
         white-space: nowrap !important;
         text-align: right !important;
-        padding: 6px 10px 6px 14px !important;
+        padding: 6px 12px 6px 0 !important;
         vertical-align: top !important;
         background-color: #ffffff !important;
         color: #374151 !important;
@@ -111,9 +111,10 @@
     .email-preview-content table.info-request-fields td.info-request-field-value--multiline {
         width: 99% !important;
         max-width: none !important;
-        padding: 6px 10px 6px 10px !important;
+        padding: 6px 0 6px 10px !important;
         vertical-align: top !important;
         word-break: break-word !important;
+        overflow-wrap: anywhere !important;
         background-color: #ffffff !important;
         color: #111827 !important;
         border: none !important;

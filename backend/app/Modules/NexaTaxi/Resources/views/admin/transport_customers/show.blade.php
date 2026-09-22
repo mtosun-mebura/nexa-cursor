@@ -3,20 +3,83 @@
 @section('title', $customer->name)
 
 @section('content')
-<div class="kt-container-fixed min-w-0">
-    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <div>
-            <h1 class="text-xl font-medium leading-none text-mono">{{ $customer->name }}</h1>
-            <div class="pt-3">
-                <a href="{{ route('admin.taxi.transport_customers.index') }}" class="kt-btn kt-btn-outline">
-                    <i class="ki-filled ki-arrow-left me-2"></i>
-                    Terug
-                </a>
+@php
+    $portalCount = ($portalUsers ?? collect())->count();
+    $contractCount = ($contracts ?? collect())->count();
+    $announcementCount = ($announcements ?? collect())->count();
+    $passengerCount = ($passengers ?? collect())->count();
+    $customerSection = old('section', request('section', 'portaal'));
+    if (! in_array($customerSection, ['portaal', 'abonnementen', 'meldingen'], true)) {
+        $customerSection = 'portaal';
+    }
+    $customerSectionUrl = fn (string $section) => request()->fullUrlWithQuery(['section' => $section]);
+    $nameParts = preg_split('/\s+/', trim((string) $customer->name)) ?: [];
+    $initials = '';
+    foreach (array_slice($nameParts, 0, 2) as $part) {
+        $clean = preg_replace('/[^A-Za-z0-9]/u', '', (string) $part) ?: (string) $part;
+        $initials .= mb_strtoupper(mb_substr($clean, 0, 1));
+    }
+    if (mb_strlen($initials) < 2) {
+        $letters = preg_replace('/[^A-Za-z0-9]/u', '', (string) $customer->name) ?: (string) $customer->name;
+        $initials = mb_strtoupper(mb_substr($letters, 0, 2));
+    }
+    $heroCity = trim(implode(' ', array_filter([
+        trim((string) ($customer->billing_postal_code ?? '')),
+        trim((string) ($customer->billing_city ?? '')),
+    ])));
+@endphp
+
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl lg:text-3xl font-semibold">
+                {{ $initials }}
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
+                    {{ $customer->name }}
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
+                <div class="flex gap-1.25 items-center">
+                    <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />
+                    <span class="font-medium {{ $customer->active ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                        {{ $customer->active ? 'Actief' : 'Inactief' }}
+                    </span>
+                </div>
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-notepad text-muted-foreground text-sm"></i>
+                    <span class="text-secondary-foreground font-medium">{{ $customer->organizationTypeLabel() }}</span>
+                </div>
+                @if($heroCity !== '')
+                    <div class="flex gap-1.25 items-center">
+                        <i class="ki-filled ki-geolocation text-muted-foreground text-sm"></i>
+                        <span class="text-secondary-foreground font-medium">{{ $heroCity }}</span>
+                    </div>
+                @endif
+                @if($customer->contact_email)
+                    <div class="flex gap-1.25 items-center min-w-0">
+                        <x-heroicon-o-envelope class="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span class="admin-email-text text-secondary-foreground font-medium">{{ $customer->contact_email }}</span>
+                    </div>
+                @endif
             </div>
         </div>
-        <div class="flex gap-2 shrink-0">
+    </div>
+</div>
+
+<div class="kt-container-fixed min-w-0">
+    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10">
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.taxi.transport_customers.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+        <div class="flex items-center gap-2.5">
             @can('rides.update')
             <a href="{{ route('admin.taxi.transport_customers.edit', $customer->id) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-notepad-edit me-2"></i>
                 Bewerken
             </a>
             @endcan
@@ -30,17 +93,6 @@
             @endcan
         </div>
     </div>
-
-    @php
-        $portalCount = ($portalUsers ?? collect())->count();
-        $contractCount = ($contracts ?? collect())->count();
-        $announcementCount = ($announcements ?? collect())->count();
-        $customerSection = old('section', request('section', 'portaal'));
-        if (! in_array($customerSection, ['portaal', 'abonnementen', 'meldingen'], true)) {
-            $customerSection = 'portaal';
-        }
-        $customerSectionUrl = fn (string $section) => request()->fullUrlWithQuery(['section' => $section]);
-    @endphp
 
     <div class="grid gap-5 lg:gap-7.5">
 
@@ -61,6 +113,10 @@
                                     <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
                                 @endif
                             </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Type organisatie</td>
+                            <td class="min-w-0">{{ $customer->organizationTypeLabel() }}</td>
                         </tr>
                         <tr>
                             <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Contactpersoon</td>
@@ -118,9 +174,9 @@
                 data-customer-section="abonnementen"
                 @if($customerSection === 'abonnementen') aria-current="page" @endif
             >
-                <span class="customer-section-tile__label">Abonnementen</span>
+                <span class="customer-section-tile__label">Abonnementen &amp; passagiers</span>
                 <span class="customer-section-tile__value">{{ $contractCount }}</span>
-                <span class="customer-section-tile__meta">{{ $contractCount === 1 ? 'abonnement' : 'abonnementen' }} · planning &amp; facturatie</span>
+                <span class="customer-section-tile__meta">{{ $passengerCount }} {{ $passengerCount === 1 ? 'passagier' : 'passagiers' }} inregelen · planning &amp; facturatie</span>
             </a>
             <a
                 href="{{ $customerSectionUrl('meldingen') }}"
@@ -437,7 +493,12 @@
         <div class="customer-section-panel{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}" data-customer-section-panel="abonnementen" id="customer-section-abonnementen">
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title mb-0">Abonnementen</h3>
+                <div class="min-w-0">
+                    <h3 class="kt-card-title mb-0">Abonnementen</h3>
+                    <p class="text-sm text-muted-foreground mt-1.5 mb-0">
+                        Open een abonnement om passagiers toe te voegen en de planning in te richten.
+                    </p>
+                </div>
             </div>
             <div class="kt-card-content p-0 min-w-0">
                 <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
@@ -656,6 +717,13 @@
 
 @push('styles')
 <style>
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
+    }
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
+    }
+
     #content .customer-section-nav {
         min-width: 0;
     }

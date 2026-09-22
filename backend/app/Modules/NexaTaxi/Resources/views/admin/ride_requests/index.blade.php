@@ -1,5 +1,6 @@
 @extends('admin.layouts.app')
 
+@include('layouts.partials.apexcharts')
 @include('admin.settings.partials.collapsible-section-assets')
 
 @section('title', 'Ritten')

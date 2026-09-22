@@ -13,6 +13,7 @@ use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\NexaPricingService;
 use App\Services\SaasBillingStartEmailTemplateService;
+use App\Support\EmailCardHtml;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1184,14 +1185,16 @@ class PlatformBillingService
             ? 'Via onderstaande link geeft u een SEPA-mandaat af en betaalt u de eerste vooruitfacturatie (€'.number_format($firstAmount, 2, ',', '.').'):'
             : 'Via onderstaande link kunt u een SEPA-mandaat afgeven voor automatische maandelijkse incasso (verificatiebetaling €0,01):';
 
-        Mail::raw(
+        EmailCardHtml::sendNexa(
+            $email,
+            'SEPA-mandaat aanvragen — '.$company->name,
+            'SEPA-mandaat aanvragen',
             "Beste {$company->name},\n\n".
             $paymentDescription."\n\n".
             ($checkoutUrl ?? '')."\n\n".
-            "Met vriendelijke groet,\nNexa Suite",
-            function ($message) use ($email, $company) {
-                $message->to($email)->subject('SEPA-mandaat aanvragen — '.$company->name);
-            }
+            "Met vriendelijke groet,\nNEXA Suite",
+            null,
+            $company->name,
         );
 
         return [
@@ -1495,15 +1498,21 @@ class PlatformBillingService
                 $body .= "Met deze betaling geeft u tevens toestemming voor automatische maandelijkse incasso.\n\n";
             }
         }
-        $body .= "Met vriendelijke groet,\nNexa Suite";
+        $body .= "Met vriendelijke groet,\nNEXA Suite";
 
-        Mail::raw($body, function ($message) use ($email, $invoice, $pdf) {
-            $message->to($email)->subject('NEXA-factuur '.$invoice->invoice_number);
-            if ($pdf && ! empty($pdf['bytes'])) {
-                $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
-                $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
-            }
-        });
+        EmailCardHtml::sendNexa(
+            $email,
+            'NEXA-factuur '.$invoice->invoice_number,
+            'NEXA-factuur '.$invoice->invoice_number,
+            $body,
+            function ($message) use ($invoice, $pdf) {
+                if ($pdf && ! empty($pdf['bytes'])) {
+                    $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
+                    $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
+                }
+            },
+            $invoice->company?->name,
+        );
     }
 
     /**

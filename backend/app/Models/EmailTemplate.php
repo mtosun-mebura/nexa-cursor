@@ -99,16 +99,17 @@ class EmailTemplate extends Model
             return '';
         }
         $formFields = $this->getOrderedFormFields();
-        $labelStyle = 'padding: 6px 10px 6px 14px; background-color: #ffffff; color: #374151; text-align: right; vertical-align: top; width: 175px; white-space: nowrap;';
-        $valueStyle = 'padding: 6px 10px 6px 10px; background-color: #ffffff; color: #111827; text-align: left; vertical-align: top; width: 99%;';
-        $textareaValueStyle = $valueStyle.' white-space: pre-wrap; word-break: break-word;';
+        $labelStyle = 'padding: 6px 12px 6px 0; background-color: #ffffff; color: #374151; text-align: right; vertical-align: top; width: 1%; white-space: nowrap;';
+        $valueStyle = 'padding: 6px 0 6px 10px; background-color: #ffffff; color: #111827; text-align: left; vertical-align: top; width: 99%; word-break: break-word; overflow-wrap: anywhere; white-space: normal;';
+        $textareaValueStyle = 'padding: 6px 0 6px 10px; background-color: #ffffff; color: #111827; text-align: left; vertical-align: top; width: 99%; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;';
         $fieldRows = [];
         foreach ($formFields as $field) {
             $varKey = static::fieldNameToVariableKey($field->name);
             $cellStyle = $field->isTextareaField() ? $textareaValueStyle : $valueStyle;
-            $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" width="175" style="'.$labelStyle.'"><strong>'.e($field->label).':</strong></td><td class="info-request-field-value'.($field->isTextareaField() ? ' info-request-field-value--multiline' : '').'" width="99%" style="'.$cellStyle.'">{{ '.$varKey.' }}</td></tr>';
+            $valueClass = 'info-request-field-value'.($field->isTextareaField() ? ' info-request-field-value--multiline' : '');
+            $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" width="1%" style="'.$labelStyle.'"><strong>'.e($field->label).':</strong></td><td class="'.$valueClass.'" width="99%" style="'.$cellStyle.'">{{ '.$varKey.' }}</td></tr>';
         }
-        $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" width="175" style="'.$labelStyle.'"><strong>Datum aanvraag:</strong></td><td class="info-request-field-value" width="99%" style="'.$valueStyle.'">{{ DATUM_AANVRAAG }}</td></tr>';
+        $fieldRows[] = '<tr class="info-request-field-row"><td class="info-request-field-label" width="1%" style="'.$labelStyle.'"><strong>Datum aanvraag:</strong></td><td class="info-request-field-value" width="99%" style="'.$valueStyle.'">{{ DATUM_AANVRAAG }}</td></tr>';
 
         return implode("\n", $fieldRows);
     }

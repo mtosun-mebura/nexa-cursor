@@ -17,6 +17,7 @@ use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
 use App\Services\TenantCustomerMailService;
+use App\Support\EmailCardHtml;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -695,16 +696,24 @@ class TaxiRideInvoiceService
                 : strip_tags($htmlContent);
         } else {
             $attachmentNote = $extraAttachments !== []
-                ? '<p>Bij deze e-mail vindt u de factuur van de terugrit en een totaalfactuur met het gecombineerde bedrag van heen- en terugrit.</p>'
+                ? '<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bij deze e-mail vindt u de factuur van de terugrit en een totaalfactuur met het gecombineerde bedrag van heen- en terugrit.</p>'
                 : '';
             $subject = 'Factuur '.$invoice->invoice_number;
-            $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
-                .'<p>In de bijlage vindt u factuur <strong>'.e($invoice->invoice_number).'</strong> van '
+            $body = '<p style="margin:0 0 16px;font-size:16px;">Beste '.e($variables['CUSTOMER_NAME']).',</p>'
+                .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">In de bijlage vindt u factuur <strong>'.e($invoice->invoice_number).'</strong> van '
                 .e($variables['INVOICE_DATE']).'.</p>'
                 .$attachmentNote
                 .($variables['INVOICE_PAID_NOTICE_HTML'] ?? '')
-                .$variables['INVOICE_AMOUNTS_HTML']
-                .'<p>Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+                .($variables['INVOICE_AMOUNTS_HTML'] ?? '')
+                .'<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+            $htmlContent = EmailCardHtml::wrap(
+                'Factuur',
+                'Factuur '.e((string) $invoice->invoice_number),
+                $body,
+                $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
+                EmailCardHtml::poweredByFooter(),
+                (string) $companyName,
+            );
             $textContent = ($variables['INVOICE_PAID_NOTICE_TEXT'] ?? '')
                 ."\n\n"
                 .($variables['INVOICE_AMOUNTS_TEXT'] ?? strip_tags($htmlContent));

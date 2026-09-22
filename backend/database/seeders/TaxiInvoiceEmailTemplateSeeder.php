@@ -3,32 +3,14 @@
 namespace Database\Seeders;
 
 use App\Models\EmailTemplate;
+use App\Support\EmailCardHtml;
 use Illuminate\Database\Seeder;
 
 class TaxiInvoiceEmailTemplateSeeder extends Seeder
 {
     public function run(): void
     {
-        $html = <<<'HTML'
-<!DOCTYPE html>
-<html lang="nl">
-<head><meta charset="UTF-8"><title>Factuur</title></head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0;">
-<div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-    <div style="margin-bottom: 24px;">{{ COMPANY_LOGO }}</div>
-    <p style="margin: 0 0 8px; font-size: 13px; color: #64748b; text-align: left;">{{ COMPANY_NAME }}</p>
-    <p style="margin: 0 0 24px; font-size: 12px; color: #64748b; white-space: pre-line; text-align: left;">{{ COMPANY_ADDRESS }}</p>
-    <h1 style="font-size: 20px; margin: 0 0 16px; text-align: left;">Factuur {{ INVOICE_NUMBER }}</h1>
-    <p style="text-align: left;">Beste {{ CUSTOMER_NAME }},</p>
-    <p style="text-align: left;">In de bijlage vindt u uw factuur <strong>{{ INVOICE_NUMBER }}</strong> van {{ INVOICE_DATE }}.</p>
-    <p style="text-align: left; margin: 0 0 8px;">Overzicht bedragen:</p>
-    {{ INVOICE_AMOUNTS_HTML }}
-    <p style="text-align: left;">Met vriendelijke groet,<br>{{ COMPANY_NAME }}</p>
-</div>
-</body>
-</html>
-HTML;
-
+        $html = $this->html();
         $text = <<<'TEXT'
 Beste {{ CUSTOMER_NAME }},
 
@@ -55,13 +37,30 @@ TEXT;
             $payload
         );
 
-        EmailTemplate::query()
-            ->where('type', 'invoice')
-            ->update([
-                'html_content' => $html,
-                'text_content' => $text,
-            ]);
+        EmailCardHtml::upgradeTypeToCardLayout('invoice', fn () => $html);
 
-        $this->command?->info('Factuur e-mailtemplate(s) bijgewerkt met BTW-opsplitsing.');
+        $this->command?->info('Factuur e-mailtemplate(s) bijgewerkt met huisstijl en BTW-opsplitsing.');
+    }
+
+    private function html(): string
+    {
+        $body = <<<'HTML'
+<p style="margin:0 0 16px;font-size:16px;">Beste {{ CUSTOMER_NAME }},</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+    In de bijlage vindt u uw factuur <strong>{{ INVOICE_NUMBER }}</strong> van {{ INVOICE_DATE }}.
+</p>
+<p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Overzicht bedragen</p>
+{{ INVOICE_AMOUNTS_HTML }}
+<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>{{ COMPANY_NAME }}</p>
+HTML;
+
+        return EmailCardHtml::wrap(
+            'Factuur',
+            'Factuur {{ INVOICE_NUMBER }}',
+            $body,
+            EmailCardHtml::companyLogoMarkup(),
+            EmailCardHtml::poweredByFooter(),
+            '{{ COMPANY_NAME }}',
+        );
     }
 }

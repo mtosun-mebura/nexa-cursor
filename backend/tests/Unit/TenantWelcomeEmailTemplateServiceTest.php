@@ -22,7 +22,32 @@ class TenantWelcomeEmailTemplateServiceTest extends TestCase
         $this->assertStringContainsString('{{ NEXA_LOGO }}', (string) $template->html_content);
         $this->assertStringNotContainsString('NEXA Suite</p>', (string) $template->html_content);
         $this->assertStringContainsString('<span style="color: #ffffff;">Open de admin</span>', (string) $template->html_content);
+        $this->assertStringContainsString('{{ START_VIDEO_URL }}', (string) $template->html_content);
+        $this->assertStringContainsString('<span style="color: #ffffff;">Bekijk de startvideo</span>', (string) $template->html_content);
+        $this->assertStringContainsString('#ea580c', (string) $template->html_content);
+        $this->assertStringContainsString('Powered by NEXA Suite.', (string) $template->html_content);
         $this->assertContains('NEXA_LOGO', array_keys(TenantWelcomeEmailTemplateService::variableLabels()));
+        $this->assertContains('START_VIDEO_URL', array_keys(TenantWelcomeEmailTemplateService::variableLabels()));
+    }
+
+    #[Test]
+    public function existing_template_gets_start_video_button(): void
+    {
+        EmailTemplate::query()->create([
+            'type' => TenantWelcomeEmailTemplateService::TYPE,
+            'company_id' => null,
+            'name' => TenantWelcomeEmailTemplateService::TEMPLATE_NAME,
+            'subject' => 'Welkom',
+            'html_content' => '<h2 style="margin: 0 0 10px; font-size: 16px;">Eerste stappen</h2><a href="#">Open de admin</a>',
+            'text_content' => "Admin openen: {{ ADMIN_LOGIN_URL }}\nHandleiding: {{ HANDLEIDING_URL }}",
+            'is_active' => true,
+        ]);
+
+        $template = app(TenantWelcomeEmailTemplateService::class)->ensureExists();
+
+        $this->assertStringContainsString('{{ START_VIDEO_URL }}', (string) $template->html_content);
+        $this->assertStringContainsString('Bekijk de startvideo', (string) $template->html_content);
+        $this->assertStringContainsString('{{ START_VIDEO_URL }}', (string) $template->text_content);
     }
 
     #[Test]
@@ -65,6 +90,7 @@ class TenantWelcomeEmailTemplateServiceTest extends TestCase
 
         $this->assertSame('Lisa Vermeer', $vars['USER_NAME']);
         $this->assertSame('Business', $vars['PACKAGE_NAME']);
+        $this->assertSame(TenantWelcomeEmailTemplateService::START_VIDEO_URL, $vars['START_VIDEO_URL']);
         $this->assertStringContainsString('Contractvervoer', $vars['PACKAGE_FEATURES_HTML']);
         $this->assertStringContainsString('<li>', $vars['PACKAGE_FEATURES_HTML']);
         $this->assertStringContainsString('Contractvervoer', $vars['PACKAGE_FEATURES_TEXT']);

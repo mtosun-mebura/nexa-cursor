@@ -10,9 +10,9 @@ use App\Models\NexaSuiteMarketplaceSetting;
 use App\Models\PlatformBillingSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use Carbon\Carbon;
+use App\Support\EmailCardHtml;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class NexaSuiteMarketplaceBillingService
 {
@@ -222,13 +222,19 @@ class NexaSuiteMarketplaceBillingService
             'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.').".\n\n".
             "Met vriendelijke groet,\nNEXA Suite";
 
-        Mail::raw($body, function ($message) use ($email, $invoice, $pdf) {
-            $message->to($email)->subject('NEXA Suite boekingsfactuur '.$invoice->invoice_number);
-            if ($pdf && ! empty($pdf['bytes'])) {
-                $filename = 'nexa-suite-boekingen-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
-                $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
-            }
-        });
+        EmailCardHtml::sendNexa(
+            $email,
+            'NEXA Suite boekingsfactuur '.$invoice->invoice_number,
+            'NEXA Suite boekingsfactuur '.$invoice->invoice_number,
+            $body,
+            function ($message) use ($invoice, $pdf) {
+                if ($pdf && ! empty($pdf['bytes'])) {
+                    $filename = 'nexa-suite-boekingen-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
+                    $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
+                }
+            },
+            $companyName,
+        );
 
         $invoice->update([
             'status' => $invoice->isPaid() ? 'paid' : 'sent',

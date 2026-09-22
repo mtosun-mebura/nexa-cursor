@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterProspect;
+use App\Support\EmailCardHtml;
 use App\Support\NexaBranding;
 
 class NewsletterHtmlCompiler
@@ -17,6 +18,9 @@ class NewsletterHtmlCompiler
         $ctaLabel = trim((string) ($blocks['cta_label'] ?? 'Aanmelden via contact')) ?: 'Aanmelden via contact';
         $title = trim((string) ($blocks['title'] ?? 'NEXA Suite voor taxibedrijven'));
         $eyebrow = trim((string) ($blocks['eyebrow'] ?? 'Voor taxibedrijven'));
+        $eyebrowHtml = ($eyebrow !== '' && ! EmailCardHtml::isRedundantBrandKicker($eyebrow))
+            ? '<p style="margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;">'.$this->e($eyebrow).'</p>'
+            : '';
         $intro = trim((string) ($blocks['intro'] ?? ''));
         $hero = $this->absoluteUrl((string) ($blocks['hero_image'] ?? config('newsletter.stock_images.hero')));
         $company = $prospect?->company_name ?: 'uw taxibedrijf';
@@ -61,7 +65,7 @@ class NewsletterHtmlCompiler
 <tr>
     <td bgcolor="#0f172a" style="padding:22px 28px;background:#0f172a;">
         <img src="{$this->e($logo)}" alt="NEXA Suite" height="32" style="height:32px;width:auto;display:block;margin:0 0 12px;">
-        <p style="margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;">{$this->e($eyebrow)}</p>
+        {$eyebrowHtml}
         <h1 style="margin:0;font-size:22px;line-height:1.3;color:#ffffff;">{$this->e($title)}</h1>
     </td>
 </tr>

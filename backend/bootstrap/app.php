@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Op https: forceer upgrade van http:// subresources naar https:// (geen mixed-content/"niet beveiligd").
         $middleware->append(\App\Http\Middleware\UpgradeInsecureRequests::class);
+        $middleware->append(\App\Http\Middleware\CompressResponse::class);
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,

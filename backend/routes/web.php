@@ -1001,6 +1001,9 @@ Route::get('/', function (Request $request) {
     return app(HomeController::class)->index($request);
 })->name('home');
 
+Route::get('/starten', [\App\Http\Controllers\Frontend\LegalPagesController::class, 'starten'])->name('starten');
+Route::get('/starten/video', [\App\Http\Controllers\Frontend\LegalPagesController::class, 'startenVideo'])->name('starten.video');
+
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 // Interne marketing / sales preview (centraal host: localhost, nexasuite.nl)
