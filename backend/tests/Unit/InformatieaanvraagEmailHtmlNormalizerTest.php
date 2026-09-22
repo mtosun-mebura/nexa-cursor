@@ -122,7 +122,9 @@ HTML;
         $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
 
         $this->assertStringContainsString('class="info-request-fields"', $normalized);
-        $this->assertStringContainsString(InformatieaanvraagEmailHtmlNormalizer::FIELDS_COLGROUP_HTML, $normalized);
+        $this->assertStringContainsString('table-layout: auto', $normalized);
+        $this->assertStringNotContainsString('<colgroup>', $normalized);
+        $this->assertStringNotContainsString('table-layout: fixed', $normalized);
     }
 
     #[Test]
@@ -144,8 +146,9 @@ HTML;
 
         $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
 
-        $this->assertStringNotContainsString('width: 1%', $normalized);
+        $this->assertStringNotContainsString('info-request-field-value" width="1%"', $normalized);
         $this->assertStringContainsString('width="99%"', $normalized);
+        $this->assertStringContainsString('width="1%"', $normalized);
     }
 
     #[Test]
@@ -160,9 +163,23 @@ HTML;
 
         $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
 
-        $this->assertStringContainsString('<col width="*" style="width: auto;">', $normalized);
-        $this->assertStringContainsString('width="175"', $normalized);
+        $this->assertStringNotContainsString('<colgroup>', $normalized);
+        $this->assertStringNotContainsString('table-layout: fixed', $normalized);
+        $this->assertStringContainsString('table-layout: auto', $normalized);
+        $this->assertStringContainsString('width="1%"', $normalized);
         $this->assertStringContainsString('width="99%"', $normalized);
-        $this->assertStringContainsString('width: 99%', $normalized);
+        $this->assertStringContainsString('word-break: break-word', $normalized);
+    }
+
+    #[Test]
+    public function test_adds_mobile_stacking_styles_for_field_rows(): void
+    {
+        $html = '<!DOCTYPE html><html><head></head><body><table class="info-request-fields"><tr class="info-request-field-row"><td class="info-request-field-label">Voornaam:</td><td class="info-request-field-value">Mert</td></tr></table></body></html>';
+
+        $normalized = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($html);
+
+        $this->assertStringContainsString(InformatieaanvraagEmailHtmlNormalizer::RESPONSIVE_STYLE_MARKER, $normalized);
+        $this->assertStringContainsString('@media only screen and (max-width: 600px)', $normalized);
+        $this->assertStringContainsString('display:block !important', $normalized);
     }
 }

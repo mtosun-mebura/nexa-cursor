@@ -880,6 +880,7 @@
     </div>
 </div>
 
+@include('layouts.partials.apexcharts')
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {

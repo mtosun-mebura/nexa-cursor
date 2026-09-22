@@ -1,51 +1,49 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bevestiging taxiboeking</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
-            Uw taxiboeking #{{ (int) $ride_id }}
-        </h2>
-
-        @if(!empty($customer_name))
-        <p>Beste {{ htmlspecialchars(trim($customer_name), ENT_QUOTES, 'UTF-8') }},</p>
-        @else
-        <p>Beste klant,</p>
-        @endif
-
-        <p>Bedankt voor uw boeking. Wij hebben uw rit aanvraag ontvangen en gaan deze zo snel mogelijk inplannen.</p>
-
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 16px;">
-            <p><strong>Datum/tijd:</strong> {{ htmlspecialchars($pickup_at, ENT_QUOTES, 'UTF-8') }}</p>
-            <p><strong>Ophalen:</strong> {{ htmlspecialchars($pickup_address ?? '—', ENT_QUOTES, 'UTF-8') }}</p>
-            <p><strong>Afzetten:</strong> {{ htmlspecialchars($dropoff_address ?? '—', ENT_QUOTES, 'UTF-8') }}</p>
+<x-email-card
+    heading="Bevestiging taxiboeking #{{ (int) $ride_id }}"
+    page-title="Bevestiging taxiboeking"
+    :logo-html="$logoHtml ?? \App\Services\CompanyEmailLogoService::HTML_PLACEHOLDER"
+    :kicker="$company_name ?? null"
+>
+    @if(!empty($customer_name))
+    <p style="margin:0 0 16px;font-size:16px;">Beste {{ $customer_name }},</p>
+    @else
+    <p style="margin:0 0 16px;font-size:16px;">Beste klant,</p>
+    @endif
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Bedankt voor uw boeking. Wij hebben uw ritaanvraag ontvangen en gaan deze zo snel mogelijk inplannen.
+    </p>
+    <table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">
+        <tr><td style="padding:16px 18px;border-radius:12px;background-color:#e8eef5;">
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Datum/tijd:</strong> {{ $pickup_at }}</p>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Ophalen:</strong> {{ $pickup_address ?? '—' }}</p>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Afzetten:</strong> {{ $dropoff_address ?? '—' }}</p>
             @if(isset($quoted_price) && $quoted_price !== null && $quoted_price !== '')
-            <p><strong>Prijsindicatie:</strong> € {{ number_format((float) $quoted_price, 2, ',', '.') }}</p>
+            <p style="margin:0;font-size:15px;line-height:1.6;"><strong>Prijsindicatie:</strong> € {{ number_format((float) $quoted_price, 2, ',', '.') }}</p>
             @endif
-        </div>
-
-        <div style="margin-top: 20px;">
-            <h3 style="color: #1f2937;">Samenvatting van uw boeking</h3>
-            <pre style="background-color: #ffffff; padding: 15px; border-left: 4px solid #2563eb; margin-top: 10px; white-space: pre-wrap; font-family: inherit;">{{ $summary_text }}</pre>
-        </div>
-
-        <p style="margin-top: 20px;">U ontvangt een aparte melding zodra een chauffeur uw rit heeft geaccepteerd.</p>
-
-        @if(!empty($portal_login_url))
-        <p style="margin-top: 16px;">
-            Heeft u al een account bij Mijn Taxi?
-            <a href="{{ $portal_login_url }}" style="color: #2563eb;">Log in</a>
-            om al uw ritten en facturen op één plek te bekijken.
-        </p>
+        </td></tr>
+    </table>
+    <p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Samenvatting van uw boeking</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;white-space:pre-wrap;">{{ $summary_text }}</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">U ontvangt een aparte melding zodra een chauffeur uw rit heeft geaccepteerd.</p>
+    @if(!empty($cancel_url))
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Wilt u de rit toch niet laten doorgaan? U kunt hem hieronder annuleren zolang er nog geen chauffeur is toegewezen.
+        @if(!empty($was_paid))
+        Bij annuleren wordt het vooraf betaalde bedrag teruggestort.
         @endif
-
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-            <p>Dit bericht is automatisch verzonden door NEXA Suite.</p>
-        </div>
-    </div>
-</body>
-</html>
+    </p>
+    <p style="margin:0 0 18px;text-align:center;">
+        <a href="{{ $cancel_url }}" style="display:inline-block;background-color:#ffffff;color:#b91c1c;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;border:1px solid #fecaca;">
+            <span style="color:#b91c1c;">Rit annuleren</span>
+        </a>
+    </p>
+    @endif
+    @if(!empty($portal_login_url))
+    <p style="margin:0 0 18px;text-align:center;">
+        <a href="{{ $portal_login_url }}" style="display:inline-block;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;">
+            <span style="color:#ffffff;">Open Mijn Taxi</span>
+        </a>
+    </p>
+    @endif
+    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Vragen? Neem contact op met {{ $company_name ?? 'ons' }}.</p>
+</x-email-card>

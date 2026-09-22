@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\EmailTemplate;
 use App\Modules\NexaTaxi\Services\Concerns\ResolvesScopedEmailTemplate;
+use App\Support\EmailCardHtml;
 
 class TaxiCustomerLoginCodeEmailTemplateService
 {
@@ -42,7 +43,10 @@ class TaxiCustomerLoginCodeEmailTemplateService
 
     public function ensureGlobalTemplateExists(): EmailTemplate
     {
-        return $this->firstOrCreateScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
+        $template = $this->firstOrCreateScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
+        EmailCardHtml::upgradeTypeToCardLayout(self::TYPE, fn () => $this->defaultHtmlContent());
+
+        return $template->fresh() ?? $template;
     }
 
     /**
@@ -91,27 +95,35 @@ class TaxiCustomerLoginCodeEmailTemplateService
 
     public function defaultHtmlContent(): string
     {
-        return <<<'HTML'
-<!DOCTYPE html>
-<html lang="nl">
-<head><meta charset="UTF-8"><title>Inlogcode</title></head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; margin: 0; padding: 0;">
-<div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-    <div style="margin-bottom: 20px;">{{ COMPANY_LOGO }}</div>
-    <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">{{ COMPANY_NAME }}</p>
-    <h1 style="font-size: 20px; margin: 0 0 16px;">Uw eenmalige inlogcode</h1>
-    <p>Beste {{ USER_NAME }},</p>
-    <p>Gebruik onderstaande code om in te loggen. Deze code is <strong>{{ CODE_EXPIRES_MINUTES }}</strong> minuten geldig.</p>
-    <div style="margin: 16px 0; padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; font-size: 22px; letter-spacing: 3px; font-weight: 800; text-align: center;">
-        {{ LOGIN_CODE }}
-    </div>
-    <p style="margin: 0 0 10px;">Inloggen kan ook via deze link:</p>
-    <p><a href="{{ LOGIN_URL }}" style="color: #2563eb; font-weight: 700;">{{ LOGIN_URL }}</a></p>
-    <p style="margin-top: 18px; font-size: 13px; color: #6b7280;">Heeft u dit niet aangevraagd? Dan kunt u deze e-mail negeren.</p>
-</div>
-</body>
-</html>
+        $body = <<<'HTML'
+<p style="margin:0 0 16px;font-size:16px;">Beste {{ USER_NAME }},</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+    Gebruik onderstaande code om in te loggen. Deze code is <strong>{{ CODE_EXPIRES_MINUTES }} minuten</strong> geldig.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">
+    <tr>
+        <td style="padding:18px 16px;border-radius:12px;background-color:#e8eef5;text-align:center;">
+            <p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Code</p>
+            <p style="margin:0;font-size:28px;letter-spacing:6px;font-weight:800;color:#0f172a;">{{ LOGIN_CODE }}</p>
+        </td>
+    </tr>
+</table>
+<p style="margin:0 0 18px;text-align:center;">
+    <a href="{{ LOGIN_URL }}" style="display:inline-block;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;">
+        <span style="color:#ffffff;">Inloggen</span>
+    </a>
+</p>
+<p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u dit niet aangevraagd? Dan kunt u deze e-mail negeren.</p>
 HTML;
+
+        return EmailCardHtml::wrap(
+            'Inlogcode',
+            'Uw eenmalige inlogcode',
+            $body,
+            EmailCardHtml::companyLogoMarkup(),
+            EmailCardHtml::poweredByFooter(),
+            '{{ COMPANY_NAME }}',
+        );
     }
 
     public function defaultTextContent(): string

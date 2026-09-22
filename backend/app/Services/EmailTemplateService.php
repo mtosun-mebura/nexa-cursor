@@ -6,6 +6,7 @@ use App\Models\Candidate;
 use App\Models\Company;
 use App\Models\EmailTemplate;
 use App\Modules\Skillmatching\Models\Vacancy;
+use App\Support\EmailCardHtml;
 use App\Support\NexaBranding;
 use Illuminate\Support\Facades\Mail;
 
@@ -196,6 +197,7 @@ class EmailTemplateService
             $merged = $this->formatInformatieaanvraagVariables($template, $merged);
         }
         $htmlContent = $this->parseTemplate($htmlContent, $merged);
+        $htmlContent = EmailCardHtml::stripRedundantBrandKickerHtml($htmlContent);
         if ($template->type === 'informatieaanvraag' && $htmlContent !== '') {
             $htmlContent = app(InformatieaanvraagEmailHtmlNormalizer::class)->normalize($htmlContent);
         }

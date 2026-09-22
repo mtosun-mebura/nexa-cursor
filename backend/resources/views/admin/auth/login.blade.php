@@ -14,11 +14,7 @@ Author: Keenthemes
     <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
     <meta content="Admin login page for NEXA" name="description"/>
     @include('layouts.partials.pwa-favicon')
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('layouts.partials.auth-head-assets')
 </head>
 <body class="antialiased flex h-full text-base text-foreground bg-background">
     <!-- Theme Mode -->
@@ -46,11 +42,14 @@ Author: Keenthemes
     
     <!-- Page -->
     <style>
-        .branded-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1600/1.png') }}');
+        .page-bg {
+            background-color: var(--background);
+            background-image:
+                radial-gradient(ellipse at top left, rgb(249 115 22 / 0.10), transparent 52%),
+                radial-gradient(ellipse at bottom right, rgb(37 99 235 / 0.07), transparent 48%);
         }
-        .dark .branded-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1600/1-dark.png') }}');
+        @keyframes first-login-spin {
+            to { transform: rotate(360deg); }
         }
         
         /* Login form input fields 100% width */
@@ -317,9 +316,7 @@ Author: Keenthemes
     <!-- End of Page -->
     
     <!-- Scripts -->
-    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
-    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
+    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}" defer></script>
     <script>
         (function () {
             const loginForm = document.getElementById('sign_in_form');

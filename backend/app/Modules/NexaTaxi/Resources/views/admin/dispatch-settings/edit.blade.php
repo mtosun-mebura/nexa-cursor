@@ -96,6 +96,32 @@
                         @enderror
                     </td>
                 </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Automatisch annuleren zonder chauffeur (minuten)</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="unaccepted_auto_cancel_minutes"
+                            id="unaccepted_auto_cancel_minutes"
+                            class="kt-input w-full max-w-md @error('unaccepted_auto_cancel_minutes') border-destructive @enderror"
+                            min="{{ $minUnacceptedAutoCancelMinutes }}"
+                            max="{{ $maxUnacceptedAutoCancelMinutes }}"
+                            step="1"
+                            required
+                            value="{{ old('unaccepted_auto_cancel_minutes', $unacceptedAutoCancelMinutes) }}"
+                        >
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Als binnen deze tijd na het ophaalmoment niemand de rit accepteert, wordt de rit
+                            automatisch geannuleerd. Bij vooraf betalen stort Mollie het bedrag terug.
+                            Stelt een chauffeur een nieuw tijdstip voor, dan telt die nieuwe tijd.
+                            Standaard server: {{ $envDefaultUnacceptedAutoCancelMinutes }} minuten.
+                            0 = uit. Tussen {{ $minUnacceptedAutoCancelMinutes }} en {{ $maxUnacceptedAutoCancelMinutes }} minuten.
+                        </p>
+                        @error('unaccepted_auto_cancel_minutes')
+                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                        @enderror
+                    </td>
+                </tr>
             </table>
             </div>
             </div>

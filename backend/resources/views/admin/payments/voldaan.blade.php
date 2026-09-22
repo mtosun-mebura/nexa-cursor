@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('layouts.partials.apexcharts')
+
 @section('title', 'Voldane Betalingen')
 
 @section('content')

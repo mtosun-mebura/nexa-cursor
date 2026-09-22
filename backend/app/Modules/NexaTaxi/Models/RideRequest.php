@@ -158,6 +158,12 @@ class RideRequest extends Model
 
     public const PAYMENT_STATUS_NOT_REQUIRED = 'not_required';
 
+    public const PAYMENT_STATUS_REFUNDED = 'refunded';
+
+    public const PAYMENT_STATUS_REFUND_PENDING = 'refund_pending';
+
+    public const PAYMENT_STATUS_REFUND_FAILED = 'refund_failed';
+
     public const RIDE_TYPE_STANDARD = 'standard';
 
     public const RIDE_TYPE_CONTRACT_GROUP = 'contract_group';

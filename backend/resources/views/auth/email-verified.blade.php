@@ -1,108 +1,125 @@
-<!--
-Product: Metronic is a toolkit of UI components built with Tailwind CSS for developing scalable web applications quickly and efficiently
-Version: v9.3.5
-Author: Keenthemes
--->
 <!DOCTYPE html>
-<html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
+<html lang="nl">
 <head>
-    <base href="{{ url('/') }}">
-    <title>E-mailadres geverifieerd - NEXA Skillmatching</title>
-    <meta charset="utf-8"/>
-    <meta content="follow, index" name="robots"/>
-    <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
-    <meta content="E-mailadres verificatie pagina voor NEXA Skillmatching Platform" name="description"/>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="antialiased flex h-full text-base text-foreground bg-background">
-    <!-- Theme Mode -->
-    <script>
-        const defaultThemeMode = 'light';
-        let themeMode;
-
-        if (document.documentElement) {
-            if (localStorage.getItem('kt-theme')) {
-                themeMode = localStorage.getItem('kt-theme');
-            } else if (document.documentElement.hasAttribute('data-kt-theme-mode')) {
-                themeMode = document.documentElement.getAttribute('data-kt-theme-mode');
-            } else {
-                themeMode = defaultThemeMode;
-            }
-
-            if (themeMode === 'system') {
-                themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            }
-
-            document.documentElement.classList.add(themeMode);
-        }
-    </script>
-    <!-- End of Theme Mode -->
-    
-    <!-- Page -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>E-mailadres geverifieerd - NEXA Suite</title>
     <style>
-        .page-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1200/bg-10.png') }}');
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
         }
-        .dark .page-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1200/bg-10-dark.png') }}');
+        html.dark body { background: #070b14; color: #e2e8f0; }
+        .card {
+            width: 100%;
+            max-width: 440px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            box-shadow: 0 24px 60px -24px rgba(15, 23, 42, 0.28);
+            padding: 40px 32px 36px;
+            text-align: center;
         }
+        html.dark .card {
+            background: #0b1220;
+            border-color: #1e293b;
+            box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.55);
+        }
+        .art {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+        .art img { max-height: 130px; width: auto; }
+        html.dark .art .light-only { display: none; }
+        html:not(.dark) .art .dark-only { display: none; }
+        h1 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 12px 0 10px;
+            letter-spacing: -0.01em;
+        }
+        p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #64748b;
+        }
+        html.dark p { color: #94a3b8; }
+        a.inline {
+            color: #0f172a;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        html.dark a.inline { color: #e2e8f0; }
+        a.inline:hover { color: #2563eb; }
+        .actions { margin-top: 28px; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+            padding: 0 18px;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .btn:hover { background: #1d4ed8; }
     </style>
-    <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
-        <div class="kt-card max-w-[440px] w-full">
-            <div class="kt-card-content p-10">
-                <div class="flex justify-center py-10">
-                    <img alt="Success" class="dark:hidden max-h-[130px]" src="{{ asset('assets/media/illustrations/30.svg') }}"/>
-                    <img alt="Success" class="light:hidden max-h-[130px]" src="{{ asset('assets/media/illustrations/30-dark.svg') }}"/>
-                </div>
-                <h3 class="text-lg font-medium text-mono text-center mb-3">
-                    @php
-                        $channelLabel = $channelLabel ?? 'e-mailadres';
-                    @endphp
-                    @if($wasAlreadyVerified)
-                        {{ ucfirst($channelLabel) }} al geverifieerd
-                    @else
-                        {{ ucfirst($channelLabel) }} succesvol geverifieerd!
-                    @endif
-                </h3>
-                <div class="text-sm text-center text-secondary-foreground mb-7.5">
-                    @if($wasAlreadyVerified)
-                        Je {{ $channelLabel }} was al geverifieerd. Je kunt direct inloggen.
-                    @else
-                        Bedankt {{ $user->first_name }}! Je {{ $channelLabel }}
-                        @if(!empty($channelValue) || $user->email)
-                        <a class="text-sm text-mono font-medium hover:text-primary" href="{{ ($channelLabel === 'telefoonnummer') ? 'tel:'.($channelValue ?? $user->phone) : 'mailto:'.($channelValue ?? $user->email) }}">
-                            {{ $channelValue ?? $user->email }}
-                        </a>
-                        @endif
-                        is nu geverifieerd. Je kunt nu inloggen op je account.
-                    @endif
-                </div>
-                <div class="flex justify-center mb-5">
-                    <a class="kt-btn kt-btn-primary flex justify-center" href="{{ route('admin.login') }}">
-                        Ga naar inlogpagina
+</head>
+<body>
+    <script>
+        (function () {
+            var stored = localStorage.getItem('kt-theme');
+            var mode = stored || 'light';
+            if (mode === 'system') {
+                mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.classList.add(mode);
+        })();
+    </script>
+    @php
+        $channelLabel = $channelLabel ?? 'e-mailadres';
+    @endphp
+    <div class="card">
+        <div class="art">
+            <img alt="" class="light-only" src="{{ asset('assets/media/illustrations/30.svg') }}">
+            <img alt="" class="dark-only" src="{{ asset('assets/media/illustrations/30-dark.svg') }}">
+        </div>
+        <h1>
+            @if($wasAlreadyVerified)
+                {{ ucfirst($channelLabel) }} al geverifieerd
+            @else
+                {{ ucfirst($channelLabel) }} succesvol geverifieerd!
+            @endif
+        </h1>
+        <p>
+            @if($wasAlreadyVerified)
+                Je {{ $channelLabel }} was al geverifieerd. Je kunt direct inloggen.
+            @else
+                Bedankt {{ $user->first_name }}! Je {{ $channelLabel }}
+                @if(!empty($channelValue) || $user->email)
+                    <a class="inline" href="{{ ($channelLabel === 'telefoonnummer') ? 'tel:'.($channelValue ?? $user->phone) : 'mailto:'.($channelValue ?? $user->email) }}">
+                        {{ $channelValue ?? $user->email }}
                     </a>
-                </div>
-                <div class="flex items-center justify-center gap-1 text-2sm">
-                    <span class="text-secondary-foreground">
-                        Terug naar
-                    </span>
-                    <a class="text-2sm font-medium kt-link" href="{{ route('admin.dashboard') }}">
-                        Dashboard
-                    </a>
-                </div>
-            </div>
+                @endif
+                is nu geverifieerd. Je kunt nu inloggen op je account.
+            @endif
+        </p>
+        <div class="actions">
+            <a class="btn" href="{{ route('admin.login') }}">Ga naar inlogpagina</a>
         </div>
     </div>
-    <!-- End of Page -->
-    <!-- Scripts -->
-    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
-    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
-    <!-- End of Scripts -->
 </body>
 </html>
-

@@ -29,6 +29,7 @@ class WebsitePageController extends Controller
         'voorwaarden', 'disclaimer',
         'vacature-matching', 'favorites', 'verify-email', 'admin', 'storage', 'file',
         'marketing',
+        'starten',
         'demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7', 'demo8', 'demo9', 'demo10',
         \App\Models\WebsitePage::CENTRAL_WELCOME_SLUG,
     ];

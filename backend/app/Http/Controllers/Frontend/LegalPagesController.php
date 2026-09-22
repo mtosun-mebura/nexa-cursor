@@ -9,6 +9,7 @@ use App\Models\WebsitePage;
 use App\Services\GoogleSeoSettingsService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class LegalPagesController extends Controller
 {
@@ -24,6 +25,44 @@ class LegalPagesController extends Controller
     public function disclaimer(): View
     {
         return view('frontend.pages.disclaimer', $this->layoutData());
+    }
+
+    public function starten(): View
+    {
+        return view('frontend.pages.starten', array_merge($this->layoutData(), [
+            'videoUrl' => route('starten.video', [
+                'v' => is_file(public_path('videos/nexa-starten.mp4'))
+                    ? filemtime(public_path('videos/nexa-starten.mp4'))
+                    : time(),
+            ]),
+            'adminLoginUrl' => \App\Services\TenantWelcomeEmailTemplateService::ADMIN_LOGIN_URL,
+            'handleidingUrl' => \App\Services\TenantWelcomeEmailTemplateService::HANDLEIDING_URL,
+            'chapters' => [
+                ['time' => 0, 'title' => 'Welkom', 'summary' => 'De echte route, van mail tot de apps.'],
+                ['time' => 16, 'title' => 'Welkomstmail', 'summary' => 'Klik op Open de admin. Geen wachtwoord in de mail.'],
+                ['time' => 36, 'title' => 'Eerste keer inloggen', 'summary' => 'Code aanvragen, invoeren en zelf een wachtwoord kiezen.'],
+                ['time' => 55, 'title' => 'Inlogcode aanvragen', 'summary' => 'Vul je e-mail in en vraag de eenmalige code aan.'],
+                ['time' => 84, 'title' => 'Handleiding', 'summary' => 'Na het inloggen land je hier, in het adminpaneel.'],
+                ['time' => 103, 'title' => 'Dark Mode', 'summary' => 'Zet Dark Mode aan via je profielfoto rechtsboven.'],
+                ['time' => 150, 'title' => 'Dashboard en menu', 'summary' => 'Startscherm, menuitems en wat er bij jouw pakket hoort.'],
+                ['time' => 185, 'title' => 'Bedrijf en gebruikers', 'summary' => 'Gegevens checken en collega’s aanmaken.'],
+                ['time' => 240, 'title' => 'Chauffeur-app', 'summary' => 'Inloggen, ritten, betalen, factuur, navigatie en profiel op je telefoon.'],
+                ['time' => 423, 'title' => 'Profiel', 'summary' => 'Gegevens, themakleur, ritgeluid, handleiding en uitloggen.'],
+                ['time' => 451, 'title' => 'Contract-app', 'summary' => 'Inloggen, vandaag, afmelden, planning en de ophaalroute op de kaart.'],
+            ],
+        ]));
+    }
+
+    public function startenVideo(): BinaryFileResponse
+    {
+        $path = public_path('videos/nexa-starten.mp4');
+        abort_unless(is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Type' => 'video/mp4',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
     }
 
     /**

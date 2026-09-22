@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\NexaSuiteBookingInvoice;
 use App\Models\NexaSuiteMarketplaceSetting;
 use Carbon\Carbon;
+use App\Support\EmailCardHtml;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class NexaSuiteMarketplaceDunningService
 {
@@ -121,13 +121,19 @@ class NexaSuiteMarketplaceDunningService
             $pdf = null;
         }
 
-        Mail::raw($mail['body'], function ($message) use ($email, $mail, $invoice, $pdf) {
-            $message->to($email)->subject($mail['subject']);
-            if ($pdf && ! empty($pdf['bytes'])) {
-                $filename = 'nexa-suite-boekingen-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
-                $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
-            }
-        });
+        EmailCardHtml::sendNexa(
+            $email,
+            $mail['subject'],
+            $mail['subject'],
+            $mail['body'],
+            function ($message) use ($invoice, $pdf) {
+                if ($pdf && ! empty($pdf['bytes'])) {
+                    $filename = 'nexa-suite-boekingen-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
+                    $message->attachData($pdf['bytes'], $filename, ['mime' => 'application/pdf']);
+                }
+            },
+            $invoice->company?->name,
+        );
 
         $invoice->update($level === 2
             ? ['second_reminder_sent_at' => now()]

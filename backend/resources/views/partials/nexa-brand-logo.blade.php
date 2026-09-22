@@ -10,14 +10,14 @@
 @once
 <style>
     .nexa-brand-lockup { display: inline-flex; align-items: center; max-width: 100%; }
-    .nexa-brand-lockup > .logo-light { display: block; }
-    .nexa-brand-lockup > .logo-dark { display: none; }
+    .nexa-brand-lockup > .logo-light { display: block !important; }
+    .nexa-brand-lockup > .logo-dark { display: none !important; }
     html.dark .nexa-brand-lockup > .logo-light,
     body.dark .nexa-brand-lockup > .logo-light,
-    .dark .nexa-brand-lockup > .logo-light { display: none; }
+    .dark .nexa-brand-lockup > .logo-light { display: none !important; }
     html.dark .nexa-brand-lockup > .logo-dark,
     body.dark .nexa-brand-lockup > .logo-dark,
-    .dark .nexa-brand-lockup > .logo-dark { display: block; }
+    .dark .nexa-brand-lockup > .logo-dark { display: block !important; }
 </style>
 @endonce
 <span class="nexa-brand-lockup">

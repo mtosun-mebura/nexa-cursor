@@ -95,10 +95,13 @@ class TaxiAppUserWelcomeEmailTemplateService
             .'</td></tr>'
             .'</table>';
 
+        $footer = '<p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.</p>'
+            .'<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>';
+
         EmailTemplate::query()
             ->whereIn('type', self::types())
             ->get()
-            ->each(function (EmailTemplate $template) use ($block): void {
+            ->each(function (EmailTemplate $template) use ($block, $footer): void {
                 $html = (string) $template->html_content;
                 $updated = preg_replace(
                     '/<table role="presentation" width="100%" style="[^"]*background-color:\s*#f8fafc;[^"]*">[\s\S]*?Inloggen[\s\S]*?<\/table>/i',
@@ -106,6 +109,13 @@ class TaxiAppUserWelcomeEmailTemplateService
                     $html,
                     1
                 ) ?? $html;
+
+                $updated = preg_replace(
+                    '/<p style="margin:0;font-size:13px;color:#6b7280;">Heeft u deze e-mail niet verwacht\? Neem contact op met \{\{ COMPANY_NAME \}\}\.<\/p>(?:\s*<p[^>]*>Powered by NEXA Suite\.<\/p>)?/i',
+                    $footer,
+                    $updated,
+                    1
+                ) ?? $updated;
 
                 if ($updated === $html) {
                     return;
@@ -218,7 +228,8 @@ class TaxiAppUserWelcomeEmailTemplateService
                 <span style="color:#ffffff;">Open {{ APP_NAME }}</span>
             </a>
         </p>
-        <p style="margin:0;font-size:13px;color:#6b7280;">Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.</p>
+        <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.</p>
+        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>
     </td>
 </tr>
 </table>
@@ -249,6 +260,8 @@ Er staat geen wachtwoord in deze e-mail.
 4. Vul de code uit de volgende e-mail in en kies een eigen wachtwoord
 
 Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.
+
+Powered by NEXA Suite.
 TEXT;
     }
 }

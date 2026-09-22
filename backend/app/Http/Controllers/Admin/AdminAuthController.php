@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\AdminFirstLoginService;
+use App\Services\CompanyEmailLogoService;
 use App\Services\EnvService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\AdminReturnUrl;
+use App\Support\NexaBranding;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Spatie\Permission\PermissionRegistrar;
@@ -321,16 +324,25 @@ class AdminAuthController extends Controller
                 $fromName = $envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
                 $smtpUsername = $envService->get('MAIL_USERNAME', '');
 
-                // Send custom email
-                \Illuminate\Support\Facades\Mail::send('emails.password-reset', [
+                $html = view('emails.password-reset', [
                     'user' => $user,
                     'resetUrl' => $resetUrl,
-                ], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername) {
-                    $message->to($user->email, $user->first_name.' '.$user->last_name)
-                        ->subject('Wachtwoord resetten - Nexa Skillmatching')
-                        ->from($fromAddress, $fromName);
+                    'nexaLogoHtml' => NexaBranding::EMAIL_LOGO_PLACEHOLDER,
+                ])->render();
 
-                    // Add Sender header if SMTP username is available
+                Mail::send([], [], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername, $html) {
+                    $htmlBody = app(CompanyEmailLogoService::class)->embedInHtml(
+                        $html,
+                        $message,
+                        $user->company_id ? (int) $user->company_id : null,
+                        'NEXA Suite'
+                    );
+
+                    $message->to($user->email, $user->first_name.' '.$user->last_name)
+                        ->subject('Wachtwoord resetten - NEXA Suite')
+                        ->from($fromAddress, $fromName)
+                        ->html($htmlBody);
+
                     if (! empty($smtpUsername)) {
                         try {
                             $symfonyMessage = $message->getSymfonyMessage();

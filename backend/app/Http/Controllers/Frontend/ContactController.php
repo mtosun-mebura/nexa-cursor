@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Services\CompanyEmailLogoService;
 use App\Services\EnvService;
 use App\Services\ProfanityFilter;
 use App\Services\PublicFormProtection;
+use App\Support\NexaBranding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
@@ -217,11 +219,12 @@ class ContactController extends Controller
             // Note: We use 'user_message' instead of 'message' to avoid conflict with Laravel's $message variable
             // Data is al gesanitized, maar we gebruiken htmlspecialchars opnieuw voor extra veiligheid
             $emailData = [
-                'first_name' => htmlspecialchars($data['first_name'], ENT_QUOTES, 'UTF-8'),
-                'last_name' => htmlspecialchars($data['last_name'], ENT_QUOTES, 'UTF-8'),
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
                 'email' => filter_var($data['email'], FILTER_SANITIZE_EMAIL),
-                'phone' => $data['phone'] ? htmlspecialchars($data['phone'], ENT_QUOTES, 'UTF-8') : '',
-                'user_message' => nl2br(htmlspecialchars($data['message'], ENT_QUOTES, 'UTF-8')), // Voor email template met line breaks
+                'phone' => $data['phone'] ?: '',
+                'user_message' => nl2br(e($data['message']), false),
+                'nexaLogoHtml' => NexaBranding::EMAIL_LOGO_PLACEHOLDER,
             ];
 
             // Haal from adres en naam uit backend instellingen
@@ -238,12 +241,15 @@ class ContactController extends Controller
             // SMTP authenticatie gebruikt automatisch MAIL_USERNAME en MAIL_PASSWORD
             // FROM adres wordt alleen in de email headers gezet
             // Envelope sender wordt ingesteld op SMTP username voor de SMTP MAIL FROM commando
-            Mail::send('emails.contact', $emailData, function ($mailMessage) use ($emailData, $fromAddress, $fromName, $smtpUsername) {
-                $subject = 'Nieuw contactformulier bericht van '.$emailData['first_name'].' '.$emailData['last_name'];
+            $html = view('emails.contact', $emailData)->render();
+            Mail::send([], [], function ($mailMessage) use ($emailData, $fromAddress, $fromName, $smtpUsername, $html) {
+                $htmlBody = app(CompanyEmailLogoService::class)->embedInHtml($html, $mailMessage, null, 'NEXA Suite');
+                $subject = 'Nieuw contactformulierbericht van '.$emailData['first_name'].' '.$emailData['last_name'];
                 $mailMessage->to('support@mebura.nl', 'NEXA Support')
                     ->subject($subject)
                     ->replyTo($emailData['email'], $emailData['first_name'].' '.$emailData['last_name'])
-                    ->from($fromAddress, $fromName);
+                    ->from($fromAddress, $fromName)
+                    ->html($htmlBody);
 
                 // Voeg een Sender header toe als SMTP username beschikbaar is
                 // De Sender header geeft aan welk adres daadwerkelijk de email verzendt

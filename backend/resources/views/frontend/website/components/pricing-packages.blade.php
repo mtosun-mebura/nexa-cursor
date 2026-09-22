@@ -261,6 +261,10 @@
         height: 1px;
         vertical-align: stretch;
     }
+    #prijzen-pakketten .nexa-pricing-table-wrap td.nexa-plan-head,
+    #prijzen-pakketten .nexa-pricing-table-wrap td.nexa-plan-price {
+        text-align: center;
+    }
     #prijzen-pakketten .nexa-plan-price__inner {
         height: 100%;
         display: flex;
@@ -268,6 +272,12 @@
         padding-top: 0.5rem;
         padding-bottom: 0.75rem;
         box-sizing: border-box;
+    }
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-plan-price__inner,
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-price-block,
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-price-deal,
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-price-deal__was {
+        align-items: center;
     }
     #prijzen-pakketten .nexa-price-deal {
         display: flex;
@@ -703,7 +713,7 @@
                             $highlighted = filter_var($package['highlighted'] ?? false, FILTER_VALIDATE_BOOLEAN);
                             $isFirst = $index === 0;
                             $isLast = $index === $packageCount - 1;
-                            $cellClass = 'border-t ltr:border-l rtl:border-s p-5! pt-7.5! pb-2! relative';
+                            $cellClass = 'nexa-plan-head border-t ltr:border-l rtl:border-s p-5! pt-7.5! pb-2! relative text-center';
                             if ($highlighted) {
                                 $cellClass .= ' bg-muted/40';
                             }
@@ -731,7 +741,7 @@
                             $highlighted = filter_var($package['highlighted'] ?? false, FILTER_VALIDATE_BOOLEAN);
                             $isLast = $index === $packageCount - 1;
                             $deal = $pricingService->packagePricePresentation($package);
-                            $cellClass = 'nexa-plan-price ltr:border-l rtl:border-s px-5! py-0!';
+                            $cellClass = 'nexa-plan-price ltr:border-l rtl:border-s px-5! py-0! text-center';
                             if ($highlighted) {
                                 $cellClass .= ' bg-muted/40';
                             }
