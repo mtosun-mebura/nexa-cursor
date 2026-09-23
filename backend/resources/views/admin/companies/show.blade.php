@@ -77,8 +77,9 @@
         background: var(--background);
         border-bottom: 1px solid var(--border);
     }
+    /* Header + sticky tabs; JS gebruikt dezelfde offset via offsetHeight (niet getBoundingClientRect vóór sticky). */
     .company-show-section {
-        scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 4.5rem);
+        scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 4.75rem);
     }
     @media (max-width: 1023px) {
         .company-show-section {
@@ -1163,11 +1164,13 @@ document.addEventListener('DOMContentLoaded', function () {
     var programmaticTimer = null;
 
     function navOffset() {
+        // Gebruik offsetHeight i.p.v. getBoundingClientRect: vóór sticky
+        // zit de tab-nav nog lager in de pagina en is bottom veel te groot → te weinig scroll.
         var sticky = document.querySelector('.company-show-section-nav');
-        if (!sticky) {
-            return 120;
-        }
-        return Math.max(0, sticky.getBoundingClientRect().bottom) + 8;
+        var header = document.querySelector('.kt-header, #kt_header, header');
+        var headerH = header ? header.offsetHeight : 70;
+        var stickyH = sticky ? sticky.offsetHeight : 56;
+        return headerH + stickyH + 12;
     }
 
     function setActiveTab(id) {
@@ -1208,11 +1211,26 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         programmaticScroll = true;
         clearTimeout(programmaticTimer);
-        var top = window.scrollY + target.getBoundingClientRect().top - navOffset();
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        var behavior = updateHash ? 'smooth' : 'auto';
+
+        function applyScroll() {
+            var top = window.scrollY + target.getBoundingClientRect().top - navOffset();
+            window.scrollTo({ top: Math.max(0, top), behavior: behavior });
+            // Na de eerste instant-scroll opnieuw meten (sticky is dan vast) zonder smooth.
+            behavior = 'auto';
+        }
+
+        applyScroll();
+        // Layout/sticky kan nog schuiven na eerste paint (afbeeldingen, fonts).
+        requestAnimationFrame(function () {
+            applyScroll();
+            setTimeout(applyScroll, 120);
+            setTimeout(applyScroll, 320);
+        });
+
         programmaticTimer = setTimeout(function () {
             programmaticScroll = false;
-        }, 900);
+        }, updateHash ? 900 : 700);
     }
 
     nav.addEventListener('click', function (e) {
@@ -1226,9 +1244,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var initialHash = (window.location.hash || '').replace(/^#/, '');
     if (initialHash && document.getElementById(initialHash)) {
-        setTimeout(function () {
+        // Voorkom dat de browser-hash eerst te hoog blijft hangen.
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        scrollToSection(initialHash, false);
+        window.addEventListener('load', function () {
             scrollToSection(initialHash, false);
-        }, 50);
+        }, { once: true });
     }
 
     if (!('IntersectionObserver' in window) || sections.length === 0) {
@@ -1559,166 +1582,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // Tenant domeinen: tabel bijwerken zonder volledige pagina-refresh
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        const domainList = document.getElementById('company-domains-list');
-        const domainEmptyMsg = document.getElementById('company-domains-empty');
-        const domainListWrap = document.getElementById('company-domains-list-wrap');
-        const domainAddForm = document.getElementById('company-domain-add-form');
-
-        function applyCompanyDomainsList(data) {
-            if (domainList && data.tbody_html !== undefined) {
-                domainList.innerHTML = data.tbody_html;
-            }
-            const hasDomains = data.has_domains !== false;
-            if (hasDomains) {
-                domainEmptyMsg?.classList.add('hidden');
-                domainListWrap?.classList.remove('hidden');
-                domainAddForm?.classList.add('pt-5', 'border-t', 'border-border');
-                domainAddForm?.classList.remove('rounded-xl', 'border', 'border-input', 'bg-muted/15', 'p-4', 'sm:p-5');
-            } else {
-                domainEmptyMsg?.classList.remove('hidden');
-                domainListWrap?.classList.add('hidden');
-                domainAddForm?.classList.remove('pt-5', 'border-t', 'border-border');
-                domainAddForm?.classList.add('rounded-xl', 'border', 'border-input', 'bg-muted/15', 'p-4', 'sm:p-5');
-            }
-        }
-
-        function fetchJsonDomainAction(url, formData) {
-            return fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                credentials: 'same-origin'
-            }).then(function(response) {
-                return response.json().then(function(data) {
-                    return { ok: response.ok, status: response.status, data: data };
-                });
-            });
-        }
-
-        document.addEventListener('submit', function(e) {
-            const form = e.target;
-            if (!(form instanceof HTMLFormElement) || !form.classList.contains('js-company-domain-action')) {
-                return;
-            }
-            e.preventDefault();
-            if (form.getAttribute('data-domain-destroy') === '1') {
-                var runDomainAction = function () {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                    }
-                    fetchJsonDomainAction(form.action, new FormData(form))
-                        .then(function(result) {
-                            if (!result.ok) {
-                                throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
-                            }
-                            applyCompanyDomainsList(result.data);
-                        })
-                        .catch(function(err) {
-                            alert(err.message || 'Er is een fout opgetreden.');
-                        })
-                        .finally(function() {
-                            if (submitBtn) {
-                                submitBtn.disabled = false;
-                            }
-                        });
-                };
-                if (typeof window.showAdminConfirm === 'function') {
-                    window.showAdminConfirm({ title: 'Domein verwijderen', message: 'Domein verwijderen?', confirmLabel: 'Verwijderen' }).then(function (ok) {
-                        if (ok) {
-                            runDomainAction();
-                        }
-                    });
-                    return;
-                }
-                if (!window.confirm('Domein verwijderen?')) {
-                    return;
-                }
-                runDomainAction();
-                return;
-            }
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-            }
-            fetchJsonDomainAction(form.action, new FormData(form))
-                .then(function(result) {
-                    if (!result.ok) {
-                        throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
-                    }
-                    applyCompanyDomainsList(result.data);
-                })
-                .catch(function(err) {
-                    alert(err.message || 'Er is een fout opgetreden.');
-                })
-                .finally(function() {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                    }
-                });
-        });
-
-        if (domainAddForm) {
-            const hostInput = document.getElementById('domain_host');
-            const ajaxErr = document.getElementById('domain-host-error-ajax');
-
-            function clearDomainHostErrors() {
-                if (ajaxErr) {
-                    ajaxErr.textContent = '';
-                    ajaxErr.classList.add('hidden');
-                }
-                if (hostInput) {
-                    hostInput.classList.remove('border-destructive');
-                }
-            }
-
-            hostInput?.addEventListener('input', clearDomainHostErrors);
-
-            domainAddForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                clearDomainHostErrors();
-                const submitBtn = domainAddForm.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                }
-
-                fetchJsonDomainAction(domainAddForm.action, new FormData(domainAddForm))
-                .then(function(result) {
-                    if (!result.ok) {
-                        if (result.status === 422 && result.data && result.data.errors && result.data.errors.host) {
-                            const msg = Array.isArray(result.data.errors.host) ? result.data.errors.host[0] : result.data.errors.host;
-                            if (ajaxErr) {
-                                ajaxErr.textContent = msg;
-                                ajaxErr.classList.remove('hidden');
-                            }
-                            if (hostInput) {
-                                hostInput.classList.add('border-destructive');
-                            }
-                            return;
-                        }
-                        throw new Error((result.data && result.data.message) ? result.data.message : 'Opslaan mislukt');
-                    }
-                    applyCompanyDomainsList(result.data);
-                    domainAddForm.reset();
-                })
-                .catch(function(err) {
-                    alert(err.message || 'Er is een fout opgetreden bij het toevoegen van het domein.');
-                })
-                .finally(function() {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                    }
-                });
-            });
-        }
     });
 </script>
+@endcan
+
+@can('edit-companies')
+    @include('admin.companies.partials.domain-list-scripts')
 @endcan
 
 @if(! empty($needsCompanyAdminWelcome))

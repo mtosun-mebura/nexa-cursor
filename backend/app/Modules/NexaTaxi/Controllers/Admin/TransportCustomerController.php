@@ -15,6 +15,7 @@ use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Services\ContractInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
+use App\Modules\NexaTaxi\Services\TransportCustomerCascadeDeleteService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use App\Models\Company;
 use App\Models\User;
@@ -41,6 +42,7 @@ class TransportCustomerController extends Controller
         if ($packageDeniedMessage !== null) {
             return view('taxi::admin.transport_customers.index', [
                 'customers' => collect(),
+                'archivedCustomers' => collect(),
                 'contractsByCustomer' => collect(),
                 'tenantCompany' => null,
                 'companiesById' => collect(),
@@ -54,9 +56,12 @@ class TransportCustomerController extends Controller
         $query = TransportCustomer::on($conn);
         $this->applyTenantFilter($query);
 
-        $customers = $query->orderBy('name')->get();
+        $allCustomers = $query->orderBy('name')->get();
+        $customers = $allCustomers->filter(fn (TransportCustomer $c) => ! $c->isArchived())->values();
+        $archivedCustomers = $allCustomers->filter(fn (TransportCustomer $c) => $c->isArchived())->values();
+
         $contractsByCustomer = TransportContract::on($conn)
-            ->whereIn('transport_customer_id', $customers->pluck('id')->filter()->all())
+            ->whereIn('transport_customer_id', $allCustomers->pluck('id')->filter()->all())
             ->orderByDesc('start_date')
             ->get()
             ->groupBy('transport_customer_id');
@@ -64,12 +69,13 @@ class TransportCustomerController extends Controller
         $tenantId = $this->getTenantId();
         $tenantCompany = $tenantId ? Company::query()->find($tenantId) : null;
         $companiesById = Company::query()
-            ->whereIn('id', $customers->pluck('company_id')->filter()->unique()->all())
+            ->whereIn('id', $allCustomers->pluck('company_id')->filter()->unique()->all())
             ->get()
             ->keyBy('id');
 
         return view('taxi::admin.transport_customers.index', [
             'customers' => $customers,
+            'archivedCustomers' => $archivedCustomers,
             'contractsByCustomer' => $contractsByCustomer,
             'tenantCompany' => $tenantCompany,
             'companiesById' => $companiesById,
@@ -208,13 +214,41 @@ class TransportCustomerController extends Controller
         $this->authorizeOrPermission('rides.delete');
 
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
         $customer = TransportCustomer::on($conn)->findOrFail($id);
 
-        // Soft-disable i.p.v. verwijderen; contracten + passagiers blijven bewaard.
-        $customer->update(['active' => false]);
+        if ($customer->isArchived()) {
+            return redirect()->route('admin.taxi.transport_customers.index')
+                ->with('success', 'Dit contract staat al in het archief.');
+        }
+
+        $customer->update([
+            'archived_at' => now(),
+            'active' => false,
+        ]);
 
         return redirect()->route('admin.taxi.transport_customers.index')
-            ->with('success', 'Contractklant gedeactiveerd.');
+            ->with('success', 'Contract "'.$customer->name.'" is naar het archief verplaatst. Facturatiehistorie blijft bewaard.');
+    }
+
+    public function forceDestroy(int $id, TransportCustomerCascadeDeleteService $cascadeDelete)
+    {
+        $this->authorizeOrPermission('rides.delete');
+
+        $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
+        $customer = TransportCustomer::on($conn)->findOrFail($id);
+
+        if (! $customer->isArchived()) {
+            return redirect()->route('admin.taxi.transport_customers.index')
+                ->withErrors(['delete' => 'Alleen gearchiveerde contracten kunnen definitief worden verwijderd. Verplaats het contract eerst naar het archief.']);
+        }
+
+        $name = (string) $customer->name;
+        $cascadeDelete->delete($conn, $customer);
+
+        return redirect()->route('admin.taxi.transport_customers.index')
+            ->with('success', 'Contract "'.$name.'" is definitief verwijderd, inclusief abonnementen en passagiers.');
     }
 
     // -----------------------------------------------------------------------

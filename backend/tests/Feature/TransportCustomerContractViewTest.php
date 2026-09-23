@@ -40,6 +40,18 @@ class TransportCustomerContractViewTest extends TestCase
                 ->name('admin.taxi.transport_customers.show');
             app('router')->getRoutes()->refreshNameLookups();
         }
+        if (! Route::has('admin.taxi.transport_customers.destroy')) {
+            Route::middleware('web')
+                ->delete('/admin/taxi/contractklanten/{id}', static fn () => 'ok')
+                ->name('admin.taxi.transport_customers.destroy');
+            app('router')->getRoutes()->refreshNameLookups();
+        }
+        if (! Route::has('admin.taxi.transport_customers.force_destroy')) {
+            Route::middleware('web')
+                ->delete('/admin/taxi/contractklanten/{id}/definitief', static fn () => 'ok')
+                ->name('admin.taxi.transport_customers.force_destroy');
+            app('router')->getRoutes()->refreshNameLookups();
+        }
 
         $company = Company::query()->create([
             'name' => 'Taxi Royaal Test',
@@ -89,5 +101,6 @@ class TransportCustomerContractViewTest extends TestCase
             route('admin.taxi.transport_customers.show', $customer->id, false),
             $html
         );
+        $this->assertStringContainsString('transport-contract-doc-wrap', $html);
     }
 }

@@ -92,6 +92,7 @@ Route::get('contractklanten/{id}', [TransportCustomerController::class, 'show'])
 Route::get('contractklanten/{id}/bewerken', [TransportCustomerController::class, 'edit'])->name('transport_customers.edit');
 Route::put('contractklanten/{id}', [TransportCustomerController::class, 'update'])->name('transport_customers.update');
 Route::delete('contractklanten/{id}', [TransportCustomerController::class, 'destroy'])->name('transport_customers.destroy');
+Route::delete('contractklanten/{id}/definitief', [TransportCustomerController::class, 'forceDestroy'])->name('transport_customers.force_destroy');
 
 Route::post('contractklanten/{customerId}/portaal', [TransportCustomerPortalController::class, 'store'])
     ->name('transport_customers.portal.store');

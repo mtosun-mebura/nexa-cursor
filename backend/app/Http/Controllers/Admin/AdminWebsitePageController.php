@@ -68,9 +68,13 @@ class AdminWebsitePageController extends Controller
         $websiteLogoSize = $websitePagesTenantScopedActive && $tenantCompanyId !== null
             ? $this->websiteBuilder->resolveLogoSizePx($tenantCompanyId)
             : null;
+        $websiteLogoPaddingLeft = $websitePagesTenantScopedActive && $tenantCompanyId !== null
+            ? $this->websiteBuilder->resolveLogoPaddingLeftPx($tenantCompanyId)
+            : null;
         $websiteLogoSizeChoices = $this->websiteBuilder->websiteLogoSizeChoices();
+        $websiteLogoPaddingLeftChoices = $this->websiteBuilder->websiteLogoPaddingLeftChoices();
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive', 'websitePagesManagingCentralSite', 'websiteLogoSize', 'websiteLogoSizeChoices'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive', 'websitePagesManagingCentralSite', 'websiteLogoSize', 'websiteLogoPaddingLeft', 'websiteLogoSizeChoices', 'websiteLogoPaddingLeftChoices'));
     }
 
     public function reorder(Request $request, WebsitePage $website_page): RedirectResponse
@@ -195,7 +199,7 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
-     * Hoogte van het tenantlogo op de website (los van het NEXA Suite-logo).
+     * Formaat van het tenantlogo op de website (hoogte + padding links; los van het NEXA Suite-logo).
      */
     public function updateWebsiteLogoSize(Request $request): RedirectResponse
     {
@@ -205,16 +209,21 @@ class AdminWebsitePageController extends Controller
         if ($tenantCompanyId === null || $tenantCompanyId <= 0) {
             return redirect()
                 ->route('admin.website-pages.index', $indexQuery)
-                ->with('error', 'Kies eerst een tenant om de logogrootte in te stellen.');
+                ->with('error', 'Kies eerst een tenant om de logo-instellingen in te stellen.');
         }
 
-        $allowed = $this->websiteBuilder->websiteLogoSizeChoices();
+        $allowedSizes = $this->websiteBuilder->websiteLogoSizeChoices();
+        $allowedPadding = $this->websiteBuilder->websiteLogoPaddingLeftChoices();
         $data = $request->validate([
-            'website_logo_size' => ['required', 'integer', Rule::in($allowed)],
+            'website_logo_size' => ['required', 'integer', Rule::in($allowedSizes)],
+            'website_logo_padding_left' => ['required', 'integer', Rule::in($allowedPadding)],
         ], [
             'website_logo_size.required' => 'Kies een logogrootte.',
             'website_logo_size.integer' => 'Logo grootte moet een getal zijn.',
             'website_logo_size.in' => 'Kies een geldige logogrootte.',
+            'website_logo_padding_left.required' => 'Kies een padding links.',
+            'website_logo_padding_left.integer' => 'Padding links moet een getal zijn.',
+            'website_logo_padding_left.in' => 'Kies een geldige padding links.',
         ]);
 
         GeneralSetting::set(
@@ -222,10 +231,15 @@ class AdminWebsitePageController extends Controller
             (string) $data['website_logo_size'],
             $tenantCompanyId
         );
+        GeneralSetting::set(
+            WebsiteBuilderService::WEBSITE_LOGO_PADDING_LEFT_KEY,
+            (string) $data['website_logo_padding_left'],
+            $tenantCompanyId
+        );
 
         return redirect()
             ->route('admin.website-pages.index', array_merge($indexQuery, ['saved' => 1]))
-            ->with('success', 'Logogrootte voor de website opgeslagen.');
+            ->with('success', 'Logo-instellingen voor de website opgeslagen.');
     }
 
     private function persistWebsitePageActiveState(WebsitePage $page, bool $isActive): void

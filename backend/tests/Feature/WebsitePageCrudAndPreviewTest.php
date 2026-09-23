@@ -830,8 +830,10 @@ class WebsitePageCrudAndPreviewTest extends TestCase
             ->withSession(['selected_tenant' => $tenant->id])
             ->get(route('admin.website-pages.index', ['tenant_company' => $tenant->id]))
             ->assertOk()
-            ->assertSee('Hoogte van het tenantlogo in de header', false)
-            ->assertSee('name="website_logo_size"', false);
+            ->assertSee('Formaat van het tenantlogo in de header', false)
+            ->assertSee('name="website_logo_size"', false)
+            ->assertSee('name="website_logo_padding_left"', false)
+            ->assertSee('>100px<', false);
     }
 
     #[Test]
@@ -843,7 +845,7 @@ class WebsitePageCrudAndPreviewTest extends TestCase
         $this->actingAs($user)
             ->get(route('admin.website-pages.index'))
             ->assertOk()
-            ->assertDontSee('Hoogte van het tenantlogo in de header', false);
+            ->assertDontSee('Formaat van het tenantlogo in de header', false);
     }
 
     #[Test]
@@ -858,7 +860,8 @@ class WebsitePageCrudAndPreviewTest extends TestCase
             ->withSession(['selected_tenant' => $tenant->id])
             ->from(route('admin.website-pages.index', ['tenant_company' => $tenant->id]))
             ->post(route('admin.website-pages.logo-size.update'), [
-                'website_logo_size' => '40',
+                'website_logo_size' => '100',
+                'website_logo_padding_left' => '12',
                 'tenant_company' => $tenant->id,
             ])
             ->assertRedirect(route('admin.website-pages.index', [
@@ -867,11 +870,15 @@ class WebsitePageCrudAndPreviewTest extends TestCase
             ]))
             ->assertSessionHas('success');
 
-        $this->assertSame('40', \App\Models\GeneralSetting::get('website_logo_size', null, $tenant->id));
+        $this->assertSame('100', \App\Models\GeneralSetting::get('website_logo_size', null, $tenant->id));
+        $this->assertSame('12', \App\Models\GeneralSetting::get('website_logo_padding_left', null, $tenant->id));
         $this->assertNull(\App\Models\GeneralSetting::get('website_logo_size', null, $other->id));
+        $this->assertNull(\App\Models\GeneralSetting::get('website_logo_padding_left', null, $other->id));
 
         app()->instance('resolved_tenant_id', $tenant->id);
-        $this->assertSame(40, app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx($tenant->id));
+        $this->assertSame(100, app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx($tenant->id));
+        $this->assertSame(12, app(\App\Services\WebsiteBuilderService::class)->resolveLogoPaddingLeftPx($tenant->id));
         $this->assertSame(26, app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx($other->id));
+        $this->assertSame(0, app(\App\Services\WebsiteBuilderService::class)->resolveLogoPaddingLeftPx($other->id));
     }
 }

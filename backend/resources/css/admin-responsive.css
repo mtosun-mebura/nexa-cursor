@@ -1494,27 +1494,54 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     pointer-events: none !important;
 }
 
+/* Open select-dropdown: minstens triggerbreedte, groeit mee met langere opties (geen wrap). */
 #content .kt-select-wrapper .kt-select-dropdown.open,
 #content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
 #content .kt-select-wrapper:has(.kt-select-dropdown.open) .kt-select-dropdown.open,
-#content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open {
+#content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open,
+#content .kt-select-wrapper [data-kt-select-dropdown].open {
     position: absolute !important;
     top: calc(100% + 4px) !important;
     left: 0 !important;
-    right: 0 !important;
+    right: auto !important;
     bottom: auto !important;
-    width: 100% !important;
+    width: max-content !important;
     min-width: 100% !important;
-    max-width: 100% !important;
+    max-width: min(36rem, calc(100vw - 2rem)) !important;
     transform: none !important;
     margin: 0 !important;
     z-index: 90 !important;
     max-height: min(280px, 50vh) !important;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: visible !important;
+    overflow-y: auto !important;
     pointer-events: auto;
     scrollbar-width: thin;
     scrollbar-color: #9ca3af transparent;
+}
+
+#content .kt-select-dropdown.open .kt-select-options,
+#content .kt-select-dropdown.open [data-kt-select-options],
+#content [data-kt-select-dropdown].open .kt-select-options,
+#content [data-kt-select-dropdown].open [data-kt-select-options] {
+    width: max-content !important;
+    min-width: 100% !important;
+    max-width: none !important;
+}
+
+#content .kt-select-dropdown.open .kt-select-option,
+#content .kt-select-dropdown.open [data-kt-select-option],
+#content .kt-select-dropdown.open .kt-select-option-text,
+#content [data-kt-select-dropdown].open .kt-select-option,
+#content [data-kt-select-dropdown].open [data-kt-select-option],
+#content [data-kt-select-dropdown].open .kt-select-option-text {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: none !important;
+    min-width: max-content !important;
+    width: auto !important;
 }
 
 html.dark #content .kt-select-wrapper .kt-select-dropdown.open,

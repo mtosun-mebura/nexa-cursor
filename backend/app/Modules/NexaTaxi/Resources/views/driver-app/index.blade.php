@@ -237,6 +237,8 @@
         }
         .driver-vehicle-assigned-value {
             font-size: 0.8125rem;
+            line-height: 1.35;
+            padding-top: 0.05rem;
             color: var(--text);
             font-weight: 600;
         }

@@ -68,6 +68,9 @@ class AdminChromeBrandingTest extends TestCase
         $this->assertIsString($css);
         $this->assertStringContainsString('.kt-select-wrapper .kt-select-dropdown.open', $css);
         $this->assertStringContainsString('top: calc(100% + 4px)', $css);
+        // Dropdown groeit mee met optietekst (niet geknipt op smalle triggerbreedte).
+        $this->assertStringContainsString('width: max-content !important', $css);
+        $this->assertStringContainsString('white-space: nowrap !important', $css);
         $this->assertStringContainsString('admin-mobile-menu-icon', $css);
         $this->assertStringContainsString('pointer-events: none', $css);
         $this->assertStringContainsString('#sidebar#sidebar:not(.open)', $css);
