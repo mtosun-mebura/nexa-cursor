@@ -32,11 +32,28 @@ class TransportCustomer extends Model
         'billing_country',
         'notes',
         'active',
+        'archived_at',
     ];
 
     protected $casts = [
         'active' => 'boolean',
+        'archived_at' => 'datetime',
     ];
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function scopeNotArchived($query)
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
+    }
 
     public static function organizationTypeKeys(): array
     {

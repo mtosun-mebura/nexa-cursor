@@ -290,36 +290,40 @@
             max-width: 14rem;
         }
 
-        /* Select-dropdown in de wrapper: zelfde breedte als de trigger */
+        /* Select-dropdown: minstens zo breed als de trigger, mag meegroeien met langere opties */
         .kt-select-wrapper .kt-select-dropdown,
         .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
             min-width: 100% !important;
-            width: 100% !important;
-            max-width: 100% !important;
+            width: max-content !important;
+            max-width: min(36rem, calc(100vw - 2rem)) !important;
             box-sizing: border-box !important;
         }
 
         .kt-select-options,
         [data-kt-select-options] {
-            min-width: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
+            min-width: 100% !important;
+            width: max-content !important;
+            max-width: none !important;
         }
 
         .kt-select-option-text {
             overflow: visible !important;
-            white-space: normal !important;
+            white-space: nowrap !important;
             text-overflow: clip !important;
-            word-wrap: break-word !important;
-            word-break: break-word !important;
+            word-wrap: normal !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+            max-width: none !important;
         }
 
-        .kt-select-option {
-            white-space: normal !important;
-            word-wrap: break-word !important;
-            word-break: break-word !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
+        .kt-select-option,
+        [data-kt-select-option] {
+            white-space: nowrap !important;
+            word-wrap: normal !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+            min-width: max-content !important;
+            max-width: none !important;
         }
 
         .kt-select-wrapper {
@@ -335,6 +339,7 @@
             max-width: 100% !important;
             min-width: 0;
             vertical-align: middle;
+            overflow: visible !important;
         }
         #content form select.kt-select,
         #content form select.kt-select.w-full,
@@ -346,10 +351,18 @@
             min-width: 0;
         }
         #content form .kt-select-wrapper .kt-select-dropdown.open,
-        #content form .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open {
+        #content form .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+        #content form .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown].open,
+        #content form .kt-select-wrapper [data-kt-select-dropdown].open {
+            position: absolute !important;
+            top: calc(100% + 4px) !important;
+            left: 0 !important;
+            right: auto !important;
             width: max-content !important;
             min-width: 100% !important;
-            max-width: min(24rem, calc(100vw - 2rem)) !important;
+            max-width: min(36rem, calc(100vw - 2rem)) !important;
+            overflow-x: visible !important;
+            overflow-y: auto !important;
         }
 
         /* Select-dropdown: ondoorzichtige achtergrond (ook bij position:fixed) */

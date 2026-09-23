@@ -34,12 +34,25 @@
     }
     .tenant-logo-bar img {
         display: block;
-        height: 1.75rem;
         width: auto;
-        max-width: 9.5rem;
+        height: auto;
+        max-width: 12rem;
+        max-height: 3.25rem;
         object-fit: contain;
+        object-position: center bottom;
         margin-left: auto;
         margin-right: auto;
+    }
+    /* Hoge / bijna-vierkante logo's: ruimer zodat wapen + tekst goed leesbaar blijft */
+    .tenant-logo-bar img.is-portrait {
+        max-height: 5.5rem;
+        max-width: 8.5rem;
+    }
+    @media (max-width: 48rem) {
+        .tenant-logo-bar img.is-portrait {
+            max-height: 5.25rem;
+            max-width: 8rem;
+        }
     }
     #app:has(.tenant-logo-bar.is-visible) .dispatch-top,
     #app:has(.tenant-logo-bar.is-visible) .home-top {
@@ -60,9 +73,20 @@
         return;
     }
 
+    function syncLogoAspectClass() {
+        var w = img.naturalWidth || 0;
+        var h = img.naturalHeight || 0;
+        // Bijna-vierkant of hoger: als portret behandelen (wapenlogo's zoals Taxi Royaal).
+        var isPortrait = w > 0 && h > 0 && h >= (w * 0.9);
+        img.classList.toggle('is-portrait', isPortrait);
+    }
+
+    img.addEventListener('load', syncLogoAspectClass);
+
     img.addEventListener('error', function () {
         img.removeAttribute('src');
         img.alt = '';
+        img.classList.remove('is-portrait');
         bar.hidden = true;
         bar.classList.remove('is-visible');
         if (window.nexaPwaSyncThemeToggleTop) {
@@ -82,12 +106,16 @@
         if (!url) {
             img.removeAttribute('src');
             img.alt = '';
+            img.classList.remove('is-portrait');
             bar.hidden = true;
             bar.classList.remove('is-visible');
         } else {
             img.alt = (user && user.company_name) ? String(user.company_name) : 'Logo';
             if (img.getAttribute('src') !== url) {
+                img.classList.remove('is-portrait');
                 img.src = url;
+            } else if (img.complete && img.naturalWidth) {
+                syncLogoAspectClass();
             }
             bar.hidden = false;
             bar.classList.add('is-visible');

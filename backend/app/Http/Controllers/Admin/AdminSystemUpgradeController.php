@@ -44,7 +44,26 @@ class AdminSystemUpgradeController extends Controller
             'releaseVersion' => $releaseVersion,
             'upgradeHistory' => $upgradeHistory,
             'webUpgradeEnabled' => $this->upgrades->webUpgradeEnabled(),
+            'coolifyVpsPublicIp' => \App\Support\CoolifyVpsPublicIp::get(),
         ]);
+    }
+
+    public function updateCoolifyVpsIp(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'coolify_vps_public_ip' => ['required', 'ip'],
+        ], [
+            'coolify_vps_public_ip.required' => 'Vul het publieke VPS-IP in.',
+            'coolify_vps_public_ip.ip' => 'Vul een geldig IPv4- of IPv6-adres in.',
+        ]);
+
+        \App\Support\CoolifyVpsPublicIp::set($validated['coolify_vps_public_ip']);
+
+        return redirect()
+            ->route('admin.settings.upgrade.index', ['saved' => 1])
+            ->with('success', 'VPS-IP opgeslagen. Dit adres wordt gebruikt in de tenant-checklist.');
     }
 
     public function preview(): JsonResponse

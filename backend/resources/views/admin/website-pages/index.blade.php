@@ -512,13 +512,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function positionDropdown(btn, dropdown) {
+        var viewportPadding = 12;
         var rect = btn.getBoundingClientRect();
-        var w = 175;
+        var minW = 175;
+        var dropdownHeight = dropdown.offsetHeight || dropdown.scrollHeight || 0;
+        var dropdownWidth = Math.max(minW, dropdown.offsetWidth || dropdown.scrollWidth || minW);
+
+        var top = rect.bottom + 6;
+        var spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+        var spaceAbove = rect.top - viewportPadding;
+        if (dropdownHeight > spaceBelow && spaceAbove > spaceBelow) {
+            top = Math.max(viewportPadding, rect.top - dropdownHeight - 6);
+        }
+
         dropdown.style.position = 'fixed';
-        dropdown.style.left = (rect.right - w) + 'px';
-        dropdown.style.top = (rect.bottom + 6) + 'px';
-        dropdown.style.minWidth = w + 'px';
+        dropdown.style.left = Math.max(viewportPadding, rect.right - dropdownWidth) + 'px';
+        dropdown.style.top = top + 'px';
+        dropdown.style.minWidth = minW + 'px';
         dropdown.style.zIndex = '99999';
+        dropdown.style.pointerEvents = 'auto';
     }
 
     toggles.forEach(function(btn) {
@@ -532,15 +544,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             closeAll();
-            positionDropdown(btn, dropdown);
             dropdown.classList.add('is-open');
             dropdown.classList.remove('hidden');
             btn.setAttribute('aria-expanded', 'true');
             openDropdown = dropdown;
+            // Eerst tonen, dan meten/positioneren (ook omhoog als onderaan te weinig ruimte is).
+            positionDropdown(btn, dropdown);
+            requestAnimationFrame(function () {
+                positionDropdown(btn, dropdown);
+            });
         });
     });
 
     document.addEventListener('click', function() { closeAll(); });
+
+    window.addEventListener('resize', function () {
+        if (!openDropdown) return;
+        var btn = openDropdown.previousElementSibling;
+        if (btn) positionDropdown(btn, openDropdown);
+    });
+    window.addEventListener('scroll', function () {
+        if (!openDropdown) return;
+        var btn = openDropdown.previousElementSibling;
+        if (btn) positionDropdown(btn, openDropdown);
+    }, true);
 
     var deleteModal = document.getElementById('website-page-delete-modal');
     var deleteTitleEl = document.getElementById('website-page-delete-modal-title');

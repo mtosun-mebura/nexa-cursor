@@ -22,6 +22,85 @@
         De Nexa-release gaat één patch omhoog na een geslaagde web-upgrade (Laravel, PHP of overige packages).
     </p>
 
+    <div class="kt-card w-full min-w-0 mb-5 overflow-hidden" id="coolify-vps-ip-card">
+        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+            <div>
+                <h3 class="kt-card-title mb-0">Coolify VPS-IP</h3>
+                <p class="text-xs text-muted-foreground mb-0 mt-1">
+                    Publiek IP voor tenant A-records (DNS). Wordt getoond in
+                    <a href="{{ route('admin.tenant-setup-checklist') }}" class="text-primary hover:underline">Tenant configureren</a>.
+                </p>
+            </div>
+        </div>
+        <div class="kt-card-content p-5">
+            @php $vpsIpEditOpen = $errors->has('coolify_vps_public_ip'); @endphp
+            <div id="coolify-vps-ip-view" class="flex flex-wrap items-center gap-2 {{ $vpsIpEditOpen ? 'hidden' : '' }}">
+                <span class="text-sm text-muted-foreground">Publiek VPS-IP</span>
+                <code id="coolify-vps-ip-display" class="text-sm font-mono text-foreground">{{ $coolifyVpsPublicIp }}</code>
+                <button type="button"
+                        id="coolify-vps-ip-edit-btn"
+                        class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
+                        aria-label="VPS-IP bewerken"
+                        title="Bewerken">
+                    <i class="ki-filled ki-pencil" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form method="post"
+                  action="{{ route('admin.settings.upgrade.vps-ip.update') }}"
+                  id="coolify-vps-ip-form"
+                  class="flex flex-wrap items-end gap-3 {{ $vpsIpEditOpen ? '' : 'hidden' }}">
+                @csrf
+                <div class="flex flex-col gap-1.5 min-w-0">
+                    <label for="coolify_vps_public_ip" class="kt-form-label mb-0">Publiek VPS-IP</label>
+                    <input
+                        type="text"
+                        name="coolify_vps_public_ip"
+                        id="coolify_vps_public_ip"
+                        value="{{ old('coolify_vps_public_ip', $coolifyVpsPublicIp) }}"
+                        class="kt-input admin-field-fit font-mono @error('coolify_vps_public_ip') border-destructive @enderror"
+                        placeholder="152.239.119.238"
+                        autocomplete="off"
+                        required
+                    >
+                    @error('coolify_vps_public_ip')
+                        <div class="text-xs text-destructive">{{ $message }}</div>
+                    @enderror
+                </div>
+                <button type="submit" class="kt-btn kt-btn-primary shrink-0">Opslaan</button>
+                <button type="button" id="coolify-vps-ip-cancel-btn" class="kt-btn kt-btn-outline shrink-0">Annuleren</button>
+            </form>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+    (function () {
+        var view = document.getElementById('coolify-vps-ip-view');
+        var form = document.getElementById('coolify-vps-ip-form');
+        var editBtn = document.getElementById('coolify-vps-ip-edit-btn');
+        var cancelBtn = document.getElementById('coolify-vps-ip-cancel-btn');
+        var input = document.getElementById('coolify_vps_public_ip');
+        var display = document.getElementById('coolify-vps-ip-display');
+        if (!view || !form || !editBtn || !cancelBtn || !input) return;
+
+        function showEdit() {
+            view.classList.add('hidden');
+            form.classList.remove('hidden');
+            input.focus();
+            input.select();
+        }
+        function showView() {
+            form.classList.add('hidden');
+            view.classList.remove('hidden');
+            input.value = display ? display.textContent.trim() : input.value;
+        }
+
+        editBtn.addEventListener('click', showEdit);
+        cancelBtn.addEventListener('click', showView);
+    })();
+    </script>
+    @endpush
+
     <div class="flex flex-col gap-5 mb-5" id="upgrade-collapsible-root">
         <div class="kt-card min-w-0 settings-collapsible-card settings-collapsible-card--collapsed" id="upgrade-installed-stack">
             @include('admin.settings.partials.collapsible-header', [

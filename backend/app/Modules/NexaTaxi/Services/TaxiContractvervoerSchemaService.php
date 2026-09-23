@@ -30,6 +30,7 @@ final class TaxiContractvervoerSchemaService
                 $table->string('billing_country')->nullable();
                 $table->text('notes')->nullable();
                 $table->boolean('active')->default(true)->index();
+                $table->timestamp('archived_at')->nullable()->index();
                 $table->timestamps();
             });
         }
@@ -220,8 +221,26 @@ final class TaxiContractvervoerSchemaService
         }
 
         $this->ensureCustomerOrganizationTypeColumn($connection);
+        $this->ensureCustomerArchivedAtColumn($connection);
         $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
+    }
+
+    public function ensureCustomerArchivedAtColumn(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if (! $schema->hasTable('transport_customers')) {
+            return;
+        }
+
+        $cols = $schema->getColumnListing('transport_customers');
+        if (in_array('archived_at', $cols, true)) {
+            return;
+        }
+
+        $schema->table('transport_customers', function (Blueprint $table) {
+            $table->timestamp('archived_at')->nullable()->index();
+        });
     }
 
     public function ensureCustomerOrganizationTypeColumn(?string $connection = null): void

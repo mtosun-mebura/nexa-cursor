@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
+use App\Http\Controllers\Admin\AdminTenantSetupChecklistController;
 use App\Http\Controllers\Admin\AdminFinancialOverviewController;
 use App\Http\Controllers\Admin\AdminForcePasswordController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
@@ -495,6 +496,11 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
 
+    Route::middleware('role:super-admin')->group(function () {
+        Route::get('tenant-configureren', [AdminTenantSetupChecklistController::class, 'index'])
+            ->name('tenant-setup-checklist');
+    });
+
     // Legacy /admin/vacancies: nooit een kapotte 404; door naar skillmatching of dashboard.
     Route::any('vacancies/{path?}', AdminLegacyVacancyRedirectController::class)
         ->middleware('admin.skillmatching')
@@ -554,6 +560,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::post('companies/{company}/upload-logo', [AdminCompanyController::class, 'uploadLogo'])->name('companies.upload-logo');
 
     Route::post('companies/{company}/domains', [AdminCompanyDomainController::class, 'store'])->name('companies.domains.store');
+    Route::put('companies/{company}/domains/{domain}', [AdminCompanyDomainController::class, 'update'])->name('companies.domains.update');
     Route::delete('companies/{company}/domains/{domain}', [AdminCompanyDomainController::class, 'destroy'])->name('companies.domains.destroy');
     Route::post('companies/{company}/domains/{domain}/primary', [AdminCompanyDomainController::class, 'setPrimary'])->name('companies.domains.primary');
 
@@ -945,6 +952,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::get('settings/general', [AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
         Route::post('settings/general', [AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
         Route::get('settings/upgrade', [AdminSystemUpgradeController::class, 'index'])->name('settings.upgrade.index');
+        Route::post('settings/upgrade/vps-ip', [AdminSystemUpgradeController::class, 'updateCoolifyVpsIp'])->name('settings.upgrade.vps-ip.update');
         Route::get('settings/upgrade/preview', [AdminSystemUpgradeController::class, 'preview'])->name('settings.upgrade.preview');
         Route::post('settings/upgrade/run', [AdminSystemUpgradeController::class, 'run'])->name('settings.upgrade.run');
         Route::get('settings/upgrade/php-status', [AdminSystemUpgradeController::class, 'phpStatus'])->name('settings.upgrade.php-status');
