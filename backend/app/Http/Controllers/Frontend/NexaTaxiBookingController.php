@@ -745,7 +745,11 @@ class NexaTaxiBookingController extends Controller
             return is_array($body) ? $body : [];
         });
 
-        return response()->json($data);
+        if (! is_array($data)) {
+            $data = [];
+        }
+
+        return response()->json($this->rankAddressSearchResults($q, $data));
     }
 
     private function reverseAddressSearch(float $lat, float $lon): JsonResponse
@@ -792,11 +796,12 @@ class NexaTaxiBookingController extends Controller
             return $normalized;
         }
 
+        // Synoniemen voor treinstations. "Centraal station" mag NIET worden
+        // ingekort tot alleen "station" — dan vindt Nominatim busstops i.p.v. CS.
         $replacements = [
             '/\btreinstations?\b/ui' => 'station',
             '/\btrein\s+station\b/ui' => 'station',
             '/\bns\s+station\b/ui' => 'station',
-            '/\bcentraal\s+station\b/ui' => 'station',
         ];
 
         foreach ($replacements as $pattern => $replacement) {
@@ -806,6 +811,72 @@ class NexaTaxiBookingController extends Controller
         $normalized = preg_replace('/\s+/u', ' ', trim($normalized)) ?? $normalized;
 
         return $normalized !== '' ? $normalized : $query;
+    }
+
+    /**
+     * Sorteer Nominatim-hits zodat "centraal station" / treinstations boven busstops komen.
+     *
+     * @param  array<int, mixed>  $results
+     * @return array<int, mixed>
+     */
+    private function rankAddressSearchResults(string $query, array $results): array
+    {
+        if (count($results) < 2) {
+            return $results;
+        }
+
+        $ql = mb_strtolower($query);
+        $wantsStation = str_contains($ql, 'station')
+            || str_contains($ql, 'centraal')
+            || (bool) preg_match('/\bcs\b/u', $ql);
+        if (! $wantsStation) {
+            return $results;
+        }
+
+        usort($results, function ($a, $b) use ($ql) {
+            $scoreA = is_array($a) ? $this->addressSearchStationScore($a, $ql) : 0;
+            $scoreB = is_array($b) ? $this->addressSearchStationScore($b, $ql) : 0;
+
+            return $scoreB <=> $scoreA;
+        });
+
+        return $results;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function addressSearchStationScore(array $item, string $queryLower): int
+    {
+        $score = 0;
+        $type = mb_strtolower((string) ($item['type'] ?? ''));
+        $category = mb_strtolower((string) ($item['category'] ?? ''));
+        $name = mb_strtolower((string) ($item['name'] ?? ''));
+        $display = mb_strtolower((string) ($item['display_name'] ?? ''));
+
+        if ($category === 'railway' || in_array($type, ['station', 'halt', 'stop'], true)) {
+            $score += 80;
+        }
+        if (str_contains($name, 'centraal') || str_contains($display, 'centraal station')) {
+            $score += 60;
+        }
+        if ($name === 'centraal station' || str_starts_with($name, 'centraal station')) {
+            $score += 40;
+        }
+        if (in_array($type, ['bus_stop', 'platform'], true) && $category === 'highway') {
+            $score -= 30;
+        }
+        if ($name === 'station' && ! str_contains($name, 'centraal')) {
+            $score -= 20;
+        }
+        // Strafpunten voor typische verkeerde "Station"-hits buiten de stadskern.
+        foreach (['glanerbrug', 'busstation'] as $penaltyNeedle) {
+            if (str_contains($display, $penaltyNeedle) && str_contains($queryLower, 'centraal')) {
+                $score -= 50;
+            }
+        }
+
+        return $score;
     }
 
     /**

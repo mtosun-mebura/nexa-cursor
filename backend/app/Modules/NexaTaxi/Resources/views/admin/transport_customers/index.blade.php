@@ -25,7 +25,12 @@
         </div>
     @else
     <div class="grid gap-5 lg:gap-7.5">
-        <div class="kt-card kt-card-grid w-full min-w-0" id="transport-customers-card" data-customers-view="contracts">
+        @php
+            $archivedCustomers = $archivedCustomers ?? collect();
+            $hasActiveCustomers = $customers->count() > 0;
+            $hasArchivedCustomers = $archivedCustomers->count() > 0;
+        @endphp
+        <div class="kt-card kt-card-grid w-full min-w-0" id="transport-customers-card" data-customers-view="contracts" data-has-active="{{ $hasActiveCustomers ? '1' : '0' }}" data-has-archived="{{ $hasArchivedCustomers ? '1' : '0' }}">
             <div class="kt-card-header px-5 py-5 flex-wrap gap-2 min-w-0">
                 <h3 class="kt-card-title text-sm pb-0 mb-0">
                     <span data-admin-datatable-info="true">Toon 1 tot {{ $customers->count() }} van {{ $customers->count() }} klant{{ $customers->count() !== 1 ? 'en' : '' }}</span>
@@ -34,7 +39,9 @@
                     <div class="transport-customers-view-toggle inline-flex items-center rounded-lg border border-border p-0.5 shrink-0" role="tablist" aria-label="Weergave">
                         <button type="button" class="transport-customers-view-btn" data-customers-view="table" role="tab" aria-selected="false">Lijst</button>
                         <button type="button" class="transport-customers-view-btn is-active" data-customers-view="contracts" role="tab" aria-selected="true">Contracten</button>
+                        <button type="button" class="transport-customers-view-btn" data-customers-view="archive" role="tab" aria-selected="false">Archief</button>
                     </div>
+                    <div class="transport-customers-active-filters flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center" data-customers-active-filters>
                     <label class="kt-input w-full sm:w-64 min-w-0">
                         <i class="ki-filled ki-magnifier"></i>
                         <input type="text"
@@ -57,17 +64,18 @@
                             title="Filters resetten">
                         <i class="ki-filled ki-arrows-circle text-base"></i>
                     </button>
+                    </div>
                 </div>
             </div>
             <div class="kt-card-content p-0 min-w-0">
-                @if($customers->count() > 0)
+                @if($hasActiveCustomers || $hasArchivedCustomers)
                 <div class="grid w-full min-w-0"
                      data-admin-datatable="true"
                      data-admin-datatable-page-size="10"
                      id="transport_customers_table"
                      data-admin-datatable-label="klanten"
                      data-admin-datatable-on-page="initTransportCustomerTablePage">
-                    <div class="transport-customers-table-wrap min-w-0" data-customers-pane="table" hidden>
+                    <div class="transport-customers-table-wrap min-w-0" data-customers-pane="table" @if(! $hasActiveCustomers) hidden @endif>
                         <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                             <table id="transport-customers-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                                 <thead>
@@ -154,6 +162,21 @@
                                                             </a>
                                                         </div>
                                                         @endcan
+                                                        @can('rides.delete')
+                                                        <div class="kt-menu-item">
+                                                            <button type="button"
+                                                                    class="kt-menu-link w-full text-left"
+                                                                    data-transport-customer-delete
+                                                                    data-delete-mode="archive"
+                                                                    data-action="{{ route('admin.taxi.transport_customers.destroy', $customer->id) }}"
+                                                                    data-label="{{ $customer->name }}">
+                                                                <span class="kt-menu-icon text-destructive">
+                                                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                                                                </span>
+                                                                <span class="kt-menu-title text-destructive">Naar archief</span>
+                                                            </button>
+                                                        </div>
+                                                        @endcan
                                                     </div>
                                                 </div>
                                             </div>
@@ -175,6 +198,7 @@
                                     'customer' => $customer,
                                     'carrierCompany' => ($companiesById ?? collect())->get($customer->company_id) ?? ($tenantCompany ?? null),
                                     'latestContract' => $customerContracts instanceof \Illuminate\Support\Collection ? $customerContracts->first() : null,
+                                    'forceDelete' => false,
                                 ])
                             @endforeach
                         </div>
@@ -182,7 +206,7 @@
                             Geen contracten voor deze filters.
                         </p>
                     </div>
-                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0 px-5 pb-5">
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0 px-5 pb-5" data-customers-active-footer>
                         <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
                             Toon
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
@@ -199,6 +223,31 @@
                         <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
                     </div>
                 </div>
+                <div class="transport-customers-archive px-5 py-5" data-customers-pane="archive" hidden>
+                    @if($hasArchivedCustomers)
+                        <p class="text-sm text-muted-foreground mb-4">
+                            Gearchiveerde contracten blijven bewaard voor facturatiehistorie. Definitief verwijderen wist alle gekoppelde gegevens, inclusief abonnementen en passagiers.
+                        </p>
+                        <div class="transport-customers-contracts__grid" id="transport-customers-archive">
+                            @foreach($archivedCustomers as $customer)
+                                @php
+                                    $customerContracts = ($contractsByCustomer ?? collect())->get($customer->id)
+                                        ?? ($contractsByCustomer ?? collect())->get((string) $customer->id);
+                                @endphp
+                                @include('taxi::admin.transport_customers.partials.contract-document-card', [
+                                    'customer' => $customer,
+                                    'carrierCompany' => ($companiesById ?? collect())->get($customer->company_id) ?? ($tenantCompany ?? null),
+                                    'latestContract' => $customerContracts instanceof \Illuminate\Support\Collection ? $customerContracts->first() : null,
+                                    'forceDelete' => true,
+                                ])
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="py-8 text-center text-muted-foreground text-sm mb-0">
+                            Geen gearchiveerde contracten.
+                        </p>
+                    @endif
+                </div>
                 @else
                 <div class="py-10 px-5 text-center text-muted-foreground text-sm">
                     Geen contractklanten gevonden.
@@ -207,6 +256,12 @@
             </div>
         </div>
     </div>
+    @can('rides.delete')
+    <form id="transport-customer-delete-form" method="POST" class="hidden">
+        @csrf
+        @method('DELETE')
+    </form>
+    @endcan
     @endif
 </div>
 @endsection
@@ -275,6 +330,45 @@
         gap: 1.5rem;
     }
 
+    .transport-contract-doc-wrap {
+        position: relative;
+        min-height: 100%;
+    }
+    .transport-contract-doc-wrap[hidden] {
+        display: none !important;
+    }
+    .transport-contract-doc-wrap:hover .transport-contract-doc__delete,
+    .transport-contract-doc-wrap:focus-within .transport-contract-doc__delete {
+        background: rgb(15 23 42 / 0.72);
+    }
+    .transport-contract-doc__delete {
+        position: absolute;
+        top: 0.55rem;
+        right: 0.55rem;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border: 0;
+        border-radius: 0.5rem;
+        background: rgb(15 23 42 / 0.45);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .transport-contract-doc__delete:hover,
+    .transport-contract-doc__delete:focus-visible {
+        background: #b91c1c;
+        outline: none;
+        transform: scale(1.05);
+    }
+    .transport-contract-doc__delete i {
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+
     .transport-contract-doc {
         position: relative;
         display: flex;
@@ -294,7 +388,8 @@
     .transport-contract-doc[hidden] {
         display: none !important;
     }
-    .transport-contract-doc:hover,
+    .transport-contract-doc-wrap:hover .transport-contract-doc,
+    .transport-contract-doc-wrap:focus-within .transport-contract-doc,
     .transport-contract-doc:focus-visible {
         transform: translateY(-3px);
         box-shadow: 0 22px 38px -20px rgb(15 23 42 / 0.55);
@@ -331,6 +426,15 @@
     }
     .transport-contract-doc.is-inactive .transport-contract-doc__banner {
         background: linear-gradient(90deg, #334155, #64748b);
+    }
+    .transport-contract-doc.is-archived .transport-contract-doc__banner {
+        background: linear-gradient(90deg, #57534e, #78716c 58%, #a8a29e);
+    }
+    .transport-contract-doc.is-archived .transport-contract-doc__seal {
+        border-color: #78716c;
+        box-shadow: inset 0 0 0 3px rgb(120 113 108 / 0.22);
+        color: #78716c;
+        background: rgb(245 245 244 / 0.7);
     }
     .transport-contract-doc__ref {
         opacity: 0.9;
@@ -548,7 +652,7 @@ window.initTransportCustomerTablePage = function() {
 
 function syncTransportCustomerContractCards() {
     var visible = 0;
-    document.querySelectorAll('[data-contract-card]').forEach(function(card) {
+    document.querySelectorAll('#transport-customers-contracts [data-contract-card]').forEach(function(card) {
         var id = card.getAttribute('data-customer-id');
         var row = document.querySelector('#transport-customers-table tr[data-customer-id="' + id + '"]');
         var show = Boolean(row) && !row.hidden;
@@ -568,7 +672,10 @@ function setTransportCustomersView(view) {
     if (!card) {
         return;
     }
-    var next = view === 'contracts' ? 'contracts' : 'table';
+    var next = view === 'archive' ? 'archive' : (view === 'table' ? 'table' : 'contracts');
+    if (next !== 'archive' && card.getAttribute('data-has-active') === '0' && card.getAttribute('data-has-archived') === '1') {
+        next = 'archive';
+    }
     card.setAttribute('data-customers-view', next);
     card.querySelectorAll('[data-customers-pane]').forEach(function(pane) {
         pane.hidden = pane.getAttribute('data-customers-pane') !== next;
@@ -581,6 +688,14 @@ function setTransportCustomersView(view) {
         btn.classList.toggle('is-active', active);
         btn.setAttribute('aria-selected', active ? 'true' : 'false');
     });
+    var activeFilters = card.querySelector('[data-customers-active-filters]');
+    if (activeFilters) {
+        activeFilters.hidden = next === 'archive';
+    }
+    var activeFooter = card.querySelector('[data-customers-active-footer]');
+    if (activeFooter) {
+        activeFooter.hidden = next === 'archive';
+    }
     try {
         window.localStorage.setItem('nexa-contractklanten-view', next);
     } catch (e) {}
@@ -589,10 +704,16 @@ function setTransportCustomersView(view) {
 
 document.addEventListener('DOMContentLoaded', function() {
     window.initTransportCustomerTablePage();
+    var card = document.getElementById('transport-customers-card');
     var stored = 'contracts';
     try {
         stored = window.localStorage.getItem('nexa-contractklanten-view') || 'contracts';
     } catch (e) {}
+    if (card && card.getAttribute('data-has-active') === '0' && card.getAttribute('data-has-archived') === '1') {
+        stored = 'archive';
+    } else if (stored === 'archive' && card && card.getAttribute('data-has-archived') === '0') {
+        stored = 'contracts';
+    }
     setTransportCustomersView(stored);
 
     document.querySelectorAll('.transport-customers-view-btn').forEach(function(btn) {
@@ -616,6 +737,49 @@ document.addEventListener('DOMContentLoaded', function() {
             if (d) d.style.display = 'none';
         });
     });
+
+    var deleteForm = document.getElementById('transport-customer-delete-form');
+    if (deleteForm) {
+        document.addEventListener('click', function (event) {
+            var btn = event.target.closest('[data-transport-customer-delete]');
+            if (!btn) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            var label = btn.getAttribute('data-label') || 'dit contract';
+            var action = btn.getAttribute('data-action') || '';
+            var mode = btn.getAttribute('data-delete-mode') || 'archive';
+            var isForce = mode === 'force';
+            var title = isForce ? 'Contract definitief verwijderen' : 'Contract naar archief';
+            var confirmLabel = isForce ? 'Definitief verwijderen' : 'Naar archief';
+            var message = isForce
+                ? ('Weet je zeker dat je het contract van ' + label + ' definitief wilt verwijderen?\n\n'
+                    + 'Alles onder dit contract wordt permanent gewist, inclusief abonnementen en passagiers. Facturatiehistorie en gekoppelde gegevens gaan verloren. Dit kan niet ongedaan worden gemaakt.')
+                : ('Weet je zeker dat je het contract van ' + label + ' naar het archief wilt verplaatsen?\n\n'
+                    + 'Het contract verdwijnt uit de actieve lijst, maar blijft bewaard in het archief inclusief facturatiehistorie.');
+            var runDelete = function () {
+                deleteForm.action = action;
+                deleteForm.submit();
+            };
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({
+                    title: title,
+                    message: message,
+                    confirmLabel: confirmLabel,
+                    destructive: true
+                }).then(function (ok) {
+                    if (ok) {
+                        runDelete();
+                    }
+                });
+                return;
+            }
+            if (window.confirm(message)) {
+                runDelete();
+            }
+        });
+    }
 });
 </script>
 @endpush

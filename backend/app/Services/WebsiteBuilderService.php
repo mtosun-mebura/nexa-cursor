@@ -32,6 +32,10 @@ class WebsiteBuilderService
 
     public const WEBSITE_LOGO_SIZE_DEFAULT = 26;
 
+    public const WEBSITE_LOGO_PADDING_LEFT_KEY = 'website_logo_padding_left';
+
+    public const WEBSITE_LOGO_PADDING_LEFT_DEFAULT = 0;
+
     /**
      * Query WebsitePage op de juiste connection: alleen module-DB als die een eigen {@code website_pages}-tabel heeft.
      * Bij schema-strategy staan module-pagina's meestal in {@code public.website_pages} (met module_name); zonder deze
@@ -453,11 +457,12 @@ class WebsiteBuilderService
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
      * @param  int|null  $forCompanyId  Expliciet bedrijf voor tenant-logo/instellingen (bijv. admin preview van pagina).
-     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, logo_alt: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
+     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, logo_padding_left_px: int, favicon_url: ?string, site_name: string, logo_alt: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
      */
     public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false, ?int $forCompanyId = null): array
     {
         $logoSizePx = $this->resolveLogoSizePx($forCompanyId);
+        $logoPaddingLeftPx = $this->resolveLogoPaddingLeftPx($forCompanyId);
 
         $logoPath = GeneralSetting::get('logo', null, $forCompanyId);
         $logoUrl = null;
@@ -566,6 +571,7 @@ class WebsiteBuilderService
             'logo_url' => $logoUrl,
             'logo_dark_url' => $logoDarkUrl,
             'logo_size_px' => $logoSizePx,
+            'logo_padding_left_px' => $logoPaddingLeftPx,
             'favicon_url' => $faviconUrl,
             'site_name' => $siteName,
             'logo_alt' => $logoAlt,
@@ -738,7 +744,17 @@ class WebsiteBuilderService
      */
     public function websiteLogoSizeChoices(): array
     {
-        return range(20, 80, 2);
+        return range(20, 100, 2);
+    }
+
+    /**
+     * Toegestane padding-links (px) voor het tenantlogo op de website-header.
+     *
+     * @return list<int>
+     */
+    public function websiteLogoPaddingLeftChoices(): array
+    {
+        return range(0, 48, 2);
     }
 
     /**
@@ -758,6 +774,22 @@ class WebsiteBuilderService
         $px = is_numeric($raw) ? (int) $raw : self::WEBSITE_LOGO_SIZE_DEFAULT;
 
         return max(10, min(100, $px));
+    }
+
+    /**
+     * Extra ruimte links van het tenantlogo in de website-header (per bedrijf).
+     */
+    public function resolveLogoPaddingLeftPx(?int $forCompanyId = null): int
+    {
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return self::WEBSITE_LOGO_PADDING_LEFT_DEFAULT;
+        }
+
+        $raw = GeneralSetting::get(self::WEBSITE_LOGO_PADDING_LEFT_KEY, null, $companyId);
+        $px = is_numeric($raw) ? (int) $raw : self::WEBSITE_LOGO_PADDING_LEFT_DEFAULT;
+
+        return max(0, min(48, $px));
     }
 
     /**

@@ -146,9 +146,11 @@ class WebsiteBuilderSiteBrandingTest extends TestCase
         $company = Company::query()->create(['name' => 'Size Tenant BV']);
         app()->instance('resolved_tenant_id', $company->id);
         GeneralSetting::set('website_logo_size', '42', $company->id);
+        GeneralSetting::set('website_logo_padding_left', '8', $company->id);
 
         $branding = app(WebsiteBuilderService::class)->getSiteBranding();
 
         $this->assertSame(42, $branding['logo_size_px']);
+        $this->assertSame(8, $branding['logo_padding_left_px']);
     }
 }

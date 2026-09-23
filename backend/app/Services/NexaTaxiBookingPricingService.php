@@ -266,6 +266,7 @@ class NexaTaxiBookingPricingService
         );
         $distanceMeters = max(0, (int) ($input['distance_meters'] ?? 0));
         $durationSeconds = max(0, (int) ($input['duration_seconds'] ?? 0));
+        $durationSeconds = $this->ensureTaxiDurationFloor($distanceMeters, $durationSeconds);
         $returnTrip = ! empty($input['return_trip']);
         $pickupAt = isset($input['pickup_at']) && trim((string) $input['pickup_at']) !== '' ? (string) $input['pickup_at'] : null;
         $waitingMinutes = max(0, (float) ($input['waiting_minutes'] ?? 0));
@@ -784,6 +785,22 @@ class NexaTaxiBookingPricingService
         ];
     }
 
+    /**
+     * Free-flow routes (OSRM/Google zonder files) onderschatten stadsritten.
+     * Taximeters tikken mee bij stoplichten; vloer op ~15 km/u gemiddeld in de stad.
+     */
+    public function ensureTaxiDurationFloor(int $distanceMeters, int $durationSeconds): int
+    {
+        $durationSeconds = max(0, $durationSeconds);
+        if ($distanceMeters <= 0) {
+            return $durationSeconds;
+        }
+
+        $minSeconds = (int) round(($distanceMeters / 1000) / 15.0 * 3600);
+
+        return max($durationSeconds, $minSeconds);
+    }
+
     private function calculateFareFromRate(
         int $distanceMeters,
         int $durationSeconds,
@@ -795,6 +812,7 @@ class NexaTaxiBookingPricingService
         bool $useEveningNightTariff = true,
         array $eveningNight = []
     ): float {
+        $durationSeconds = $this->ensureTaxiDurationFloor($distanceMeters, $durationSeconds);
         $distanceKm = $distanceMeters / 1000;
         $durationMin = $durationSeconds / 60;
         $settings = $eveningNight !== [] ? $eveningNight : DefaultRate::eveningNightSettings(null);

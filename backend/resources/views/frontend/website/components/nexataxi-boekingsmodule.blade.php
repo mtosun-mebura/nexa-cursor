@@ -7872,15 +7872,26 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         if (!bookingSplitMapV2) return Promise.resolve();
         return ensureAllRouteWaypointCoords().then(function() {
             var waypoints = resolvedRouteWaypoints();
-            if (waypoints.length < 2) {
+            if (waypoints.length < 2 && !(state.pickup_address && state.dropoff_address)) {
                 refreshLiveRouteMap();
                 return;
             }
             var seq = ++routeCalcSeq;
             state.summary_route_polyline = '';
-            return fetchOsrmRouteForPoints(waypoints.map(function(wp) {
-                return { lat: Number(wp.lat), lng: Number(wp.lng) };
-            }), seq);
+            var osrmFallback = function() {
+                if (waypoints.length < 2) {
+                    refreshLiveRouteMap();
+                    requestQuotes();
+                    return Promise.resolve();
+                }
+                return fetchOsrmRouteForPoints(waypoints.map(function(wp) {
+                    return { lat: Number(wp.lat), lng: Number(wp.lng) };
+                }), seq);
+            };
+            // Traffic-aware Google-route voor realistischere km/min (dichter bij taximeter).
+            return fetchGoogleTrafficAwareRoute(seq).catch(function() {
+                return osrmFallback();
+            });
         });
     }
 
@@ -8190,6 +8201,78 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         return fetchNominatimCoordinates(lookup);
     }
 
+    /**
+     * Google Routes API levert duration als "714s", Duration-object of (legacy) durationMillis.
+     * Neem de langste van traffic/static zodat de prijsindicatie dichter bij de taximeter ligt.
+     */
+    function parseRouteDurationSeconds(route) {
+        if (!route || typeof route !== 'object') return null;
+        var best = null;
+        function consider(sec) {
+            if (sec == null || !isFinite(sec)) return;
+            sec = Math.max(0, Math.round(Number(sec)));
+            if (best == null || sec > best) best = sec;
+        }
+        if (route.durationMillis != null && isFinite(Number(route.durationMillis))) {
+            consider(Number(route.durationMillis) / 1000);
+        }
+        [route.duration, route.staticDuration].forEach(function(raw) {
+            if (raw == null) return;
+            if (typeof raw === 'number' && isFinite(raw)) {
+                // Grote waarden zijn vrijwel altijd milliseconden.
+                consider(raw > 100000 ? raw / 1000 : raw);
+                return;
+            }
+            if (typeof raw === 'object') {
+                if (raw.seconds != null) consider(raw.seconds);
+                else if (raw.millis != null) consider(Number(raw.millis) / 1000);
+                return;
+            }
+            var text = String(raw).trim();
+            var match = text.match(/^(\d+(?:\.\d+)?)s$/i);
+            if (match) {
+                consider(parseFloat(match[1]));
+                return;
+            }
+            if (/^\d+(\.\d+)?$/.test(text)) {
+                consider(parseFloat(text));
+            }
+        });
+        return best;
+    }
+
+    function extractRouteEncodedPolyline(route) {
+        if (!route || typeof route !== 'object') return '';
+        if (route.geometry && typeof route.geometry === 'string') return route.geometry;
+        if (route.polyline) {
+            if (typeof route.polyline.encodedPolyline === 'string') return route.polyline.encodedPolyline;
+            if (typeof route.polyline === 'string') return route.polyline;
+        }
+        return '';
+    }
+
+    function applyResolvedRouteStats(distanceMeters, durationSeconds, polyline, seq) {
+        if (seq !== routeCalcSeq) return;
+        var dist = Math.max(0, Math.round(Number(distanceMeters) || 0));
+        var dur = Math.max(0, Math.round(Number(durationSeconds) || 0));
+        // Stadsrit-vloer (~15 km/u): free-flow OSRM/Google onderschat taximetertijd (stoplichten).
+        if (dist > 0) {
+            var minDur = Math.round((dist / 1000) / 15 * 3600);
+            if (dur < minDur) dur = minDur;
+        }
+        state.distance_meters = dist;
+        state.duration_seconds = dur;
+        state.summary_route_polyline = typeof polyline === 'string' ? polyline : '';
+        var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
+        var min = Math.round(state.duration_seconds / 60);
+        renderRouteDetailsStats(km, min);
+        updateSummaryRouteMap();
+        if (bookingSplitMapV2) {
+            refreshLiveRouteMap();
+        }
+        requestQuotes();
+    }
+
     function applyOsrmRoutePayload(route, seq) {
         if (seq !== routeCalcSeq) return;
         if (!route) {
@@ -8201,17 +8284,60 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             requestQuotes();
             return;
         }
-        state.distance_meters = Math.max(0, Math.round(parseFloat(route.distance || 0)));
-        state.duration_seconds = Math.max(0, Math.round(parseFloat(route.duration || 0)));
-        state.summary_route_polyline = (route.geometry && typeof route.geometry === 'string') ? route.geometry : '';
-        var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
-        var min = Math.round(state.duration_seconds / 60);
-        renderRouteDetailsStats(km, min);
-        updateSummaryRouteMap();
-        if (bookingSplitMapV2) {
-            refreshLiveRouteMap();
+        applyResolvedRouteStats(
+            parseFloat(route.distance || 0),
+            parseFloat(route.duration || 0),
+            (route.geometry && typeof route.geometry === 'string') ? route.geometry : '',
+            seq
+        );
+    }
+
+    function applyGoogleRoutePayload(route, seq) {
+        if (seq !== routeCalcSeq) return false;
+        if (!route) return false;
+        var dist = route.distanceMeters;
+        var durSec = parseRouteDurationSeconds(route);
+        // duration 0 is ongeldig (anders quote zonder tijdtarief → te lage prijs).
+        if (dist == null || !isFinite(Number(dist)) || Number(dist) <= 0 || durSec == null || durSec <= 0) {
+            return false;
         }
-        requestQuotes();
+        applyResolvedRouteStats(dist, durSec, extractRouteEncodedPolyline(route), seq);
+        return true;
+    }
+
+    function fetchGoogleTrafficAwareRoute(seq) {
+        if (!mapsApiKey || !state.pickup_address || !state.dropoff_address) {
+            return Promise.reject(new Error('google-route-unavailable'));
+        }
+        if (!window.google || !google.maps || typeof google.maps.importLibrary !== 'function') {
+            return Promise.reject(new Error('google-route-unavailable'));
+        }
+        return google.maps.importLibrary('routes').then(function(routesLib) {
+            var Route = routesLib && (routesLib.Route || routesLib);
+            if (!Route || typeof Route.computeRoutes !== 'function') {
+                throw new Error('google-route-unavailable');
+            }
+            var request = {
+                origin: state.pickup_address,
+                destination: state.dropoff_address,
+                travelMode: 'DRIVING',
+                computeAlternativeRoutes: false,
+                routingPreference: 'TRAFFIC_AWARE_OPTIMAL'
+            };
+            var routeRegion = (config.maps && config.maps.country ? String(config.maps.country).split(',')[0].trim() : '');
+            if (routeRegion.toLowerCase() === 'nl') routeRegion = '';
+            if (routeRegion) { request.regionCode = routeRegion; }
+            var stopovers = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
+            if (stopovers.length > 0) request.intermediates = stopovers;
+            return Route.computeRoutes(request).then(function(result) {
+                if (seq !== routeCalcSeq) return null;
+                var route = result && Array.isArray(result.routes) ? result.routes[0] : null;
+                if (!applyGoogleRoutePayload(route, seq)) {
+                    throw new Error('google-route-invalid');
+                }
+                return route;
+            });
+        });
     }
 
     function fetchOsrmRouteForPoints(points, seq) {
@@ -8813,74 +8939,9 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
                 return;
             }
             showRouteDetailsLoading();
-            if (!window.google || !google.maps || typeof google.maps.importLibrary !== 'function') {
-                calculateRouteFallback();
-                return;
-            }
-            google.maps.importLibrary('routes').then(function(routesLib) {
-                var Route = routesLib && (routesLib.Route || routesLib);
-                if (!Route || typeof Route.computeRoutes !== 'function') {
-                    calculateRouteFallback();
-                    return;
-                }
-                var request = {
-                    origin: state.pickup_address,
-                    destination: state.dropoff_address,
-                    travelMode: 'DRIVING',
-                    computeAlternativeRoutes: false,
-                    routingPreference: 'TRAFFIC_AWARE_OPTIMAL'
-                };
-                // regionCode alleen meesturen als er een land is ingesteld; anders niet biasen op NL (routes buiten NL).
-                var routeRegion = (config.maps && config.maps.country ? String(config.maps.country).split(',')[0].trim() : '');
-                if (routeRegion.toLowerCase() === 'nl') routeRegion = '';
-                if (routeRegion) { request.regionCode = routeRegion; }
-                var stopovers = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
-                if (stopovers.length > 0) request.intermediates = stopovers;
-
-                Route.computeRoutes(request).then(function(result) {
-                    if (!result || !result.routes || !result.routes[0]) {
-                        calculateRouteFallback();
-                        return;
-                    }
-                    var route = result.routes[0];
-                    var dist = route.distanceMeters;
-                    var durMs = route.durationMillis;
-                    if (dist == null || durMs == null) {
-                        calculateRouteFallback();
-                        return;
-                    }
-                    state.distance_meters = Math.round(Number(dist));
-                    state.duration_seconds = Math.round(Number(durMs) / 1000);
-                    var polyEnc = '';
-                    if (route.polyline) {
-                        if (typeof route.polyline.encodedPolyline === 'string') {
-                            polyEnc = route.polyline.encodedPolyline;
-                        } else if (typeof route.polyline === 'string') {
-                            polyEnc = route.polyline;
-                        }
-                    }
-                    state.summary_route_polyline = polyEnc;
-                    var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
-                    var min = Math.round(state.duration_seconds / 60);
-                    renderRouteDetailsStats(km, min);
-                    updateSummaryRouteMap();
-                    if (bookingSplitMapV2) {
-                        var geoJobs = [];
-                        if (!isFinite(state.pickup_lat) || !isFinite(state.pickup_lng)) {
-                            geoJobs.push(ensureAddressCoordsForField('pickup_address'));
-                        }
-                        if (!isFinite(state.dropoff_lat) || !isFinite(state.dropoff_lng)) {
-                            geoJobs.push(ensureAddressCoordsForField('dropoff_address'));
-                        }
-                        (geoJobs.length ? Promise.all(geoJobs) : Promise.resolve()).then(function() {
-                            refreshLiveRouteMap();
-                        });
-                    }
-                    requestQuotes();
-                }).catch(function() {
-                    calculateRouteFallback();
-                });
-            }).catch(function() {
+            var seq = ++routeCalcSeq;
+            fetchGoogleTrafficAwareRoute(seq).catch(function() {
+                if (seq !== routeCalcSeq) return;
                 calculateRouteFallback();
             });
         }

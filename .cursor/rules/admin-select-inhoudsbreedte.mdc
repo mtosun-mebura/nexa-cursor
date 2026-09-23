@@ -13,7 +13,8 @@ Een **select** (`kt-select` / `kt-input` op `<select>`) is zo breed als de gekoz
 - Geen `w-full` op `<select class="kt-select">`.
 - Wrapper volgt de inhoud: `width: max-content`, `max-width: 100%`.
 - Optioneel `admin-field-fit` (zelfde patroon als datum/tijd).
-- Dropdown minstens zo breed als het veld, mag meegroeien met langere opties, niet over de hele pagina.
+- **Open dropdown** minstens zo breed als het veld, mag meegroeien met langere opties (`width: max-content`, `min-width: 100%`), optietekst op één regel (`white-space: nowrap`) — nooit afbreken op de smalle triggerbreedte.
+- Globale regels staan in `admin/layouts/app.blade.php` en `admin-responsive.css`; geen pagina-specifieke override die opties weer laat wrappen.
 
 ```blade
 <select name="evening_night_from_hour" class="kt-select admin-field-fit" data-kt-select="true">
@@ -22,7 +23,8 @@ Een **select** (`kt-select` / `kt-input` op `<select>`) is zo breed als de gekoz
 ## Niet
 
 - Geen `class="kt-select w-full"` (KTSelect kopieert `w-full` naar `.kt-select-wrapper`).
-- Geen `width: 100%` op `.kt-select-wrapper` of `[data-kt-select-display]` in formulieren.
+- Geen `width: 100%` / `max-width: 100%` op open `.kt-select-dropdown` (dat knipt langere opties).
+- Geen `white-space: normal` / `word-break: break-word` op `.kt-select-option` of `.kt-select-option-text`.
 - Geen pagina-specifieke override die de select weer over de volle rij trekt.
 
-Filters in `.admin-filter-panel` en per-page `w-24` blijven compact in hun eigen kolom; ook daar geen volle paginabreedte.
+Filters in `.admin-filter-panel` en per-page `w-24` blijven compact in hun eigen kolom; ook daar geen volle paginabreedte. De **dropdown** mag daar wél breder dan de trigger.

@@ -265,6 +265,8 @@ class AdminSettingsController extends Controller
         $canManageFullSettings = auth()->user()?->hasRole('super-admin') === true
             || auth()->user()?->isSuperAdmin() === true;
         $canEditMailSettings = auth()->user()?->canEditMailSettings() === true;
+        $fromTenantSetup = request()->query('from') === 'tenant-setup';
+        $backToTenantSetupUrl = $fromTenantSetup ? route('admin.tenant-setup-checklist') : null;
 
         return view('admin.settings.index', compact(
             'mailSettings',
@@ -304,6 +306,8 @@ class AdminSettingsController extends Controller
             'databaseBackups',
             'canManageFullSettings',
             'canEditMailSettings',
+            'fromTenantSetup',
+            'backToTenantSetupUrl',
         ));
     }
 
@@ -1461,6 +1465,7 @@ class AdminSettingsController extends Controller
             return $redirect;
         }
         $companyId = $this->settingsCompanyId();
+        $redirectUrl = $this->whatsappTenantRedirectUrl($request);
 
         $validator = Validator::make($request->all(), [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
@@ -1469,10 +1474,11 @@ class AdminSettingsController extends Controller
             'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_WIDGET_PHONE' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
+            'return_to' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors($validator)
                 ->withInput();
         }
@@ -1488,17 +1494,17 @@ class AdminSettingsController extends Controller
             trim((string) $request->input('WHATSAPP_WIDGET_PHONE', ''))
         );
         if ($normalizedClickToChat === null) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors(['WHATSAPP_CLICK_TO_CHAT_NUMBER' => $phoneError])
                 ->withInput();
         }
         if ($normalizedCompanyNotify === null) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors(['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $phoneError])
                 ->withInput();
         }
         if ($normalizedWidgetPhone === null) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors(['WHATSAPP_WIDGET_PHONE' => $phoneError])
                 ->withInput();
         }
@@ -1519,13 +1525,27 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->with('success', 'WhatsApp tenant-instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
+    }
+
+    /**
+     * Redirect na WhatsApp tenant-opslag: terug naar Tenant configureren of Instellingen.
+     */
+    protected function whatsappTenantRedirectUrl(Request $request): string
+    {
+        $returnTo = trim((string) $request->input('return_to', ''));
+        $checklistUrl = route('admin.tenant-setup-checklist');
+        if ($returnTo !== '' && str_starts_with($returnTo, $checklistUrl)) {
+            return $checklistUrl;
+        }
+
+        return route('admin.settings.index').'#whatsapp';
     }
 
     /**

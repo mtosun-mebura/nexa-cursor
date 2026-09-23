@@ -86,7 +86,8 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
             'use_evening_night_tariff' => true,
         ], '2026-05-20 23:15:00');
 
-        $this->assertSame(55.0, (float) $quotes['offers'][0]['price']);
+        // 10 + (10×2×1,5) + (40×1×1,5) = 100
+        $this->assertSame(100.0, (float) $quotes['offers'][0]['price']);
     }
 
     #[Test]
@@ -96,7 +97,8 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
             'use_evening_night_tariff' => true,
         ], '2026-05-20 12:00:00');
 
-        $this->assertSame(40.0, (float) $quotes['offers'][0]['price']);
+        // 10 + (10×2) + (40×1) = 70 (40 min = 15 km/u-vloer over 10 km)
+        $this->assertSame(70.0, (float) $quotes['offers'][0]['price']);
     }
 
     #[Test]
@@ -106,7 +108,7 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
             'use_evening_night_tariff' => false,
         ], '2026-05-20 23:15:00');
 
-        $this->assertSame(40.0, (float) $quotes['offers'][0]['price']);
+        $this->assertSame(70.0, (float) $quotes['offers'][0]['price']);
     }
 
     #[Test]
@@ -120,8 +122,8 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
         $inside = $this->quotes(['use_evening_night_tariff' => true], '2026-05-20 10:00:00');
         $outside = $this->quotes(['use_evening_night_tariff' => true], '2026-05-20 20:00:00');
 
-        $this->assertSame(55.0, (float) $inside['offers'][0]['price']);
-        $this->assertSame(40.0, (float) $outside['offers'][0]['price']);
+        $this->assertSame(100.0, (float) $inside['offers'][0]['price']);
+        $this->assertSame(70.0, (float) $outside['offers'][0]['price']);
     }
 
     #[Test]
@@ -142,8 +144,9 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
         $marketplace = $this->quotes(['use_evening_night_tariff' => false], '2026-05-20 12:00:00');
         $tenantSite = $this->quotes(['use_evening_night_tariff' => false], '2026-05-20 12:00:00', 42);
 
-        $this->assertSame(40.0, (float) $marketplace['offers'][0]['price']);
-        $this->assertSame(300.0, (float) $tenantSite['offers'][0]['price']);
+        $this->assertSame(70.0, (float) $marketplace['offers'][0]['price']);
+        // 100 + (10×10) + (40×10) = 600
+        $this->assertSame(600.0, (float) $tenantSite['offers'][0]['price']);
     }
 
     #[Test]
@@ -151,7 +154,7 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
     {
         $quotes = $this->quotes(['use_evening_night_tariff' => false], '2026-05-20 12:00:00', 99);
 
-        $this->assertSame(40.0, (float) $quotes['offers'][0]['price']);
+        $this->assertSame(70.0, (float) $quotes['offers'][0]['price']);
     }
 
     /**
@@ -169,7 +172,8 @@ class NexaTaxiBookingEveningNightTariffTest extends TestCase
 
         return app(NexaTaxiBookingPricingService::class)->buildQuotes($config, [
             'distance_meters' => 10000,
-            'duration_seconds' => 600,
+            // 40 min: gelijk aan 15 km/u-vloer over 10 km (geen free-flow-onderschatting).
+            'duration_seconds' => 2400,
             'passengers' => 1,
             'return_trip' => false,
             'pickup_at' => $pickupAt,
