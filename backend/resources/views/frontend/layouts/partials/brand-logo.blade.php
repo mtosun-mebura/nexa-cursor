@@ -17,10 +17,24 @@
     if ($logoPaddingLeftPx > 0) {
         $logoImgStyle .= ' margin-left: '.$logoPaddingLeftPx.'px;';
     }
-    $logoImgClass = trim('fe-brand-logo-img w-auto object-contain '.($logoImgClassExtra ?? ''));
+    $logoInHeader = ($logoPlacement ?? null) === 'header';
+    $logoImgClass = trim('fe-brand-logo-img w-auto object-contain '.($logoInHeader ? 'fe-brand-logo-img--header ' : '').($logoImgClassExtra ?? ''));
     $logoUrl = ! empty($branding['logo_url']) ? $websiteBuilder->storageUrlToDisplayUrl($branding['logo_url']) : '';
     $logoDarkUrl = ! empty($branding['logo_dark_url']) ? $websiteBuilder->storageUrlToDisplayUrl($branding['logo_dark_url']) : '';
 @endphp
+@if($logoInHeader)
+    @once
+        <style>
+            /* Mobiele header (h-16): logo los van de ingestelde desktopgrootte, zodat kleine tekst in het logo leesbaar blijft. */
+            @media (max-width: 767.98px) {
+                .fe-brand-logo-img.fe-brand-logo-img--header {
+                    height: clamp(2.5rem, 6vw + 1.25rem, 3rem) !important;
+                    max-width: min(48vw, 12rem) !important;
+                }
+            }
+        </style>
+    @endonce
+@endif
 <a href="{{ $logoHref }}" class="flex items-center {{ $logoLinkClass ?? '' }}" aria-label="{{ $logoAlt }}">
     @if($logoUrl !== '')
         @if($logoDarkUrl !== '')

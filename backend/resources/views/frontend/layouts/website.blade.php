@@ -594,6 +594,7 @@
                         'branding' => $branding,
                         'logoHref' => $logoHref,
                         'logoHrefTenantAware' => empty($isStaging),
+                        'logoPlacement' => 'header',
                     ])
                 </div>
                 @php
