@@ -32,6 +32,19 @@ class AdminTenantScopeTest extends TestCase
         $this->app->instance('request', $request);
     }
 
+    public function test_super_admin_without_tenant_can_manage_taxi_tarieven_for_nexa_suite(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/taxi/tarieven', 'admin.taxi.tarieven.edit');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
     public function test_super_admin_without_tenant_can_manage_central_website_pages(): void
     {
         $user = $this->superAdminWithoutTenant();

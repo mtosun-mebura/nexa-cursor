@@ -49,6 +49,15 @@ class AiChatIntentDetectorTest extends TestCase
         ));
 
         $this->assertSame(AiChatIntent::RitOfferte, $admin['intent']);
+
+        $central = $this->detector->detect('Ik wil naar Dusseldorf Airport', new AiChatRequestContext(
+            companyId: 0,
+            channel: AiChatChannel::Public,
+            module: 'nexa',
+            isCentralWebsite: true,
+        ));
+
+        $this->assertSame(AiChatIntent::RitOfferte, $central['intent']);
     }
 
     public function test_travel_intent_does_not_override_admin_operational_question(): void

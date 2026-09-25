@@ -26,6 +26,13 @@ return [
     ),
 
     /**
+     * Minuten na het (actuele) ophaalmoment waarna een niet-geaccepteerde rit automatisch
+     * wordt geannuleerd (met terugbetaling bij vooraf betaald). 0 = uit.
+     * Per tenant: GeneralSetting `taxi_dispatch_unaccepted_auto_cancel_minutes`.
+     */
+    'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 30),
+
+    /**
      * Geldigheid eenmalige inlogcode Mijn Taxi (minuten) als er geen waarde in admin staat.
      * Per tenant: GeneralSetting `taxi_dispatch_customer_login_code_expires_minutes`.
      */
@@ -60,8 +67,8 @@ return [
     /** SSE: interval tussen cache-checks (ms). */
     'stream_tick_ms' => (int) env('TAXI_DISPATCH_STREAM_TICK_MS', 500),
 
-    /** Sanctum token geldigheid voor chauffeur-app (dagen). */
-    'token_expiry_days' => (int) env('TAXI_DRIVER_TOKEN_DAYS', 14),
+    /** Sanctum token geldigheid voor chauffeur-app (dagen). 0 = tot uitloggen. */
+    'token_expiry_days' => (int) env('TAXI_DRIVER_TOKEN_DAYS', 0),
 
     /**
      * Mollie testmodus: in local/staging ook providers met test_-sleutel of testmodus-vinkje,

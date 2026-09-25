@@ -42,6 +42,16 @@
                                 </td>
                             </tr>
                             <tr>
+                                <td class="text-secondary-foreground font-normal">Type organisatie</td>
+                                <td>
+                                    <select name="organization_type" class="kt-select admin-field-fit" data-kt-select="true">
+                                        @foreach(\App\Modules\NexaTaxi\Models\TransportCustomer::ORGANIZATION_TYPES as $typeKey => $typeLabel)
+                                            <option value="{{ $typeKey }}" @selected(old('organization_type', 'overig') === $typeKey)>{{ $typeLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
                                 <td class="text-secondary-foreground font-normal">Contactpersoon</td>
                                 <td>
                                     <input type="text" name="contact_name" value="{{ old('contact_name') }}" class="kt-input w-full" maxlength="200">

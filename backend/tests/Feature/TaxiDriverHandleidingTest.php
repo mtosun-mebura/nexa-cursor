@@ -51,6 +51,8 @@ class TaxiDriverHandleidingTest extends TestCase
             ->assertSee('Betalen en factuur', false)
             ->assertSee('8. Navigatie', false)
             ->assertSee('Tabbladen onderin', false)
+            ->assertSee('Na het inloggen kom je op', false)
+            ->assertSee('Dit is het startscherm.', false)
             ->assertSee('Start navigatie', false)
             ->assertSee('van je actieve rit', false)
             ->assertSee('naam van de klant staat boven Ophalen', false)
@@ -89,12 +91,35 @@ class TaxiDriverHandleidingTest extends TestCase
         $this->assertStringContainsString('data-main-tab-panel="planning"', $html);
         $this->assertStringContainsString('data-main-tab="navigation"', $html);
         $this->assertStringContainsString('data-main-tab-panel="navigation"', $html);
+        $this->assertMatchesRegularExpression('/data-main-tab="trips"[\s\S]+data-main-tab="requests"/', $html);
+        $this->assertStringContainsString('id="nav-requests-count"', $html);
+        $this->assertStringContainsString('id="btn-empty-show-trips"', $html);
         $this->assertStringContainsString('id="btn-start-navigation"', $html);
         $this->assertStringContainsString('maps.googleapis.com', $html);
         $this->assertStringContainsString('rel="preconnect"', $html);
         $this->assertStringContainsString('Inlogcode aanvragen', $html);
         $this->assertStringContainsString('data-planning-view="day"', $html);
+        $this->assertStringContainsString('id="requests-section-title"', $html);
+        $this->assertStringContainsString('id="requests-section-icon"', $html);
+        $this->assertStringContainsString('id="requests-section-head"', $html);
+        $this->assertStringContainsString('id="tenant-logo-bar"', $html);
+        $this->assertStringContainsString('id="tenant-logo"', $html);
         $this->assertStringContainsString('data-planning-view="week"', $html);
         $this->assertStringNotContainsString('data-planning-view="month"', $html);
+    }
+
+    #[Test]
+    public function chauffeur_app_on_lan_host_does_not_point_scripts_or_api_at_localhost(): void
+    {
+        $html = $this->get('http://192.168.2.70:8085/taxi/chauffeur')
+            ->assertOk()
+            ->assertSee('Chauffeur inloggen', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('http://localhost', $html);
+        $this->assertStringContainsString('taxi-driver-app.js', $html);
+        $this->assertStringContainsString('taxi/chauffeur/manifest.webmanifest', $html);
+        $this->assertStringContainsString('apiBase:', $html);
+        $this->assertStringContainsString('v1\/driver', $html);
     }
 }

@@ -214,6 +214,7 @@
         'admin.payments.index': 'view-payments',
         'admin.payments.openstaand': 'view-payments',
         'admin.payments.voldaan': 'view-payments',
+        'admin.payments.overzichten': 'view-payments',
         'admin.invoices.index': 'view-invoices',
         'admin.invoices.create': 'create-invoices',
         'admin.invoices.edit': 'edit-invoices',

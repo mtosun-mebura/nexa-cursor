@@ -19,7 +19,7 @@ class Company extends Model
         'website', 'email', 'phone',
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
         'is_active', 'accepts_nexa_suite_bookings', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
-        'logo_dark_blob', 'logo_dark_mime_type', 'building_image',
+        'logo_dark_blob', 'logo_dark_mime_type', 'favicon_blob', 'favicon_mime_type', 'building_image',
         'frontend_theme_id', 'website_theme_settings', 'package_key', 'package_addons',
     ];
 
@@ -260,5 +260,19 @@ class Company extends Model
         }
 
         return $this->adminLogoLightUrl();
+    }
+
+    public function hasFavicon(): bool
+    {
+        return filled($this->favicon_blob);
+    }
+
+    public function adminFaviconUrl(): ?string
+    {
+        if (! $this->hasFavicon()) {
+            return null;
+        }
+
+        return route('admin.companies.favicon', $this);
     }
 }

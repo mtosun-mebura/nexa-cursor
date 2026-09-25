@@ -126,6 +126,26 @@ class FrontendComponentService
         return ! isset($this->excludedComponentIdLookup()[strtolower(trim($componentId))]);
     }
 
+    /**
+     * FAQ-antwoorden zijn platte tekst. WYSIWYG kan &lt;p&gt;-tags opslaan; die mogen niet zichtbaar zijn.
+     */
+    public static function plainTextFromHtml(mixed $value): string
+    {
+        $text = trim((string) $value);
+        if ($text === '') {
+            return '';
+        }
+        $text = preg_replace('/<br\s*\/?>/i', "\n", $text) ?? $text;
+        $text = preg_replace('/<\/p>/i', "\n", $text) ?? $text;
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace("/\r\n|\r/u", "\n", $text) ?? $text;
+        $text = preg_replace('/[ \t]+/u', ' ', $text) ?? $text;
+        $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
+
+        return trim($text);
+    }
+
     /** @return array<string, string> oude section_order key => canonieke key */
     public static function legacyComponentSectionKeyMap(): array
     {
@@ -219,11 +239,12 @@ class FrontendComponentService
                 'eyebrow' => 'FAQ',
                 'title' => 'Veelgestelde vragen',
                 'subtitle' => 'Antwoorden op de vragen die ondernemers het vaakst stellen.',
+                'width_percent' => 60,
                 'items' => [
                     ['question' => 'Hoe snel is de website live?', 'answer' => 'Na koppeling van het Landwind-thema vult u de teksten in de pagina-editor. De FAQ, logo’s en overige blokken staan direct klaar.'],
                     ['question' => 'Kan ik teksten zelf aanpassen?', 'answer' => 'Ja. Elke vraag en elk antwoord is bewerkbaar in de sectie-editor, zonder code te wijzigen.'],
                     ['question' => 'Werkt dit op mobiel?', 'answer' => 'De accordion is opgebouwd met Tailwind en Flowbite-patronen: één kolom, grote tikvlakken en donkere modus.'],
-                    ['question' => 'Voor welk thema is dit blok?', 'answer' => 'Dit FAQ-blok komt uit Landwind, maar u sleept het op elke websitepagina — ook als de tenant een ander thema heeft.'],
+                    ['question' => 'Voor welk thema is dit blok?', 'answer' => 'Dit FAQ-blok komt uit Landwind, maar u sleept het op elke websitepagina — ook als de klant een ander thema heeft.'],
                 ],
             ],
             'landwind.trusted_by' => [

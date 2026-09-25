@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AdminFirstLoginCodeEmailTemplateService;
 use App\Services\AdminFirstLoginService;
 use App\Services\UserRoleAssignmentService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
@@ -166,6 +167,54 @@ class AdminFirstLoginTest extends TestCase
         ])
             ->assertStatus(422)
             ->assertJsonFragment(['message' => 'Dit account is al geactiveerd. Log in met uw wachtwoord.']);
+    }
+
+    #[Test]
+    public function unknown_email_cannot_request_a_first_login_code(): void
+    {
+        $this->postJson(route('admin.login.first-code'), [
+            'email' => 'onbekend@example.com',
+        ])
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => 'Dit is een ongeldig e-mailadres.']);
+    }
+
+    #[Test]
+    public function created_company_admin_can_request_first_login_code_without_password(): void
+    {
+        Role::firstOrCreate(['name' => 'company-staff', 'guard_name' => 'web']);
+        $company = Company::query()->create(['name' => 'Admin Code BV', 'is_active' => true]);
+        User::factory()->create(['company_id' => $company->id]);
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+
+        $this->actingAs($admin, 'web')
+            ->post(route('admin.users.store'), [
+                'first_name' => 'Nieuwe',
+                'last_name' => 'Beheerder',
+                'email' => 'nieuwe.beheerder@example.com',
+                'company_id' => $company->id,
+                'roles' => ['company-admin'],
+            ])
+            ->assertRedirect();
+
+        $created = User::query()->where('email', 'nieuwe.beheerder@example.com')->first();
+        $this->assertNotNull($created);
+        $this->assertTrue((bool) $created->password_must_be_set);
+
+        Auth::logout();
+        $this->flushSession();
+        RateLimiter::clear('admin-first-login-email:'.strtolower($created->email));
+
+        $this->postJson(route('admin.login.first-code'), [
+            'email' => $created->email,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('customer_login_codes', [
+            'user_id' => $created->id,
+            'purpose' => CustomerLoginCode::PURPOSE_ADMIN,
+        ]);
     }
 
     private function makePendingAdmin(string $email): User

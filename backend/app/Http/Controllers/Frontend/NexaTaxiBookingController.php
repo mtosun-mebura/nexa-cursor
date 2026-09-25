@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Models\WebsitePage;
+use App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController;
 use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
 use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
@@ -215,11 +216,13 @@ class NexaTaxiBookingController extends Controller
         $vehicleId = isset($selected['vehicle_id']) && is_numeric($selected['vehicle_id'])
             ? (int) $selected['vehicle_id']
             : null;
+        $isMarketplace = ! empty($resolved['marketplace']);
 
         // Fallback: bij person-range kan vehicle_id ontbreken; kies dan een actief voertuig in die range.
         // Altijd scopen op de tenant van de website waarop geboekt wordt, anders kan hier per ongeluk
         // een voertuig (en dus company_id) van een andere tenant gekozen worden.
-        if ($vehicleId === null) {
+        // Marketplace: geen auto toewijzen tot een centrale de rit accepteert.
+        if (! $isMarketplace && $vehicleId === null) {
             $personRange = isset($selected['person_range']) ? trim((string) $selected['person_range']) : '';
             $vehicleQuery = Vehicle::on($conn)->where('active', true);
             if (! empty($resolved['tenant_company_id'])) {
@@ -234,10 +237,14 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
-        $resolvedVehicle = $vehicleId ? Vehicle::on($conn)->find($vehicleId) : null;
+        $resolvedVehicle = (! $isMarketplace && $vehicleId) ? Vehicle::on($conn)->find($vehicleId) : null;
         $companyId = $resolvedVehicle?->company_id ? (int) $resolvedVehicle->company_id : null;
-        if (($companyId === null || $companyId <= 0) && ! empty($resolved['tenant_company_id'])) {
+        if (($companyId === null || $companyId <= 0) && ! $isMarketplace && ! empty($resolved['tenant_company_id'])) {
             $companyId = (int) $resolved['tenant_company_id'];
+        }
+        if ($isMarketplace) {
+            $vehicleId = null;
+            $companyId = null;
         }
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
@@ -429,9 +436,16 @@ class NexaTaxiBookingController extends Controller
         // Succes: eventuele bewaarde boeking opruimen.
         $request->session()->forget('nexataxi.pending_booking');
 
-        if ($rideCompanyId && $rideCompanyId > 0 && ! $payAtBooking) {
-            // Na de HTTP-response: gebruiker ziet sneller “gelukt”, dispatch loopt op de achtergrond.
-            StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
+        $marketplaceCompanyIds = array_values(array_filter(array_map(
+            'intval',
+            $resolved['marketplace']['candidate_company_ids'] ?? []
+        )));
+        if (! $payAtBooking) {
+            if ($marketplaceCompanyIds !== []) {
+                StartRideDispatchJob::dispatch((int) $ride->id, 0, $marketplaceCompanyIds, false)->afterResponse();
+            } elseif ($rideCompanyId && $rideCompanyId > 0) {
+                StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
+            }
         }
 
         $checkoutUrl = null;
@@ -489,26 +503,29 @@ class NexaTaxiBookingController extends Controller
             ])->afterResponse();
         }
 
-        $successMessage = $payAtBooking
-            ? 'Je wordt doorgestuurd naar de betaling.'
-            : ($sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.');
+        $receivedMessage = $sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.';
         if ($createdCustomer) {
             if ($loginCodeEmailSent) {
-                $successMessage .= ' We hebben een account voor u aangemaakt. Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
+                $receivedMessage .= ' We hebben een account voor u aangemaakt. Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
             } else {
-                $successMessage .= ' We hebben een account voor u aangemaakt. De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
+                $receivedMessage .= ' We hebben een account voor u aangemaakt. De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
             }
         } elseif ($linkedExistingCustomer && $pendingLoginCodeSend !== null) {
             if ($loginCodeEmailSent) {
-                $successMessage .= ' Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
+                $receivedMessage .= ' Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
             } else {
-                $successMessage .= ' De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
+                $receivedMessage .= ' De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
             }
         }
+
+        $successMessage = $payAtBooking
+            ? 'Je wordt doorgestuurd naar de betaling.'
+            : $receivedMessage;
 
         $response = [
             'success' => true,
             'message' => $successMessage,
+            'after_payment_message' => $receivedMessage,
             'ride_request_id' => $ride->id,
             'payment_required' => $payAtBooking,
             'checkout_url' => $checkoutUrl,
@@ -526,6 +543,22 @@ class NexaTaxiBookingController extends Controller
                 $loginParams['email'] = $accountEmail;
             }
             $response['portal_login_url'] = route('login', $loginParams);
+        }
+
+        if ($payAtBooking && $checkoutUrl) {
+            $paymentReturn = [
+                'return_url' => TaxiBookingPaymentController::safeReturnUrl(
+                    is_string($request->input('return_url')) ? $request->input('return_url') : null,
+                    $request,
+                    $rideCompanyId
+                ),
+                'message' => $receivedMessage,
+                'portal_login_url' => $response['portal_login_url'] ?? null,
+            ];
+            $request->session()->put('nexataxi.booking_payment.'.$ride->id, $paymentReturn);
+            $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+            $payload['payment_return'] = $paymentReturn;
+            $ride->update(['booking_payload' => $payload]);
         }
 
         return response()->json($response);
@@ -712,7 +745,11 @@ class NexaTaxiBookingController extends Controller
             return is_array($body) ? $body : [];
         });
 
-        return response()->json($data);
+        if (! is_array($data)) {
+            $data = [];
+        }
+
+        return response()->json($this->rankAddressSearchResults($q, $data));
     }
 
     private function reverseAddressSearch(float $lat, float $lon): JsonResponse
@@ -759,11 +796,12 @@ class NexaTaxiBookingController extends Controller
             return $normalized;
         }
 
+        // Synoniemen voor treinstations. "Centraal station" mag NIET worden
+        // ingekort tot alleen "station" — dan vindt Nominatim busstops i.p.v. CS.
         $replacements = [
             '/\btreinstations?\b/ui' => 'station',
             '/\btrein\s+station\b/ui' => 'station',
             '/\bns\s+station\b/ui' => 'station',
-            '/\bcentraal\s+station\b/ui' => 'station',
         ];
 
         foreach ($replacements as $pattern => $replacement) {
@@ -773,6 +811,72 @@ class NexaTaxiBookingController extends Controller
         $normalized = preg_replace('/\s+/u', ' ', trim($normalized)) ?? $normalized;
 
         return $normalized !== '' ? $normalized : $query;
+    }
+
+    /**
+     * Sorteer Nominatim-hits zodat "centraal station" / treinstations boven busstops komen.
+     *
+     * @param  array<int, mixed>  $results
+     * @return array<int, mixed>
+     */
+    private function rankAddressSearchResults(string $query, array $results): array
+    {
+        if (count($results) < 2) {
+            return $results;
+        }
+
+        $ql = mb_strtolower($query);
+        $wantsStation = str_contains($ql, 'station')
+            || str_contains($ql, 'centraal')
+            || (bool) preg_match('/\bcs\b/u', $ql);
+        if (! $wantsStation) {
+            return $results;
+        }
+
+        usort($results, function ($a, $b) use ($ql) {
+            $scoreA = is_array($a) ? $this->addressSearchStationScore($a, $ql) : 0;
+            $scoreB = is_array($b) ? $this->addressSearchStationScore($b, $ql) : 0;
+
+            return $scoreB <=> $scoreA;
+        });
+
+        return $results;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function addressSearchStationScore(array $item, string $queryLower): int
+    {
+        $score = 0;
+        $type = mb_strtolower((string) ($item['type'] ?? ''));
+        $category = mb_strtolower((string) ($item['category'] ?? ''));
+        $name = mb_strtolower((string) ($item['name'] ?? ''));
+        $display = mb_strtolower((string) ($item['display_name'] ?? ''));
+
+        if ($category === 'railway' || in_array($type, ['station', 'halt', 'stop'], true)) {
+            $score += 80;
+        }
+        if (str_contains($name, 'centraal') || str_contains($display, 'centraal station')) {
+            $score += 60;
+        }
+        if ($name === 'centraal station' || str_starts_with($name, 'centraal station')) {
+            $score += 40;
+        }
+        if (in_array($type, ['bus_stop', 'platform'], true) && $category === 'highway') {
+            $score -= 30;
+        }
+        if ($name === 'station' && ! str_contains($name, 'centraal')) {
+            $score -= 20;
+        }
+        // Strafpunten voor typische verkeerde "Station"-hits buiten de stadskern.
+        foreach (['glanerbrug', 'busstation'] as $penaltyNeedle) {
+            if (str_contains($display, $penaltyNeedle) && str_contains($queryLower, 'centraal')) {
+                $score -= 50;
+            }
+        }
+
+        return $score;
     }
 
     /**
@@ -833,8 +937,16 @@ class NexaTaxiBookingController extends Controller
             ];
         }
 
-        $match = app(NearestTaxiTenantResolver::class)->resolve($lat, $lng);
-        if ($match === null) {
+        $radiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
+            $resolved['config']['logic']['marketplace_radius_km'] ?? null
+        );
+        $matches = app(NearestTaxiTenantResolver::class)->resolveNearby(
+            $lat,
+            $lng,
+            NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
+            $radiusKm
+        );
+        if ($matches === []) {
             return [
                 'resolved' => $resolved,
                 'error' => response()->json([
@@ -844,15 +956,31 @@ class NexaTaxiBookingController extends Controller
             ];
         }
 
-        /** @var Company $company */
-        $company = $match['company'];
-        $resolved['tenant_company_id'] = (int) $company->id;
+        $candidates = [];
+        $candidateIds = [];
+        foreach ($matches as $match) {
+            /** @var Company $company */
+            $company = $match['company'];
+            $candidateIds[] = (int) $company->id;
+            $candidates[] = [
+                'company_id' => (int) $company->id,
+                'company_name' => $company->name,
+                'distance_km' => $match['distance_km'],
+            ];
+        }
+
+        $nearest = $candidates[0];
+        $resolved['tenant_company_id'] = null;
+        $resolved['config']['logic']['offer_display_mode'] = 'person_range';
         $resolved['marketplace'] = [
             'source' => RideRequest::SOURCE_NEXA_SUITE,
             'label' => 'NEXA Suite',
-            'company_id' => (int) $company->id,
-            'company_name' => $company->name,
-            'distance_km' => $match['distance_km'],
+            'company_id' => $nearest['company_id'],
+            'company_name' => $nearest['company_name'],
+            'distance_km' => $nearest['distance_km'],
+            'radius_km' => $radiusKm,
+            'candidate_company_ids' => $candidateIds,
+            'candidates' => $candidates,
         ];
 
         return ['resolved' => $resolved, 'error' => null];

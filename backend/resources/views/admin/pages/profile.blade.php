@@ -2098,7 +2098,7 @@ function updateHeaderPhotos(photoUrlOverride) {
     img.style.objectFit = 'cover';
     img.style.width = '100%';
     img.style.height = '100%';
-    img.classList.remove('object-contain', 'bg-black', 'opacity-50', 'size-9', 'shrink-0', 'rounded-full', 'border-2', 'border-green-500');
+    img.classList.remove('object-contain', 'bg-black', 'bg-transparent', 'opacity-50', 'size-9', 'shrink-0', 'rounded-full', 'border-2', 'border-green-500');
     img.classList.add('object-cover');
   }
 

@@ -1,6 +1,6 @@
 {{--
-  Zet html.dark vóór paint zodat Tailwind dark:* op de meld-pagina werkt (zie resources/css/app.css @custom-variant dark).
-  $flavor: 'admin' (kt-theme zoals admin layout) | 'frontend' (theme / website-theme)
+  Zet html.dark vóór paint zodat de meld-pagina de actieve modus volgt.
+  $flavor: 'admin' (kt-theme) | 'frontend' (theme / website-theme)
 --}}
 @php $flavor = $flavor ?? 'admin'; @endphp
 <script>
@@ -13,12 +13,11 @@
     mode = localStorage.getItem('kt-theme');
   } else if (root.hasAttribute('data-kt-theme-mode')) {
     mode = root.getAttribute('data-kt-theme-mode') || 'light';
-  } else {
-    mode = 'light';
   }
   if (mode === 'system') {
     mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
+  root.setAttribute('data-kt-theme-mode', mode === 'dark' ? 'dark' : 'light');
   @else
   var stored = localStorage.getItem('website-theme') || localStorage.getItem('theme');
   if (stored === 'dark') mode = 'dark';
@@ -27,5 +26,6 @@
   @endif
   root.classList.remove('light', 'dark');
   root.classList.add(mode === 'dark' ? 'dark' : 'light');
+  root.style.colorScheme = mode === 'dark' ? 'dark' : 'light';
 })();
 </script>

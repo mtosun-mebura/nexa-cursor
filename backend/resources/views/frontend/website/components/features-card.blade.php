@@ -27,7 +27,7 @@
 @endphp
 
 <div {{ $attributes->merge(['class' => trim($cardBaseClass.' '.$class)]) }}>
-    <div class="flex flex-col w-full {{ $iconAlignItems }} {{ $iconAlignText }}">
+    <div class="flex flex-col w-full h-full {{ $iconAlignItems }} {{ $iconAlignText }}">
         <div class="features-card-icon w-12 h-12 {{ $isBlue ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-green-100 dark:bg-green-500/20' }} rounded-lg flex items-center justify-center shrink-0">
             <svg class="{{ $iconSizeClass }} {{ $isBlue ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">{!! $iconDef['svg'] ?? '' !!}</svg>
         </div>

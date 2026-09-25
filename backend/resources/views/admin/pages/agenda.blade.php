@@ -1,6 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Agenda - NEXA Skillmatching')
+@php
+    $calendarMode = $calendarMode ?? 'agenda';
+    $isDriverScheduleCalendar = $calendarMode === 'driver_schedules';
+    $canManage = $canManage ?? false;
+    $superAdminNeedsTenant = $superAdminNeedsTenant ?? false;
+@endphp
+
+@section('title', $isDriverScheduleCalendar ? 'Chauffeurplanning' : 'Agenda - NEXA Skillmatching')
 
 @section('content')
 <style>
@@ -26,8 +33,9 @@
   /* Header styles */
   .agenda-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
     padding: 0.75rem 0;
     border-bottom: 1px solid #e5e7eb;
     flex-shrink: 0;
@@ -37,48 +45,12 @@
     border-bottom-color: #4b5563;
   }
 
-  .agenda-title-container {
+  .agenda-header-top {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  #user-filter {
-    font-size: 0.875rem;
-    padding: 0.5rem 2rem 0.5rem 0.75rem;
-    min-height: 38px;
-    height: 38px;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.375rem;
-    background: white;
-    color: #374151;
-    line-height: 1.5;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 12px;
-    cursor: pointer;
-  }
-
-  .dark #user-filter {
-    background: #1f2937;
-    border-color: #4b5563;
-    color: #f9fafb;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f9fafb' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 12px;
-  }
-
-  #user-filter:hover {
-    border-color: #9ca3af;
-  }
-
-  .dark #user-filter:hover {
-    border-color: #6b7280;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
 
   .agenda-title {
@@ -881,9 +853,8 @@
       font-size: 1.25rem;
     }
 
-    #user-filter {
-      width: 100%;
-      min-width: 0;
+    .agenda-header-top {
+      align-items: stretch;
     }
 
     .agenda-actions {
@@ -958,22 +929,10 @@
 <div class="kt-container-fixed">
     <div class="agenda-container">
         <!-- Header -->
-        <div class="agenda-header">
-            <div class="agenda-title-container">
+        <div class="agenda-header admin-calendar-toolbar">
+            <div class="agenda-header-top admin-calendar-toolbar__top">
                 <div class="agenda-title" id="agenda-title">Agenda</div>
-                @if(auth()->user()->hasRole('super-admin') && isset($users) && $users->count() > 0)
-                <div class="mt-2">
-                    <select id="user-filter" class="kt-select kt-select-sm" style="min-width: 200px;">
-                        <option value="" selected>Alle gebruikers</option>
-                        @foreach($users as $user)
-                            @php $userAgendaColor = $user->agenda_color ?: $user->resolvedAgendaColor(); @endphp
-                            <option value="{{ $user->id }}" data-agenda-color="{{ $userAgendaColor }}">{{ $user->first_name }} {{ $user->last_name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                @endif
-            </div>
-            <div class="agenda-actions">
+                <div class="agenda-actions">
                 <div class="view-buttons-container">
                     <button class="kt-btn kt-btn-outline view-btn kt-btn-active" data-view="month" id="btn-month" aria-pressed="true">
                         Maand
@@ -996,14 +955,61 @@
                         <i class="ki-filled ki-arrow-right"></i>
                     </button>
                 </div>
-                @if(Route::has('admin.skillmatching.interviews.create'))
+                @if($isDriverScheduleCalendar && $canManage)
+                <a href="{{ route('admin.taxi.driver_schedules.create') }}" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-plus me-2"></i>
+                    Nieuwe dienst
+                </a>
+                @elseif(! $isDriverScheduleCalendar && Route::has('admin.skillmatching.interviews.create'))
                 <a href="{{ route('admin.skillmatching.interviews.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
                     Nieuwe interview
                 </a>
                 @endif
+                </div>
             </div>
+            @php
+                $showAgendaUserFilter = ! $isDriverScheduleCalendar && auth()->user()->hasRole('super-admin') && isset($users) && $users->count() > 0;
+                $showAgendaDriverFilter = isset($agendaDrivers) && $agendaDrivers->count() > 0;
+                $showAgendaVehicleFilter = isset($agendaVehicles) && $agendaVehicles->count() > 0;
+            @endphp
+            @if($showAgendaUserFilter || $showAgendaDriverFilter || $showAgendaVehicleFilter)
+            <div class="admin-calendar-toolbar__filters">
+                @if($showAgendaUserFilter)
+                <select id="user-filter" class="kt-select kt-select-sm" aria-label="Gebruiker">
+                    <option value="" selected>Alle gebruikers</option>
+                    @foreach($users as $user)
+                        @php $userAgendaColor = $user->agenda_color ?: $user->resolvedAgendaColor(); @endphp
+                        <option value="{{ $user->id }}" data-agenda-color="{{ $userAgendaColor }}">{{ $user->first_name }} {{ $user->last_name }}</option>
+                    @endforeach
+                </select>
+                @endif
+                @if($showAgendaDriverFilter)
+                <select id="driver-filter" class="kt-select kt-select-sm" aria-label="Chauffeur">
+                    <option value="" selected>Alle chauffeurs</option>
+                    @foreach($agendaDrivers as $agendaDriver)
+                        @php $driverAgendaColor = $agendaDriver->agenda_color ?: $agendaDriver->resolvedAgendaColor(); @endphp
+                        <option value="{{ $agendaDriver->id }}" data-agenda-color="{{ $driverAgendaColor }}">{{ $agendaDriver->first_name }} {{ $agendaDriver->last_name }}</option>
+                    @endforeach
+                </select>
+                @endif
+                @if($showAgendaVehicleFilter)
+                <select id="vehicle-filter" class="kt-select kt-select-sm" aria-label="Voertuig">
+                    <option value="" selected>Alle voertuigen</option>
+                    @foreach($agendaVehicles as $agendaVehicle)
+                        <option value="{{ $agendaVehicle->id }}">{{ $agendaVehicle->fleetLabel() }}</option>
+                    @endforeach
+                </select>
+                @endif
+            </div>
+            @endif
         </div>
+
+        @if($superAdminNeedsTenant)
+        <div class="kt-alert kt-alert-light border border-input p-4" role="status">
+            Selecteer een tenant om chauffeurs en voertuigen te filteren en nieuwe diensten in te plannen.
+        </div>
+        @endif
 
         <!-- Calendar Views -->
         <div id="month-view" class="calendar-view active">
@@ -1106,13 +1112,13 @@ function getEventDateParts(dateString) {
     };
 }
 
-function getSelectedUserId() {
-    const userFilter = document.getElementById('user-filter');
-    if (!userFilter) {
+function getSelectedFilterId(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) {
         return null;
     }
 
-    const value = String(userFilter.value || '').trim();
+    const value = String(el.value || '').trim();
     if (value === '' || !/^\d+$/.test(value)) {
         return null;
     }
@@ -1120,8 +1126,23 @@ function getSelectedUserId() {
     return value;
 }
 
+function getSelectedUserId() {
+    return getSelectedFilterId('user-filter');
+}
+
+function getSelectedDriverId() {
+    return getSelectedFilterId('driver-filter');
+}
+
+function getSelectedVehicleId() {
+    return getSelectedFilterId('vehicle-filter');
+}
+
 // Interview base URL (Skillmatching module; empty when module inactive)
 const interviewBaseUrl = @json(Route::has('admin.skillmatching.interviews.index') ? rtrim(route('admin.skillmatching.interviews.index'), '/') . '/' : '');
+const agendaEventsUrl = @json($isDriverScheduleCalendar ? route('admin.taxi.driver_schedules.events') : route('admin.agenda.events'));
+const scheduleCreateUrl = @json($isDriverScheduleCalendar && $canManage ? route('admin.taxi.driver_schedules.create') : '');
+const scheduleModalLinkLabel = @json($isDriverScheduleCalendar ? 'Dienst bewerken' : 'Bekijk in chauffeurplanning');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -1163,6 +1184,14 @@ function setupEventListeners() {
             loadEvents();
         });
     }
+    ['driver-filter', 'vehicle-filter'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', function () {
+                loadEvents();
+            });
+        }
+    });
 
     // Modal backdrop click
     const dayModalBackdrop = document.querySelector('#day-modal .agenda-event-modal__backdrop');
@@ -1188,10 +1217,18 @@ function loadEvents() {
     const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0, 23, 59, 59, 999);
     
     const userId = getSelectedUserId();
+    const driverId = getSelectedDriverId();
+    const vehicleId = getSelectedVehicleId();
     
-    let url = `{{ route("admin.agenda.events") }}?start=${start.toISOString()}&end=${end.toISOString()}`;
+    let url = `${agendaEventsUrl}?start=${start.toISOString()}&end=${end.toISOString()}`;
     if (userId) {
         url += `&user_id=${userId}`;
+    }
+    if (driverId) {
+        url += `&driver_id=${driverId}`;
+    }
+    if (vehicleId) {
+        url += `&vehicle_id=${vehicleId}`;
     }
 
     fetch(url, {
@@ -1262,13 +1299,13 @@ function navigate(direction) {
     } else if (currentView === 'day') {
         currentDate.setDate(currentDate.getDate() + direction);
     }
-    renderCurrentView();
+    loadEvents();
 }
 
 // Go to today
 function goToToday() {
     currentDate = new Date();
-    renderCurrentView();
+    loadEvents();
 }
 
 // Render current view
@@ -1551,6 +1588,14 @@ function createMonthDayCell(day, month, year, isOtherMonth) {
         cell.appendChild(eventsContainer);
     }
 
+    if (scheduleCreateUrl) {
+        cell.style.cursor = 'pointer';
+        cell.addEventListener('click', function () {
+            const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            window.location.href = `${scheduleCreateUrl}?date=${iso}`;
+        });
+    }
+
     return cell;
 }
 
@@ -1621,39 +1666,82 @@ function renderWeekView() {
     });
 }
 
-function positionWeekEvents(container, weekStart, startHour, endHour) {
-    // Get all hour slots and measure the actual height
-    const hourSlots = container.querySelectorAll('.week-hour-slot');
-    if (hourSlots.length === 0) return;
-    
-    const firstHourSlot = hourSlots[0];
-    const hourHeight = firstHourSlot.offsetHeight;
-    
-    // Get header height from the first week-day-header
-    const headerEl = container.querySelector('.week-day-header');
-    const headerHeight = headerEl ? headerEl.offsetHeight : 48;
+function eventHourDecimal(dateString) {
+    const match = String(dateString || '').match(/T(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+        return parseInt(match[1], 10) + parseInt(match[2], 10) / 60 + parseInt(match[3] || '0', 10) / 3600;
+    }
 
-    // Process events for each day
+    const date = new Date(dateString);
+    return date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
+}
+
+function weekSlotEdgeY(container, dayIndex, hourDecimal, asEnd) {
+    const containerRect = container.getBoundingClientRect();
+    const scrollY = container.scrollTop || 0;
+    const borderTop = container.clientTop || 0;
+    const minHour = 0;
+    const maxHour = 23;
+    let hourValue = hourDecimal;
+
+    if (asEnd && hourValue < 1e-6) {
+        hourValue = maxHour + 1;
+    }
+
+    if (asEnd) {
+        if (hourValue >= maxHour + 1 - 1e-6) {
+            const last = container.querySelector(`.week-hour-slot[data-day-index="${dayIndex}"][data-hour="${maxHour}"]`);
+            if (last) {
+                return last.getBoundingClientRect().bottom - containerRect.top - borderTop + scrollY;
+            }
+        }
+
+        const isExactHour = Math.abs(hourValue - Math.round(hourValue)) < 1e-6;
+        const roundedHour = Math.round(hourValue);
+        if (isExactHour && roundedHour > minHour) {
+            const prevHour = Math.min(maxHour, roundedHour - 1);
+            const prev = container.querySelector(`.week-hour-slot[data-day-index="${dayIndex}"][data-hour="${prevHour}"]`);
+            if (prev) {
+                return prev.getBoundingClientRect().bottom - containerRect.top - borderTop + scrollY;
+            }
+        }
+    }
+
+    const hour = Math.min(maxHour, Math.max(minHour, Math.floor(hourValue)));
+    const slot = container.querySelector(`.week-hour-slot[data-day-index="${dayIndex}"][data-hour="${hour}"]`);
+    if (!slot) {
+        return scrollY;
+    }
+
+    const rect = slot.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, hourValue - hour));
+    return rect.top - containerRect.top - borderTop + scrollY + fraction * rect.height;
+}
+
+function positionWeekEvents(container, weekStart, startHour, endHour) {
+    const hourSlots = container.querySelectorAll('.week-hour-slot');
+    if (hourSlots.length === 0) {
+        return;
+    }
+
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
         const day = new Date(weekStart);
         day.setDate(weekStart.getDate() + dayIndex);
         const dayEvents = getEventsForDay(day.getFullYear(), day.getMonth(), day.getDate());
-        
-        if (dayEvents.length === 0) continue;
-        
-        // Sort events by start time
-        dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
-        
-        // Calculate overlapping groups for side-by-side display
+
+        if (dayEvents.length === 0) {
+            continue;
+        }
+
+        dayEvents.sort((a, b) => eventHourDecimal(a.start) - eventHourDecimal(b.start));
+
         const columns = [];
         dayEvents.forEach(event => {
-            const eventStart = new Date(event.start);
-            const eventEnd = new Date(event.end);
-            
+            const eventStart = eventHourDecimal(event.start);
             let placed = false;
             for (let col = 0; col < columns.length; col++) {
                 const lastEventInCol = columns[col][columns[col].length - 1];
-                const lastEnd = new Date(lastEventInCol.end);
+                const lastEnd = eventHourDecimal(lastEventInCol.end);
                 if (eventStart >= lastEnd) {
                     columns[col].push(event);
                     event._column = col;
@@ -1666,43 +1754,40 @@ function positionWeekEvents(container, weekStart, startHour, endHour) {
                 columns.push([event]);
             }
         });
-        
+
         const totalColumns = columns.length;
-        
-        // Get the first hour slot for this day to calculate position
         const firstDaySlot = container.querySelector(`.week-hour-slot[data-day-index="${dayIndex}"][data-hour="${startHour}"]`);
-        if (!firstDaySlot) continue;
-        
+        if (!firstDaySlot) {
+            continue;
+        }
+
         const containerRect = container.getBoundingClientRect();
         const slotRect = firstDaySlot.getBoundingClientRect();
-        const slotLeft = slotRect.left - containerRect.left;
+        const slotLeft = slotRect.left - containerRect.left - (container.clientLeft || 0);
         const slotWidth = slotRect.width;
-        const slotTop = slotRect.top - containerRect.top;
-        
-        // Position each event
+
         dayEvents.forEach(event => {
-            const eventStart = new Date(event.start);
-            const eventEnd = new Date(event.end);
-            const startHourDecimal = eventStart.getHours() + eventStart.getMinutes() / 60;
-            const endHourDecimal = eventEnd.getHours() + eventEnd.getMinutes() / 60;
-            
-            // Skip events outside our time range
-            if (endHourDecimal <= startHour || startHourDecimal >= endHour + 1) return;
-            
-            // Clamp to visible range
+            let startHourDecimal = eventHourDecimal(event.start);
+            let endHourDecimal = eventHourDecimal(event.end);
+            if (endHourDecimal <= startHourDecimal) {
+                endHourDecimal += 24;
+            }
+
+            if (endHourDecimal <= startHour || startHourDecimal >= endHour + 1) {
+                return;
+            }
+
             const visibleStart = Math.max(startHourDecimal, startHour);
             const visibleEnd = Math.min(endHourDecimal, endHour + 1);
-            
-            const topOffset = (visibleStart - startHour) * hourHeight;
-            const height = (visibleEnd - visibleStart) * hourHeight;
-            const displayHeight = Math.max(height - 4, WEEK_EVENT_MIN_HEIGHT);
+            const top = weekSlotEdgeY(container, dayIndex, visibleStart, false);
+            const bottom = weekSlotEdgeY(container, dayIndex, visibleEnd, true);
+            const displayHeight = Math.max(bottom - top, WEEK_EVENT_MIN_HEIGHT);
             const isCompact = displayHeight < WEEK_EVENT_COMPACT_THRESHOLD;
-            
-            // Calculate horizontal position within the day column
+
             const colWidth = 100 / totalColumns;
             const leftPercent = event._column * colWidth;
-            const widthPercent = colWidth - 4; // Small gap
-            
+            const widthPercent = colWidth - 4;
+
             const eventEl = document.createElement('div');
             eventEl.className = 'week-event';
             if (isCompact) {
@@ -1712,7 +1797,7 @@ function positionWeekEvents(container, weekStart, startHour, endHour) {
             setAgendaEventTooltip(eventEl, tooltip);
             eventEl.setAttribute('aria-label', tooltip);
             eventEl.style.position = 'absolute';
-            eventEl.style.top = `${slotTop + topOffset + 2}px`;
+            eventEl.style.top = `${top}px`;
             eventEl.style.height = `${displayHeight}px`;
             eventEl.style.left = `${slotLeft + (leftPercent / 100 * slotWidth) + 2}px`;
             eventEl.style.width = `${(widthPercent / 100 * slotWidth)}px`;
@@ -1730,7 +1815,7 @@ function positionWeekEvents(container, weekStart, startHour, endHour) {
                 e.stopPropagation();
                 openEventModal(event);
             });
-            
+
             container.appendChild(eventEl);
         });
     }
@@ -1824,7 +1909,11 @@ function formatTime(dateString) {
 }
 
 function getEventDisplayName(event) {
-    const isRide = event.extendedProps && event.extendedProps.event_kind === 'ride';
+    const kind = event.extendedProps && event.extendedProps.event_kind;
+    if (kind === 'driver_schedule') {
+        return event.extendedProps.driver_name || 'Chauffeur';
+    }
+    const isRide = kind === 'ride';
     return isRide
         ? (event.extendedProps.candidate_name || 'Klant')
         : (event.extendedProps.candidate_name || 'Onbekend');
@@ -1865,7 +1954,9 @@ function buildEventModalItem(event) {
     const eventColor = resolveEventColor(event);
     eventItem.style.borderLeftColor = eventColor;
 
-    const isRide = event.extendedProps && event.extendedProps.event_kind === 'ride';
+    const kind = event.extendedProps && event.extendedProps.event_kind;
+    const isRide = kind === 'ride';
+    const isSchedule = kind === 'driver_schedule';
 
     const content = document.createElement('div');
     content.className = 'modal-event-content';
@@ -1882,7 +1973,20 @@ function buildEventModalItem(event) {
     locationDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.location || 'Locatie niet opgegeven'}</span>`;
 
     details.appendChild(timeDetail);
-    details.appendChild(locationDetail);
+    if (!isSchedule) {
+        details.appendChild(locationDetail);
+    } else {
+        const vehicleDetail = document.createElement('div');
+        vehicleDetail.className = 'modal-event-detail';
+        vehicleDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path d="M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z"/></svg><span>Voertuig: ${event.extendedProps.vehicle_label || event.extendedProps.location || 'Onbekend voertuig'}</span>`;
+        details.appendChild(vehicleDetail);
+        if (event.extendedProps.driver_name) {
+            const driverDetail = document.createElement('div');
+            driverDetail.className = 'modal-event-detail';
+            driverDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg><span>Chauffeur: ${event.extendedProps.driver_name}</span>`;
+            details.appendChild(driverDetail);
+        }
+    }
 
     if (isRide) {
         if (event.extendedProps.driver_name) {
@@ -1897,7 +2001,7 @@ function buildEventModalItem(event) {
             statusDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" /></svg><span>Status: ${event.extendedProps.status}</span>`;
             details.appendChild(statusDetail);
         }
-    } else {
+    } else if (!isSchedule) {
         const vacancyDetail = document.createElement('div');
         vacancyDetail.className = 'modal-event-detail';
         vacancyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 5.25a3 3 0 0 1 3-3h3a3 3 0 0 1 3 3v.205c.933.085 1.857.197 2.774.334 1.454.218 2.476 1.483 2.476 2.917v3.033c0 1.211-.734 2.352-1.936 2.752A24.726 24.726 0 0 1 12 15.75c-2.73 0-5.357-.442-7.814-1.259-1.202-.4-1.936-1.541-1.936-2.752V8.706c0-1.434 1.022-2.7 2.476-2.917A48.814 48.814 0 0 1 7.5 5.455V5.25Zm7.5 0v.09a49.488 49.488 0 0 0-6 0v-.09a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5Zm-3 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" /><path d="M3 18.4v-2.796a4.3 4.3 0 0 0 .713.31A26.226 26.226 0 0 0 12 17.25c2.892 0 5.68-.468 8.287-1.335.252-.084.49-.189.713-.311V18.4c0 1.452-1.047 2.728-2.523 2.923-2.12.282-4.282.427-6.477.427a49.19 49.19 0 0 1-6.477-.427C4.047 21.128 3 19.852 3 18.4Z" /></svg><span>${event.extendedProps.vacancy_title || 'Onbekende functie'}</span>`;
@@ -1930,7 +2034,12 @@ function buildEventModalItem(event) {
         content.appendChild(notes);
     }
 
-    if (!isRide && interviewBaseUrl) {
+    if (isSchedule && event.extendedProps.detail_url) {
+        const link = document.createElement('div');
+        link.className = 'modal-event-link';
+        link.innerHTML = `<a href="${event.extendedProps.detail_url}">${scheduleModalLinkLabel}</a>`;
+        content.appendChild(link);
+    } else if (!isRide && !isSchedule && interviewBaseUrl) {
         const link = document.createElement('div');
         link.className = 'modal-event-link';
         const interviewId = String(event.id).replace(/^interview-/, '');
@@ -1978,10 +2087,12 @@ window.openEventModal = function(event) {
         return;
     }
 
-    const isRide = event.extendedProps && event.extendedProps.event_kind === 'ride';
-    const title = isRide
+    const kind = event.extendedProps && event.extendedProps.event_kind;
+    const title = kind === 'ride'
         ? ('Rit – ' + (event.extendedProps.candidate_name || 'Klant'))
-        : (event.title || 'Afspraak');
+        : (kind === 'driver_schedule'
+            ? ('Dienst – ' + (event.extendedProps.driver_name || 'Chauffeur'))
+            : (event.title || 'Afspraak'));
 
     const eventsContainer = document.getElementById('modal-day-events');
     eventsContainer.innerHTML = '';

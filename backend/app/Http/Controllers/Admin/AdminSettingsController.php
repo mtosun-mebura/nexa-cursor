@@ -81,6 +81,22 @@ class AdminSettingsController extends Controller
         }
     }
 
+    protected function ensureCanViewMailSettings(): void
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->canViewMailSettings()) {
+            abort(403, 'Je hebt geen rechten om de mailserver in te stellen.');
+        }
+    }
+
+    protected function ensureCanEditMailSettings(): void
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->canEditMailSettings()) {
+            abort(403, 'Je hebt geen rechten om de mailserver te wijzigen.');
+        }
+    }
+
     /**
      * Actieve tenant (company_id) voor per-tenant configuratie in admin.
      * Super-admin: sessie selected_tenant; overige admins: company_id van de gebruiker.
@@ -148,7 +164,7 @@ class AdminSettingsController extends Controller
      */
     public function index()
     {
-        $this->ensureSuperAdmin();
+        $this->ensureCanViewMailSettings();
 
         $settingsCompanyId = $this->settingsCompanyId();
         $tenantScopedSettingsActive = $settingsCompanyId !== null;
@@ -164,13 +180,21 @@ class AdminSettingsController extends Controller
             'MAIL_FROM_ADDRESS' => $this->envService->get('MAIL_FROM_ADDRESS', 'noreply@nexasuite.nl', $settingsCompanyId),
             'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Suite', $settingsCompanyId),
         ];
+        $mailSmtpProviders = \App\Support\MailSmtpProviderCatalog::allForCompany($settingsCompanyId);
+        $mailSmtpProviderId = \App\Support\MailSmtpProviderCatalog::resolveSelectedId(
+            $settingsCompanyId,
+            \App\Models\GeneralSetting::get(\App\Support\MailSmtpProviderCatalog::SELECTED_SETTING_KEY, '', $settingsCompanyId),
+            $mailSettings['MAIL_HOST'],
+            $mailSettings['MAIL_PORT'],
+            $mailSettings['MAIL_ENCRYPTION']
+        );
         $mailDeliveryHint = $this->envService->mailDeliveryHint($settingsCompanyId);
         $mailSettingsIsPlatform = $settingsCompanyId === null;
         $mailUsingPlatformFallback = false;
         if ($settingsCompanyId !== null) {
             $mailUsingPlatformFallback = ! \App\Models\GeneralSetting::query()
                 ->where('company_id', $settingsCompanyId)
-                ->whereIn('key', \App\Models\GeneralSetting::MAIL_SETTING_KEYS)
+                ->whereIn('key', \App\Models\GeneralSetting::MAIL_DELIVERY_SETTING_KEYS)
                 ->whereNotNull('value')
                 ->where('value', '!=', '')
                 ->exists();
@@ -238,8 +262,16 @@ class AdminSettingsController extends Controller
         $databaseBackupSettings = $this->databaseBackupSettings->formSettings();
         $databaseBackups = $this->databaseBackupService->listBackups(100);
 
+        $canManageFullSettings = auth()->user()?->hasRole('super-admin') === true
+            || auth()->user()?->isSuperAdmin() === true;
+        $canEditMailSettings = auth()->user()?->canEditMailSettings() === true;
+        $fromTenantSetup = request()->query('from') === 'tenant-setup';
+        $backToTenantSetupUrl = $fromTenantSetup ? route('admin.tenant-setup-checklist') : null;
+
         return view('admin.settings.index', compact(
             'mailSettings',
+            'mailSmtpProviders',
+            'mailSmtpProviderId',
             'mailDeliveryHint',
             'mailSettingsIsPlatform',
             'mailUsingPlatformFallback',
@@ -272,6 +304,10 @@ class AdminSettingsController extends Controller
             'defaultTaxiWebhookUrl',
             'databaseBackupSettings',
             'databaseBackups',
+            'canManageFullSettings',
+            'canEditMailSettings',
+            'fromTenantSetup',
+            'backToTenantSetupUrl',
         ));
     }
 
@@ -873,9 +909,13 @@ class AdminSettingsController extends Controller
      */
     public function updateMail(Request $request)
     {
-        $this->ensureSuperAdmin();
+        $this->ensureCanEditMailSettings();
 
         $companyId = $this->settingsCompanyId();
+        $user = auth()->user();
+        if ($companyId === null && ! $user->isSuperAdmin() && ! $user->hasRole('super-admin')) {
+            abort(403, 'Geen bedrijf gekoppeld aan dit account.');
+        }
 
         $validator = Validator::make($request->all(), [
             'MAIL_MAILER' => 'required|in:log,smtp,sendmail,mailgun,ses,postmark,resend',
@@ -886,6 +926,8 @@ class AdminSettingsController extends Controller
             'MAIL_ENCRYPTION' => 'nullable|in:tls,ssl,null',
             'MAIL_FROM_ADDRESS' => 'required|email|max:255',
             'MAIL_FROM_NAME' => 'required|string|max:255',
+            'MAIL_SMTP_PROVIDER' => 'nullable|string|max:120',
+            'MAIL_SMTP_PROVIDER_NAME' => 'nullable|string|max:120',
         ], [
             'MAIL_MAILER.required' => 'Mailer is verplicht.',
             'MAIL_MAILER.in' => 'Ongeldige mailer geselecteerd.',
@@ -920,6 +962,30 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
+            $providerId = trim((string) $request->input('MAIL_SMTP_PROVIDER', ''));
+            if (strtolower((string) $mailSettings['MAIL_MAILER']) === 'smtp' && trim((string) $mailSettings['MAIL_HOST']) !== '') {
+                $provider = \App\Support\MailSmtpProviderCatalog::rememberIfNew(
+                    $companyId,
+                    $mailSettings['MAIL_HOST'],
+                    $mailSettings['MAIL_PORT'],
+                    $mailSettings['MAIL_ENCRYPTION'],
+                    $request->input('MAIL_SMTP_PROVIDER_NAME')
+                );
+                if ($provider !== null) {
+                    $providerId = $provider['id'];
+                }
+            }
+            if ($providerId === '' || $providerId === \App\Support\MailSmtpProviderCatalog::MANUAL_ID) {
+                $matched = \App\Support\MailSmtpProviderCatalog::matchBySettings(
+                    \App\Support\MailSmtpProviderCatalog::allForCompany($companyId),
+                    $mailSettings['MAIL_HOST'],
+                    $mailSettings['MAIL_PORT'],
+                    $mailSettings['MAIL_ENCRYPTION']
+                );
+                $providerId = $matched['id'] ?? \App\Support\MailSmtpProviderCatalog::MANUAL_ID;
+            }
+            GeneralSetting::set(\App\Support\MailSmtpProviderCatalog::SELECTED_SETTING_KEY, $providerId, $companyId);
+
             $success = $companyId === null
                 ? 'NEXA Suite-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
                 : 'Mail instellingen van deze tenant opgeslagen.';
@@ -939,10 +1005,12 @@ class AdminSettingsController extends Controller
      */
     public function testEmail(Request $request)
     {
-        $this->ensureSuperAdmin();
+        $this->ensureCanEditMailSettings();
 
         $validator = Validator::make($request->all(), [
             'test_email' => 'required|email',
+            'from_address' => 'nullable|email|max:255',
+            'from_name' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -955,15 +1023,18 @@ class AdminSettingsController extends Controller
         try {
             $this->envService->applyMailConfigToRuntime($this->settingsCompanyId());
 
-            $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
-            $configuredFromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
-            $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+            $fromAddress = trim((string) $request->input('from_address', ''));
+            $fromName = trim((string) $request->input('from_name', ''));
+            if ($fromAddress === '') {
+                $fromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
+            }
+            if ($fromName === '') {
+                $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+            }
 
-            $fromAddress = (! empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
-
-            \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
+            \Mail::raw('Dit is een test email van NEXA Suite. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
                 $message->to($request->input('test_email'))
-                    ->subject('Test Email - NEXA Skillmatching')
+                    ->subject('Test Email - '.$fromName)
                     ->from($fromAddress, $fromName);
             });
 
@@ -1394,6 +1465,7 @@ class AdminSettingsController extends Controller
             return $redirect;
         }
         $companyId = $this->settingsCompanyId();
+        $redirectUrl = $this->whatsappTenantRedirectUrl($request);
 
         $validator = Validator::make($request->all(), [
             'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
@@ -1402,10 +1474,11 @@ class AdminSettingsController extends Controller
             'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
             'WHATSAPP_WIDGET_PHONE' => 'nullable|string|max:50',
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
+            'return_to' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors($validator)
                 ->withInput();
         }
@@ -1421,17 +1494,17 @@ class AdminSettingsController extends Controller
             trim((string) $request->input('WHATSAPP_WIDGET_PHONE', ''))
         );
         if ($normalizedClickToChat === null) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors(['WHATSAPP_CLICK_TO_CHAT_NUMBER' => $phoneError])
                 ->withInput();
         }
         if ($normalizedCompanyNotify === null) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors(['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER' => $phoneError])
                 ->withInput();
         }
         if ($normalizedWidgetPhone === null) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->withErrors(['WHATSAPP_WIDGET_PHONE' => $phoneError])
                 ->withInput();
         }
@@ -1452,13 +1525,27 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set($key, (string) $value, $companyId);
             }
 
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->with('success', 'WhatsApp tenant-instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
-            return redirect()->to(route('admin.settings.index').'#whatsapp')
+            return redirect()->to($redirectUrl)
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
+    }
+
+    /**
+     * Redirect na WhatsApp tenant-opslag: terug naar Tenant configureren of Instellingen.
+     */
+    protected function whatsappTenantRedirectUrl(Request $request): string
+    {
+        $returnTo = trim((string) $request->input('return_to', ''));
+        $checklistUrl = route('admin.tenant-setup-checklist');
+        if ($returnTo !== '' && str_starts_with($returnTo, $checklistUrl)) {
+            return $checklistUrl;
+        }
+
+        return route('admin.settings.index').'#whatsapp';
     }
 
     /**

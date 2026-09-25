@@ -26,8 +26,10 @@ class WebsitePageController extends Controller
     private const RESERVED_SLUGS = [
         'about', 'contact', 'home', 'login', 'register', 'logout',
         'jobs', 'dashboard', 'profile', 'matches', 'agenda', 'help', 'privacy', 'terms',
+        'voorwaarden', 'disclaimer',
         'vacature-matching', 'favorites', 'verify-email', 'admin', 'storage', 'file',
         'marketing',
+        'starten',
         'demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7', 'demo8', 'demo9', 'demo10',
         \App\Models\WebsitePage::CENTRAL_WELCOME_SLUG,
     ];
@@ -153,6 +155,7 @@ class WebsitePageController extends Controller
             ? $page->getHomeSections()
             : ($homePage ? $homePage->getHomeSections() : []);
         $homeSections = $this->websiteBuilder->applyInheritedHomeFooter($homeSections, $page);
+        $homeSections = $this->websiteBuilder->applyPublicMarketplaceFeeCopy($homeSections, $page);
         $templateConnection = null;
         $moduleName = $page->module_name;
         if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {

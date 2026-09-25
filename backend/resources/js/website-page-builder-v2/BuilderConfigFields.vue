@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { inject, onUnmounted, provide, ref, watch, type Ref } from 'vue'
 import BuilderConfigFields from './BuilderConfigFields.vue'
+import BuilderFieldInfoHover from './BuilderFieldInfoHover.vue'
 import BuilderFooterLogoField from './BuilderFooterLogoField.vue'
 import BuilderFooterMapField from './BuilderFooterMapField.vue'
 import BuilderFooterSocialIcon from './BuilderFooterSocialIcon.vue'
 import BuilderHeroiconPicker from './BuilderHeroiconPicker.vue'
+import BuilderTitleHighlightPicker from './BuilderTitleHighlightPicker.vue'
 import BuilderPricingPackagesPreview from './BuilderPricingPackagesPreview.vue'
 import BuilderWysiwygField from './BuilderWysiwygField.vue'
 import type { ConfigField, FieldVisibleContext, FieldVisibleWhen, SelectOption } from './section-config-schemas'
@@ -1018,7 +1020,7 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
                 @update:model-value="patchItemField(field.key, index, sub.key, $event)"
               />
             </div>
-            <label v-else-if="sub.type === 'textarea' && sub.key === 'features_text'" class="builder-field">
+            <label v-else-if="sub.type === 'textarea' && (sub.key === 'features_text' || sub.key === 'answer')" class="builder-field">
               <span>{{ sub.label }}</span>
               <textarea
                 class="kt-input"
@@ -1341,6 +1343,16 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
 
+      <BuilderTitleHighlightPicker
+        v-else-if="field.type === 'title-highlight'"
+        :label="field.label"
+        :hint="field.hint ?? 'Klik op een woord om het op te lichten.'"
+        :title="str(field.titleKey ?? 'title')"
+        :model-value="str(field.key)"
+        :highlight-color="str(field.colorKey ?? 'title_highlight_color')"
+        @update:model-value="updateField(field.key, $event)"
+      />
+
       <label
         v-else-if="field.type === 'text'"
         class="builder-field"
@@ -1361,7 +1373,16 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           />
           <span>{{ field.label }}</span>
         </span>
+        <textarea
+          v-if="field.multiline"
+          class="kt-input builder-field__multiline"
+          :rows="field.rows ?? 3"
+          :value="str(field.key)"
+          :placeholder="field.placeholder"
+          @input="updateField(field.key, ($event.target as HTMLTextAreaElement).value)"
+        />
         <input
+          v-else
           class="kt-input"
           :value="str(field.key)"
           :placeholder="field.placeholder"
@@ -1444,23 +1465,26 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </div>
 
-      <label
+      <div
         v-else-if="field.type === 'number'"
         class="builder-field"
         :class="{ 'builder-field--digits': field.inputWidth === 'digits' }"
       >
-        <span>{{ field.label }}</span>
+        <span class="builder-field__label-row">
+          <span>{{ field.label }}</span>
+          <BuilderFieldInfoHover v-if="field.info" :text="field.info" :label="field.label" />
+        </span>
         <input
           type="number"
           class="kt-input"
           :min="field.min"
           :max="field.max"
           :step="field.step ?? 1"
-          :value="num(field.key, field.min ?? 0)"
+          :value="num(field.key, field.defaultValue ?? field.min ?? 0)"
           @input="updateField(field.key, Number(($event.target as HTMLInputElement).value))"
         />
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
-      </label>
+      </div>
 
       <div v-else-if="field.type === 'star-rating'" class="builder-field">
         <span>{{ field.label }}</span>
@@ -1673,17 +1697,23 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
         </div>
       </div>
 
-      <label v-else-if="field.type === 'checkbox'" class="builder-checkbox" :class="{ 'builder-checkbox--switch': field.control === 'switch' }">
-        <input
-          type="checkbox"
-          :class="field.control === 'switch' ? 'kt-switch kt-switch-sm shrink-0' : 'kt-checkbox'"
-          :role="field.control === 'switch' ? 'switch' : undefined"
-          :checked="bool(field.key)"
-          @change="updateField(field.key, ($event.target as HTMLInputElement).checked)"
-        />
-        <span>{{ field.label }}</span>
-      </label>
-      <p v-if="field.type === 'checkbox' && field.hint" class="builder-field-hint">{{ field.hint }}</p>
+      <div
+        v-else-if="field.type === 'checkbox'"
+        class="builder-field builder-field--checkbox"
+      >
+        <span class="builder-field__checkbox-spacer" aria-hidden="true">&nbsp;</span>
+        <label class="builder-checkbox" :class="{ 'builder-checkbox--switch': field.control === 'switch' }">
+          <input
+            type="checkbox"
+            :class="field.control === 'switch' ? 'kt-switch kt-switch-sm shrink-0' : 'kt-checkbox'"
+            :role="field.control === 'switch' ? 'switch' : undefined"
+            :checked="bool(field.key)"
+            @change="updateField(field.key, ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ field.label }}</span>
+        </label>
+        <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
+      </div>
       </template>
     </template>
   </div>
@@ -2037,7 +2067,8 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   max-width: none;
 }
 
-.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-checkbox) {
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-checkbox),
+.builder-config-group--row .builder-config-group__body :deep(.builder-config-fields > .builder-field--checkbox) {
   grid-column: 1 / -1;
   margin-top: 0.1rem;
 }
@@ -2210,7 +2241,11 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
 .builder-field__label-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.builder-field__label-row > span:first-child {
   min-width: 0;
 }
 
@@ -2250,6 +2285,15 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   width: auto;
   max-width: 100%;
   min-width: 4.5rem;
+}
+
+.builder-field__multiline {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.4;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  white-space: pre-wrap;
 }
 
 .builder-field-hint {
@@ -2519,6 +2563,10 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
   object-fit: contain;
   border-radius: 0.75rem;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+}
+
+.builder-field__checkbox-spacer {
+  display: none;
 }
 
 .builder-checkbox {

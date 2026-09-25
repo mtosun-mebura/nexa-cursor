@@ -3,8 +3,11 @@
 namespace App\Modules\NexaTaxi\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Modules\NexaTaxi\Models\DefaultRate;
+use App\Modules\NexaTaxi\Support\DefaultRateSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
+use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\Request;
 
 class TarievenController extends Controller
@@ -16,9 +19,16 @@ class TarievenController extends Controller
         $this->authorizeOrPermissionAny(['rates.view', 'vehicles.view']);
 
         $conn = $this->moduleConnection();
-        $rates = DefaultRate::getRatesForEdit($conn);
+        $scopeCompanyId = app(AdminTenantScope::class)->selectedTenantId();
+        $rates = DefaultRate::getRatesForEdit($conn, $scopeCompanyId);
+        $eveningNight = DefaultRate::eveningNightSettings($rates->first());
 
-        return view('taxi::admin.tarieven.edit', compact('rates'));
+        return view('taxi::admin.tarieven.edit', [
+            'rates' => $rates,
+            'eveningNight' => $eveningNight,
+            'scopeCompanyId' => $scopeCompanyId,
+            'scopeCompanyName' => $this->scopeCompanyName($scopeCompanyId),
+        ]);
     }
 
     public function update(Request $request)
@@ -26,6 +36,8 @@ class TarievenController extends Controller
         $this->authorizeOrPermissionAny(['rates.update', 'vehicles.update']);
 
         $conn = $this->moduleConnection();
+        DefaultRateSchema::ensureColumns($conn);
+        $scopeCompanyId = app(AdminTenantScope::class)->selectedTenantId();
         $normalize = function (array $arr) {
             $optional = ['base_fare', 'cleaning_costs', 'person_range'];
             foreach ($arr as $k => $v) {
@@ -33,6 +45,7 @@ class TarievenController extends Controller
                     $arr[$k] = in_array($k, $optional, true) ? null : 0;
                 }
             }
+
             return $arr;
         };
         $rates = array_map($normalize, (array) $request->input('rates', []));
@@ -46,7 +59,16 @@ class TarievenController extends Controller
             'rates.*.price_per_km' => 'nullable|numeric|min:0',
             'rates.*.price_per_min' => 'nullable|numeric|min:0',
             'rates.*.cleaning_costs' => 'nullable|numeric|min:0',
+            'evening_night_multiplier' => 'required|numeric|min:1|max:5',
+            'evening_night_from_hour' => 'required|integer|min:0|max:23',
+            'evening_night_until_hour' => 'required|integer|min:0|max:23',
         ]);
+
+        $eveningNight = [
+            'evening_night_multiplier' => round((float) $request->input('evening_night_multiplier'), 2),
+            'evening_night_from_hour' => DefaultRate::normalizeHour($request->input('evening_night_from_hour')),
+            'evening_night_until_hour' => DefaultRate::normalizeHour($request->input('evening_night_until_hour')),
+        ];
 
         $normalized = [];
         foreach ($rates as $row) {
@@ -56,20 +78,25 @@ class TarievenController extends Controller
             }
             [$start, $end] = DefaultRate::parseRangeBounds($range);
             $normalizedRange = $start . '-' . $end;
-            $normalized[$normalizedRange] = [
+            $payload = [
                 'person_range' => $normalizedRange,
                 'base_fare' => ($row['base_fare'] ?? null) === '' ? null : ($row['base_fare'] ?? null),
                 'min_fare' => ($row['min_fare'] ?? 0) === '' ? 0 : ($row['min_fare'] ?? 0),
                 'price_per_km' => ($row['price_per_km'] ?? 0) === '' ? 0 : ($row['price_per_km'] ?? 0),
                 'price_per_min' => ($row['price_per_min'] ?? 0) === '' ? 0 : ($row['price_per_min'] ?? 0),
                 'cleaning_costs' => ($row['cleaning_costs'] ?? null) === '' ? null : ($row['cleaning_costs'] ?? null),
+                ...$eveningNight,
             ];
+            if (DefaultRate::hasCompanyIdColumn($conn)) {
+                $payload['company_id'] = $scopeCompanyId;
+            }
+            $normalized[$normalizedRange] = $payload;
         }
         if (empty($normalized)) {
             return back()->withErrors(['rates' => 'Voeg minimaal 1 geldig personenbereik toe.'])->withInput();
         }
 
-        $existing = DefaultRate::on($conn)->get()->keyBy('person_range');
+        $existing = DefaultRate::queryForCompany($conn, $scopeCompanyId)->get()->keyBy('person_range');
         foreach ($normalized as $range => $payload) {
             $rate = $existing->get($range);
             if ($rate) {
@@ -80,10 +107,19 @@ class TarievenController extends Controller
         }
         $toDelete = $existing->keys()->diff(array_keys($normalized))->all();
         if (! empty($toDelete)) {
-            DefaultRate::on($conn)->whereIn('person_range', $toDelete)->delete();
+            DefaultRate::queryForCompany($conn, $scopeCompanyId)->whereIn('person_range', $toDelete)->delete();
         }
 
         return redirect()->route('admin.taxi.tarieven.edit')->with('success', 'Tarieven zijn bijgewerkt.');
+    }
+
+    private function scopeCompanyName(?int $scopeCompanyId): ?string
+    {
+        if ($scopeCompanyId === null) {
+            return null;
+        }
+
+        return Company::query()->whereKey($scopeCompanyId)->value('name');
     }
 
     private function authorizeOrPermissionAny(array $abilities): void

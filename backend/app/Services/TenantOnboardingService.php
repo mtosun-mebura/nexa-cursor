@@ -147,8 +147,9 @@ class TenantOnboardingService
         $featuresHtml = TenantWelcomeEmailTemplateService::featuresHtml($features);
         $featuresText = TenantWelcomeEmailTemplateService::featuresText($features);
 
-        $adminLoginUrl = TenantWelcomeEmailTemplateService::ADMIN_LOGIN_URL;
-        $handleidingUrl = TenantWelcomeEmailTemplateService::HANDLEIDING_URL;
+        $adminLoginUrl = TenantWelcomeEmailTemplateService::resolvedAdminLoginUrl();
+        $handleidingUrl = TenantWelcomeEmailTemplateService::resolvedHandleidingUrl();
+        $startVideoUrl = TenantWelcomeEmailTemplateService::resolvedStartVideoUrl();
         $displayName = trim($user->first_name.' '.$user->last_name);
         $toName = $displayName !== '' ? $displayName : $user->email;
 
@@ -163,6 +164,7 @@ class TenantOnboardingService
                 'PACKAGE_FEATURES_TEXT' => e($featuresText),
                 'ADMIN_LOGIN_URL' => $adminLoginUrl,
                 'HANDLEIDING_URL' => $handleidingUrl,
+                'START_VIDEO_URL' => $startVideoUrl,
                 'ACTION_URL' => $adminLoginUrl,
             ],
             $this->logos->templateVariable($company->id, (string) $company->name),

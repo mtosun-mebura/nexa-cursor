@@ -68,9 +68,13 @@ class AdminWebsitePageController extends Controller
         $websiteLogoSize = $websitePagesTenantScopedActive && $tenantCompanyId !== null
             ? $this->websiteBuilder->resolveLogoSizePx($tenantCompanyId)
             : null;
+        $websiteLogoPaddingLeft = $websitePagesTenantScopedActive && $tenantCompanyId !== null
+            ? $this->websiteBuilder->resolveLogoPaddingLeftPx($tenantCompanyId)
+            : null;
         $websiteLogoSizeChoices = $this->websiteBuilder->websiteLogoSizeChoices();
+        $websiteLogoPaddingLeftChoices = $this->websiteBuilder->websiteLogoPaddingLeftChoices();
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive', 'websitePagesManagingCentralSite', 'websiteLogoSize', 'websiteLogoSizeChoices'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive', 'websitePagesManagingCentralSite', 'websiteLogoSize', 'websiteLogoPaddingLeft', 'websiteLogoSizeChoices', 'websiteLogoPaddingLeftChoices'));
     }
 
     public function reorder(Request $request, WebsitePage $website_page): RedirectResponse
@@ -195,7 +199,7 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
-     * Hoogte van het tenantlogo op de website (los van het NEXA Suite-logo).
+     * Formaat van het tenantlogo op de website (hoogte + padding links; los van het NEXA Suite-logo).
      */
     public function updateWebsiteLogoSize(Request $request): RedirectResponse
     {
@@ -205,16 +209,21 @@ class AdminWebsitePageController extends Controller
         if ($tenantCompanyId === null || $tenantCompanyId <= 0) {
             return redirect()
                 ->route('admin.website-pages.index', $indexQuery)
-                ->with('error', 'Kies eerst een tenant om de logogrootte in te stellen.');
+                ->with('error', 'Kies eerst een tenant om de logo-instellingen in te stellen.');
         }
 
-        $allowed = $this->websiteBuilder->websiteLogoSizeChoices();
+        $allowedSizes = $this->websiteBuilder->websiteLogoSizeChoices();
+        $allowedPadding = $this->websiteBuilder->websiteLogoPaddingLeftChoices();
         $data = $request->validate([
-            'website_logo_size' => ['required', 'integer', Rule::in($allowed)],
+            'website_logo_size' => ['required', 'integer', Rule::in($allowedSizes)],
+            'website_logo_padding_left' => ['required', 'integer', Rule::in($allowedPadding)],
         ], [
             'website_logo_size.required' => 'Kies een logogrootte.',
             'website_logo_size.integer' => 'Logo grootte moet een getal zijn.',
             'website_logo_size.in' => 'Kies een geldige logogrootte.',
+            'website_logo_padding_left.required' => 'Kies een padding links.',
+            'website_logo_padding_left.integer' => 'Padding links moet een getal zijn.',
+            'website_logo_padding_left.in' => 'Kies een geldige padding links.',
         ]);
 
         GeneralSetting::set(
@@ -222,10 +231,15 @@ class AdminWebsitePageController extends Controller
             (string) $data['website_logo_size'],
             $tenantCompanyId
         );
+        GeneralSetting::set(
+            WebsiteBuilderService::WEBSITE_LOGO_PADDING_LEFT_KEY,
+            (string) $data['website_logo_padding_left'],
+            $tenantCompanyId
+        );
 
         return redirect()
             ->route('admin.website-pages.index', array_merge($indexQuery, ['saved' => 1]))
-            ->with('success', 'Logogrootte voor de website opgeslagen.');
+            ->with('success', 'Logo-instellingen voor de website opgeslagen.');
     }
 
     private function persistWebsitePageActiveState(WebsitePage $page, bool $isActive): void
@@ -1267,17 +1281,17 @@ class AdminWebsitePageController extends Controller
                 'template_id' => app(\App\Services\NexaContactAanvraagEmailTemplateService::class)->ensureExists()->id,
             ],
             'text_block' => array_merge($base, [
-                'content' => '<h2>Voorbeeld tekstblok</h2><p>Hier komt je eigen content: uitleg, USP’s of een korte intro. Rechts of links kun je later een afbeelding of formulier koppelen.</p><ul><li>White-label per tenant</li><li>Website + boeking + chauffeur-app</li><li>Optioneel contractvervoer</li></ul>',
+                'content' => '<h2>Voorbeeld tekstblok</h2><p>Hier komt je eigen content: uitleg, USP’s of een korte intro. Rechts of links kun je later een afbeelding of formulier koppelen.</p><ul><li>White-label per klant</li><li>Website + boeking + chauffeur-app</li><li>Optioneel contractvervoer</li></ul>',
                 'alignment' => 'left',
                 'image_url' => $img('feature-website-builder.png'),
                 'width_percent' => 100,
             ]),
             'stats' => array_merge($base !== [] ? $base : [], [
                 'items' => [
-                    ['value' => '24/7', 'label' => 'Online boeken', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '1 SaaS', 'label' => 'Alles gekoppeld', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => '0%', 'label' => 'Commissie per rit', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
-                    ['value' => 'White-label', 'label' => 'Jouw merk', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '100+', 'label' => 'Tevreden klanten', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '10+', 'label' => 'Jaar ervaring', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '24/7', 'label' => 'Bereikbaar', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '98%', 'label' => 'Aanbevolen', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
                 ],
             ]),
             'why_nexa' => array_merge($base, [
@@ -2097,7 +2111,7 @@ class AdminWebsitePageController extends Controller
             }
         }
 
-        foreach (['map_postcode', 'map_huisnummer', 'map_street', 'map_city', 'map_lat', 'map_lng', 'map_size', 'map_zoom'] as $mapKey) {
+        foreach (['map_postcode', 'map_huisnummer', 'map_street', 'map_city', 'map_lat', 'map_lng', 'map_size', 'map_zoom', 'map_position'] as $mapKey) {
             if (! array_key_exists($mapKey, $footerInput) && array_key_exists($mapKey, $storedFooter)) {
                 $merged[$mapKey] = $storedFooter[$mapKey];
             }
@@ -2689,6 +2703,38 @@ class AdminWebsitePageController extends Controller
         return $raw;
     }
 
+    /**
+     * @param  array<string, mixed>  $raw
+     * @return array<string, mixed>
+     */
+    private function normalizeLandwindFaqSection(array $raw): array
+    {
+        $raw['eyebrow'] = FrontendComponentService::plainTextFromHtml($raw['eyebrow'] ?? '');
+        $raw['title'] = FrontendComponentService::plainTextFromHtml($raw['title'] ?? '');
+        $raw['subtitle'] = FrontendComponentService::plainTextFromHtml($raw['subtitle'] ?? '');
+        $raw['width_percent'] = max(30, min(100, (int) ($raw['width_percent'] ?? 60)));
+
+        $items = isset($raw['items']) && is_array($raw['items']) ? array_values($raw['items']) : [];
+        $normalizedItems = [];
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $question = FrontendComponentService::plainTextFromHtml($item['question'] ?? '');
+            $answer = FrontendComponentService::plainTextFromHtml($item['answer'] ?? '');
+            if ($question === '' && $answer === '') {
+                continue;
+            }
+            $normalizedItems[] = [
+                'question' => $question,
+                'answer' => $answer,
+            ];
+        }
+        $raw['items'] = $normalizedItems;
+
+        return $raw;
+    }
+
     private function normalizeNexaModulesOverviewSection(array $raw): array
     {
         $toPlainTextLines = static function ($value): array {
@@ -2846,6 +2892,9 @@ class AdminWebsitePageController extends Controller
         if (array_key_exists('map_size', $footerInput) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true)) {
             $footer['map_size'] = $footerInput['map_size'];
         }
+        if (array_key_exists('map_position', $footerInput) && in_array($footerInput['map_position'], ['left', 'right', 'bottom'], true)) {
+            $footer['map_position'] = $footerInput['map_position'];
+        }
         if (array_key_exists('map_zoom', $footerInput) && is_numeric($footerInput['map_zoom'])) {
             $mapZoom = (int) $footerInput['map_zoom'];
             $footer['map_zoom'] = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17;
@@ -2946,6 +2995,10 @@ class AdminWebsitePageController extends Controller
                     );
                 } elseif ($sectionKey === 'component:website.pricing_packages') {
                     $sections[$sectionKey] = $this->normalizePricingPackagesSection(
+                        $input[$sectionKey] ?? []
+                    );
+                } elseif ($sectionKey === 'component:landwind.faq') {
+                    $sections[$sectionKey] = $this->normalizeLandwindFaqSection(
                         $input[$sectionKey] ?? []
                     );
                 } else {

@@ -39,6 +39,26 @@ class CentralPrijzenPageTest extends TestCase
             ->assertSee('Business', false)
             ->assertSee('Website live zetten', false)
             ->assertSee('nexa-plan-absent', false)
-            ->assertSee('Niet inbegrepen', false);
+            ->assertSee('Niet inbegrepen', false)
+            ->assertSee('nexa-pricing-cards', false)
+            ->assertSee('nexa-pricing-table-wrap', false)
+            ->assertSee('De pakketten staan hierboven', false)
+            ->assertDontSee('<p>De pakketten', false)
+            ->assertDontSee('&lt;p&gt;', false);
+    }
+
+    #[Test]
+    public function prijzen_page_explains_marketplace_fee_is_only_for_nexasuite_nl(): void
+    {
+        \App\Models\NexaSuiteMarketplaceSetting::current()->update(['fee_percent' => 9]);
+
+        $this->get('http://localhost:8085/prijzen')
+            ->assertOk()
+            ->assertSee('Het maandabonnement geldt voor NEXA Suite op jouw eigen website', false)
+            ->assertSee('geen extra fee per rit', false)
+            ->assertSee('9%', false)
+            ->assertSee('nexasuite.nl', false)
+            ->assertSee('dichtstbijzijnde aangesloten taxibedrijf', false)
+            ->assertDontSee('Geen marktplaats-commissie', false);
     }
 }

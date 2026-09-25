@@ -1505,7 +1505,7 @@ class WebsiteAiGeneratorService
      */
     private function supportLinksFromExistingPages(array $menuPages): array
     {
-        $allowed = ['/help', '/faq', '/help-faq', '/privacy', '/voorwaarden', '/terms', '/cookies', '/cookiebeleid'];
+        $allowed = ['/help', '/faq', '/help-faq', '/privacy', '/voorwaarden', '/terms', '/disclaimer', '/cookies', '/cookiebeleid'];
         $out = [];
         foreach ($menuPages as $row) {
             $url = trim((string) ($row['url'] ?? ''));

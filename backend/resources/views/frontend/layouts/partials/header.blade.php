@@ -51,6 +51,7 @@
                     @include('frontend.layouts.partials.brand-logo', [
                         'branding' => $branding,
                         'logoHref' => route('home'),
+                        'logoPlacement' => 'header',
                     ])
                 </div>
             </div>

@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\NexaMarketplaceFeeCopy;
+use App\Support\NexaPublicCopy;
 use App\Support\Tenancy\TenantFrontendUrl;
 
 class WebsiteBuilderService
@@ -29,6 +31,10 @@ class WebsiteBuilderService
     public const WEBSITE_LOGO_SIZE_KEY = 'website_logo_size';
 
     public const WEBSITE_LOGO_SIZE_DEFAULT = 26;
+
+    public const WEBSITE_LOGO_PADDING_LEFT_KEY = 'website_logo_padding_left';
+
+    public const WEBSITE_LOGO_PADDING_LEFT_DEFAULT = 0;
 
     /**
      * Query WebsitePage op de juiste connection: alleen module-DB als die een eigen {@code website_pages}-tabel heeft.
@@ -451,11 +457,12 @@ class WebsiteBuilderService
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
      * @param  int|null  $forCompanyId  Expliciet bedrijf voor tenant-logo/instellingen (bijv. admin preview van pagina).
-     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, logo_alt: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
+     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, logo_padding_left_px: int, favicon_url: ?string, site_name: string, logo_alt: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
      */
     public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false, ?int $forCompanyId = null): array
     {
         $logoSizePx = $this->resolveLogoSizePx($forCompanyId);
+        $logoPaddingLeftPx = $this->resolveLogoPaddingLeftPx($forCompanyId);
 
         $logoPath = GeneralSetting::get('logo', null, $forCompanyId);
         $logoUrl = null;
@@ -545,6 +552,7 @@ class WebsiteBuilderService
         }
 
         $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl, $forCompanyId);
+        $this->applyCompanyFaviconFallback($faviconUrl, $forCompanyId);
 
         $logoUrl = $logoUrl ? $this->storageUrlToDisplayUrl($logoUrl) : null;
         $logoDarkUrl = $logoDarkUrl ? $this->storageUrlToDisplayUrl($logoDarkUrl) : null;
@@ -563,6 +571,7 @@ class WebsiteBuilderService
             'logo_url' => $logoUrl,
             'logo_dark_url' => $logoDarkUrl,
             'logo_size_px' => $logoSizePx,
+            'logo_padding_left_px' => $logoPaddingLeftPx,
             'favicon_url' => $faviconUrl,
             'site_name' => $siteName,
             'logo_alt' => $logoAlt,
@@ -735,7 +744,17 @@ class WebsiteBuilderService
      */
     public function websiteLogoSizeChoices(): array
     {
-        return range(20, 80, 2);
+        return range(20, 100, 2);
+    }
+
+    /**
+     * Toegestane padding-links (px) voor het tenantlogo op de website-header.
+     *
+     * @return list<int>
+     */
+    public function websiteLogoPaddingLeftChoices(): array
+    {
+        return range(0, 48, 2);
     }
 
     /**
@@ -755,6 +774,22 @@ class WebsiteBuilderService
         $px = is_numeric($raw) ? (int) $raw : self::WEBSITE_LOGO_SIZE_DEFAULT;
 
         return max(10, min(100, $px));
+    }
+
+    /**
+     * Extra ruimte links van het tenantlogo in de website-header (per bedrijf).
+     */
+    public function resolveLogoPaddingLeftPx(?int $forCompanyId = null): int
+    {
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return self::WEBSITE_LOGO_PADDING_LEFT_DEFAULT;
+        }
+
+        $raw = GeneralSetting::get(self::WEBSITE_LOGO_PADDING_LEFT_KEY, null, $companyId);
+        $px = is_numeric($raw) ? (int) $raw : self::WEBSITE_LOGO_PADDING_LEFT_DEFAULT;
+
+        return max(0, min(48, $px));
     }
 
     /**
@@ -886,12 +921,45 @@ class WebsiteBuilderService
             $forCompanyId = $this->faviconCompanyIdForRequestContext();
         }
 
+        if ($forCompanyId !== null && $forCompanyId > 0) {
+            $company = Company::query()->find($forCompanyId);
+            if ($company && $company->hasFavicon()) {
+                if ($this->isAdminLikeRequest()) {
+                    $dataUri = $this->companyFaviconDataUri($company);
+                    if ($dataUri !== null) {
+                        return [
+                            'url' => $dataUri,
+                            'type' => $company->favicon_mime_type ?: 'image/png',
+                        ];
+                    }
+                }
+
+                return [
+                    'url' => TenantFrontendUrl::for(
+                        route('frontend.company-brand.favicon', $company),
+                        (int) $company->id
+                    ),
+                    'type' => $company->favicon_mime_type ?: 'image/png',
+                ];
+            }
+        }
+
         $path = $forCompanyId !== null
             ? GeneralSetting::get('favicon', null, $forCompanyId)
             : GeneralSetting::get('favicon');
 
         if (! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path)) {
-            return $default;
+            // Platform-favicon als tenant geen eigen heeft
+            if ($forCompanyId !== null) {
+                $platformPath = GeneralSetting::get('favicon', null, null);
+                if (is_string($platformPath) && $platformPath !== '' && Storage::disk('public')->exists($platformPath)) {
+                    $path = $platformPath;
+                } else {
+                    return $default;
+                }
+            } else {
+                return $default;
+            }
         }
 
         $mtime = Storage::disk('public')->lastModified($path);
@@ -901,6 +969,45 @@ class WebsiteBuilderService
             'url' => $this->publicFileUrl(ltrim($path, '/')).'?v='.$mtime,
             'type' => $mime,
         ];
+    }
+
+    private function applyCompanyFaviconFallback(?string &$faviconUrl, ?int $forCompanyId = null): void
+    {
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return;
+        }
+
+        $company = Company::query()->find($companyId);
+        if (! $company || ! $company->hasFavicon()) {
+            return;
+        }
+
+        // Geüpload tenant-favicon wint altijd van GeneralSetting/platform-favicon.
+        if ($this->isAdminLikeRequest()) {
+            $faviconUrl = $this->companyFaviconDataUri($company);
+
+            return;
+        }
+
+        $faviconUrl = TenantFrontendUrl::for(
+            route('frontend.company-brand.favicon', $company),
+            (int) $company->id
+        );
+    }
+
+    private function companyFaviconDataUri(Company $company): ?string
+    {
+        if (! $company->favicon_blob) {
+            return null;
+        }
+        $content = base64_decode($company->favicon_blob, true);
+        if ($content === false) {
+            return null;
+        }
+        $mime = $company->favicon_mime_type ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode($content);
     }
 
     /**
@@ -1374,9 +1481,47 @@ class WebsiteBuilderService
             $this->shouldShowSkillmatchingFrontendAppLinks()
         );
 
-        return $this->applyTenantCompanyAddressToFooterMap(
+        $prepared = $this->applyTenantCompanyAddressToFooterMap(
             $this->filterFooterLinksToExistingPages($prepared, $page),
             $page
+        );
+
+        $tenantId = $page !== null
+            ? $this->tenantCompanyIdForPage($page)
+            : $this->resolvedPublicTenantCompanyId();
+        if ($tenantId === null || $tenantId <= 0) {
+            $footer = is_array($prepared['footer'] ?? null) ? $prepared['footer'] : [];
+            $prepared['footer'] = CentralWelcomePageService::withLegalSupportLinks($footer);
+            $prepared = NexaPublicCopy::replaceTenantWordingIn($prepared);
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Centrale marketing-site (nexasuite.nl), niet een tenant-website.
+     */
+    public function isCentralPublicSite(?WebsitePage $page = null): bool
+    {
+        $tenantId = $page !== null
+            ? $this->tenantCompanyIdForPage($page)
+            : $this->resolvedPublicTenantCompanyId();
+
+        return $tenantId === null || $tenantId <= 0;
+    }
+
+    /**
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, mixed>
+     */
+    public function applyPublicMarketplaceFeeCopy(array $homeSections, ?WebsitePage $page = null): array
+    {
+        if (! $this->isCentralPublicSite($page)) {
+            return $homeSections;
+        }
+
+        return NexaPublicCopy::replaceTenantWordingIn(
+            NexaMarketplaceFeeCopy::applyToHomeSections($homeSections)
         );
     }
 
@@ -1929,6 +2074,10 @@ class WebsiteBuilderService
             return app(CentralWelcomePageService::class)->ensurePageExists();
         }
 
+        if ($page !== null && $this->resolvedPublicTenantCompanyId() === null) {
+            return app(CentralWelcomePageService::class)->removeBookingModuleFromHomePage($page);
+        }
+
         return $page;
     }
 
@@ -1996,6 +2145,10 @@ class WebsiteBuilderService
         }
         if ($page->module_name !== null && ! $this->moduleManager->isActive($page->module_name)) {
             return null;
+        }
+
+        if ($this->resolvedPublicTenantCompanyId() === null && strtolower($slug) === CentralWelcomePageService::BOEK_SLUG) {
+            return app(CentralWelcomePageService::class)->ensureBookingModuleOnBoekPage($page);
         }
 
         return $page;

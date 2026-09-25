@@ -1,27 +1,28 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Modules\NexaTaxi\Controllers\Admin\VehicleController;
-use App\Modules\NexaTaxi\Controllers\Admin\RideRequestController;
-use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
-use App\Modules\NexaTaxi\Controllers\Admin\GpsTrackingController;
-use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
 use App\Modules\NexaTaxi\Controllers\Admin\AiChatbotSettingsController;
+use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
+use App\Modules\NexaTaxi\Controllers\Admin\DriverScheduleController;
+use App\Modules\NexaTaxi\Controllers\Admin\GpsTrackingController;
 use App\Modules\NexaTaxi\Controllers\Admin\KnowledgeDocumentController;
+use App\Modules\NexaTaxi\Controllers\Admin\RideRequestController;
+use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportAnnouncementController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportContractInvoiceController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportCustomerController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportCustomerPortalController;
-use App\Modules\NexaTaxi\Controllers\Admin\TransportAnnouncementController;
-use App\Modules\NexaTaxi\Controllers\Admin\TransportPassengerController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupRouteController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportIndividualBookingController;
-use App\Modules\NexaTaxi\Controllers\Admin\TransportContractInvoiceController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportPassengerController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportPlanningController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportScheduleExceptionController;
-use App\Modules\NexaTaxi\Models\Vehicle;
-use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Controllers\Admin\VehicleController;
 use App\Modules\NexaTaxi\Models\KnowledgeDocument;
+use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\ModuleDatabaseService;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,9 +70,19 @@ Route::post('ride_requests/{ride_request}/reoffer-dispatch', [RideRequestControl
     ->name('ride_requests.reoffer_dispatch');
 Route::get('ride_requests/{ride_request}/notificatielog', [RideRequestController::class, 'notificationLog'])
     ->name('ride_requests.notification_log');
+Route::delete('ride_requests/bulk-destroy', [RideRequestController::class, 'bulkDestroy'])
+    ->name('ride_requests.bulk-destroy');
 Route::resource('ride_requests', RideRequestController::class);
 Route::post('vehicles/upload-image', [VehicleController::class, 'uploadImage'])->name('vehicles.upload-image');
 Route::resource('vehicles', VehicleController::class);
+
+Route::get('chauffeurplanning', [DriverScheduleController::class, 'index'])->name('driver_schedules.index');
+Route::get('chauffeurplanning/events', [DriverScheduleController::class, 'events'])->name('driver_schedules.events');
+Route::get('chauffeurplanning/nieuw', [DriverScheduleController::class, 'create'])->name('driver_schedules.create');
+Route::post('chauffeurplanning', [DriverScheduleController::class, 'store'])->name('driver_schedules.store');
+Route::get('chauffeurplanning/{id}/bewerken', [DriverScheduleController::class, 'edit'])->name('driver_schedules.edit');
+Route::put('chauffeurplanning/{id}', [DriverScheduleController::class, 'update'])->name('driver_schedules.update');
+Route::delete('chauffeurplanning/{id}', [DriverScheduleController::class, 'destroy'])->name('driver_schedules.destroy');
 
 // ---- Contractvervoer: contractklanten ----
 Route::get('contractklanten', [TransportCustomerController::class, 'index'])->name('transport_customers.index');
@@ -81,6 +92,7 @@ Route::get('contractklanten/{id}', [TransportCustomerController::class, 'show'])
 Route::get('contractklanten/{id}/bewerken', [TransportCustomerController::class, 'edit'])->name('transport_customers.edit');
 Route::put('contractklanten/{id}', [TransportCustomerController::class, 'update'])->name('transport_customers.update');
 Route::delete('contractklanten/{id}', [TransportCustomerController::class, 'destroy'])->name('transport_customers.destroy');
+Route::delete('contractklanten/{id}/definitief', [TransportCustomerController::class, 'forceDestroy'])->name('transport_customers.force_destroy');
 
 Route::post('contractklanten/{customerId}/portaal', [TransportCustomerPortalController::class, 'store'])
     ->name('transport_customers.portal.store');

@@ -251,6 +251,7 @@
         'company-config-access-collapsible-root',
         'wizard-logo-collapsible-root',
         'company-edit-logo-collapsible-root',
+        'upgrade-collapsible-root',
     ];
 
     function sectionStorageKey(card, root) {
@@ -422,14 +423,9 @@
     }
 
     function boot() {
-        initSettingsCollapsible(document.getElementById('settings-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('general-settings-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('dispatch-settings-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('wizard-integrations-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('wizard-google-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('company-config-access-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('wizard-logo-collapsible-root'));
-        initSettingsCollapsible(document.getElementById('company-edit-logo-collapsible-root'));
+        ROOT_IDS.forEach(function (id) {
+            initSettingsCollapsible(document.getElementById(id));
+        });
         bindCollapsiblePersistOnSubmit();
 
         var hash = (window.location.hash || '').replace(/^#/, '');

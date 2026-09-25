@@ -171,7 +171,6 @@ onUnmounted(() => {
   padding: 1.25rem;
   --bpm-surface: #ffffff;
   --bpm-surface-muted: #f1f5f9;
-  --bpm-body: #f8fafc;
   --bpm-border: color-mix(in srgb, #0f172a 12%, transparent);
   --bpm-text: #0f172a;
   --bpm-muted: #64748b;
@@ -182,7 +181,6 @@ onUnmounted(() => {
 .builder-block-preview-modal--dark {
   --bpm-surface: #0f172a;
   --bpm-surface-muted: #111827;
-  --bpm-body: #020617;
   --bpm-border: color-mix(in srgb, #f8fafc 12%, transparent);
   --bpm-text: #f8fafc;
   --bpm-muted: #94a3b8;
@@ -205,7 +203,7 @@ onUnmounted(() => {
 .builder-block-preview-modal__dialog {
   position: relative;
   z-index: 1;
-  width: min(960px, 100%);
+  width: min(1200px, calc(100vw - 2.5rem));
   height: min(820px, calc(100vh - 2.5rem));
   display: flex;
   flex-direction: column;
@@ -272,7 +270,7 @@ onUnmounted(() => {
   position: relative;
   flex: 1;
   min-height: 0;
-  background: var(--bpm-body);
+  overflow: hidden;
 }
 
 .builder-block-preview-modal__loading {
@@ -284,7 +282,7 @@ onUnmounted(() => {
   justify-content: center;
   font-size: 0.875rem;
   color: var(--bpm-muted);
-  background: color-mix(in srgb, var(--bpm-body) 88%, transparent);
+  background: color-mix(in srgb, var(--bpm-surface) 88%, transparent);
   pointer-events: none;
 }
 
@@ -292,7 +290,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border: 0;
-  background: var(--bpm-body);
+  background: transparent;
 }
 
 .builder-block-preview-modal__frame.is-loading {

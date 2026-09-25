@@ -1,5 +1,5 @@
 <!-- Sidebar -->
-<div class="kt-sidebar bg-background border-e border-e-border fixed top-0 bottom-0 z-20 flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
+<div class="kt-sidebar bg-background border-e border-e-border fixed top-0 bottom-0 z-20 hidden lg:flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
     data-kt-drawer="true" data-kt-drawer-class="kt-drawer kt-drawer-start top-0 bottom-0" id="sidebar">
     <div class="flex flex-col shrink-0 bg-background overflow-visible" id="sidebar_header">
         <div class="kt-sidebar-header flex items-center relative justify-center px-3 lg:px-6 shrink-0">
@@ -7,17 +7,16 @@
                 @php
                     $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                     $logoHeight = $logoSize . 'px';
-                    $collapsedMarkUrl = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta(null)['url'];
-                    $adminLogo = \App\Support\AdminLogo::displayUrls();
+                    $nexaMarkUrl = asset('images/nexa-x-logo.png');
                 @endphp
                 @include('partials.nexa-brand-logo', [
                     'class' => 'default-logo w-auto max-w-[350px] object-contain',
                     'style' => 'height: '.$logoHeight,
-                    'alt' => $adminLogo['alt'],
-                    'lightSrc' => $adminLogo['light_url'],
-                    'darkSrc' => $adminLogo['dark_url'],
+                    'alt' => 'NEXA Suite',
+                    'lightSrc' => \App\Support\NexaBranding::defaultLogoUrl(),
+                    'darkSrc' => \App\Support\NexaBranding::defaultLogoDarkUrl(),
                 ])
-                <img class="small-logo h-[26px] w-[26px] shrink-0 object-contain" src="{{ $collapsedMarkUrl }}" alt="NEXA Suite" />
+                <img class="small-logo h-[26px] w-[26px] shrink-0 object-contain" src="{{ $nexaMarkUrl }}" alt="NEXA Suite" />
             </a>
             <button
                 type="button"
@@ -41,6 +40,10 @@
                 fn () => \App\Models\Company::query()->orderBy('name')->get(['id', 'name'])
             );
             $selectedTenant = session('selected_tenant');
+            $requestTenant = request()->input('tenant_company', request()->input('wizard_company'));
+            if ($requestTenant !== null && $requestTenant !== '' && is_numeric($requestTenant) && (int) $requestTenant > 0) {
+                $selectedTenant = (int) $requestTenant;
+            }
             $selectedCompany = $selectedTenant
                 ? $companies->firstWhere('id', (int) $selectedTenant)
                 : null;
@@ -94,6 +97,52 @@
                 id="sidebar_menu">
 
                 <!-- Dashboard -->
+                @if(auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin'))
+                <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.tenant-setup-checklist') ? 'here show' : '' }}"
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-element-11 text-lg">
+                            </i>
+                        </span>
+                        <span
+                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Dashboard
+                        </span>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden">
+                                <i class="ki-filled ki-plus text-[11px]">
+                                </i>
+                            </span>
+                            <span class="hidden kt-menu-item-show:inline-flex">
+                                <i class="ki-filled ki-minus text-[11px]">
+                                </i>
+                            </span>
+                        </span>
+                    </div>
+                    <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.dashboard') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Overzicht
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.tenant-setup-checklist') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.tenant-setup-checklist') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Tenant configureren
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                @else
                 <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.dashboard') }}" tabindex="0">
@@ -107,6 +156,7 @@
                         </span>
                     </a>
                 </div>
+                @endif
 
                 <!-- Handleiding -->
                 @php
@@ -247,13 +297,8 @@
                             $routeExists = false;
                         }
 
-                        if (!$routeExists && !empty($menuItem['route'])) {
-                            try {
-                                $routeUrl = url('/admin/' . $menuItem['module'] . '/' . str_replace('admin.' . $menuItem['module'] . '.', '', $menuItem['route']));
-                                $routeExists = true;
-                            } catch (\Exception $e) {
-                                $routeExists = false;
-                            }
+                        if (!$routeExists && $moduleMenuChildren === []) {
+                            continue;
                         }
 
                         $routePrefix = !empty($menuItem['route']) ? str_replace('.index', '', $menuItem['route']) : '';
@@ -645,6 +690,15 @@
                                 </span>
                             </a>
                         </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payments.overzichten*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                href="{{ route('admin.payments.overzichten') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                    Overzichten
+                                </span>
+                            </a>
+                        </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.invoices.index') || request()->routeIs('admin.invoices.show') || request()->routeIs('admin.invoices.create') || request()->routeIs('admin.invoices.edit') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                 href="{{ route('admin.invoices.index') }}" tabindex="0">
@@ -765,15 +819,36 @@
                 </div>
                 @endif
                 @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" href="{{ route('admin.tenant-customer-invoices.index') }}">
+                <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payments.overzichten*') ? 'here show' : '' }}"
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" tabindex="0">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-document text-lg"></i>
+                            <i class="ki-filled ki-wallet text-lg"></i>
                         </span>
-                        <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
-                            Klantfacturen
+                        <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Betalingen
                         </span>
-                    </a>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
+                            <span class="hidden kt-menu-item-show:inline-flex"><i class="ki-filled ki-minus text-[11px]"></i></span>
+                        </span>
+                    </div>
+                    <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                               href="{{ route('admin.tenant-customer-invoices.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Klantfacturen</span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payments.overzichten*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                               href="{{ route('admin.payments.overzichten') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Overzichten</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 @endif
 
@@ -790,8 +865,12 @@
                 </div>
                 @endif
 
-                <!-- Configuraties (Super Admin only) -->
-                @if(auth()->user()?->hasRole('super-admin'))
+                <!-- Configuraties: super-admin volledig; overige rollen alleen mailserver via permissie -->
+                @php
+                    $isSuperAdminSettings = auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin');
+                    $canViewMailSettings = auth()->user()?->canViewMailSettings();
+                @endphp
+                @if($isSuperAdminSettings || $canViewMailSettings)
                 <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
@@ -817,6 +896,7 @@
                     </div>
                     <div
                         class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        @if($isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.general.index') }}" tabindex="0">
@@ -829,6 +909,7 @@
                                 </span>
                             </a>
                         </div>
+                        @endif
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.index') }}" tabindex="0">
@@ -837,10 +918,11 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Systeem configuraties
+                                    {{ $isSuperAdminSettings ? 'Systeem configuraties' : 'Mailserver' }}
                                 </span>
                             </a>
                         </div>
+                        @if($isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.upgrade.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.upgrade.index') }}" tabindex="0">
@@ -865,6 +947,7 @@
                                 </span>
                             </a>
                         </div>
+                        @endif
                     </div>
                 </div>
                 @endif

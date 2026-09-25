@@ -56,7 +56,7 @@ class InvoicePdfService
         return $details;
     }
 
-    protected function companyLogoDataUri(?Company $company): ?string
+    public function companyLogoDataUri(?Company $company): ?string
     {
         if (! extension_loaded('gd')) {
             return null;

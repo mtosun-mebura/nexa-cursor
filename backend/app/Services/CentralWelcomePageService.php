@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WebsitePage;
+use App\Support\NexaMarketplaceFeeCopy;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,6 +22,8 @@ class CentralWelcomePageService
     public const PRIJZEN_SLUG = 'prijzen';
 
     public const COMPARISON_SLUG = 'voor-en-nadelen';
+
+    public const HOME_BOOKING_SECTION_KEY = 'component:taxi.algemene_boekingsmodule';
 
     /** @return list<string> */
     public static function marketingSlugs(): array
@@ -54,10 +57,12 @@ class CentralWelcomePageService
      */
     public function ensurePageExists(): WebsitePage
     {
-        return $this->firstOrCreateCentralPage(
+        $page = $this->firstOrCreateCentralPage(
             WebsitePage::CENTRAL_WELCOME_SLUG,
             $this->welcomePageAttributes()
         );
+
+        return $this->removeBookingModuleFromHomePage($page);
     }
 
     /**
@@ -67,10 +72,11 @@ class CentralWelcomePageService
      */
     public function ensureMarketingPagesExist(): Collection
     {
+        $boekPage = $this->firstOrCreateCentralPage(self::BOEK_SLUG, $this->boekPageAttributes());
         $pages = collect([
             $this->ensurePageExists(),
             $this->firstOrCreateCentralPage(self::TAXI_SLUG, $this->taxiPageAttributes()),
-            $this->firstOrCreateCentralPage(self::BOEK_SLUG, $this->boekPageAttributes()),
+            $this->ensureBookingModuleOnBoekPage($boekPage),
             $this->firstOrCreateCentralPage(self::CONTRACT_SLUG, $this->contractPageAttributes()),
             $this->firstOrCreateCentralPage(self::WEBSITE_SLUG, $this->websiteBuilderPageAttributes()),
             $this->firstOrCreateCentralPage(self::PRIJZEN_SLUG, $this->prijzenPageAttributes()),
@@ -79,6 +85,187 @@ class CentralWelcomePageService
         ]);
 
         return $pages->filter()->values();
+    }
+
+    /**
+     * Haalt de algemene boekingsmodule van de centrale homepage: boeken gebeurt op /boek.
+     */
+    public function removeBookingModuleFromHomePage(?WebsitePage $page = null): WebsitePage
+    {
+        $page ??= $this->findCentralPage(WebsitePage::CENTRAL_WELCOME_SLUG) ?? $this->firstOrCreateCentralPage(
+            WebsitePage::CENTRAL_WELCOME_SLUG,
+            $this->welcomePageAttributes()
+        );
+        $key = self::HOME_BOOKING_SECTION_KEY;
+        $sections = $page->getHomeSections();
+        $order = isset($sections['section_order']) && is_array($sections['section_order'])
+            ? array_values($sections['section_order'])
+            : [];
+
+        $changed = false;
+        if (in_array($key, $order, true)) {
+            $sections['section_order'] = array_values(array_filter(
+                $order,
+                fn ($item) => $item !== $key
+            ));
+            $changed = true;
+        }
+
+        $visibility = isset($sections['visibility']) && is_array($sections['visibility'])
+            ? $sections['visibility']
+            : [];
+        if (($visibility[$key] ?? null) !== false) {
+            $visibility[$key] = false;
+            $sections['visibility'] = $visibility;
+            $changed = true;
+        }
+
+        if ($this->applyHomeAudienceHeroCtas($sections)) {
+            $changed = true;
+        }
+
+        if ($changed) {
+            $page->home_sections = $sections;
+            $page->save();
+        }
+
+        return $page->fresh() ?? $page;
+    }
+
+    /**
+     * Home-banner: taxibedrijf vs reiziger via knoppen (niet meer in de header).
+     *
+     * @param  array<string, mixed>  $sections
+     */
+    private function applyHomeAudienceHeroCtas(array &$sections): bool
+    {
+        $hero = is_array($sections['hero'] ?? null) ? $sections['hero'] : [];
+        $primary = trim((string) ($hero['cta_primary_text'] ?? ''));
+        $primaryUrl = trim((string) ($hero['cta_primary_url'] ?? ''));
+        $secondary = trim((string) ($hero['cta_secondary_text'] ?? ''));
+        $secondaryUrl = trim((string) ($hero['cta_secondary_url'] ?? ''));
+
+        $alreadyAudience = $primary === 'Voor taxibedrijven' && $secondary === 'Boek een rit'
+            && ($primaryUrl === '/contact' || $primaryUrl === '')
+            && ($secondaryUrl === '/boek' || $secondaryUrl === '');
+        $legacyCompanyPrimary = $primary === 'Neem contact op' && ($primaryUrl === '/contact' || $primaryUrl === '');
+        $legacyCompanySecondary = $secondary === 'Bekijk Nexa Taxi' && ($secondaryUrl === '/taxi' || $secondaryUrl === '');
+        if (! $alreadyAudience && ! $legacyCompanyPrimary && ! $legacyCompanySecondary) {
+            return false;
+        }
+
+        $changed = false;
+        if (! $alreadyAudience) {
+            $hero['cta_primary_text'] = 'Voor taxibedrijven';
+            $hero['cta_primary_url'] = '/contact';
+            $hero['cta_secondary_text'] = 'Boek een rit';
+            $hero['cta_secondary_url'] = '/boek';
+            $sections['hero'] = $hero;
+            $changed = true;
+        }
+
+        $visibility = is_array($sections['visibility'] ?? null) ? $sections['visibility'] : [];
+        foreach (['hero', 'hero_cta', 'hero_cta_primary', 'hero_cta_secondary'] as $flag) {
+            if (($visibility[$flag] ?? true) !== true) {
+                $visibility[$flag] = true;
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $sections['visibility'] = $visibility;
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Zet de algemene boekingsmodule op /boek, zodat AI-chat “Boek deze rit” daar kan voorinvullen.
+     */
+    public function ensureBookingModuleOnBoekPage(?WebsitePage $page = null): WebsitePage
+    {
+        $page ??= $this->findCentralPage(self::BOEK_SLUG) ?? $this->firstOrCreateCentralPage(
+            self::BOEK_SLUG,
+            $this->boekPageAttributes()
+        );
+        $key = self::HOME_BOOKING_SECTION_KEY;
+        $sections = $page->getHomeSections();
+        $order = isset($sections['section_order']) && is_array($sections['section_order'])
+            ? array_values($sections['section_order'])
+            : [];
+        $removedRaw = $sections['removed_section_keys'] ?? '';
+        $removed = is_array($removedRaw)
+            ? $removedRaw
+            : array_values(array_filter(array_map('trim', explode(',', (string) $removedRaw))));
+
+        $changed = false;
+        if (in_array($key, $removed, true)) {
+            $removed = array_values(array_filter($removed, fn ($item) => $item !== $key));
+            $sections['removed_section_keys'] = implode(',', $removed);
+            $changed = true;
+        }
+        if (! in_array($key, $order, true)) {
+            $heroAt = array_search('hero', $order, true);
+            $insertAt = $heroAt === false ? 0 : $heroAt + 1;
+            array_splice($order, $insertAt, 0, [$key]);
+            $sections['section_order'] = $order;
+            $changed = true;
+        }
+
+        $visibility = isset($sections['visibility']) && is_array($sections['visibility'])
+            ? $sections['visibility']
+            : [];
+        if (($visibility[$key] ?? true) !== true) {
+            $visibility[$key] = true;
+            $sections['visibility'] = $visibility;
+            $changed = true;
+        } elseif (! array_key_exists($key, $visibility)) {
+            $visibility[$key] = true;
+            $sections['visibility'] = $visibility;
+            $changed = true;
+        }
+
+        $existing = $sections[$key] ?? null;
+        if (! is_array($existing) || $existing === []) {
+            $sections[$key] = $this->centralHomeBookingSectionConfig();
+            $changed = true;
+        } else {
+            $logic = is_array($existing['logic'] ?? null) ? $existing['logic'] : [];
+            $logicChanged = false;
+            if (($logic['offer_display_mode'] ?? '') !== 'person_range') {
+                $logic['offer_display_mode'] = 'person_range';
+                $logicChanged = true;
+            }
+            if (! is_numeric($logic['marketplace_radius_km'] ?? null)) {
+                $logic['marketplace_radius_km'] = NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM;
+                $logicChanged = true;
+            }
+            if ($logicChanged) {
+                $existing['logic'] = $logic;
+                $sections[$key] = $existing;
+                $changed = true;
+            }
+        }
+
+        if ($changed) {
+            $page->home_sections = $sections;
+            $page->save();
+        }
+
+        return $page->fresh() ?? $page;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function centralHomeBookingSectionConfig(): array
+    {
+        $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+        $bookingDefaults['title'] = 'Boek via NEXA Suite';
+        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales. Wie accepteert, krijgt de klant.';
+        $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
+        $bookingDefaults['logic']['marketplace_radius_km'] = NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM;
+
+        return $bookingDefaults;
     }
 
     /**
@@ -437,17 +624,17 @@ class CentralWelcomePageService
         $sections['hero']['title'] = 'Mis je ritten aan de telefoon? Laat klanten zelf boeken.';
         $sections['hero']['title_highlight'] = 'zelf boeken';
         $sections['hero']['subtitle'] = 'Online boeking, chauffeur-app en contractvervoer in één platform.';
-        $sections['hero']['cta_primary_text'] = 'Neem contact op';
+        $sections['hero']['cta_primary_text'] = 'Voor taxibedrijven';
         $sections['hero']['cta_primary_url'] = '/contact';
-        $sections['hero']['cta_secondary_text'] = 'Bekijk Nexa Taxi';
-        $sections['hero']['cta_secondary_url'] = '/taxi';
+        $sections['hero']['cta_secondary_text'] = 'Boek een rit';
+        $sections['hero']['cta_secondary_url'] = '/boek';
         $sections['hero']['background_image_url'] = $this->marketingImage('hero-nexa-platform.png');
         $sections['hero']['overlay'] = true;
 
         $sections['features']['section_title'] = 'Wat de SaaS vandaag kan';
         $sections['features']['items'] = [
             [
-                'title' => 'Multi-tenant basis',
+                'title' => 'Meerdere klanten',
                 'description' => 'Bedrijven, modules, gebruikers, rollen, website builder, e-mailtemplates, agenda, SaaS-facturatie en AI-chatlaag.',
                 'icon' => 'building-office',
                 'icon_size' => 'medium',
@@ -469,7 +656,7 @@ class CentralWelcomePageService
             ],
             [
                 'title' => 'Website builder',
-                'description' => 'Merkbare tenant-sites met boekingsmodule, reviews en SEO, zonder apart CMS.',
+                'description' => 'Merkbare klantwebsites met boekingsmodule, reviews en SEO, zonder apart CMS.',
                 'icon' => 'computer-desktop',
                 'icon_size' => 'medium',
                 'icon_align' => 'center',
@@ -591,6 +778,7 @@ class CentralWelcomePageService
         $sections['visibility']['cta'] = true;
         $sections['visibility']['why_nexa'] = false;
         $sections['visibility']['footer_map'] = false;
+        $sections['visibility'][self::HOME_BOOKING_SECTION_KEY] = false;
 
         return $sections;
     }
@@ -686,7 +874,8 @@ class CentralWelcomePageService
         $bookingKey = 'component:taxi.algemene_boekingsmodule';
         $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
         $bookingDefaults['title'] = 'Boek via NEXA Suite';
-        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrale.';
+        $bookingDefaults['subtitle'] = 'We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales. Wie accepteert, krijgt de klant.';
+        $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
         $sections[$bookingKey] = $bookingDefaults;
 
         $sections['cta'] = [
@@ -730,7 +919,9 @@ class CentralWelcomePageService
         $bookingKey = 'component:taxi.algemene_boekingsmodule';
         $bookingDefaults = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
         $bookingDefaults['title'] = 'Boek een taxi';
-        $bookingDefaults['subtitle'] = 'Algemene boeking via NEXA Suite. We koppelen je rit aan de dichtstbijzijnde aangesloten taxicentrale.';
+        $bookingDefaults['subtitle'] = 'Algemene boeking via NEXA Suite. We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrales; wie accepteert, krijgt de klant.';
+        $bookingDefaults['logic']['offer_display_mode'] = 'person_range';
+        $bookingDefaults['logic']['marketplace_radius_km'] = NearestTaxiTenantResolver::MARKETPLACE_RADIUS_KM;
         $sections[$bookingKey] = $bookingDefaults;
 
         $sections['hero']['title'] = 'Boek een taxi. Wij zoeken de dichtstbijzijnde centrale.';
@@ -897,7 +1088,7 @@ class CentralWelcomePageService
             'title' => 'Vragen over vaste ritten',
             'subtitle' => 'School, zorg, zakelijk en privé: dezelfde planning, dezelfde factuur.',
             'items' => [
-                ['question' => 'Is contractvervoer een apart product?', 'answer' => 'Nee. Het is de B2B-upsell op Nexa Taxi: dezelfde tenant, dezelfde chauffeurs, extra contracten, groepen en ouderportaal.'],
+                ['question' => 'Is contractvervoer een apart product?', 'answer' => 'Nee. Het is de B2B-upsell op Nexa Taxi: dezelfde klant, dezelfde chauffeurs, extra contracten, groepen en ouderportaal.'],
                 ['question' => 'Kunnen ouders of de school zelf afmelden?', 'answer' => 'Ja. In het contractportaal meld je af van–tot. De chauffeur ziet skipped stops; geen loze kilometers.'],
                 ['question' => 'Welke contracttypes passen erin?', 'answer' => 'Leerlingenvervoer, zorg, ziekenhuisvervoer, zakelijk, privé en shuttles. Vaste routes en groepen, maandfacturatie naar de opdrachtgever.'],
                 ['question' => 'Hoe werkt de planning?', 'answer' => 'Passagiers, groepen, vaste chauffeur of voertuig. Planning tot 14 dagen vooruit, plus uitzonderingen en verstoringenbanners.'],
@@ -927,7 +1118,7 @@ class CentralWelcomePageService
 
         $sections['hero']['title'] = 'Website builder: merk + boeking zonder apart CMS';
         $sections['hero']['title_highlight'] = 'Website builder';
-        $sections['hero']['subtitle'] = 'Elke tenant krijgt een eigen site met thema’s, secties, SEO en inzetbare modules (boeking, reviews, vacatures).';
+        $sections['hero']['subtitle'] = 'Elke klant krijgt een eigen site met thema’s, secties, SEO en inzetbare modules (boeking, reviews, vacatures).';
         $sections['hero']['cta_primary_text'] = 'Bekijk Nexa Taxi';
         $sections['hero']['cta_primary_url'] = '/taxi';
         $sections['hero']['cta_secondary_text'] = 'Naar overzicht';
@@ -987,11 +1178,11 @@ class CentralWelcomePageService
         $faqKey = 'component:landwind.faq';
         $sections[$faqKey] = $this->nexaMarketingFaq([
             'eyebrow' => 'Website builder',
-            'title' => 'Vragen over de tenant-site',
+            'title' => 'Vragen over de klantwebsite',
             'subtitle' => 'De website is het voorportaal; boeking en reviews zitten op dezelfde site.',
             'items' => [
-                ['question' => 'Hebben we nog een apart CMS nodig?', 'answer' => 'Nee. Elke tenant krijgt een eigen site met thema’s, secties en SEO. Pagina’s beheer je in de website builder.'],
-                ['question' => 'Kan de boeking op dezelfde site?', 'answer' => 'Ja. De boekingsmodule, reviews en vacatures zitten op dezelfde tenant-site — korte weg van bezoek naar rit.'],
+                ['question' => 'Hebben we nog een apart CMS nodig?', 'answer' => 'Nee. Elke klant krijgt een eigen site met thema’s, secties en SEO. Pagina’s beheer je in de website builder.'],
+                ['question' => 'Kan de boeking op dezelfde site?', 'answer' => 'Ja. De boekingsmodule, reviews en vacatures zitten op dezelfde klantwebsite — korte weg van bezoek naar rit.'],
                 ['question' => 'Ziet de site eruit als ons merk?', 'answer' => 'White-label: merkkleuren, logo en eigen domein. Jij levert het platform; de centrale houdt het gezicht naar de klant.'],
                 ['question' => 'Kunnen we later van thema wisselen?', 'answer' => 'Ja. Pagina’s en inhoud blijven staan; alleen het jasje van de site verandert.'],
             ],
@@ -1044,8 +1235,8 @@ class CentralWelcomePageService
                     'icon_align' => 'center',
                 ],
                 [
-                    'title' => 'Geen commissie per rit',
-                    'description' => 'Je betaalt een vast maandbedrag. De ritomzet blijft van jou, niet van een marktplaats.',
+                    'title' => NexaMarketplaceFeeCopy::featureTitle(),
+                    'description' => NexaMarketplaceFeeCopy::featureDescription(),
                     'icon' => 'receipt-percent',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
@@ -1073,9 +1264,9 @@ class CentralWelcomePageService
         $sections[$faqKey] = $this->nexaMarketingFaq([
             'eyebrow' => 'Prijzen',
             'title' => 'Vragen over pakketten',
-            'subtitle' => 'Vast maandbedrag. Geen commissie per rit.',
+            'subtitle' => NexaMarketplaceFeeCopy::faqSubtitle(),
             'items' => [
-                ['question' => 'Betaal ik commissie per rit?', 'answer' => 'Nee. Je betaalt een vast maandbedrag. De ritomzet blijft van jou, niet van een marktplaats.'],
+                ['question' => NexaMarketplaceFeeCopy::FAQ_QUESTION, 'answer' => NexaMarketplaceFeeCopy::faqAnswer()],
                 ['question' => 'Wat zit er in Start, Pro en Business?', 'answer' => 'De pakketten staan hierboven. Start is de instap; Pro voegt dispatch en chauffeur-app toe; Business is voor meerdere vestigingen en contractvervoer.'],
                 ['question' => 'Wat kost de website live zetten?', 'answer' => 'Live-zetten vanaf € '.$websitePrice.'. Daarna groei je met contractvervoer of extra vestigingen, zonder opnieuw te beginnen.'],
                 ['question' => 'Kan ik later upgraden?', 'answer' => 'Ja. Begin met taxi; voeg contractvervoer of extra modules toe wanneer je klaar bent.'],
@@ -1178,13 +1369,13 @@ class CentralWelcomePageService
                 ['text' => 'Boekingsmodule op eigen website + tarieven'],
                 ['text' => 'Dispatch + chauffeur-PWA met inbox'],
                 ['text' => 'Contractportaal met status & afmeldingen'],
-                ['text' => 'Alles in één SaaS, white-label per tenant'],
+                ['text' => 'Alles in één SaaS, white-label per klant'],
             ],
             'rows' => [
                 ['left' => 'Geen online boekingen / verloren calls', 'right' => 'Boekingsmodule op eigen website + tarieven'],
                 ['left' => 'Chauffeurs via WhatsApp/Excel', 'right' => 'Dispatch + chauffeur-PWA met inbox'],
                 ['left' => 'Schoolvervoer handmatig afmelden', 'right' => 'Contractportaal met status & afmeldingen'],
-                ['left' => 'Losse website + losse app', 'right' => 'Alles in één SaaS, white-label per tenant'],
+                ['left' => 'Losse website + losse app', 'right' => 'Alles in één SaaS, white-label per klant'],
             ],
         ];
 
@@ -1262,12 +1453,12 @@ class CentralWelcomePageService
         return [
             'eyebrow' => 'In het kort',
             'title' => 'Wat je krijgt, zonder kleine lettertjes',
-            'subtitle' => 'Eén platform. Geen commissie per rit. Altijd boekbaar.',
+            'subtitle' => NexaMarketplaceFeeCopy::statsSubtitle(),
             'items' => [
                 ['value' => '24', 'suffix' => '/7', 'label' => 'Online boekbaar'],
                 ['value' => '1', 'suffix' => '', 'label' => 'Platform voor website, dispatch en app'],
-                ['value' => '0', 'suffix' => '', 'label' => 'Commissie per rit'],
-                ['value' => '100', 'suffix' => '%', 'label' => 'White-label per tenant'],
+                ['value' => '0', 'suffix' => '', 'label' => NexaMarketplaceFeeCopy::ownSiteStatsLabel()],
+                ['value' => '100', 'suffix' => '%', 'label' => 'White-label per klant'],
             ],
         ];
     }
@@ -1301,12 +1492,13 @@ class CentralWelcomePageService
             'eyebrow' => 'FAQ',
             'title' => 'Veelgestelde vragen',
             'subtitle' => 'Antwoorden voor taxiondernemers die online willen groeien.',
+            'width_percent' => 60,
             'items' => [
                 ['question' => 'Is NEXA white-label?', 'answer' => 'Ja. Website, boeking en chauffeur-app lopen in jullie merkkleuren en logo. Klanten zien jullie centrale, niet een marktplaats.'],
                 ['question' => 'Kunnen klanten 24/7 boeken?', 'answer' => 'Ja. De boekingsmodule staat op jullie website. Geen gemiste calls ’s avonds of in het weekend.'],
                 ['question' => 'Werkt de chauffeur-app op elke telefoon?', 'answer' => 'Het is een PWA: online/offline, inbox, rit starten en afronden. Geen aparte store-app verplicht.'],
                 ['question' => 'Rijden we ook school- of zorgvervoer?', 'answer' => 'Contractvervoer is de upsell op Nexa Taxi: vaste routes, groepen, ouderportaal en afmeldingen van–tot.'],
-                ['question' => 'Betaal ik commissie per rit?', 'answer' => 'Nee. Vast maandbedrag per pakket. De ritomzet blijft van jou.'],
+                ['question' => NexaMarketplaceFeeCopy::FAQ_QUESTION, 'answer' => NexaMarketplaceFeeCopy::faqAnswer()],
                 ['question' => 'Hoe starten we?', 'answer' => 'Plan een korte demo. We laten website, dispatch en chauffeur-app zien. Daarna onboarding met jullie merkkleuren.'],
             ],
         ];
@@ -1320,7 +1512,7 @@ class CentralWelcomePageService
      */
     private function centralFooter(array $footer): array
     {
-        $footer['tagline'] = 'Modulair SaaS voor taxibedrijven: website, online boeking, chauffeur-app en contractvervoer. White-label per tenant.';
+        $footer['tagline'] = 'Modulair SaaS voor taxibedrijven: website, online boeking, chauffeur-app en contractvervoer. White-label per klant.';
         $footer['quick_links_title'] = 'Product';
         $footer['quick_links'] = [
             ['label' => 'Home', 'url' => '/'],
@@ -1328,11 +1520,42 @@ class CentralWelcomePageService
             ['label' => 'Contractvervoer', 'url' => '/contractvervoer'],
             ['label' => 'Website', 'url' => '/website'],
         ];
-        $footer['support_links_title'] = 'Account';
+        $footer['support_links_title'] = 'Info';
         $footer['support_links'] = [
             ['label' => 'Admin', 'url' => '/admin/login'],
             ['label' => 'Privacy', 'url' => '/privacy'],
+            ['label' => 'Voorwaarden', 'url' => '/voorwaarden'],
+            ['label' => 'Disclaimer', 'url' => '/disclaimer'],
         ];
+
+        return self::withLegalSupportLinks($footer);
+    }
+
+    /**
+     * Voegt ontbrekende juridische footerlinks toe (centrale marketingwebsite).
+     *
+     * @param  array<string, mixed>  $footer
+     * @return array<string, mixed>
+     */
+    public static function withLegalSupportLinks(array $footer): array
+    {
+        $links = is_array($footer['support_links'] ?? null) ? $footer['support_links'] : [];
+        $have = [];
+        foreach ($links as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+            $path = strtolower(trim((string) ($link['url'] ?? '')));
+            $path = '/'.ltrim(explode('#', $path)[0], '/');
+            $have[$path] = true;
+        }
+        if (! isset($have['/voorwaarden']) && ! isset($have['/terms'])) {
+            $links[] = ['label' => 'Voorwaarden', 'url' => '/voorwaarden'];
+        }
+        if (! isset($have['/disclaimer'])) {
+            $links[] = ['label' => 'Disclaimer', 'url' => '/disclaimer'];
+        }
+        $footer['support_links'] = $links;
 
         return $footer;
     }

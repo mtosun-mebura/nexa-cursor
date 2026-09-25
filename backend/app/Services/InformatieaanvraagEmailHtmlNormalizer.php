@@ -6,7 +6,7 @@ class InformatieaanvraagEmailHtmlNormalizer
 {
     public const FIELD_DIVIDER_COLOR = '#d1d5db';
 
-    public const FIELDS_COLGROUP_HTML = '<colgroup><col width="175" style="width: 175px;"><col width="*" style="width: auto;"></colgroup>';
+    public const RESPONSIVE_STYLE_MARKER = 'data-info-request-fields-responsive';
 
     public function normalize(string $html): string
     {
@@ -15,6 +15,7 @@ class InformatieaanvraagEmailHtmlNormalizer
         }
 
         $html = $this->ensureColorSchemeMeta($html);
+        $html = $this->ensureResponsiveCss($html);
         $html = $this->normalizeCardTable($html);
         $html = $this->wrapLooseInfoRequestFieldRowsInCard($html);
         $html = $this->tagUntaggedFieldTables($html);
@@ -22,6 +23,7 @@ class InformatieaanvraagEmailHtmlNormalizer
         $html = $this->normalizeFieldLabelWidths($html);
         $html = $this->normalizeFieldValueWidths($html);
         $html = $this->ensureFieldCellHtmlWidths($html);
+        $html = $this->ensureFieldValueWrapping($html);
         $html = $this->normalizeFieldLabelAlignment($html);
         $html = $this->normalizeFieldsTableSpacing($html);
         $html = $this->normalizeIntroToFieldsSpacing($html);
@@ -46,6 +48,34 @@ class InformatieaanvraagEmailHtmlNormalizer
                 $html,
                 1
             ) ?? $html;
+        }
+
+        return $html;
+    }
+
+    protected function ensureResponsiveCss(string $html): string
+    {
+        if (str_contains($html, self::RESPONSIVE_STYLE_MARKER)) {
+            return $html;
+        }
+
+        $block = '<style type="text/css" '.self::RESPONSIVE_STYLE_MARKER.'="1">'
+            .'@media only screen and (max-width: 600px) {'
+            .'.info-request-email-header,.info-request-email-body,.info-request-email-footer{padding:16px !important;}'
+            .'table.info-request-fields{width:100% !important;max-width:100% !important;table-layout:auto !important;}'
+            .'table.info-request-fields td.info-request-field-label,'
+            .'table.info-request-fields td.info-request-field-value,'
+            .'table.info-request-fields td.info-request-field-value--multiline{'
+            .'display:block !important;width:100% !important;max-width:100% !important;'
+            .'box-sizing:border-box !important;text-align:left !important;white-space:normal !important;}'
+            .'table.info-request-fields td.info-request-field-label{padding:10px 0 0 !important;}'
+            .'table.info-request-fields td.info-request-field-value,'
+            .'table.info-request-fields td.info-request-field-value--multiline{padding:2px 0 10px !important;}'
+            .'}'
+            .'</style>';
+
+        if (preg_match('/<\/head>/i', $html)) {
+            return preg_replace('/<\/head>/i', $block.'</head>', $html, 1) ?? $html;
         }
 
         return $html;
@@ -93,23 +123,28 @@ class InformatieaanvraagEmailHtmlNormalizer
     {
         $html = preg_replace(
             '/(class="info-request-field-label"[^>]*style="[^"]*)width:\s*1%/i',
-            '$1width: 175px',
+            '$1width: 1%',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/(class="info-request-field-label"[^>]*style="[^"]*)width:\s*175px/i',
+            '$1width: 1%',
             $html
         ) ?? $html;
         $html = preg_replace(
             '/(class="info-request-field-label"[^>]*style="[^"]*)width:\s*130px/i',
-            '$1width: 175px',
+            '$1width: 1%',
             $html
         ) ?? $html;
         $html = preg_replace(
             '/(<table[^>]*\binfo-request-fields\b[^>]*>[\s\S]*?<col[^>]*style="[^"]*)width:\s*1%/i',
-            '$1width: 175px',
+            '$1width: 1%',
             $html
         ) ?? $html;
 
         return preg_replace(
-            '/(<table[^>]*\binfo-request-fields\b[^>]*>[\s\S]*?<col[^>]*style="[^"]*)width:\s*130px/i',
-            '$1width: 175px',
+            '/(<table[^>]*\binfo-request-fields\b[^>]*>[\s\S]*?<col[^>]*style="[^"]*)width:\s*(?:175|130)px/i',
+            '$1width: 1%',
             $html
         ) ?? $html;
     }
@@ -136,7 +171,19 @@ class InformatieaanvraagEmailHtmlNormalizer
             static function (array $matches): string {
                 $attrs = $matches[1];
                 if (! preg_match('/\bwidth="/i', $attrs)) {
-                    $attrs .= ' width="175"';
+                    $attrs .= ' width="1%"';
+                } else {
+                    $attrs = preg_replace('/\bwidth="175"/i', 'width="1%"', $attrs) ?? $attrs;
+                }
+                if (preg_match('/\sstyle="/i', $attrs)) {
+                    if (! preg_match('/width\s*:/i', $attrs)) {
+                        $attrs = preg_replace('/\sstyle="/i', ' style="width: 1%; ', $attrs, 1) ?? $attrs;
+                    }
+                    if (! preg_match('/white-space\s*:/i', $attrs)) {
+                        $attrs = preg_replace('/\sstyle="/i', ' style="white-space: nowrap; ', $attrs, 1) ?? $attrs;
+                    }
+                } else {
+                    $attrs .= ' style="width: 1%; white-space: nowrap;"';
                 }
 
                 return '<td'.$attrs.'>';
@@ -160,6 +207,25 @@ class InformatieaanvraagEmailHtmlNormalizer
                 }
 
                 return '<td'.$attrs.'>';
+            },
+            $html
+        ) ?? $html;
+    }
+
+    protected function ensureFieldValueWrapping(string $html): string
+    {
+        return preg_replace_callback(
+            '/(<td[^>]*\binfo-request-field-value(?:--multiline)?\b[^>]*style=")([^"]*)(")/i',
+            static function (array $matches): string {
+                $style = $matches[2];
+                if (stripos($style, 'word-break') === false) {
+                    $style .= '; word-break: break-word';
+                }
+                if (stripos($style, 'overflow-wrap') === false && stripos($style, 'word-wrap') === false) {
+                    $style .= '; overflow-wrap: anywhere';
+                }
+
+                return $matches[1].$style.$matches[3];
             },
             $html
         ) ?? $html;
@@ -421,18 +487,7 @@ class InformatieaanvraagEmailHtmlNormalizer
         $table->setAttribute('role', 'presentation');
         $table->setAttribute('class', 'info-request-fields');
         $table->setAttribute('width', '100%');
-        $table->setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left; table-layout: fixed;');
-
-        $colgroup = $doc->createElement('colgroup');
-        $labelCol = $doc->createElement('col');
-        $labelCol->setAttribute('width', '175');
-        $labelCol->setAttribute('style', 'width: 175px;');
-        $valueCol = $doc->createElement('col');
-        $valueCol->setAttribute('width', '*');
-        $valueCol->setAttribute('style', 'width: auto;');
-        $colgroup->appendChild($labelCol);
-        $colgroup->appendChild($valueCol);
-        $table->appendChild($colgroup);
+        $table->setAttribute('style', 'width: 100%; max-width: 100%; border-collapse: collapse; margin: 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left; table-layout: auto;');
 
         return $table;
     }
@@ -443,12 +498,14 @@ class InformatieaanvraagEmailHtmlNormalizer
             '/<table([^>]*\binfo-request-fields\b[^>]*)>/i',
             static function (array $matches): string {
                 $attrs = $matches[1];
-                if (stripos($attrs, 'table-layout') === false) {
-                    if (preg_match('/\sstyle="/i', $attrs)) {
-                        $attrs = preg_replace('/\sstyle="/i', ' style="table-layout: fixed; ', $attrs, 1) ?? $attrs;
-                    } else {
-                        $attrs .= ' style="table-layout: fixed;"';
+                if (preg_match('/\sstyle="([^"]*)"/i', $attrs, $styleMatch)) {
+                    $style = preg_replace('/table-layout\s*:\s*fixed/i', 'table-layout: auto', $styleMatch[1]) ?? $styleMatch[1];
+                    if (stripos($style, 'table-layout') === false) {
+                        $style = 'table-layout: auto; '.$style;
                     }
+                    $attrs = preg_replace('/\sstyle="[^"]*"/i', ' style="'.$style.'"', $attrs) ?? $attrs;
+                } else {
+                    $attrs .= ' style="table-layout: auto;"';
                 }
 
                 return '<table'.$attrs.'>';
@@ -456,15 +513,9 @@ class InformatieaanvraagEmailHtmlNormalizer
             $html
         ) ?? $html;
 
-        $html = preg_replace(
-            '/(<table[^>]*\binfo-request-fields\b[^>]*>)(\s*(?!<colgroup))/i',
-            '$1'.self::FIELDS_COLGROUP_HTML,
-            $html
-        ) ?? $html;
-
         return preg_replace(
-            '/(<table[^>]*\binfo-request-fields\b[^>]*>\s*<colgroup>\s*<col[^>]*>\s*)<col(?:\s*\/?)>/i',
-            '$1<col width="*" style="width: auto;">',
+            '/(<table[^>]*\binfo-request-fields\b[^>]*>)\s*<colgroup>.*?<\/colgroup>/is',
+            '$1',
             $html
         ) ?? $html;
     }

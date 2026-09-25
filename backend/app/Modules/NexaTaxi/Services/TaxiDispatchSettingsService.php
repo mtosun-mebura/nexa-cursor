@@ -5,8 +5,10 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\EnvService;
 use App\Services\PaymentProviderService;
+use App\Services\WhatsAppBookingMessageComposer;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -15,11 +17,16 @@ use Illuminate\Support\Carbon;
  */
 class TaxiDispatchSettingsService
 {
+    /** @var array<string, mixed> */
+    private array $requestCache = [];
+
     public const KEY_OFFER_TTL_SECONDS = 'taxi_dispatch_offer_ttl_seconds';
 
     public const KEY_PAST_PICKUP_GRACE_HOURS = 'taxi_dispatch_past_pickup_grace_hours';
 
     public const KEY_PAST_PICKUP_GRACE_MINUTES = 'taxi_dispatch_past_pickup_grace_minutes';
+
+    public const KEY_UNACCEPTED_AUTO_CANCEL_MINUTES = 'taxi_dispatch_unaccepted_auto_cancel_minutes';
 
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
@@ -51,6 +58,8 @@ class TaxiDispatchSettingsService
 
     public const KEY_CUSTOMER_ACCEPT_WHATSAPP_TEMPLATE_LANG = 'taxi_dispatch_customer_accept_whatsapp_template_lang';
 
+    public const KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS = 'taxi_dispatch_customer_whatsapp_status_events';
+
     public const KEY_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES = 'taxi_dispatch_customer_login_code_expires_minutes';
 
     public const MIN_LOGIN_CODE_EXPIRES_MINUTES = 5;
@@ -75,6 +84,11 @@ class TaxiDispatchSettingsService
 
     public const MAX_PAST_PICKUP_GRACE_MINUTES = 4320; // 72 uur
 
+    /** 0 = automatische annulering uit */
+    public const MIN_UNACCEPTED_AUTO_CANCEL_MINUTES = 0;
+
+    public const MAX_UNACCEPTED_AUTO_CANCEL_MINUTES = 1440; // 24 uur
+
     public function __construct(
         protected EnvService $env,
         protected PaymentProviderService $paymentProviders
@@ -82,14 +96,19 @@ class TaxiDispatchSettingsService
 
     public function offerTtlSeconds(?int $companyId = null): int
     {
+        $cacheKey = 'ttl:'.(int) ($companyId ?? 0);
+        if (array_key_exists($cacheKey, $this->requestCache)) {
+            return (int) $this->requestCache[$cacheKey];
+        }
+
         $default = (int) config('taxi-dispatch.offer_ttl_seconds', 300);
         $raw = GeneralSetting::get(self::KEY_OFFER_TTL_SECONDS, null, $companyId);
 
-        if ($raw === null || $raw === '') {
-            return $this->clampTtl($default);
-        }
+        $ttl = ($raw === null || $raw === '')
+            ? $this->clampTtl($default)
+            : $this->clampTtl((int) $raw);
 
-        return $this->clampTtl((int) $raw);
+        return $this->requestCache[$cacheKey] = $ttl;
     }
 
     public function setOfferTtlSeconds(int $seconds, ?int $companyId = null): void
@@ -153,6 +172,73 @@ class TaxiDispatchSettingsService
         return max(self::MIN_PAST_PICKUP_GRACE_MINUTES, min(self::MAX_PAST_PICKUP_GRACE_MINUTES, $minutes));
     }
 
+    public function unacceptedAutoCancelMinutes(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30);
+        $raw = GeneralSetting::get(self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES, null, $companyId);
+        if ($raw === null || $raw === '') {
+            return $this->clampUnacceptedAutoCancelMinutes($default);
+        }
+
+        return $this->clampUnacceptedAutoCancelMinutes((int) $raw);
+    }
+
+    public function setUnacceptedAutoCancelMinutes(int $minutes, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES,
+            (string) $this->clampUnacceptedAutoCancelMinutes($minutes),
+            $companyId
+        );
+    }
+
+    public function clampUnacceptedAutoCancelMinutes(int $minutes): int
+    {
+        return max(
+            self::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
+            min(self::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES, $minutes)
+        );
+    }
+
+    /**
+     * Ophaalmoment dat geldt voor grace / auto-annuleren.
+     * Bij een openstaand voorstel van de chauffeur telt de nieuwe tijd, niet de oude.
+     */
+    public function effectiveDispatchDueAt(RideRequest $ride): ?CarbonInterface
+    {
+        $connection = $ride->getConnectionName();
+        if (is_string($connection) && $connection !== '') {
+            TaxiDispatchSchema::ensurePickupProposalColumns($connection);
+        }
+
+        if ($ride->pickup_proposal_status === RideRequest::PICKUP_PROPOSAL_PENDING
+            && $ride->pickup_proposal_at) {
+            return ContractTransportTimezone::asAmsterdamWall($ride->pickup_proposal_at);
+        }
+
+        return $this->scheduledRideDueAt($ride);
+    }
+
+    /**
+     * Moment waarop een niet-geaccepteerde rit automatisch mag worden geannuleerd.
+     * Null = auto-annulering uit of geen ophaalmoment.
+     */
+    public function unacceptedAutoCancelAt(RideRequest $ride, ?int $companyId = null): ?CarbonInterface
+    {
+        $companyId = $companyId ?? ((int) ($ride->company_id ?? 0) > 0 ? (int) $ride->company_id : null);
+        $minutes = $this->unacceptedAutoCancelMinutes($companyId);
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $dueAt = $this->effectiveDispatchDueAt($ride);
+        if (! $dueAt) {
+            return null;
+        }
+
+        return $dueAt->copy()->addMinutes($minutes);
+    }
+
     /**
      * Ritten met pickup_at vóór dit moment vallen uit de chauffeur-wachtrij.
      * Binding is naïef UTC met Amsterdam-wallclock-cijfers (matcht DB-opslag).
@@ -174,7 +260,7 @@ class TaxiDispatchSettingsService
      */
     public function offerPickupIsPast(RideRequest $ride, ?CarbonInterface $now = null): bool
     {
-        $dueAt = $this->scheduledRideDueAt($ride);
+        $dueAt = $this->effectiveDispatchDueAt($ride);
         if (! $dueAt) {
             return false;
         }
@@ -196,7 +282,7 @@ class TaxiDispatchSettingsService
         $base = $now
             ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
             : now(ContractTransportTimezone::TIMEZONE);
-        $dueAt = $this->scheduledRideDueAt($ride);
+        $dueAt = $this->effectiveDispatchDueAt($ride);
 
         if (! $dueAt) {
             return false;
@@ -389,7 +475,7 @@ class TaxiDispatchSettingsService
     }
 
     /**
-     * @return array{booking: bool, driver: bool, mollie_configured: bool, mollie_package_allowed: bool}
+     * @return array{booking: bool, driver: bool, cash: bool, mollie_configured: bool, mollie_package_allowed: bool}
      */
     public function paymentOptionsForTenant(?int $companyId = null): array
     {
@@ -399,7 +485,8 @@ class TaxiDispatchSettingsService
 
         return [
             'booking' => $mollieConfigured && $this->paymentBookingEnabled($companyId),
-            'driver' => $mollieConfigured && $this->paymentDriverEnabled($companyId),
+            'driver' => $mollieAllowed && $this->paymentDriverEnabled($companyId),
+            'cash' => true,
             'mollie_configured' => $mollieConfigured,
             'mollie_package_allowed' => $mollieAllowed,
         ];
@@ -535,6 +622,90 @@ class TaxiDispatchSettingsService
     public function setCustomerAcceptWhatsappTemplateLanguage(string $language, ?int $companyId = null): void
     {
         GeneralSetting::set(self::KEY_CUSTOMER_ACCEPT_WHATSAPP_TEMPLATE_LANG, trim($language) ?: 'nl', $companyId);
+    }
+
+    /**
+     * @return array<string, string> event => NL-label
+     */
+    public static function customerWhatsappStatusEventLabels(): array
+    {
+        return WhatsAppBookingMessageComposer::statusEventLabels();
+    }
+
+    /**
+     * WhatsApp-statusberichten naar de klant. Tenant-instelling gaat voor; anders platform/default.
+     * Rit afgerond staat standaard uit.
+     *
+     * @return list<string>
+     */
+    public function customerWhatsappStatusEvents(?int $companyId = null): array
+    {
+        $stored = GeneralSetting::get(self::KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS, null, $companyId);
+        if ($stored !== null && $stored !== '') {
+            return $this->normalizeCustomerWhatsappStatusEvents($stored, allowEmpty: true);
+        }
+
+        $fallback = $this->normalizeCustomerWhatsappStatusEvents(
+            app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+            allowEmpty: false
+        );
+
+        return array_values(array_filter(
+            $fallback,
+            fn (string $event): bool => $event !== WhatsAppBookingMessageComposer::EVENT_COMPLETED
+        ));
+    }
+
+    public function customerWhatsappStatusEventEnabled(string $event, ?int $companyId = null): bool
+    {
+        return in_array($event, $this->customerWhatsappStatusEvents($companyId), true);
+    }
+
+    /**
+     * @param  list<string>|string  $events
+     */
+    public function setCustomerWhatsappStatusEvents(array|string $events, ?int $companyId = null): void
+    {
+        $normalized = $this->normalizeCustomerWhatsappStatusEvents($events, allowEmpty: true);
+        GeneralSetting::set(
+            self::KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS,
+            json_encode(array_values($normalized), JSON_UNESCAPED_UNICODE),
+            $companyId
+        );
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return list<string>
+     */
+    public function normalizeCustomerWhatsappStatusEvents(mixed $raw, bool $allowEmpty = false): array
+    {
+        $available = array_keys(self::customerWhatsappStatusEventLabels());
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (! is_array($decoded)) {
+                $decoded = preg_split('/\s*,\s*/', $raw) ?: [];
+            }
+            $raw = $decoded;
+        }
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+
+        $events = [];
+        foreach ($raw as $key) {
+            $key = is_string($key) ? trim($key) : '';
+            if ($key !== '' && in_array($key, $available, true)) {
+                $events[] = $key;
+            }
+        }
+        $events = array_values(array_unique($events));
+
+        if ($events === [] && ! $allowEmpty) {
+            return WhatsAppBookingMessageComposer::defaultStatusEvents();
+        }
+
+        return $events;
     }
 
     /**

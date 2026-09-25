@@ -15,7 +15,7 @@
         </a>
     </div>
 
-    <form id="admin-user-form" action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate>
+    <form id="admin-user-form" action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate autocomplete="off">
         @csrf
         <input type="hidden" name="wizard_back_url" value="{{ $userCreateBackUrl }}">
         @if(!empty($wizardContextCompanyId))
@@ -113,35 +113,42 @@
                                 array_map('strtolower', $selectedRolesForPassword),
                                 array_map('strtolower', $appFirstLoginRoleNames)
                             )) > 0;
-                            $passwordRequired = $selectedRolesForPassword !== [] && ! $usesAppFirstLoginPassword;
                         @endphp
                         <tr id="user-create-password-row">
                             <td class="text-secondary-foreground font-normal align-top">
-                                <span id="user-create-password-label">Wachtwoord</span><span id="user-create-password-required-mark" @unless($passwordRequired) hidden @endunless> *</span>
+                                <span id="user-create-password-label">Wachtwoord</span>
                             </td>
                             <td>
                                 <div class="user-create-password-fields">
-                                <div class="flex items-center gap-1.5">
-                                    <input type="password"
-                                           id="user-create-password"
-                                           class="kt-input min-w-0 flex-1 @error('password') border-destructive @enderror"
-                                           name="password"
-                                           @if($passwordRequired) required @endif
-                                           autocomplete="new-password">
-                                    <span class="relative shrink-0">
-                                        <button type="button"
-                                                id="user-create-password-generate"
-                                                class="user-create-password-generate kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost"
-                                                aria-label="Tijdelijk wachtwoord genereren"
-                                                aria-describedby="user-create-password-generate-tip">
-                                            <i class="ki-filled ki-key text-lg"></i>
+                                <div class="user-create-password-actions">
+                                    <div class="kt-input min-w-0 flex-1 @error('password') border-destructive @enderror" data-kt-toggle-password="true">
+                                        <input type="password"
+                                               id="user-create-password"
+                                               name="password"
+                                               autocomplete="new-password"
+                                               data-lpignore="true"
+                                               data-1p-ignore="true">
+                                        <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5"
+                                                data-kt-toggle-password-trigger="true"
+                                                type="button"
+                                                aria-label="Wachtwoord tonen of verbergen">
+                                            <span class="kt-toggle-password-active:hidden">
+                                                <i class="ki-filled ki-eye text-muted-foreground"></i>
+                                            </span>
+                                            <span class="hidden kt-toggle-password-active:block">
+                                                <i class="ki-filled ki-eye-slash text-muted-foreground"></i>
+                                            </span>
                                         </button>
-                                        <span id="user-create-password-generate-tip" role="tooltip" class="user-create-password-generate-tip">
-                                            Genereer een tijdelijk wachtwoord. Alleen bedoeld voor de eerste keer inloggen.
-                                        </span>
-                                    </span>
+                                    </div>
+                                    <button type="button"
+                                            id="user-create-password-generate"
+                                            class="user-create-password-generate kt-btn kt-btn-sm kt-btn-outline shrink-0"
+                                            title="Genereer wachtwoord">
+                                        <i class="ki-filled ki-key me-1.5"></i>
+                                        Genereer wachtwoord
+                                    </button>
                                 </div>
-                                <div id="user-create-password-help-temp" class="text-xs text-muted-foreground mt-1" @if($usesAppFirstLoginPassword) hidden @endif>Optioneel bij chauffeur, contractant en contractouder (eerste login via een code in de app). Bij andere rollen: tijdelijk wachtwoord, minimaal 8 tekens, met een hoofdletter, kleine letter en cijfer.</div>
+                                <div id="user-create-password-help-temp" class="text-xs text-muted-foreground mt-1" @if($usesAppFirstLoginPassword) hidden @endif>Niet verplicht. Nieuwe gebruikers (ook admin) loggen de eerste keer in met een eenmalige code: op het inlogscherm «Eerste keer inloggen», e-mail invoeren (moet in het systeem staan) en een code aanvragen. Daarna kiezen ze zelf een wachtwoord.</div>
                                 <div id="user-create-password-help-app" class="text-xs text-muted-foreground mt-1" @unless($usesAppFirstLoginPassword) hidden @endunless>Niet nodig. Chauffeur, contractant en contractouder loggen de eerste keer in met een eenmalige code in de app en kiezen daarna zelf een wachtwoord.</div>
                                 @error('password')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -279,28 +286,6 @@
 
 @push('styles')
 <style>
-    .user-create-password-generate-tip {
-        position: absolute;
-        right: 0;
-        bottom: calc(100% + 0.45rem);
-        z-index: 80;
-        display: none;
-        width: 16.5rem;
-        padding: 0.5rem 0.7rem;
-        border-radius: 0.5rem;
-        background: #18181b;
-        color: #fff;
-        font-size: 0.75rem;
-        font-weight: 400;
-        line-height: 1.35;
-        text-align: left;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
-        pointer-events: none;
-    }
-    .user-create-password-generate:hover + .user-create-password-generate-tip,
-    .user-create-password-generate:focus-visible + .user-create-password-generate-tip {
-        display: block;
-    }
     #admin-user-form .kt-card-table {
         overflow-x: visible;
     }
@@ -318,15 +303,32 @@
         max-width: 28rem;
     }
     #admin-user-form #user-create-password-row .user-create-password-fields,
-    #admin-user-form #user-create-password-row .flex.items-center {
+    #admin-user-form #user-create-password-row .user-create-password-actions {
         width: 100%;
-        max-width: 28rem;
+        max-width: 36rem;
+    }
+    #admin-user-form #user-create-password-row .user-create-password-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    #admin-user-form #user-create-password-row .user-create-password-actions .kt-input {
+        flex: 1 1 12rem;
+        min-width: 0;
+        max-width: none;
+        width: auto;
     }
     #admin-user-form #user-create-password {
-        width: auto;
+        width: 100%;
         max-width: none;
-        flex: 1 1 0%;
         min-width: 0;
+    }
+    #admin-user-form .user-create-password-generate {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
     }
     #admin-user-form [data-required-checkbox-group="roles"] {
         max-width: 36rem;
@@ -381,14 +383,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function syncAppFirstLoginPassword() {
         const appLogin = usesAppFirstLogin();
-        const checkedCount = document.querySelectorAll('input[name="roles[]"]:checked').length;
-        const passwordRequired = checkedCount > 0 && !appLogin;
-        const requiredMark = document.getElementById('user-create-password-required-mark');
         const helpTemp = document.getElementById('user-create-password-help-temp');
         const helpApp = document.getElementById('user-create-password-help-app');
-        if (requiredMark) {
-            requiredMark.hidden = !passwordRequired;
-        }
         if (helpTemp) {
             helpTemp.hidden = appLogin;
         }
@@ -396,11 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
             helpApp.hidden = !appLogin;
         }
         if (passwordInput) {
-            if (passwordRequired) {
-                passwordInput.setAttribute('required', 'required');
-            } else {
-                passwordInput.removeAttribute('required');
-            }
+            passwordInput.removeAttribute('required');
             if (appLogin) {
                 passwordInput.value = '';
             }
@@ -443,11 +435,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function revealPassword(input) {
-        if (input.type !== 'password') {
+        if (!input || input.type !== 'password') {
             return;
         }
-        const wrap = input.parentNode;
-        const toggle = wrap && wrap.querySelector ? wrap.querySelector('.js-pw-toggle-btn') : null;
+        const wrap = input.closest('[data-kt-toggle-password]');
+        const toggle = wrap && wrap.querySelector ? wrap.querySelector('[data-kt-toggle-password-trigger]') : null;
         if (toggle) {
             toggle.click();
             return;

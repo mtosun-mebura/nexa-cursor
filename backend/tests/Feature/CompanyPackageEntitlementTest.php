@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Services\UserRoleAssignmentService;
+use App\Support\TenantPackageAddon;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -135,5 +138,75 @@ class CompanyPackageEntitlementTest extends TestCase
         $this->assertFalse($options['mollie_configured']);
         $this->assertFalse($options['booking']);
         $this->assertFalse($options['driver']);
+    }
+
+    #[Test]
+    public function company_show_displays_package_and_addon_dates_during_trial(): void
+    {
+        Carbon::setTestNow('2026-04-01 10:00:00');
+
+        $company = Company::query()->create([
+            'name' => 'Proef Bedrijf Show',
+            'is_active' => true,
+            'package_key' => 'business',
+        ]);
+        app(TenantSubscriptionService::class)->ensureProfile($company);
+        $company->billingProfile->update([
+            'trial_started_at' => '2026-03-15',
+            'trial_ends_at' => '2026-06-15',
+            'subscription_start_date' => '2026-06-15',
+        ]);
+        $company->package_addons = TenantPackageAddon::normalizeRecords([
+            TenantPackageAddon::GPS_TRACKING => [
+                'quantity' => 1,
+                'starts_at' => '2026-03-15',
+            ],
+        ], []);
+        $company->save();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $start = Carbon::parse('2026-03-15')->translatedFormat('j F Y');
+        $trialEnd = Carbon::parse('2026-06-15')->translatedFormat('j F Y');
+
+        $this->actingAs($admin)
+            ->get(route('admin.companies.show', $company))
+            ->assertOk()
+            ->assertSee('Business', false)
+            ->assertSee('Ingang '.$start, false)
+            ->assertSee('Gratis periode tot '.$trialEnd, false)
+            ->assertSee('Limiet: Onbeperkt', false);
+    }
+
+    #[Test]
+    public function company_show_hides_trial_end_after_free_period(): void
+    {
+        Carbon::setTestNow('2026-07-01 10:00:00');
+
+        $company = Company::query()->create([
+            'name' => 'Abonnement Bedrijf Show',
+            'is_active' => true,
+            'package_key' => 'business',
+        ]);
+        app(TenantSubscriptionService::class)->ensureProfile($company);
+        $company->billingProfile->update([
+            'trial_started_at' => '2026-03-15',
+            'trial_ends_at' => '2026-06-15',
+            'subscription_start_date' => '2026-06-15',
+        ]);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $start = Carbon::parse('2026-03-15')->translatedFormat('j F Y');
+        $trialEnd = Carbon::parse('2026-06-15')->translatedFormat('j F Y');
+
+        $this->actingAs($admin)
+            ->get(route('admin.companies.show', $company))
+            ->assertOk()
+            ->assertSee('Ingang '.$start, false)
+            ->assertSee('Contractklanten', false)
+            ->assertDontSee('Gratis periode tot '.$trialEnd, false);
     }
 }

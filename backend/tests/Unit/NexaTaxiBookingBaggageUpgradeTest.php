@@ -20,7 +20,7 @@ class NexaTaxiBookingBaggageUpgradeTest extends TestCase
             'special_baggage' => [],
         ], 2);
 
-        $this->assertSame(3.0, $context['baggage_units']);
+        $this->assertSame(2.0, $context['baggage_units']);
         $this->assertFalse($context['baggage_van_upgrade']);
         $this->assertSame('1-4', $context['person_range']);
     }
@@ -29,13 +29,39 @@ class NexaTaxiBookingBaggageUpgradeTest extends TestCase
     {
         $config = $this->service()->getDefaultSectionConfig();
         $context = $this->service()->resolveBaggagePersonRangeContext($config, [
-            'baggage' => ['large' => 3],
+            'baggage' => ['large' => 5],
             'special_baggage' => [],
-        ], 2);
+        ], 1);
 
-        $this->assertSame(6.0, $context['baggage_units']);
+        $this->assertSame(5.0, $context['baggage_units']);
         $this->assertTrue($context['baggage_van_upgrade']);
         $this->assertSame('5-8', $context['person_range']);
+    }
+
+    public function test_three_passengers_with_three_large_and_one_small_stay_on_car_range(): void
+    {
+        $config = $this->service()->getDefaultSectionConfig();
+        $context = $this->service()->resolveBaggagePersonRangeContext($config, [
+            'baggage' => ['large' => 3, 'small' => 1],
+            'special_baggage' => [],
+        ], 3);
+
+        $this->assertSame(4.0, $context['baggage_units']);
+        $this->assertFalse($context['baggage_van_upgrade']);
+        $this->assertSame('1-4', $context['person_range']);
+    }
+
+    public function test_hand_luggage_does_not_count_toward_trunk_limit(): void
+    {
+        $config = $this->service()->getDefaultSectionConfig();
+        $context = $this->service()->resolveBaggagePersonRangeContext($config, [
+            'baggage' => ['large' => 4, 'hand' => 6],
+            'special_baggage' => [],
+        ], 1);
+
+        $this->assertSame(4.0, $context['baggage_units']);
+        $this->assertFalse($context['baggage_van_upgrade']);
+        $this->assertSame('1-4', $context['person_range']);
     }
 
     public function test_upgrade_respects_disabled_setting(): void
@@ -60,7 +86,7 @@ class NexaTaxiBookingBaggageUpgradeTest extends TestCase
             'special_baggage' => [],
         ], 6);
 
-        $this->assertTrue($context['baggage_van_upgrade']);
+        $this->assertFalse($context['baggage_van_upgrade']);
         $this->assertSame('5-8', $context['person_range']);
     }
 
@@ -103,5 +129,27 @@ class NexaTaxiBookingBaggageUpgradeTest extends TestCase
         $this->assertSame('person_range', $quotes['offer_display_mode']);
         $this->assertCount(1, $quotes['offers']);
         $this->assertStringStartsWith('person_range_', (string) $quotes['offers'][0]['id']);
+        $this->assertStringContainsString('vehicle-placeholder.png', (string) $quotes['offers'][0]['image_url']);
+    }
+
+    public function test_person_range_quote_uses_van_placeholder_for_bus_range(): void
+    {
+        $config = $this->service()->mergeSectionConfig([
+            'logic' => [
+                'offer_display_mode' => 'person_range',
+            ],
+        ]);
+
+        $quotes = $this->service()->buildQuotes($config, [
+            'distance_meters' => 12000,
+            'duration_seconds' => 900,
+            'passengers' => 6,
+            'return_trip' => false,
+            'baggage' => [],
+            'special_baggage' => [],
+        ]);
+
+        $this->assertSame('5-8', $quotes['person_range']);
+        $this->assertStringContainsString('vehicle-placeholder-van.png', (string) $quotes['offers'][0]['image_url']);
     }
 }

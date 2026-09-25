@@ -49,7 +49,7 @@
         position: relative;
         z-index: 1;
         display: flex;
-        transform-origin: 50% 55%;
+        transform-origin: 50% 50%;
         filter: drop-shadow(0 2px 3px rgba(0,0,0,.4));
     }
     .nexa-gps-marker-plate .nexa-gps-plate {
@@ -161,7 +161,7 @@
         <div class="min-w-0 flex-1">
             <h1 class="text-xl font-medium leading-none text-mono">GPS-tracker</h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed" id="gps-page-intro">
-                Live locatie van online voertuigen. Chauffeurs moeten online staan in de chauffeur-app en locatie delen.
+                Live locatie van actieve auto’s. Elke auto die nu online is met GPS verschijnt één keer op de kaart.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -347,6 +347,7 @@ window.initGpsTrackingMap = function () {
     var followVehicleId = null;
     var programmaticMove = false;
     var lastFollowPanAt = 0;
+    var followPanGuardUntil = 0;
     var mapThemeUserOverride = false;
     var mapDark = false;
     var themeObs = null;
@@ -574,12 +575,8 @@ window.initGpsTrackingMap = function () {
                 return { carDiv: carDiv, plateDiv: plateDiv };
             }
             pinStack() {
-                if (this.div && this.div.parentNode) {
-                    this.div.parentNode.style.zIndex = '1';
-                }
-                if (this.plateDiv && this.plateDiv.parentNode) {
-                    this.plateDiv.parentNode.style.zIndex = '10000';
-                }
+                if (this.div) this.div.style.zIndex = '1';
+                if (this.plateDiv) this.plateDiv.style.zIndex = '2';
             }
             onAdd() {
                 var parts = this.mountParts(this.contentEl);
@@ -587,7 +584,7 @@ window.initGpsTrackingMap = function () {
                 this.plateDiv = parts.plateDiv;
                 var panes = this.getPanes();
                 panes.overlayMouseTarget.appendChild(this.div);
-                (panes.floatPane || panes.overlayMouseTarget).appendChild(this.plateDiv);
+                panes.overlayMouseTarget.appendChild(this.plateDiv);
                 this.pinStack();
                 this.bindFocus();
             }
@@ -602,13 +599,11 @@ window.initGpsTrackingMap = function () {
                 var plateW = this.plateDiv ? (this.plateDiv.offsetWidth || 72) : 0;
                 var plateH = this.plateDiv ? (this.plateDiv.offsetHeight || 22) : 0;
                 var gap = 6;
-                var totalH = plateH + gap + carH;
-                var top = p.y - totalH + 12;
                 this.div.style.left = (p.x - carW / 2) + 'px';
-                this.div.style.top = (top + plateH + gap) + 'px';
+                this.div.style.top = (p.y - carH / 2) + 'px';
                 if (this.plateDiv) {
                     this.plateDiv.style.left = (p.x - plateW / 2) + 'px';
-                    this.plateDiv.style.top = top + 'px';
+                    this.plateDiv.style.top = (p.y - carH / 2 - gap - plateH) + 'px';
                 }
                 this.pinStack();
             }
@@ -653,6 +648,18 @@ window.initGpsTrackingMap = function () {
         return OverlayClass;
     }
 
+    function metersBetween(fromLat, fromLng, toLat, toLng) {
+        var dLat = (toLat - fromLat) * 111320;
+        var dLng = (toLng - fromLng) * 111320 * Math.cos((fromLat * Math.PI) / 180);
+        return Math.sqrt(dLat * dLat + dLng * dLng);
+    }
+
+    function applyMarkerHeading(marker, heading) {
+        if (heading == null) return;
+        var rot = marker.div ? marker.div.querySelector('.nexa-gps-car-rot') : null;
+        if (rot) rot.style.transform = 'rotate(' + heading + 'deg)';
+    }
+
     function animateTo(key, marker, lat, lng, heading, fromHeading) {
         if (animations[key]) cancelAnimationFrame(animations[key]);
         var start = markerLatLng(marker);
@@ -662,16 +669,31 @@ window.initGpsTrackingMap = function () {
         if (fromHeading == null) fromHeading = parseHeading(rot);
         if (fromHeading == null) fromHeading = heading;
         var headingDelta = heading == null || fromHeading == null ? 0 : shortestHeadingDelta(fromHeading, heading);
-        var duration = Math.max(400, Math.min(cfg.pollMs, 1800));
+        var dist = metersBetween(fromLat, fromLng, lat, lng);
+        var following = followVehicleId && String(followVehicleId) === String(key);
+        if (dist < 0.4) {
+            marker.setPosition({ lat: lat, lng: lng });
+            applyMarkerHeading(marker, heading);
+            if (following) nudgeFollowCamera(fromLat, fromLng, lat, lng);
+            return;
+        }
+        var duration = Math.max(280, Math.min(cfg.pollMs * 0.98, Math.max(dist * 22, cfg.pollMs * 0.85), 1400));
         var started = performance.now();
+        var prevEase = 0;
         function step(now) {
             var t = Math.min(1, (now - started) / duration);
-            marker.setPosition({ lat: fromLat + (lat - fromLat) * t, lng: fromLng + (lng - fromLng) * t });
+            var ease = 1 - Math.pow(1 - t, 1.2);
+            var curLat = fromLat + (lat - fromLat) * ease;
+            var curLng = fromLng + (lng - fromLng) * ease;
+            var prevLat = fromLat + (lat - fromLat) * prevEase;
+            var prevLng = fromLng + (lng - fromLng) * prevEase;
+            marker.setPosition({ lat: curLat, lng: curLng });
             var liveRot = marker.div ? marker.div.querySelector('.nexa-gps-car-rot') : rot;
             if (liveRot && heading != null) {
-                liveRot.style.transform = 'rotate(' + (fromHeading + headingDelta * t) + 'deg)';
+                liveRot.style.transform = 'rotate(' + (fromHeading + headingDelta * ease) + 'deg)';
             }
-            if (followVehicleId && String(followVehicleId) === String(key)) keepFollowedInView(t >= 1);
+            if (following) nudgeFollowCamera(prevLat, prevLng, curLat, curLng);
+            prevEase = ease;
             if (t < 1) animations[key] = requestAnimationFrame(step);
             else delete animations[key];
         }
@@ -910,6 +932,7 @@ window.initGpsTrackingMap = function () {
             }
             var bounds = new google.maps.LatLngBounds();
             ids.forEach(function (id) { bounds.extend(markerLatLng(markers[id])); });
+            if (bounds.isEmpty()) return;
             map.fitBounds(bounds, { top: 120, right: 88, bottom: 64, left: 88 });
             google.maps.event.addListenerOnce(map, 'idle', function () {
                 if ((map.getZoom() || 0) > 16) {
@@ -960,48 +983,72 @@ window.initGpsTrackingMap = function () {
         });
     }
 
-    function followedOverflow(pad) {
-        if (!followVehicleId || !map || !markers[followVehicleId]) return null;
+    function overlayProjection(marker) {
+        return marker && typeof marker.getProjection === 'function' ? marker.getProjection() : null;
+    }
+
+    function followedContainerPixel(marker) {
+        var proj = overlayProjection(marker);
+        if (!proj || typeof proj.fromLatLngToContainerPixel !== 'function') return null;
+        return proj.fromLatLngToContainerPixel(markerLatLng(marker));
+    }
+
+    function beginFollowPan() {
+        programmaticMove = true;
+        followPanGuardUntil = performance.now() + 800;
+        window.setTimeout(function () {
+            if (performance.now() >= followPanGuardUntil) programmaticMove = false;
+        }, 800);
+    }
+
+    function nudgeFollowCamera(fromLat, fromLng, toLat, toLng) {
+        if (!followVehicleId || followFleet || !map) return;
+        var marker = markers[followVehicleId];
+        if (!marker) return;
         var mapDiv = map.getDiv();
-        if (!mapDiv) return null;
-        var view = mapDiv.getBoundingClientRect();
-        var edge = pad == null ? 88 : pad;
-        var r = markerOverlayRect(markers[followVehicleId]);
-        if (!r) {
-            var pos = markerLatLng(markers[followVehicleId]);
-            var bounds = map.getBounds();
-            if (bounds && bounds.contains(pos)) return null;
-            return { x: 0, y: 0, panTo: pos };
+        if (!mapDiv) return;
+        var w = mapDiv.clientWidth;
+        var h = mapDiv.clientHeight;
+        if (w < 40 || h < 40) return;
+        var pixel = followedContainerPixel(marker);
+        var edge = 96;
+        var far = !pixel || pixel.x < -40 || pixel.x > w + 40 || pixel.y < -40 || pixel.y > h + 40;
+        var nearEdge = pixel && (pixel.x < edge || pixel.x > w - edge || pixel.y < edge || pixel.y > h - edge);
+        if (!far && !nearEdge) return;
+        beginFollowPan();
+        if (far) {
+            map.setCenter({ lat: toLat, lng: toLng });
+            return;
         }
-        var dx = 0;
-        var dy = 0;
-        if (r.left < view.left + edge) dx = r.left - (view.left + edge);
-        else if (r.right > view.right - edge) dx = r.right - (view.right - edge);
-        if (r.top < view.top + edge) dy = r.top - (view.top + edge);
-        else if (r.bottom > view.bottom - edge) dy = r.bottom - (view.bottom - edge);
-        if (dx === 0 && dy === 0) return null;
-        return { x: dx, y: dy };
+        var center = map.getCenter();
+        if (!center) return;
+        map.setCenter({
+            lat: center.lat() + (toLat - fromLat),
+            lng: center.lng() + (toLng - fromLng)
+        });
     }
 
     function keepFollowedInView(force) {
         if (!followVehicleId || followFleet || !map) return;
-        if (!markers[followVehicleId]) {
+        var marker = markers[followVehicleId];
+        if (!marker) {
             followVehicleId = null;
             syncFollowedLegend();
             return;
         }
+        var mapDiv = map.getDiv();
+        if (!mapDiv) return;
+        var pixel = followedContainerPixel(marker);
+        var w = mapDiv.clientWidth;
+        var h = mapDiv.clientHeight;
+        var off = !pixel || pixel.x < 0 || pixel.x > w || pixel.y < 0 || pixel.y > h;
+        if (!off && !force) return;
+        if (!off) return;
         var now = performance.now();
-        if (!force && now - lastFollowPanAt < 120) return;
-        var delta = followedOverflow(88);
-        if (!delta) return;
+        if (now - lastFollowPanAt < 80) return;
         lastFollowPanAt = now;
-        programmaticMove = true;
-        if (delta.panTo) {
-            map.panTo(delta.panTo);
-        } else {
-            map.panBy(delta.x, delta.y);
-        }
-        window.setTimeout(function () { programmaticMove = false; }, 400);
+        beginFollowPan();
+        map.panTo(markerLatLng(marker));
     }
 
     function ensureAllVisible() {
@@ -1032,7 +1079,7 @@ window.initGpsTrackingMap = function () {
         if (intro) {
             intro.textContent = cfg.view === 'offline'
                 ? 'Laatst bekende locatie van offline voertuigen. Online auto’s zijn verborgen tot je terugschakelt naar Online.'
-                : 'Live locatie van online voertuigen. Chauffeurs moeten online staan in de chauffeur-app en locatie delen.';
+                : 'Live locatie van actieve auto’s. Elke auto die nu online is met GPS verschijnt één keer op de kaart.';
         }
     }
 
@@ -1126,14 +1173,20 @@ window.initGpsTrackingMap = function () {
         Object.assign(mapOpts, mapThemeOptions(mapDark));
         map = new google.maps.Map(el, mapOpts);
         map.addListener('dragstart', function () {
-            if (programmaticMove) return;
+            if (programmaticMove || performance.now() < followPanGuardUntil) return;
             followVehicleId = null;
             setFollowFleet(false, false);
         });
         map.addListener('zoom_changed', function () {
-            if (programmaticMove) return;
-            if (followVehicleId) return;
+            if (programmaticMove || performance.now() < followPanGuardUntil) return;
+            if (followVehicleId) {
+                keepFollowedInView(true);
+                return;
+            }
             setFollowFleet(false, false);
+        });
+        map.addListener('idle', function () {
+            if (followVehicleId && !followFleet) keepFollowedInView(false);
         });
         loadPositions();
         if (pollTimer) clearInterval(pollTimer);

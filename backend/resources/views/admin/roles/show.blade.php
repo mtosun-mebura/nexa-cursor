@@ -18,6 +18,144 @@
     .dark .kt-btn-danger:hover {
         background-color: #b91c1c !important;
     }
+
+    .role-assigned-permissions.role-permissions-scroll.kt-card-table {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        max-width: 100%;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100%;
+        table-layout: fixed;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix th,
+    .role-assigned-permissions .role-permissions-matrix td {
+        min-width: 0 !important;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix th:first-child,
+    .role-assigned-permissions .role-permissions-matrix td.role-permission-resource-name {
+        width: 22%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix th:not(:first-child),
+    .role-assigned-permissions .role-permissions-matrix td.role-permission-action-cell {
+        white-space: nowrap;
+        padding-inline: 0.25rem;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    @media (max-width: 1023px) {
+        .role-assigned-permissions.role-permissions-scroll.kt-card-table {
+            overflow: visible !important;
+            padding: 0.75rem 1.25rem 1.25rem;
+            border: none;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix {
+            display: block;
+            width: 100% !important;
+            min-width: 0 !important;
+            table-layout: auto;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix thead {
+            display: none;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tbody {
+            display: block;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr {
+            display: block;
+            width: 100%;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row {
+            margin-top: 0.75rem;
+            margin-bottom: 0.375rem;
+            border-radius: 0.5rem;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row:first-child {
+            margin-top: 0;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row td {
+            display: block;
+            width: 100% !important;
+            padding: 0.5rem 0.75rem !important;
+            border: none !important;
+            white-space: normal;
+            overflow: visible;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.375rem 0.5rem;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem 0.875rem;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--card, var(--background));
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td {
+            border: none !important;
+            overflow: visible !important;
+            text-overflow: unset;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-resource-name {
+            display: block;
+            flex: 1 0 100%;
+            width: 100% !important;
+            padding: 0 0 0.25rem !important;
+            white-space: normal;
+            text-align: left;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:not(:has(svg)) {
+            display: none !important;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:has(svg) {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 0.25rem;
+            width: auto !important;
+            padding: 0.25rem 0.625rem !important;
+            border-radius: 9999px;
+            background: color-mix(in oklab, var(--primary) 14%, transparent);
+            white-space: nowrap;
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:has(svg)::before {
+            content: attr(data-permission-action);
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--foreground);
+        }
+
+        .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell svg {
+            width: 0.875rem;
+            height: 0.875rem;
+            margin: 0 !important;
+            flex: 0 0 auto;
+        }
+    }
 </style>
 @endpush
 
@@ -47,6 +185,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 </style>
 
+@php
+    $permissionMatrix = app(\App\Support\RolePermissionMatrix::class)->build($role->permissions);
+    $visiblePermissionCount = $permissionMatrix['count'];
+@endphp
+
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
     <!-- Container -->
     <div class="kt-container-fixed">
@@ -71,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-key text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $role->permissions->count() }} rechten
+                        {{ $visiblePermissionCount }} rechten
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
@@ -198,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">Aantal Rechten</td>
                         <td class="min-w-48 w-full">
-                            <span class="kt-badge kt-badge-info">{{ $role->permissions->count() }}</span>
+                            <span class="kt-badge kt-badge-info">{{ $visiblePermissionCount }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -225,109 +368,81 @@ document.addEventListener('DOMContentLoaded', function() {
 
         <!-- Permissions -->
         <div class="kt-card min-w-full">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Toegewezen Rechten ({{ $role->permissions->count() }})</h3>
+            <div class="kt-card-header px-5 py-5">
+                <h3 class="kt-card-title">Toegewezen Rechten ({{ $visiblePermissionCount }})</h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                @if($role->permissions->count() > 0)
-                    @php
-                        // Parse permissions: structure is "action-module" (e.g., "view-users", "create-vacancies")
-                        // Group by module (the part after the action)
-                        $permissionModules = $role->permissions->groupBy(function($permission) {
-                            $parts = explode('-', $permission->name);
-                            // Get the module name (everything except the first part which is the action)
-                            if (count($parts) > 1) {
-                                array_shift($parts); // Remove the action part
-                                return implode('-', $parts);
-                            }
-                            return 'other';
-                        });
-                        
-                        // Get all unique actions (view, create, edit, delete, etc.) - the first part
-                        $allActions = $role->permissions->map(function($permission) {
-                            $parts = explode('-', $permission->name);
-                            return $parts[0] ?? 'other'; // Get the first part (action)
-                        })->unique()->sort()->values();
-                        
-                        // Create a map of module => [actions] for quick lookup
-                        $permissionMap = [];
-                        foreach ($role->permissions as $permission) {
-                            $parts = explode('-', $permission->name);
-                            $action = $parts[0] ?? 'other';
-                            array_shift($parts);
-                            $module = implode('-', $parts) ?: 'other';
-                            if (!isset($permissionMap[$module])) {
-                                $permissionMap[$module] = [];
-                            }
-                            $permissionMap[$module][] = $action;
-                        }
-                        
-                        // Module display names
-                        $moduleNames = [
-                            'users' => 'Gebruikers',
-                            'vacancies' => 'Vacatures',
-                            'matches' => 'Matches',
-                            'interviews' => 'Interviews',
-                            'notifications' => 'Notificaties',
-                            'email-templates' => 'E-mail Templates',
-                            'email_templates' => 'E-mail Templates',
-                            'tenant-dashboard' => 'Tenant Dashboard',
-                            'tenant_dashboard' => 'Tenant Dashboard',
-                            'agenda' => 'Agenda',
-                            'companies' => 'Bedrijven',
-                            'branches' => 'Branches',
-                            'categories' => 'Categorieën',
-                            'roles' => 'Rollen',
-                            'permissions' => 'Permissies',
-                            'job-configurations' => 'Job Configuraties',
-                            'job_configurations' => 'Job Configuraties',
-                            'dashboard' => 'Dashboard',
-                        ];
-                        
-                        // Action display names
-                        $actionNames = [
-                            'view' => 'View',
-                            'create' => 'Create',
-                            'edit' => 'Edit',
-                            'delete' => 'Delete',
-                            'publish' => 'Publish',
-                            'approve' => 'Approve',
-                            'schedule' => 'Schedule',
-                            'send' => 'Send',
-                            'assign' => 'Assign',
-                        ];
-                    @endphp
-                    <table class="kt-table kt-table-border align-middle text-sm">
+            <div class="role-assigned-permissions role-permissions-scroll admin-table-scroll-wrap kt-card-table kt-scrollable-x-auto pb-3 min-w-0">
+                @if($visiblePermissionCount > 0)
+                    <table class="kt-table kt-table-border align-middle text-sm w-full admin-keep-table-layout role-permissions-matrix">
                         <thead>
                             <tr>
-                                <th class="min-w-[200px] text-left text-secondary-foreground font-normal">Module</th>
-                                @foreach($allActions as $action)
-                                    <th class="min-w-[100px] text-center text-secondary-foreground font-normal">
-                                        {{ $actionNames[$action] ?? ucfirst($action) }}
+                                <th class="text-left text-secondary-foreground font-normal">Module / Resource</th>
+                                @foreach($permissionMatrix['allActions'] as $action)
+                                    <th class="text-center text-secondary-foreground font-normal">
+                                        {{ $permissionMatrix['actionNames'][$action] ?? ucfirst(str_replace('_', ' ', $action)) }}
                                     </th>
                                 @endforeach
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($permissionModules as $module => $permissions)
-                                <tr>
-                                    <td class="text-foreground font-medium">
-                                        {{ $moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)) }}
-                                    </td>
-                                    @foreach($allActions as $action)
-                                        <td class="text-center">
-                                            @if(isset($permissionMap[$module]) && in_array($action, $permissionMap[$module]))
-                                                <x-heroicon-s-check class="w-5 h-5 text-blue-500 mx-auto" />
+                            @foreach($permissionMatrix['sortedModuleOrder'] as $mainModule)
+                                @if(isset($permissionMatrix['permissionsByMainModule'][$mainModule]))
+                                    @php
+                                        $isActiveModule = false;
+                                        $headerDisplayName = $permissionMatrix['moduleNames'][$mainModule]
+                                            ?? ucfirst(str_replace(['-', '_'], ' ', $mainModule));
+                                        foreach ($permissionMatrix['modulePermissions'] as $modDisplayName => $modData) {
+                                            if (($modData['module'] ?? null) === $mainModule) {
+                                                $headerDisplayName = $modDisplayName;
+                                                $isActiveModule = true;
+                                                break;
+                                            }
+                                        }
+                                        if (! $isActiveModule && $mainModule === 'other') {
+                                            $headerDisplayName = 'Algemeen';
+                                        }
+                                    @endphp
+                                    <tr class="role-permission-module-row bg-muted/30">
+                                        <td colspan="{{ count($permissionMatrix['allActions']) + 1 }}" class="py-2 px-4">
+                                            @if($isActiveModule)
+                                                <span class="font-semibold text-foreground text-sm flex items-center gap-1">
+                                                    <x-heroicon-s-puzzle-piece class="w-4 h-4 text-primary flex-shrink-0" />
+                                                    {{ $headerDisplayName }}
+                                                </span>
+                                            @else
+                                                <span class="font-semibold text-foreground text-sm">
+                                                    {{ $headerDisplayName }}
+                                                </span>
                                             @endif
                                         </td>
+                                    </tr>
+                                    @foreach($permissionMatrix['permissionsByMainModule'][$mainModule] as $moduleGroup)
+                                        @php
+                                            $moduleKey = $moduleGroup['key'];
+                                            $resource = $moduleGroup['resource'];
+                                        @endphp
+                                        <tr class="role-permission-resource-row">
+                                            <td class="text-foreground pl-6 role-permission-resource-name">
+                                                <span class="font-medium text-sm">
+                                                    {{ $permissionMatrix['moduleNames'][$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey)) }}
+                                                </span>
+                                            </td>
+                                            @foreach($permissionMatrix['allActions'] as $action)
+                                                <td class="text-center role-permission-action-cell"@if(isset($permissionMatrix['permissionMap'][$moduleKey][$action])) data-permission-action="{{ $permissionMatrix['actionNames'][$action] ?? ucfirst(str_replace('_', ' ', $action)) }}"@endif>
+                                                    @if(isset($permissionMatrix['permissionMap'][$moduleKey][$action]))
+                                                        <x-heroicon-s-check class="w-5 h-5 text-blue-500 mx-auto" />
+                                                    @endif
+                                                </td>
+                                            @endforeach
+                                        </tr>
                                     @endforeach
-                                </tr>
+                                @endif
                             @endforeach
                         </tbody>
                     </table>
                 @else
                     <div class="p-5">
-                        <p class="text-muted-foreground">Geen rechten toegewezen aan deze rol.</p>
+                        <p class="text-muted-foreground mb-0">Geen rechten toegewezen aan deze rol.</p>
                     </div>
                 @endif
             </div>

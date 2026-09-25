@@ -107,7 +107,7 @@ class NexaSuiteMarketplaceTest extends TestCase
     }
 
     #[Test]
-    public function central_booking_is_assigned_to_nearest_tenant_and_marked_nexa_suite(): void
+    public function central_booking_is_offered_to_nearby_tenants_without_claiming_one(): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
         $page = WebsitePage::query()->create([
@@ -159,9 +159,11 @@ class NexaSuiteMarketplaceTest extends TestCase
         $response->assertOk();
         $ride = RideRequest::on('module_taxi')->first();
         $this->assertNotNull($ride);
-        $this->assertSame($near->id, (int) $ride->company_id);
+        $this->assertNull($ride->company_id);
         $this->assertSame(RideRequest::SOURCE_NEXA_SUITE, $ride->source);
         $this->assertTrue($ride->isNexaSuiteBooking());
+        $this->assertTrue($ride->isUnclaimedMarketplaceBooking());
+        $this->assertContains($near->id, $ride->marketplaceCandidateCompanyIds());
         $this->assertSame('nexa_suite', $ride->booking_payload['channel'] ?? null);
     }
 
@@ -185,8 +187,100 @@ class NexaSuiteMarketplaceTest extends TestCase
         $response->assertOk();
         $ride = RideRequest::on('module_taxi')->first();
         $this->assertNotNull($ride);
-        $this->assertSame($near->id, (int) $ride->company_id);
+        $this->assertNull($ride->company_id);
+        $this->assertContains($near->id, $ride->marketplaceCandidateCompanyIds());
+        $this->assertNotContains($far->id, $ride->marketplaceCandidateCompanyIds());
         $this->assertSame(RideRequest::SOURCE_NEXA_SUITE, $ride->source);
+    }
+
+    #[Test]
+    public function algemene_booking_is_offered_to_multiple_nearby_tenants(): void
+    {
+        [$near, $vehicle] = $this->twoTaxiTenants();
+        $taxi = Module::query()->where('name', 'taxi')->first();
+        $alsoNear = Company::query()->create([
+            'name' => 'Taxi Amstelveen',
+            'is_active' => true,
+            'is_main' => false,
+            'latitude' => 52.3089,
+            'longitude' => 4.8503,
+            'email' => 'amstelveen@taxi.test',
+            'accepts_nexa_suite_bookings' => true,
+        ]);
+        $alsoNear->modules()->attach($taxi->id);
+        Vehicle::on('module_taxi')->create([
+            'company_id' => $alsoNear->id,
+            'name' => 'Sedan West',
+            'person_range' => '1-4',
+            'active' => true,
+        ]);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'boek-multi',
+            'title' => 'Taxi boeken',
+            'page_type' => 'custom',
+            'company_id' => null,
+            'is_active' => true,
+        ]);
+        $this->stubBookingQuotes($vehicle);
+        $this->mockDispatchStack();
+
+        $response = $this->postJson(route('nexataxi.booking.submit'), $this->bookingPayload($page->id, 'component:taxi.algemene_boekingsmodule'));
+
+        $response->assertOk();
+        $ride = RideRequest::on('module_taxi')->first();
+        $this->assertNotNull($ride);
+        $this->assertNull($ride->company_id);
+        $this->assertEqualsCanonicalizing(
+            [$near->id, $alsoNear->id],
+            $ride->marketplaceCandidateCompanyIds()
+        );
+        $this->assertSame(RideRequest::SOURCE_NEXA_SUITE, $ride->source);
+        $this->assertSame(10.0, (float) ($ride->booking_payload['marketplace']['radius_km'] ?? 0));
+    }
+
+    #[Test]
+    public function algemene_booking_respects_configured_marketplace_radius(): void
+    {
+        [$near, $vehicle] = $this->twoTaxiTenants();
+        $taxi = Module::query()->where('name', 'taxi')->first();
+        $outsideRadius = Company::query()->create([
+            'name' => 'Taxi Haarlem',
+            'is_active' => true,
+            'is_main' => true,
+            'latitude' => 52.3874,
+            'longitude' => 4.6462,
+            'email' => 'haarlem@taxi.test',
+            'accepts_nexa_suite_bookings' => true,
+        ]);
+        $outsideRadius->modules()->attach($taxi->id);
+        Vehicle::on('module_taxi')->create([
+            'company_id' => $outsideRadius->id,
+            'name' => 'Sedan Haarlem',
+            'person_range' => '1-4',
+            'active' => true,
+        ]);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'boek-straal',
+            'title' => 'Taxi boeken',
+            'page_type' => 'custom',
+            'company_id' => null,
+            'is_active' => true,
+        ]);
+        $config = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+        $config['logic']['marketplace_radius_km'] = 10;
+        $this->stubBookingQuotes($vehicle, $config);
+        $this->mockDispatchStack();
+
+        $response = $this->postJson(route('nexataxi.booking.submit'), $this->bookingPayload($page->id, 'component:taxi.algemene_boekingsmodule'));
+
+        $response->assertOk();
+        $ride = RideRequest::on('module_taxi')->first();
+        $this->assertNotNull($ride);
+        $this->assertContains($near->id, $ride->marketplaceCandidateCompanyIds());
+        $this->assertNotContains($outsideRadius->id, $ride->marketplaceCandidateCompanyIds());
+        $this->assertSame(10.0, (float) ($ride->booking_payload['marketplace']['radius_km'] ?? 0));
     }
 
     #[Test]
@@ -422,7 +516,7 @@ class NexaSuiteMarketplaceTest extends TestCase
         $near = Company::query()->create([
             'name' => 'Taxi Amsterdam',
             'is_active' => true,
-            'is_main' => false,
+            'is_main' => true,
             'latitude' => 52.3676,
             'longitude' => 4.9041,
             'email' => 'amsterdam@taxi.test',
@@ -455,9 +549,12 @@ class NexaSuiteMarketplaceTest extends TestCase
         return [$near, $vehicle];
     }
 
-    private function stubBookingQuotes(Vehicle $vehicle): void
+    /**
+     * @param  array<string, mixed>|null  $config
+     */
+    private function stubBookingQuotes(Vehicle $vehicle, ?array $config = null): void
     {
-        $defaultConfig = app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
+        $defaultConfig = $config ?? app(NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
         $this->mock(WebsiteBuilderService::class, function ($mock) use ($defaultConfig): void {
             $mock->shouldReceive('resolveBookingModuleSection')->andReturn([
                 'config' => $defaultConfig,
@@ -515,6 +612,7 @@ class NexaSuiteMarketplaceTest extends TestCase
         });
         $this->mock(RideDispatchService::class, function ($mock): void {
             $mock->shouldReceive('startDispatch');
+            $mock->shouldReceive('startDispatchForCompanies');
         });
         $this->mock(TaxiBookingNotificationService::class, function ($mock): void {
             $mock->shouldReceive('notifyNewRide');

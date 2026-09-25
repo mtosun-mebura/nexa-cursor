@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex items-center flex-wrap justify-between gap-3 mb-6 mt-5">
@@ -15,30 +17,116 @@
             <span class="kt-badge kt-badge-primary text-base px-3 py-1.5">Huidige release: {{ $releaseVersion }}</span>
         </div>
     </div>
+    <p class="text-sm text-secondary-foreground -mt-3 mb-6">
+        Git-deploy installeert de code in de repo, maar start Laravel- of PHP-upgrades niet automatisch.
+        De Nexa-release gaat één patch omhoog na een geslaagde web-upgrade (Laravel, PHP of overige packages).
+    </p>
 
-    <div class="flex flex-col gap-5 mb-5">
-        <div class="kt-card min-w-0">
-            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Geïnstalleerde stack</h3>
+    <div class="kt-card w-full min-w-0 mb-5 overflow-hidden" id="coolify-vps-ip-card">
+        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+            <div>
+                <h3 class="kt-card-title mb-0">Coolify VPS-IP</h3>
+                <p class="text-xs text-muted-foreground mb-0 mt-1">
+                    Publiek IP voor tenant A-records (DNS). Wordt getoond in
+                    <a href="{{ route('admin.tenant-setup-checklist') }}" class="text-primary hover:underline">Tenant configureren</a>.
+                </p>
             </div>
-            <div class="kt-card-body p-5 lg:p-6 min-w-0">
-                <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
-                    <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
-                        <thead>
-                            <tr>
-                                <th data-label="Component">Component</th>
-                                <th data-label="Versie">Versie</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($stack as $item)
+        </div>
+        <div class="kt-card-content p-5">
+            @php $vpsIpEditOpen = $errors->has('coolify_vps_public_ip'); @endphp
+            <div id="coolify-vps-ip-view" class="flex flex-wrap items-center gap-2 {{ $vpsIpEditOpen ? 'hidden' : '' }}">
+                <span class="text-sm text-muted-foreground">Publiek VPS-IP</span>
+                <code id="coolify-vps-ip-display" class="text-sm font-mono text-foreground">{{ $coolifyVpsPublicIp }}</code>
+                <button type="button"
+                        id="coolify-vps-ip-edit-btn"
+                        class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
+                        aria-label="VPS-IP bewerken"
+                        title="Bewerken">
+                    <i class="ki-filled ki-pencil" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form method="post"
+                  action="{{ route('admin.settings.upgrade.vps-ip.update') }}"
+                  id="coolify-vps-ip-form"
+                  class="flex flex-wrap items-end gap-3 {{ $vpsIpEditOpen ? '' : 'hidden' }}">
+                @csrf
+                <div class="flex flex-col gap-1.5 min-w-0">
+                    <label for="coolify_vps_public_ip" class="kt-form-label mb-0">Publiek VPS-IP</label>
+                    <input
+                        type="text"
+                        name="coolify_vps_public_ip"
+                        id="coolify_vps_public_ip"
+                        value="{{ old('coolify_vps_public_ip', $coolifyVpsPublicIp) }}"
+                        class="kt-input admin-field-fit font-mono @error('coolify_vps_public_ip') border-destructive @enderror"
+                        placeholder="152.239.119.238"
+                        autocomplete="off"
+                        required
+                    >
+                    @error('coolify_vps_public_ip')
+                        <div class="text-xs text-destructive">{{ $message }}</div>
+                    @enderror
+                </div>
+                <button type="submit" class="kt-btn kt-btn-primary shrink-0">Opslaan</button>
+                <button type="button" id="coolify-vps-ip-cancel-btn" class="kt-btn kt-btn-outline shrink-0">Annuleren</button>
+            </form>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+    (function () {
+        var view = document.getElementById('coolify-vps-ip-view');
+        var form = document.getElementById('coolify-vps-ip-form');
+        var editBtn = document.getElementById('coolify-vps-ip-edit-btn');
+        var cancelBtn = document.getElementById('coolify-vps-ip-cancel-btn');
+        var input = document.getElementById('coolify_vps_public_ip');
+        var display = document.getElementById('coolify-vps-ip-display');
+        if (!view || !form || !editBtn || !cancelBtn || !input) return;
+
+        function showEdit() {
+            view.classList.add('hidden');
+            form.classList.remove('hidden');
+            input.focus();
+            input.select();
+        }
+        function showView() {
+            form.classList.add('hidden');
+            view.classList.remove('hidden');
+            input.value = display ? display.textContent.trim() : input.value;
+        }
+
+        editBtn.addEventListener('click', showEdit);
+        cancelBtn.addEventListener('click', showView);
+    })();
+    </script>
+    @endpush
+
+    <div class="flex flex-col gap-5 mb-5" id="upgrade-collapsible-root">
+        <div class="kt-card min-w-0 settings-collapsible-card settings-collapsible-card--collapsed" id="upgrade-installed-stack">
+            @include('admin.settings.partials.collapsible-header', [
+                'titleHtml' => 'Geïnstalleerde stack',
+                'headerClass' => 'px-5 py-5',
+            ])
+            <div class="settings-collapsible-body">
+                <div class="kt-card-body p-5 lg:p-6 min-w-0">
+                    <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                        <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                            <thead>
                                 <tr>
-                                    <td data-label="Component">{{ $item['label'] }}</td>
-                                    <td data-label="Versie" class="font-mono text-xs sm:text-sm break-all">{{ $item['value'] }}</td>
+                                    <th data-label="Component">Component</th>
+                                    <th data-label="Versie">Versie</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach($stack as $item)
+                                    <tr>
+                                        <td data-label="Component">{{ $item['label'] }}</td>
+                                        <td data-label="Versie" class="font-mono text-xs sm:text-sm break-all">{{ $item['value'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -51,11 +139,11 @@
                 <p class="text-sm text-secondary-foreground mb-0" id="laravel-upgrade-status-text">Beschikbare Laravel-updates ophalen…</p>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-laravel-minor" class="kt-btn kt-btn-primary hidden" @disabled(!$webUpgradeEnabled) disabled>
-                        <i class="ki-filled ki-arrow-up me-1"></i>
+                        <i class="ki-filled ki-laravel me-1" aria-hidden="true"></i>
                         Minor-update
                     </button>
                     <button type="button" id="btn-laravel-major" class="kt-btn kt-btn-success hidden" @disabled(!$webUpgradeEnabled) disabled>
-                        <i class="ki-filled ki-rocket me-1"></i>
+                        <i class="ki-filled ki-laravel me-1" aria-hidden="true"></i>
                         Major-update
                     </button>
                 </div>
@@ -76,12 +164,127 @@
                 <p class="text-sm text-secondary-foreground mb-0" id="php-upgrade-status-text">Status ophalen…</p>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-php-docker-upgrade" class="kt-btn kt-btn-outline" @disabled(!$webUpgradeEnabled) disabled>
-                        <i class="ki-filled ki-docker me-1"></i>
+                        <svg class="upgrade-php-icon me-1" viewBox="0 0 24 14" aria-hidden="true" focusable="false">
+                            <ellipse class="upgrade-php-icon-shape" cx="12" cy="7" rx="11" ry="6.2"/>
+                            <text class="upgrade-php-icon-word" x="12" y="9.7" text-anchor="middle" font-size="7.4" font-weight="700" font-style="italic" font-family="Georgia, 'Times New Roman', serif">php</text>
+                        </svg>
                         PHP in Docker bijwerken
                     </button>
                 </div>
                 <div id="php-upgrade-progress" class="hidden"></div>
                 <div id="php-upgrade-result" class="hidden rounded-md border border-border bg-muted/20 p-4 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="kt-card min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">PostgreSQL in Docker bijwerken</h3>
+            </div>
+            <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
+                <p class="text-sm text-secondary-foreground mb-0">
+                    Minor pullt de nieuwste <code>pgvector/pgvector</code>-image van de huidige major.
+                    Major zet een nieuwe major (bijv. pg16 → pg17) op een <strong>nieuw datavolume</strong> na een
+                    <code>pg_dumpall</code>-backup. Bij een fout gaan de compose-bestanden terug en start de oude versie weer.
+                </p>
+                <p class="text-sm text-secondary-foreground mb-0" id="postgres-upgrade-status-text">Status ophalen…</p>
+                <div class="flex flex-wrap gap-2 pt-5 pb-0">
+                    <button type="button" id="btn-postgres-minor" class="kt-btn kt-btn-primary" @disabled(!$webUpgradeEnabled) disabled>
+                        <span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>
+                        Minor-update
+                    </button>
+                    <button type="button" id="btn-postgres-major" class="kt-btn kt-btn-success" @disabled(!$webUpgradeEnabled) disabled>
+                        <span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>
+                        Major-update
+                    </button>
+                </div>
+                <div id="postgres-upgrade-progress" class="hidden"></div>
+                <div id="postgres-upgrade-result" class="hidden rounded-md border border-border bg-muted/20 p-4 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="kt-card min-w-0">
+            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                <h3 class="kt-card-title mb-0">Docker-containers</h3>
+            </div>
+            <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
+                <p class="text-sm text-secondary-foreground mb-0">
+                    Herstart de stack of bouw images opnieuw. De admin is kort even niet bereikbaar.
+                    Na opkomst verschijnt een groene melding in de header.
+                </p>
+                <p class="text-sm text-secondary-foreground mb-0">
+                    Dit wijzigt Laravel, PHP of de Nexa-release niet.
+                </p>
+                <p class="text-sm text-secondary-foreground mb-0 pt-4" id="docker-upgrade-status-text">Status ophalen…</p>
+                <div id="docker-container-table" class="kt-scrollable-x-auto admin-table-scroll-wrap hidden">
+                    <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full mb-0">
+                        <colgroup>
+                            <col class="admin-table__check-col">
+                            <col>
+                            <col>
+                            <col>
+                            <col>
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th class="admin-table__check-col text-center" data-no-row-link data-label="">
+                                    <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                        <input type="checkbox"
+                                               class="kt-checkbox"
+                                               id="docker-container-select-all"
+                                               title="Alle containers selecteren"
+                                               aria-label="Alle containers selecteren">
+                                    </label>
+                                </th>
+                                <th data-label="Service">Service</th>
+                                <th data-label="Container">Container</th>
+                                <th data-label="Image">Image</th>
+                                <th data-label="Status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="docker-container-rows"></tbody>
+                    </table>
+                </div>
+                <div class="space-y-3 pt-5">
+                    <p class="text-sm font-medium text-mono mb-0">Commando op container</p>
+                    <p class="text-sm text-secondary-foreground mb-0">
+                        Voert <code>docker exec</code> uit op één container van deze stack, bijvoorbeeld <code>php -v</code> of <code>psql --version</code>.
+                    </p>
+                    <div class="flex flex-wrap items-end gap-2">
+                        <div class="min-w-[11rem]">
+                            <label for="docker-exec-service" class="mb-1 block text-xs text-muted-foreground">Container</label>
+                            <select id="docker-exec-service" class="kt-input w-full" disabled aria-label="Container voor commando">
+                                <option value="">Kies een container</option>
+                            </select>
+                        </div>
+                        <div class="min-w-[14rem] flex-1">
+                            <label for="docker-exec-command" class="mb-1 block text-xs text-muted-foreground">Commando</label>
+                            <input type="text"
+                                   id="docker-exec-command"
+                                   class="kt-input w-full font-mono"
+                                   placeholder="php -v"
+                                   autocomplete="off"
+                                   maxlength="4000"
+                                   disabled>
+                        </div>
+                        <button type="button" id="btn-docker-exec" class="kt-btn kt-btn-outline" disabled>
+                            <i class="ki-filled ki-code me-1" aria-hidden="true"></i>
+                            Uitvoeren
+                        </button>
+                    </div>
+                    <pre id="docker-exec-output" class="upgrade-exec-output hidden mb-0" hidden></pre>
+                </div>
+                <div class="flex flex-wrap gap-2 pt-5 pb-0">
+                    <button type="button" id="btn-docker-restart" class="kt-btn kt-btn-primary" disabled>
+                        <i class="ki-filled ki-arrows-circle me-1"></i>
+                        Containers herstarten
+                    </button>
+                    <button type="button" id="btn-docker-rebuild" class="kt-btn kt-btn-outline" @disabled(!$webUpgradeEnabled) disabled>
+                        <i class="ki-filled ki-setting-2 me-1"></i>
+                        Images opnieuw bouwen
+                    </button>
+                </div>
+                <div id="docker-upgrade-progress" class="hidden"></div>
+                <div id="docker-upgrade-result" class="hidden rounded-md border border-border bg-muted/20 p-4 text-sm"></div>
             </div>
         </div>
 
@@ -121,9 +324,12 @@
                         <div>
                             <p class="mb-1 font-semibold text-mono">Major (nieuwe Laravel-versie)</p>
                             <p class="mb-0">
-                                Zet de Composer-constraint op de volgende major, installeert die versie, en controleert
-                                of PHP hoog genoeg is. Bij falende installatie of tests gaan de Composer-bestanden terug.
-                                Controleer bij een major alsnog de officiële upgrade-guide voor breaking changes.
+                                Controleert eerst of bestaande packages Laravel-major ondersteunen.
+                                Constraints van incompatibele packages (zoals <code>laravel/tinker</code>)
+                                worden meegenomen in <strong>één</strong> Composer-update samen met Laravel,
+                                eerst als dry-run, daarna zonder Artisan-scripts (die draaien pas als vendor
+                                consistent is). Ontbreekt een compatible versie, dan stopt de upgrade voordat
+                                vendor wordt aangepast. Bij falen gaan de Composer-bestanden terug.
                             </p>
                         </div>
                     </div>
@@ -137,9 +343,9 @@
                     </summary>
                     <div class="mt-3 space-y-4 text-secondary-foreground">
                         <p class="mb-0">
-                            PHP kun je nu automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.
-                            Die zet de <code>FROM php:…-cli</code> regel in de Dockerfiles, tuigt de Docker-stack opnieuw op
-                            (build waar nodig) en draait daarna tests. PostgreSQL blijft handmatig: een major-upgrade vereist een data-migratie.
+                            PHP kun je automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.
+                            PostgreSQL heeft eigen knoppen <strong>Minor-update</strong> en <strong>Major-update</strong>:
+                            eerst een <code>pg_dumpall</code>-backup, daarna image/volume-wissel. Bij een fout start de oude versie weer.
                         </p>
 
                         <div>
@@ -153,22 +359,13 @@
                         </div>
 
                         <div>
-                            <p class="mb-1 font-semibold text-mono">2. PostgreSQL upgraden (bijv. pg16 → pg17)</p>
-                            <p class="mb-1">
-                                Een major-upgrade vereist een <strong>data-migratie</strong> — het volume is versiegebonden, dus een
-                                nieuwe image start niet zomaar op oude data. Maak eerst een backup:
-                            </p>
-                            <pre class="upgrade-docker-code">docker compose exec db pg_dumpall -U nexa > backup-$(date +%F).sql</pre>
-                            <p class="mb-1">Pas de image aan in <code>docker-compose.postgres.yml</code>:</p>
-                            <pre class="upgrade-docker-code">- image: pgvector/pgvector:pg16
-+ image: pgvector/pgvector:pg17</pre>
-                            <p class="mb-1">Verwijder het oude datavolume en herstel de backup in de nieuwe versie:</p>
-                            <pre class="upgrade-docker-code">docker compose down
-docker volume rm nexa_postgres_data
-docker compose up -d db
-cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
-                            <p class="mb-0 text-destructive">
-                                Let op: doe dit in een onderhoudsvenster en verifieer altijd eerst dat de backup geldig is.
+                            <p class="mb-1 font-semibold text-mono">2. PostgreSQL (automatisch via de knoppen)</p>
+                            <p class="mb-0">
+                                <strong>Minor</strong> pullt de huidige tag (bijv. <code>pg16</code>) opnieuw.
+                                <strong>Major</strong> schrijft <code>pgvector/pgvector:pg17</code> (of de volgende major) in
+                                <code>docker-compose.postgres.yml</code> en <code>docker-compose.deploy.yml</code>,
+                                zet een nieuw volume <code>…_postgres_data_pg17</code> in, herstelt de dump en laat het oude
+                                volume staan. Mislukt de restore, dan gaan de compose-bestanden terug en komt de oude database weer online.
                             </p>
                         </div>
                     </div>
@@ -247,13 +444,44 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
 
     <div class="kt-card min-w-0">
         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-            <h3 class="kt-card-title mb-0">Upgradegeschiedenis</h3>
+            <div class="flex items-center gap-2 min-w-0">
+                <button type="button"
+                        id="btn-upgrade-history-delete"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
+                        hidden
+                        data-url="{{ route('admin.settings.upgrade.history.destroy') }}"
+                        title="Verwijderen"
+                        aria-label="Geselecteerde regels verwijderen (0)"
+                        @disabled($upgradeHistory->isEmpty())>
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count" aria-hidden="true">(<span id="upgrade-history-selected-count">0</span>)</span>
+                </button>
+                <h3 class="kt-card-title mb-0">Upgradegeschiedenis</h3>
+            </div>
         </div>
         <div class="kt-card-body p-5 lg:p-6 min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                 <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full" id="upgrade-history-table">
+                    <colgroup>
+                        <col class="admin-table__check-col">
+                        <col>
+                        <col>
+                        <col>
+                        <col>
+                        <col>
+                    </colgroup>
                     <thead>
                         <tr>
+                            <th class="admin-table__check-col text-center" data-no-row-link data-label="">
+                                <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           id="upgrade-history-select-all"
+                                           title="Alle regels selecteren"
+                                           aria-label="Alle regels selecteren"
+                                           @disabled($upgradeHistory->isEmpty())>
+                                </label>
+                            </th>
                             <th data-label="Datum">Datum</th>
                             <th data-label="Van">Van</th>
                             <th data-label="Naar">Naar</th>
@@ -263,7 +491,20 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                     </thead>
                     <tbody>
                         @forelse($upgradeHistory as $log)
-                            <tr>
+                            @php
+                                $isRunning = $log->status === \App\Models\SystemUpgradeLog::STATUS_RUNNING;
+                            @endphp
+                            <tr data-id="{{ $log->id }}">
+                                <td class="admin-table__check-col text-center" data-no-row-link data-label="">
+                                    <label class="kt-label mb-0 inline-flex items-center justify-center {{ $isRunning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                        <input type="checkbox"
+                                               class="kt-checkbox upgrade-history-row-check"
+                                               value="{{ $log->id }}"
+                                               aria-label="Selecteer upgrade van {{ $log->started_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}"
+                                               @disabled($isRunning)
+                                               @if($isRunning) title="Upgrade is nog bezig" @endif>
+                                    </label>
+                                </td>
                                 <td data-label="Datum">{{ $log->started_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
                                 <td data-label="Van" class="font-mono">{{ $log->from_release }}</td>
                                 <td data-label="Naar" class="font-mono">{{ $log->to_release ?? '—' }}</td>
@@ -279,8 +520,8 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                                 <td data-label="Door">{{ $log->triggeredBy?->first_name ?? $log->triggeredBy?->email ?? '—' }}</td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="5" class="text-center text-secondary-foreground py-6">Nog geen upgrades uitgevoerd.</td>
+                            <tr class="upgrade-history-empty">
+                                <td colspan="6" class="text-center text-secondary-foreground py-6">Nog geen upgrades uitgevoerd.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -293,6 +534,66 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
 
 @push('styles')
 <style>
+    .upgrade-php-icon {
+        width: 1.4rem;
+        height: 0.82rem;
+        display: inline-block;
+        flex-shrink: 0;
+        vertical-align: -0.12em;
+        overflow: visible;
+    }
+    .upgrade-php-icon-shape {
+        fill: currentColor;
+    }
+    .upgrade-php-icon-word {
+        fill: var(--background);
+    }
+    .upgrade-pg-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.4rem;
+        height: 0.82rem;
+        padding: 0 0.2rem;
+        border-radius: 0.2rem;
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        background: currentColor;
+        vertical-align: 0.05em;
+    }
+    .upgrade-pg-icon-word {
+        color: var(--background);
+    }
+    .upgrade-exec-output {
+        margin: 0;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.375rem;
+        border: 1px solid var(--border);
+        font-family: ui-monospace, monospace;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--foreground);
+        max-height: 16rem;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent) transparent;
+    }
+    .upgrade-exec-output::-webkit-scrollbar {
+        width: 8px;
+    }
+    .upgrade-exec-output::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .upgrade-exec-output::-webkit-scrollbar-thumb {
+        background-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+        border-radius: 9999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
     .upgrade-progress {
         border: 1px solid var(--border);
         border-radius: 0.5rem;
@@ -439,6 +740,84 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
         background: #fff;
     }
 
+    #docker-container-table col.admin-table__check-col,
+    #docker-container-table th.admin-table__check-col,
+    #docker-container-table td.admin-table__check-col,
+    #upgrade-history-table col.admin-table__check-col,
+    #upgrade-history-table th.admin-table__check-col,
+    #upgrade-history-table td.admin-table__check-col {
+        width: 2.75rem;
+        min-width: 2.75rem;
+        max-width: 2.75rem;
+        padding-inline: 0.375rem !important;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #content #docker-container-table .admin-fluid-table :is(th, td),
+    #content #upgrade-history-table.admin-fluid-table :is(th, td) {
+        vertical-align: middle;
+    }
+
+
+    #docker-container-table .admin-table__check-col .kt-label,
+    #upgrade-history-table .admin-table__check-col .kt-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 2rem;
+        margin: 0;
+    }
+
+    #docker-container-table .admin-table__check-col .kt-checkbox,
+    #upgrade-history-table .admin-table__check-col .kt-checkbox {
+        margin: 0;
+    }
+
+    #btn-upgrade-history-delete {
+        border: 0 !important;
+        box-shadow: none !important;
+        background-color: transparent !important;
+        padding-inline: 0.35rem;
+        height: auto;
+        min-height: 2.25rem;
+        gap: 0.3rem;
+        align-items: center;
+        font-variant-numeric: tabular-nums;
+        color: #ef4444 !important;
+    }
+    #btn-upgrade-history-delete:hover,
+    #btn-upgrade-history-delete:focus,
+    #btn-upgrade-history-delete:focus-visible,
+    #btn-upgrade-history-delete:active {
+        background-color: transparent !important;
+        color: #dc2626 !important;
+    }
+    #btn-upgrade-history-delete:disabled {
+        opacity: 0.45;
+        color: #ef4444 !important;
+    }
+    #btn-upgrade-history-delete i,
+    #btn-upgrade-history-delete:hover i,
+    #btn-upgrade-history-delete:focus i,
+    #btn-upgrade-history-delete:active i,
+    #btn-upgrade-history-delete:disabled i {
+        font-size: 1.45rem !important;
+        line-height: 1 !important;
+        color: inherit !important;
+    }
+    #btn-upgrade-history-delete i::before,
+    #btn-upgrade-history-delete i::after {
+        color: inherit !important;
+    }
+    #btn-upgrade-history-delete .upgrade-history-delete-count {
+        font-size: 0.9375rem !important;
+        line-height: 1 !important;
+        font-weight: 600;
+        color: inherit !important;
+    }
+
     #upgrade-selection-table .upgrade-status-badge {
         display: inline-flex;
         align-items: center;
@@ -514,6 +893,12 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
 
 @push('scripts')
 <script>
+function announceUpgradeSuccess(message) {
+    if (typeof window.queueAdminHeaderFlash === 'function') {
+        window.queueAdminHeaderFlash('success', message);
+    }
+}
+
 (function () {
     var btnPreview = document.getElementById('btn-run-upgrade');
     var btnStart = document.getElementById('btn-start-upgrade');
@@ -752,7 +1137,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     function showResult(success, message) {
         if (!resultEl) return;
         resultEl.classList.remove('hidden');
-        resultEl.className = 'rounded-md border p-4 text-sm ' + (success
+        resultEl.className = 'rounded-md border p-4 text-sm whitespace-pre-wrap break-words ' + (success
             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
             : 'border-destructive/40 bg-destructive/10 text-destructive');
         resultEl.textContent = message;
@@ -818,6 +1203,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                             } else if (event.type === 'complete') {
                                 showResult(!!event.success, event.message || '');
                                 if (event.success) {
+                                    announceUpgradeSuccess(event.message || 'Upgrade is succesvol verwerkt.');
                                     setTimeout(function () { window.location.reload(); }, 1200);
                                 }
                             }
@@ -876,22 +1262,61 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     var phpStatusUrl = @json(route('admin.settings.upgrade.php-status'));
     var phpRunUrl = @json(route('admin.settings.upgrade.php-run'));
     var phpFinalizeUrl = @json(route('admin.settings.upgrade.php-finalize'));
+    var dockerStatusUrl = @json(route('admin.settings.upgrade.docker-status'));
+    var dockerRunUrl = @json(route('admin.settings.upgrade.docker-run'));
+    var dockerExecUrl = @json(route('admin.settings.upgrade.docker-exec'));
+    var postgresStatusUrl = @json(route('admin.settings.upgrade.postgres-status'));
+    var postgresRunUrl = @json(route('admin.settings.upgrade.postgres-run'));
 
     var laravelStatusEl = document.getElementById('laravel-upgrade-status-text');
     var phpStatusEl = document.getElementById('php-upgrade-status-text');
+    var postgresStatusEl = document.getElementById('postgres-upgrade-status-text');
+    var dockerStatusEl = document.getElementById('docker-upgrade-status-text');
+    var dockerRowsEl = document.getElementById('docker-container-rows');
+    var dockerTableEl = document.getElementById('docker-container-table');
+    var dockerSelectAllEl = document.getElementById('docker-container-select-all');
     var btnLaravelMinor = document.getElementById('btn-laravel-minor');
     var btnLaravelMajor = document.getElementById('btn-laravel-major');
     var btnPhp = document.getElementById('btn-php-docker-upgrade');
+    var btnPostgresMinor = document.getElementById('btn-postgres-minor');
+    var btnPostgresMajor = document.getElementById('btn-postgres-major');
+    var btnDockerRestart = document.getElementById('btn-docker-restart');
+    var btnDockerRebuild = document.getElementById('btn-docker-rebuild');
+    var btnDockerExec = document.getElementById('btn-docker-exec');
+    var dockerExecServiceEl = document.getElementById('docker-exec-service');
+    var dockerExecCommandEl = document.getElementById('docker-exec-command');
+    var dockerExecOutputEl = document.getElementById('docker-exec-output');
     var laravelProgressEl = document.getElementById('laravel-upgrade-progress');
     var laravelResultEl = document.getElementById('laravel-upgrade-result');
     var phpProgressEl = document.getElementById('php-upgrade-progress');
     var phpResultEl = document.getElementById('php-upgrade-result');
+    var postgresProgressEl = document.getElementById('postgres-upgrade-progress');
+    var postgresResultEl = document.getElementById('postgres-upgrade-result');
+    var dockerProgressEl = document.getElementById('docker-upgrade-progress');
+    var dockerResultEl = document.getElementById('docker-upgrade-result');
     var laravelStatus = null;
     var phpStatus = null;
+    var postgresStatus = null;
+    var dockerStatus = null;
 
     function csrfToken() {
         var meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') : '';
+    }
+
+    function laravelIconHtml() {
+        return '<i class="ki-filled ki-laravel me-1" aria-hidden="true"></i>';
+    }
+
+    function phpIconHtml() {
+        return '<svg class="upgrade-php-icon me-1" viewBox="0 0 24 14" aria-hidden="true" focusable="false">' +
+            '<ellipse class="upgrade-php-icon-shape" cx="12" cy="7" rx="11" ry="6.2"/>' +
+            '<text class="upgrade-php-icon-word" x="12" y="9.7" text-anchor="middle" font-size="7.4" font-weight="700" font-style="italic" font-family="Georgia, \'Times New Roman\', serif">php</text>' +
+            '</svg>';
+    }
+
+    function pgIconHtml() {
+        return '<span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>';
     }
 
     function confirmUpgrade(title, message, label) {
@@ -943,7 +1368,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     function showPanelResult(resultEl, success, message) {
         if (!resultEl) return;
         resultEl.classList.remove('hidden');
-        resultEl.className = 'rounded-md border p-4 text-sm ' + (success
+        resultEl.className = 'rounded-md border p-4 text-sm whitespace-pre-wrap break-words ' + (success
             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
             : 'border-destructive/40 bg-destructive/10 text-destructive');
         resultEl.textContent = message;
@@ -959,6 +1384,24 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
             btnPhp.classList.toggle('kt-btn-outline', !phpOk);
             btnPhp.classList.remove('kt-btn-primary');
         }
+        if (btnDockerRestart) {
+            btnDockerRestart.disabled = busy || !(dockerStatus && dockerStatus.can_restart);
+        }
+        if (btnDockerRebuild) {
+            btnDockerRebuild.disabled = busy || !webUpgradeEnabled || !(dockerStatus && dockerStatus.can_rebuild);
+        }
+        if (btnPostgresMinor) {
+            btnPostgresMinor.disabled = busy || !webUpgradeEnabled || !(postgresStatus && postgresStatus.can_minor);
+        }
+        if (btnPostgresMajor) {
+            btnPostgresMajor.disabled = busy || !webUpgradeEnabled || !(postgresStatus && postgresStatus.can_major);
+        }
+        var execReady = !busy && !!(dockerStatus && dockerStatus.can_exec);
+        if (dockerExecServiceEl) dockerExecServiceEl.disabled = !execReady;
+        if (dockerExecCommandEl) dockerExecCommandEl.disabled = !execReady;
+        if (btnDockerExec) {
+            btnDockerExec.disabled = !execReady || !(dockerExecServiceEl && dockerExecServiceEl.value) || !(dockerExecCommandEl && dockerExecCommandEl.value.trim());
+        }
     }
 
     function escapeText(value) {
@@ -970,7 +1413,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     }
 
     function versionMark(value) {
-        return '<span class="font-mono">' + escapeText(value || '—') + '</span>';
+        return '<strong class="font-mono font-semibold text-foreground">' + escapeText(value || '—') + '</strong>';
     }
 
     function laravelCopyHtml(data) {
@@ -984,9 +1427,18 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                 '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).';
         }
         if (data.can_major && data.major_target) {
-            return 'Er is een nieuwe major-versie: Laravel ' + current +
-                ' → ' + versionMark(data.major_target) +
-                '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan composer.json en composer.lock terug.';
+            var html = 'Er is een nieuwe major-versie: Laravel ' + current +
+                ' → ' + versionMark(data.major_target) + '.';
+            var pkgs = Array.isArray(data.incompatible_packages) ? data.incompatible_packages : [];
+            if (pkgs.length) {
+                html += ' Incompatibele packages (' +
+                    pkgs.map(escapeText).join(', ') +
+                    ') gaan in dezelfde Composer-update mee als Laravel, eerst als dry-run en zonder Artisan-scripts tijdens het schrijven van vendor.';
+            } else {
+                html += ' Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).';
+            }
+            html += ' Bij falen gaan composer.json en composer.lock terug.';
+            return html;
         }
         if (data.major_target && data.major_blocked_reason) {
             return 'Laravel ' + current + ' heeft geen nieuwere minor. Major naar ' +
@@ -1009,15 +1461,15 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
             var showMinor = !!(data && data.can_minor && data.minor_target);
             btnLaravelMinor.classList.toggle('hidden', !showMinor);
             btnLaravelMinor.innerHTML = showMinor
-                ? '<i class="ki-filled ki-arrow-up me-1"></i>Minor-update naar ' + escapeText(data.minor_target)
-                : '<i class="ki-filled ki-arrow-up me-1"></i>Minor-update';
+                ? laravelIconHtml() + 'Minor-update naar ' + escapeText(data.minor_target)
+                : laravelIconHtml() + 'Minor-update';
         }
         if (btnLaravelMajor) {
             var showMajor = !!(data && data.can_major && data.major_target);
             btnLaravelMajor.classList.toggle('hidden', !showMajor);
             btnLaravelMajor.innerHTML = (data && data.major_target)
-                ? '<i class="ki-filled ki-rocket me-1"></i>Major-update naar ' + escapeText(data.major_target)
-                : '<i class="ki-filled ki-rocket me-1"></i>Major-update';
+                ? laravelIconHtml() + 'Major-update naar ' + escapeText(data.major_target)
+                : laravelIconHtml() + 'Major-update';
         }
         setBusy(false);
     }
@@ -1030,7 +1482,23 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                 : 'Kon PHP-status niet laden.';
         }
         if (btnPhp && data && data.button_label) {
-            btnPhp.innerHTML = '<i class="ki-filled ki-docker me-1"></i>' + data.button_label;
+            btnPhp.innerHTML = phpIconHtml() + escapeText(data.button_label);
+        }
+        setBusy(false);
+    }
+
+    function applyPostgresStatus(data) {
+        postgresStatus = data || null;
+        if (postgresStatusEl) {
+            postgresStatusEl.innerHTML = data && data.message
+                ? ('Image: ' + versionMark(data.current_tag || '—') + '. ' + escapeText(data.message))
+                : 'Kon PostgreSQL-status niet laden.';
+        }
+        if (btnPostgresMinor) {
+            btnPostgresMinor.innerHTML = pgIconHtml() + escapeText((data && data.minor_label) || 'Minor-update');
+        }
+        if (btnPostgresMajor) {
+            btnPostgresMajor.innerHTML = pgIconHtml() + escapeText((data && data.major_label) || 'Major-update');
         }
         setBusy(false);
     }
@@ -1182,6 +1650,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                 var success = !!(event && event.success);
                 showPanelResult(laravelResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'Upgrade mislukt.'));
                 if (success) {
+                    announceUpgradeSuccess((event && event.message) || 'Laravel-upgrade is succesvol verwerkt.');
                     setTimeout(function () { window.location.reload(); }, 1200);
                 }
             }).catch(function (err) {
@@ -1230,6 +1699,7 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
                 var success = !!(event && event.success);
                 showPanelResult(phpResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'PHP-upgrade mislukt.'));
                 if (success) {
+                    announceUpgradeSuccess((event && event.message) || 'PHP-upgrade is succesvol verwerkt.');
                     setTimeout(function () { window.location.reload(); }, 1200);
                 }
             }).catch(function (err) {
@@ -1259,6 +1729,283 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
         });
     }
 
+    function applyDockerStatus(data) {
+        dockerStatus = data || null;
+        if (dockerStatusEl) {
+            dockerStatusEl.innerHTML = data
+                ? escapeText(data.message || '')
+                : 'Kon Docker-status niet laden.';
+        }
+        if (data && data.flash) {
+            announceUpgradeSuccess(data.flash);
+            if (typeof window.showAdminHeaderFlash === 'function') {
+                window.showAdminHeaderFlash('success', data.flash);
+            }
+        }
+        renderDockerContainers(data && Array.isArray(data.containers) ? data.containers : []);
+        setBusy(false);
+    }
+
+    function renderDockerContainers(containers) {
+        if (!dockerRowsEl || !dockerTableEl) return;
+        dockerRowsEl.innerHTML = '';
+        if (!containers.length) {
+            dockerTableEl.classList.add('hidden');
+            syncDockerSelectAll();
+            fillDockerExecSelect([]);
+            return;
+        }
+        dockerTableEl.classList.remove('hidden');
+        containers.forEach(function (row) {
+            var tr = document.createElement('tr');
+            var running = String(row.state || '').toLowerCase() === 'running';
+            var service = String(row.service || '');
+            tr.innerHTML =
+                '<td class="admin-table__check-col text-center" data-no-row-link data-label="">' +
+                '<label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">' +
+                '<input type="checkbox" class="kt-checkbox docker-container-check" value="' + escapeText(service) + '"' +
+                ' checked aria-label="Selecteer ' + escapeText(service) + '">' +
+                '</label></td>' +
+                '<td data-label="Service">' + escapeText(service) + '</td>' +
+                '<td data-label="Container" class="font-mono text-xs">' + escapeText(row.name) + '</td>' +
+                '<td data-label="Image" class="font-mono text-xs break-all">' + escapeText(row.image) + '</td>' +
+                '<td data-label="Status">' +
+                '<span class="kt-badge ' + (running ? 'kt-badge-success' : 'kt-badge-destructive') + '">' +
+                escapeText(row.status || row.state) + '</span></td>';
+            dockerRowsEl.appendChild(tr);
+        });
+        dockerRowsEl.querySelectorAll('.docker-container-check').forEach(function (input) {
+            input.addEventListener('change', syncDockerSelectAll);
+        });
+        syncDockerSelectAll();
+        fillDockerExecSelect(containers);
+    }
+
+    function fillDockerExecSelect(containers) {
+        if (!dockerExecServiceEl) return;
+        var previous = dockerExecServiceEl.value;
+        dockerExecServiceEl.innerHTML = '';
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = containers.length ? 'Kies een container' : 'Geen containers';
+        dockerExecServiceEl.appendChild(placeholder);
+        containers.forEach(function (row) {
+            var option = document.createElement('option');
+            option.value = String(row.service || '');
+            var running = String(row.state || '').toLowerCase() === 'running';
+            option.textContent = (row.service || row.name || '—') + (running ? '' : ' (gestopt)');
+            option.disabled = !running || !option.value;
+            dockerExecServiceEl.appendChild(option);
+        });
+        if (previous && Array.from(dockerExecServiceEl.options).some(function (opt) { return opt.value === previous && !opt.disabled; })) {
+            dockerExecServiceEl.value = previous;
+        }
+        setBusy(false);
+    }
+
+    function dockerRowChecks() {
+        return dockerRowsEl ? dockerRowsEl.querySelectorAll('.docker-container-check') : [];
+    }
+
+    function syncDockerSelectAll() {
+        var checks = dockerRowChecks();
+        var checked = 0;
+        checks.forEach(function (el) {
+            if (el.checked) checked++;
+        });
+        if (!dockerSelectAllEl) return;
+        dockerSelectAllEl.disabled = checks.length === 0;
+        dockerSelectAllEl.checked = checks.length > 0 && checked === checks.length;
+        dockerSelectAllEl.indeterminate = checked > 0 && checked < checks.length;
+    }
+
+    function selectedDockerServices() {
+        var checks = dockerRowChecks();
+        var selected = [];
+        checks.forEach(function (el) {
+            if (el.checked && el.value) selected.push(el.value);
+        });
+        if (selected.length === checks.length) {
+            return [];
+        }
+        return selected;
+    }
+
+    function loadDockerStatus() {
+        return fetchJson(dockerStatusUrl).then(applyDockerStatus).catch(function (err) {
+            if (dockerStatusEl) dockerStatusEl.textContent = err.message || 'Kon Docker-status niet laden.';
+            dockerStatus = null;
+            setBusy(false);
+        });
+    }
+
+    function loadPostgresStatus() {
+        return fetchJson(postgresStatusUrl).then(applyPostgresStatus).catch(function (err) {
+            if (postgresStatusEl) postgresStatusEl.textContent = err.message || 'Kon PostgreSQL-status niet laden.';
+            postgresStatus = null;
+            setBusy(false);
+        });
+    }
+
+    function runDocker(action) {
+        var isRebuild = action === 'rebuild';
+        var services = isRebuild ? [] : selectedDockerServices();
+        var checks = dockerRowChecks();
+        var selectedCount = 0;
+        checks.forEach(function (el) { if (el.checked) selectedCount++; });
+        if (!isRebuild && (checks.length === 0 || selectedCount === 0)) {
+            if (typeof window.showAdminHeaderFlash === 'function') {
+                window.showAdminHeaderFlash('warning', 'Selecteer minstens één container om te herstarten.');
+            } else {
+                alert('Selecteer minstens één container om te herstarten.');
+            }
+            return;
+        }
+        var title = isRebuild ? 'Docker-images opnieuw bouwen' : 'Docker-containers herstarten';
+        var restartScope = services.length
+            ? (services.length === 1 ? 'Container ' + services[0] : 'Containers ' + services.join(', '))
+            : 'Alle Docker-containers van deze stack';
+        var message = isRebuild
+            ? 'Images worden opnieuw gebouwd en de hele stack start daarna opnieuw. De admin is kort even niet bereikbaar. Doorgaan?'
+            : restartScope + ' ' + (services.length === 1 ? 'wordt' : 'worden') + ' herstart. De admin is kort even niet bereikbaar. Doorgaan?';
+        var successMessage = isRebuild
+            ? 'Docker-stack is opnieuw gebouwd en herstart.'
+            : (services.length === 0
+                ? 'Docker-containers zijn herstart.'
+                : (services.length === 1
+                    ? 'Docker-container ' + services[0] + ' is herstart.'
+                    : 'Docker-containers ' + services.join(', ') + ' zijn herstart.'));
+
+        confirmUpgrade(title, message, isRebuild ? 'Opnieuw bouwen' : 'Herstarten').then(function (ok) {
+            if (!ok) return;
+            setBusy(true);
+            if (dockerResultEl) {
+                dockerResultEl.classList.add('hidden');
+                dockerResultEl.textContent = '';
+            }
+            var list = initProgress(dockerProgressEl, isRebuild ? 'Docker-stack opnieuw bouwen…' : 'Docker-containers herstarten…');
+            var payload = { action: action };
+            if (!isRebuild) payload.services = services;
+            postStream(dockerRunUrl, payload, list).then(function (outcome) {
+                if (outcome && outcome.complete && !outcome.reconnect) {
+                    return outcome;
+                }
+                appendNote(list, 'Verbinding verbroken tijdens herstart — wachten tot de stack weer online is…');
+                return waitForAdmin(dockerStatusUrl, applyDockerStatus, list).then(function (status) {
+                    return {
+                        complete: {
+                            success: true,
+                            message: (status && status.flash) || successMessage,
+                        }
+                    };
+                });
+            }).then(function (outcome) {
+                var event = outcome && outcome.complete;
+                var success = !!(event && event.success);
+                var text = (event && event.message) || (success ? successMessage : 'Docker-actie mislukt.');
+                showPanelResult(dockerResultEl, success, text);
+                if (success) {
+                    announceUpgradeSuccess(text);
+                    setTimeout(function () { window.location.reload(); }, 1200);
+                }
+            }).catch(function (err) {
+                showPanelResult(dockerResultEl, false, err.message || 'Docker-actie mislukt.');
+            }).finally(function () {
+                setBusy(false);
+                loadDockerStatus();
+            });
+        });
+    }
+
+    function runPostgres(channel) {
+        var can = channel === 'major'
+            ? (postgresStatus && postgresStatus.can_major)
+            : (postgresStatus && postgresStatus.can_minor);
+        if (!can) {
+            return;
+        }
+        var target = channel === 'major'
+            ? (postgresStatus && postgresStatus.major_target)
+            : (postgresStatus && postgresStatus.minor_target);
+        var title = channel === 'major' ? 'PostgreSQL major-update' : 'PostgreSQL minor-update';
+        var message = channel === 'major'
+            ? 'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna start PostgreSQL op een nieuw volume als ' + (target || 'de volgende major') + '. Bij een fout gaat de oude versie weer aan. De admin kan kort haperen. Doorgaan?'
+            : 'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna wordt image ' + (target || 'pgvector') + ' opnieuw gepulld. Bij een fout blijft de huidige data staan. Doorgaan?';
+
+        confirmUpgrade(title, message, 'Upgraden').then(function (ok) {
+            if (!ok) return;
+            setBusy(true);
+            if (postgresResultEl) {
+                postgresResultEl.classList.add('hidden');
+                postgresResultEl.textContent = '';
+            }
+            var list = initProgress(postgresProgressEl, 'PostgreSQL-upgrade bezig…');
+            postStream(postgresRunUrl, { channel: channel }, list).then(function (outcome) {
+                var event = outcome && outcome.complete;
+                var success = !!(event && event.success);
+                showPanelResult(postgresResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'PostgreSQL-upgrade mislukt.'));
+                if (success) {
+                    announceUpgradeSuccess((event && event.message) || 'PostgreSQL-upgrade is succesvol verwerkt.');
+                    setTimeout(function () { window.location.reload(); }, 1200);
+                }
+            }).catch(function (err) {
+                showPanelResult(postgresResultEl, false, err.message || 'PostgreSQL-upgrade mislukt.');
+            }).finally(function () {
+                setBusy(false);
+                loadPostgresStatus();
+                loadDockerStatus();
+            });
+        });
+    }
+
+    function showDockerExecOutput(text, success) {
+        if (!dockerExecOutputEl) return;
+        dockerExecOutputEl.hidden = false;
+        dockerExecOutputEl.classList.remove('hidden');
+        dockerExecOutputEl.textContent = text || '';
+        dockerExecOutputEl.classList.toggle('text-destructive', success === false);
+    }
+
+    function runDockerExec() {
+        var service = dockerExecServiceEl ? dockerExecServiceEl.value : '';
+        var command = dockerExecCommandEl ? dockerExecCommandEl.value.trim() : '';
+        if (!service || !command) {
+            if (typeof window.showAdminHeaderFlash === 'function') {
+                window.showAdminHeaderFlash('warning', 'Kies een container en voer een commando in.');
+            }
+            return;
+        }
+        setBusy(true);
+        showDockerExecOutput('Bezig…', true);
+        fetch(dockerExecUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ service: service, command: command }),
+        }).then(function (response) {
+            return response.json().then(function (payload) {
+                return { ok: response.ok, payload: payload };
+            });
+        }).then(function (result) {
+            var payload = result.payload || {};
+            var data = payload.data || {};
+            var output = data.output || payload.message || 'Geen uitvoer.';
+            var header = (data.service || service) + ' · exit ' + (data.exit_code == null ? '?' : data.exit_code) + '\n';
+            showDockerExecOutput(header + output, payload.success !== false && result.ok);
+            if (payload.success === false && !data.output) {
+                showDockerExecOutput(payload.message || 'Commando mislukt.', false);
+            }
+        }).catch(function (err) {
+            showDockerExecOutput(err.message || 'Commando mislukt.', false);
+        }).finally(function () {
+            setBusy(false);
+        });
+    }
+
     if (btnLaravelMinor) {
         btnLaravelMinor.addEventListener('click', function () { runLaravel('minor'); });
     }
@@ -1268,9 +2015,196 @@ cat backup-YYYY-MM-DD.sql | docker compose exec -T db psql -U nexa -d nexa</pre>
     if (btnPhp) {
         btnPhp.addEventListener('click', function () { runPhp(); });
     }
+    if (btnPostgresMinor) {
+        btnPostgresMinor.addEventListener('click', function () { runPostgres('minor'); });
+    }
+    if (btnPostgresMajor) {
+        btnPostgresMajor.addEventListener('click', function () { runPostgres('major'); });
+    }
+    if (btnDockerRestart) {
+        btnDockerRestart.addEventListener('click', function () { runDocker('restart'); });
+    }
+    if (btnDockerRebuild) {
+        btnDockerRebuild.addEventListener('click', function () { runDocker('rebuild'); });
+    }
+    if (btnDockerExec) {
+        btnDockerExec.addEventListener('click', function () { runDockerExec(); });
+    }
+    if (dockerExecServiceEl) {
+        dockerExecServiceEl.addEventListener('change', function () { setBusy(false); });
+    }
+    if (dockerExecCommandEl) {
+        dockerExecCommandEl.addEventListener('input', function () { setBusy(false); });
+        dockerExecCommandEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                runDockerExec();
+            }
+        });
+    }
+    if (dockerSelectAllEl) {
+        dockerSelectAllEl.addEventListener('change', function () {
+            var on = dockerSelectAllEl.checked;
+            dockerRowChecks().forEach(function (el) { el.checked = on; });
+            dockerSelectAllEl.indeterminate = false;
+        });
+    }
+
+    (function initUpgradeHistory() {
+        var table = document.getElementById('upgrade-history-table');
+        var tbody = table ? table.querySelector('tbody') : null;
+        var selectAll = document.getElementById('upgrade-history-select-all');
+        var deleteBtn = document.getElementById('btn-upgrade-history-delete');
+        if (!table || !tbody || !deleteBtn) {
+            return;
+        }
+
+        function historyChecks() {
+            return Array.from(table.querySelectorAll('.upgrade-history-row-check:not(:disabled)'));
+        }
+
+        function selectedHistoryIds() {
+            return historyChecks().filter(function (el) { return el.checked; }).map(function (el) {
+                return parseInt(el.value, 10);
+            }).filter(function (id) { return id > 0; });
+        }
+
+        function setHistoryDeleteCount(n) {
+            var countEl = document.getElementById('upgrade-history-selected-count');
+            if (countEl) {
+                countEl.textContent = String(n);
+            }
+            deleteBtn.setAttribute('aria-label', 'Geselecteerde regels verwijderen (' + n + ')');
+            deleteBtn.setAttribute('title', n === 1
+                ? '1 geselecteerde regel verwijderen'
+                : n + ' geselecteerde regels verwijderen');
+        }
+
+        function syncHistorySelection() {
+            var boxes = historyChecks();
+            var selected = boxes.filter(function (el) { return el.checked; });
+            if (selectAll) {
+                selectAll.disabled = boxes.length === 0;
+                selectAll.checked = boxes.length > 0 && selected.length === boxes.length;
+                selectAll.indeterminate = selected.length > 0 && selected.length < boxes.length;
+            }
+            deleteBtn.disabled = selected.length === 0;
+            deleteBtn.hidden = selected.length === 0;
+            deleteBtn.classList.toggle('hidden', selected.length === 0);
+            setHistoryDeleteCount(selected.length);
+        }
+
+        function showEmptyHistory() {
+            tbody.innerHTML = '<tr class="upgrade-history-empty"><td colspan="6" class="text-center text-secondary-foreground py-6">Nog geen upgrades uitgevoerd.</td></tr>';
+            if (selectAll) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+                selectAll.disabled = true;
+            }
+            deleteBtn.disabled = true;
+            deleteBtn.hidden = true;
+            deleteBtn.classList.add('hidden');
+            setHistoryDeleteCount(0);
+        }
+
+        table.addEventListener('change', function (e) {
+            var target = e.target;
+            if (!target) {
+                return;
+            }
+            if (target === selectAll) {
+                var on = selectAll.checked;
+                historyChecks().forEach(function (el) { el.checked = on; });
+                selectAll.indeterminate = false;
+                syncHistorySelection();
+                return;
+            }
+            if (target.classList && target.classList.contains('upgrade-history-row-check')) {
+                syncHistorySelection();
+            }
+        });
+
+        deleteBtn.addEventListener('click', function () {
+            var ids = selectedHistoryIds();
+            var url = deleteBtn.getAttribute('data-url');
+            if (!ids.length || !url || deleteBtn.disabled) {
+                return;
+            }
+            var message = ids.length === 1
+                ? 'Deze regel uit de upgradegeschiedenis verwijderen?'
+                : 'Deze ' + ids.length + ' regels uit de upgradegeschiedenis verwijderen?';
+            var runDelete = function () {
+                deleteBtn.disabled = true;
+                fetch(url, {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken(),
+                    },
+                    body: JSON.stringify({ ids: ids }),
+                })
+                    .then(function (response) {
+                        return response.json().then(function (data) {
+                            return { ok: response.ok, data: data };
+                        }).catch(function () {
+                            return { ok: false, data: { message: 'Verwijderen mislukt.' } };
+                        });
+                    })
+                    .then(function (result) {
+                        if (!result.ok || !(result.data && result.data.success)) {
+                            throw new Error((result.data && result.data.message) || 'Verwijderen mislukt.');
+                        }
+                        ids.forEach(function (id) {
+                            var row = tbody.querySelector('tr[data-id="' + id + '"]');
+                            if (row) {
+                                row.remove();
+                            }
+                        });
+                        if (!tbody.querySelector('tr[data-id]')) {
+                            showEmptyHistory();
+                        } else {
+                            syncHistorySelection();
+                        }
+                        if (typeof window.showAdminHeaderFlash === 'function') {
+                            window.showAdminHeaderFlash('success', result.data.message);
+                        }
+                    })
+                    .catch(function (err) {
+                        if (typeof window.showAdminHeaderFlash === 'function') {
+                            window.showAdminHeaderFlash('error', err.message || 'Verwijderen mislukt.');
+                        }
+                        syncHistorySelection();
+                    });
+            };
+
+            if (typeof window.showAdminConfirm === 'function') {
+                window.showAdminConfirm({
+                    title: 'Regels verwijderen',
+                    message: message,
+                    confirmLabel: 'Verwijderen',
+                    destructive: true,
+                }).then(function (ok) {
+                    if (ok) {
+                        runDelete();
+                    }
+                });
+                return;
+            }
+            if (window.confirm(message)) {
+                runDelete();
+            }
+        });
+
+        syncHistorySelection();
+    })();
 
     loadLaravelStatus();
     loadPhpStatus();
+    loadPostgresStatus();
+    loadDockerStatus();
 })();
 </script>
 @endpush

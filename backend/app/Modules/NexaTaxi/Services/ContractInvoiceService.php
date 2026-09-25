@@ -20,6 +20,7 @@ use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
 use App\Services\TenantCustomerMailService;
+use App\Support\EmailCardHtml;
 use App\Support\TenantPackageCapability;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -458,11 +459,19 @@ class ContractInvoiceService
                 : strip_tags($htmlContent);
         } else {
             $subject = 'Factuur '.$invoice->invoice_number;
-            $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
-                .'<p>In de bijlage vindt u factuur <strong>'.e($invoice->invoice_number).'</strong> van '
+            $body = '<p style="margin:0 0 16px;font-size:16px;">Beste '.e($variables['CUSTOMER_NAME']).',</p>'
+                .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">In de bijlage vindt u factuur <strong>'.e($invoice->invoice_number).'</strong> van '
                 .e($variables['INVOICE_DATE']).'.</p>'
-                .$variables['INVOICE_AMOUNTS_HTML']
-                .'<p>Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+                .($variables['INVOICE_AMOUNTS_HTML'] ?? '')
+                .'<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+            $htmlContent = EmailCardHtml::wrap(
+                'Factuur',
+                'Factuur '.e((string) $invoice->invoice_number),
+                $body,
+                $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
+                EmailCardHtml::poweredByFooter(),
+                (string) $companyName,
+            );
             $textContent = strip_tags($htmlContent);
         }
 

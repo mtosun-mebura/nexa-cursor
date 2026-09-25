@@ -15,6 +15,7 @@ use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Services\ContractInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
+use App\Modules\NexaTaxi\Services\TransportCustomerCascadeDeleteService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use App\Models\Company;
 use App\Models\User;
@@ -23,6 +24,7 @@ use App\Services\CompanyEntitlementService;
 use App\Support\TenantPackageCapability;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class TransportCustomerController extends Controller
@@ -40,18 +42,43 @@ class TransportCustomerController extends Controller
         if ($packageDeniedMessage !== null) {
             return view('taxi::admin.transport_customers.index', [
                 'customers' => collect(),
+                'archivedCustomers' => collect(),
+                'contractsByCustomer' => collect(),
+                'tenantCompany' => null,
+                'companiesById' => collect(),
                 'packageDeniedMessage' => $packageDeniedMessage,
             ]);
         }
 
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
+
         $query = TransportCustomer::on($conn);
         $this->applyTenantFilter($query);
 
-        $customers = $query->orderBy('name')->get();
+        $allCustomers = $query->orderBy('name')->get();
+        $customers = $allCustomers->filter(fn (TransportCustomer $c) => ! $c->isArchived())->values();
+        $archivedCustomers = $allCustomers->filter(fn (TransportCustomer $c) => $c->isArchived())->values();
+
+        $contractsByCustomer = TransportContract::on($conn)
+            ->whereIn('transport_customer_id', $allCustomers->pluck('id')->filter()->all())
+            ->orderByDesc('start_date')
+            ->get()
+            ->groupBy('transport_customer_id');
+
+        $tenantId = $this->getTenantId();
+        $tenantCompany = $tenantId ? Company::query()->find($tenantId) : null;
+        $companiesById = Company::query()
+            ->whereIn('id', $allCustomers->pluck('company_id')->filter()->unique()->all())
+            ->get()
+            ->keyBy('id');
 
         return view('taxi::admin.transport_customers.index', [
             'customers' => $customers,
+            'archivedCustomers' => $archivedCustomers,
+            'contractsByCustomer' => $contractsByCustomer,
+            'tenantCompany' => $tenantCompany,
+            'companiesById' => $companiesById,
             'packageDeniedMessage' => null,
         ]);
     }
@@ -74,21 +101,10 @@ class TransportCustomerController extends Controller
             app(CompanyEntitlementService::class)->assertCanCreateContractCustomer($company);
         }
 
-        $data = $request->validate([
-            'name'                => ['required', 'string', 'max:200'],
-            'contact_name'        => ['nullable', 'string', 'max:200'],
-            'contact_email'       => ['nullable', 'email', 'max:200'],
-            'contact_phone'       => ['nullable', 'string', 'max:50'],
-            'debtor_number'       => ['nullable', 'string', 'max:50'],
-            'billing_address'     => ['nullable', 'string', 'max:300'],
-            'billing_city'        => ['nullable', 'string', 'max:100'],
-            'billing_postal_code' => ['nullable', 'string', 'max:20'],
-            'billing_country'     => ['nullable', 'string', 'max:100'],
-            'notes'               => ['nullable', 'string'],
-            'active'              => ['boolean'],
-        ]);
+        $data = $this->validatedCustomerPayload($request);
 
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
         $companyId = $this->getTenantId();
 
         $customer = TransportCustomer::on($conn)->create(array_merge($data, [
@@ -180,21 +196,10 @@ class TransportCustomerController extends Controller
     {
         $this->authorizeOrPermission('rides.update');
 
-        $data = $request->validate([
-            'name'                => ['required', 'string', 'max:200'],
-            'contact_name'        => ['nullable', 'string', 'max:200'],
-            'contact_email'       => ['nullable', 'email', 'max:200'],
-            'contact_phone'       => ['nullable', 'string', 'max:50'],
-            'debtor_number'       => ['nullable', 'string', 'max:50'],
-            'billing_address'     => ['nullable', 'string', 'max:300'],
-            'billing_city'        => ['nullable', 'string', 'max:100'],
-            'billing_postal_code' => ['nullable', 'string', 'max:20'],
-            'billing_country'     => ['nullable', 'string', 'max:100'],
-            'notes'               => ['nullable', 'string'],
-            'active'              => ['boolean'],
-        ]);
+        $data = $this->validatedCustomerPayload($request);
 
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
         $customer = TransportCustomer::on($conn)->findOrFail($id);
         $customer->update(array_merge($data, [
             'active' => $request->boolean('active'),
@@ -209,13 +214,41 @@ class TransportCustomerController extends Controller
         $this->authorizeOrPermission('rides.delete');
 
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
         $customer = TransportCustomer::on($conn)->findOrFail($id);
 
-        // Soft-disable i.p.v. verwijderen; contracten + passagiers blijven bewaard.
-        $customer->update(['active' => false]);
+        if ($customer->isArchived()) {
+            return redirect()->route('admin.taxi.transport_customers.index')
+                ->with('success', 'Dit contract staat al in het archief.');
+        }
+
+        $customer->update([
+            'archived_at' => now(),
+            'active' => false,
+        ]);
 
         return redirect()->route('admin.taxi.transport_customers.index')
-            ->with('success', 'Contractklant gedeactiveerd.');
+            ->with('success', 'Contract "'.$customer->name.'" is naar het archief verplaatst. Facturatiehistorie blijft bewaard.');
+    }
+
+    public function forceDestroy(int $id, TransportCustomerCascadeDeleteService $cascadeDelete)
+    {
+        $this->authorizeOrPermission('rides.delete');
+
+        $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
+        $customer = TransportCustomer::on($conn)->findOrFail($id);
+
+        if (! $customer->isArchived()) {
+            return redirect()->route('admin.taxi.transport_customers.index')
+                ->withErrors(['delete' => 'Alleen gearchiveerde contracten kunnen definitief worden verwijderd. Verplaats het contract eerst naar het archief.']);
+        }
+
+        $name = (string) $customer->name;
+        $cascadeDelete->delete($conn, $customer);
+
+        return redirect()->route('admin.taxi.transport_customers.index')
+            ->with('success', 'Contract "'.$name.'" is definitief verwijderd, inclusief abonnementen en passagiers.');
     }
 
     // -----------------------------------------------------------------------
@@ -443,5 +476,33 @@ class TransportCustomerController extends Controller
 
         return redirect()->route('admin.taxi.transport_customers.contract_show', [$customerId, $contractId])
             ->with('success', 'SEPA-mandaat opgeslagen.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatedCustomerPayload(Request $request): array
+    {
+        $data = $request->validate([
+            'name'                => ['required', 'string', 'max:200'],
+            'organization_type'   => ['nullable', 'string', Rule::in(TransportCustomer::organizationTypeKeys())],
+            'contact_name'        => ['nullable', 'string', 'max:200'],
+            'contact_email'       => ['nullable', 'email', 'max:200'],
+            'contact_phone'       => ['nullable', 'string', 'max:50'],
+            'debtor_number'       => ['nullable', 'string', 'max:50'],
+            'billing_address'     => ['nullable', 'string', 'max:300'],
+            'billing_city'        => ['nullable', 'string', 'max:100'],
+            'billing_postal_code' => ['nullable', 'string', 'max:20'],
+            'billing_country'     => ['nullable', 'string', 'max:100'],
+            'notes'               => ['nullable', 'string'],
+            'active'              => ['boolean'],
+        ]);
+
+        $type = strtolower(trim((string) ($data['organization_type'] ?? '')));
+        $data['organization_type'] = in_array($type, TransportCustomer::organizationTypeKeys(), true)
+            ? $type
+            : 'overig';
+
+        return $data;
     }
 }

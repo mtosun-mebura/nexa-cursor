@@ -2,6 +2,25 @@
     'use strict';
 
     const cfg = window.NEXA_TAXI_DRIVER || {};
+    function toPageOriginUrl(value) {
+        if (!value || typeof value !== 'string') {
+            return value;
+        }
+        try {
+            const parsed = new URL(value, window.location.origin);
+            if (parsed.origin !== window.location.origin) {
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+            return value;
+        } catch (e) {
+            return value;
+        }
+    }
+    ['apiBase', 'loginUrl', 'loginCodeRequestUrl', 'loginCodeVerifyUrl', 'appUrl', 'guideUrl', 'notificationIcon'].forEach(function (key) {
+        if (cfg[key]) {
+            cfg[key] = toPageOriginUrl(cfg[key]);
+        }
+    });
     const STORAGE_KEY = 'nexa_taxi_driver_token';
     const COMPANY_KEY = 'nexa_taxi_driver_company_id';
     const ONLINE_KEY = 'nexa_taxi_driver_online';
@@ -15,11 +34,247 @@
     const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'];
     const RIDE_ALERT_TONE_DEFAULT = 'classic';
     const GPS_COORDS_KEY = 'nexa_taxi_driver_last_gps';
-    const VALID_TABS = ['requests', 'trips', 'planning', 'navigation', 'earnings', 'profile'];
+    const GPS_BG_NOTICE_KEY = 'nexa_taxi_gps_bg_notice_shown';
+    const GPS_FIX_OPTIONS = {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0
+    };
+    const GPS_BACKGROUND_FIX_OPTIONS = {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 20000
+    };
+    const GPS_BACKGROUND_COARSE_OPTIONS = {
+        enableHighAccuracy: false,
+        timeout: 25000,
+        maximumAge: 30000
+    };
+    const GPS_SEND_INTERVAL_MS = 1000;
+    const GPS_HEARTBEAT_MS = 1500;
+    const GPS_BACKGROUND_HEARTBEAT_MS = 4000;
+    const GPS_STALE_HEARTBEAT_MS = 15000;
+    const GPS_MAX_ACCURACY_METERS = 320;
+    const GPS_BACKGROUND_ACCURACY_METERS = 800;
+    const GPS_MOVE_ACCEPT_METERS = 18;
+    const GPS_MAX_SPEED_MPS = 55;
+    const VALID_TABS = ['trips', 'requests', 'planning', 'navigation', 'earnings', 'profile'];
+    const HOME_TABS = ['trips', 'requests'];
     const VALID_RIDE_KINDS = ['all', 'taxi', 'contract'];
     const RIDE_KIND_KEY = 'nexa_taxi_driver_ride_kind';
     const DEFAULT_RIDE_DURATION_SECONDS = 45 * 60;
     const RIDE_SCHEDULE_BUFFER_SECONDS = 10 * 60;
+    const TOKEN_MAX_AGE = 400 * 24 * 60 * 60;
+    const AUTH_IDB_NAME = 'nexa-taxi-driver-auth';
+    const AUTH_IDB_STORE = 'kv';
+
+    function readCookie(name) {
+        try {
+            const parts = ('; ' + document.cookie).split('; ' + name + '=');
+            if (parts.length < 2) {
+                return '';
+            }
+            return decodeURIComponent(parts.pop().split(';').shift() || '');
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function writeAuthCookie(name, value, maxAge) {
+        const encoded = encodeURIComponent(value);
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        const suffix = '; max-age=' + maxAge + '; SameSite=Lax' + secure;
+        document.cookie = name + '=' + encoded + '; path=/' + suffix;
+        document.cookie = name + '=' + encoded + '; path=/taxi' + suffix;
+    }
+
+    function clearAuthCookie(name) {
+        document.cookie = name + '=; path=/taxi; max-age=0; SameSite=Lax';
+        document.cookie = name + '=; path=/; max-age=0; SameSite=Lax';
+    }
+
+    function storageGet(store, key) {
+        try {
+            return store.getItem(key) || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function storageSet(store, key, value) {
+        try {
+            store.setItem(key, value);
+        } catch (e) {
+            /* ignore quota / private mode */
+        }
+    }
+
+    function storageRemove(store, key) {
+        try {
+            store.removeItem(key);
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function openAuthDb() {
+        return new Promise(function (resolve) {
+            if (!window.indexedDB) {
+                resolve(null);
+                return;
+            }
+            try {
+                const req = indexedDB.open(AUTH_IDB_NAME, 1);
+                req.onupgradeneeded = function () {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(AUTH_IDB_STORE)) {
+                        db.createObjectStore(AUTH_IDB_STORE);
+                    }
+                };
+                req.onsuccess = function () {
+                    resolve(req.result);
+                };
+                req.onerror = function () {
+                    resolve(null);
+                };
+            } catch (e) {
+                resolve(null);
+            }
+        });
+    }
+
+    function idbSet(key, value) {
+        return openAuthDb().then(function (db) {
+            if (!db) {
+                return;
+            }
+            return new Promise(function (resolve) {
+                try {
+                    const tx = db.transaction(AUTH_IDB_STORE, 'readwrite');
+                    tx.objectStore(AUTH_IDB_STORE).put(value, key);
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        resolve();
+                    };
+                } catch (e) {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    function idbGet(key) {
+        return openAuthDb().then(function (db) {
+            if (!db) {
+                return '';
+            }
+            return new Promise(function (resolve) {
+                try {
+                    const tx = db.transaction(AUTH_IDB_STORE, 'readonly');
+                    const req = tx.objectStore(AUTH_IDB_STORE).get(key);
+                    req.onsuccess = function () {
+                        resolve(req.result ? String(req.result) : '');
+                    };
+                    req.onerror = function () {
+                        resolve('');
+                    };
+                } catch (e) {
+                    resolve('');
+                }
+            });
+        });
+    }
+
+    function idbRemove(key) {
+        return openAuthDb().then(function (db) {
+            if (!db) {
+                return;
+            }
+            return new Promise(function (resolve) {
+                try {
+                    const tx = db.transaction(AUTH_IDB_STORE, 'readwrite');
+                    tx.objectStore(AUTH_IDB_STORE).delete(key);
+                    tx.oncomplete = function () {
+                        resolve();
+                    };
+                    tx.onerror = function () {
+                        resolve();
+                    };
+                } catch (e) {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    function persistToken(value, expiresAt) {
+        if (!value) {
+            clearPersistedAuth();
+            return;
+        }
+        storageSet(localStorage, STORAGE_KEY, value);
+        storageSet(sessionStorage, STORAGE_KEY, value);
+        let maxAge = TOKEN_MAX_AGE;
+        if (expiresAt) {
+            const ts = Date.parse(expiresAt);
+            if (!isNaN(ts)) {
+                maxAge = Math.max(TOKEN_MAX_AGE, Math.floor((ts - Date.now()) / 1000));
+            }
+        }
+        writeAuthCookie(STORAGE_KEY, value, maxAge);
+        idbSet(STORAGE_KEY, value);
+    }
+
+    function clearPersistedAuth() {
+        token = '';
+        storageRemove(localStorage, STORAGE_KEY);
+        storageRemove(sessionStorage, STORAGE_KEY);
+        storageRemove(localStorage, COMPANY_KEY);
+        storageRemove(sessionStorage, COMPANY_KEY);
+        storageRemove(sessionStorage, UI_STATE_KEY);
+        clearAuthCookie(STORAGE_KEY);
+        idbRemove(STORAGE_KEY);
+        idbRemove(COMPANY_KEY);
+    }
+
+    function readPersistedToken() {
+        const local = storageGet(localStorage, STORAGE_KEY);
+        if (local) {
+            persistToken(local);
+            return local;
+        }
+        const session = storageGet(sessionStorage, STORAGE_KEY);
+        if (session) {
+            persistToken(session);
+            return session;
+        }
+        const cookie = readCookie(STORAGE_KEY);
+        if (cookie) {
+            persistToken(cookie);
+            return cookie;
+        }
+        return '';
+    }
+
+    async function restorePersistedTokenFromIdb() {
+        if (token) {
+            persistToken(token);
+            return token;
+        }
+        const stored = await idbGet(STORAGE_KEY);
+        if (!stored) {
+            return '';
+        }
+        persistToken(stored);
+        token = stored;
+        const cid = await idbGet(COMPANY_KEY);
+        if (cid) {
+            persistCompanyId(cid);
+        }
+        return token;
+    }
 
     let deferredInstallPrompt = null;
 
@@ -34,7 +289,7 @@
         updateInstallHint();
     });
 
-    let token = sessionStorage.getItem(STORAGE_KEY) || '';
+    let token = readPersistedToken();
     let profileUser = null;
     let pollTimer = null;
     let pushSource = null;
@@ -77,6 +332,8 @@
     let parkedAssignedRides = [];
     let viewingActiveRideId = null;
     const STOP_ARRIVE_RADIUS_M = 120;
+    const NATIVE_GPS_DISTANCE_FILTER_M = 10;
+    const MAPS_MAX_WAYPOINTS = 9;
     const NAV_SESSION_KEY = 'nexa_taxi_nav_session';
     let navigationWatchId = null;
     let stopGeofenceWatchId = null;
@@ -90,6 +347,8 @@
         const parsed = raw != null ? parseInt(raw, 10) : NaN;
         return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     })();
+    let lastVehiclesRefreshAt = 0;
+    let vehicleChoiceLocked = false;
 
     function selectedVehicleQuery(prefix) {
         if (!selectedVehicleId) {
@@ -113,10 +372,21 @@
         return null;
     })();
     let lastGpsSentAt = 0;
+    let lastGpsSentFixAt = 0;
+    let lastSentGpsCoords = null;
+    let lastGpsAccuracy = null;
+    let lastGpsFixAt = 0;
     let gpsWatchId = null;
+    let gpsCoarseWatchId = null;
+    let nativeGpsActive = false;
     let gpsHeartbeatTimer = null;
+    let gpsBackgroundKeepAliveTimer = null;
+    let gpsFixInFlight = false;
+    let noSleepResumeTimer = null;
+    let rideTrackBuffer = [];
+    let rideTrackRideId = null;
     let companyId = (function () {
-        const raw = sessionStorage.getItem(COMPANY_KEY);
+        const raw = storageGet(localStorage, COMPANY_KEY) || storageGet(sessionStorage, COMPANY_KEY);
         const parsed = raw != null ? parseInt(raw, 10) : NaN;
         return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     })();
@@ -129,6 +399,7 @@
     const waitingRideIds = new Set();
     let configuredOfferTtlSeconds = 300;
     let driverPaymentEnabled = false;
+    let cashPaymentEnabled = true;
     let firstLoginEmail = '';
     let declinedOffers = [];
     let pendingApprovalOffers = [];
@@ -139,11 +410,16 @@
     let inboxView = 'offers';
     let inboxLoading = false;
     let inboxHasLoaded = false;
+    let homeTabSettled = false;
+    let lastInboxRefreshAt = 0;
+    let inboxRefreshInFlight = false;
     let canViewEarnings = false;
     let canViewMonthEarnings = false;
     let earningsDate = null;
+    let earningsPeriod = 'day';
     let earningsLoading = false;
     let paymentPollTimer = null;
+    let paidStampAnimatedRideId = null;
     let cachedOpenPayment = null;
     let audioCtx = null;
     let screenWakeLock = null;
@@ -503,12 +779,19 @@
         revealRideCard(id);
     }
 
+    function isButtonLoading(btn) {
+        return !!(btn && btn.classList.contains('is-loading'));
+    }
+
     function setButtonLoading(btn, loading, loadingLabel) {
         if (!btn) {
             return;
         }
         if (!loading) {
             clearButtonLoading(btn);
+            return;
+        }
+        if (isButtonLoading(btn)) {
             return;
         }
         if (!btn.dataset.btnOriginalHtml) {
@@ -523,6 +806,11 @@
             '<span class="btn-label">' +
             escapeHtml(label) +
             '</span>';
+    }
+
+    function finishRideActionButtonLoading(btn, options) {
+        clearButtonLoading(btn, options);
+        syncRideActionButtons(currentActiveRide);
     }
 
     function clearButtonLoading(btn, options) {
@@ -564,6 +852,7 @@
             headers: headers(opts.body !== undefined),
             body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
             credentials: 'same-origin',
+            keepalive: !!opts.keepalive,
         });
         let data = null;
         try {
@@ -572,8 +861,13 @@
             data = null;
         }
         if (res.status === 401) {
-            logout(false);
-            throw new Error('Sessie verlopen. Log opnieuw in.');
+            const err = new Error('Sessie verlopen. Log opnieuw in.');
+            err.status = 401;
+            err.unauthenticated = true;
+            if (!opts.keepalive && !opts.keepSessionOn401) {
+                logout(false);
+            }
+            throw err;
         }
         if (!res.ok) {
             if (data && data.error === 'driver_not_active') {
@@ -582,6 +876,7 @@
             const msg = (data && data.message) || 'Er ging iets mis.';
             const err = new Error(msg);
             err.code = data && data.error;
+            err.status = res.status;
             throw err;
         }
         return data;
@@ -611,6 +906,7 @@
             localStorage.setItem(ONLINE_KEY, '0');
             setOnlineUi();
             stopInboxSync();
+            stopGpsTracking();
             renderOffer(null);
             updateEmptyState();
             syncScreenWakeLock();
@@ -630,6 +926,57 @@
             return true;
         }
         return false;
+    }
+
+    function tripsStartableCount() {
+        const overdueOnly = (overdueScheduledRides || []).filter(function (ride) {
+            if (!ride || ride.id == null) {
+                return false;
+            }
+            if (isOpenPickupProposalRide(ride)) {
+                return false;
+            }
+            return !(scheduledRides || []).some(function (item) {
+                return String(item.id) === String(ride.id);
+            });
+        });
+        let count = (scheduledRides || []).length + overdueOnly.length;
+        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+            count += 1;
+        }
+        if (Array.isArray(parkedAssignedRides)) {
+            count += parkedAssignedRides.length;
+        }
+        return count;
+    }
+
+    function preferredHomeTab() {
+        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
+            return 'trips';
+        }
+        if (offersViewHasVisibleRides() || mainInboxRideCount > 0) {
+            return 'requests';
+        }
+        return 'trips';
+    }
+
+    function applySmartHomeTab() {
+        if (homeTabSettled || !inboxHasLoaded) {
+            return;
+        }
+        if (HOME_TABS.indexOf(mainTab) === -1) {
+            homeTabSettled = true;
+            return;
+        }
+        if (mainTab === 'requests' && isSecondaryInboxView(inboxView)) {
+            homeTabSettled = true;
+            return;
+        }
+        const preferred = preferredHomeTab();
+        if (preferred !== mainTab) {
+            setMainTab(preferred, { keepInbox: true });
+        }
+        homeTabSettled = true;
     }
 
     const INBOX_EMPTY_ICONS = {
@@ -659,6 +1006,7 @@
         const title = $('#inbox-empty-title');
         const hint = $('#inbox-empty-hint');
         const actions = $('#inbox-empty-actions');
+        const btnEmptyTrips = $('#btn-empty-show-trips');
         const btnEmptyOverdue = $('#btn-empty-show-overdue');
         const btnEmptyDeclined = $('#btn-empty-show-declined');
         const btnEmptyArchivedInbox = $('#btn-empty-show-archived-inbox');
@@ -669,6 +1017,9 @@
         function hideEmptyActions() {
             if (actions) {
                 actions.hidden = true;
+            }
+            if (btnEmptyTrips) {
+                btnEmptyTrips.hidden = true;
             }
             if (btnEmptyOverdue) {
                 btnEmptyOverdue.hidden = true;
@@ -718,10 +1069,18 @@
             }
             setInboxEmptyIcon('no-rides');
             title.textContent = 'Geen nieuwe ritten.';
-            if (overdueCount || declinedCount || archivedCount) {
+            const tripsCount = tripsStartableCount();
+            if (tripsCount > 0) {
+                hint.textContent = 'Je kunt je ritten starten onder Ritten. Nieuwe aanvragen verschijnen hier automatisch.';
+            } else if (overdueCount || declinedCount || archivedCount) {
                 hint.textContent = 'Nieuwe ritten verschijnen hier automatisch. Eerdere ritten staan onder Verlopen, Afgewezen of Archief.';
             } else {
                 hint.textContent = 'Nieuwe ritten verschijnen hier automatisch.';
+            }
+            if (btnEmptyTrips) {
+                btnEmptyTrips.hidden = tripsCount < 1;
+                btnEmptyTrips.textContent =
+                    tripsCount === 1 ? 'Naar ritten (1)' : 'Naar ritten (' + tripsCount + ')';
             }
             if (btnEmptyOverdue) {
                 btnEmptyOverdue.hidden = overdueCount < 1;
@@ -746,7 +1105,7 @@
                         : 'Bekijk ' + archivedCount + ' gearchiveerde ritten';
             }
             if (actions) {
-                actions.hidden = overdueCount < 1 && declinedCount < 1 && archivedCount < 1;
+                actions.hidden = tripsCount < 1 && overdueCount < 1 && declinedCount < 1 && archivedCount < 1;
             }
             return;
         }
@@ -795,6 +1154,7 @@
             }
         }
         setToolbarBadge(offersCount, mainInboxRideCount, btnOffers, 'Open');
+        syncRequestsNavBadge();
         setToolbarBadge(declinedCount, declinedOffers.length, btnDeclined, 'Afgewezen');
         setToolbarBadge(overdueCount, overdueInboxCount(), btnOverdue, 'Verlopen');
         setToolbarBadge(archivedCount, archivedOffers.length, btnArchived, 'Archief');
@@ -817,6 +1177,19 @@
             btnArchived.hidden = inboxView !== 'archived' && !archivedOffers.length;
             btnArchived.classList.toggle('is-active', inboxView === 'archived');
             btnArchived.setAttribute('aria-current', inboxView === 'archived' ? 'page' : 'false');
+        }
+    }
+
+    function syncRequestsNavBadge() {
+        const badge = $('#nav-requests-count');
+        const btn = document.querySelector('[data-main-tab="requests"]');
+        const count = mainInboxRideCount;
+        if (badge) {
+            badge.textContent = String(count);
+            badge.hidden = count < 1;
+        }
+        if (btn) {
+            btn.setAttribute('aria-label', count > 0 ? 'Aanvragen (' + count + ')' : 'Aanvragen');
         }
     }
 
@@ -1217,8 +1590,19 @@
         });
     }
 
+    function driverCanFilterContractRides() {
+        return !!(profileUser && profileUser.can_handle_contract_rides);
+    }
+
+    function effectiveRideKindFilter() {
+        if (!driverCanFilterContractRides()) {
+            return 'all';
+        }
+        return rideKindFilter;
+    }
+
     function rideMatchesKindFilter(ride, kind) {
-        const filter = kind || rideKindFilter;
+        const filter = kind || effectiveRideKindFilter();
         if (filter === 'all') {
             return true;
         }
@@ -1324,8 +1708,16 @@
     }
 
     function syncRideKindFilterUi() {
+        const show = driverCanFilterContractRides();
+        document.querySelectorAll('.ride-kind-filter').forEach(function (el) {
+            el.hidden = !show;
+        });
+        document.querySelectorAll('.driver-section-head--with-filter').forEach(function (el) {
+            el.classList.toggle('has-ride-kind-filter', show);
+        });
+        const filter = effectiveRideKindFilter();
         document.querySelectorAll('[data-ride-kind]').forEach(function (btn) {
-            const active = btn.getAttribute('data-ride-kind') === rideKindFilter;
+            const active = btn.getAttribute('data-ride-kind') === filter;
             btn.classList.toggle('is-active', active);
             btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
@@ -1877,7 +2269,7 @@
         screenLogin.classList.toggle('is-active', name === 'login');
         screenDispatch.classList.toggle('is-active', name === 'dispatch');
         if (name === 'dispatch') {
-            setMainTab(mainTab || 'requests', { keepInbox: true });
+            setMainTab(mainTab || 'trips', { keepInbox: true });
         }
         syncScreenWakeLock();
         if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
@@ -1885,11 +2277,22 @@
         }
     }
 
+    function shouldKeepGpsTracking() {
+        return !!(token && accountActive);
+    }
+
+    function shouldKeepGpsAlive() {
+        return !!(shouldKeepGpsTracking() && isOnline);
+    }
+
     function shouldKeepScreenAwake() {
+        // Het scherm aanhouden is een noodgreep om de GPS in de browser levend te houden.
+        // Levert de native plugin de fixes, dan is dat alleen accuverspilling.
+        if (nativeGpsActive) {
+            return false;
+        }
         return !!(
-            token &&
-            accountActive &&
-            isOnline &&
+            shouldKeepGpsAlive() &&
             screenDispatch &&
             screenDispatch.classList.contains('is-active') &&
             document.visibilityState === 'visible'
@@ -2080,8 +2483,20 @@
         return true;
     }
 
+    // iOS bevriest de pagina zodra die niet op het scherm staat, dus hoorbare audio houdt
+    // de GPS niet in leven; het pakt alleen de audiosessie af van de muziek of de
+    // navigatiestem van de chauffeur. De keep-alive media blijft daarom altijd gedempt en
+    // dient enkel om het scherm aan te houden terwijl de app open is.
+    function tuneKeepAliveMediaForVisibility() {
+        const audioEl = document.getElementById('nosleep-audio');
+        if (audioEl) {
+            audioEl.muted = true;
+            audioEl.volume = 0;
+        }
+    }
+
     function startNoSleepFallback() {
-        if (!shouldKeepScreenAwake()) {
+        if (!shouldKeepGpsAlive() || nativeGpsActive) {
             stopNoSleepFallback();
             return;
         }
@@ -2089,9 +2504,65 @@
         startNoSleepWebAudio();
         startNoSleepHtmlAudio();
         startNoSleepInlineVideo();
-        if (isIosDevice()) {
+        tuneKeepAliveMediaForVisibility();
+        bindNoSleepMediaKeepAlive();
+        if (isIosDevice() && document.visibilityState === 'visible') {
             startNoSleepCanvasPulse();
         }
+    }
+
+    function bindNoSleepMediaKeepAlive() {
+        const audioEl = document.getElementById('nosleep-audio');
+        if (audioEl && audioEl.getAttribute('data-gps-keep-bound') !== '1') {
+            audioEl.setAttribute('data-gps-keep-bound', '1');
+            audioEl.addEventListener('pause', resumeNoSleepAfterInterruption);
+            audioEl.addEventListener('ended', resumeNoSleepAfterInterruption);
+        }
+        const videoEl = document.getElementById('nosleep-video');
+        if (videoEl && videoEl.getAttribute('data-gps-keep-bound') !== '1') {
+            videoEl.setAttribute('data-gps-keep-bound', '1');
+            videoEl.addEventListener('pause', resumeNoSleepAfterInterruption);
+            videoEl.addEventListener('ended', resumeNoSleepAfterInterruption);
+        }
+    }
+
+    function resumeNoSleepAfterInterruption() {
+        if (document.visibilityState === 'visible' || !shouldKeepGpsAlive()) {
+            return;
+        }
+        if (noSleepResumeTimer) {
+            return;
+        }
+        noSleepResumeTimer = setTimeout(function () {
+            noSleepResumeTimer = null;
+            if (shouldKeepGpsAlive() && document.visibilityState !== 'visible') {
+                startNoSleepFallback();
+            }
+        }, 800);
+    }
+
+    function stopGpsBackgroundKeepAlive() {
+        if (gpsBackgroundKeepAliveTimer) {
+            clearInterval(gpsBackgroundKeepAliveTimer);
+            gpsBackgroundKeepAliveTimer = null;
+        }
+    }
+
+    function startGpsBackgroundKeepAlive() {
+        stopGpsBackgroundKeepAlive();
+        if (!shouldKeepGpsAlive() || isPageVisible() || nativeGpsActive) {
+            return;
+        }
+        gpsBackgroundKeepAliveTimer = setInterval(function () {
+            if (!shouldKeepGpsAlive() || isPageVisible()) {
+                stopGpsBackgroundKeepAlive();
+                return;
+            }
+            ensureNoSleepMediaPlaying();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(function () {});
+            }
+        }, 8000);
     }
 
     function releaseScreenWakeLock() {
@@ -2403,22 +2874,31 @@
             return Promise.resolve(null);
         }
         if (!serviceWorkerReadyPromise) {
-            serviceWorkerReadyPromise = navigator.serviceWorker
-                .register('/taxi-chauffeur-sw.js', { scope: '/' })
+            const ready = navigator.serviceWorker
+                .register('/taxi-chauffeur-sw.js?v=12', { scope: '/', updateViaCache: 'none' })
                 .then(function (reg) {
                     if (reg.active) {
                         return reg;
                     }
-                    const installing = reg.installing || reg.waiting;
-                    if (!installing) {
+                    const worker = reg.installing || reg.waiting;
+                    if (!worker) {
+                        return reg;
+                    }
+                    if (worker.state === 'activated' || worker.state === 'redundant') {
                         return reg;
                     }
                     return new Promise(function (resolve) {
-                        installing.addEventListener('statechange', function () {
-                            if (installing.state === 'activated') {
-                                resolve(reg);
+                        const finish = function () {
+                            worker.removeEventListener('statechange', onState);
+                            resolve(reg);
+                        };
+                        const onState = function () {
+                            if (worker.state === 'activated' || worker.state === 'redundant') {
+                                finish();
                             }
-                        });
+                        };
+                        worker.addEventListener('statechange', onState);
+                        onState();
                     });
                 })
                 .then(function () {
@@ -2428,6 +2908,14 @@
                     serviceWorkerReadyPromise = null;
                     return null;
                 });
+            serviceWorkerReadyPromise = Promise.race([
+                ready,
+                new Promise(function (resolve) {
+                    setTimeout(function () {
+                        resolve(null);
+                    }, 1200);
+                }),
+            ]);
         }
         return serviceWorkerReadyPromise;
     }
@@ -2495,20 +2983,9 @@
             }
             return;
         }
-        if (isInBrowserTabOnIos()) {
-            hint.hidden = false;
-            if (hintText) {
-                hintText.textContent =
-                    'Installeer via Safari → Deel → Zet op beginscherm om de app op je telefoon te gebruiken.';
-            }
-            if (btn) {
-                btn.hidden = true;
-            }
-            if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
-                window.nexaPwaSyncThemeToggleTop();
-            }
-            return;
-        }
+        // Op iOS staat de uitleg over Safari -> Deel -> Zet op beginscherm al in de
+        // meldingen-hint. Deze banner blijft daarom voor browsers met een eigen
+        // installatieprompt, zodat de chauffeur die tekst niet twee keer ziet.
         hint.hidden = true;
         if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
             window.nexaPwaSyncThemeToggleTop();
@@ -2750,24 +3227,70 @@
                     return;
                 }
             }
-        } catch (e) {
-            /* fallback hieronder */
-        }
-
+        } catch (e) {}
         try {
-            const n = new Notification(title, {
-                body: body,
-                icon: icon,
-                tag: tag,
-                renotify: true,
-            });
-            n.onclick = function () {
-                window.focus();
-                n.close();
-            };
-        } catch (e) {
-            /* Notification API niet beschikbaar */
+            new Notification(title, { body: body, icon: icon, tag: tag });
+        } catch (e) {}
+    }
+
+    async function showOnlineGpsNotification() {
+        if (!shouldKeepGpsAlive() || !notificationsApiAvailable() || getNotificationPermission() !== 'granted') {
+            return;
         }
+        const payload = {
+            type: 'SHOW_ONLINE_GPS_NOTIFICATION',
+            title: 'Je bent online',
+            body: 'Zolang deze app niet op je scherm staat, geeft je telefoon geen locatie door. Open de app weer om verder te delen.',
+            icon: cfg.notificationIcon || '/favicon.ico',
+            tag: 'nexa-driver-online-gps',
+            url: cfg.appUrl || '/taxi/chauffeur',
+        };
+        try {
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.active) {
+                    reg.active.postMessage(payload);
+                }
+            }
+        } catch (e) {}
+    }
+
+    function hasShownGpsBackgroundNotice() {
+        return storageGet(localStorage, GPS_BG_NOTICE_KEY) === '1';
+    }
+
+    function markGpsBackgroundNoticeShown() {
+        storageSet(localStorage, GPS_BG_NOTICE_KEY, '1');
+    }
+
+    async function maybeShowGpsBackgroundNoticeOnce() {
+        if (!shouldKeepGpsAlive() || hasShownGpsBackgroundNotice()) {
+            return;
+        }
+        // In het native omhulsel loopt het volgen wel door, dus dan klopt de melding niet.
+        if (nativeGpsActive) {
+            return;
+        }
+        if (!notificationsApiAvailable() || getNotificationPermission() !== 'granted') {
+            return;
+        }
+        markGpsBackgroundNoticeShown();
+        await showOnlineGpsNotification();
+    }
+
+    async function hideOnlineGpsNotification() {
+        try {
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.active) {
+                    reg.active.postMessage({ type: 'HIDE_ONLINE_GPS_NOTIFICATION', tag: 'nexa-driver-online-gps' });
+                }
+                if (reg && typeof reg.getNotifications === 'function') {
+                    const notes = await reg.getNotifications({ tag: 'nexa-driver-online-gps' });
+                    notes.forEach(function (note) { note.close(); });
+                }
+            }
+        } catch (e) {}
     }
 
     function notifyRideWaitingAttention(offer) {
@@ -3125,7 +3648,7 @@
         updateIosAwakeHint();
     }
 
-    let mainTab = 'requests';
+    let mainTab = 'trips';
 
     function isIsoDate(value) {
         return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -3161,9 +3684,15 @@
             }
             if (VALID_TABS.indexOf(data.tab) >= 0) {
                 mainTab = data.tab;
+                if (HOME_TABS.indexOf(data.tab) === -1) {
+                    homeTabSettled = true;
+                }
             }
             if (data.inboxView === 'offers' || data.inboxView === 'declined' || data.inboxView === 'overdue' || data.inboxView === 'archived') {
                 inboxView = data.inboxView;
+                if (isSecondaryInboxView(data.inboxView)) {
+                    homeTabSettled = true;
+                }
             }
             if (data.planningView === 'week' || data.planningView === 'day') {
                 planningView = data.planningView;
@@ -3196,9 +3725,9 @@
     }
     function setMainTab(tab, options) {
         const opts = options || {};
-        let next = VALID_TABS.indexOf(tab) !== -1 ? tab : 'requests';
+        let next = VALID_TABS.indexOf(tab) !== -1 ? tab : 'trips';
         if (next === 'earnings' && !canViewEarnings) {
-            next = 'requests';
+            next = 'trips';
         }
         // Overlay-pagina's (betaling/factuur) sluiten bij tabwissel; header/footer blijven.
         if (isPaymentPanelOpen() || isInvoicePanelOpen()) {
@@ -3270,7 +3799,7 @@
         }
         syncTripsEmptyState();
         if (next === 'earnings') {
-            loadEarnings(earningsDate);
+            loadEarnings(earningsDate, earningsPeriod);
         }
         if (next === 'planning') {
             loadPlanning();
@@ -3288,29 +3817,20 @@
         syncActiveRideJumpButton();
     }
 
-    function tripsListHasContent() {
-        const overdueOnly = (overdueScheduledRides || []).filter(function (ride) {
-            if (!ride || ride.id == null) {
-                return false;
+    function syncEarningsPeriodButtons() {
+        document.querySelectorAll('[data-earnings-period]').forEach(function (btn) {
+            const period = btn.getAttribute('data-earnings-period') || 'day';
+            const active = period === earningsPeriod;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            if (period === 'month') {
+                btn.hidden = !canViewMonthEarnings;
             }
-            if (isOpenPickupProposalRide(ride)) {
-                return false;
-            }
-            return !(scheduledRides || []).some(function (item) {
-                return String(item.id) === String(ride.id);
-            });
         });
-        const scheduledCount = (scheduledRides || []).length + overdueOnly.length;
-        if (scheduledCount > 0) {
-            return true;
-        }
-        if (currentActiveRide && isDriverInProgressRide(currentActiveRide)) {
-            return true;
-        }
-        if (Array.isArray(parkedAssignedRides) && parkedAssignedRides.length > 0) {
-            return true;
-        }
-        return false;
+    }
+
+    function tripsListHasContent() {
+        return tripsStartableCount() > 0;
     }
 
     function syncTripsEmptyState() {
@@ -3334,8 +3854,12 @@
             nav.hidden = !canViewEarnings;
         }
         if (!canViewEarnings && mainTab === 'earnings') {
-            setMainTab('requests');
+            setMainTab('trips');
         }
+        if (!canViewMonthEarnings && earningsPeriod === 'month') {
+            earningsPeriod = 'day';
+        }
+        syncEarningsPeriodButtons();
     }
 
     function todayLocalIsoDate() {
@@ -3353,6 +3877,23 @@
         }
         const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
         dt.setDate(dt.getDate() + deltaDays);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function shiftIsoMonth(isoDate, deltaMonths) {
+        const parts = String(isoDate || '').split('-');
+        if (parts.length !== 3) {
+            return todayLocalIsoDate();
+        }
+        const year = Number(parts[0]);
+        const monthIndex = Number(parts[1]) - 1 + deltaMonths;
+        const day = Number(parts[2]);
+        const dt = new Date(year, monthIndex, 1);
+        const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+        dt.setDate(Math.min(day, lastDay));
         const y = dt.getFullYear();
         const m = String(dt.getMonth() + 1).padStart(2, '0');
         const d = String(dt.getDate()).padStart(2, '0');
@@ -3412,6 +3953,43 @@
         if (planningView === 'week') {
             scrollPlanningToSelectedDay();
         }
+    }
+
+    function planningShiftsHtml(day) {
+        const shifts = (day && Array.isArray(day.shifts) ? day.shifts : []).slice();
+        if (!shifts.length) {
+            return '';
+        }
+        return shifts
+            .map(function (shift) {
+                const start = shift.start_time || formatStopTime(shift.start);
+                const end = shift.end_time || formatStopTime(shift.end);
+                const vehicle = shift.vehicle_label ? String(shift.vehicle_label).trim() : '';
+                const notes = shift.notes ? String(shift.notes).trim() : '';
+                return (
+                    '<div class="planning-shift" role="note">' +
+                    '<div class="planning-shift__row">' +
+                    '<span class="planning-shift__label">Dienst</span>' +
+                    '<span class="planning-shift__time">' +
+                    escapeHtml(start) +
+                    ' – ' +
+                    escapeHtml(end) +
+                    '</span>' +
+                    '</div>' +
+                    (vehicle
+                        ? '<span class="planning-shift__meta">' + escapeHtml(vehicle) + '</span>'
+                        : '') +
+                    (notes
+                        ? '<span class="planning-shift__notes">' + escapeHtml(notes) + '</span>'
+                        : '') +
+                    '</div>'
+                );
+            })
+            .join('');
+    }
+
+    function planningDayBodyHtml(day) {
+        return planningShiftsHtml(day) + planningDayRidesHtml(day);
     }
 
     function planningRideCardHtml(ride) {
@@ -3493,10 +4071,11 @@
             filterRidesByKind((day && day.rides) || [])
         );
         if (!rides.length) {
+            const emptyKind = effectiveRideKindFilter();
             const emptyLabel =
-                rideKindFilter === 'contract'
+                emptyKind === 'contract'
                     ? 'Geen contractritten op deze dag.'
-                    : rideKindFilter === 'taxi'
+                    : emptyKind === 'taxi'
                       ? 'Geen taxiritten op deze dag.'
                       : 'Geen ritten op deze dag.';
             return '<p class="planning-empty">' + emptyLabel + '</p>';
@@ -3530,6 +4109,15 @@
             '<path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/>' +
             '<circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/>' +
             '<circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/>' +
+            '</svg>'
+        );
+    }
+
+    function planningClockIconHtml() {
+        return (
+            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+            '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>' +
+            '<path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 8v4.2L15 15"/>' +
             '</svg>'
         );
     }
@@ -3625,11 +4213,14 @@
                     ? ''
                     : d.toLocaleDateString('nl-NL', { weekday: 'short' });
                 const count = filterRidesByKind(day.rides || []).length;
+                const shiftCount = Array.isArray(day.shifts) ? day.shifts.length : Number(day.shift_count || 0);
+                const hasShift = shiftCount > 0;
                 html +=
                     '<button type="button" class="planning-week-day' +
                     (day.date === planningSelectedDate ? ' is-active' : '') +
                     (day.is_today ? ' is-today' : '') +
                     (count > 0 ? ' has-rides' : '') +
+                    (hasShift ? ' has-shift' : '') +
                     '" data-planning-date="' +
                     escapeHtml(day.date) +
                     '"><span class="wd-name">' +
@@ -3640,7 +4231,9 @@
                     planningCarIconHtml() +
                     '<span>' +
                     count +
-                    '</span></span></button>';
+                    '</span>' +
+                    (hasShift ? '<span class="wd-shift">' + planningClockIconHtml() + '</span>' : '') +
+                    '</span></button>';
             });
             html += '</div>';
             const count = filterRidesByKind((selected && selected.rides) || []).length;
@@ -3656,7 +4249,7 @@
                 escapeHtml(planningRideCountLabel(count)) +
                 '</span>' +
                 '</h3>' +
-                planningDayRidesHtml(selected) +
+                planningDayBodyHtml(selected) +
                 '</section>';
         } else if (!selected) {
             html +=
@@ -3668,7 +4261,7 @@
             html +=
                 '<div class="planning-day-stack">' +
                 planningHeadingHtml(selected) +
-                planningDayRidesHtml(selected) +
+                planningDayBodyHtml(selected) +
                 '</div>';
         }
 
@@ -4021,8 +4614,10 @@
         return { lat: Number(point.lat), lng: Number(point.lng) };
     }
 
+    // Adres eerst, net als in de Google Maps-URL: dezelfde invoer geeft dezelfde route
+    // in de kaart van de app en in Google Maps.
     function stopLocation(stop) {
-        return asLatLng(stop) || (stop && String(stop.address || '').trim()) || null;
+        return (stop && String(stop.address || '').trim()) || asLatLng(stop) || null;
     }
 
     function stopPointKey(stop) {
@@ -4060,30 +4655,120 @@
         return unique;
     }
 
-    function navigationDirUrl(origin, stops) {
-        const points = navigationRoutePoints(origin, stops);
-        if (!points.length) {
-            return '';
+    // Google Maps krijgt het adres, niet de coordinaten: dat leest de chauffeur terug
+    // als "van" en "naar". Zonder adres blijven de coordinaten de terugval.
+    function mapsPointToken(point) {
+        const address = String((point && point.address) || '').trim();
+        if (address) {
+            return address;
         }
-        const path = points
-            .map(function (point) {
-                const coords = asLatLng(point);
-                if (coords) {
-                    return coords.lat + ',' + coords.lng;
-                }
-                return String(point.address || '').trim();
-            })
-            .filter(Boolean);
+        const coords = asLatLng(point);
+        return coords ? coords.lat + ',' + coords.lng : '';
+    }
+
+    function mapsRoutePath(origin, stops) {
+        return navigationRoutePoints(origin, stops).map(mapsPointToken).filter(Boolean);
+    }
+
+    function navigationDirUrl(origin, stops) {
+        const path = mapsRoutePath(origin, stops);
         if (!path.length) {
             return '';
         }
-        if (path.length === 1) {
-            return (
-                'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' +
-                encodeURIComponent(path[0])
-            );
+        const params = ['api=1', 'travelmode=driving'];
+        // Turn-by-turn alleen als de route bij de chauffeur zelf begint. Bij het
+        // overzicht van de hele rit blijft het een routeweergave, zoals in de app.
+        if (path.length === 1 || hasLatLng(origin)) {
+            params.push('dir_action=navigate');
         }
-        return 'https://www.google.com/maps/dir/' + path.map(encodeURIComponent).join('/');
+        if (path.length === 1) {
+            params.push('destination=' + encodeURIComponent(path[0]));
+        } else {
+            params.push('origin=' + encodeURIComponent(path[0]));
+            params.push('destination=' + encodeURIComponent(path[path.length - 1]));
+            const via = path.slice(1, -1).slice(0, MAPS_MAX_WAYPOINTS);
+            if (via.length) {
+                params.push('waypoints=' + via.map(encodeURIComponent).join('%7C'));
+            }
+        }
+        return 'https://www.google.com/maps/dir/?' + params.join('&');
+    }
+
+    // comgooglemapsurl:// geeft de complete Maps-URL door aan de app, dus alle stops
+    // blijven staan. Met comgooglemaps://?daddr= zou alleen de eerste stop overblijven
+    // en week de route af van de kaart in de app.
+    function mapsAppSchemes(webUrl, path) {
+        const points = (path || []).filter(Boolean);
+        const last = encodeURIComponent(points[points.length - 1] || '');
+        return {
+            googleScheme: 'comgooglemapsurl://' + webUrl.replace(/^https?:\/\//, ''),
+            appleScheme: points.length > 1
+                ? 'maps://?saddr=' + encodeURIComponent(points[0]) + '&daddr=' + last + '&dirflg=d'
+                : 'maps://?daddr=' + last + '&dirflg=d',
+        };
+    }
+
+    function mapsTargetForStops(origin, stops) {
+        const path = mapsRoutePath(origin, stops);
+        const webUrl = navigationDirUrl(origin, stops);
+        if (!webUrl) {
+            return null;
+        }
+        const schemes = mapsAppSchemes(webUrl, path);
+        return {
+            webUrl: webUrl,
+            googleScheme: schemes.googleScheme,
+            appleScheme: schemes.appleScheme,
+        };
+    }
+
+    function mapsTargetForAddress(address) {
+        const webUrl = mapsSearchUrl(address);
+        if (!webUrl) {
+            return null;
+        }
+        const encoded = encodeURIComponent(String(address).trim());
+        return {
+            webUrl: webUrl,
+            googleScheme: 'comgooglemaps://?q=' + encoded,
+            appleScheme: 'maps://?q=' + encoded,
+        };
+    }
+
+    function mapsTargetFromLink(href) {
+        const raw = String(href || '');
+        if (!raw) {
+            return null;
+        }
+        let query = '';
+        try {
+            const parsed = new URL(raw, window.location.origin);
+            query = parsed.searchParams.get('query') || parsed.searchParams.get('destination') || '';
+        } catch (e) {
+            query = '';
+        }
+        return query ? mapsTargetForAddress(query) : { webUrl: raw };
+    }
+
+    // Op iOS laat window.open een lege browserweergave in de PWA achter zodra de
+    // kaart-app het overneemt. Een app-scheme wisselt direct van app, zonder die weergave.
+    function openMapsTarget(target) {
+        if (!target || !target.webUrl) {
+            return;
+        }
+        if (!isIosDevice() || !target.googleScheme) {
+            window.open(target.webUrl, '_blank', 'noopener');
+            return;
+        }
+        window.location.href = target.googleScheme;
+        if (!target.appleScheme) {
+            return;
+        }
+        setTimeout(function () {
+            if (document.visibilityState === 'visible' && document.hasFocus()) {
+                window.location.href = target.appleScheme;
+            }
+        }, 1200);
     }
 
     function loadGoogleMapsSdk() {
@@ -4149,9 +4834,20 @@
         if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
             return;
         }
-        lastGpsCoords = { lat: coords.lat, lng: coords.lng };
+        lastGpsCoords = {
+            lat: coords.lat,
+            lng: coords.lng,
+            accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : lastGpsAccuracy,
+            heading: Number.isFinite(coords.heading) ? coords.heading : (lastGpsCoords && lastGpsCoords.heading) || null,
+            speed: Number.isFinite(coords.speed) ? coords.speed : null,
+            at: Number.isFinite(coords.at) ? coords.at : Date.now()
+        };
+        if (Number.isFinite(lastGpsCoords.accuracy)) {
+            lastGpsAccuracy = lastGpsCoords.accuracy;
+        }
+        lastGpsFixAt = lastGpsCoords.at;
         try {
-            sessionStorage.setItem(GPS_COORDS_KEY, JSON.stringify(lastGpsCoords));
+            sessionStorage.setItem(GPS_COORDS_KEY, JSON.stringify({ lat: lastGpsCoords.lat, lng: lastGpsCoords.lng }));
         } catch (e) {
             /* private mode */
         }
@@ -4516,7 +5212,7 @@
         navigationWatchId = navigator.geolocation.watchPosition(
             handleNavigationPosition,
             function () {},
-            { enableHighAccuracy: true, maximumAge: 4000, timeout: 12000 }
+            GPS_FIX_OPTIONS
         );
     }
 
@@ -4589,10 +5285,7 @@
             drawNavigationRoute(origin, remainingNavigationStops(navigationStops, session)).catch(function () {});
         }
         if (nextDest && nextDest.address) {
-            const url = navigationDirUrl(origin, [nextDest]);
-            if (url) {
-                window.open(url, '_blank', 'noopener');
-            }
+            openMapsTarget(mapsTargetForStops(origin, [nextDest]));
         }
     }
 
@@ -4718,10 +5411,7 @@
                 return ensureStopCoords(stop);
             })
         );
-        const url = navigationDirUrl(null, stops);
-        if (url) {
-            window.open(url, '_blank', 'noopener');
-        }
+        openMapsTarget(mapsTargetForStops(null, stops));
         startNavigationWatch();
         const dest = remaining[0];
         setNavigationStatus(navigationStatusText(session, dest));
@@ -4746,6 +5436,7 @@
         const daySub = $('#earnings-day-sub');
         const dayTotal = $('#earnings-day-total');
         const dayCount = $('#earnings-day-count');
+        const dayTotalLabel = $('#earnings-day-total-label');
         const monthCard = $('#earnings-month-card');
         const prevBtn = $('#btn-earnings-prev');
         const nextBtn = $('#btn-earnings-next');
@@ -4776,14 +5467,22 @@
         }
 
         earningsDate = data.date || todayLocalIsoDate();
+        earningsPeriod = data.period === 'week' || data.period === 'month' ? data.period : 'day';
+        if (earningsPeriod === 'month' && !canViewMonthEarnings) {
+            earningsPeriod = 'day';
+        }
+        syncEarningsPeriodButtons();
         if (dayLabel) {
             dayLabel.textContent = data.label || earningsDate;
         }
         if (daySub) {
-            daySub.textContent = earningsDate;
+            daySub.textContent = data.sub_label || data.from || earningsDate;
+        }
+        if (dayTotalLabel) {
+            dayTotalLabel.textContent = data.total_label || 'Totaal deze dag';
         }
         if (dayTotal) {
-            dayTotal.textContent = formatEuro(data.day_total || 0);
+            dayTotal.textContent = formatEuro(data.period_total != null ? data.period_total : data.day_total || 0);
         }
         if (dayCount) {
             const n = data.ride_count || 0;
@@ -4793,7 +5492,7 @@
             summary.hidden = false;
         }
         if (monthCard) {
-            if (canViewMonthEarnings && data.month) {
+            if (canViewMonthEarnings && earningsPeriod === 'day' && data.month) {
                 monthCard.hidden = false;
                 const monthLabel = $('#earnings-month-label');
                 const monthTotal = $('#earnings-month-total');
@@ -4814,12 +5513,23 @@
         }
         if (prevBtn) {
             prevBtn.disabled = false;
+            prevBtn.setAttribute(
+                'aria-label',
+                earningsPeriod === 'week' ? 'Vorige week' : earningsPeriod === 'month' ? 'Vorige maand' : 'Vorige dag'
+            );
         }
         if (nextBtn) {
-            nextBtn.disabled = !!data.is_today;
+            nextBtn.disabled = !!data.is_current || !!data.is_today;
+            nextBtn.setAttribute(
+                'aria-label',
+                earningsPeriod === 'week' ? 'Volgende week' : earningsPeriod === 'month' ? 'Volgende maand' : 'Volgende dag'
+            );
         }
         if (todayBtn) {
-            todayBtn.disabled = !!data.is_today;
+            todayBtn.disabled = false;
+        }
+        if (empty) {
+            empty.textContent = data.empty_message || 'Geen afgeronde ritten op deze dag.';
         }
 
         const rides = Array.isArray(data.rides) ? data.rides : [];
@@ -4939,12 +5649,15 @@
         }
     }
 
-    async function loadEarnings(dateIso) {
+    async function loadEarnings(dateIso, period) {
         if (!canViewEarnings || earningsLoading) {
             return;
         }
+        const nextPeriod = period || earningsPeriod || 'day';
+        earningsPeriod = nextPeriod === 'month' && !canViewMonthEarnings ? 'day' : nextPeriod;
         const date = dateIso || earningsDate || todayLocalIsoDate();
         earningsLoading = true;
+        syncEarningsPeriodButtons();
         const loading = $('#earnings-loading');
         const error = $('#earnings-error');
         const empty = $('#earnings-empty');
@@ -4962,7 +5675,9 @@
             list.innerHTML = '';
         }
         try {
-            const res = await api('/earnings?date=' + encodeURIComponent(date));
+            const res = await api(
+                '/earnings?date=' + encodeURIComponent(date) + '&period=' + encodeURIComponent(earningsPeriod)
+            );
             if (res && res.permissions) {
                 applyEarningsPermissions(res.permissions);
             }
@@ -4994,7 +5709,7 @@
         updateProfileOnlineStatus();
         updateNotificationsHint();
         if (isOnline) {
-            await prepareDriverAlerts();
+            prepareDriverAlerts();
             requestScreenWakeLockFromGesture();
             await refreshDriverVehicles();
         }
@@ -5002,12 +5717,11 @@
             return;
         }
         try {
-            const coords = isOnline ? await getDriverPosition() : lastGpsCoords;
+            const coords = lastGpsCoords;
             const body = { is_online: isOnline };
             if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
                 body.lat = coords.lat;
                 body.lng = coords.lng;
-                persistLastGpsCoords(coords);
             }
             if (selectedVehicleId) {
                 body.vehicle_id = selectedVehicleId;
@@ -5016,17 +5730,36 @@
                 method: 'PUT',
                 body: body,
             });
+            if (isOnline) {
+                getDriverPosition().then(function (fresh) {
+                    if (!token || !isOnline || !fresh) {
+                        return;
+                    }
+                    if (!Number.isFinite(fresh.lat) || !Number.isFinite(fresh.lng)) {
+                        return;
+                    }
+                    persistLastGpsCoords(fresh);
+                    const next = { is_online: true, lat: fresh.lat, lng: fresh.lng };
+                    if (selectedVehicleId) {
+                        next.vehicle_id = selectedVehicleId;
+                    }
+                    api('/availability', { method: 'PUT', body: next }).catch(function () {});
+                });
+            }
         } catch (e) {
             if (e.code === 'driver_not_active') {
                 return;
             }
             console.warn(e);
         }
-        if (isOnline) {
+        if (token && accountActive) {
             startGpsTracking();
-            await refreshInbox();
         } else {
             stopGpsTracking();
+        }
+        if (isOnline) {
+            await refreshInbox();
+        } else {
             inboxLoading = false;
             inboxHasLoaded = false;
             stopInboxSync();
@@ -5045,18 +5778,72 @@
             localStorage.removeItem(VEHICLE_KEY);
         }
         const select = $('#driver-vehicle-select');
-        if (select && selectedVehicleId) {
+        if (select && selectedVehicleId && !select.hidden) {
             select.value = String(selectedVehicleId);
         }
     }
 
-    function renderDriverVehicles(items) {
+    function vehicleOptionLabel(item) {
+        if (!item) {
+            return '';
+        }
+        if (item.label) {
+            return String(item.label);
+        }
+        const plate = item.license_plate ? String(item.license_plate) : '';
+        return plate ? (plate + (item.name ? ' · ' + item.name : '')) : (item.name || ('Voertuig ' + item.id));
+    }
+
+    function renderDriverVehicles(payload) {
         const row = $('#driver-vehicle-row');
         const select = $('#driver-vehicle-select');
+        const assigned = $('#driver-vehicle-assigned');
+        const assignedValue = $('#driver-vehicle-assigned-value');
+        const assignedUntil = $('#driver-vehicle-assigned-until');
+        const label = row ? row.querySelector('label[for="driver-vehicle-select"]') : null;
         if (!row || !select) {
             return;
         }
-        const list = Array.isArray(items) ? items : [];
+        const locked = !!(payload && payload.locked);
+        const assignedVehicle = payload && payload.assigned_vehicle ? payload.assigned_vehicle : null;
+        const list = Array.isArray(payload)
+            ? payload
+            : ((payload && Array.isArray(payload.data)) ? payload.data : []);
+        vehicleChoiceLocked = locked;
+
+        if (locked && assignedVehicle) {
+            persistSelectedVehicle(assignedVehicle.id);
+            select.hidden = true;
+            if (label) {
+                label.hidden = true;
+            }
+            if (assigned) {
+                assigned.hidden = false;
+            }
+            if (assignedValue) {
+                assignedValue.textContent = vehicleOptionLabel(assignedVehicle);
+            }
+            if (assignedUntil) {
+                const until = payload && payload.assigned_until ? String(payload.assigned_until).trim() : '';
+                assignedUntil.hidden = !until;
+                assignedUntil.textContent = until ? 'Dienst tot ' + until : '';
+            }
+            row.hidden = false;
+            return;
+        }
+
+        select.hidden = false;
+        if (label) {
+            label.hidden = false;
+        }
+        if (assigned) {
+            assigned.hidden = true;
+        }
+        if (assignedUntil) {
+            assignedUntil.hidden = true;
+            assignedUntil.textContent = '';
+        }
+
         if (!list.length) {
             row.hidden = true;
             return;
@@ -5066,8 +5853,7 @@
         list.forEach(function (item) {
             const opt = document.createElement('option');
             opt.value = String(item.id);
-            const plate = item.license_plate ? String(item.license_plate) : '';
-            opt.textContent = plate ? (plate + (item.name ? ' · ' + item.name : '')) : (item.name || ('Voertuig ' + item.id));
+            opt.textContent = vehicleOptionLabel(item);
             select.appendChild(opt);
         });
         const preferred = selectedVehicleId ? String(selectedVehicleId) : current;
@@ -5082,16 +5868,114 @@
         if (!token) {
             return;
         }
+        lastVehiclesRefreshAt = Date.now();
         try {
             const data = await api('/vehicles');
-            renderDriverVehicles(data && data.data ? data.data : []);
+            const previousId = selectedVehicleId;
+            renderDriverVehicles(data);
+            if (data && data.locked && data.assigned_vehicle && isOnline && selectedVehicleId && selectedVehicleId !== previousId) {
+                try {
+                    await api('/availability', {
+                        method: 'PUT',
+                        body: { is_online: true, vehicle_id: selectedVehicleId },
+                    });
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
         } catch (e) {
             console.warn(e);
         }
     }
 
+    function coordsFromGeolocation(pos) {
+        if (!pos || !pos.coords) {
+            return null;
+        }
+        const lat = Number(pos.coords.latitude);
+        const lng = Number(pos.coords.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return null;
+        }
+        const accuracy = Number(pos.coords.accuracy);
+        const heading = Number(pos.coords.heading);
+        const speed = Number(pos.coords.speed);
+        return {
+            lat: lat,
+            lng: lng,
+            accuracy: Number.isFinite(accuracy) ? accuracy : null,
+            heading: Number.isFinite(heading) && heading >= 0 ? heading : null,
+            speed: Number.isFinite(speed) && speed >= 0 ? speed : null,
+            at: Date.now()
+        };
+    }
+
+    function headingBetweenCoords(from, to) {
+        if (!from || !to) {
+            return null;
+        }
+        const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+        const lat1 = (from.lat * Math.PI) / 180;
+        const lat2 = (to.lat * Math.PI) / 180;
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+        return (bearing + 360) % 360;
+    }
+
+    function isPageVisible() {
+        return document.visibilityState === 'visible';
+    }
+
+    function currentGpsFixOptions() {
+        return isPageVisible() ? GPS_FIX_OPTIONS : GPS_BACKGROUND_FIX_OPTIONS;
+    }
+
+    function currentGpsHeartbeatMs() {
+        return isPageVisible() ? GPS_HEARTBEAT_MS : GPS_BACKGROUND_HEARTBEAT_MS;
+    }
+
+    function currentGpsAccuracyCap() {
+        return isPageVisible() ? GPS_MAX_ACCURACY_METERS : GPS_BACKGROUND_ACCURACY_METERS;
+    }
+
+    function shouldAcceptGpsFix(next) {
+        if (!next || !Number.isFinite(next.lat) || !Number.isFinite(next.lng)) {
+            return false;
+        }
+        const acc = next.accuracy;
+        const moved = lastGpsCoords && Number.isFinite(lastGpsCoords.lat)
+            ? rideTrackDistanceMeters(lastGpsCoords, next)
+            : Infinity;
+        if (!lastGpsCoords) {
+            return !Number.isFinite(acc) || acc <= 2000;
+        }
+        if (lastGpsFixAt) {
+            const dt = Math.max(0.25, ((next.at || Date.now()) - lastGpsFixAt) / 1000);
+            if (moved > 280 && (moved / dt) > GPS_MAX_SPEED_MPS && !(Number.isFinite(acc) && acc <= 15)) {
+                return false;
+            }
+        }
+        if (moved >= GPS_MOVE_ACCEPT_METERS && (!Number.isFinite(acc) || acc <= 500)) {
+            return true;
+        }
+        const maxAcc = currentGpsAccuracyCap();
+        if (Number.isFinite(acc) && acc > maxAcc && moved < GPS_MOVE_ACCEPT_METERS) {
+            return false;
+        }
+        if (lastGpsCoords && Number.isFinite(acc) && Number.isFinite(lastGpsAccuracy)
+            && acc > lastGpsAccuracy + 50 && acc > 80 && moved < 8) {
+            return false;
+        }
+        return true;
+    }
+
     function getDriverPosition() {
-        if (lastGpsCoords && Number.isFinite(lastGpsCoords.lat) && Number.isFinite(lastGpsCoords.lng)) {
+        const cachedIsFresh = lastGpsCoords
+            && lastGpsFixAt
+            && (Date.now() - lastGpsFixAt) < (isPageVisible() ? 8000 : 60000)
+            && (!Number.isFinite(lastGpsAccuracy) || lastGpsAccuracy <= currentGpsAccuracyCap());
+        if (cachedIsFresh) {
             refreshDriverPosition();
             return Promise.resolve(lastGpsCoords);
         }
@@ -5104,18 +5988,111 @@
                 resolve(lastGpsCoords);
                 return;
             }
+            if (gpsFixInFlight) {
+                resolve(lastGpsCoords);
+                return;
+            }
+            gpsFixInFlight = true;
             navigator.geolocation.getCurrentPosition(
                 function (pos) {
-                    const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    persistLastGpsCoords(coords);
-                    resolve(coords);
-                },
-                function () {
+                    gpsFixInFlight = false;
+                    const coords = coordsFromGeolocation(pos);
+                    if (coords && shouldAcceptGpsFix(coords)) {
+                        persistLastGpsCoords(coords);
+                        resolve(coords);
+                        return;
+                    }
                     resolve(lastGpsCoords);
                 },
-                { enableHighAccuracy: false, timeout: 2500, maximumAge: 60000 }
+                function () {
+                    gpsFixInFlight = false;
+                    resolve(lastGpsCoords);
+                },
+                currentGpsFixOptions()
             );
         });
+    }
+
+    function rideTrackDistanceMeters(a, b) {
+        const dLat = (a.lat - b.lat) * 111320;
+        const dLng = (a.lng - b.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+        return Math.sqrt(dLat * dLat + dLng * dLng);
+    }
+
+    function resetRideTrackBuffer(rideId) {
+        const id = rideId != null ? parseInt(rideId, 10) : NaN;
+        if (!Number.isFinite(id) || id <= 0) {
+            clearRideTrackBuffer();
+            return;
+        }
+        if (rideTrackRideId === id) {
+            return;
+        }
+        rideTrackBuffer = [];
+        rideTrackRideId = id;
+    }
+
+    function clearRideTrackBuffer() {
+        rideTrackBuffer = [];
+        rideTrackRideId = null;
+    }
+
+    function recordRideTrackPoint(coords) {
+        if (!currentActiveRide || !isDriverInProgressRide(currentActiveRide) || !coords) {
+            return;
+        }
+        const rideId = parseInt(currentActiveRide.id, 10);
+        if (!Number.isFinite(rideId) || rideId <= 0) {
+            return;
+        }
+        if (rideTrackRideId !== rideId) {
+            rideTrackBuffer = [];
+            rideTrackRideId = rideId;
+        }
+        const last = rideTrackBuffer[rideTrackBuffer.length - 1];
+        if (last && rideTrackDistanceMeters(last, coords) < 12) {
+            return;
+        }
+        if (rideTrackBuffer.length >= 1500) {
+            rideTrackBuffer.shift();
+        }
+        rideTrackBuffer.push({
+            lat: Number(coords.lat),
+            lng: Number(coords.lng),
+            t: Date.now(),
+        });
+    }
+
+    function snapshotRideTrack(rideId) {
+        const id = parseInt(rideId, 10);
+        if (!Number.isFinite(id) || rideTrackRideId !== id) {
+            return [];
+        }
+        return rideTrackBuffer.map(function (point) {
+            return { lat: point.lat, lng: point.lng, t: point.t };
+        });
+    }
+
+    function maybeSendHeartbeatLocation(coords) {
+        if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+            coords = lastGpsCoords;
+        }
+        if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+            return;
+        }
+        const now = Date.now();
+        const fixAt = Number.isFinite(coords.at) ? coords.at : now;
+        const maxAgeMs = isPageVisible() ? 12000 : 180000;
+        if (now - fixAt > maxAgeMs) {
+            return;
+        }
+        const moved = lastSentGpsCoords
+            ? rideTrackDistanceMeters(lastSentGpsCoords, coords) >= 4
+            : true;
+        if (!moved && (now - lastGpsSentAt) < GPS_STALE_HEARTBEAT_MS) {
+            return;
+        }
+        sendDriverLocation(coords, true, true);
     }
 
     async function sendDriverLocation(coords, withVehicle, force) {
@@ -5123,17 +6100,34 @@
             return;
         }
         persistLastGpsCoords(coords);
+        recordRideTrackPoint(coords);
         const now = Date.now();
-        if (!force && now - lastGpsSentAt < 4000) {
+        if (!force && now - lastGpsSentAt < GPS_SEND_INTERVAL_MS) {
             return;
         }
         lastGpsSentAt = now;
+        lastGpsSentFixAt = Number.isFinite(coords.at) ? coords.at : now;
+        let heading = Number.isFinite(coords.heading) ? coords.heading : null;
+        if (heading == null && lastSentGpsCoords
+            && rideTrackDistanceMeters(lastSentGpsCoords, coords) >= 8) {
+            heading = headingBetweenCoords(lastSentGpsCoords, coords);
+        }
+        lastSentGpsCoords = { lat: coords.lat, lng: coords.lng };
         const body = { lat: coords.lat, lng: coords.lng };
-        if (withVehicle && selectedVehicleId) {
+        if (Number.isFinite(coords.accuracy)) {
+            body.accuracy = coords.accuracy;
+        }
+        if (Number.isFinite(heading)) {
+            body.heading = heading;
+        }
+        if (Number.isFinite(coords.speed)) {
+            body.speed = coords.speed;
+        }
+        if (selectedVehicleId && (withVehicle !== false)) {
             body.vehicle_id = selectedVehicleId;
         }
         try {
-            await api('/availability/location', { method: 'PUT', body: body });
+            await api('/availability/location', { method: 'PUT', body: body, keepalive: true });
         } catch (e) {
             if (e.code !== 'driver_not_active') {
                 console.warn(e);
@@ -5141,39 +6135,169 @@
         }
     }
 
-    function startGpsTracking() {
-        stopGpsTracking();
-        if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
-            gpsHeartbeatTimer = setInterval(function () {
-                getDriverPosition().then(function (coords) {
-                    sendDriverLocation(coords, false);
-                });
-            }, 5000);
-            return;
-        }
-        gpsWatchId = navigator.geolocation.watchPosition(
-            function (pos) {
-                sendDriverLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }, false);
-            },
-            function () {},
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 4000 }
-        );
-        gpsHeartbeatTimer = setInterval(function () {
-            if (lastGpsCoords) {
-                sendDriverLocation(lastGpsCoords, false, true);
-            }
-        }, 8000);
+    // In het native omhulsel houdt de plugin de GPS-sessie aan als de app niet op het
+    // scherm staat; in de browser kan dat niet en blijft watchPosition de bron.
+    function nativeGpsPlugin() {
+        const plugins = window.Capacitor && window.Capacitor.Plugins;
+        const plugin = plugins && plugins.BackgroundGeolocation;
+        return plugin && typeof plugin.start === 'function' ? plugin : null;
     }
 
-    function stopGpsTracking() {
+    function startNativeGpsWatch() {
+        const plugin = nativeGpsPlugin();
+        if (!plugin) {
+            return false;
+        }
+        if (nativeGpsActive) {
+            return true;
+        }
+        nativeGpsActive = true;
+        plugin
+            .start(
+                {
+                    backgroundTitle: 'Nexa Chauffeur',
+                    backgroundMessage: 'Je locatie wordt gedeeld zolang je online staat.',
+                    requestPermissions: true,
+                    stale: false,
+                    distanceFilter: NATIVE_GPS_DISTANCE_FILTER_M,
+                },
+                function (position, error) {
+                    if (error || !position) {
+                        return;
+                    }
+                    onGpsWatchPosition({
+                        coords: {
+                            latitude: position.latitude,
+                            longitude: position.longitude,
+                            accuracy: position.accuracy,
+                            heading: position.bearing,
+                            speed: position.speed,
+                        },
+                    });
+                }
+            )
+            .catch(function () {
+                nativeGpsActive = false;
+            });
+        return true;
+    }
+
+    function stopNativeGpsWatch() {
+        const plugin = nativeGpsPlugin();
+        if (!plugin || !nativeGpsActive) {
+            return;
+        }
+        nativeGpsActive = false;
+        if (typeof plugin.stop === 'function') {
+            plugin.stop().catch(function () {});
+        }
+    }
+
+    function clearGpsWatches() {
         if (gpsWatchId != null && navigator.geolocation) {
             navigator.geolocation.clearWatch(gpsWatchId);
-            gpsWatchId = null;
         }
+        gpsWatchId = null;
+        if (gpsCoarseWatchId != null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(gpsCoarseWatchId);
+        }
+        gpsCoarseWatchId = null;
+    }
+
+    function onGpsWatchPosition(pos) {
+        const coords = coordsFromGeolocation(pos);
+        if (!coords || !shouldAcceptGpsFix(coords)) {
+            return;
+        }
+        sendDriverLocation(coords, true);
+    }
+
+    function startGpsWatch() {
+        if (startNativeGpsWatch()) {
+            clearGpsWatches();
+            return true;
+        }
+        if (!navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') {
+            return false;
+        }
+        clearGpsWatches();
+        gpsWatchId = navigator.geolocation.watchPosition(
+            onGpsWatchPosition,
+            function () {},
+            currentGpsFixOptions()
+        );
+        if (!isPageVisible()) {
+            gpsCoarseWatchId = navigator.geolocation.watchPosition(
+                onGpsWatchPosition,
+                function () {},
+                GPS_BACKGROUND_COARSE_OPTIONS
+            );
+        }
+        return true;
+    }
+
+    function restartGpsHeartbeat() {
         if (gpsHeartbeatTimer) {
             clearInterval(gpsHeartbeatTimer);
             gpsHeartbeatTimer = null;
         }
+        gpsHeartbeatTimer = setInterval(function () {
+            refreshDriverPosition().then(maybeSendHeartbeatLocation);
+        }, currentGpsHeartbeatMs());
+    }
+
+    function restartGpsForVisibility() {
+        if (!shouldKeepGpsTracking()) {
+            return;
+        }
+        startGpsWatch();
+        restartGpsHeartbeat();
+    }
+
+    function flushGpsForBackground() {
+        if (!shouldKeepGpsTracking()) {
+            return;
+        }
+        if (lastGpsCoords) {
+            sendDriverLocation(lastGpsCoords, true, true);
+        }
+        refreshDriverPosition().then(function (coords) {
+            if (coords) {
+                sendDriverLocation(coords, true, true);
+            }
+        });
+    }
+
+    function startGpsTracking() {
+        clearGpsWatches();
+        if (gpsHeartbeatTimer) {
+            clearInterval(gpsHeartbeatTimer);
+            gpsHeartbeatTimer = null;
+        }
+        refreshDriverPosition().then(function (coords) {
+            maybeSendHeartbeatLocation(coords);
+        });
+        startGpsWatch();
+        restartGpsHeartbeat();
+        if (isOnline && !isPageVisible()) {
+            startGpsBackgroundKeepAlive();
+        } else {
+            stopGpsBackgroundKeepAlive();
+        }
+        if (!isOnline) {
+            hideOnlineGpsNotification();
+        }
+    }
+
+    function stopGpsTracking() {
+        stopNativeGpsWatch();
+        clearGpsWatches();
+        if (gpsHeartbeatTimer) {
+            clearInterval(gpsHeartbeatTimer);
+            gpsHeartbeatTimer = null;
+        }
+        stopGpsBackgroundKeepAlive();
+        hideOnlineGpsNotification();
     }
 
     function parseIsoMs(iso) {
@@ -5379,6 +6503,7 @@
         }
         if (!visible) {
             setCompleteRideButtonVisible(false);
+            syncPaidRideStamp(null);
         }
         syncActiveRideJumpButton();
         syncTripsEmptyState();
@@ -5723,6 +6848,54 @@
         return payment.status === 'paid';
     }
 
+    function syncPaidRideStamp(ride) {
+        const strip = $('#active-ride-strip');
+        const stamp = $('#ride-paid-stamp');
+        if (!strip || !stamp) {
+            return;
+        }
+        const show =
+            !!(ride &&
+                isDriverInProgressRide(ride) &&
+                !isContractRide(ride) &&
+                isRidePaymentPaid(ride));
+        if (!show) {
+            strip.classList.remove('is-paid', 'is-paid-animating');
+            stamp.hidden = true;
+            stamp.setAttribute('aria-hidden', 'true');
+            paidStampAnimatedRideId = null;
+            return;
+        }
+        const rideId = String(ride.id);
+        stamp.hidden = false;
+        stamp.setAttribute('aria-hidden', 'false');
+        strip.classList.add('is-paid');
+        const tripsPanel = document.querySelector('[data-main-tab-panel="trips"]');
+        const rideVisible = !strip.hidden && (!tripsPanel || !tripsPanel.hidden) && !isPaymentPanelOpen();
+        if (!rideVisible) {
+            strip.classList.remove('is-paid-animating');
+            return;
+        }
+        if (paidStampAnimatedRideId === rideId) {
+            strip.classList.remove('is-paid-animating');
+            return;
+        }
+        strip.classList.remove('is-paid-animating');
+        void stamp.offsetWidth;
+        strip.classList.add('is-paid-animating');
+        paidStampAnimatedRideId = rideId;
+        const stampInner = stamp.querySelector('.ride-paid-stamp');
+        function settlePaidStamp() {
+            strip.classList.remove('is-paid-animating');
+            if (stampInner) {
+                stampInner.removeEventListener('animationend', settlePaidStamp);
+            }
+        }
+        if (stampInner) {
+            stampInner.addEventListener('animationend', settlePaidStamp, { once: true });
+        }
+    }
+
     function canCompleteActiveRide(ride) {
         if (!ride) {
             return false;
@@ -5748,7 +6921,7 @@
 
     function syncCompleteRideButton(ride) {
         const btn = $('#btn-complete-ride');
-        if (!btn) {
+        if (!btn || isButtonLoading(btn)) {
             return;
         }
         if (ride && isContractGroupRide(ride)) {
@@ -5811,7 +6984,7 @@
             isDriverInProgressRide(ride) &&
             isReturnTripRide(ride) &&
             returnTripLeg(ride) === 'waiting';
-        if (startBtn) {
+        if (startBtn && !isButtonLoading(startBtn)) {
             startBtn.hidden = !show;
             if (show) {
                 startBtn.dataset.rideId = String(ride.id);
@@ -5819,7 +6992,7 @@
                 delete startBtn.dataset.rideId;
             }
         }
-        if (releaseBtn) {
+        if (releaseBtn && !isButtonLoading(releaseBtn)) {
             const canRelease = show && !!ride.can_release_return;
             releaseBtn.hidden = !canRelease;
             if (canRelease) {
@@ -5832,10 +7005,10 @@
 
     function syncSendInvoiceButton(ride) {
         const btn = $('#btn-send-invoice');
-        if (!btn) {
+        if (!btn || isButtonLoading(btn)) {
             return;
         }
-        if (!ride || !isDriverInProgressRide(ride) || !driverPaymentEnabled || isContractRide(ride)) {
+        if (!ride || !isDriverInProgressRide(ride) || isContractRide(ride)) {
             setSendInvoiceButtonVisible(false);
             btn.disabled = true;
             btn.classList.remove('is-disabled');
@@ -5878,6 +7051,14 @@
         return Math.round(amount * 100) / 100;
     }
 
+    function isDriverQrPaymentEnabled(ride) {
+        const payment = ride && ride.payment ? ride.payment : {};
+        if (typeof payment.driver_payment_enabled === 'boolean') {
+            return !!payment.driver_payment_enabled;
+        }
+        return driverPaymentEnabled;
+    }
+
     function isPaymentQrVisible() {
         const qrSection = $('#payment-qr-section');
         return !!(qrSection && !qrSection.hidden);
@@ -5893,12 +7074,13 @@
     function syncPaymentPanelUi(options) {
         const opts = options || {};
         const qrVisible = !!opts.qrVisible;
+        const qrAllowed = isDriverQrPaymentEnabled(currentActiveRide);
         const createBtn = $('#btn-payment-create');
         const cashBtn = $('#btn-cash-paid');
         const amountInput = $('#payment-amount');
         if (createBtn) {
-            createBtn.hidden = qrVisible;
-            if (!qrVisible) {
+            createBtn.hidden = qrVisible || !qrAllowed;
+            if (!qrVisible && qrAllowed) {
                 clearButtonLoading(createBtn);
                 createBtn.disabled = false;
             }
@@ -5953,6 +7135,7 @@
             setPayRideButtonVisible(false);
             syncSendInvoiceButton(null);
             syncCompleteRideButton(null);
+            syncPaidRideStamp(null);
             if (errEl) {
                 errEl.hidden = true;
                 errEl.textContent = '';
@@ -5964,6 +7147,7 @@
             setPayRideButtonVisible(false);
             syncSendInvoiceButton(null);
             syncCompleteRideButton(ride);
+            syncPaidRideStamp(null);
             if (errEl) {
                 errEl.hidden = true;
                 errEl.textContent = '';
@@ -5978,24 +7162,27 @@
             !isReturnTripRide(ride) || leg === 'outbound' || leg === 'return';
         const showPayButton =
             !isContractRide(ride) &&
-            driverPaymentEnabled &&
+            (cashPaymentEnabled || isDriverQrPaymentEnabled(ride)) &&
             payAllowedLeg &&
             (payment.requires_payment_before_complete || isPaid);
         const paymentError = isPaid ? '' : resolvePaymentError(ride, openPayment);
-        setPayRideButtonVisible(showPayButton);
-        syncSendInvoiceButton(ride);
-        syncCompleteRideButton(ride);
         const payBtn = $('#btn-pay-ride');
-        if (payBtn) {
-            payBtn.disabled = isPaid;
-            payBtn.classList.toggle('is-paid', isPaid);
-            payBtn.textContent = isPaid ? 'Betaald' : 'Betalen';
-            if (isPaid) {
-                payBtn.setAttribute('aria-disabled', 'true');
-            } else {
-                payBtn.removeAttribute('aria-disabled');
+        if (!isButtonLoading(payBtn)) {
+            setPayRideButtonVisible(showPayButton);
+            if (payBtn) {
+                payBtn.disabled = isPaid;
+                payBtn.classList.toggle('is-paid', isPaid);
+                payBtn.textContent = isPaid ? 'Betaald' : 'Betalen';
+                if (isPaid) {
+                    payBtn.setAttribute('aria-disabled', 'true');
+                } else {
+                    payBtn.removeAttribute('aria-disabled');
+                }
             }
         }
+        syncSendInvoiceButton(ride);
+        syncCompleteRideButton(ride);
+        syncPaidRideStamp(showPayButton || isPaid ? ride : null);
         if (errEl) {
             if (paymentError) {
                 errEl.hidden = false;
@@ -6161,6 +7348,7 @@
                 syncRideActionButtons(data.ride, data.open_payment);
                 if (data.open_payment && data.open_payment.status === 'paid') {
                     stopPaymentPoll();
+                    activeRideInboxCollapsed = false;
                     closePaymentPanel();
                     renderActiveRide(data.ride);
                     return;
@@ -6172,6 +7360,7 @@
                         statusText.textContent = 'Betaling ontvangen.';
                     }
                     setTimeout(function () {
+                        activeRideInboxCollapsed = false;
                         closePaymentPanel();
                         renderActiveRide(data.ride);
                         refreshActiveRideInvoiceState();
@@ -6184,6 +7373,9 @@
     }
 
     async function createRidePayment() {
+        if (!isDriverQrPaymentEnabled(currentActiveRide)) {
+            return;
+        }
         const rideId = resolveActiveRideId();
         if (!rideId) {
             return;
@@ -6357,6 +7549,7 @@
             closePaymentPanel();
             if (res.data && res.data.ride) {
                 currentActiveRide = res.data.ride;
+                activeRideInboxCollapsed = false;
                 renderActiveRide(res.data.ride);
                 refreshActiveRideInvoiceState();
             } else {
@@ -6438,10 +7631,11 @@
         }
         if (numberInput) {
             numberInput.value = data.invoice_number || '';
+            numberInput.readOnly = true;
         }
         const sendBtn = $('#btn-invoice-send');
         if (sendBtn) {
-            sendBtn.disabled = !data.invoice_number;
+            sendBtn.disabled = false;
             sendBtn.textContent = data.includes_total_invoice
                 ? 'Versturen (incl. totaalfactuur)'
                 : 'Versturen';
@@ -6493,10 +7687,10 @@
             return;
         }
         const sendInvoiceBtn = $('#btn-send-invoice');
-        if (sendInvoiceBtn && (sendInvoiceBtn.disabled || sendInvoiceBtn.hidden)) {
+        if (sendInvoiceBtn && (sendInvoiceBtn.disabled || sendInvoiceBtn.hidden || isButtonLoading(sendInvoiceBtn))) {
             return;
         }
-        setButtonLoading(sendInvoiceBtn, true);
+        setButtonLoading(sendInvoiceBtn, true, 'Laden…');
         try {
             const res = await api('/dispatch/rides/' + rideId + '/invoice');
             const data = res.data || {};
@@ -6504,7 +7698,7 @@
         } catch (e) {
             alert(e.message || 'Factuurgegevens konden niet worden geladen.');
         } finally {
-            clearButtonLoading(sendInvoiceBtn);
+            finishRideActionButtonLoading(sendInvoiceBtn);
         }
     }
 
@@ -6519,10 +7713,6 @@
         const invoiceNumber = numberInput ? String(numberInput.value).trim() : '';
         if (!email) {
             alert('Vul een e-mailadres in.');
-            return;
-        }
-        if (!invoiceNumber) {
-            alert('Factuurnummer ontbreekt. Sluit dit venster en open factuur versturen opnieuw.');
             return;
         }
         const sendBtn = $('#btn-invoice-send');
@@ -6568,20 +7758,21 @@
             return;
         }
         const payBtn = $('#btn-pay-ride');
+        if (isButtonLoading(payBtn)) {
+            return;
+        }
         const payWasPaid = payBtn && payBtn.classList.contains('is-paid');
-        setButtonLoading(payBtn, true);
+        setButtonLoading(payBtn, true, 'Laden…');
         try {
             const data = await loadPaymentState(rideId);
             if (data && data.ride) {
                 currentActiveRide = data.ride;
             }
-            syncRideActionButtons(currentActiveRide, data && data.open_payment);
-            // Altijd eerst de keuze-pagina (bedrag / QR / contant), nooit direct de QR.
             openPaymentPanel(currentActiveRide);
         } catch (e) {
             alert(e.message);
         } finally {
-            clearButtonLoading(payBtn, {
+            finishRideActionButtonLoading(payBtn, {
                 disabled: payWasPaid || (payBtn && payBtn.classList.contains('is-paid')),
             });
         }
@@ -8338,8 +9529,10 @@
                 renderActiveRide(null);
             }
             renderScheduledRides(scheduled);
+            inboxHasLoaded = true;
             updateEmptyState();
             syncTripsEmptyState();
+            applySmartHomeTab();
         } catch (e) {
             /* ignore — offline preview is best-effort */
         }
@@ -8348,6 +9541,13 @@
     async function refreshInbox() {
         if (!token || !isOnline) {
             return;
+        }
+        if (inboxRefreshInFlight) {
+            return;
+        }
+        inboxRefreshInFlight = true;
+        if (Date.now() - lastVehiclesRefreshAt > 15000) {
+            refreshDriverVehicles();
         }
         const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
         const savedScroll =
@@ -8374,6 +9574,10 @@
                     configuredOfferTtlSeconds = Math.max(15, parseInt(res.meta.offer_ttl_seconds, 10) || 300);
                 }
                 driverPaymentEnabled = !!res.meta.driver;
+                cashPaymentEnabled = res.meta.cash !== false;
+                if (isPaymentPanelOpen()) {
+                    syncPaymentPanelUi({ qrVisible: isPaymentQrVisible() });
+                }
                 unclaimedRides = res.meta.unclaimed_rides || [];
             }
             const active = res.data && res.data.active_ride;
@@ -8406,6 +9610,7 @@
             updateDeclinedNavButton();
             updateOverdueNavButton();
             inboxHasLoaded = true;
+            lastInboxRefreshAt = Date.now();
             inboxLoading = false;
             if (active) {
                 parkedAssignedRides = (res.data && res.data.parked_assigned_rides) || [];
@@ -8547,18 +9752,24 @@
                 hint.textContent = e.message || 'Probeer opnieuw of log opnieuw in.';
             }
         } finally {
+            inboxRefreshInFlight = false;
             if (inboxLoading) {
                 inboxLoading = false;
                 updateEmptyState();
             }
             if (proposalDecision === 'accepted') {
+                homeTabSettled = true;
                 setMainTab('trips');
             } else if (proposalDecision === 'reopened_offer') {
+                homeTabSettled = true;
                 setMainTab('requests');
                 setInboxView('offers');
             } else if (proposalDecision === 'declined') {
+                homeTabSettled = true;
                 setMainTab('requests');
                 setInboxView('declined');
+            } else {
+                applySmartHomeTab();
             }
             if (savedScroll !== null && scrollEl) {
                 requestAnimationFrame(function () {
@@ -8614,7 +9825,9 @@
     }
 
     function startInboxSync() {
-        refreshInbox();
+        if (!inboxHasLoaded || Date.now() - lastInboxRefreshAt > 1500) {
+            refreshInbox();
+        }
         connectPushStream();
         stopPolling();
         const ms = cfg.pollMs || (cfg.streamEnabled ? 15000 : 2000);
@@ -8639,7 +9852,7 @@
             throw err;
         }
         token = data.token;
-        sessionStorage.setItem(STORAGE_KEY, token);
+        persistToken(token, data.expires_at);
         if (data.user && data.user.company_id) {
             persistCompanyId(data.user.company_id);
         }
@@ -8777,7 +9990,7 @@
             throw new Error(data.message || 'Activeren mislukt.');
         }
         token = data.token;
-        sessionStorage.setItem(STORAGE_KEY, token);
+        persistToken(token, data.expires_at);
         if (data.user && data.user.company_id) {
             persistCompanyId(data.user.company_id);
         }
@@ -8805,12 +10018,10 @@
                 headers: headers(),
             }).catch(function () {});
         }
-        token = '';
         companyId = null;
-        sessionStorage.removeItem(STORAGE_KEY);
-        sessionStorage.removeItem(COMPANY_KEY);
-        sessionStorage.removeItem(UI_STATE_KEY);
-        mainTab = 'requests';
+        clearPersistedAuth();
+        mainTab = 'trips';
+        homeTabSettled = false;
         inboxView = 'offers';
         planningView = 'day';
         planningSelectedDate = null;
@@ -9714,6 +10925,7 @@
             vibrate(100);
             inboxView = 'offers';
             if (res && res.data && res.data.ride) {
+                resetRideTrackBuffer(res.data.ride.id);
                 setMainTab('trips');
                 renderActiveRide(res.data.ride);
             }
@@ -9819,7 +11031,7 @@
             alert(e.message);
             await refreshInbox();
         } finally {
-            clearButtonLoading(btn);
+            finishRideActionButtonLoading(btn);
         }
     }
 
@@ -9851,7 +11063,7 @@
             alert(e.message);
             await refreshInbox();
         } finally {
-            clearButtonLoading(btn);
+            finishRideActionButtonLoading(btn);
         }
     }
 
@@ -9872,6 +11084,9 @@
             return;
         }
         const btn = $('#btn-complete-ride');
+        if (isButtonLoading(btn)) {
+            return;
+        }
         if (
             btn &&
             (btn.disabled || btn.classList.contains('is-disabled'))
@@ -9891,9 +11106,11 @@
             alert('Rond eerst de betaling af voordat je de rit afrondt.');
             return;
         }
-        setButtonLoading(btn, true);
+        setButtonLoading(btn, true, 'Afronden…');
         try {
-            const res = await api('/dispatch/rides/' + rideId + '/complete', { method: 'POST' });
+            const track = snapshotRideTrack(rideId);
+            const body = track.length ? { track: track } : {};
+            const res = await api('/dispatch/rides/' + rideId + '/complete', { method: 'POST', body: body });
             vibrate(100);
             if (res && res.data && res.data.outbound_completed && res.data.ride) {
                 activeRideAcceptedMessage = res.message || 'Heenrit afgerond.';
@@ -9902,6 +11119,7 @@
                 updateEmptyState();
                 return;
             }
+            clearRideTrackBuffer();
             showNewRideAlertAfterComplete = true;
             renderActiveRide(null);
             await refreshInbox();
@@ -9910,7 +11128,7 @@
             alert(e.message);
             await refreshInbox();
         } finally {
-            clearButtonLoading(btn);
+            finishRideActionButtonLoading(btn);
         }
     }
 
@@ -9920,7 +11138,9 @@
             return;
         }
         companyId = parsed;
-        sessionStorage.setItem(COMPANY_KEY, String(parsed));
+        storageSet(localStorage, COMPANY_KEY, String(parsed));
+        storageSet(sessionStorage, COMPANY_KEY, String(parsed));
+        idbSet(COMPANY_KEY, String(parsed));
     }
 
     function applyOnlineStateFromServer(isOnlineOnServer) {
@@ -9936,7 +11156,7 @@
         }
         setOnlineUi();
         updateProfileOnlineStatus();
-        if (isOnline && token && accountActive) {
+        if (token && accountActive) {
             startGpsTracking();
         } else {
             stopGpsTracking();
@@ -9985,6 +11205,9 @@
             setProfileField(emailEl, '');
             setProfileField(phoneEl, '');
             setProfileField(companyEl, '');
+            if (typeof window.nexaApplyTenantLogo === 'function') {
+                window.nexaApplyTenantLogo(null);
+            }
             if (statusEl) {
                 delete statusEl.dataset.hasUser;
                 delete statusEl.dataset.accountActive;
@@ -10000,6 +11223,9 @@
         setProfileField(emailEl, user.email || '');
         setProfileField(phoneEl, user.phone || '');
         setProfileField(companyEl, user.company_name || '');
+        if (typeof window.nexaApplyTenantLogo === 'function') {
+            window.nexaApplyTenantLogo(user);
+        }
         if (statusEl) {
             statusEl.dataset.hasUser = '1';
             statusEl.dataset.accountActive = user.is_account_active === false ? '0' : '1';
@@ -10007,6 +11233,8 @@
         updateProfileOnlineStatus();
         applyAccentFromUser(user);
         applyRideAlertToneFromUser(user);
+        syncRideKindFilterUi();
+        applyRideKindFilterToViews();
     }
 
     function applyAccentFromUser(user) {
@@ -10114,6 +11342,7 @@
 
     async function bootstrap() {
         updateNotificationsHint();
+        await restorePersistedTokenFromIdb();
         if (!token) {
             showScreen('login');
             return;
@@ -10123,7 +11352,8 @@
         showScreen('dispatch');
         prefetchGoogleMapsSdk();
         try {
-            const me = await api('/me');
+            const me = await api('/me', { keepSessionOn401: true });
+            persistToken(token);
             if (me.user && me.user.company_id) {
                 persistCompanyId(me.user.company_id);
             }
@@ -10151,17 +11381,13 @@
                 updateEmptyState();
                 return;
             }
-            token = '';
-            sessionStorage.removeItem(STORAGE_KEY);
-            sessionStorage.removeItem(COMPANY_KEY);
-            sessionStorage.removeItem(UI_STATE_KEY);
-            mainTab = 'requests';
-            inboxView = 'offers';
-            planningView = 'day';
-            planningSelectedDate = null;
-            planningWeekFrom = null;
-            renderProfileUser(null);
-            showScreen('login');
+            if (e && e.unauthenticated) {
+                logout(false);
+                return;
+            }
+            if (accountActive && isOnline) {
+                startInboxSync();
+            }
         }
         syncScreenWakeLock();
     }
@@ -10317,6 +11543,12 @@
     const vehicleSelect = $('#driver-vehicle-select');
     if (vehicleSelect) {
         vehicleSelect.addEventListener('change', async function () {
+            if (vehicleChoiceLocked) {
+                if (selectedVehicleId) {
+                    vehicleSelect.value = String(selectedVehicleId);
+                }
+                return;
+            }
             persistSelectedVehicle(vehicleSelect.value);
             // Vorige kenteken-ritten meteen weg; daarna opnieuw laden voor het gekozen voertuig.
             scheduledRides = [];
@@ -10378,6 +11610,7 @@
             if (tabBtn) {
                 ev.preventDefault();
                 const tab = tabBtn.getAttribute('data-main-tab');
+                homeTabSettled = true;
                 if (tab === 'trips') {
                     // Altijd rittenoverzicht, ook tijdens een open actieve rit.
                     showAllRidesInbox();
@@ -10404,21 +11637,55 @@
             }
             if (ev.target.closest('#btn-earnings-prev')) {
                 ev.preventDefault();
-                loadEarnings(shiftIsoDate(earningsDate || todayLocalIsoDate(), -1));
+                const from = earningsDate || todayLocalIsoDate();
+                if (earningsPeriod === 'week') {
+                    loadEarnings(shiftIsoDate(from, -7), 'week');
+                } else if (earningsPeriod === 'month') {
+                    loadEarnings(shiftIsoMonth(from, -1), 'month');
+                } else {
+                    loadEarnings(shiftIsoDate(from, -1), 'day');
+                }
                 return;
             }
             if (ev.target.closest('#btn-earnings-next')) {
                 ev.preventDefault();
-                if (earningsDate && earningsDate < todayLocalIsoDate()) {
-                    loadEarnings(shiftIsoDate(earningsDate, 1));
+                const today = todayLocalIsoDate();
+                const from = earningsDate || today;
+                if (earningsPeriod === 'week') {
+                    const next = shiftIsoDate(from, 7);
+                    if (next <= today) {
+                        loadEarnings(next, 'week');
+                    }
+                } else if (earningsPeriod === 'month') {
+                    const next = shiftIsoMonth(from, 1);
+                    if (next <= today) {
+                        loadEarnings(next, 'month');
+                    }
+                } else if (from < today) {
+                    loadEarnings(shiftIsoDate(from, 1), 'day');
                 }
                 return;
             }
-            if (ev.target.closest('#btn-earnings-today')) {
+            const earningsPeriodBtn = ev.target.closest('[data-earnings-period]');
+            if (earningsPeriodBtn) {
                 ev.preventDefault();
-                if (earningsDate !== todayLocalIsoDate()) {
-                    loadEarnings(todayLocalIsoDate());
+                const nextPeriod = earningsPeriodBtn.getAttribute('data-earnings-period') || 'day';
+                if (nextPeriod === 'month' && !canViewMonthEarnings) {
+                    return;
                 }
+                const today = todayLocalIsoDate();
+                if (nextPeriod === earningsPeriod) {
+                    if (nextPeriod === 'day' && (!earningsDate || earningsDate === today)) {
+                        return;
+                    }
+                    if (nextPeriod === 'week' && earningsDate && planningMondayIso(earningsDate) === planningMondayIso(today)) {
+                        return;
+                    }
+                    if (nextPeriod === 'month' && earningsDate && String(earningsDate).slice(0, 7) === today.slice(0, 7)) {
+                        return;
+                    }
+                }
+                loadEarnings(today, nextPeriod);
                 return;
             }
             const planningViewBtn = ev.target.closest('[data-planning-view]');
@@ -10486,7 +11753,14 @@
             const jump = ev.target.closest('[data-main-tab-jump]');
             if (jump) {
                 ev.preventDefault();
+                homeTabSettled = true;
                 setMainTab(jump.getAttribute('data-main-tab-jump'));
+                return;
+            }
+            if (ev.target.closest('#btn-empty-show-trips')) {
+                ev.preventDefault();
+                homeTabSettled = true;
+                showAllRidesInbox();
                 return;
             }
             if (ev.target.closest('#btn-accept') || ev.target.closest('.btn-accept-declined') || ev.target.closest('.btn-accept-overdue')) {
@@ -10656,11 +11930,19 @@
             }
             if (ev.target.closest('#btn-start-return')) {
                 ev.preventDefault();
+                const startBtn = ev.target.closest('#btn-start-return');
+                if (isButtonLoading(startBtn)) {
+                    return;
+                }
                 startReturnLeg(ev);
                 return;
             }
             if (ev.target.closest('#btn-release-return')) {
                 ev.preventDefault();
+                const releaseBtn = ev.target.closest('#btn-release-return');
+                if (isButtonLoading(releaseBtn)) {
+                    return;
+                }
                 releaseReturnLeg(ev);
                 return;
             }
@@ -10669,7 +11951,9 @@
                 const completeBtn = $('#btn-complete-ride');
                 if (
                     completeBtn &&
-                    (completeBtn.disabled || completeBtn.classList.contains('is-disabled'))
+                    (completeBtn.disabled ||
+                        completeBtn.classList.contains('is-disabled') ||
+                        isButtonLoading(completeBtn))
                 ) {
                     return;
                 }
@@ -10684,7 +11968,9 @@
                 const payBtn = $('#btn-pay-ride');
                 if (
                     payBtn &&
-                    (payBtn.disabled || payBtn.classList.contains('is-paid'))
+                    (payBtn.disabled ||
+                        payBtn.classList.contains('is-paid') ||
+                        isButtonLoading(payBtn))
                 ) {
                     return;
                 }
@@ -10717,7 +12003,12 @@
             if (ev.target.closest('#btn-send-invoice')) {
                 ev.preventDefault();
                 const sendInvoiceBtn = $('#btn-send-invoice');
-                if (sendInvoiceBtn && !sendInvoiceBtn.disabled && !sendInvoiceBtn.hidden) {
+                if (
+                    sendInvoiceBtn &&
+                    !sendInvoiceBtn.disabled &&
+                    !sendInvoiceBtn.hidden &&
+                    !isButtonLoading(sendInvoiceBtn)
+                ) {
                     openSendInvoiceFlow();
                 }
                 return;
@@ -10751,21 +12042,59 @@
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
             onPageBecameVisible();
-            if (isOnline && token) {
+            if (token && isOnline) {
                 refreshInbox();
+            }
+            if (shouldKeepGpsTracking()) {
+                stopGpsBackgroundKeepAlive();
+                restartGpsForVisibility();
+                refreshDriverPosition().then(function (coords) {
+                    sendDriverLocation(coords, true, true);
+                });
             }
             return;
         }
-        stopNoSleepFallback();
-        stopWakeLockMaintenance();
+        onPageHidden();
+    });
+
+    function onPageHidden() {
         if (screenWakeLock) {
             screenWakeLock.release().catch(function () {});
             screenWakeLock = null;
         }
+        stopWakeLockMaintenance();
+        if (shouldKeepGpsTracking()) {
+            if (isOnline) {
+                startNoSleepFallback();
+                startGpsBackgroundKeepAlive();
+                maybeShowGpsBackgroundNoticeOnce();
+            } else {
+                stopNoSleepFallback();
+                stopGpsBackgroundKeepAlive();
+                hideOnlineGpsNotification();
+            }
+            restartGpsForVisibility();
+            flushGpsForBackground();
+        } else {
+            stopNoSleepFallback();
+            stopGpsBackgroundKeepAlive();
+        }
+    }
+
+    window.addEventListener('pagehide', function () {
+        flushGpsForBackground();
+    });
+
+    document.addEventListener('freeze', function () {
+        flushGpsForBackground();
     });
 
     window.addEventListener('pageshow', function () {
         onPageBecameVisible();
+        if (document.visibilityState === 'visible' && shouldKeepGpsTracking()) {
+            stopGpsBackgroundKeepAlive();
+            restartGpsForVisibility();
+        }
     });
 
     window.addEventListener('focus', function () {
@@ -10861,6 +12190,22 @@
 
     ['touchstart', 'touchend', 'pointerdown'].forEach(function (eventName) {
         document.addEventListener(eventName, onUserKeepAwakeGesture, { passive: true });
+    });
+
+    document.addEventListener('click', function (ev) {
+        if (!isIosDevice() || !ev.target || !ev.target.closest) {
+            return;
+        }
+        const link = ev.target.closest('a[href*="google.com/maps"]');
+        if (!link) {
+            return;
+        }
+        const target = mapsTargetFromLink(link.getAttribute('href'));
+        if (!target) {
+            return;
+        }
+        ev.preventDefault();
+        openMapsTarget(target);
     });
 
     document.addEventListener('click', function () {

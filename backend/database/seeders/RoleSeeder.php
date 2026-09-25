@@ -164,6 +164,10 @@ class RoleSeeder extends Seeder
             'edit-email-templates',
             'delete-email-templates',
 
+            // Tenant mailserver (Configuraties)
+            'view-mailserver',
+            'edit-mailserver',
+
             // Dashboard access
             'view-dashboard',
             'view-tenant-dashboard',

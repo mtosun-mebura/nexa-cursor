@@ -284,49 +284,85 @@
             padding-top: 14px;
         }
 
-        /* Zorg dat alle dropdown opties volledig zichtbaar zijn in filter dropdowns */
-        .kt-select-dropdown {
-            min-width: max-content !important;
-            width: auto !important;
-            max-width: 500px !important;
+        /* Labelkolom: vaste 14rem, niet laten meegroeien (geen colspan-rij als eerste kolom) */
+        #content form .kt-table.kt-table-border-dashed td:first-child:not([colspan]) {
+            width: 14rem;
+            max-width: 14rem;
         }
 
-        /* Zorg dat de dropdown breder kan zijn dan de select button */
-        .kt-select-wrapper .kt-select-dropdown {
-            min-width: max-content !important;
-            width: auto !important;
+        /* Select-dropdown: minstens zo breed als de trigger, mag meegroeien met langere opties */
+        .kt-select-wrapper .kt-select-dropdown,
+        .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
+            min-width: 100% !important;
+            width: max-content !important;
+            max-width: min(36rem, calc(100vw - 2rem)) !important;
+            box-sizing: border-box !important;
         }
 
-        .kt-select-options {
-            min-width: max-content !important;
-            width: 100% !important;
+        .kt-select-options,
+        [data-kt-select-options] {
+            min-width: 100% !important;
+            width: max-content !important;
+            max-width: none !important;
         }
 
-        /* Zorg dat de optie tekst volledig zichtbaar is (geen ellipsis) */
         .kt-select-option-text {
             overflow: visible !important;
-            white-space: normal !important;
+            white-space: nowrap !important;
             text-overflow: clip !important;
-            word-wrap: break-word !important;
-            word-break: break-word !important;
+            word-wrap: normal !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+            max-width: none !important;
         }
 
-        /* Zorg dat de optie zelf ook volledig zichtbaar is */
-        .kt-select-option {
-            white-space: normal !important;
-            word-wrap: break-word !important;
-            word-break: break-word !important;
+        .kt-select-option,
+        [data-kt-select-option] {
+            white-space: nowrap !important;
+            word-wrap: normal !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
             min-width: max-content !important;
+            max-width: none !important;
         }
 
-        /* Zorg dat de dropdown container de volledige breedte kan gebruiken */
         .kt-select-wrapper {
             position: relative !important;
         }
 
-        .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
-            min-width: max-content !important;
-            width: auto !important;
+        /* Select: inhoudsbreedte, nooit volle pagina (KTSelect-wrapper + native select) */
+        #content form .kt-select-wrapper,
+        #content form .kt-select-wrapper.w-full,
+        #content form [data-kt-select-wrapper] {
+            display: inline-flex !important;
+            width: max-content !important;
+            max-width: 100% !important;
+            min-width: 0;
+            vertical-align: middle;
+            overflow: visible !important;
+        }
+        #content form select.kt-select,
+        #content form select.kt-select.w-full,
+        #content form select.kt-input:not([multiple]),
+        #content form [data-kt-select-display],
+        #content form .kt-select-display {
+            width: max-content !important;
+            max-width: 100% !important;
+            min-width: 0;
+        }
+        #content form .kt-select-wrapper .kt-select-dropdown.open,
+        #content form .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+        #content form .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown].open,
+        #content form .kt-select-wrapper [data-kt-select-dropdown].open {
+            position: absolute !important;
+            top: calc(100% + 4px) !important;
+            left: 0 !important;
+            right: auto !important;
+            width: max-content !important;
+            min-width: 100% !important;
+            max-width: min(36rem, calc(100vw - 2rem)) !important;
+            overflow-x: visible !important;
+            overflow-y: auto !important;
         }
 
         /* Select-dropdown: ondoorzichtige achtergrond (ook bij position:fixed) */
@@ -343,20 +379,108 @@
 
         .kt-select-options,
         [data-kt-select-options] {
-            background-color: var(--popover, #ffffff) !important;
-            color: var(--popover-foreground, var(--foreground)) !important;
+            background-color: transparent !important;
+            color: inherit !important;
         }
 
         html.dark .kt-select-dropdown,
         html.dark [data-kt-select-dropdown],
         .dark .kt-select-dropdown,
-        .dark [data-kt-select-dropdown],
+        .dark [data-kt-select-dropdown] {
+            background-color: #111827 !important;
+            color: #f3f4f6 !important;
+        }
+
         html.dark .kt-select-options,
         html.dark [data-kt-select-options],
         .dark .kt-select-options,
         .dark [data-kt-select-options] {
-            background-color: #111827 !important;
-            color: #f3f4f6 !important;
+            background-color: transparent !important;
+            color: inherit !important;
+        }
+
+        /* Scrollbalk in dropdowns: geen track-put, kleuren per modus */
+        .kt-select-dropdown,
+        .kt-select-dropdown[data-kt-select-dropdown],
+        [data-kt-select-dropdown],
+        .kt-select-options,
+        [data-kt-select-options] {
+            scrollbar-width: thin;
+            scrollbar-color: #9ca3af transparent;
+        }
+        html.dark .kt-select-dropdown,
+        html.dark [data-kt-select-dropdown],
+        html.dark .kt-select-options,
+        html.dark [data-kt-select-options],
+        .dark .kt-select-dropdown,
+        .dark [data-kt-select-dropdown],
+        .dark .kt-select-options,
+        .dark [data-kt-select-options] {
+            scrollbar-color: #94a3b8 transparent;
+        }
+        .kt-select-dropdown::-webkit-scrollbar,
+        [data-kt-select-dropdown]::-webkit-scrollbar,
+        .kt-select-options::-webkit-scrollbar,
+        [data-kt-select-options]::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .kt-select-dropdown::-webkit-scrollbar-track,
+        .kt-select-dropdown::-webkit-scrollbar-track-piece,
+        .kt-select-dropdown::-webkit-scrollbar-corner,
+        [data-kt-select-dropdown]::-webkit-scrollbar-track,
+        [data-kt-select-dropdown]::-webkit-scrollbar-track-piece,
+        [data-kt-select-dropdown]::-webkit-scrollbar-corner,
+        .kt-select-options::-webkit-scrollbar-track,
+        .kt-select-options::-webkit-scrollbar-track-piece,
+        .kt-select-options::-webkit-scrollbar-corner,
+        [data-kt-select-options]::-webkit-scrollbar-track,
+        [data-kt-select-options]::-webkit-scrollbar-track-piece,
+        [data-kt-select-options]::-webkit-scrollbar-corner {
+            background: transparent !important;
+        }
+        .kt-select-dropdown::-webkit-scrollbar-thumb,
+        [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+        .kt-select-options::-webkit-scrollbar-thumb,
+        [data-kt-select-options]::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        html.dark .kt-select-dropdown::-webkit-scrollbar-thumb,
+        html.dark [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+        html.dark .kt-select-options::-webkit-scrollbar-thumb,
+        html.dark [data-kt-select-options]::-webkit-scrollbar-thumb,
+        .dark .kt-select-dropdown::-webkit-scrollbar-thumb,
+        .dark [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+        .dark .kt-select-options::-webkit-scrollbar-thumb,
+        .dark [data-kt-select-options]::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        #header .admin-mobile-menu-toggle,
+        #header .admin-mobile-menu-toggle.kt-btn {
+            border: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            outline: none !important;
+        }
+        #header .admin-mobile-menu-toggle .ki-filled,
+        #header .admin-mobile-menu-icon {
+            font-size: 1.5rem !important;
+            pointer-events: none;
+        }
+
+        /* Mobiel: sidebar off-canvas vóór Vite/KT Drawer (geen jump-open bij navigatie). */
+        @media (max-width: 1023px) {
+            #sidebar:not(.open) {
+                pointer-events: none !important;
+                transform: translate3d(-100%, 0, 0) !important;
+                translate: -100% 0 !important;
+            }
         }
 
         /* Fix for passive event listener warnings in responsive mode */
@@ -373,6 +497,48 @@
         .photo-container,
         #photo-container {
             touch-action: none;
+        }
+
+        /* Pagina-scrollbar: geen track-put, kleuren per light/dark */
+        html {
+            color-scheme: light;
+        }
+        html.dark {
+            color-scheme: dark;
+        }
+        html, body {
+            scrollbar-width: thin;
+            scrollbar-color: #9ca3af transparent;
+        }
+        html.dark, html.dark body, .dark body {
+            scrollbar-color: #94a3b8 transparent;
+        }
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        html::-webkit-scrollbar-track,
+        html::-webkit-scrollbar-track-piece,
+        html::-webkit-scrollbar-corner,
+        body::-webkit-scrollbar-track,
+        body::-webkit-scrollbar-track-piece,
+        body::-webkit-scrollbar-corner {
+            background: transparent !important;
+        }
+        html::-webkit-scrollbar-thumb,
+        body::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        html.dark::-webkit-scrollbar-thumb,
+        html.dark body::-webkit-scrollbar-thumb,
+        .dark body::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border: 2px solid transparent;
+            background-clip: padding-box;
         }
 
         /* Ensure background stays consistent - white in light mode, black in dark mode */
@@ -597,6 +763,15 @@
             padding: 0.35rem 0.75rem;
             line-height: 1.25;
             white-space: normal;
+        }
+        @media (max-width: 1023px) {
+            #admin-header-flash .admin-header-toast {
+                display: flex !important;
+                align-items: flex-start;
+                width: 100% !important;
+                max-width: none !important;
+                flex: 1 1 auto;
+            }
         }
         #admin-header-flash .admin-header-toast .ki-filled {
             flex-shrink: 0;
@@ -1226,15 +1401,79 @@
     })();
     </script>
 
-    <!-- Scrollpositie na opslaan: standaard voor alle admin-pagina's -->
+    <!-- Scrollpositie na opslaan / terug naar lijst: standaard voor alle admin-pagina's -->
     <script>
     (function() {
         var SCROLL_KEY = 'admin-scroll-after-save';
-        function saveScroll() {
+        var IGNORE_ROW_SEL = 'a, button, input, select, textarea, label, [data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, .website-page-actions-cell';
+
+        function readPayload() {
             try {
-                var y = window.scrollY || window.pageYOffset || 0;
-                sessionStorage.setItem(SCROLL_KEY, String(y));
+                var raw = sessionStorage.getItem(SCROLL_KEY);
+                if (raw === null || raw === '') return {};
+                if (raw.charAt(0) === '{') {
+                    var parsed = JSON.parse(raw);
+                    return parsed && typeof parsed === 'object' ? parsed : {};
+                }
+                var y = parseInt(raw, 10);
+                return isNaN(y) ? {} : { y: y };
+            } catch (err) {
+                return {};
+            }
+        }
+        function writePayload(data) {
+            try {
+                var hasY = data && data.y != null && !isNaN(Number(data.y));
+                var hasReturn = data && data.return && data.return.path;
+                if (!hasY && !hasReturn) {
+                    sessionStorage.removeItem(SCROLL_KEY);
+                    return;
+                }
+                sessionStorage.setItem(SCROLL_KEY, JSON.stringify(data));
             } catch (err) {}
+        }
+        function saveScroll() {
+            var data = readPayload();
+            data.y = window.scrollY || window.pageYOffset || 0;
+            writePayload(data);
+        }
+        function cssEscape(value) {
+            var s = String(value || '');
+            if (window.CSS && typeof CSS.escape === 'function') return CSS.escape(s);
+            return s.replace(/[^a-zA-Z0-9_\-]/g, '\\$&');
+        }
+        function attrEscape(value) {
+            return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        }
+        function isVisibleEl(el) {
+            if (!el) return false;
+            if (el.getClientRects && el.getClientRects().length > 0) return true;
+            return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+        }
+        function firstVisible(nodes) {
+            for (var i = 0; i < nodes.length; i++) {
+                if (isVisibleEl(nodes[i])) return nodes[i];
+            }
+            return nodes.length ? nodes[0] : null;
+        }
+        function rowIdFrom(el) {
+            if (!el) return '';
+            var id = el.getAttribute('data-admin-row-id') || '';
+            if (id) return id;
+            var nested = el.closest ? el.closest('[data-admin-row-id]') : null;
+            if (nested) return nested.getAttribute('data-admin-row-id') || '';
+            return el.id || '';
+        }
+        function markListReturn(fromEl) {
+            var data = readPayload();
+            data.y = window.scrollY || window.pageYOffset || 0;
+            data.return = {
+                path: location.pathname,
+                search: location.search || '',
+                y: data.y,
+                rowId: rowIdFrom(fromEl)
+            };
+            writePayload(data);
         }
         var scrollSaveTimer;
         document.addEventListener('scroll', function() {
@@ -1247,6 +1486,34 @@
                 saveScroll();
             }
         }, true);
+        document.addEventListener('click', function(e) {
+            if (e.defaultPrevented) return;
+            if (e.button && e.button !== 0) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var target = e.target;
+            if (!target || typeof target.closest !== 'function') return;
+            var link = target.closest('#content a[href]');
+            if (link) {
+                var href = link.getAttribute('href') || '';
+                if (!href || href.charAt(0) === '#') return;
+                var row = link.closest('tr[data-row-href], tr[data-href], [data-admin-row-id]');
+                if (row && row.closest('#content')) markListReturn(row);
+                return;
+            }
+            var clickable = target.closest('#content [data-row-href], #content [data-href]');
+            if (!clickable) return;
+            if (target.closest(IGNORE_ROW_SEL)) return;
+            markListReturn(clickable);
+        }, true);
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            var target = e.target;
+            if (!target || typeof target.closest !== 'function') return;
+            if (target.closest('[data-no-row-link], a, button, input, select, textarea, label')) return;
+            var clickable = target.closest('#content tr[data-row-href], #content tr[data-href], #content [data-row-href]');
+            if (!clickable) return;
+            markListReturn(clickable);
+        }, true);
         function restoreScrollAfterSave() {
             var justSaved = document.body && document.body.getAttribute('data-admin-just-saved') === '1';
             var u;
@@ -1254,30 +1521,89 @@
             var hasSavedParam = u && (u.searchParams.get('saved') || u.searchParams.get('updated') || u.searchParams.get('created'));
             if (!justSaved && !hasSavedParam) return;
             try {
-                var saved = sessionStorage.getItem(SCROLL_KEY);
-                if (saved !== null) {
-                    var y = parseInt(saved, 10);
-                    if (!isNaN(y) && y >= 0) {
-                        function doScroll() { window.scrollTo(0, y); }
+                var data = readPayload();
+                var y = parseInt(data.y, 10);
+                if (!isNaN(y) && y >= 0) {
+                    function doScroll() { window.scrollTo(0, y); }
+                    doScroll();
+                    requestAnimationFrame(function() { doScroll(); });
+                    setTimeout(doScroll, 100);
+                    setTimeout(doScroll, 350);
+                    setTimeout(doScroll, 800);
+                    setTimeout(doScroll, 1500);
+                    setTimeout(function() {
                         doScroll();
-                        requestAnimationFrame(function() { doScroll(); });
-                        setTimeout(doScroll, 100);
-                        setTimeout(doScroll, 350);
-                        setTimeout(doScroll, 800);
-                        setTimeout(doScroll, 1500);
-                        setTimeout(function() { doScroll(); sessionStorage.removeItem(SCROLL_KEY); }, 2500);
-                    }
+                        var next = readPayload();
+                        delete next.y;
+                        writePayload(next);
+                    }, 2500);
                 }
             } catch (err) {}
         }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', restoreScrollAfterSave);
-        } else {
-            restoreScrollAfterSave();
+        function clearRestoreHash() {
+            if (!location.hash) return;
+            var id = location.hash.replace(/^#/, '');
+            if (!id) return;
+            var el = document.getElementById(id);
+            if (!el || !el.hasAttribute('data-admin-restore-anchor')) return;
+            try {
+                history.replaceState(null, '', location.pathname + location.search);
+            } catch (err) {}
         }
-        window.addEventListener('load', function() {
+        function restoreListReturn() {
+            var justSaved = document.body && document.body.getAttribute('data-admin-just-saved') === '1';
+            var u;
+            try { u = window.location.href ? new URL(window.location.href) : null; } catch (e) { u = null; }
+            var hasSavedParam = u && (u.searchParams.get('saved') || u.searchParams.get('updated') || u.searchParams.get('created'));
+            if (justSaved || hasSavedParam) return;
+            var data = readPayload();
+            var ret = data.return;
+            if (!ret || !ret.path || ret.path !== location.pathname) return;
+            function doRestore() {
+                var el = null;
+                if (ret.rowId) {
+                    var nodes = document.querySelectorAll('#' + cssEscape(ret.rowId) + ', [data-admin-row-id="' + attrEscape(ret.rowId) + '"]');
+                    el = firstVisible(nodes);
+                }
+                if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ block: 'center', inline: 'nearest' });
+                    clearRestoreHash();
+                    return;
+                }
+                var y = parseInt(ret.y, 10);
+                if (!isNaN(y) && y > 0) {
+                    window.scrollTo(0, y);
+                    return;
+                }
+                var anchor = document.querySelector('[data-admin-restore-anchor]');
+                if (anchor && typeof anchor.scrollIntoView === 'function') {
+                    anchor.scrollIntoView({ block: 'start', inline: 'nearest' });
+                }
+            }
+            doRestore();
+            requestAnimationFrame(function() { doRestore(); });
+            setTimeout(doRestore, 100);
+            setTimeout(doRestore, 350);
+            setTimeout(doRestore, 800);
+            setTimeout(function() {
+                doRestore();
+                var next = readPayload();
+                if (next.return && next.return.path === ret.path) {
+                    delete next.return;
+                    writePayload(next);
+                }
+            }, 1500);
+        }
+        function restoreAll() {
             restoreScrollAfterSave();
-        });
+            restoreListReturn();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', restoreAll);
+        } else {
+            restoreAll();
+        }
+        window.addEventListener('load', restoreAll);
     })();
     </script>
 
@@ -1316,7 +1642,36 @@
             root.appendChild(el);
             scheduleDismiss(el);
         };
+        var queuedFlashKey = 'admin-header-flash';
+        window.queueAdminHeaderFlash = function(type, message) {
+            var text = (message || '').toString().trim();
+            if (!text) return;
+            try {
+                sessionStorage.setItem(queuedFlashKey, JSON.stringify({
+                    type: type || 'success',
+                    message: text,
+                    at: Date.now()
+                }));
+            } catch (e) {}
+        };
+        window.consumeQueuedAdminHeaderFlash = function() {
+            var raw = null;
+            try {
+                raw = sessionStorage.getItem(queuedFlashKey);
+                if (raw) sessionStorage.removeItem(queuedFlashKey);
+            } catch (e) {
+                return;
+            }
+            if (!raw) return;
+            try {
+                var data = JSON.parse(raw);
+                if (!data || !data.message) return;
+                if (data.at && (Date.now() - data.at) > 15 * 60 * 1000) return;
+                window.showAdminHeaderFlash(data.type || 'success', data.message);
+            } catch (e) {}
+        };
         function init() {
+            window.consumeQueuedAdminHeaderFlash();
             var alerts = document.querySelectorAll('#content .kt-alert-success, #admin-header-flash .admin-header-toast');
             alerts.forEach(scheduleDismiss);
         }

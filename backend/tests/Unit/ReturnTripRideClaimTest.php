@@ -74,6 +74,8 @@ class ReturnTripRideClaimTest extends TestCase
             $table->timestamps();
         });
 
+        \App\Modules\NexaTaxi\Support\TaxiRideTrackSchema::ensure('module_taxi');
+
         $this->ensureCompany();
         GeneralSetting::set(TaxiDispatchSettingsService::KEY_PAYMENT_DRIVER_ENABLED, '1', 1);
     }

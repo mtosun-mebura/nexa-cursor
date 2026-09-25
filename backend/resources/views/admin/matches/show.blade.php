@@ -156,7 +156,7 @@
                                                 @if($contactUser)
                                                     <img src="{{ $contactUser && $contactUser->photo_blob ? route('secure.photo', ['token' => $contactUser->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
                                                 @else
-                                                    <img src="{{ route('admin.vacancies.contact-photo', $match->vacancy) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                                    <img src="{{ Route::has('admin.skillmatching.vacancies.contact-photo') ? route('admin.skillmatching.vacancies.contact-photo', $match->vacancy) : asset('assets/media/avatars/300-2.png') }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
                                                 @endif
                                             @endif
                                             <div class="flex flex-col gap-1">
@@ -371,38 +371,6 @@
     </div>
 </div>
 @endsection
-
-@push('styles')
-<style>
-    /* Remove all borders between table rows in show forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
-    }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: top;
-    }
-    
-    /* Labels (first column) should align with top of content */
-    .kt-table-border-dashed tbody tr td:first-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    
-    /* Content (second column) should align with top */
-    .kt-table-border-dashed tbody tr td:last-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-</style>
-@endpush
 
 @push('scripts')
 <script>

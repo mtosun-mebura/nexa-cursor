@@ -70,12 +70,16 @@ return new class extends Migration
         if (! Schema::hasTable('default_rates')) {
             Schema::create('default_rates', function (Blueprint $table) {
                 $table->id();
+                $table->unsignedBigInteger('company_id')->nullable()->index();
                 $table->string('person_range', 10)->default('1-4');
                 $table->decimal('base_fare', 10, 2)->nullable();
                 $table->decimal('min_fare', 10, 2)->default(0);
                 $table->decimal('price_per_km', 10, 2)->default(0);
                 $table->decimal('price_per_min', 10, 2)->default(0);
                 $table->decimal('cleaning_costs', 10, 2)->nullable();
+                $table->decimal('evening_night_multiplier', 4, 2)->default(1.20);
+                $table->unsignedTinyInteger('evening_night_from_hour')->default(22);
+                $table->unsignedTinyInteger('evening_night_until_hour')->default(6);
                 $table->timestamps();
             });
 

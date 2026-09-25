@@ -26,6 +26,10 @@ final class AdminReturnUrl
             return true;
         }
 
+        if (str_starts_with($path, '/admin/ai-chat/')) {
+            return true;
+        }
+
         if (str_starts_with($path, '/admin/password/')) {
             return true;
         }

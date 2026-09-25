@@ -38,6 +38,7 @@ class AdminDashboardModuleContextTest extends TestCase
         $resolved = $context->resolve($company->id);
 
         $this->assertFalse($resolved['show_skillmatching']);
+        $this->assertFalse(app(AdminDashboardModuleContext::class)->skillmatchingAvailable($company->id));
     }
 
     #[Test]

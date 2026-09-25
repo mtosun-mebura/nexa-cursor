@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\EmailTemplate;
+use App\Support\EmailCardHtml;
 use App\Support\NexaBranding;
 
 class TenantWelcomeEmailTemplateService
@@ -15,6 +16,32 @@ class TenantWelcomeEmailTemplateService
     public const ADMIN_LOGIN_URL = 'https://nexasuite.nl/admin';
 
     public const HANDLEIDING_URL = 'https://nexasuite.nl/admin/handleiding';
+
+    public const START_VIDEO_URL = 'https://nexasuite.nl/starten';
+
+    public static function resolvedAdminLoginUrl(): string
+    {
+        return self::absoluteFromAppUrl('/admin', self::ADMIN_LOGIN_URL);
+    }
+
+    public static function resolvedHandleidingUrl(): string
+    {
+        return self::absoluteFromAppUrl('/admin/handleiding', self::HANDLEIDING_URL);
+    }
+
+    public static function resolvedStartVideoUrl(): string
+    {
+        return self::absoluteFromAppUrl('/starten', self::START_VIDEO_URL);
+    }
+
+    private static function absoluteFromAppUrl(string $path, string $productionUrl): string
+    {
+        if (app()->environment('production')) {
+            return $productionUrl;
+        }
+
+        return rtrim((string) config('app.url'), '/').$path;
+    }
 
     /**
      * @return array<string, string>
@@ -30,6 +57,7 @@ class TenantWelcomeEmailTemplateService
             'PACKAGE_FEATURES_TEXT' => 'Kenmerken van het pakket (platte tekst)',
             'ADMIN_LOGIN_URL' => 'Link naar de admin (nexasuite.nl/admin)',
             'HANDLEIDING_URL' => 'Link naar de handleiding',
+            'START_VIDEO_URL' => 'Link naar de startvideo',
             'NEXA_LOGO' => 'Nexa-logo (HTML, linksboven)',
             'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
@@ -57,6 +85,7 @@ class TenantWelcomeEmailTemplateService
                 'PACKAGE_FEATURES_TEXT' => self::featuresText($features),
                 'ADMIN_LOGIN_URL' => self::ADMIN_LOGIN_URL,
                 'HANDLEIDING_URL' => self::HANDLEIDING_URL,
+                'START_VIDEO_URL' => self::START_VIDEO_URL,
                 'ACTION_URL' => self::ADMIN_LOGIN_URL,
             ],
             app(CompanyEmailLogoService::class)->templateVariable($company?->id, $companyName),
@@ -161,6 +190,7 @@ class TenantWelcomeEmailTemplateService
                 1
             ) ?? $updated;
         }
+        $updated = EmailCardHtml::stripRedundantBrandKickerHtml($updated);
 
         if (! str_contains($updated, 'Open de admin</span>')) {
             $updated = preg_replace(
@@ -173,6 +203,13 @@ class TenantWelcomeEmailTemplateService
             $updated = preg_replace(
                 '/>(\s*)Open de handleiding(\s*)<\/a>/',
                 '>$1<span style="color: #ffffff;">Open de handleiding</span>$2</a>',
+                $updated
+            ) ?? $updated;
+        }
+        if (! str_contains($updated, 'Bekijk de startvideo</span>')) {
+            $updated = preg_replace(
+                '/>(\s*)Bekijk de startvideo(\s*)<\/a>/',
+                '>$1<span style="color: #ffffff;">Bekijk de startvideo</span>$2</a>',
                 $updated
             ) ?? $updated;
         }
@@ -201,7 +238,11 @@ class TenantWelcomeEmailTemplateService
                 $updatedHtml = $this->roundBorderedTables($html);
                 $updatedHtml = $this->replacePasswordLoginBox($updatedHtml);
                 $updatedHtml = $this->informalizeCopy($this->upgradeFirstStepsHtml($updatedHtml));
+                $updatedHtml = $this->ensureStartVideoButton($updatedHtml);
+                $updatedHtml = $this->restyleStartVideoButton($updatedHtml);
+                $updatedHtml = $this->ensurePoweredByFooter($updatedHtml);
                 $updatedText = $this->informalizeCopy($this->upgradeLoginText($text));
+                $updatedText = $this->ensureStartVideoText($updatedText);
                 $updatedDescription = $description;
                 if (str_contains(mb_strtolower($description), 'tijdelijk wachtwoord')) {
                     $updatedDescription = 'Algemene welkomstmail voor nieuwe company-admins na het afnemen van een abonnement. Bevat inloginstructie via een eenmalige code (geen wachtwoord) en knoppen naar de admin.';
@@ -291,6 +332,77 @@ class TenantWelcomeEmailTemplateService
         $stripped = preg_replace('/<p\b[^>]*>[\s\S]*?(?:TEMP_PASSWORD|Tijdelijk wachtwoord)[\s\S]*?<\/p>/i', '', $html) ?? $html;
 
         return str_replace('{{ TEMP_PASSWORD }}', '', $stripped);
+    }
+
+    private function startVideoButtonHtml(): string
+    {
+        return '<p style="margin: 0 0 18px; text-align: center;">'
+            .'<a href="{{ START_VIDEO_URL }}" style="display: inline-block; background-color: #ea580c; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 6px;">'
+            .'<span style="color: #ffffff;">Bekijk de startvideo</span>'
+            .'</a>'
+            .'</p>'
+            .'<p style="margin: 0 0 18px; text-align: center; font-size: 12px; color: #64748b;">'
+            .'Drie minuten: van de welkomstmail tot handleiding, gebruikers en de apps.'
+            .'</p>';
+    }
+
+    private function ensureStartVideoButton(string $html): string
+    {
+        if (str_contains($html, 'START_VIDEO_URL') || str_contains($html, 'Bekijk de startvideo')) {
+            return $html;
+        }
+
+        $needle = '<h2 style="margin: 0 0 10px; font-size: 16px;">Eerste stappen</h2>';
+        if (str_contains($html, $needle)) {
+            return str_replace($needle, $this->startVideoButtonHtml().$needle, $html);
+        }
+
+        return $html;
+    }
+
+    private function restyleStartVideoButton(string $html): string
+    {
+        return preg_replace(
+            '/(<a href="\{\{\s*START_VIDEO_URL\s*\}\}"[^>]*background-color:\s*)#2563eb/i',
+            '$1#ea580c',
+            $html
+        ) ?? $html;
+    }
+
+    private function ensurePoweredByFooter(string $html): string
+    {
+        if (str_contains($html, 'Powered by NEXA Suite')) {
+            return $html;
+        }
+
+        $powered = '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>';
+        if (preg_match('/Dit bericht is automatisch verstuurd door NEXA Suite\./', $html)) {
+            return preg_replace(
+                '/Dit bericht is automatisch verstuurd door NEXA Suite\./',
+                'Powered by NEXA Suite.',
+                $html,
+                1
+            ) ?? $html;
+        }
+
+        if (str_contains($html, '</body>')) {
+            return str_replace('</body>', $powered.'</body>', $html);
+        }
+
+        return $html.$powered;
+    }
+
+    private function ensureStartVideoText(string $text): string
+    {
+        if ($text === '' || str_contains($text, 'START_VIDEO_URL') || str_contains($text, 'startvideo')) {
+            return $text;
+        }
+
+        return str_replace(
+            'Admin openen: {{ ADMIN_LOGIN_URL }}',
+            "Startvideo: {{ START_VIDEO_URL }}\nAdmin openen: {{ ADMIN_LOGIN_URL }}",
+            $text
+        );
     }
 
     private function upgradeFirstStepsHtml(string $html): string
@@ -398,7 +510,15 @@ class TenantWelcomeEmailTemplateService
                             <!--LOGIN_BOX-->
 
                             <p style="margin: 0 0 18px; text-align: center;">
-                                <a href="{{ ADMIN_LOGIN_URL }}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 6px;">
+                                <a href="{{ START_VIDEO_URL }}" style="display: inline-block; background-color: #ea580c; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 6px;">
+                                    <span style="color: #ffffff;">Bekijk de startvideo</span>
+                                </a>
+                            </p>
+                            <p style="margin: 0 0 18px; text-align: center; font-size: 12px; color: #64748b;">
+                                Drie minuten: van de welkomstmail tot handleiding, gebruikers en de apps.
+                            </p>
+                            <p style="margin: 0 0 18px; text-align: center;">
+                                <a href="{{ ADMIN_LOGIN_URL }}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 6px;">
                                     <span style="color: #ffffff;">Open de admin</span>
                                 </a>
                             </p>
@@ -423,15 +543,11 @@ class TenantWelcomeEmailTemplateService
                                 </a>
                             </p>
 
-                            <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.6;">
+                            <p style="margin: 0; font-size: 13px; color: #6b7280; text-align: center; line-height: 1.6;">
                                 Heb je vragen over je abonnement of inloggen? Neem contact op via
                                 <a href="mailto:info@nexasuite.nl" style="color: #2563eb;">info@nexasuite.nl</a>.
                             </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 32px 24px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-                            Dit bericht is automatisch verstuurd door NEXA Suite.
+                            <p style="margin: 20px 0 0; font-size: 13px; color: #6b7280; text-align: center; line-height: 1.6;">Powered by NEXA Suite.</p>
                         </td>
                     </tr>
                 </table>
@@ -459,6 +575,7 @@ Eerste login: vraag op het inlogscherm een eenmalige code aan.
 
 Je ontvangt de code in een aparte e-mail. Die is 15 minuten geldig. Daarna kies je zelf een wachtwoord. Er gaat geen wachtwoord mee in deze welkomstmail.
 
+Startvideo: {{ START_VIDEO_URL }}
 Admin openen: {{ ADMIN_LOGIN_URL }}
 Handleiding: {{ HANDLEIDING_URL }}
 

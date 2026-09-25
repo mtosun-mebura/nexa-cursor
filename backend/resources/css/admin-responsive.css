@@ -47,7 +47,7 @@ main#content {
 }
 
 main#content {
-    overflow-x: clip;
+    overflow: visible;
     max-width: 100%;
     width: 100%;
 }
@@ -91,48 +91,208 @@ body.dark #header [data-ai-chat-toggle] svg,
 
 /* --- Admin header (mobiel): hamburger links, logo ernaast --- */
 @media (max-width: 1023px) {
+    #header {
+        overflow: visible;
+    }
+
     #header #headerContainer {
         justify-content: space-between !important;
         padding-inline-start: max(0.25rem, env(safe-area-inset-left, 0px)) !important;
+        gap: 0.75rem !important;
+        position: relative;
+    }
+
+    #header #admin-header-flash:not(:has(.admin-header-toast)) {
+        display: none;
+        flex: 0 0 0;
+        width: 0;
+        margin: 0;
+    }
+
+    /* In de topbar past een melding niet; zet hem als volle balk onder de header. */
+    #header #admin-header-flash:has(.admin-header-toast) {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 2;
+        display: flex;
+        flex: none !important;
+        width: 100% !important;
+        max-width: none;
+        margin: 0;
+        padding: 0.5rem 0.75rem 0.75rem;
+        box-sizing: border-box;
+        pointer-events: none;
+        overflow: visible;
+        background: var(--background);
+    }
+
+    #header #admin-header-flash .admin-header-toast {
+        pointer-events: auto;
+        display: flex !important;
+        align-items: flex-start;
+        width: 100% !important;
+        max-width: none !important;
+        flex: 1 1 auto;
+        box-sizing: border-box;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        line-height: 1.35;
     }
 
     #header .admin-mobile-header-start {
-        flex: 0 1 auto;
-        max-width: calc(100% - 8rem);
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: none;
+        margin-inline-end: 0.75rem;
         margin-inline-start: 0;
         padding-inline-start: 0;
+        overflow: hidden;
     }
 
-    #header .admin-mobile-menu-toggle {
-        margin-inline-start: -0.25rem;
-        width: 2.75rem;
-        height: 2.75rem;
-        min-width: 2.75rem;
-        min-height: 2.75rem;
-        padding: 0;
-        border: none;
-        background: transparent;
+    #header .admin-mobile-header-brand {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
     }
 
-    #header .admin-mobile-menu-toggle .ki-filled {
-        font-size: 1.5rem;
-        line-height: 1;
+    #header .admin-header-actions {
+        flex: 0 0 auto;
+        margin-inline-start: 0.25rem;
+    }
+
+    #header .admin-mobile-menu-toggle,
+    #header .admin-mobile-menu-toggle.kt-btn,
+    #header .admin-mobile-menu-toggle.kt-btn-ghost,
+    #header .admin-mobile-menu-toggle.kt-btn-icon {
+        position: relative;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: -0.15rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        padding: 0 !important;
+        border: 0 !important;
+        border-width: 0 !important;
+        border-color: transparent !important;
+        border-radius: 0 !important;
+        outline: none !important;
+        box-shadow: none !important;
+        --tw-shadow: 0 0 #0000;
+        --tw-ring-shadow: 0 0 #0000;
+        --tw-ring-offset-shadow: 0 0 #0000;
+        --tw-inset-shadow: 0 0 #0000;
+        --tw-inset-ring-shadow: 0 0 #0000;
+        background: transparent !important;
+        appearance: none;
+        -webkit-appearance: none;
+        color: var(--foreground);
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #header .admin-mobile-menu-toggle:hover,
+    #header .admin-mobile-menu-toggle:focus,
+    #header .admin-mobile-menu-toggle:focus-visible,
+    #header .admin-mobile-menu-toggle.active {
+        border: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        outline: none !important;
         color: var(--foreground);
     }
 
+    #header .admin-mobile-menu-icon {
+        display: block;
+        width: 1.5rem;
+        height: 1.5rem;
+        color: inherit;
+        pointer-events: none;
+    }
+
+    #header .admin-mobile-menu-toggle .ki-filled,
+    #header .admin-mobile-menu-toggle .ki-menu {
+        font-size: 1.5rem !important;
+        line-height: 1 !important;
+        color: var(--foreground);
+        pointer-events: none;
+    }
+
+    #header .admin-mobile-header-lockup,
+    #header .admin-mobile-header-mark {
+        display: block;
+        height: 1.5rem;
+        width: auto;
+        max-width: 100%;
+        max-height: 1.5rem;
+        object-fit: contain;
+        object-position: left center;
+    }
+
+    html.dark #header .admin-mobile-menu-toggle,
+    body.dark #header .admin-mobile-menu-toggle,
+    .dark #header .admin-mobile-menu-toggle,
     html.dark #header .admin-mobile-menu-toggle .ki-filled,
     body.dark #header .admin-mobile-menu-toggle .ki-filled,
     .dark #header .admin-mobile-menu-toggle .ki-filled {
         color: #fff;
     }
 
-    /* Drawer boven vaste header; logo-rij verborgen (staat al in topbar), tenant-switcher blijft zichtbaar */
+    /* Drawer boven vaste header. Logo staat in de topbar (NEXA Suite-woordmerk).
+       Alleen de OPEN drawer mag boven de header (z-index 9999) liggen — een
+       gesloten drawer met z-index 10050 vangt anders hamburger/content-clicks.
+       Gesloten: altijd off-canvas. KT Drawer zet kt-drawer-start pas ná JS;
+       zonder translate blijft `fixed` + `flex` de kolom over de pagina tekenen. */
     .kt-drawer-backdrop {
         z-index: 10040 !important;
     }
 
-    #sidebar#sidebar {
+    #sidebar#sidebar:not(.open) {
+        pointer-events: none !important;
+        z-index: 20 !important;
+        transform: translate3d(-100%, 0, 0) !important;
+        translate: -100% 0 !important;
+    }
+
+    #sidebar#sidebar.open {
+        pointer-events: auto !important;
         z-index: 10050 !important;
+        transform: none !important;
+        translate: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        overscroll-behavior: contain;
+    }
+
+    /* Achtergebleven drawer-backdrop vangt anders alle clicks.
+       Alleen pointer-events uitzetten — display niet forceren, anders
+       opent Metronic de sluier niet meer als de sidebar wél open is. */
+    body:not(:has(#sidebar.open)) .kt-drawer-backdrop {
+        pointer-events: none !important;
+    }
+
+    /* Menu moet op touch kunnen scrollen. KT Scrollable + shrink-0 maakt de
+       kolom even hoog als de inhoud, waardoor overflow verdwijnt. */
+    #sidebar.open #sidebar_content,
+    #sidebar.open #sidebar_scrollable {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        height: auto !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
     }
 
     #sidebar .kt-sidebar-header {
@@ -239,6 +399,10 @@ body.dark #header [data-ai-chat-toggle] svg,
         height: 26px;
         margin-inline: auto;
     }
+    .demo1.kt-sidebar-collapse #sidebar:not(:hover) .kt-sidebar-header .logo-light.default-logo,
+    .demo1.kt-sidebar-collapse #sidebar:not(:hover) .kt-sidebar-header .logo-dark.default-logo {
+        display: none !important;
+    }
 
     /* De knop krijgt via Metronic's ".active"-status normaal een geaccentueerde
        achtergrond (bedoeld als "ingedrukt"-stijl voor knoppen). Voor de in-/uitklap-
@@ -267,9 +431,24 @@ body.dark #header [data-ai-chat-toggle] svg,
 }
 
 /* Footer blijft altijd zichtbaar onderin het scherm (scrollt niet mee), net als de
-   fixed header. Extra padding zodat de onderste kaarten niet tegen de footer plakken. */
+   fixed header. Compacte balk: ongeveer de helft van de oude py-5-hoogte. */
+.kt-footer {
+    min-height: 0;
+}
+
+.kt-footer > .kt-container-fixed > .flex {
+    min-height: 0;
+    padding-block: 0.5rem !important;
+    gap: 0.5rem !important;
+}
+
+.kt-footer .text-sm {
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
 #content {
-    padding-bottom: 6.5rem;
+    padding-bottom: 3.25rem;
 }
 
 @media (min-width: 1024px) {
@@ -313,6 +492,154 @@ body.dark #header [data-ai-chat-toggle] svg,
     max-width: 100%;
 }
 
+/* Theme heeft alleen horizontale header-padding */
+#content .kt-card-header {
+    padding-block: 1.25rem;
+}
+
+/* Chauffeurplanning: plus blijft rechtsboven, ook in smalle weekkolommen */
+#content #driver-schedule-week-grid .kt-card-header {
+    flex-wrap: nowrap;
+    padding-inline: 0.75rem;
+    padding-block: 0.75rem;
+}
+#content #driver-schedule-week-grid .kt-card-header .kt-card-title {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+#content #driver-schedule-week-grid .kt-card-header .kt-btn {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+}
+
+/* Agenda + chauffeurplanning: filters onder de actierij, inhoudsbreedte, rechts */
+#content .admin-calendar-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding-block: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+}
+html.dark #content .admin-calendar-toolbar,
+.dark #content .admin-calendar-toolbar {
+    border-bottom-color: #4b5563;
+}
+#content .agenda-header.admin-calendar-toolbar {
+    margin-bottom: 0;
+}
+#content .admin-calendar-toolbar__top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+#content .admin-calendar-toolbar__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--foreground, #111827);
+}
+html.dark #content .admin-calendar-toolbar__title,
+.dark #content .admin-calendar-toolbar__title {
+    font-weight: 700;
+}
+#content .admin-calendar-toolbar__subtitle {
+    margin: 0;
+    padding-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+}
+#content .admin-calendar-toolbar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+#content .admin-calendar-toolbar__filters {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+#content .admin-calendar-toolbar__filters .kt-select,
+#content .admin-calendar-toolbar__filters select {
+    width: auto;
+    max-width: 100%;
+    flex: 0 0 auto;
+    height: 38px;
+    min-height: 38px;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    field-sizing: content;
+}
+#content .admin-calendar-toolbar__filters .kt-input,
+#content .admin-calendar-toolbar__filters .admin-calendar-toolbar__date {
+    width: auto;
+    min-width: 9.75rem;
+    max-width: 100%;
+    flex: 0 0 auto;
+}
+@media (max-width: 1023px) {
+    #content .admin-calendar-toolbar {
+        gap: 0.5rem;
+        padding-block: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    #content .admin-calendar-toolbar__top {
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    #content .admin-calendar-toolbar__title {
+        font-size: 1.25rem;
+    }
+    #content .admin-calendar-toolbar__actions {
+        width: 100%;
+        gap: 0.375rem;
+    }
+    #content .admin-calendar-toolbar__actions .kt-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-height: 2rem;
+        height: 2rem;
+        padding-inline: 0.5rem;
+        font-size: 0.75rem;
+    }
+    #content .admin-calendar-toolbar__filters {
+        justify-content: stretch;
+        gap: 0.375rem;
+    }
+    #content .admin-calendar-toolbar__filters .kt-select-wrapper,
+    #content .admin-calendar-toolbar__filters .kt-select,
+    #content .admin-calendar-toolbar__filters select {
+        flex: 1 1 calc(50% - 0.375rem);
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100%;
+        height: 2rem !important;
+        min-height: 2rem !important;
+        padding: 0.2rem 1.5rem 0.2rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        line-height: 1.2 !important;
+    }
+    #content .admin-calendar-toolbar__filters .kt-select-display,
+    #content .admin-calendar-toolbar__filters [data-kt-select-display],
+    #content .admin-calendar-toolbar__filters .kt-select-wrapper button {
+        height: 2rem !important;
+        min-height: 2rem !important;
+        font-size: 0.75rem !important;
+        padding: 0.2rem 1.5rem 0.2rem 0.5rem !important;
+        line-height: 1.2 !important;
+    }
+}
+
 #content .kt-card.min-w-full,
 #content .kt-card-grid.min-w-full {
     min-width: 0 !important;
@@ -346,12 +673,18 @@ body.dark #header [data-ai-chat-toggle] svg,
 
 #content [data-admin-datatable="true"] table.admin-datatable-cols-locked {
     table-layout: fixed;
-    width: 100% !important;
     min-width: 100%;
 }
 
 #content [data-admin-datatable="true"] table.admin-datatable-cols-locked td {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+}
+
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked td:has(.kt-badge),
+#content [data-admin-datatable="true"] table.admin-datatable-cols-locked .notifications-status-col {
+    overflow-wrap: normal;
+    word-break: normal;
+    white-space: nowrap;
 }
 
 #content [data-admin-datatable="true"] table.admin-datatable-cols-locked td:last-child {
@@ -779,23 +1112,77 @@ body.dark #header [data-ai-chat-toggle] svg,
 
 /* --- Pagina-header & container --- */
 @media (max-width: 1023px) {
-    /* Kaarten: minder horizontale padding dan theme-default */
-    #content .kt-card-header,
-    #content .kt-card-content:not(.p-0),
-    #content .kt-card-footer {
-        padding-inline: 0.75rem;
+    #content > .kt-container-fixed,
+    .kt-footer > .kt-container-fixed {
+        padding-inline: max(0.75rem, env(safe-area-inset-left, 0px))
+            max(0.75rem, env(safe-area-inset-right, 0px)) !important;
     }
 
-    #content .kt-card-content.p-0 > div[class*="px-3"] {
-        padding-inline: 0.5rem !important;
+    /* Kaarten: kleine inset, tekst raakt de rand niet */
+    #content .kt-card-header,
+    #content .kt-card-content:not(.p-0),
+    #content .kt-card-footer,
+    #content .settings-collapsible-header,
+    #content .settings-collapsible-body {
+        padding-inline: 0.75rem !important;
+    }
+
+    #content .kt-card > .kt-card-table,
+    #content .kt-card > .kt-card-content.p-0 > .kt-card-table,
+    #content .kt-card-grid > .kt-card-table {
+        padding-inline: 0.75rem;
+        box-sizing: border-box;
+    }
+
+    #content .kt-card-content.p-0 > :is(p, ul, ol, h3, h4, .text-center, .text-sm, .text-muted-foreground):not([class*="px-"]) {
+        padding-inline: 0.75rem;
+        box-sizing: border-box;
+    }
+
+    /* Titel naast icoon: wrapt in een eigen kolom, niet onder het icoon */
+    #content .settings-collapsible-toggle {
+        align-items: flex-start;
+    }
+
+    #content .settings-collapsible-toggle .kt-card-title {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+        column-gap: 0.5rem;
+        line-height: 1.35;
+        white-space: normal;
+    }
+
+    #content .settings-collapsible-toggle .kt-card-title > i {
+        grid-column: 1;
+        margin-inline-end: 0;
+        margin-top: 0.15em;
+    }
+
+    #content .kt-card-content.p-0 > div[class*="px-3"],
+    #content .kt-card-content.p-0 > div[class*="px-5"] {
+        padding-inline: 0.75rem;
+        box-sizing: border-box;
+    }
+
+    #content .settings-collapsible-body > [class*="px-3"],
+    #content .settings-collapsible-body > [class*="px-5"],
+    #content .settings-collapsible-body > .kt-card-table {
+        padding-inline: 0;
+        box-sizing: border-box;
+    }
+
+    #content .settings-collapsible-body [class*="mx-5"],
+    #content .whatsapp-template-sections {
+        margin-inline: 0 !important;
     }
 
     #content .kt-card-table :is(th, td):first-child {
-        padding-inline-start: 0.75rem;
+        padding-inline-start: 0.5rem;
     }
 
     #content .kt-card-table :is(th, td):last-child {
-        padding-inline-end: 0.75rem;
+        padding-inline-end: 0.5rem;
     }
 
     #content > .kt-container-fixed > .flex.flex-wrap.items-center,
@@ -844,6 +1231,17 @@ body.dark #header [data-ai-chat-toggle] svg,
     #content .admin-page-actions .kt-btn {
         flex: 1 1 100%;
         width: 100%;
+    }
+
+    #content .admin-page-actions .kt-menu,
+    #content .admin-page-actions .kt-menu-item {
+        width: 100%;
+        display: flex;
+    }
+
+    #content .admin-page-actions .kt-menu .kt-btn {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -921,6 +1319,10 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         justify-content: center;
         align-items: center;
         gap: 0.5rem;
+        position: relative;
+        z-index: 2;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .admin-filter-toggle__badge {
@@ -949,19 +1351,29 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         display: flex;
     }
 
-    .admin-filter-panel .flex.w-full.sm\:w-auto,
+    .admin-filter-panel > .flex,
     .admin-filter-panel form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
         width: 100% !important;
-        max-width: 100%;
+        max-width: 100% !important;
+        min-width: 0 !important;
     }
 
     .admin-filter-panel .kt-input,
     .admin-filter-panel .kt-select,
+    .admin-filter-panel .kt-select-wrapper,
+    .admin-filter-panel [data-kt-select-wrapper],
     .admin-filter-panel select,
     .admin-filter-panel input[type="text"],
     .admin-filter-panel input[type="search"] {
         width: 100% !important;
-        max-width: 100%;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 0 0 auto !important;
+        box-sizing: border-box;
     }
 
     .admin-filter-panel .kt-btn {
@@ -969,41 +1381,13 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         justify-content: center;
     }
 
-    #content .kt-card-header:has(.admin-filter-panel) .kt-select-dropdown,
-    #content .kt-card-header:has(.admin-filter-panel) .kt-select-options,
-    #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-dropdown],
-    #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-options],
-    #content .kt-card-header:has(.admin-filter-panel) .kt-menu-dropdown {
-        position: fixed !important;
-        z-index: 10050 !important;
-        background-color: var(--popover, #ffffff) !important;
-        color: var(--popover-foreground, var(--foreground)) !important;
-        border: 1px solid var(--border) !important;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
-        -webkit-backdrop-filter: none !important;
-        backdrop-filter: none !important;
-    }
-
-    html.dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-dropdown,
-    html.dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-options,
-    html.dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-dropdown],
-    html.dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-options],
-    .dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-dropdown,
-    .dark #content .kt-card-header:has(.admin-filter-panel) .kt-select-options,
-    .dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-dropdown],
-    .dark #content .kt-card-header:has(.admin-filter-panel) [data-kt-select-options] {
-        background-color: #111827 !important;
-        color: #f3f4f6 !important;
-    }
-
-    #content .kt-card-header:has(.admin-filter-panel) .kt-select-wrapper,
-    #content .kt-card-header:has(.admin-filter-panel) .kt-menu {
-        position: relative;
-        z-index: 31 !important;
-    }
-
     #content .kt-card:has(.admin-filter-panel) > .kt-card-header {
         position: relative !important;
+        z-index: 1 !important;
+        overflow: visible !important;
+    }
+
+    #content .kt-card:has(.kt-select-dropdown.open) > .kt-card-header {
         z-index: 30 !important;
     }
 
@@ -1019,6 +1403,26 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
+        justify-content: flex-end !important;
+    }
+
+    /* Filterrij altijd rechts, ook als die onder de titel wrapped */
+    #content .kt-card-header > .admin-filter-panel,
+    #content .kt-card-header > .flex.flex-col.sm\:flex-row,
+    #content .kt-card-header > form.admin-filter-panel {
+        margin-inline-start: auto;
+        flex: 1 1 auto;
+        width: auto;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    #content .kt-card-header .admin-filter-panel > .flex,
+    #content .kt-card-header > .flex.flex-col.sm\:flex-row > .flex,
+    #content .kt-card-header .admin-filter-panel form {
+        justify-content: flex-end !important;
+        width: auto;
+        max-width: 100%;
     }
 }
 
@@ -1045,11 +1449,276 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     box-sizing: border-box;
 }
 
+/*
+ * kt-select menu's: altijd direct onder de gekozen select, boven volgende velden.
+ * Popper zet anders transform/overflow zodat opties achter latere selects of
+ * onderaan het formulier belanden. !important wint van Popper-inline styles.
+ */
+#content .kt-card:has(.kt-select-wrapper),
+#content .kt-card-header,
+#content .kt-card-header:has(.kt-select-wrapper),
+#content .admin-filter-panel,
+#content form:has(.kt-select-wrapper),
+#content .admin-calendar-toolbar__filters,
+#content .flex:has(> .kt-select-wrapper),
+#content .flex:has(> form .kt-select-wrapper) {
+    overflow: visible !important;
+}
+
+#content .kt-select-wrapper,
+#content [data-kt-select-wrapper] {
+    position: relative !important;
+    z-index: 1;
+    max-width: 100%;
+    min-width: 0;
+}
+
+#content .kt-select-wrapper:has(.kt-select-dropdown.open),
+#content .kt-select-wrapper:has([data-kt-select-dropdown].open),
+#content .kt-select-wrapper.is-dropdown-open,
+#content [data-kt-select-wrapper].is-dropdown-open {
+    z-index: 80 !important;
+}
+
+#content .kt-select-dropdown,
+#content .kt-select-dropdown[data-kt-select-dropdown],
+#content [data-kt-select-dropdown] {
+    z-index: 81 !important;
+}
+
+#content .kt-select-dropdown.hidden,
+#content [data-kt-select-dropdown].hidden,
+#content .kt-select-dropdown:not(.open):not(.show),
+#content [data-kt-select-dropdown]:not(.open):not(.show) {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* Open select-dropdown: minstens triggerbreedte, groeit mee met langere opties (geen wrap). */
+#content .kt-select-wrapper .kt-select-dropdown.open,
+#content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+#content .kt-select-wrapper:has(.kt-select-dropdown.open) .kt-select-dropdown.open,
+#content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open,
+#content .kt-select-wrapper [data-kt-select-dropdown].open {
+    position: absolute !important;
+    top: calc(100% + 4px) !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    max-width: min(36rem, calc(100vw - 2rem)) !important;
+    transform: none !important;
+    margin: 0 !important;
+    z-index: 90 !important;
+    max-height: min(280px, 50vh) !important;
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+    pointer-events: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af transparent;
+}
+
+#content .kt-select-dropdown.open .kt-select-options,
+#content .kt-select-dropdown.open [data-kt-select-options],
+#content [data-kt-select-dropdown].open .kt-select-options,
+#content [data-kt-select-dropdown].open [data-kt-select-options] {
+    width: max-content !important;
+    min-width: 100% !important;
+    max-width: none !important;
+}
+
+#content .kt-select-dropdown.open .kt-select-option,
+#content .kt-select-dropdown.open [data-kt-select-option],
+#content .kt-select-dropdown.open .kt-select-option-text,
+#content [data-kt-select-dropdown].open .kt-select-option,
+#content [data-kt-select-dropdown].open [data-kt-select-option],
+#content [data-kt-select-dropdown].open .kt-select-option-text {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: none !important;
+    min-width: max-content !important;
+    width: auto !important;
+}
+
+html.dark #content .kt-select-wrapper .kt-select-dropdown.open,
+html.dark #content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+html.dark #content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open,
+.dark #content .kt-select-wrapper .kt-select-dropdown.open,
+.dark #content .kt-select-wrapper.is-dropdown-open .kt-select-dropdown.open,
+.dark #content [data-kt-select-wrapper].is-dropdown-open [data-kt-select-dropdown].open {
+    scrollbar-color: #94a3b8 transparent;
+}
+
+#content .kt-select-dropdown::-webkit-scrollbar,
+#content [data-kt-select-dropdown]::-webkit-scrollbar,
+#content .kt-select-options::-webkit-scrollbar,
+#content [data-kt-select-options]::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#content .kt-select-dropdown::-webkit-scrollbar-track,
+#content .kt-select-dropdown::-webkit-scrollbar-track-piece,
+#content .kt-select-dropdown::-webkit-scrollbar-corner,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-track,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-track-piece,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-corner,
+#content .kt-select-options::-webkit-scrollbar-track,
+#content .kt-select-options::-webkit-scrollbar-track-piece,
+#content .kt-select-options::-webkit-scrollbar-corner,
+#content [data-kt-select-options]::-webkit-scrollbar-track,
+#content [data-kt-select-options]::-webkit-scrollbar-track-piece,
+#content [data-kt-select-options]::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+#content .kt-select-dropdown::-webkit-scrollbar-thumb,
+#content [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+#content .kt-select-options::-webkit-scrollbar-thumb,
+#content [data-kt-select-options]::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+html.dark #content .kt-select-dropdown::-webkit-scrollbar-thumb,
+html.dark #content [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+html.dark #content .kt-select-options::-webkit-scrollbar-thumb,
+html.dark #content [data-kt-select-options]::-webkit-scrollbar-thumb,
+.dark #content .kt-select-dropdown::-webkit-scrollbar-thumb,
+.dark #content [data-kt-select-dropdown]::-webkit-scrollbar-thumb,
+.dark #content .kt-select-options::-webkit-scrollbar-thumb,
+.dark #content [data-kt-select-options]::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+#content [data-kt-select-display],
+#content .kt-select-display,
+#content .kt-select-wrapper .kt-select-toggle,
+#content .kt-select-wrapper button {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#content .kt-input,
+#content input.kt-input,
+#content .kt-input > input {
+    min-width: 0;
+    max-width: 100%;
+}
+
+html.admin-kt-select-open main#content,
+html.admin-kt-select-open #content .kt-card,
+html.admin-kt-select-open #content .kt-card-header,
+html.admin-kt-select-open #content .kt-card-content,
+html.admin-kt-select-open #content .admin-filter-panel {
+    overflow: visible !important;
+}
+
+@media (max-width: 1023px) {
+    #content .kt-select,
+    #content .kt-select-wrapper,
+    #content .kt-input,
+    #content input,
+    #content select,
+    #content textarea {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
+
+    #content form.flex > *,
+    #content .kt-card form > [class*="min-w-"] {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    #content form :is(.kt-input, input, select, textarea, .kt-select, .kt-select-wrapper):not(.admin-field-fit):not(.admin-time-picker) {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    #content .kt-input,
+    #content input.kt-input,
+    #content select.kt-input,
+    #content textarea.kt-input,
+    #content .kt-input > input,
+    #content input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+    #content select,
+    #content textarea,
+    #content .kt-select,
+    #content .kt-select-display,
+    #content .kt-select-wrapper .kt-select-toggle,
+    #content .kt-select-wrapper button,
+    #content [data-kt-select-display],
+    #content [data-kt-select] > button {
+        font-size: 0.75rem !important;
+        line-height: 1.35 !important;
+    }
+
+    #content .kt-form-label {
+        font-size: 0.75rem;
+        line-height: 1.35;
+    }
+
+    #content .kt-btn {
+        max-width: 100%;
+        white-space: normal;
+    }
+}
+
+/* Statistiekbalken: op smalle schermen 3 kolommen als dat past, compactere typografie */
+@media (max-width: 1023px) {
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: center;
+        column-gap: 0.35rem;
+        row-gap: 0.45rem;
+        padding-block: 0.15rem !important;
+        padding-inline: 0 !important;
+        flex-wrap: nowrap;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) > span {
+        display: none !important;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) > .grid {
+        min-width: 0 !important;
+        gap: 0.1rem !important;
+        padding-inline: 0.15rem;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) .text-2xl,
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) .text-xl {
+        font-size: 1.125rem !important;
+        line-height: 1.1 !important;
+    }
+
+    #content .kt-card-content > .flex:has(> .grid.place-content-center) .text-sm {
+        font-size: 0.6875rem !important;
+        line-height: 1.2 !important;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+    }
+}
+
 /* --- Lijst: tabel vs. kaarten --- */
 .admin-mobile-list {
     display: none;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1.25rem;
     padding: 0.75rem 1rem 1rem;
 }
 
@@ -1061,6 +1730,48 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     background: var(--card, var(--background));
     overflow: hidden;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-list-card__avatar {
+    position: relative;
+    width: 5rem;
+    height: 5rem;
+    margin: 0 auto 0.75rem;
+    flex-shrink: 0;
+}
+
+.admin-list-card__avatar img,
+.admin-list-card__avatar-fallback {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 9999px;
+    object-fit: cover;
+}
+
+.admin-list-card__avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--secondary-foreground);
+    background: color-mix(in oklab, var(--accent, var(--muted)) 60%, transparent);
+    border: 1px solid var(--border);
+}
+
+.admin-list-card__status-dot {
+    position: absolute;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 9999px;
+    background: #22c55e;
+    box-shadow: 0 0 0 2px var(--card, var(--background));
+    right: 0.125rem;
+    bottom: 0.35rem;
+}
+
+.admin-list-card__status-dot--off {
+    background: #ef4444;
 }
 
 #content table col.admin-table__actions-col {
@@ -1130,33 +1841,101 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 }
 
 .admin-list-card__body {
-    padding: 1rem 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem 1rem 1.25rem;
     flex: 1;
     min-width: 0;
 }
 
 .admin-list-card__title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.375rem;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--foreground);
-    line-height: 1.35;
-    margin-bottom: 0.75rem;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
     word-break: break-word;
+}
+
+.admin-list-card__title a,
+.admin-list-card__name {
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+}
+
+.admin-list-card__title a:hover,
+.admin-list-card__name:hover {
+    color: var(--primary);
+}
+
+.admin-list-card__subtitle {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+.admin-list-card__subtitle .flex {
+    justify-content: center;
+}
+
+.admin-list-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    max-width: 100%;
+}
+
+.admin-list-card__meta-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+}
+
+.admin-list-card__meta-item .kt-badge {
+    font-size: 0.6875rem;
+}
+
+.admin-list-card__meta-item .flex.flex-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
 }
 
 .admin-list-card__fields {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.375rem;
     margin: 0;
 }
 
 .admin-list-card__field {
     display: grid;
-    grid-template-columns: minmax(5.5rem, 38%) 1fr;
-    gap: 0.5rem 0.75rem;
-    align-items: start;
-    font-size: 0.875rem;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    gap: 0.25rem 0.625rem;
+    align-items: center;
+    font-size: 0.8125rem;
+}
+
+.admin-list-card__field--value-only {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .admin-list-card__field dt {
@@ -1164,6 +1943,7 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     font-weight: 500;
     color: var(--muted-foreground);
     word-break: break-word;
+    line-height: 1.3;
 }
 
 .admin-list-card__field dd {
@@ -1171,40 +1951,134 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     color: var(--foreground);
     min-width: 0;
     word-break: break-word;
+    line-height: 1.3;
 }
 
 .admin-list-card__actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem 1rem;
     border-top: 1px solid var(--border);
-    background: color-mix(in oklab, var(--muted) 35%, transparent);
+    background: transparent;
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
 }
 
 .admin-list-card__action-buttons {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    justify-items: stretch;
+    gap: 0.75rem 0.5rem;
     width: 100%;
 }
 
-.admin-list-card__action-buttons .kt-btn,
-.admin-list-card__action-buttons .admin-card-action-form--labeled .kt-btn {
+.admin-list-card__action-buttons > .admin-list-card__action,
+.admin-list-card__action-buttons .admin-card-action-form {
+    min-width: 0;
+    max-width: none;
     width: 100%;
+}
+
+.admin-list-card__action-buttons .admin-card-action-form form {
+    display: flex;
+    width: 100%;
+    margin: 0;
+}
+
+.admin-list-card__action-buttons .kt-btn.admin-list-card__action {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    padding: 0.125rem 0.15rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--muted-foreground);
+}
+
+.admin-list-card__action-buttons .kt-btn.admin-list-card__action:hover,
+.admin-list-card__action-buttons .kt-btn.admin-list-card__action:focus {
+    background: transparent;
+    box-shadow: none;
+}
+
+.admin-list-card__action-icon {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    min-height: 2.5rem;
-    white-space: normal;
+    width: 2.25rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--foreground);
+}
+
+.admin-list-card__action-buttons .kt-btn.admin-list-card__action:hover .admin-list-card__action-icon,
+.admin-list-card__action-buttons .kt-btn.admin-list-card__action:focus-visible .admin-list-card__action-icon {
+    background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.admin-list-card__action-icon svg,
+.admin-list-card__action-svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    display: block;
+}
+
+.admin-list-card__action-caption {
+    display: block;
+    overflow: visible;
+    width: 100%;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+    color: var(--muted-foreground);
     text-align: center;
-    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.admin-list-card__action--danger .admin-list-card__action-icon,
+.admin-card-action-form--danger .admin-list-card__action-icon {
+    color: var(--destructive, #dc2626);
+    border-color: color-mix(in srgb, var(--destructive, #dc2626) 45%, transparent);
+    background-color: color-mix(in srgb, var(--destructive, #dc2626) 8%, transparent);
+}
+
+.admin-list-card__action--danger:hover .admin-list-card__action-icon,
+.admin-card-action-form--danger .admin-list-card__action:hover .admin-list-card__action-icon {
+    background-color: color-mix(in srgb, var(--destructive, #dc2626) 14%, transparent);
+}
+
+.admin-list-card__action--danger .admin-list-card__action-caption,
+.admin-card-action-form--danger .admin-list-card__action-caption {
+    color: color-mix(in srgb, var(--destructive, #dc2626) 70%, var(--muted-foreground));
+}
+
+.admin-list-card__action-buttons i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .admin-list-card__action-label {
-    font-size: 0.8125rem;
-    font-weight: 500;
+    display: none;
 }
 
 /* Verouderd: alleen icoon — niet meer gebruikt op mobiel */
@@ -1264,8 +2138,8 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     }
 
     .admin-list-card__body {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 
     .kt-card-grid .kt-card-header .kt-card-title {
@@ -1283,18 +2157,6 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 @media (max-width: 1023px) {
     #content .kt-card .flex.flex-col.sm\:flex-row.lg\:px-10 {
         padding-inline: 0.75rem;
-    }
-}
-
-@media (max-width: 639px) {
-    #content .kt-card .flex.flex-col.sm\:flex-row.lg\:px-10 {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
-    }
-
-    #content .kt-card .flex.flex-col.sm\:flex-row.lg\:px-10 > span.hidden.sm\:block {
-        display: none !important;
     }
 }
 
@@ -1325,6 +2187,16 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     max-width: 100%;
 }
 
+#content .settings-collapsible-header {
+    padding-inline: 1.25rem;
+}
+
+#content .settings-collapsible-body {
+    padding-inline: 1.25rem;
+    padding-bottom: 1.25rem;
+    box-sizing: border-box;
+}
+
 #content .settings-collapsible-card.min-w-full {
     min-width: 0 !important;
     width: 100%;
@@ -1346,7 +2218,8 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     table-layout: fixed;
 }
 
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
     min-width: 0 !important;
     max-width: 100%;
     overflow-wrap: anywhere;
@@ -1355,12 +2228,33 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 }
 
 #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-56,
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48 {
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-56,
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48 {
     min-width: 0 !important;
 }
 
-#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child {
+/*
+ * table-layout:fixed + w-full op de waarde-kolom zet de labelkolom op 0px.
+ * Houd het label vast en laat de tweede kolom de rest van de kaart vullen.
+ */
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child:not([colspan]),
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child:not([colspan]) {
     width: 14rem;
+    max-width: 14rem;
+}
+
+#content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2),
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2) {
+    width: auto;
+}
+
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) tr {
+    border-bottom: none;
+}
+
+#content .kt-card-table .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td {
+    vertical-align: top;
 }
 
 #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2) :is(.relative, .flex, p, span, .text-xs) {
@@ -1450,15 +2344,32 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     max-width: 28rem;
 }
 #admin-user-form #user-create-password-row .user-create-password-fields,
-#admin-user-form #user-create-password-row .flex.items-center {
+#admin-user-form #user-create-password-row .user-create-password-actions {
     width: 100%;
-    max-width: 28rem;
+    max-width: 36rem;
+}
+#admin-user-form #user-create-password-row .user-create-password-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+#admin-user-form #user-create-password-row .user-create-password-actions .kt-input {
+    flex: 1 1 12rem;
+    min-width: 0;
+    max-width: none;
+    width: auto;
 }
 #admin-user-form #user-create-password {
-    width: auto;
+    width: 100%;
     max-width: none;
-    flex: 1 1 0%;
     min-width: 0;
+}
+#admin-user-form .user-create-password-generate {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
 }
 #admin-user-form [data-required-checkbox-group="roles"] {
     max-width: 36rem;
@@ -1543,6 +2454,69 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
         padding-bottom: 0.35rem !important;
     }
 
+    #content .kt-scrollable-x-auto .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout),
+    #content .admin-table-scroll-wrap .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100%;
+    }
+
+    #content .admin-kv-table-wrap,
+    #content .admin-kv-table-wrap.kt-scrollable-x-auto {
+        overflow: visible !important;
+        overflow-x: visible !important;
+        padding: 0.15rem 0.75rem 0.75rem;
+        box-sizing: border-box;
+    }
+
+    #content .settings-collapsible-body .admin-kv-table-wrap,
+    #content .kt-card-content.p-0 > [class*="px-"] .admin-kv-table-wrap,
+    #content .kt-card-content.p-0 > [class*="px-"].admin-kv-table-wrap {
+        padding-inline: 0;
+    }
+
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) tr {
+        margin: 0;
+        padding: 0.7rem 0;
+        border-bottom: 1px solid var(--border);
+        background: transparent;
+    }
+
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) tr:first-child {
+        padding-top: 0.15rem;
+    }
+
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) tr:last-child {
+        margin: 0;
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td,
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-56,
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td.min-w-48 {
+        padding: 0 !important;
+        height: auto !important;
+    }
+
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:first-child {
+        font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1.3;
+        color: var(--muted-foreground);
+        padding: 0 0 0.15rem !important;
+    }
+
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:nth-child(2),
+    #content .kt-table.admin-kv-table.kt-table-border-dashed:not(.admin-keep-table-layout) td:last-child {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        line-height: 1.4;
+        color: var(--foreground);
+        overflow-wrap: anywhere;
+        padding: 0 !important;
+    }
+
     /* Bewerk/aanmaak-formulieren: minder ruimte tussen gestapelde velden op mobiel */
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) tr {
         margin-bottom: 0.25rem;
@@ -1570,29 +2544,32 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     }
 
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) [data-kt-select-display],
-    #content form .kt-card-table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
-    #content form .kt-card-table textarea,
-    #content form .kt-card-table select {
+    #content form .kt-card-table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([data-kt-date-picker]):not([data-admin-time-picker-input]),
+    #content form .kt-card-table textarea {
         width: 100% !important;
         max-width: 100%;
         min-width: 0 !important;
-        font-size: 0.8125rem !important;
+        font-size: 0.75rem !important;
         line-height: 1.35 !important;
     }
 
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input,
+    /* Template-naam + taalcode: flex-1 in een kolom mag de hoogte niet inkrimpen */
+    #content form .kt-card-table input.kt-input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) input.kt-input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+        flex: 0 0 auto;
+        height: calc(var(--spacing) * 8.5) !important;
+        min-height: calc(var(--spacing) * 8.5) !important;
+        box-sizing: border-box;
+    }
+
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input:not(.admin-field-fit),
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-input.w-64,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-input,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .relative,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) select.kt-select,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input,
-    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) [data-kt-select-display] {
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .relative:not(.admin-field-fit):not(.admin-time-picker),
+    #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) textarea.kt-input {
         width: 100% !important;
         max-width: 100%;
         min-width: 0 !important;
-        font-size: 0.8125rem !important;
+        font-size: 0.75rem !important;
         line-height: 1.35 !important;
     }
 
@@ -1600,8 +2577,10 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select [data-kt-select-display],
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .kt-select-display,
     #content form .kt-card-table .kt-select-wrapper .kt-select-display {
-        font-size: 0.8125rem !important;
+        font-size: 0.75rem !important;
         line-height: 1.35 !important;
+        width: max-content !important;
+        max-width: 100% !important;
     }
 
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .flex.items-center.gap-2,
@@ -1613,6 +2592,32 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .flex.items-center.gap-2 > .kt-input:not(.grow),
     #content form .kt-table.kt-table-border-dashed:not(.admin-keep-table-layout) .flex.items-start.gap-2 > textarea.kt-input {
         flex: 1 1 auto;
+    }
+
+    /* Datum/tijd: inhoudsbreedte, niet over de volle kaart */
+    #content form .kt-table.kt-table-border-dashed .admin-field-fit,
+    #content form .kt-table.kt-table-border-dashed .kt-input.admin-field-fit,
+    #content form .kt-table.kt-table-border-dashed .admin-field-fit.relative,
+    #content form .kt-table.kt-table-border-dashed .admin-time-picker.admin-field-fit,
+    #content form .kt-table.kt-table-border-dashed .admin-time-picker.admin-field-fit .kt-input,
+    #content form .kt-table.kt-table-border-dashed .admin-field-fit > input {
+        width: max-content !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 0 0 auto !important;
+        font-size: 0.75rem !important;
+        line-height: 1.3 !important;
+    }
+
+    #content form .kt-table.kt-table-border-dashed .kt-input.admin-field-fit--until > input[data-kt-date-picker] {
+        min-width: calc(11ch + 1.75rem) !important;
+        font-size: 0.75rem !important;
+    }
+
+    #content form .kt-table.kt-table-border-dashed .admin-time-picker.admin-field-fit input[data-admin-time-picker-input] {
+        width: 4.35rem !important;
+        min-width: 0 !important;
+        font-size: 0.75rem !important;
     }
 
     #content .admin-form-actions {
@@ -1627,6 +2632,17 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     }
 
     /* Detail/show: label + waarde op aparte regels (bijv. rit-detail) */
+    #content .admin-detail-field-list {
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+
+    #content .kt-card-content > p.text-sm,
+    #content .kt-card-content > p.text-muted-foreground {
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+
     #content .admin-detail-field-list p.flex.items-start {
         flex-direction: column;
         align-items: flex-start !important;
@@ -1792,21 +2808,52 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     margin: 1rem;
 }
 
-#admin-role-form .role-permissions-scroll {
+#admin-role-form .role-permissions-scroll,
+#content form #admin-role-form .role-permissions-scroll.kt-card-table,
+.role-assigned-permissions.role-permissions-scroll.kt-card-table {
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     -webkit-overflow-scrolling: touch;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    max-width: 100%;
 }
 
-@media (min-width: 1024px) {
-    #admin-role-form .role-permissions-scroll {
-        overflow-x: auto;
-    }
+#admin-role-form .role-permissions-matrix,
+.role-assigned-permissions .role-permissions-matrix {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    table-layout: fixed;
 }
 
-#admin-role-form .role-permissions-matrix {
-    width: max-content;
-    min-width: 100%;
+#admin-role-form .role-permissions-matrix th,
+#admin-role-form .role-permissions-matrix td,
+.role-assigned-permissions .role-permissions-matrix th,
+.role-assigned-permissions .role-permissions-matrix td {
+    min-width: 0 !important;
+}
+
+#admin-role-form .role-permissions-matrix th:first-child,
+#admin-role-form .role-permissions-matrix td.role-permission-resource-name,
+.role-assigned-permissions .role-permissions-matrix th:first-child,
+.role-assigned-permissions .role-permissions-matrix td.role-permission-resource-name {
+    width: 22%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#admin-role-form .role-permissions-matrix th:not(:first-child),
+#admin-role-form .role-permissions-matrix td.role-permission-action-cell,
+.role-assigned-permissions .role-permissions-matrix th:not(:first-child),
+.role-assigned-permissions .role-permissions-matrix td.role-permission-action-cell {
+    width: auto;
+    text-align: center;
+    white-space: nowrap;
+    padding-inline: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media (max-width: 1023px) {
@@ -1826,7 +2873,7 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     }
 
     #admin-role-form .role-permissions-scroll {
-        overflow: visible;
+        overflow: visible !important;
         border: none;
     }
 
@@ -1923,6 +2970,104 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     #admin-role-form .permission-set-btn {
         min-height: 5rem !important;
     }
+
+    .role-assigned-permissions.role-permissions-scroll.kt-card-table {
+        overflow: visible !important;
+        padding: 0.75rem 1.25rem 1.25rem;
+        border: none;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix {
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: auto;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix thead {
+        display: none;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tbody,
+    .role-assigned-permissions .role-permissions-matrix tr {
+        display: block;
+        width: 100%;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row {
+        margin-top: 0.75rem;
+        margin-bottom: 0.375rem;
+        border-radius: 0.5rem;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row:first-child {
+        margin-top: 0;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-module-row td {
+        display: block;
+        width: 100% !important;
+        padding: 0.5rem 0.75rem !important;
+        border: none !important;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem 0.5rem;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--card, var(--background));
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td {
+        border: none !important;
+        overflow: visible !important;
+        text-overflow: unset;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-resource-name {
+        display: block;
+        flex: 1 0 100%;
+        width: 100% !important;
+        padding: 0 0 0.25rem !important;
+        white-space: normal;
+        text-align: left;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:not(:has(svg)) {
+        display: none !important;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:has(svg) {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 0.25rem;
+        width: auto !important;
+        padding: 0.25rem 0.625rem !important;
+        border-radius: 9999px;
+        background: color-mix(in oklab, var(--primary) 14%, transparent);
+        white-space: nowrap;
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell:has(svg)::before {
+        content: attr(data-permission-action);
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--foreground);
+    }
+
+    .role-assigned-permissions .role-permissions-matrix tr.role-permission-resource-row td.role-permission-action-cell svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        margin: 0 !important;
+        flex: 0 0 auto;
+    }
 }
 
 /* --- Dashboard: geen geplette 2-koloms tabellen tussen lg en xl --- */
@@ -1990,6 +3135,40 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     width: auto !important;
     min-width: 0;
     white-space: nowrap;
+}
+
+#content .admin-company-profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+    #content .admin-company-profile-layout {
+        grid-template-columns: minmax(22rem, 5fr) minmax(0, 7fr);
+        gap: 1.875rem;
+    }
+}
+
+#content .admin-company-profile-hq {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+    margin-bottom: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+    #content .admin-company-profile-hq {
+        grid-template-columns: minmax(0, 1fr) minmax(16rem, 1fr);
+        gap: 2rem;
+    }
+}
+
+#content .admin-company-profile-hq a,
+#content .admin-company-profile-hq span {
+    overflow-wrap: break-word;
+    word-break: normal;
 }
 
 @media (max-width: 639px) {
@@ -2088,16 +3267,54 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 /* --- Tabs & navigatie op detail --- */
 @media (max-width: 767px) {
     #content [data-kt-tabs="true"] .kt-tabs,
-    #content .kt-tabs {
+    #content .kt-tabs:not(.admin-page-tabs) {
         overflow-x: auto;
         flex-wrap: nowrap !important;
         -webkit-overflow-scrolling: touch;
         max-width: 100%;
     }
 
-    #content .kt-tabs .kt-tab-toggle {
+    #content .kt-tabs:not(.admin-page-tabs) .kt-tab-toggle {
         white-space: nowrap;
         flex-shrink: 0;
+    }
+}
+
+@media (max-width: 1023px) {
+    #content .company-show-section-nav {
+        top: 3.75rem;
+        z-index: 80;
+        margin-inline: -0.75rem;
+        padding-inline: 0.75rem;
+        padding-top: 0.15rem;
+        background: var(--background, #0b0f19);
+        border-bottom: 1px solid var(--border);
+    }
+
+    #content .kt-tabs.kt-tabs-line.admin-page-tabs {
+        flex-wrap: wrap !important;
+        overflow-x: visible;
+        gap: 0 0.65rem;
+        row-gap: 0;
+        max-width: 100%;
+    }
+
+    #content .admin-page-tabs a.kt-tab-toggle {
+        white-space: nowrap;
+        padding-block: 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.2;
+        gap: 0.3rem;
+    }
+
+    #content .admin-page-tabs a.kt-tab-toggle i {
+        font-size: 0.8125rem;
+    }
+}
+
+@media (max-width: 479px) {
+    #content .admin-page-tabs a.kt-tab-toggle i {
+        display: none;
     }
 }
 
@@ -2806,6 +4023,43 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     font-size: 0.6875rem;
 }
 
+/* Route ophalen/afzetten onder elkaar, zodat adressen niet uit de kaart lopen */
+#content .rides-route-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    max-width: 100%;
+    min-width: 0;
+    text-align: left;
+}
+
+#content .rides-route-stack__address {
+    display: block;
+    max-width: 100%;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+#content .rides-route-stack__arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    width: 100%;
+    color: var(--muted-foreground);
+    line-height: 1;
+    padding-block: 0.0625rem;
+}
+
+#content .rides-route-stack__arrow-icon {
+    display: block;
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+}
+
 /* --- Pagina-tabs (echte links, geen KT tab-JS) --- */
 .kt-tabs.kt-tabs-line.admin-page-tabs {
     flex-wrap: wrap;
@@ -2927,4 +4181,232 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 #content form:has(.admin-address-suggestions:not(.hidden)) .kt-card,
 #content form:has(.admin-address-suggestions:not(.hidden)) .kt-card-content {
     overflow: visible;
+}
+
+/* --- Admin timepicker: uren/minuten zonder grijze scrollput --- */
+.admin-time-picker {
+    position: relative;
+}
+.admin-time-picker__popover {
+    position: fixed;
+    z-index: 1060;
+    display: flex;
+    flex-direction: column;
+    width: 9.5rem;
+    max-height: min(16.5rem, 50vh);
+    border-radius: 0.5rem;
+    border: 1px solid var(--input, #d1d5db);
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.12);
+    overflow: hidden;
+}
+html.dark .admin-time-picker__popover,
+.dark .admin-time-picker__popover {
+    background: #0b0f19;
+    border-color: #4b5563;
+}
+.admin-time-picker__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+    max-height: min(16.5rem, 50vh);
+}
+.admin-time-picker__col {
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    padding: 0.25rem 0;
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af transparent;
+}
+html.dark .admin-time-picker__col,
+.dark .admin-time-picker__col {
+    scrollbar-color: #6b7280 transparent;
+}
+.admin-time-picker__col::-webkit-scrollbar {
+    width: 8px;
+}
+.admin-time-picker__col::-webkit-scrollbar-track {
+    background: transparent;
+}
+.admin-time-picker__col::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 9999px;
+}
+html.dark .admin-time-picker__col::-webkit-scrollbar-thumb,
+.dark .admin-time-picker__col::-webkit-scrollbar-thumb {
+    background: #6b7280;
+}
+.admin-time-picker__col + .admin-time-picker__col {
+    border-inline-start: 1px solid var(--input, #e5e7eb);
+}
+html.dark .admin-time-picker__col + .admin-time-picker__col,
+.dark .admin-time-picker__col + .admin-time-picker__col {
+    border-inline-start-color: #4b5563;
+}
+.admin-time-picker__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 2rem;
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 0.875rem;
+    line-height: 1.25;
+    cursor: pointer;
+}
+.admin-time-picker__item:hover {
+    background: color-mix(in oklab, var(--muted, #f1f5f9) 70%, transparent);
+}
+.admin-time-picker__item.is-active {
+    background: var(--primary, #3b82f6);
+    color: #fff;
+    font-weight: 600;
+}
+
+.kt-input.admin-field-fit,
+.admin-time-picker.admin-field-fit,
+.admin-time-picker.admin-field-fit .kt-input,
+.kt-select.admin-field-fit,
+.admin-field-fit.kt-select-wrapper,
+.admin-field-fit[data-kt-select-wrapper] {
+    width: max-content !important;
+    max-width: 100%;
+}
+.kt-input.admin-field-fit > input[data-kt-date-picker] {
+    flex: 0 0 auto;
+    field-sizing: content;
+    width: auto;
+    min-width: calc(10ch + 2.5rem) !important;
+    max-width: none;
+}
+.kt-input.admin-field-fit--until > input[data-kt-date-picker] {
+    min-width: calc(20ch + 2.5rem) !important;
+}
+.admin-time-picker.admin-field-fit input[data-admin-time-picker-input] {
+    flex: 0 0 auto;
+    width: calc(5.5ch + 2.5rem);
+    max-width: none;
+}
+
+.admin-weekday-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+.admin-weekday-picks__btn {
+    min-width: 2.5rem;
+    justify-content: center;
+}
+.admin-weekday-picks input:checked + .admin-weekday-picks__btn,
+.admin-weekday-picks label:has(input:checked) .admin-weekday-picks__btn {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: #fff;
+}
+.admin-weekday-picks label {
+    position: relative;
+    display: inline-flex;
+    margin: 0;
+    cursor: pointer;
+}
+.admin-weekday-picks input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/*
+ * Bulkverwijderen in overzichtstabellen.
+ *
+ * De prullenbak hoort bij de vinkjeskolom van de tabel, maar staat in de kaartkop op de
+ * onderste regel (die met de filters), uitgelijnd boven de vinkjes. Absoluut geplaatst,
+ * zodat de titel en de filters niet verschuiven zodra er een rij geselecteerd wordt.
+ * Zet .admin-bulk-header op de kt-card-header en .admin-bulk-delete op de knop.
+ */
+.admin-bulk-header {
+    position: relative;
+}
+#content .admin-bulk-delete {
+    /* Breedte van de vinkjeskolom; per pagina te overschrijven als die afwijkt. */
+    --admin-bulk-col-width: 2.75rem;
+    /* Afstand tot de linkerrand en tot de onderkant van de kop; per pagina te
+       overschrijven als de tabel of de kop een andere padding heeft. */
+    --admin-bulk-left: 0px;
+    --admin-bulk-bottom: 1.25rem;
+    /* Sommige pagina's zetten alle knoppen in de kaartkop op position: relative !important
+       om stapelproblemen te voorkomen; die mag deze knop niet uit zijn plaats duwen. */
+    position: absolute !important;
+    z-index: 2;
+    left: var(--admin-bulk-left);
+    bottom: var(--admin-bulk-bottom);
+    height: 1.25rem;
+    min-height: 0;
+    width: auto;
+    min-width: 0;
+    padding: 0 !important;
+    margin: 0;
+    gap: 0.25rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    border: 0 !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    font-variant-numeric: tabular-nums;
+    color: var(--destructive, #dc2626) !important;
+}
+#content .admin-bulk-delete:not(.hidden):not([hidden]) {
+    display: inline-flex !important;
+}
+#content .admin-bulk-delete.hidden {
+    display: none !important;
+}
+#content .admin-bulk-delete:hover,
+#content .admin-bulk-delete:focus,
+#content .admin-bulk-delete:focus-visible,
+#content .admin-bulk-delete:active {
+    background-color: transparent !important;
+    color: var(--destructive, #dc2626) !important;
+}
+/* Even breed als de vinkjeskolom, zodat het icoon precies boven de vinkjes staat. Het
+   thema rendert .ki-* als flexbox, dus centreren gaat via justify-content. */
+#content .admin-bulk-delete i,
+#content .admin-bulk-delete:hover i,
+#content .admin-bulk-delete:focus i,
+#content .admin-bulk-delete:active i {
+    width: var(--admin-bulk-col-width);
+    justify-content: center;
+    align-items: center;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    color: inherit !important;
+}
+#content .admin-bulk-delete .admin-bulk-delete__count {
+    font-size: 0.8125rem;
+    line-height: 1;
+    color: inherit;
+}
+
+/*
+ * Kopregels waar titel en filters op één regel staan, hebben links geen vrije ruimte. Daar
+ * loopt de prullenbak mee in de regel, vóór de titel, in plaats van boven de vinkjeskolom.
+ * De knop blijft net zo hoog als de titelregel (1rem), zodat de kop niet groeit zodra er
+ * iets geselecteerd wordt; het icoon mag daarbuiten uitsteken.
+ */
+#content .admin-bulk-delete--inline {
+    position: static !important;
+    height: 1rem;
+    line-height: 1;
+    align-self: center;
+    overflow: visible;
+}
+#content .admin-bulk-delete--inline i {
+    width: auto;
+    height: 1rem;
+    overflow: visible;
+    font-size: 1rem !important;
 }

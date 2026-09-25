@@ -225,6 +225,13 @@ class RideClaimService
             return $ride->fresh();
         });
 
+        try {
+            app(RideTrackService::class)->markTripStarted($conn, $ride);
+            $ride = $ride->fresh() ?? $ride;
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_STARTED, $driver);
 
         return $ride;
@@ -458,11 +465,15 @@ class RideClaimService
         return $freshOffer;
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $clientTrack
+     */
     public function completeRide(
         string $conn,
         User $driver,
         int $rideId,
         bool $allowOverdueContractComplete = false,
+        array $clientTrack = [],
     ): RideRequest {
         app(TaxiContractvervoerSchemaService::class)->ensureRideRequestContractColumns($conn);
 
@@ -533,7 +544,18 @@ class RideClaimService
         });
 
         if ($completedFully) {
+            try {
+                $ride = app(RideTrackService::class)->finalizeRide($conn, $ride, $clientTrack);
+            } catch (\Throwable $e) {
+                report($e);
+            }
             $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_COMPLETED, $driver);
+        } elseif ($clientTrack !== []) {
+            try {
+                app(RideTrackService::class)->bufferClientTrack($conn, $ride, $clientTrack);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return $ride;

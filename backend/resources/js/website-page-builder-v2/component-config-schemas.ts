@@ -69,7 +69,7 @@ export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
       { type: 'number', key: 'style.border_radius', label: 'Border radius (px)', min: 0, max: 40, step: 1 },
       { type: 'select', key: 'style.align', label: 'Uitlijning blok', options: alignOptions },
       { type: 'select', key: 'logic.offer_display_mode', label: 'Aanbiedingen tonen als', options: offerDisplayOptions },
-      { type: 'checkbox', key: 'logic.use_evening_night_tariff', label: 'Avond/nacht tarief (22:00–06:00 ×1,2)' },
+      { type: 'checkbox', key: 'logic.use_evening_night_tariff', label: 'Avond/nacht tarief toepassen (toeslag staat bij Tarieven)' },
     ]},
   ]},
   { type: 'group', label: 'Staplabels (tabs)', layout: 'row', fields: [
@@ -85,15 +85,15 @@ export const TAXI_BOOKING_MODULE_SCHEMA: ConfigField[] = [
     { type: 'number', key: 'logic.max_passengers', label: 'Max passagiers', min: 1, max: 20, step: 1 },
     { type: 'number', key: 'logic.default_passengers', label: 'Default passagiers', min: 1, max: 20, step: 1 },
     { type: 'number', key: 'logic.max_stopovers', label: 'Max tussenstops', min: 0, max: 6, step: 1 },
-    { type: 'number', key: 'logic.return_price_multiplier', label: 'Retour multiplier', min: 1, max: 3, step: 0.05 },
+    { type: 'number', key: 'logic.return_price_multiplier', label: 'Retour multiplier', min: 1, max: 3, step: 0.05, info: 'De factor voor een retourrit: de berekende heenprijs wordt daarmee vermenigvuldigd. Bij 2 betaalt de klant heen + terug hetzelfde tarief. Dat is geen avond/nacht-toeslag.' },
     { type: 'number', key: 'logic.person_range_base_price_multiplier', label: 'Standaard × prijs', min: 0.1, max: 5, step: 0.05 },
-    { type: 'number', key: 'logic.person_range_base_old_price_multiplier', label: 'Standaard × oud', min: 1, max: 5, step: 0.05 },
+    { type: 'number', key: 'logic.person_range_base_old_price_multiplier', label: 'Standaard × oud', min: 1, max: 5, step: 0.05, info: 'Alleen de doorgestreepte “van”-prijs in de personenmodus. Bij 1,2 zie je 20% hoger als oude prijs; het te betalen bedrag verandert niet. Standaard × prijs (1,0) is de echte vermenigvuldiger op het tarief.' },
     { type: 'checkbox', key: 'logic.return_enabled_by_default', label: 'Retour standaard aan' },
     { type: 'checkbox', key: 'logic.skip_baggage_step', label: 'Bagage overslaan' },
   ]},
   { type: 'group', label: 'Bagage → bus/van', fields: [
     { type: 'checkbox', key: 'logic.baggage_van_upgrade_enabled', label: 'Automatisch bus/van bij te veel bagage' },
-    { type: 'number', key: 'logic.baggage_car_max_units', label: 'Max eenheden auto', min: 0, max: 50, step: 1 },
+    { type: 'number', key: 'logic.baggage_car_max_units', label: 'Max koffers auto', min: 0, max: 50, step: 1, hint: 'Koffers in de kofferbak, per stuk. Handbagage telt niet. Meer dan dit aantal → bus/van.' },
     { type: 'select', key: 'logic.baggage_upgrade_person_range', label: 'Personenrange bus/van', options: personRangeOptions.filter((o) => o.value !== '') },
     { type: 'text', key: 'texts.baggage_van_upgrade_message', label: 'Melding op aanbiedingen-stap' },
   ]},
@@ -230,6 +230,38 @@ function withGpsFleetGroup(schema: ConfigField[]): ConfigField[] {
   })
 }
 
+function withMarketplaceRadiusGroup(schema: ConfigField[]): ConfigField[] {
+  return schema.map((field) => {
+    if (field.type !== 'group' || field.label !== 'Uiterlijk & titel') {
+      return field
+    }
+    return {
+      ...field,
+      fields: [
+        ...field.fields,
+        {
+          type: 'group',
+          label: 'Taxicentrales in de buurt',
+          alwaysOpen: true,
+          layout: 'row',
+          fields: [
+            {
+              type: 'number',
+              key: 'logic.marketplace_radius_km',
+              label: 'Straal (km)',
+              min: 1,
+              max: 100,
+              step: 1,
+              defaultValue: 10,
+              hint: 'Vanaf het ophaaladres. Aangesloten taxicentrales binnen deze afstand ontvangen de rit. Wie als eerste accepteert, krijgt de boeking.',
+            },
+          ],
+        },
+      ],
+    }
+  })
+}
+
 export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
   ...withGpsFleetGroup(TAXI_BOOKING_MODULE_SCHEMA),
   { type: 'group', label: 'Live kaart (v2)', fields: [
@@ -240,10 +272,12 @@ export const TAXI_BOOKING_MODULE_V2_SCHEMA: ConfigField[] = [
   ]},
 ]
 
+export const TAXI_ALGEMENE_BOOKING_MODULE_SCHEMA: ConfigField[] = withMarketplaceRadiusGroup(TAXI_BOOKING_MODULE_V2_SCHEMA)
+
 const COMPONENT_SCHEMAS: Record<string, ConfigField[]> = {
   'component:taxi.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.boekingsmodule_v2': TAXI_BOOKING_MODULE_V2_SCHEMA,
-  'component:taxi.algemene_boekingsmodule': TAXI_BOOKING_MODULE_V2_SCHEMA,
+  'component:taxi.algemene_boekingsmodule': TAXI_ALGEMENE_BOOKING_MODULE_SCHEMA,
   'component:taxiroyaal.boekingsmodule': TAXI_BOOKING_MODULE_SCHEMA,
   'component:taxi.tarieven': [
     { type: 'text', key: 'title', label: 'Bloktitel' },
@@ -481,6 +515,14 @@ COMPONENT_SCHEMAS['component:landwind.faq'] = [
   { type: 'text', key: 'eyebrow', label: 'Boventitel' },
   { type: 'text', key: 'title', label: 'Titel' },
   { type: 'text', key: 'subtitle', label: 'Subtitel' },
+  {
+    type: 'select',
+    key: 'width_percent',
+    label: 'Breedte',
+    options: sectionWidthPercentOptions,
+    defaultValue: '60',
+    hint: 'Op desktop en iPad. Op mobiel altijd volle breedte met zijpadding.',
+  },
   {
     type: 'item-list',
     key: 'items',

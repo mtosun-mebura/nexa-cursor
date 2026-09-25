@@ -272,7 +272,7 @@
 
     if (typeof MutationObserver !== 'undefined') {
         var mo = new MutationObserver(scheduleSyncThemeToggleTop);
-        ['screen-login', 'screen-home', 'screen-dispatch', 'guide-hint', 'install-app-hint', 'install-hint'].forEach(function (id) {
+        ['screen-login', 'screen-home', 'screen-dispatch', 'guide-hint', 'install-app-hint', 'install-hint', 'tenant-logo-bar'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) {
                 mo.observe(el, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });

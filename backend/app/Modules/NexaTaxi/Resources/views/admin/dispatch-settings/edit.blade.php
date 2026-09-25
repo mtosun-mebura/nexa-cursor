@@ -44,6 +44,10 @@
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                <colgroup>
+                    <col class="w-56">
+                    <col>
+                </colgroup>
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Acceptatietijd (minuten)</td>
                     <td class="min-w-48 w-full">
@@ -92,6 +96,32 @@
                         @enderror
                     </td>
                 </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Automatisch annuleren zonder chauffeur (minuten)</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="unaccepted_auto_cancel_minutes"
+                            id="unaccepted_auto_cancel_minutes"
+                            class="kt-input w-full max-w-md @error('unaccepted_auto_cancel_minutes') border-destructive @enderror"
+                            min="{{ $minUnacceptedAutoCancelMinutes }}"
+                            max="{{ $maxUnacceptedAutoCancelMinutes }}"
+                            step="1"
+                            required
+                            value="{{ old('unaccepted_auto_cancel_minutes', $unacceptedAutoCancelMinutes) }}"
+                        >
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Als binnen deze tijd na het ophaalmoment niemand de rit accepteert, wordt de rit
+                            automatisch geannuleerd. Bij vooraf betalen stort Mollie het bedrag terug.
+                            Stelt een chauffeur een nieuw tijdstip voor, dan telt die nieuwe tijd.
+                            Standaard server: {{ $envDefaultUnacceptedAutoCancelMinutes }} minuten.
+                            0 = uit. Tussen {{ $minUnacceptedAutoCancelMinutes }} en {{ $maxUnacceptedAutoCancelMinutes }} minuten.
+                        </p>
+                        @error('unaccepted_auto_cancel_minutes')
+                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                        @enderror
+                    </td>
+                </tr>
             </table>
             </div>
             </div>
@@ -100,16 +130,16 @@
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-booking-notifications">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Boekingsmeldingen'])
             <div class="settings-collapsible-body">
+            <p class="text-xs text-muted-foreground leading-relaxed mx-5 mt-4 mb-2 pt-1">
+                Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API.
+                Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).
+            </p>
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
-                <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4" colspan="2">
-                        <p class="text-xs text-muted-foreground mb-2">
-                            Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API.
-                            Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).
-                        </p>
-                    </td>
-                </tr>
+                <colgroup>
+                    <col class="w-56">
+                    <col>
+                </colgroup>
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar chauffeurs</td>
                     <td class="min-w-48 w-full">
@@ -247,7 +277,39 @@
                             </p>
                         @endif
                     </td>
-                </tr>                <tr class="customer-accept-channel-row">
+                </tr>
+                <tr class="customer-accept-channel-row">
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp communicatie klant</td>
+                    <td class="min-w-48 w-full pt-4">
+                        @php
+                            $selectedCustomerWhatsappStatusEvents = old('customer_whatsapp_status_events', $customerWhatsappStatusEvents ?? []);
+                            if (! is_array($selectedCustomerWhatsappStatusEvents)) {
+                                $selectedCustomerWhatsappStatusEvents = [];
+                            }
+                        @endphp
+                        <p class="text-sm text-secondary-foreground mb-2">
+                            Kies welke WhatsApp-statusberichten de klant ontvangt nadat een chauffeur de rit via dispatch heeft geaccepteerd.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl">
+                            @foreach($whatsappStatusEventLabels as $eventKey => $eventLabel)
+                                <label class="inline-flex items-start gap-2 text-sm text-secondary-foreground cursor-pointer">
+                                    <input type="checkbox"
+                                           class="kt-checkbox mt-0.5"
+                                           name="customer_whatsapp_status_events[]"
+                                           value="{{ $eventKey }}"
+                                           @checked(in_array($eventKey, $selectedCustomerWhatsappStatusEvents, true))>
+                                    <span>{{ $eventLabel }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0 max-w-xl">
+                            Uitgevinkte statussen worden niet naar de klant gestuurd. <strong>Rit afgerond</strong> staat standaard uit.
+                            Sjabloon: <code class="text-xs">rit_status_update</code> onder
+                            <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">Algemene configuraties → WhatsApp</a>.
+                        </p>
+                    </td>
+                </tr>
+                <tr class="customer-accept-channel-row">
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">SMS naar klant</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2 mb-2">
@@ -365,7 +427,7 @@
                                    name="payment_booking_enabled"
                                    value="1"
                                    {{ old('payment_booking_enabled', $paymentBookingEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Klant betaalt direct via Mollie na het bevestigen van de boeking</span>
+                            <span class="text-sm text-secondary-foreground">Klant kan daarnaast direct via Mollie betalen na het bevestigen van de boeking</span>
                         </label>
                     </td>
                 </tr>
@@ -379,10 +441,10 @@
                                    name="payment_driver_enabled"
                                    value="1"
                                    {{ old('payment_driver_enabled', $paymentDriverEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Chauffeur toont QR-code; rit afronden pas na betaling</span>
+                            <span class="text-sm text-secondary-foreground">Daarnaast QR-code via Mollie in de chauffeur-app</span>
                         </label>
                         <p class="text-xs text-muted-foreground mt-1">
-                            Als beide opties aan staan, kiest de klant bij de boeking. Vereist een actieve Mollie-provider voor dit bedrijf (zie hierboven).
+                            Contant betalen is altijd beschikbaar. De rit wordt pas afgerond na betaling; daarna kan de chauffeur een factuur naar de klant sturen. Deze vinkjes voegen online betalen bij boeking of QR in de app toe. QR en boeking vereisen een actieve Mollie-provider voor dit bedrijf (zie hierboven).
                         </p>
                     </td>
                 </tr>

@@ -169,6 +169,43 @@ class AdminAiChatMessageTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_admin_json_csrf_mismatch_returns_error_and_csrf_token(): void
+    {
+        $user = User::factory()->create(['company_id' => null]);
+        $user->assignRole('super-admin');
+        $this->actingAs($user);
+        $this->startSession();
+
+        $request = \Illuminate\Http\Request::create(
+            'http://localhost/admin/ai-chat/message',
+            'POST',
+            [],
+            [],
+            [],
+            [
+                'HTTP_ACCEPT' => 'application/json',
+                'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest',
+            ]
+        );
+        $request->headers->set('Accept', 'application/json');
+        $request->setLaravelSession($this->app->make('session.store'));
+        $this->app->instance('request', $request);
+        $this->assertTrue($request->hasSession());
+
+        $response = $this->app->make(\Illuminate\Contracts\Debug\ExceptionHandler::class)
+            ->render($request, new \Symfony\Component\HttpKernel\Exception\HttpException(419, 'CSRF token mismatch.'));
+
+        $this->assertSame(419, $response->getStatusCode());
+        $payload = json_decode($response->getContent(), true);
+        $this->assertIsArray($payload);
+        $this->assertFalse($payload['success']);
+        $this->assertSame('csrf_mismatch', $payload['code']);
+        $this->assertNotEmpty($payload['error']);
+        $this->assertSame($payload['error'], $payload['message']);
+        $this->assertNotEmpty($payload['csrf_token']);
+        $this->assertSame($this->app->make('session.store')->token(), $payload['csrf_token']);
+    }
+
     /**
      * @return array{0: Company, 1: User}
      */

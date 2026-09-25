@@ -51,10 +51,7 @@
     $revealDurationMs = match($animationSpeed) { 'fast' => 560, 'normal' => 720, 'slow' => 900, 'slower' => 1100, default => 900 };
     $revealDuration = ($revealDurationMs / 1000).'s';
     $revealEasing = 'cubic-bezier(0.16, 1, 0.3, 1)';
-    $revealFirstCardDelayMs = 120;
-    $revealDelayStepMs = match($animationSpeed) { 'fast' => 90, 'normal' => 130, 'slow' => 170, 'slower' => 220, default => 170 };
-    $lastCardDelayMs = count($items) > 0 ? $revealFirstCardDelayMs + (count($items) - 1) * $revealDelayStepMs : 0;
-    $hoverReadyMs = $revealDurationMs + $lastCardDelayMs + 80;
+    $hoverReadyMs = $revealDurationMs + 80;
     $blocksRowWidthPctRaw = $data['blocks_row_width_percent'] ?? null;
     $blocksRowWidthPct = ($blocksRowWidthPctRaw === null || $blocksRowWidthPctRaw === '') ? 100 : (int) $blocksRowWidthPctRaw;
     $blocksRowWidthPct = max(1, min(100, $blocksRowWidthPct));
@@ -70,7 +67,7 @@
 @endphp
 <section class="website-block website-block-featured-services pt-6 md:pt-8 pb-8 md:pb-12 scroll-reveal-section" data-scroll-reveal data-fs-hover-ready-ms="{{ $hoverReadyMs }}">
     <div class="website-section-inner">
-        <div class="featured-services-heading w-full max-w-4xl mx-auto text-center mb-6 md:mb-8 px-0 scroll-reveal-item" style="--fs-reveal-duration: {{ $revealDuration }}; --fs-reveal-ease: {{ $revealEasing }}; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
+        <div class="featured-services-heading w-full max-w-4xl mx-auto text-center mb-6 md:mb-8 px-0 scroll-reveal-item" data-scroll-reveal-item style="--fs-reveal-duration: {{ $revealDuration }}; --fs-reveal-ease: {{ $revealEasing }}; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
             @if($title !== '')
                 <h2 class="featured-services-title font-bold text-gray-900 dark:text-white mb-3 leading-tight" style="font-family: var(--theme-font-heading, inherit);">{!! e($title) !!}</h2>
             @endif
@@ -94,12 +91,13 @@
                         $iconColor = isset($item['icon_color']) && is_string($item['icon_color']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', trim($item['icon_color'])) ? trim($item['icon_color']) : null;
                     @endphp
                     @php
-                        $cardRevealDelayMs = $revealFirstCardDelayMs + $index * $revealDelayStepMs;
-                        $iconRevealDelayMs = $cardRevealDelayMs + (int) round($revealDurationMs * 0.28);
+                        $rowPos = $blocksPerRow > 0 ? ($index % $blocksPerRow) : 0;
+                        $cardRevealDelayMs = $rowPos * 90;
+                        $iconRevealDelayMs = (int) round($revealDurationMs * 0.28);
                         $revealStyle = '--fs-card-delay: '.$cardRevealDelayMs.'ms; --fs-icon-delay: '.$iconRevealDelayMs.'ms; --fs-reveal-duration: '.$revealDuration.'; --fs-reveal-ease: '.$revealEasing.';';
                     @endphp
                     <div class="featured-service-item min-w-0" data-fs-index="{{ $index }}">
-                        <div class="featured-service-reveal scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-delay="{{ $index }}">
+                        <div class="featured-service-reveal scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-item>
                         <div class="featured-service-card min-w-0 h-full rounded-xl border border-gray-200 dark:border-gray-700 {{ $cardPadding }} shadow-sm w-full {{ $cardBgColor ? '' : 'bg-white dark:bg-gray-800/50' }}" @if($cardBgColor) style="background-color: {{ $cardBgColor }};" @endif>
                         <div class="flex {{ $iconAlignClass }} gap-4 min-w-0">
                             @php
@@ -238,7 +236,7 @@
             transform var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)),
             filter var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1));
     }
-    .website-block-featured-services.scroll-reveal-section.is-in-view .featured-services-heading.scroll-reveal-item {
+    .website-block-featured-services.scroll-reveal-section .featured-services-heading.scroll-reveal-item.is-in-view {
         opacity: 1;
         filter: blur(0);
         transform: scaleY(1);
@@ -260,7 +258,7 @@
         transform-origin: left center;
         transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
     }
-    .website-block-featured-services.is-in-view .featured-services-title::after {
+    .website-block-featured-services .featured-services-heading.is-in-view .featured-services-title::after {
         transform: scaleX(1);
     }
     .website-block-featured-services.scroll-reveal-section .featured-service-reveal.scroll-reveal-item {
@@ -273,10 +271,16 @@
             transform var(--fs-reveal-duration, 0.9s) cubic-bezier(0.34, 1.45, 0.64, 1) var(--fs-card-delay, 0ms),
             filter var(--fs-reveal-duration, 0.9s) var(--fs-reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)) var(--fs-card-delay, 0ms);
     }
-    .website-block-featured-services.scroll-reveal-section.is-in-view .featured-service-reveal.scroll-reveal-item {
+    .website-block-featured-services.scroll-reveal-section .featured-service-reveal.scroll-reveal-item.is-in-view {
         opacity: 1;
         filter: saturate(1) blur(0);
         transform: scale(1) rotate(0);
+    }
+    @media (max-width: 767px) {
+        .website-block-featured-services.scroll-reveal-section .featured-service-reveal.scroll-reveal-item {
+            --fs-card-delay: 0ms;
+            --fs-icon-delay: 180ms;
+        }
     }
     .website-block-featured-services .featured-service-card {
         position: relative;
@@ -322,7 +326,7 @@
         transform-origin: center;
         transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) var(--fs-icon-delay, 180ms);
     }
-    .website-block-featured-services.scroll-reveal-section.is-in-view .featured-service-icon {
+    .website-block-featured-services .featured-service-reveal.is-in-view .featured-service-icon {
         transform: scale(1) rotate(0);
     }
     .website-block-featured-services.is-hover-ready .featured-service-card:hover {

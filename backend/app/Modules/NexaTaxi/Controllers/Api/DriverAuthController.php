@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
+use App\Modules\NexaTaxi\Services\DriverScheduleService;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEarningsAccessService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
@@ -13,6 +14,7 @@ use App\Modules\NexaTaxi\Support\PwaAccent;
 use App\Modules\NexaTaxi\Support\RideAlertTone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
+use App\Services\CompanyEmailLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
@@ -204,12 +206,7 @@ class DriverAuthController extends Controller
 
         $user->tokens()->where('name', 'taxi-driver')->delete();
 
-        $expiryDays = (int) config('taxi-dispatch.token_expiry_days', 14);
-        $token = $user->createToken(
-            'taxi-driver',
-            ['taxi:driver'],
-            now()->addDays($expiryDays)
-        );
+        $token = $user->createToken('taxi-driver', ['taxi:driver']);
 
         $availability = $this->driverAvailability($moduleDb, (int) $user->id);
         $isOnline = $availability && $availability->is_online;
@@ -245,9 +242,24 @@ class DriverAuthController extends Controller
                 $companyName = $company ? (trim((string) ($company->name ?? '')) ?: null) : null;
             }
             if ($companyName === null) {
-                $raw = \App\Models\Company::query()->whereKey($companyId)->value('name');
+                $raw = Company::query()->whereKey($companyId)->value('name');
                 $companyName = is_string($raw) && trim($raw) !== '' ? trim($raw) : null;
             }
+        }
+
+        $logoUrls = app(CompanyEmailLogoService::class)->pwaLogoUrls($companyId);
+
+        $vehicleId = $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null;
+        $vehicleLocked = false;
+        try {
+            $conn = app(ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+            $lockedVehicleId = app(DriverScheduleService::class)->resolveLockedVehicleId($conn, $companyId, (int) $user->id);
+            if ($lockedVehicleId) {
+                $vehicleId = $lockedVehicleId;
+                $vehicleLocked = true;
+            }
+        } catch (\Throwable) {
+            // Agenda/planning-lock is optioneel bij ontbrekende taxi-tabel.
         }
 
         return [
@@ -259,11 +271,15 @@ class DriverAuthController extends Controller
             'phone' => trim((string) ($user->phone ?? '')) ?: null,
             'company_id' => $companyId,
             'company_name' => $companyName,
+            'company_logo_url' => $logoUrls['light'],
+            'company_logo_dark_url' => $logoUrls['dark'],
             'is_account_active' => $accountActive,
             'is_online' => $isOnline,
-            'vehicle_id' => $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null,
+            'vehicle_id' => $vehicleId,
+            'vehicle_locked' => $vehicleLocked,
             'pwa_accent' => PwaAccent::fromUser($user),
             'ride_alert_tone' => RideAlertTone::fromUser($user),
+            'can_handle_contract_rides' => app(TaxiDriverEligibilityService::class)->canUseContractRideFilter($user),
         ];
     }
 

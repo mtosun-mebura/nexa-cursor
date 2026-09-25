@@ -46,8 +46,12 @@ class AdminMiddleware
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 $relative = '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
 
+                $message = 'Je sessie is verlopen. Log opnieuw in.';
+
                 return response()->json([
-                    'message' => 'Je sessie is verlopen. Log opnieuw in.',
+                    'success' => false,
+                    'error' => $message,
+                    'message' => $message,
                     'redirect' => $relative,
                 ], 401);
             }
@@ -78,9 +82,13 @@ class AdminMiddleware
         if (! $user->canAccessAdminPanel()) {
             // For AJAX requests, return 403 status instead of redirect
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+                $message = 'Je hebt geen rechten om deze actie uit te voeren.';
+
                 return response()->json([
-                    'message' => 'Je hebt geen rechten om deze actie uit te voeren.',
-                    'redirect' => route('admin.login'),
+                    'success' => false,
+                    'error' => $message,
+                    'message' => $message,
+                    'redirect' => route('admin.login', absolute: false),
                 ], 403);
             }
 

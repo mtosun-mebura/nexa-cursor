@@ -124,12 +124,23 @@ const MENU_ACTION_ICON_BY_TITLE = {
     bekijken: 'ki-eye',
     details: 'ki-eye',
     bewerken: 'ki-pencil',
+    uitloggen: 'ki-entrance-left',
     'status aanpassen': 'ki-pencil',
+    verwijder: 'ki-trash',
     verwijderen: 'ki-trash',
     dupliceren: 'ki-copy',
     archiveren: 'ki-archive',
+    installeer: 'ki-file-down',
+    installeren: 'ki-file-down',
+    configureren: 'ki-setting-2',
+    'migraties opnieuw': 'ki-tablet',
+    activeer: 'ki-check-circle',
     activeren: 'ki-check-circle',
+    deactiveer: 'ki-cross-circle',
     deactiveren: 'ki-cross-circle',
+    test: 'ki-exit-right-corner',
+    'database reset': 'ki-arrows-circle',
+    'database dummydata': 'ki-cube-2',
     downloaden: 'ki-file-down',
     preview: 'ki-eye',
     voorbeeld: 'ki-eye',
@@ -139,6 +150,14 @@ const MENU_ACTION_ICON_BY_TITLE = {
 function stopCardNavigation(el) {
     el.addEventListener('click', (e) => e.stopPropagation());
     el.addEventListener('keydown', (e) => e.stopPropagation());
+}
+
+function isPrimaryViewActionLabel(label) {
+    const key = (label || '')
+        .toLowerCase()
+        .replace(/\s*\(\d+\)\s*$/, '')
+        .trim();
+    return key === 'bekijken' || key === 'view' || key === 'details' || key === 'tonen';
 }
 
 function getMenuActionLabel(linkEl) {
@@ -154,6 +173,10 @@ function getMenuActionLabel(linkEl) {
 }
 
 function getMenuActionIconClass(linkEl, label) {
+    const key = (label || '').toLowerCase().replace(/\s*\(\d+\)\s*$/, '').trim();
+    if (MENU_ACTION_ICON_BY_TITLE[key]) {
+        return `ki-filled ${MENU_ACTION_ICON_BY_TITLE[key]}`;
+    }
     const iconEl = linkEl.querySelector('.kt-menu-icon i[class*="ki-"]');
     if (iconEl) {
         const classes = Array.from(iconEl.classList).filter((c) => c.startsWith('ki-'));
@@ -161,13 +184,15 @@ function getMenuActionIconClass(linkEl, label) {
             return classes.join(' ');
         }
     }
-    const key = label.toLowerCase().replace(/\s*\(\d+\)\s*$/, '').trim();
-    const ki = MENU_ACTION_ICON_BY_TITLE[key] || 'ki-eye';
-    return `ki-filled ${ki}`;
+    return 'ki-filled ki-eye';
 }
 
 /** Icoon uit menu-link (SVG of ki), voor gelabelde mobiele knoppen. */
 function getMenuActionIconMarkup(linkEl, label) {
+    const key = (label || '').toLowerCase().replace(/\s*\(\d+\)\s*$/, '').trim();
+    if (MENU_ACTION_ICON_BY_TITLE[key]) {
+        return `<i class="ki-filled ${MENU_ACTION_ICON_BY_TITLE[key]}" aria-hidden="true"></i>`;
+    }
     const iconWrap = linkEl.querySelector('.kt-menu-icon');
     if (iconWrap && iconWrap.innerHTML.trim()) {
         return iconWrap.innerHTML.trim();
@@ -178,12 +203,14 @@ function getMenuActionIconMarkup(linkEl, label) {
 
 function createLabeledActionButton({ href, label, iconMarkup, isDanger, formElement }) {
     const btnClass =
-        'kt-btn kt-btn-sm kt-btn-outline w-full justify-center gap-2 min-h-10' +
+            'kt-btn kt-btn-sm kt-btn-outline justify-center gap-2 min-h-9' +
         (isDanger ? ' text-danger border-destructive/40 hover:bg-destructive/10' : '');
 
     if (formElement) {
         const wrap = document.createElement('div');
-        wrap.className = 'admin-card-action-form admin-card-action-form--labeled';
+        wrap.className =
+            'admin-card-action-form admin-card-action-form--labeled' +
+            (isDanger ? ' admin-card-action-form--danger' : '');
         const formClone = formElement.cloneNode(true);
         const submitBtn = formClone.querySelector('button[type="submit"], button.kt-menu-link');
         if (!submitBtn) {
@@ -192,7 +219,7 @@ function createLabeledActionButton({ href, label, iconMarkup, isDanger, formElem
         submitBtn.className = btnClass;
         submitBtn.innerHTML = '';
         const iconSpan = document.createElement('span');
-        iconSpan.className = 'inline-flex shrink-0 items-center [&_svg]:size-4';
+        iconSpan.className = 'inline-flex shrink-0 items-center text-base leading-none [&_i]:text-[1rem] [&_svg]:size-4';
         iconSpan.innerHTML = iconMarkup;
         const labelSpan = document.createElement('span');
         labelSpan.className = 'admin-list-card__action-label';
@@ -208,7 +235,7 @@ function createLabeledActionButton({ href, label, iconMarkup, isDanger, formElem
     btn.className = btnClass;
     btn.href = href || '#';
     const iconSpan = document.createElement('span');
-    iconSpan.className = 'inline-flex shrink-0 items-center [&_svg]:size-4';
+    iconSpan.className = 'inline-flex shrink-0 items-center text-base leading-none [&_i]:text-[1rem] [&_svg]:size-4';
     iconSpan.innerHTML = iconMarkup;
     const labelSpan = document.createElement('span');
     labelSpan.className = 'admin-list-card__action-label';
@@ -253,31 +280,82 @@ function buildLabeledButtonFromMenuLink(linkEl) {
     return null;
 }
 
-function createIconActionButton({ href, label, iconClass, isDanger, isSubmit, formHtml }) {
+function actionCaptionText(label) {
+    return (label || '').replace(/\s*\(\d+\)\s*$/, '').trim();
+}
+
+function isDangerAction(linkEl, label) {
+    const key = actionCaptionText(label).toLowerCase();
+    return (
+        Boolean(linkEl?.classList.contains('text-danger')) ||
+        key.startsWith('verwijder') ||
+        key === 'delete'
+    );
+}
+
+function getMenuActionIconNode(linkEl) {
+    const svg = linkEl.querySelector('.kt-menu-icon svg');
+    if (!svg) {
+        return null;
+    }
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('aria-hidden', 'true');
+    clone.classList.add('admin-list-card__action-svg');
+    return clone;
+}
+
+function iconActionBtnClass(isDanger) {
+    return (
+        'admin-list-card__action kt-btn kt-btn-sm kt-btn-ghost' +
+        (isDanger ? ' text-danger admin-list-card__action--danger' : '')
+    );
+}
+
+function fillIconActionButton(btn, { iconClass, iconNode, label, isDanger }) {
+    const caption = actionCaptionText(label);
+    btn.className = iconActionBtnClass(isDanger);
+    btn.replaceChildren();
+
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'admin-list-card__action-icon';
+    iconWrap.setAttribute('aria-hidden', 'true');
+    if (iconNode) {
+        iconWrap.appendChild(iconNode);
+    } else {
+        const icon = document.createElement('i');
+        icon.className = iconClass || 'ki-filled ki-eye';
+        iconWrap.appendChild(icon);
+    }
+
+    const captionEl = document.createElement('span');
+    captionEl.className = 'admin-list-card__action-caption';
+    captionEl.textContent = caption;
+
+    btn.appendChild(iconWrap);
+    btn.appendChild(captionEl);
+    if (caption) {
+        btn.setAttribute('title', caption);
+        btn.setAttribute('aria-label', caption);
+    }
+}
+
+function createIconActionButton({ href, label, iconClass, iconNode, isDanger, isSubmit, formHtml }) {
     if (formHtml) {
         const wrap = document.createElement('div');
-        wrap.className = 'admin-card-action-form';
+        wrap.className =
+            'admin-card-action-form' + (isDanger ? ' admin-card-action-form--danger' : '');
         wrap.innerHTML = formHtml;
-        const form = wrap.querySelector('form');
         const btn = wrap.querySelector('button[type="submit"]');
         if (btn) {
-            btn.className =
-                'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
-            btn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
-            btn.setAttribute('title', label);
-            btn.setAttribute('aria-label', label);
+            fillIconActionButton(btn, { iconClass, iconNode, label, isDanger });
         }
         stopCardNavigation(wrap);
         return wrap;
     }
 
     const btn = document.createElement('a');
-    btn.className =
-        'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
     btn.href = href || '#';
-    btn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
-    btn.setAttribute('title', label);
-    btn.setAttribute('aria-label', label);
+    fillIconActionButton(btn, { iconClass, iconNode, label, isDanger });
     if (isSubmit) {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -294,10 +372,8 @@ function buildIconButtonFromMenuLink(linkEl) {
         return null;
     }
 
-    const isDanger =
-        linkEl.classList.contains('text-danger') ||
-        label.toLowerCase() === 'verwijderen' ||
-        label.toLowerCase() === 'delete';
+    const isDanger = isDangerAction(linkEl, label);
+    const iconNode = getMenuActionIconNode(linkEl);
     const iconClass = getMenuActionIconClass(linkEl, label);
 
     const parentForm = linkEl.closest('form');
@@ -307,13 +383,10 @@ function buildIconButtonFromMenuLink(linkEl) {
         if (!submitBtn) {
             return null;
         }
-        submitBtn.className =
-            'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
-        submitBtn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
-        submitBtn.setAttribute('title', label);
-        submitBtn.setAttribute('aria-label', label);
+        fillIconActionButton(submitBtn, { iconClass, iconNode, label, isDanger });
         const wrap = document.createElement('div');
-        wrap.className = 'admin-card-action-form';
+        wrap.className =
+            'admin-card-action-form' + (isDanger ? ' admin-card-action-form--danger' : '');
         wrap.appendChild(formClone);
         stopCardNavigation(wrap);
         return wrap;
@@ -324,6 +397,7 @@ function buildIconButtonFromMenuLink(linkEl) {
             href: linkEl.getAttribute('href'),
             label,
             iconClass,
+            iconNode,
             isDanger,
         });
     }
@@ -331,10 +405,12 @@ function buildIconButtonFromMenuLink(linkEl) {
     return null;
 }
 
-/** Zet kt-menu dropdown-acties om naar duidelijke knoppen met tekst (mobiele kaarten). */
-function buildCardActionIcons(actionsTd) {
+/** Zet kt-menu dropdown-acties om naar icoonknoppen (mobiele kaarten). */
+function buildCardActionIcons(actionsTd, options = {}) {
     const toolbar = document.createElement('div');
     toolbar.className = 'admin-list-card__action-buttons';
+    const skipView = Boolean(options.skipViewAction);
+    const viewHref = options.viewHref || '';
 
     actionsTd.querySelectorAll('.kt-menu-dropdown .kt-menu-item, .website-pages-actions-dropdown .kt-menu-item').forEach((item) => {
         if (item.classList.contains('kt-menu-separator')) {
@@ -345,9 +421,9 @@ function buildCardActionIcons(actionsTd) {
         if (form) {
             const submitBtn = form.querySelector('button[type="submit"], button.kt-menu-link');
             if (submitBtn) {
-                const labeledBtn = buildLabeledButtonFromMenuLink(submitBtn);
-                if (labeledBtn) {
-                    toolbar.appendChild(labeledBtn);
+                const iconBtn = buildIconButtonFromMenuLink(submitBtn);
+                if (iconBtn) {
+                    toolbar.appendChild(iconBtn);
                 }
             }
             return;
@@ -355,14 +431,21 @@ function buildCardActionIcons(actionsTd) {
 
         const link = item.querySelector('a.kt-menu-link, button.kt-menu-link');
         if (link) {
-            const labeledBtn = buildLabeledButtonFromMenuLink(link);
-            if (labeledBtn) {
-                toolbar.appendChild(labeledBtn);
+            const label = getMenuActionLabel(link);
+            if (
+                skipView &&
+                (isPrimaryViewActionLabel(label) ||
+                    (viewHref && link.getAttribute('href') === viewHref))
+            ) {
+                return;
+            }
+            const iconBtn = buildIconButtonFromMenuLink(link);
+            if (iconBtn) {
+                toolbar.appendChild(iconBtn);
             }
         }
     });
 
-    // Losse knoppen buiten dropdown (zonder kt-menu)
     actionsTd.querySelectorAll(':scope > a.kt-btn, :scope > button.kt-btn, :scope > form').forEach((el) => {
         if (el.closest('.kt-menu')) {
             return;
@@ -370,9 +453,9 @@ function buildCardActionIcons(actionsTd) {
         if (el.tagName === 'FORM') {
             const submitBtn = el.querySelector('button[type="submit"]');
             if (submitBtn) {
-                const labeledBtn = buildLabeledButtonFromMenuLink(submitBtn);
-                if (labeledBtn) {
-                    toolbar.appendChild(labeledBtn);
+                const iconBtn = buildIconButtonFromMenuLink(submitBtn);
+                if (iconBtn) {
+                    toolbar.appendChild(iconBtn);
                 }
             }
             return;
@@ -380,16 +463,128 @@ function buildCardActionIcons(actionsTd) {
         if (el.classList.contains('kt-menu-toggle')) {
             return;
         }
-        const clone = el.cloneNode(true);
-        clone.classList.remove('kt-btn-icon', 'kt-btn-ghost');
-        if (!clone.classList.contains('w-full')) {
-            clone.classList.add('kt-btn-sm', 'kt-btn-outline', 'w-full', 'justify-center');
+        const iconBtn = buildIconButtonFromMenuLink(el);
+        if (iconBtn) {
+            toolbar.appendChild(iconBtn);
+            return;
         }
+        const clone = el.cloneNode(true);
+        const label = (clone.getAttribute('aria-label') || clone.getAttribute('title') || clone.textContent || '').trim();
+        const icon = clone.querySelector('i[class*="ki-"], svg');
+        fillIconActionButton(clone, {
+            iconNode: icon,
+            label,
+            isDanger: clone.classList.contains('text-danger') || isDangerAction(el, label),
+        });
         stopCardNavigation(clone);
         toolbar.appendChild(clone);
     });
 
     return toolbar.childNodes.length > 0 ? toolbar : null;
+}
+
+const IDENTITY_TITLE_LABELS = /^(gebruiker|bedrijf|klant|naam|vacature|rit|chauffeur|titel|contactpersoon)$/i;
+const SUBTITLE_LABELS = /^(locatie|bedrijf|contact|e-mail|email|rol|functie)$/i;
+const STATUS_LABELS = /^(status|actief)$/i;
+const MUTED_META_LABELS = /^(aangemaakt|bijgewerkt|laatst)/i;
+
+function initialsFromName(name) {
+    const parts = String(name || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (parts.length === 0) {
+        return '';
+    }
+    if (parts.length === 1) {
+        return parts[0].slice(0, 2).toUpperCase();
+    }
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function statusActiveFromHtml(html) {
+    const text = stripHtmlToText(html).toLowerCase();
+    if (!text || text === '—' || text === '-') {
+        return null;
+    }
+    if (text.includes('inactief') || text === 'nee') {
+        return false;
+    }
+    if (text.includes('actief') || text === 'ja') {
+        return true;
+    }
+    return null;
+}
+
+function extractTitleParts(html) {
+    const root = document.createElement('div');
+    root.innerHTML = html;
+
+    let avatar = null;
+    const img = root.querySelector('img');
+    if (img) {
+        avatar = {
+            type: 'img',
+            src: img.getAttribute('src') || '',
+            alt: img.getAttribute('alt') || '',
+        };
+        const imgWrap = img.closest('.rounded-full, .size-9') || img;
+        imgWrap.remove();
+    } else {
+        const fallback = root.querySelector('.rounded-full');
+        if (fallback) {
+            const text = fallback.textContent.trim();
+            if (text) {
+                avatar = { type: 'initials', text: text.slice(0, 3).toUpperCase() };
+            }
+            fallback.remove();
+        }
+    }
+
+    root.querySelectorAll('.user-email-copy, .admin-email-copy, button').forEach((el) => el.remove());
+
+    const nameLink = root.querySelector('a[href]:not([href="#"]):not([href^="javascript:"])');
+    let nameHtml = '';
+    let nameText = '';
+    if (nameLink) {
+        nameText = nameLink.textContent.trim().replace(/\s+/g, ' ');
+        nameLink.classList.add('admin-list-card__name');
+        nameHtml = nameLink.outerHTML;
+        nameLink.remove();
+    } else {
+        const nameEl = root.querySelector('.font-medium, .text-mono, [data-company-id], [data-user-id]');
+        if (nameEl) {
+            nameText = nameEl.textContent.trim().replace(/\s+/g, ' ');
+            nameEl.remove();
+        }
+    }
+
+    const extra = stripHtmlToText(root.innerHTML);
+    return { avatar, nameHtml, nameText, extra };
+}
+
+function createAvatarEl(avatar, nameText, isActive) {
+    const wrap = document.createElement('div');
+    wrap.className = 'admin-list-card__avatar';
+    if (avatar?.type === 'img' && avatar.src) {
+        const img = document.createElement('img');
+        img.src = avatar.src;
+        img.alt = avatar.alt || nameText || '';
+        wrap.appendChild(img);
+    } else {
+        const fallback = document.createElement('div');
+        fallback.className = 'admin-list-card__avatar-fallback';
+        fallback.textContent = avatar?.text || initialsFromName(nameText) || '•';
+        wrap.appendChild(fallback);
+    }
+    if (isActive === true || isActive === false) {
+        const dot = document.createElement('span');
+        dot.className =
+            'admin-list-card__status-dot' + (isActive ? '' : ' admin-list-card__status-dot--off');
+        dot.setAttribute('aria-hidden', 'true');
+        wrap.appendChild(dot);
+    }
+    return wrap;
 }
 
 function buildListCard(tr, labels, table) {
@@ -405,6 +600,10 @@ function buildListCard(tr, labels, table) {
     const href = resolveRowHref(tr);
     const card = document.createElement('article');
     card.className = 'admin-list-card' + (href ? ' admin-list-card--clickable' : '');
+    const rowId = tr.getAttribute('data-admin-row-id') || '';
+    if (rowId) {
+        card.setAttribute('data-admin-row-id', rowId);
+    }
     if (href) {
         card.setAttribute('data-row-href', href);
         card.setAttribute('tabindex', '0');
@@ -414,11 +613,8 @@ function buildListCard(tr, labels, table) {
     const body = document.createElement('div');
     body.className = 'admin-list-card__body';
 
-    const fields = document.createElement('dl');
-    fields.className = 'admin-list-card__fields';
-
-    let titleSet = false;
     let actionsTd = null;
+    const collected = [];
 
     cells.forEach((td, index) => {
         if (cellHasCheckbox(td)) {
@@ -429,50 +625,108 @@ function buildListCard(tr, labels, table) {
             return;
         }
 
-        const label = labels[index] || td.getAttribute('data-label') || `Veld ${index + 1}`;
-        if (!label || label.toLowerCase() === 'acties') {
-            return;
+        let label = (labels[index] || td.getAttribute('data-label') || '').trim();
+        if (/^veld\s+\d+$/i.test(label) || label.toLowerCase() === 'acties') {
+            label = '';
         }
 
         const valueHtml = cellDisplayHtml(td);
         const plain = stripHtmlToText(valueHtml);
-
-        if (!titleSet && plain.length > 0) {
-            const title = document.createElement('div');
-            title.className = 'admin-list-card__title';
-            title.innerHTML = valueHtml;
-            body.appendChild(title);
-            titleSet = true;
-            if (index === 0) {
-                return;
-            }
+        if (!plain) {
+            return;
         }
 
-        const field = document.createElement('div');
-        field.className = 'admin-list-card__field';
-        const dt = document.createElement('dt');
-        dt.textContent = label;
-        const dd = document.createElement('dd');
-        dd.innerHTML = valueHtml;
-        field.appendChild(dt);
-        field.appendChild(dd);
-        fields.appendChild(field);
+        collected.push({ label, valueHtml, plain, index });
     });
 
-    if (!titleSet && fields.children.length > 0) {
-        const first = fields.children[0];
-        const dd = first.querySelector('dd');
-        if (dd) {
-            const title = document.createElement('div');
-            title.className = 'admin-list-card__title';
-            title.innerHTML = dd.innerHTML;
-            body.appendChild(title);
-            first.remove();
-        }
+    if (collected.length === 0) {
+        return null;
     }
 
-    if (fields.children.length > 0) {
-        body.appendChild(fields);
+    const titleItem = collected.shift();
+    const titleParts = extractTitleParts(titleItem.valueHtml);
+    let nameText = titleParts.nameText || titleItem.plain;
+    const showAvatar =
+        Boolean(titleParts.avatar) ||
+        IDENTITY_TITLE_LABELS.test(titleItem.label) ||
+        labels.length >= 3 ||
+        Boolean(tr.querySelector('img, [data-user-id], [data-company-id]'));
+
+    let statusHtml = '';
+    let isActive = null;
+    const rest = [];
+    collected.forEach((item) => {
+        if (STATUS_LABELS.test(item.label)) {
+            statusHtml = item.valueHtml;
+            isActive = statusActiveFromHtml(item.valueHtml);
+            return;
+        }
+        rest.push(item);
+    });
+
+    let subtitleHtml = titleParts.extra;
+    const remaining = [];
+    rest.forEach((item) => {
+        if (!subtitleHtml && SUBTITLE_LABELS.test(item.label)) {
+            subtitleHtml = item.valueHtml;
+            return;
+        }
+        remaining.push(item);
+    });
+    if (!subtitleHtml && remaining[0] && !MUTED_META_LABELS.test(remaining[0].label)) {
+        const first = remaining.shift();
+        subtitleHtml = first.valueHtml;
+    }
+
+    if (showAvatar) {
+        body.appendChild(createAvatarEl(titleParts.avatar, nameText, isActive));
+    }
+
+    const title = document.createElement('div');
+    title.className = 'admin-list-card__title';
+    if (titleParts.nameHtml) {
+        title.innerHTML = titleParts.nameHtml;
+    } else {
+        title.textContent = nameText;
+    }
+    if (href) {
+        const nameLink = title.querySelector('a[href]');
+        if (!nameLink) {
+            const link = document.createElement('a');
+            link.href = href;
+            link.className = 'admin-list-card__name';
+            link.textContent = nameText;
+            title.replaceChildren(link);
+        }
+    }
+    body.appendChild(title);
+
+    if (subtitleHtml) {
+        const subtitle = document.createElement('div');
+        subtitle.className = 'admin-list-card__subtitle';
+        subtitle.innerHTML = subtitleHtml;
+        body.appendChild(subtitle);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'admin-list-card__meta';
+    if (statusHtml && isActive === null) {
+        const statusEl = document.createElement('div');
+        statusEl.className = 'admin-list-card__meta-item';
+        statusEl.innerHTML = statusHtml;
+        meta.appendChild(statusEl);
+    }
+    remaining.forEach((item) => {
+        if (MUTED_META_LABELS.test(item.label)) {
+            return;
+        }
+        const metaItem = document.createElement('div');
+        metaItem.className = 'admin-list-card__meta-item';
+        metaItem.innerHTML = item.valueHtml;
+        meta.appendChild(metaItem);
+    });
+    if (meta.childNodes.length > 0) {
+        body.appendChild(meta);
     }
 
     card.appendChild(body);
@@ -482,7 +736,10 @@ function buildListCard(tr, labels, table) {
         actions.className = 'admin-list-card__actions';
         actions.addEventListener('click', (e) => e.stopPropagation());
 
-        const iconToolbar = buildCardActionIcons(actionsTd);
+        const iconToolbar = buildCardActionIcons(actionsTd, {
+            skipViewAction: Boolean(href),
+            viewHref: href,
+        });
         if (iconToolbar) {
             actions.appendChild(iconToolbar);
             card.appendChild(actions);
@@ -581,8 +838,56 @@ function wrapTablesForScroll() {
     });
 }
 
+function isKeyValueDetailTable(table) {
+    if (!table.closest('.kt-card-table')) {
+        return false;
+    }
+    if (table.closest('[data-kt-datatable]')) {
+        return false;
+    }
+    if (table.querySelector('thead')) {
+        return false;
+    }
+    const rows = Array.from(table.querySelectorAll('tr')).filter((tr) => {
+        const tds = tr.querySelectorAll(':scope > td');
+        return tds.length > 0 && !tr.querySelector('td[colspan]');
+    });
+    if (rows.length === 0) {
+        return false;
+    }
+    return rows.every((tr) => tr.querySelectorAll(':scope > td').length === 2);
+}
+
+function markKeyValueTables() {
+    const root = document.getElementById('content');
+    if (!root) {
+        return;
+    }
+    root.querySelectorAll('.kt-card-table table.kt-table').forEach((table) => {
+        if (!isKeyValueDetailTable(table)) {
+            return;
+        }
+        table.classList.add('admin-kv-table');
+        table.closest('.kt-card-table')?.classList.add('admin-kv-table-wrap');
+    });
+}
+
+function teardownMobileList(table) {
+    const list = getMobileListForTable(table);
+    if (list) {
+        list.remove();
+    }
+    table.closest('.admin-desktop-table-wrap, .kt-scrollable-x-auto, .kt-card-table')?.classList.remove(
+        'admin-desktop-table-wrap'
+    );
+    delete table.dataset.adminCardsEnhanced;
+}
+
 function isListContextTable(table) {
     if (table.dataset.adminNoCards === 'true' || table.classList.contains('admin-keep-table-layout')) {
+        return false;
+    }
+    if (isKeyValueDetailTable(table)) {
         return false;
     }
     if (table.closest('form:not([method="GET"])')) {
@@ -778,11 +1083,17 @@ function enhanceListTables() {
         return;
     }
 
+    markKeyValueTables();
+
     root.querySelectorAll(
         '.kt-scrollable-x-auto table.kt-table, .kt-card-table table.kt-table, .kt-table-responsive table.kt-table, .admin-table-scroll-wrap table.kt-table'
     ).forEach((table) => {
         if (table.dataset.adminCardsEnhanced === '1') {
-            if (!getMobileListForTable(table) && isListContextTable(table)) {
+            if (!isListContextTable(table)) {
+                teardownMobileList(table);
+                return;
+            }
+            if (!getMobileListForTable(table)) {
                 delete table.dataset.adminCardsEnhanced;
             } else {
                 syncMobileCardsVisibility(table);
@@ -838,28 +1149,515 @@ function enhanceListTables() {
 let enhanceScheduled = false;
 
 const ADMIN_LIVE_FILTER_DELAY_MS = 300;
+const ADMIN_FILTER_PANEL_OPEN_KEY = 'admin-filter-panel-open:';
 
-function submitAdminFilterForm(form) {
-    if (typeof form.requestSubmit === 'function') {
-        form.requestSubmit();
+function filterPanelStorageKey() {
+    return `${ADMIN_FILTER_PANEL_OPEN_KEY}${window.location.pathname}`;
+}
+
+function readFilterPanelOpenPref() {
+    try {
+        return sessionStorage.getItem(filterPanelStorageKey());
+    } catch (error) {
+        return null;
+    }
+}
+
+function writeFilterPanelOpenPref(open) {
+    try {
+        sessionStorage.setItem(filterPanelStorageKey(), open ? '1' : '0');
+    } catch (error) {
+        // Private mode / blocked storage.
+    }
+}
+
+function isGetForm(form) {
+    return (form.getAttribute('method') || 'get').toLowerCase() === 'get';
+}
+
+function isLiveFilterDisabled(el) {
+    return Boolean(el?.closest?.('[data-admin-live-filter="off"]'));
+}
+
+function isClientDatatableSelect(select) {
+    return (
+        select.hasAttribute('data-admin-datatable-filter') ||
+        select.hasAttribute('data-admin-datatable-size') ||
+        select.hasAttribute('data-kt-datatable-size')
+    );
+}
+
+function isClientDatatableSearch(input) {
+    if (!input) {
+        return false;
+    }
+    if (
+        input.hasAttribute('data-kt-datatable-search') ||
+        input.hasAttribute('data-admin-datatable-search')
+    ) {
+        return true;
+    }
+    const card = input.closest('.kt-card');
+    return Boolean(card?.querySelector('[data-admin-datatable="true"], [data-kt-datatable]'));
+}
+
+function formNeedsServerFilterSubmit(form) {
+    const hasServerSelect = Array.from(form.querySelectorAll('select')).some(
+        (select) => !isClientDatatableSelect(select)
+    );
+    if (hasServerSelect) {
+        return true;
+    }
+    const search = form.querySelector('input[name="search"]');
+    if (search && !isClientDatatableSearch(search)) {
+        return true;
+    }
+    return Boolean(form.querySelector('input[data-kt-date-picker]'));
+}
+
+function isAdminLiveFilterForm(form) {
+    if (!form || form.tagName !== 'FORM' || !isGetForm(form) || isLiveFilterDisabled(form)) {
+        return false;
+    }
+    return (
+        form.classList.contains('admin-filter-panel') ||
+        form.classList.contains('admin-calendar-toolbar__filters') ||
+        form.id === 'filters-form' ||
+        form.id === 'search-form' ||
+        Boolean(form.closest('.admin-filter-panel'))
+    );
+}
+
+function collectAdminFilterGetForms(scope = document) {
+    const forms = new Set();
+    if (isAdminLiveFilterForm(scope)) {
+        forms.add(scope);
+    }
+    if (scope?.querySelectorAll) {
+        scope.querySelectorAll('form').forEach((form) => {
+            if (isAdminLiveFilterForm(form)) {
+                forms.add(form);
+            }
+        });
+    }
+    return Array.from(forms);
+}
+
+function cardNeedsServerFilterSubmit(form) {
+    const card = form.closest('.kt-card');
+    return collectAdminFilterGetForms(card || form).some(formNeedsServerFilterSubmit);
+}
+
+function setFilterQueryValue(params, name, value) {
+    if (!name || name === '_token') {
+        return;
+    }
+    if (value === '' || value == null) {
+        params.delete(name);
+        return;
+    }
+    params.set(name, String(value));
+}
+
+function collectAdminFilterParams(form) {
+    const params = new URLSearchParams();
+    const card = form.closest('.kt-card') || document.getElementById('content') || document;
+    const forms = collectAdminFilterGetForms(card);
+
+    forms.forEach((item) => {
+        item.querySelectorAll('input[type="hidden"][name]').forEach((input) => {
+            setFilterQueryValue(params, input.name, input.value);
+        });
+    });
+
+    forms.forEach((item) => {
+        item.querySelectorAll('select[name], input:not([type="hidden"])[name]').forEach((input) => {
+            if (input.disabled) {
+                return;
+            }
+            if ((input.type === 'checkbox' || input.type === 'radio') && !input.checked) {
+                return;
+            }
+            setFilterQueryValue(params, input.name, input.value);
+        });
+    });
+
+    const current = new URLSearchParams(window.location.search);
+    ['perpage', 'per_page', 'direction'].forEach((key) => {
+        if (!params.has(key) && current.has(key)) {
+            params.set(key, current.get(key));
+        }
+    });
+
+    params.delete('page');
+    return params;
+}
+
+function keepFilterPanelOpen(form) {
+    const panel =
+        form.closest('.admin-filter-panel') ||
+        form.closest('.kt-card-header')?.querySelector('.admin-filter-panel') ||
+        form;
+    panel.classList.add('is-open');
+    const toggle = panel
+        .closest('.kt-card-header')
+        ?.querySelector('[data-admin-filter-toggle]');
+    toggle?.setAttribute('aria-expanded', 'true');
+    writeFilterPanelOpenPref(true);
+}
+
+function syncKtSelectDisplayValue(select) {
+    const wrapper =
+        select.closest('.kt-select-wrapper') ||
+        select.parentElement?.querySelector?.('.kt-select-wrapper') ||
+        select.parentElement;
+    const display = wrapper?.querySelector('[data-kt-select-display]');
+    const selected = select.options[select.selectedIndex];
+    if (display && selected) {
+        display.textContent = selected.textContent.trim();
+    }
+    if (!window.KTSelect) {
+        return;
+    }
+    try {
+        const instance = window.KTSelect.getInstance?.(select);
+        if (instance?.update) {
+            instance.update();
+        } else if (instance?.setValue) {
+            instance.setValue(select.value);
+        }
+    } catch (error) {
+        // Filter-select blijft visueel in sync via display-tekst.
+    }
+}
+
+function syncFilterFieldsFromRemote(localCard, remoteCard) {
+    const localForms = collectAdminFilterGetForms(localCard);
+    const remoteForms = collectAdminFilterGetForms(remoteCard);
+    if (localForms.length === 0 || remoteForms.length === 0) {
         return;
     }
 
-    form.submit();
+    const remoteValues = new Map();
+    remoteForms.forEach((form) => {
+        form.querySelectorAll('select[name], input[name]').forEach((input) => {
+            if (!input.name || input.type === 'hidden') {
+                return;
+            }
+            if ((input.type === 'checkbox' || input.type === 'radio') && !input.checked) {
+                return;
+            }
+            remoteValues.set(input.name, input.value);
+        });
+    });
+
+    localForms.forEach((form) => {
+        form.querySelectorAll('select[name], input:not([type="hidden"])[name]').forEach((input) => {
+            if (!input.name || !remoteValues.has(input.name)) {
+                if (input.name && !remoteValues.has(input.name) && input.type !== 'checkbox') {
+                    input.value = '';
+                    if (input.tagName === 'SELECT') {
+                        syncKtSelectDisplayValue(input);
+                    }
+                }
+                return;
+            }
+            const next = remoteValues.get(input.name);
+            if (input.value !== next) {
+                input.value = next;
+            }
+            if (input.tagName === 'SELECT') {
+                syncKtSelectDisplayValue(input);
+            }
+        });
+        form.querySelectorAll('input[type="hidden"][name]').forEach((input) => {
+            if (remoteValues.has(input.name)) {
+                input.value = remoteValues.get(input.name);
+            } else if (!['page', 'sort', 'direction', 'per_page', 'perpage'].includes(input.name)) {
+                input.value = '';
+            }
+        });
+    });
+}
+
+function syncResetFilterButton(localCard, remoteCard) {
+    const localBtn = localCard.querySelector('#reset-filter-btn, a[title="Filters resetten"]');
+    const remoteBtn = remoteCard.querySelector('#reset-filter-btn, a[title="Filters resetten"]');
+    const panel = localCard.querySelector('.admin-filter-panel') || localCard.querySelector('.kt-card-header');
+    if (remoteBtn && !localBtn && panel) {
+        panel.appendChild(remoteBtn.cloneNode(true));
+        return;
+    }
+    if (localBtn && !remoteBtn) {
+        localBtn.remove();
+        return;
+    }
+    if (localBtn && remoteBtn) {
+        localBtn.setAttribute('href', remoteBtn.getAttribute('href') || localBtn.getAttribute('href'));
+        localBtn.hidden = false;
+        localBtn.style.display = '';
+    }
+}
+
+function findRemoteFilterCard(doc, localCard, form) {
+    if (form.id) {
+        const remoteForm = doc.getElementById(form.id);
+        const card = remoteForm?.closest('.kt-card');
+        if (card) {
+            return card;
+        }
+    }
+    const localDt = localCard.querySelector('[data-admin-datatable][id], [data-kt-datatable][id]');
+    if (localDt?.id) {
+        const remoteDt = doc.getElementById(localDt.id);
+        const card = remoteDt?.closest('.kt-card');
+        if (card) {
+            return card;
+        }
+    }
+    return (
+        doc.querySelector('#content .kt-card:has(.kt-card-header .admin-filter-panel)') ||
+        doc.querySelector('#content .kt-card:has(#filters-form)') ||
+        doc.querySelector('#content .kt-card')
+    );
+}
+
+function clearAdminFilterFields(card) {
+    collectAdminFilterGetForms(card).forEach((form) => {
+        form.querySelectorAll('select[name], input[name]').forEach((input) => {
+            if (!input.name || ['page', 'perpage', 'per_page'].includes(input.name)) {
+                return;
+            }
+            if (input.type === 'hidden' || input.type === 'text' || input.type === 'search') {
+                input.value = '';
+                return;
+            }
+            if (input.tagName === 'SELECT') {
+                input.value = '';
+                syncKtSelectDisplayValue(input);
+            }
+        });
+    });
+}
+
+function enhanceSwappedFilterResults(container) {
+    if (typeof window.initAdminClientDatatables === 'function') {
+        window.initAdminClientDatatables(container);
+    }
+    if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+        container.querySelectorAll('select[data-kt-select]').forEach((select) => {
+            if (select.closest('.admin-filter-panel, .kt-card-header')) {
+                return;
+            }
+            if (isClientDatatableSelect(select)) {
+                return;
+            }
+            try {
+                if (window.KTSelect.getInstance?.(select)) {
+                    return;
+                }
+                window.KTSelect.init(select);
+            } catch (error) {
+                // Nieuwe lijst-selects zijn optioneel.
+            }
+        });
+    }
+    scheduleAdminResponsiveEnhance();
+}
+
+function applyAdminFilterHtml(form, html, url) {
+    const localCard = form.closest('.kt-card');
+    if (!localCard) {
+        window.location.assign(url);
+        return;
+    }
+
+    const localContent = localCard.querySelector(':scope > .kt-card-content, :scope > .kt-card-body');
+    if (!localContent) {
+        window.location.assign(url);
+        return;
+    }
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const remoteCard = findRemoteFilterCard(doc, localCard, form);
+    const remoteContent = remoteCard?.querySelector(':scope > .kt-card-content, :scope > .kt-card-body');
+    if (!remoteCard || !remoteContent) {
+        window.location.assign(url);
+        return;
+    }
+
+    keepFilterPanelOpen(form);
+    localContent.innerHTML = remoteContent.innerHTML;
+
+    const localTitle = localCard.querySelector(':scope > .kt-card-header .kt-card-title, :scope > .kt-card-header h3');
+    const remoteTitle = remoteCard.querySelector(':scope > .kt-card-header .kt-card-title, :scope > .kt-card-header h3');
+    if (localTitle && remoteTitle) {
+        localTitle.innerHTML = remoteTitle.innerHTML;
+    }
+
+    syncFilterFieldsFromRemote(localCard, remoteCard);
+    syncResetFilterButton(localCard, remoteCard);
+    keepFilterPanelOpen(form);
+
+    const nextUrl = new URL(url, window.location.origin);
+    const hash = window.location.hash || '';
+    window.history.replaceState(window.history.state, '', `${nextUrl.pathname}${nextUrl.search}${hash}`);
+
+    enhanceSwappedFilterResults(localContent);
+}
+
+async function submitAdminFilterForm(form, options = {}) {
+    if (form.dataset.adminLiveFilter === 'off' || isLiveFilterDisabled(form)) {
+        return;
+    }
+
+    const params = collectAdminFilterParams(form);
+    let url = options.url;
+    if (!url) {
+        const action = form.getAttribute('action') || window.location.pathname;
+        const next = new URL(action, window.location.origin);
+        next.search = params.toString();
+        url = `${next.pathname}${next.search}`;
+    }
+
+    if (form._adminFilterAbort) {
+        form._adminFilterAbort.abort();
+    }
+    const abort = new AbortController();
+    form._adminFilterAbort = abort;
+    form._adminFilterRequestId = (Number(form._adminFilterRequestId) || 0) + 1;
+    const requestId = form._adminFilterRequestId;
+
+    const card = form.closest('.kt-card');
+    const content = card?.querySelector(':scope > .kt-card-content, :scope > .kt-card-body');
+    content?.setAttribute('aria-busy', 'true');
+    keepFilterPanelOpen(form);
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'text/html',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            signal: abort.signal,
+        });
+
+        if (!response.ok) {
+            window.location.assign(url);
+            return;
+        }
+
+        const responseUrl = new URL(response.url, window.location.origin);
+        if (responseUrl.origin === window.location.origin && responseUrl.pathname !== new URL(url, window.location.origin).pathname) {
+            window.location.assign(response.url);
+            return;
+        }
+
+        const html = await response.text();
+        applyAdminFilterHtml(form, html, url);
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            return;
+        }
+        window.location.assign(url);
+    } finally {
+        if (form._adminFilterRequestId === requestId) {
+            content?.removeAttribute('aria-busy');
+        }
+    }
+}
+
+function queueAdminFilterFormSubmit(form) {
+    if (form._adminFilterSubmitQueued) {
+        return;
+    }
+    form._adminFilterSubmitQueued = true;
+    queueMicrotask(() => {
+        form._adminFilterSubmitQueued = false;
+        submitAdminFilterForm(form);
+    });
+}
+
+function bindAdminFilterAjaxNavigation(card, form) {
+    if (!card || card.dataset.adminFilterAjaxNavBound === '1') {
+        return;
+    }
+    card.dataset.adminFilterAjaxNavBound = '1';
+
+    card.addEventListener('click', (event) => {
+        const link = event.target.closest('a[href]');
+        if (!link || link.target === '_blank' || link.hasAttribute('download')) {
+            return;
+        }
+        if (link.closest('.kt-menu, .admin-list-card__actions, form[method="POST"], form[method="post"]')) {
+            return;
+        }
+
+        const isReset =
+            link.id === 'reset-filter-btn' || link.getAttribute('title') === 'Filters resetten';
+        const inResults = link.closest(
+            '.kt-card-content, .kt-card-body, .kt-card-table, .kt-card-footer, .kt-table-col-sort'
+        );
+        if (!isReset && !inResults) {
+            return;
+        }
+
+        let next;
+        try {
+            next = new URL(link.href, window.location.origin);
+        } catch (error) {
+            return;
+        }
+        if (next.origin !== window.location.origin) {
+            return;
+        }
+
+        const formUrl = new URL(form.getAttribute('action') || window.location.pathname, window.location.origin);
+        if (next.pathname !== window.location.pathname && next.pathname !== formUrl.pathname) {
+            return;
+        }
+
+        event.preventDefault();
+        if (isReset) {
+            clearAdminFilterFields(card);
+        }
+        submitAdminFilterForm(form, { url: `${next.pathname}${next.search}` });
+    });
 }
 
 function bindAdminFilterPanelLiveSubmit(root = document) {
-    root.querySelectorAll('#content form.admin-filter-panel[method="GET"]').forEach((form) => {
-        if (form.dataset.adminLiveFilterBound === '1' || form.dataset.adminLiveFilter === 'off') {
+    const forms = collectAdminFilterGetForms(root.querySelector?.('#content') || root);
+
+    forms.forEach((form) => {
+        if (form.dataset.adminLiveFilterBound === '1' || isLiveFilterDisabled(form)) {
             return;
         }
 
         form.dataset.adminLiveFilterBound = '1';
 
+        form.dataset.adminLiveFilter = 'ajax';
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (cardNeedsServerFilterSubmit(form)) {
+                queueAdminFilterFormSubmit(form);
+            }
+        });
+
+        form.submit = () => {
+            if (cardNeedsServerFilterSubmit(form)) {
+                queueAdminFilterFormSubmit(form);
+                return;
+            }
+            window.HTMLFormElement.prototype.submit.call(form);
+        };
+
         const searchInput = form.querySelector('input[name="search"]');
         let searchTimer = null;
 
-        if (searchInput && !searchInput.hasAttribute('data-kt-datatable-search')) {
+        if (searchInput && !isClientDatatableSearch(searchInput)) {
             const queueSearchSubmit = () => {
                 if (searchTimer) {
                     clearTimeout(searchTimer);
@@ -867,7 +1665,7 @@ function bindAdminFilterPanelLiveSubmit(root = document) {
 
                 searchTimer = setTimeout(() => {
                     searchTimer = null;
-                    submitAdminFilterForm(form);
+                    queueAdminFilterFormSubmit(form);
                 }, ADMIN_LIVE_FILTER_DELAY_MS);
             };
 
@@ -876,8 +1674,65 @@ function bindAdminFilterPanelLiveSubmit(root = document) {
         }
 
         form.querySelectorAll('select').forEach((select) => {
-            select.addEventListener('change', () => submitAdminFilterForm(form));
+            if (isClientDatatableSelect(select)) {
+                return;
+            }
+            select.addEventListener('change', () => queueAdminFilterFormSubmit(form));
         });
+
+        form.querySelectorAll('input[data-kt-date-picker]').forEach((input) => {
+            let lastValue = input.value;
+            input.addEventListener('change', () => {
+                if (input.value === lastValue) {
+                    return;
+                }
+                lastValue = input.value;
+                queueAdminFilterFormSubmit(form);
+            });
+        });
+
+        const card = form.closest('.kt-card');
+        if (card && formNeedsServerFilterSubmit(form)) {
+            bindAdminFilterAjaxNavigation(card, form);
+        }
+    });
+}
+
+function fitNativeSelectToContent(select) {
+    const option = select.options[select.selectedIndex];
+    const text = option ? option.text : '';
+    const style = window.getComputedStyle(select);
+    const probe = document.createElement('span');
+    probe.textContent = text || ' ';
+    probe.style.cssText = [
+        'position:absolute',
+        'left:-9999px',
+        'top:0',
+        'white-space:nowrap',
+        `font:${style.font}`,
+        `letter-spacing:${style.letterSpacing}`,
+        `text-transform:${style.textTransform}`,
+    ].join(';');
+    document.body.appendChild(probe);
+
+    const padLeft = parseFloat(style.paddingLeft) || 0;
+    const padRight = parseFloat(style.paddingRight) || 0;
+    const border =
+        (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+    const width = Math.ceil(probe.offsetWidth + padLeft + padRight + border + 2);
+    probe.remove();
+    select.style.width = `${width}px`;
+}
+
+function bindContentWidthSelects(root = document) {
+    root.querySelectorAll('#content .admin-calendar-toolbar__filters select').forEach((select) => {
+        if (select.dataset.contentWidthBound === '1') {
+            return;
+        }
+        select.dataset.contentWidthBound = '1';
+        const fit = () => fitNativeSelectToContent(select);
+        fit();
+        select.addEventListener('change', fit);
     });
 }
 
@@ -1027,15 +1882,9 @@ function bindAdminTableActionMenus() {
                 if (submitBtn) {
                     const form = submitBtn.closest('form');
                     if (form) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        event.stopImmediatePropagation();
                         closeAdminTableActionMenus();
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit(submitBtn);
-                        } else {
-                            form.submit();
-                        }
+                        // Laat de klik door naar de gedeelde bevestigingsmodal. Hier
+                        // stoppen + form.submit() slaat die modal over.
                     }
                 }
                 return;
@@ -1103,6 +1952,7 @@ function scheduleAdminResponsiveEnhance() {
         wrapTablesForScroll();
         enhanceListTables();
         bindAdminFilterPanelLiveSubmit();
+        bindContentWidthSelects();
         bindAdminTableActionMenus();
         bindClickableTableRows();
     });
@@ -1135,28 +1985,36 @@ function countActiveFilters(panel) {
     return count;
 }
 
+function findFilterRow(header) {
+    const existing = header.querySelector('.admin-filter-panel');
+    if (existing) {
+        return existing;
+    }
+
+    const form = header.querySelector('#filters-form, #search-form, form[method="GET"]');
+    if (!form) {
+        return null;
+    }
+
+    let candidate = form;
+    let node = form.parentElement;
+    while (node && node !== header) {
+        if (node.classList?.contains('flex')) {
+            candidate = node;
+        }
+        node = node.parentElement;
+    }
+
+    return candidate;
+}
+
 function enhanceFilterPanels() {
     document.querySelectorAll('.kt-card-header').forEach((header) => {
         if (header.dataset.adminFiltersEnhanced === '1') {
             return;
         }
 
-        const hasFilters =
-            header.querySelector('#filters-form, #search-form') ||
-            header.querySelector('form[method="GET"]');
-        if (!hasFilters) {
-            return;
-        }
-
-        let filterRow = header.querySelector(
-            '.flex.flex-col.sm\\:flex-row, .flex.flex-wrap.gap-2, .flex.gap-2.flex-wrap'
-        );
-        if (!filterRow) {
-            const getForm = header.querySelector('form[method="GET"]');
-            if (getForm?.parentElement?.classList.contains('flex')) {
-                filterRow = getForm.parentElement;
-            }
-        }
+        const filterRow = findFilterRow(header);
         if (!filterRow || filterRow.classList.contains('admin-filter-panel')) {
             return;
         }
@@ -1183,6 +2041,7 @@ function enhanceFilterPanels() {
         toggle.addEventListener('click', () => {
             const open = filterRow.classList.toggle('is-open');
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            writeFilterPanelOpenPref(open);
         });
 
         header.insertBefore(toggle, filterRow);
@@ -1192,7 +2051,7 @@ function enhanceFilterPanels() {
             el.addEventListener('input', updateToggleLabel);
         });
 
-        if (countActiveFilters(filterRow) > 0) {
+        if (readFilterPanelOpenPref() === '1' || countActiveFilters(filterRow) > 0) {
             filterRow.classList.add('is-open');
             toggle.setAttribute('aria-expanded', 'true');
         }
@@ -1206,6 +2065,52 @@ function enhanceFilterPanels() {
         };
         mq.addEventListener('change', syncDesktop);
         syncDesktop();
+    });
+}
+
+const SELECT_DROPDOWN_SELECTOR = '.kt-select-dropdown, [data-kt-select-dropdown]';
+const SELECT_WRAPPER_SELECTOR = '.kt-select-wrapper, [data-kt-select-wrapper]';
+
+function isSelectDropdownOpen(dropdown) {
+    if (!dropdown || dropdown.hasAttribute('hidden') || dropdown.classList.contains('hidden')) {
+        return false;
+    }
+    return dropdown.classList.contains('open') || dropdown.classList.contains('show');
+}
+
+function syncSelectDropdownOpenState() {
+    let anyOpen = false;
+    document.querySelectorAll(SELECT_WRAPPER_SELECTOR).forEach((wrapper) => {
+        const dropdown = wrapper.querySelector(SELECT_DROPDOWN_SELECTOR);
+        const open = isSelectDropdownOpen(dropdown);
+        wrapper.classList.toggle('is-dropdown-open', open);
+        anyOpen = anyOpen || open;
+    });
+    document.documentElement.classList.toggle('admin-kt-select-open', anyOpen);
+}
+
+/**
+ * Alleen op click/Escape: geen MutationObserver op document.body.
+ * Die observer + inline Popper-overrides vroor de pagina zodra het
+ * filterpaneel openging (KT Select initialiseert dan alle dropdowns).
+ */
+function bindAdminSelectDropdowns() {
+    if (document.documentElement.dataset.adminSelectDropdownsBound === '1') {
+        return;
+    }
+    document.documentElement.dataset.adminSelectDropdownsBound = '1';
+
+    document.addEventListener(
+        'click',
+        () => {
+            requestAnimationFrame(syncSelectDropdownOpenState);
+        },
+        true
+    );
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            requestAnimationFrame(syncSelectDropdownOpenState);
+        }
     });
 }
 
@@ -1229,10 +2134,56 @@ function markPageActionBars() {
         });
 }
 
+function isAdminMobileNavViewport() {
+    return window.matchMedia('(max-width: 1023px)').matches;
+}
+
+/** Mobiel: drawer alleen open na hamburger — nooit open herstellen bij paginaload. */
+function closeAdminMobileNavDrawer() {
+    if (!isAdminMobileNavViewport()) {
+        return;
+    }
+
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) {
+        return;
+    }
+
+    sidebar.classList.remove('open');
+    sidebar.classList.remove('flex');
+    sidebar.classList.add('hidden');
+    sidebar.removeAttribute('role');
+    sidebar.removeAttribute('aria-modal');
+    sidebar.style.zIndex = '';
+    document.body.style.overflow = '';
+
+    try {
+        const inst = window.KTDrawer?.getInstance?.(sidebar);
+        if (inst && typeof inst.isOpen === 'function' && inst.isOpen() && typeof inst.hide === 'function') {
+            inst.hide();
+        }
+    } catch (error) {
+        // Drawer-instance is optioneel; CSS houdt de kolom off-canvas.
+    }
+}
+
+function bindAdminMobileNavDrawerClosedByDefault() {
+    if (document.documentElement.dataset.adminMobileNavDrawerBound === '1') {
+        return;
+    }
+    document.documentElement.dataset.adminMobileNavDrawerBound = '1';
+
+    closeAdminMobileNavDrawer();
+    window.addEventListener('pageshow', closeAdminMobileNavDrawer);
+}
+
 export function initAdminResponsive() {
+    bindAdminMobileNavDrawerClosedByDefault();
     markPageActionBars();
     enhanceFilterPanels();
     bindAdminFilterPanelLiveSubmit();
+    bindAdminSelectDropdowns();
+    bindContentWidthSelects();
     bindAdminTableActionMenus();
     bindClickableTableRows();
     scheduleAdminResponsiveEnhance();

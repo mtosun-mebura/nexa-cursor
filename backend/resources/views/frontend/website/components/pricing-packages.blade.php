@@ -39,6 +39,7 @@
     $comparisonRows = $packages !== [] ? $pricingService->featureComparison($sectionData) : [];
     $packageCount = count($packages);
     $isPrijzenPage = request()->is('prijzen');
+    $showMarketplaceFeeNotice = app(\App\Services\WebsiteBuilderService::class)->isCentralPublicSite($page ?? null);
     $lastRowIndex = count($comparisonRows) - 1;
 
     $signupLabel = static function (array $package): string {
@@ -260,6 +261,10 @@
         height: 1px;
         vertical-align: stretch;
     }
+    #prijzen-pakketten .nexa-pricing-table-wrap td.nexa-plan-head,
+    #prijzen-pakketten .nexa-pricing-table-wrap td.nexa-plan-price {
+        text-align: center;
+    }
     #prijzen-pakketten .nexa-plan-price__inner {
         height: 100%;
         display: flex;
@@ -267,6 +272,12 @@
         padding-top: 0.5rem;
         padding-bottom: 0.75rem;
         box-sizing: border-box;
+    }
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-plan-price__inner,
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-price-block,
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-price-deal,
+    #prijzen-pakketten .nexa-pricing-table-wrap .nexa-price-deal__was {
+        align-items: center;
     }
     #prijzen-pakketten .nexa-price-deal {
         display: flex;
@@ -436,9 +447,118 @@
         min-width: 0;
         box-sizing: border-box;
     }
+    #prijzen-pakketten .nexa-pricing-cards {
+        display: none;
+    }
     @media (max-width: 767px) {
         #prijzen-pakketten .nexa-pricing-website-copy {
             width: 100%;
+        }
+        #prijzen-pakketten .nexa-pricing-table-wrap {
+            display: none;
+        }
+        #prijzen-pakketten .nexa-pricing-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        #prijzen-pakketten .nexa-pricing-cards__caption {
+            margin: 0;
+            color: var(--muted-foreground);
+            font-size: 0.8125rem;
+            line-height: 1.4;
+        }
+        #prijzen-pakketten .nexa-pricing-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 1.15rem 1.15rem 1.25rem;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--background);
+            box-sizing: border-box;
+        }
+        #prijzen-pakketten .nexa-pricing-card--highlighted {
+            background-color: color-mix(in oklab, var(--muted) 40%, transparent);
+            border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+        }
+        #prijzen-pakketten .nexa-pricing-card__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.5rem 0.75rem;
+        }
+        #prijzen-pakketten .nexa-pricing-card h3 {
+            margin: 0;
+            padding: 0;
+        }
+        #prijzen-pakketten .nexa-pricing-card__audience {
+            margin: 0.25rem 0 0;
+            color: var(--muted-foreground);
+            line-height: 1.4;
+        }
+        #prijzen-pakketten .nexa-pricing-card .nexa-plan-price__inner {
+            height: auto;
+            padding: 0;
+        }
+        #prijzen-pakketten .nexa-pricing-card .nexa-price-deal,
+        #prijzen-pakketten .nexa-pricing-card .nexa-price-block {
+            height: auto;
+            flex: 0 0 auto;
+        }
+        #prijzen-pakketten .nexa-pricing-card__cta {
+            width: 100%;
+            min-height: 2.75rem;
+            height: auto;
+            padding-top: 0.65rem;
+            padding-bottom: 0.65rem;
+        }
+        #prijzen-pakketten .nexa-pricing-card__features {
+            margin: 0;
+            padding: 0.25rem 0 0;
+            list-style: none;
+            border-top: 1px solid var(--border);
+        }
+        #prijzen-pakketten .nexa-pricing-card__features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+            color: var(--foreground);
+            line-height: 1.35;
+        }
+        #prijzen-pakketten .nexa-pricing-card__features li:last-child {
+            border-bottom: 0;
+            padding-bottom: 0;
+        }
+        #prijzen-pakketten .nexa-pricing-card__features .nexa-plan-mark {
+            width: 1.25rem;
+            min-height: 1.25rem;
+            flex-shrink: 0;
+            margin-top: 0.05rem;
+        }
+        #prijzen-pakketten .nexa-pricing-card__features li.is-absent {
+            color: var(--muted-foreground);
+        }
+    }
+    @media (min-width: 768px) {
+        #prijzen-pakketten .nexa-pricing-cards {
+            display: none;
+        }
+        #prijzen-pakketten .nexa-pricing-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #prijzen-pakketten .nexa-pricing-table-wrap .kt-table {
+            min-width: 42rem;
         }
     }
 
@@ -498,11 +618,90 @@
             @if($subtitle !== '')
             <p class="text-gray-600 dark:text-gray-300 nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 140ms;">{{ $subtitle }}</p>
             @endif
+            @if($showMarketplaceFeeNotice)
+            <div class="mt-6 text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-5 py-4 text-sm text-gray-600 dark:text-gray-300 leading-relaxed nexa-pricing-reveal__item" style="--nexa-pricing-reveal-delay: 200ms;">
+                <p class="mb-2">{{ \App\Support\NexaMarketplaceFeeCopy::pricingNoticeOwnSite() }}</p>
+                <p class="mb-0">{{ \App\Support\NexaMarketplaceFeeCopy::pricingNoticeMarketplace() }} <a href="{{ url('/voorwaarden') }}" class="text-blue-600 dark:text-blue-400 hover:underline">Algemene voorwaarden</a>.</p>
+            </div>
+            @endif
         </div>
         @endif
 
         @if($packages !== [])
-        <div class="kt-scrollable-x-auto pt-3 -mt-3 nexa-pricing-block nexa-pricing-block--packages nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="--nexa-pricing-fs: {{ $packagesFontPx }}px;">
+        <div class="nexa-pricing-cards nexa-pricing-block nexa-pricing-block--packages nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="--nexa-pricing-fs: {{ $packagesFontPx }}px;">
+            <p class="nexa-pricing-cards__caption">Wat zit erin · excl. btw · 12 maanden</p>
+            @foreach($packages as $index => $package)
+                @php
+                    $highlighted = filter_var($package['highlighted'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                    $deal = $pricingService->packagePricePresentation($package);
+                    $ctaUrl = $pricingService->signupUrl($package);
+                    $ctaText = $signupLabel($package);
+                @endphp
+                <article class="nexa-pricing-card{{ $highlighted ? ' nexa-pricing-card--highlighted' : '' }}">
+                    <div class="nexa-pricing-card__head">
+                        <div>
+                            <h3 class="text-lg text-mono font-medium">{{ $package['name'] ?? '' }}</h3>
+                            @if(!empty($package['audience']))
+                            <p class="nexa-pricing-card__audience text-sm">{{ $package['audience'] }}</p>
+                            @endif
+                        </div>
+                        @if($highlighted && ! empty($package['badge']))
+                        <span class="kt-badge nexa-plan-badge kt-badge-outline kt-badge-success">{{ $package['badge'] }}</span>
+                        @endif
+                    </div>
+                    <div class="nexa-plan-price__inner">
+                        @if($deal['has_deal'])
+                        <div class="nexa-price-deal">
+                            <span class="nexa-price-deal__tag">Aanbieding</span>
+                            <div class="nexa-price-offer">{{ $deal['hero'] }}</div>
+                            @if($deal['after_label'] !== '')
+                            <div class="nexa-price-deal__after">{{ $deal['after_label'] }}</div>
+                            @endif
+                            <div class="nexa-price-deal__was">
+                                @if($deal['was_label'] !== '')
+                                <span class="nexa-price-deal__was-line">
+                                    <span class="nexa-price-deal__was-label">was</span>
+                                    <span class="nexa-price-original nexa-price-original--struck">{{ $deal['was_label'] }}</span>
+                                </span>
+                                @endif
+                                @if($deal['period'] !== '')
+                                <span class="nexa-price-period">{{ $deal['period'] }}</span>
+                                @endif
+                            </div>
+                        </div>
+                        @else
+                        <div class="nexa-price-block">
+                            <div class="nexa-price-regular">{{ $deal['hero'] }}</div>
+                            @if($deal['period'] !== '')
+                            <div class="nexa-price-period">{{ $deal['period'] }}</div>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+                    <a href="{{ $ctaUrl }}" class="kt-btn nexa-pricing-card__cta {{ $highlighted ? 'kt-btn-primary' : 'kt-btn-outline' }} text-center flex justify-center">{{ $ctaText }}</a>
+                    @if($comparisonRows !== [])
+                    <ul class="nexa-pricing-card__features">
+                        @foreach($comparisonRows as $row)
+                            @php $included = (bool) ($row['included'][$index] ?? false); @endphp
+                            <li class="{{ $included ? '' : 'is-absent' }}">
+                                <span class="nexa-plan-mark">
+                                @if($included)
+                                    <i class="ki-filled ki-check text-green-500 text-lg"></i>
+                                    <span class="sr-only">Inbegrepen</span>
+                                @else
+                                    <span class="nexa-plan-absent" aria-hidden="true">–</span>
+                                    <span class="sr-only">Niet inbegrepen</span>
+                                @endif
+                                </span>
+                                <span>{{ $row['label'] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @endif
+                </article>
+            @endforeach
+        </div>
+        <div class="kt-scrollable-x-auto pt-3 -mt-3 nexa-pricing-table-wrap nexa-pricing-block nexa-pricing-block--packages nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="--nexa-pricing-fs: {{ $packagesFontPx }}px;">
             <table class="kt-table table-fixed border-separate border-spacing-0 w-full min-w-0 rounded-xl">
                 <tr class="*:border-border">
                     <td class="nexa-plan-intro border-b-0 align-bottom p-5! pt-7.5!" rowspan="3">
@@ -514,7 +713,7 @@
                             $highlighted = filter_var($package['highlighted'] ?? false, FILTER_VALIDATE_BOOLEAN);
                             $isFirst = $index === 0;
                             $isLast = $index === $packageCount - 1;
-                            $cellClass = 'border-t ltr:border-l rtl:border-s p-5! pt-7.5! pb-2! relative';
+                            $cellClass = 'nexa-plan-head border-t ltr:border-l rtl:border-s p-5! pt-7.5! pb-2! relative text-center';
                             if ($highlighted) {
                                 $cellClass .= ' bg-muted/40';
                             }
@@ -542,7 +741,7 @@
                             $highlighted = filter_var($package['highlighted'] ?? false, FILTER_VALIDATE_BOOLEAN);
                             $isLast = $index === $packageCount - 1;
                             $deal = $pricingService->packagePricePresentation($package);
-                            $cellClass = 'nexa-plan-price ltr:border-l rtl:border-s px-5! py-0!';
+                            $cellClass = 'nexa-plan-price ltr:border-l rtl:border-s px-5! py-0! text-center';
                             if ($highlighted) {
                                 $cellClass .= ' bg-muted/40';
                             }

@@ -56,6 +56,11 @@ class RideRequest extends Model
         'quote_expires_at',
         'booking_payload',
         'selected_offer_payload',
+        'trip_started_at',
+        'trip_completed_at',
+        'track_polyline',
+        'actual_distance_meters',
+        'actual_duration_seconds',
     ];
 
     protected $casts = [
@@ -67,6 +72,8 @@ class RideRequest extends Model
         'outbound_completed_at' => 'datetime',
         'return_started_at' => 'datetime',
         'quote_expires_at' => 'datetime',
+        'trip_started_at' => 'datetime',
+        'trip_completed_at' => 'datetime',
         'pickup_lat' => 'decimal:7',
         'pickup_lng' => 'decimal:7',
         'dropoff_lat' => 'decimal:7',
@@ -150,6 +157,12 @@ class RideRequest extends Model
     public const PAYMENT_STATUS_PAID = 'paid';
 
     public const PAYMENT_STATUS_NOT_REQUIRED = 'not_required';
+
+    public const PAYMENT_STATUS_REFUNDED = 'refunded';
+
+    public const PAYMENT_STATUS_REFUND_PENDING = 'refund_pending';
+
+    public const PAYMENT_STATUS_REFUND_FAILED = 'refund_failed';
 
     public const RIDE_TYPE_STANDARD = 'standard';
 
@@ -271,7 +284,7 @@ class RideRequest extends Model
             return false;
         }
 
-        return (int) ($this->company_id ?? 0) > 0;
+        return (int) ($this->company_id ?? 0) > 0 || $this->isUnclaimedMarketplaceBooking();
     }
 
     public function isNexaSuiteBooking(): bool
@@ -287,6 +300,75 @@ class RideRequest extends Model
         }
 
         return false;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function marketplaceCandidateCompanyIds(): array
+    {
+        $payload = $this->booking_payload;
+        $ids = is_array($payload) ? ($payload['marketplace']['candidate_company_ids'] ?? []) : [];
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('intval', $ids),
+            static fn (int $id): bool => $id > 0
+        )));
+    }
+
+    public function isUnclaimedMarketplaceBooking(): bool
+    {
+        return $this->isNexaSuiteBooking()
+            && ! $this->driver_id
+            && (int) ($this->company_id ?? 0) <= 0;
+    }
+
+    public function isVisibleToMarketplaceTenant(int $companyId): bool
+    {
+        if ($companyId <= 0) {
+            return false;
+        }
+        if ((int) ($this->company_id ?? 0) === $companyId) {
+            return true;
+        }
+        if (! $this->isUnclaimedMarketplaceBooking()) {
+            return false;
+        }
+
+        return in_array($companyId, $this->marketplaceCandidateCompanyIds(), true);
+    }
+
+    /**
+     * Eigen ritten van dit bedrijf, plus onopgeëiste NEXA Suite-ritten waar dit bedrijf kandidaat voor is.
+     */
+    public function scopeOwnedOrUnclaimedMarketplaceForCompany($query, int $companyId)
+    {
+        $companyId = (int) $companyId;
+        if ($companyId <= 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($q) use ($companyId) {
+            $q->where('company_id', $companyId)
+                ->orWhere(function ($marketplace) use ($companyId) {
+                    $marketplace->where(function ($source) {
+                        $source->where('source', self::SOURCE_NEXA_SUITE)
+                            ->orWhere(function ($payload) {
+                                $payload->whereNotNull('booking_payload')
+                                    ->where('booking_payload->channel', self::SOURCE_NEXA_SUITE);
+                            });
+                    })
+                        ->whereNull('driver_id')
+                        ->where(function ($company) {
+                            $company->whereNull('company_id')->orWhere('company_id', 0);
+                        })
+                        ->whereNotNull('booking_payload')
+                        ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
+                });
+        });
     }
 
     public function nexaSuiteLabel(): string
@@ -374,6 +456,16 @@ class RideRequest extends Model
     public function getDistanceKmAttribute(): ?float
     {
         return $this->distance_meters !== null ? round($this->distance_meters / 1000, 2) : null;
+    }
+
+    public function getActualDurationMinutesAttribute(): ?int
+    {
+        return $this->actual_duration_seconds !== null ? (int) round($this->actual_duration_seconds / 60) : null;
+    }
+
+    public function getActualDistanceKmAttribute(): ?float
+    {
+        return $this->actual_distance_meters !== null ? round($this->actual_distance_meters / 1000, 2) : null;
     }
 
     /**

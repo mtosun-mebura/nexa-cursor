@@ -125,3 +125,9 @@ backend/resources/views/demo/
 backend/IS_ACTIVE_COLUMN_FIX.md
 /docs/
 /backend/public/docs/
+
+# Onboarding-video werkmap (bronframes/audio/clips); het mp4 staat in public/videos
+backend/storage/app/onboarding-video/audio/
+backend/storage/app/onboarding-video/clips/
+backend/storage/app/onboarding-video/frames/
+backend/storage/app/onboarding-video/concat.txt

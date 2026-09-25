@@ -77,12 +77,48 @@
         background: var(--background);
         border-bottom: 1px solid var(--border);
     }
+    /* Header + sticky tabs; JS gebruikt dezelfde offset via offsetHeight (niet getBoundingClientRect vóór sticky). */
     .company-show-section {
-        scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 4.5rem);
+        scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 4.75rem);
+    }
+    @media (max-width: 1023px) {
+        .company-show-section {
+            scroll-margin-top: calc(var(--kt-header-height, 4.375rem) + 7.5rem);
+        }
     }
     .company-show-scroll-end {
         height: min(50vh, 28rem);
         pointer-events: none;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: 0.15rem;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status i {
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status--done i,
+    #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--done i,
+    #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--done i {
+        color: #16a34a;
+    }
+    #company-show-tabs a.kt-tab-toggle .company-show-tab-status--todo i,
+    #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--todo i,
+    #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--todo i {
+        color: #d97706;
+    }
+    html.dark #company-show-tabs a.kt-tab-toggle .company-show-tab-status--done i,
+    html.dark #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--done i,
+    html.dark #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--done i {
+        color: #4ade80;
+    }
+    html.dark #company-show-tabs a.kt-tab-toggle .company-show-tab-status--todo i,
+    html.dark #company-show-tabs a.kt-tab-toggle.active .company-show-tab-status--todo i,
+    html.dark #company-show-tabs a.kt-tab-toggle:hover .company-show-tab-status--todo i {
+        color: #fbbf24;
     }
 </style>
 
@@ -209,13 +245,23 @@
         $companyShowCanSeeDomains ? ['id' => 'company-domains', 'label' => 'Domeinen', 'icon' => 'ki-filled ki-abstract-26'] : null,
         ['id' => 'company-locations', 'label' => 'Vestigingen', 'icon' => 'ki-filled ki-home-2'],
     ]));
+    $companyShowTabs = \App\Support\CompanyShowWizardStatus::decorateTabs($company, $companyShowTabs);
 @endphp
 <div class="kt-container-fixed company-show-section-nav sticky mb-5 lg:mb-7.5">
     <nav class="kt-tabs kt-tabs-line admin-page-tabs min-w-0" aria-label="Onderdelen op deze pagina" id="company-show-tabs">
         @foreach($companyShowTabs as $tab)
-            <a href="#{{ $tab['id'] }}" class="kt-tab-toggle{{ $loop->first ? ' active' : '' }}" data-company-show-tab="{{ $tab['id'] }}" @if($loop->first) aria-current="page" @endif>
+            <a href="#{{ $tab['id'] }}"
+               class="kt-tab-toggle{{ $loop->first ? ' active' : '' }}"
+               data-company-show-tab="{{ $tab['id'] }}"
+               data-wizard-complete="{{ ! empty($tab['done']) ? '1' : '0' }}"
+               title="{{ $tab['label'] }} — {{ $tab['status_label'] }}"
+               @if($loop->first) aria-current="page" @endif>
                 <i class="{{ $tab['icon'] }}" aria-hidden="true"></i>
                 <span class="kt-tab-title">{{ $tab['label'] }}</span>
+                <span class="company-show-tab-status company-show-tab-status--{{ ! empty($tab['done']) ? 'done' : 'todo' }}" aria-hidden="true">
+                    <i class="ki-filled {{ ! empty($tab['done']) ? 'ki-check-circle' : 'ki-information-2' }}"></i>
+                </span>
+                <span class="sr-only">{{ $tab['status_label'] }}</span>
             </a>
         @endforeach
     </nav>
@@ -252,10 +298,31 @@
                         <td class="text-foreground font-normal">
                             @php
                                 $packageLabel = app(\App\Services\NexaPricingService::class)->packageByKey((string) ($company->package_key ?? ''));
+                                $subscriptionService = app(\App\Services\PlatformBilling\TenantSubscriptionService::class);
+                                $billingProfile = $company->billingProfile;
+                                $addonsInTrial = $billingProfile && $subscriptionService->isInTrial($billingProfile);
+                                $packageStartLabel = null;
+                                $packageTrialEndLabel = null;
+                                if ($billingProfile) {
+                                    $packageStartLabel = $subscriptionService->contractStart($billingProfile)->translatedFormat('j F Y');
+                                } elseif ($company->created_at && filled($company->package_key)) {
+                                    $packageStartLabel = $company->created_at->copy()->startOfDay()->translatedFormat('j F Y');
+                                }
+                                if ($addonsInTrial && $billingProfile?->trial_ends_at) {
+                                    $packageTrialEndLabel = \Carbon\Carbon::parse($billingProfile->trial_ends_at)->translatedFormat('j F Y');
+                                }
                             @endphp
                             @if($packageLabel)
-                                <span>{{ $packageLabel['name'] ?? $company->package_key }}</span>
-                                <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
+                                <div>
+                                    <span>{{ $packageLabel['name'] ?? $company->package_key }}</span>
+                                    <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
+                                </div>
+                                @if($packageStartLabel)
+                                    <div class="text-xs text-muted-foreground mt-0.5">Ingang {{ $packageStartLabel }}</div>
+                                @endif
+                                @if($packageTrialEndLabel)
+                                    <div class="text-xs text-muted-foreground">Gratis periode tot {{ $packageTrialEndLabel }}</div>
+                                @endif
                             @else
                                 <span class="text-muted-foreground">Geen pakket gekoppeld</span>
                             @endif
@@ -271,46 +338,83 @@
                     <tr>
                         <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
                         <td class="text-foreground font-normal">
-                            <ul class="list-disc ps-5 mb-0 text-sm space-y-1">
-                                @foreach($moduleCatalog as $addon)
-                                    @php
-                                        $record = $addonRecords[$addon['key']] ?? \App\Support\TenantPackageAddon::emptyRecord();
-                                        $quantity = (int) ($record['quantity'] ?? 0);
-                                    @endphp
-                                    @if($quantity > 0 || \App\Support\TenantPackageAddon::isPendingCancel($record))
-                                        <li>
-                                            @if($addon['key'] === \App\Support\TenantPackageAddon::EXTRA_CLIENTS)
-                                                {{ max($quantity, (int) ($record['active_quantity'] ?? 0)) }}× {{ $addon['name'] ?? $addon['label'] }} (+{{ max($quantity, (int) ($record['active_quantity'] ?? 0)) * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK }} klanten)
-                                            @elseif(($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY)
-                                                {{ max($quantity, (int) ($record['active_quantity'] ?? 0)) }}× {{ $addon['name'] ?? $addon['label'] }}
-                                            @else
-                                                {{ $addon['name'] ?? $addon['label'] }}
-                                            @endif
-                                            @if(\App\Support\TenantPackageAddon::isPendingCancel($record) && ! empty($record['starts_at']))
-                                                <span class="text-muted-foreground"> — opgezegd per {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}</span>
-                                            @elseif(\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at']))
-                                                <span class="text-muted-foreground"> — {{ (int) ($record['active_quantity'] ?? 0) }} tot {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}, daarna {{ $quantity }}</span>
-                                            @elseif(! empty($record['starts_at']))
-                                                <span class="text-muted-foreground"> — ingang {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}</span>
-                                            @endif
-                                            @if(! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0)
-                                                <span class="text-muted-foreground">(nog niet actief)</span>
-                                            @endif
-                                        </li>
-                                    @endif
-                                @endforeach
-                            </ul>
-                            @if(collect($addonRecords)->every(fn ($record) => (int) ($record['quantity'] ?? 0) <= 0 && ! \App\Support\TenantPackageAddon::isPendingCancel($record)))
-                                <span class="text-muted-foreground">Geen aanvullende modules</span>
-                            @endif
                             @php
-                                $addonsInTrial = $company->billingProfile
-                                    && app(\App\Services\PlatformBilling\TenantSubscriptionService::class)->isInTrial($company->billingProfile);
+                                $addonIconByKey = [
+                                    \App\Support\TenantPackageAddon::GPS_TRACKING => 'ki-filled ki-geolocation',
+                                    \App\Support\TenantPackageAddon::EXTRA_CLIENTS => 'ki-filled ki-people',
+                                    \App\Support\TenantPackageAddon::FLEET => 'ki-filled ki-car',
+                                ];
+                                $addonModuleCards = [];
+                                foreach ($moduleCatalog as $addon) {
+                                    $record = $addonRecords[$addon['key']] ?? \App\Support\TenantPackageAddon::emptyRecord();
+                                    $quantity = (int) ($record['quantity'] ?? 0);
+                                    if ($quantity <= 0 && ! \App\Support\TenantPackageAddon::isPendingCancel($record)) {
+                                        continue;
+                                    }
+                                    $displayQty = max($quantity, (int) ($record['active_quantity'] ?? 0));
+                                    $title = $addon['name'] ?? $addon['label'] ?? $addon['key'];
+                                    if ($addon['key'] === \App\Support\TenantPackageAddon::EXTRA_CLIENTS) {
+                                        $title = $displayQty.'× '.$title.' (+'.($displayQty * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK).' klanten)';
+                                    } elseif (($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY) {
+                                        $title = $displayQty.'× '.$title;
+                                    }
+                                    $meta = null;
+                                    $badge = null;
+                                    if (\App\Support\TenantPackageAddon::isPendingCancel($record) && ! empty($record['starts_at'])) {
+                                        $badge = 'Opgezegd';
+                                        $meta = 'Actief tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y');
+                                    } elseif (\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at'])) {
+                                        $badge = 'Wijziging';
+                                        $meta = (int) ($record['active_quantity'] ?? 0).' tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y').', daarna '.$quantity;
+                                    }
+                                    if (! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0) {
+                                        $badge = 'Nog niet actief';
+                                    }
+                                    $addonModuleCards[] = [
+                                        'icon' => $addonIconByKey[$addon['key']] ?? 'ki-filled ki-element-11',
+                                        'title' => $title,
+                                        'meta' => $meta,
+                                        'start_label' => $packageStartLabel,
+                                        'trial_end_label' => $packageTrialEndLabel,
+                                        'badge' => $badge,
+                                    ];
+                                }
+                                $addonModuleCards[] = [
+                                    'icon' => 'ki-filled ki-people',
+                                    'title' => 'Contractklanten',
+                                    'meta' => 'Limiet: '.$entitlements->contractClientLimitLabel($company),
+                                    'start_label' => $packageStartLabel,
+                                    'trial_end_label' => $packageTrialEndLabel,
+                                    'badge' => null,
+                                ];
                             @endphp
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+                                @foreach($addonModuleCards as $moduleCard)
+                                    <div class="flex items-center gap-4 min-w-0 rounded-xl border border-border p-4">
+                                        <span class="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary" aria-hidden="true">
+                                            <i class="{{ $moduleCard['icon'] }} text-4xl leading-none"></i>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-semibold text-foreground leading-snug break-normal">{{ $moduleCard['title'] }}</div>
+                                            @if($moduleCard['meta'])
+                                                <div class="text-xs text-muted-foreground mt-0.5">{{ $moduleCard['meta'] }}</div>
+                                            @endif
+                                            @if(! empty($moduleCard['start_label']))
+                                                <div class="text-xs text-muted-foreground{{ $moduleCard['meta'] ? '' : ' mt-0.5' }}">Ingang {{ $moduleCard['start_label'] }}</div>
+                                            @endif
+                                            @if(! empty($moduleCard['trial_end_label']))
+                                                <div class="text-xs text-muted-foreground">Gratis periode tot {{ $moduleCard['trial_end_label'] }}</div>
+                                            @endif
+                                            @if($moduleCard['badge'])
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning mt-1.5">{{ $moduleCard['badge'] }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
                             @if($addonsInTrial)
-                                <p class="text-xs text-muted-foreground mt-2 mb-0">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.</p>
+                                <p class="text-xs text-muted-foreground mt-3 mb-0">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.</p>
                             @endif
-                            <p class="text-xs text-muted-foreground mt-2 mb-0">Contractklantenlimiet: {{ $entitlements->contractClientLimitLabel($company) }}</p>
                         </td>
                     </tr>
                     <tr>
@@ -356,15 +460,24 @@
                         <td class="text-foreground font-normal">
                             @php
                                 $bi = (int) ($company->building_image ?? 0);
-                                $biLabels = [1 => 'Oranje gevel', 2 => 'Twee torens', 3 => 'Wit minimalisme'];
+                                $biOption = \App\Support\CompanyBuildingImages::options()[$bi] ?? null;
                             @endphp
-                            @if(isset($biLabels[$bi]))
-                                <span class="inline-flex items-center gap-2">
-                                    @if($company->buildingImageAssetUrl())
-                                        <img src="{{ $company->buildingImageAssetUrl() }}" alt="" class="h-10 w-auto rounded border border-border" width="40" height="40">
-                                    @endif
-                                    <span>{{ $biLabels[$bi] }}</span>
-                                </span>
+                            @if($biOption)
+                                @if(! empty($biOption['src']))
+                                    <button type="button"
+                                            class="inline-flex items-center gap-2 rounded-lg bg-transparent p-0 text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                            data-building-lightbox-open
+                                            data-building-lightbox-src="{{ $biOption['src'] }}"
+                                            data-building-lightbox-alt="{{ $biOption['label'] }}"
+                                            aria-haspopup="dialog"
+                                            aria-controls="company-building-lightbox"
+                                            title="Klik om te vergroten">
+                                        <img src="{{ $biOption['src'] }}" alt="" class="h-10 w-auto rounded border border-border cursor-pointer" width="40" height="40">
+                                        <span>{{ $biOption['label'] }}</span>
+                                    </button>
+                                @else
+                                    <span class="inline-flex items-center gap-2">{{ $biOption['label'] }}</span>
+                                @endif
                             @else
                                 —
                             @endif
@@ -947,7 +1060,94 @@
 <!-- End of Container -->
 <div class="company-show-scroll-end" aria-hidden="true"></div>
 
+<div id="company-building-lightbox"
+     class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="company-building-lightbox-title"
+     hidden>
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-building-lightbox-dismiss></div>
+    <div class="company-building-lightbox__panel relative z-10 max-w-[92vw] max-h-[92vh] rounded-2xl border border-border p-3">
+        <button type="button" class="company-building-lightbox__close kt-btn kt-btn-icon kt-btn-outline" data-building-lightbox-close aria-label="Sluiten">
+            <i class="ki-filled ki-cross"></i>
+        </button>
+        <h2 id="company-building-lightbox-title" class="sr-only">Gebouw-illustratie</h2>
+        <img src="" alt="" class="company-building-lightbox__img">
+    </div>
+</div>
+
 @push('scripts')
+<script>
+(function () {
+    function initBuildingLightbox() {
+        var lightbox = document.getElementById('company-building-lightbox');
+        if (!lightbox || lightbox.getAttribute('data-bound') === '1') {
+            return;
+        }
+        lightbox.setAttribute('data-bound', '1');
+    var img = lightbox.querySelector('.company-building-lightbox__img');
+    var title = document.getElementById('company-building-lightbox-title');
+    var lastFocus = null;
+
+    function mountOverlay(el) {
+        if (el && el.parentElement !== document.body) {
+            document.body.appendChild(el);
+        }
+    }
+    function openLightbox(src, alt) {
+        lastFocus = document.activeElement;
+        mountOverlay(lightbox);
+        img.src = src;
+        img.alt = alt || '';
+        if (title) {
+            title.textContent = alt || 'Gebouw-illustratie';
+        }
+        lightbox.hidden = false;
+        lightbox.classList.remove('hidden');
+        lightbox.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        var closeBtn = lightbox.querySelector('[data-building-lightbox-close]');
+        if (closeBtn) {
+            closeBtn.focus();
+        }
+    }
+    function closeLightbox() {
+        if (lightbox.hidden) {
+            return;
+        }
+        lightbox.hidden = true;
+        lightbox.classList.add('hidden');
+        lightbox.classList.remove('flex');
+        img.src = '';
+        document.body.style.overflow = '';
+        if (lastFocus && typeof lastFocus.focus === 'function') {
+            lastFocus.focus();
+        }
+    }
+    mountOverlay(lightbox);
+    document.querySelectorAll('[data-building-lightbox-open]').forEach(function (trigger) {
+        trigger.addEventListener('click', function () {
+            openLightbox(
+                trigger.getAttribute('data-building-lightbox-src') || '',
+                trigger.getAttribute('data-building-lightbox-alt') || ''
+            );
+        });
+    });
+        lightbox.querySelector('[data-building-lightbox-dismiss]').addEventListener('click', closeLightbox);
+        lightbox.querySelector('[data-building-lightbox-close]').addEventListener('click', closeLightbox);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBuildingLightbox);
+    } else {
+        initBuildingLightbox();
+    }
+})();
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('company-show-tabs');
@@ -964,11 +1164,13 @@ document.addEventListener('DOMContentLoaded', function () {
     var programmaticTimer = null;
 
     function navOffset() {
+        // Gebruik offsetHeight i.p.v. getBoundingClientRect: vóór sticky
+        // zit de tab-nav nog lager in de pagina en is bottom veel te groot → te weinig scroll.
         var sticky = document.querySelector('.company-show-section-nav');
-        if (!sticky) {
-            return 120;
-        }
-        return Math.max(0, sticky.getBoundingClientRect().bottom) + 8;
+        var header = document.querySelector('.kt-header, #kt_header, header');
+        var headerH = header ? header.offsetHeight : 70;
+        var stickyH = sticky ? sticky.offsetHeight : 56;
+        return headerH + stickyH + 12;
     }
 
     function setActiveTab(id) {
@@ -1009,11 +1211,26 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         programmaticScroll = true;
         clearTimeout(programmaticTimer);
-        var top = window.scrollY + target.getBoundingClientRect().top - navOffset();
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        var behavior = updateHash ? 'smooth' : 'auto';
+
+        function applyScroll() {
+            var top = window.scrollY + target.getBoundingClientRect().top - navOffset();
+            window.scrollTo({ top: Math.max(0, top), behavior: behavior });
+            // Na de eerste instant-scroll opnieuw meten (sticky is dan vast) zonder smooth.
+            behavior = 'auto';
+        }
+
+        applyScroll();
+        // Layout/sticky kan nog schuiven na eerste paint (afbeeldingen, fonts).
+        requestAnimationFrame(function () {
+            applyScroll();
+            setTimeout(applyScroll, 120);
+            setTimeout(applyScroll, 320);
+        });
+
         programmaticTimer = setTimeout(function () {
             programmaticScroll = false;
-        }, 900);
+        }, updateHash ? 900 : 700);
     }
 
     nav.addEventListener('click', function (e) {
@@ -1027,9 +1244,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var initialHash = (window.location.hash || '').replace(/^#/, '');
     if (initialHash && document.getElementById(initialHash)) {
-        setTimeout(function () {
+        // Voorkom dat de browser-hash eerst te hoog blijft hangen.
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        scrollToSection(initialHash, false);
+        window.addEventListener('load', function () {
             scrollToSection(initialHash, false);
-        }, 50);
+        }, { once: true });
     }
 
     if (!('IntersectionObserver' in window) || sections.length === 0) {
@@ -1360,166 +1582,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // Tenant domeinen: tabel bijwerken zonder volledige pagina-refresh
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        const domainList = document.getElementById('company-domains-list');
-        const domainEmptyMsg = document.getElementById('company-domains-empty');
-        const domainListWrap = document.getElementById('company-domains-list-wrap');
-        const domainAddForm = document.getElementById('company-domain-add-form');
-
-        function applyCompanyDomainsList(data) {
-            if (domainList && data.tbody_html !== undefined) {
-                domainList.innerHTML = data.tbody_html;
-            }
-            const hasDomains = data.has_domains !== false;
-            if (hasDomains) {
-                domainEmptyMsg?.classList.add('hidden');
-                domainListWrap?.classList.remove('hidden');
-                domainAddForm?.classList.add('pt-5', 'border-t', 'border-border');
-                domainAddForm?.classList.remove('rounded-xl', 'border', 'border-input', 'bg-muted/15', 'p-4', 'sm:p-5');
-            } else {
-                domainEmptyMsg?.classList.remove('hidden');
-                domainListWrap?.classList.add('hidden');
-                domainAddForm?.classList.remove('pt-5', 'border-t', 'border-border');
-                domainAddForm?.classList.add('rounded-xl', 'border', 'border-input', 'bg-muted/15', 'p-4', 'sm:p-5');
-            }
-        }
-
-        function fetchJsonDomainAction(url, formData) {
-            return fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                credentials: 'same-origin'
-            }).then(function(response) {
-                return response.json().then(function(data) {
-                    return { ok: response.ok, status: response.status, data: data };
-                });
-            });
-        }
-
-        document.addEventListener('submit', function(e) {
-            const form = e.target;
-            if (!(form instanceof HTMLFormElement) || !form.classList.contains('js-company-domain-action')) {
-                return;
-            }
-            e.preventDefault();
-            if (form.getAttribute('data-domain-destroy') === '1') {
-                var runDomainAction = function () {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                    }
-                    fetchJsonDomainAction(form.action, new FormData(form))
-                        .then(function(result) {
-                            if (!result.ok) {
-                                throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
-                            }
-                            applyCompanyDomainsList(result.data);
-                        })
-                        .catch(function(err) {
-                            alert(err.message || 'Er is een fout opgetreden.');
-                        })
-                        .finally(function() {
-                            if (submitBtn) {
-                                submitBtn.disabled = false;
-                            }
-                        });
-                };
-                if (typeof window.showAdminConfirm === 'function') {
-                    window.showAdminConfirm({ title: 'Domein verwijderen', message: 'Domein verwijderen?', confirmLabel: 'Verwijderen' }).then(function (ok) {
-                        if (ok) {
-                            runDomainAction();
-                        }
-                    });
-                    return;
-                }
-                if (!window.confirm('Domein verwijderen?')) {
-                    return;
-                }
-                runDomainAction();
-                return;
-            }
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-            }
-            fetchJsonDomainAction(form.action, new FormData(form))
-                .then(function(result) {
-                    if (!result.ok) {
-                        throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
-                    }
-                    applyCompanyDomainsList(result.data);
-                })
-                .catch(function(err) {
-                    alert(err.message || 'Er is een fout opgetreden.');
-                })
-                .finally(function() {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                    }
-                });
-        });
-
-        if (domainAddForm) {
-            const hostInput = document.getElementById('domain_host');
-            const ajaxErr = document.getElementById('domain-host-error-ajax');
-
-            function clearDomainHostErrors() {
-                if (ajaxErr) {
-                    ajaxErr.textContent = '';
-                    ajaxErr.classList.add('hidden');
-                }
-                if (hostInput) {
-                    hostInput.classList.remove('border-destructive');
-                }
-            }
-
-            hostInput?.addEventListener('input', clearDomainHostErrors);
-
-            domainAddForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                clearDomainHostErrors();
-                const submitBtn = domainAddForm.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                }
-
-                fetchJsonDomainAction(domainAddForm.action, new FormData(domainAddForm))
-                .then(function(result) {
-                    if (!result.ok) {
-                        if (result.status === 422 && result.data && result.data.errors && result.data.errors.host) {
-                            const msg = Array.isArray(result.data.errors.host) ? result.data.errors.host[0] : result.data.errors.host;
-                            if (ajaxErr) {
-                                ajaxErr.textContent = msg;
-                                ajaxErr.classList.remove('hidden');
-                            }
-                            if (hostInput) {
-                                hostInput.classList.add('border-destructive');
-                            }
-                            return;
-                        }
-                        throw new Error((result.data && result.data.message) ? result.data.message : 'Opslaan mislukt');
-                    }
-                    applyCompanyDomainsList(result.data);
-                    domainAddForm.reset();
-                })
-                .catch(function(err) {
-                    alert(err.message || 'Er is een fout opgetreden bij het toevoegen van het domein.');
-                })
-                .finally(function() {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                    }
-                });
-            });
-        }
     });
 </script>
+@endcan
+
+@can('edit-companies')
+    @include('admin.companies.partials.domain-list-scripts')
 @endcan
 
 @if(! empty($needsCompanyAdminWelcome))
@@ -1600,39 +1668,6 @@ document.addEventListener('DOMContentLoaded', function () {
         vertical-align: middle;
     }
     
-    /* Remove all borders between table rows in show forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
-    }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: top;
-    }
-    
-    /* Labels (first column) should align with top of content */
-    .kt-table-border-dashed tbody tr td:first-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    
-    /* Content (second column) should align with top */
-    .kt-table-border-dashed tbody tr td:last-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    
-    /* Ensure all table cells align to top */
-    .kt-table-border-dashed tbody tr td {
-        vertical-align: top !important;
-    }
-    
     /* Location row hover styling (same as company-row on index page) */
     .location-row {
         cursor: pointer !important;
@@ -1644,6 +1679,33 @@ document.addEventListener('DOMContentLoaded', function () {
         .location-row:hover {
             background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
         }
+    }
+    .company-building-lightbox__panel {
+        background-color: #ffffff;
+        box-shadow:
+            0 25px 50px -12px rgba(2, 6, 23, 0.35),
+            0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+    html.dark .company-building-lightbox__panel,
+    .dark .company-building-lightbox__panel {
+        background-color: #0b0f19;
+        box-shadow:
+            0 25px 50px -12px rgba(0, 0, 0, 0.65),
+            0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    .company-building-lightbox__img {
+        display: block;
+        max-width: min(92vw, 720px);
+        max-height: 80vh;
+        width: auto;
+        height: auto;
+        border-radius: 0.75rem;
+    }
+    .company-building-lightbox__close {
+        position: absolute;
+        top: -0.75rem;
+        right: -0.75rem;
+        z-index: 1;
     }
 </style>
 @endpush

@@ -12,11 +12,7 @@ Author: Keenthemes
     <meta content="follow, index" name="robots"/>
     <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
     <meta content="Wachtwoord vergeten pagina voor NEXA Skillmatching Platform" name="description"/>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
-    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('layouts.partials.auth-head-assets')
 </head>
 <body class="antialiased flex h-full text-base text-foreground bg-background">
     <!-- Theme Mode -->
@@ -45,10 +41,10 @@ Author: Keenthemes
     <!-- Page -->
     <style>
         .page-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1200/bg-10.png') }}');
-        }
-        .dark .page-bg {
-            background-image: url('{{ asset('assets/media/images/2600x1200/bg-10-dark.png') }}');
+            background-color: var(--background);
+            background-image:
+                radial-gradient(ellipse at top left, rgb(249 115 22 / 0.10), transparent 52%),
+                radial-gradient(ellipse at bottom right, rgb(37 99 235 / 0.07), transparent 48%);
         }
         
         /* Form input fields 100% width */
@@ -77,6 +73,51 @@ Author: Keenthemes
             -webkit-text-fill-color: var(--foreground) !important;
             caret-color: var(--foreground);
         }
+
+        .auth-status-success {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #86efac;
+            background: #ecfdf5;
+            color: #14532d;
+        }
+        html.dark .auth-status-success {
+            border-color: rgb(74 222 128 / 0.35);
+            background: rgb(20 83 45 / 0.45);
+            color: #d1fae5;
+        }
+        .auth-status-success i {
+            color: #16a34a;
+            flex-shrink: 0;
+        }
+        html.dark .auth-status-success i {
+            color: #4ade80;
+        }
+        .auth-status-danger {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #fca5a5;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        html.dark .auth-status-danger {
+            border-color: rgb(248 113 113 / 0.35);
+            background: rgb(127 29 29 / 0.4);
+            color: #fecaca;
+        }
+        .auth-status-danger i {
+            color: #dc2626;
+            flex-shrink: 0;
+        }
+        html.dark .auth-status-danger i {
+            color: #f87171;
+        }
     </style>
     
     <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
@@ -84,7 +125,13 @@ Author: Keenthemes
             <form action="{{ route('admin.password.email') }}" class="kt-card-content flex flex-col gap-5 p-10" id="reset_password_enter_email_form" method="POST">
                 @csrf
                 
-                <div class="text-center">
+                <div class="text-center mb-2.5">
+                    <div class="mb-4">
+                        @include('partials.nexa-brand-logo', ['class' => 'h-10 w-auto mx-auto object-contain'])
+                        <div class="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            Administratie paneel
+                        </div>
+                    </div>
                     <h3 class="text-lg font-medium text-mono">
                         Je E-mailadres
                     </h3>
@@ -94,16 +141,16 @@ Author: Keenthemes
                 </div>
 
                 @if (session('status'))
-                    <div class="kt-alert kt-alert-success flex items-center gap-2.5 p-4 rounded-lg border border-green-500 bg-green-50 dark:bg-green-900/20">
-                        <i class="ki-filled ki-check-circle text-xl text-green-600 dark:text-green-400"></i>
-                        <div class="text-sm font-medium text-green-800 dark:text-green-200">{{ session('status') }}</div>
+                    <div class="auth-status-success" role="status">
+                        <i class="ki-filled ki-check-circle text-xl" aria-hidden="true"></i>
+                        <div class="text-sm font-medium">{{ session('status') }}</div>
                     </div>
                 @endif
 
                 @error('email')
-                    <div class="kt-alert kt-alert-danger flex items-center gap-2.5 p-4 rounded-lg border border-red-500 bg-red-50 dark:bg-red-900/20">
-                        <i class="ki-filled ki-information-5 text-xl text-red-600 dark:text-red-400"></i>
-                        <div class="text-sm font-medium text-red-800 dark:text-red-200">{{ $message }}</div>
+                    <div class="auth-status-danger" role="alert">
+                        <i class="ki-filled ki-information-5 text-xl" aria-hidden="true"></i>
+                        <div class="text-sm font-medium">{{ $message }}</div>
                     </div>
                 @enderror
 
@@ -139,9 +186,7 @@ Author: Keenthemes
     <!-- End of Page -->
     
     <!-- Scripts -->
-    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
-    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
+    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}" defer></script>
     <!-- End of Scripts -->
 </body>
 </html>

@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://maps.googleapis.com">
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
-    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.chauffeur.manifest') ? route('taxi.chauffeur.manifest') : url('/taxi/chauffeur/manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ $manifestUrl ?? '/taxi/chauffeur/manifest.webmanifest' }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -42,7 +42,6 @@
             --soft-text: #d1d5db;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --bottom-nav-h: 4.75rem;
         }
         html[data-theme="dark"] {
             --nexa-pwa-bg: #121214;
@@ -148,13 +147,6 @@
             box-shadow: 0 0 0 2px var(--orange);
         }
         #app { height: 100%; min-height: 100%; display: flex; flex-direction: column; }
-        .app-top-chrome {
-            flex-shrink: 0;
-            background: var(--chrome);
-        }
-        .app-top-chrome:not(:has(#guide-hint:not([hidden]), #install-app-hint:not([hidden]))) {
-            display: none;
-        }
         .screen {
             display: none;
             flex: 1;
@@ -171,7 +163,7 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
-            padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
+            padding: 0;
         }
         .dispatch-top {
             flex: 0 0 auto;
@@ -182,7 +174,7 @@
         .driver-app-header {
             position: relative;
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
             align-items: center;
             gap: 0.5rem;
             min-height: 2.75rem;
@@ -232,15 +224,42 @@
             padding: 0.4rem 0.55rem;
             font-size: 0.8125rem;
         }
+        .driver-vehicle-assigned {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+        .driver-vehicle-assigned-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+        }
+        .driver-vehicle-assigned-value {
+            font-size: 0.8125rem;
+            line-height: 1.35;
+            padding-top: 0.05rem;
+            color: var(--text);
+            font-weight: 600;
+        }
+        .driver-vehicle-assigned-until {
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 550;
+        }
         .driver-app-header__center {
             grid-column: 2;
             justify-self: center;
             display: flex;
             align-items: center;
-            min-width: 0;
+            justify-content: center;
+            flex-wrap: nowrap;
+            gap: 0.15rem;
+            min-width: max-content;
         }
         .driver-app-header__end {
             grid-column: 3;
+            justify-self: end;
             width: 2.25rem;
             height: 2.25rem;
             flex-shrink: 0;
@@ -324,16 +343,14 @@
         }
         .driver-tab-panel[hidden] { display: none !important; }
         .driver-bottom-nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: relative;
+            flex: 0 0 auto;
             z-index: 40;
             display: none;
             align-items: stretch;
             justify-content: center;
             gap: 0.15rem;
-            padding: 0.45rem 0.35rem calc(0.45rem + var(--safe-bottom));
+            padding: 0.3rem 0.35rem calc(0.3rem + var(--safe-bottom) * 0.5);
             background: var(--chrome);
             border-top: 1px solid var(--line);
             backdrop-filter: blur(12px);
@@ -348,21 +365,38 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.2rem;
+            gap: 0.15rem;
             min-width: 0;
-            min-height: 3.6rem;
+            min-height: 2.85rem;
             border: none;
             background: transparent;
             color: var(--muted);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
+            line-height: 1.15;
             cursor: pointer;
             border-radius: 0.75rem;
-            padding: 0.35rem 0.2rem;
+            padding: 0.25rem 0.2rem;
+        }
+        .driver-bottom-nav__icon {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .driver-bottom-nav__btn svg {
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 1.3rem;
+            height: 1.3rem;
+        }
+        .driver-bottom-nav__icon .toolbar-nav-badge {
+            top: -0.4rem;
+            right: -0.55rem;
+            min-width: 1.05rem;
+            height: 1.05rem;
+            padding: 0 0.22rem;
+            font-size: 0.65rem;
+            line-height: 1.05rem;
+            box-shadow: 0 0 0 2px var(--chrome);
         }
         .driver-bottom-nav__btn.is-active {
             color: var(--orange);
@@ -378,6 +412,7 @@
         }
         .dispatch-banners .banner-ios-awake,
         .dispatch-banners .banner-notifications-hint,
+        .dispatch-banners .banner-install-app,
         .dispatch-banners .banner-guide-hint,
         .dispatch-banners .banner-inactive,
         .dispatch-banners #notifications-feedback {
@@ -523,10 +558,10 @@
             font-size: 0.8125rem;
         }
         .active-ride-nav-btn {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 1.5rem;
+            height: 1.5rem;
             border: none;
-            border-radius: 0.75rem;
+            border-radius: 0.5rem;
             background: rgba(var(--accent-rgb), 0.18);
             color: var(--orange);
             display: inline-flex;
@@ -537,8 +572,8 @@
             flex-shrink: 0;
         }
         .active-ride-nav-btn svg {
-            width: 1.35rem;
-            height: 1.35rem;
+            width: 0.85rem;
+            height: 0.85rem;
         }
         .active-ride-nav-btn:active {
             opacity: 0.85;
@@ -568,9 +603,97 @@
         #btn-pay-ride { background: var(--orange); color: var(--accent-on, #fff); }
         #btn-pay-ride:hover { background: var(--orange-hover); color: var(--accent-on, #fff); }
         #btn-pay-ride.is-paid {
-            background: #64748b;
+            background: var(--green);
             color: #fff;
-            cursor: not-allowed;
+            cursor: default;
+            box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+        }
+        #btn-pay-ride.is-paid:hover {
+            background: var(--green);
+            color: #fff;
+        }
+        .active-ride-body {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+        #ride-paid-stamp {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            background: rgba(8, 12, 20, 0.28);
+            perspective: 720px;
+        }
+        #active-ride-strip.is-paid #ride-paid-stamp {
+            display: flex;
+        }
+        .ride-paid-stamp {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            color: var(--green);
+            transform-style: preserve-3d;
+            opacity: 0;
+            transform: scale(0.14) translateZ(-160px);
+            filter: drop-shadow(0 18px 28px rgba(34, 197, 94, 0.28));
+        }
+        #active-ride-strip.is-paid:not(.is-paid-animating) .ride-paid-stamp {
+            opacity: 1;
+            transform: none;
+        }
+        #active-ride-strip.is-paid.is-paid-animating .ride-paid-stamp {
+            animation: ride-paid-stamp-pop 0.95s cubic-bezier(0.2, 0.7, 0.25, 1) both;
+        }
+        .ride-paid-stamp__icon {
+            width: 5.75rem;
+            height: 5.75rem;
+            display: block;
+        }
+        .ride-paid-stamp__label {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--green);
+            text-shadow: 0 2px 12px rgba(8, 12, 20, 0.45);
+        }
+        @keyframes ride-paid-stamp-pop {
+            0% {
+                opacity: 0;
+                transform: scale(0.12) translateZ(-180px);
+            }
+            28% {
+                opacity: 1;
+                transform: scale(0.42) translateZ(-70px);
+            }
+            68% {
+                opacity: 1;
+                transform: scale(1.18) translateZ(42px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateZ(0);
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #active-ride-strip.is-paid.is-paid-animating .ride-paid-stamp {
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }
+        }
+        html[data-theme="light"] #ride-paid-stamp {
+            background: rgba(255, 255, 255, 0.32);
+        }
+        html[data-theme="light"] .ride-paid-stamp__label {
+            text-shadow: 0 1px 8px rgba(255, 255, 255, 0.8);
         }
         #payment-ride-error {
             margin-top: 0.75rem;
@@ -646,8 +769,8 @@
         }
         #payment-panel .payment-actions .btn {
             width: 100%;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            min-height: 2.9rem;
+            font-size: 1rem;
             margin: 0;
         }
         #payment-panel #btn-cash-paid {
@@ -812,7 +935,7 @@
             gap: 0.625rem;
         }
         .driver-dialog__actions .btn {
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .driver-dialog__actions .btn-cash-confirm {
             background: #0d9488;
@@ -986,7 +1109,7 @@
             font-size: 0.88rem;
             font-weight: 700;
             padding: 0.5rem 0.4rem;
-            min-height: 3.15rem;
+            min-height: 2.8rem;
             text-align: center;
         }
         h1 { font-size: 1.25rem; margin: 0 0 1rem; font-weight: 600; }
@@ -1089,10 +1212,10 @@
             justify-content: center;
             gap: 0.5rem;
             width: 100%;
-            min-height: 3rem;
+            min-height: 2.7rem;
             border: none;
             border-radius: 0.75rem;
-            font-size: 1rem;
+            font-size: 0.9375rem;
             font-weight: 700;
             cursor: pointer;
             touch-action: manipulation;
@@ -1112,18 +1235,24 @@
         }
         .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn.is-loading {
+        .btn.is-loading,
+        .btn.is-loading:disabled {
             pointer-events: none;
-            opacity: 0.85;
+            opacity: 1;
+            cursor: wait;
         }
         .btn-spinner {
             width: 1.125rem;
             height: 1.125rem;
-            border: 2px solid currentColor;
+            border: 2.5px solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             animation: btn-spin 0.65s linear infinite;
             flex-shrink: 0;
+        }
+        #active-ride-actions .btn.is-loading .btn-spinner {
+            width: 1.05rem;
+            height: 1.05rem;
         }
         @keyframes btn-spin {
             to { transform: rotate(360deg); }
@@ -1138,6 +1267,8 @@
         .toolbar-nav {
             display: flex;
             align-items: center;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
             margin: 0;
             min-height: 0;
         }
@@ -1147,9 +1278,11 @@
             justify-content: center;
             gap: 0;
             flex-wrap: nowrap;
-            max-width: 100%;
+            flex-shrink: 0;
+            max-width: none;
             padding: 0;
             overflow: visible;
+            white-space: nowrap;
         }
         .dispatch-screen-title {
             text-align: center;
@@ -1232,16 +1365,14 @@
         #btn-start-return {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3.25rem;
-            font-size: 1.0625rem;
+            min-height: 2.9rem;
             background: #7c3aed;
             color: #fff;
         }
         #btn-release-return {
             width: 100%;
             margin-top: 0.5rem;
-            min-height: 3rem;
-            font-size: 1rem;
+            min-height: 2.7rem;
             background: transparent;
             color: var(--soft-text);
             border: 1px solid var(--line);
@@ -1364,7 +1495,7 @@
         .active-ride-collapsed-banner .btn {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .parked-assigned-ride-card.is-active-ride {
             border-color: rgba(34, 197, 94, 0.45);
@@ -1372,7 +1503,7 @@
         }
         .parked-assigned-ride-card .offer-card-top {
             margin-bottom: 0.55rem;
-            align-items: flex-start;
+            align-items: center;
         }
         .parked-assigned-ride-card .offer-title {
             margin-bottom: 0.25rem;
@@ -1386,7 +1517,7 @@
         .parked-assigned-ride-card .btn {
             width: 100%;
             margin-top: 0.75rem;
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         .scheduled-ride-card.is-contract-ride .scheduled-ride-toggle-text .offer-title {
             display: inline;
@@ -1417,7 +1548,7 @@
         .offer-card-top {
             display: flex;
             flex-wrap: wrap;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
             gap: 0.75rem;
             margin-bottom: 0.85rem;
@@ -1441,6 +1572,23 @@
             align-items: center;
             gap: 0.4rem;
             min-width: 0;
+        }
+        .offer-badge-row .offer-badge,
+        .offer-badge-row .contract-ride-badge,
+        .offer-badge-row .taxi-ride-badge,
+        .offer-badge-row .nexa-suite-ride-badge,
+        .offer-badge-row .return-ride-badge {
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            white-space: nowrap;
+            box-sizing: border-box;
+            height: 1.5rem;
+            min-height: 1.5rem;
+            padding: 0 0.65rem;
+            font-size: 0.72rem;
         }
         .offer-badge.is-muted {
             background: rgba(148, 163, 184, 0.16);
@@ -1467,9 +1615,41 @@
         }
         #active-ride-strip .offer-card-meta-right {
             flex-direction: row;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
             justify-content: flex-end;
+            gap: 0.4rem;
+        }
+        #active-ride-strip .offer-card-top .offer-badge,
+        #active-ride-strip .offer-card-meta-right .contract-ride-badge,
+        #active-ride-strip .offer-card-meta-right .taxi-ride-badge,
+        #active-ride-strip .offer-card-meta-right .nexa-suite-ride-badge,
+        #active-ride-strip .offer-card-meta-right .return-ride-badge,
+        #active-ride-strip .offer-card-meta-right .offer-vehicle-pill {
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            height: 1.5rem;
+            min-height: 1.5rem;
+            padding: 0 0.65rem;
+            font-size: 0.72rem;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            white-space: nowrap;
+            border-radius: 0.5rem;
+        }
+        #active-ride-strip .offer-card-meta-right .contract-ride-badge,
+        #active-ride-strip .offer-card-meta-right .taxi-ride-badge,
+        #active-ride-strip .offer-card-meta-right .nexa-suite-ride-badge,
+        #active-ride-strip .offer-card-meta-right .return-ride-badge {
+            font-weight: 800;
+        }
+        #active-ride-strip .offer-card-meta-right .offer-vehicle-pill {
+            font-weight: 600;
+            letter-spacing: 0;
+            text-transform: none;
         }
         .offer-ago {
             font-size: 0.75rem;
@@ -1917,7 +2097,8 @@
         .driver-bottom-nav__btn[hidden] {
             display: none !important;
         }
-        .planning-view-toggle {
+        .planning-view-toggle,
+        .earnings-period-toggle {
             display: inline-flex;
             align-items: stretch;
             flex-shrink: 0;
@@ -1926,7 +2107,8 @@
             overflow: hidden;
             background: var(--card-elevated);
         }
-        .planning-view-toggle__btn {
+        .planning-view-toggle__btn,
+        .earnings-period-toggle__btn {
             border: none;
             background: transparent;
             color: var(--muted);
@@ -1936,7 +2118,8 @@
             cursor: pointer;
             min-height: 2rem;
         }
-        .planning-view-toggle__btn.is-active {
+        .planning-view-toggle__btn.is-active,
+        .earnings-period-toggle__btn.is-active {
             background: rgba(var(--accent-rgb), 0.18);
             color: var(--orange);
         }
@@ -1944,6 +2127,8 @@
             display: inline-flex;
             align-items: stretch;
             flex-shrink: 0;
+            flex-wrap: nowrap;
+            white-space: nowrap;
             border: 1px solid var(--line);
             border-radius: 0.75rem;
             overflow: hidden;
@@ -1988,11 +2173,58 @@
             box-shadow: inset 0 -2px 0 #94a3b8;
         }
         .driver-section-head--with-filter {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
             align-items: center;
-            justify-content: space-between;
             gap: 0.55rem;
+        }
+        .driver-section-head--with-filter > :first-child {
+            justify-self: start;
+        }
+        .driver-section-head--with-filter > .ride-kind-filter {
+            grid-column: 2;
+            justify-self: center;
+        }
+        .driver-section-head--with-filter > :last-child:not(.ride-kind-filter) {
+            grid-column: 3;
+            justify-self: end;
+        }
+        .ride-kind-filter[hidden] {
+            display: none !important;
+        }
+        .driver-section-head--with-filter:not(.has-ride-kind-filter) {
+            display: flex;
+            justify-content: space-between;
+        }
+        #tab-panel-planning .driver-section-head--with-filter.has-ride-kind-filter {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            column-gap: 0.75rem;
+        }
+        #requests-section-head.has-ride-kind-filter {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                "filter filter"
+                "title icon";
+            align-items: center;
+            column-gap: 0.75rem;
+            row-gap: 0.55rem;
+        }
+        #requests-section-head.has-ride-kind-filter > h2 {
+            grid-area: title;
+            justify-self: start;
+            min-width: 0;
+            font-size: 1.05rem;
+            white-space: nowrap;
+        }
+        #requests-section-head.has-ride-kind-filter > .ride-kind-filter {
+            grid-area: filter;
+            grid-column: 1 / -1;
+            justify-self: center;
+        }
+        #requests-section-head.has-ride-kind-filter > .driver-section-head__icon {
+            grid-area: icon;
+            justify-self: end;
         }
         .planning-week-nav {
             display: flex;
@@ -2042,7 +2274,8 @@
             width: 100%;
             padding-top: 0.35rem;
         }
-        .planning-day-stack .planning-ride-card {
+        .planning-day-stack .planning-ride-card,
+        .planning-day-stack .planning-shift {
             width: 100%;
         }
         .planning-week-nav__btn {
@@ -2115,9 +2348,23 @@
             width: 0.85rem;
             height: 0.85rem;
         }
-        .planning-week-day:not(.has-rides) .wd-rides {
+        .planning-week-day:not(.has-rides):not(.has-shift) .wd-rides {
             color: var(--muted);
             opacity: 0.55;
+        }
+        .planning-week-day .wd-shift {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 0.12rem;
+            color: var(--muted);
+        }
+        .planning-week-day.has-shift .wd-shift {
+            color: var(--orange);
+            opacity: 1;
+        }
+        .planning-week-day .wd-shift svg {
+            width: 0.78rem;
+            height: 0.78rem;
         }
         .planning-week-days {
             display: flex;
@@ -2177,6 +2424,46 @@
             font-weight: 650;
             font-size: 0.8rem;
             color: var(--orange);
+        }
+        .planning-shift {
+            width: 100%;
+            border: 1px solid var(--line);
+            background: transparent;
+            border-radius: 0.85rem;
+            padding: 0.62rem 0.85rem;
+            margin: 0 0 0.65rem;
+        }
+        .planning-shift__row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .planning-shift__label {
+            font-size: 0.68rem;
+            font-weight: 750;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .planning-shift__time {
+            font-size: 0.8125rem;
+            font-weight: 650;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
+        .planning-shift__meta,
+        .planning-shift__notes {
+            display: block;
+            margin-top: 0.16rem;
+            font-size: 0.78rem;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+        .planning-shift__notes {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .planning-ride-card {
             display: block;
@@ -2563,6 +2850,9 @@
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
+        }
+        .parked-assigned-ride-card .offer-badge-row {
+            flex-wrap: nowrap;
         }
         @keyframes offer-waiting-blink {
             0%, 100% {
@@ -2956,17 +3246,6 @@
             margin-bottom: 1rem;
             line-height: 1.45;
         }
-        #install-app-hint {
-            margin: 1rem 1rem 0;
-            flex-shrink: 0;
-        }
-        #guide-hint {
-            margin: 1rem 1rem 0.85rem;
-            flex-shrink: 0;
-        }
-        #guide-hint + #install-app-hint:not([hidden]) {
-            margin-top: 0.65rem;
-        }
         .banner-dismiss-btn {
             position: absolute;
             top: 0.35rem;
@@ -3092,7 +3371,8 @@
             box-shadow: 0 0 0 2px var(--chrome);
         }
         html[data-theme="light"] .earnings-day-nav__btn,
-        html[data-theme="light"] .driver-section-head__today {
+        html[data-theme="light"] .driver-section-head__today,
+        html[data-theme="light"] .earnings-period-toggle {
             background: var(--card-elevated);
             border-color: var(--line);
             color: var(--text);
@@ -3325,24 +3605,7 @@
 <body>
 @include('taxi::partials.pwa-theme', ['section' => 'widget'])
 <div id="app">
-    <div class="app-top-chrome">
-        <div id="guide-hint" class="banner-guide-hint" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
-            <div class="banner-guide-hint__body">
-                <p class="banner-guide-hint__text">
-                    <strong>Handleiding.</strong>
-                    Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
-                    Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
-                </p>
-                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">Handleiding openen</a>
-            </div>
-        </div>
-        <div id="install-app-hint" class="banner-install-app" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
-            <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
-            <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
-        </div>
-    </div>
+    @include('taxi::partials.tenant-logo-bar')
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Chauffeur inloggen</h1>
         <div class="card">
@@ -3430,6 +3693,11 @@
                     <select id="driver-vehicle-select" aria-label="Voertuig dat je nu bestuurt">
                         <option value="">Kies kenteken</option>
                     </select>
+                    <div id="driver-vehicle-assigned" class="driver-vehicle-assigned" hidden>
+                        <span class="driver-vehicle-assigned-label">Gekoppeld aan</span>
+                        <span id="driver-vehicle-assigned-value" class="driver-vehicle-assigned-value"></span>
+                        <span id="driver-vehicle-assigned-until" class="driver-vehicle-assigned-until" hidden></span>
+                    </div>
                 </div>
                 <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
                     Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
@@ -3452,18 +3720,34 @@
                     <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
                     <span id="notifications-feedback-text"></span>
                 </p>
+                <div id="install-app-hint" class="banner-install-app" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-install-hint" aria-label="Melding sluiten">×</button>
+                    <span id="install-app-hint-text">Installeer de chauffeur-app op je telefoon voor snellere toegang en betere meldingen.</span>
+                    <button type="button" class="btn-inline" id="btn-install-app">Installeer app</button>
+                </div>
+                <div id="guide-hint" class="banner-guide-hint" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-guide-hint" aria-label="Melding sluiten">×</button>
+                    <div class="banner-guide-hint__body">
+                        <p class="banner-guide-hint__text">
+                            <strong>Handleiding.</strong>
+                            Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, online zetten en ritten.
+                            Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
+                        </p>
+                        <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">Handleiding openen</a>
+                    </div>
+                </div>
             </div>
             <div class="card toggle-row">
                 <span>Online voor ritten</span>
                 <button type="button" id="online-toggle-legacy" class="switch" aria-pressed="false" aria-label="Online" hidden disabled></button>
             </div>
-            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Aanvragen</h1>
+            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
         </div>
         <div class="dispatch-scroll">
-        <div id="tab-panel-requests" class="driver-tab-panel" data-main-tab-panel="requests">
+        <div id="tab-panel-requests" class="driver-tab-panel" data-main-tab-panel="requests" hidden>
         <div class="driver-section-head driver-section-head--with-filter" id="requests-section-head">
             <h2 id="requests-section-title">Nieuwe ritaanvraag</h2>
-            <div class="ride-kind-filter" role="group" aria-label="Toon rittype">
+            <div class="ride-kind-filter" role="group" aria-label="Toon rittype" hidden>
                 <button type="button" class="ride-kind-filter__btn is-active" data-ride-kind="all" aria-pressed="true">Alles</button>
                 <button type="button" class="ride-kind-filter__btn" data-ride-kind="taxi" aria-pressed="false">Taxi</button>
                 <button type="button" class="ride-kind-filter__btn" data-ride-kind="contract" aria-pressed="false">Contract</button>
@@ -3589,6 +3873,7 @@
             <p id="inbox-empty-title">Geen openstaande ritten.</p>
             <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
             <div id="inbox-empty-actions" class="inbox-empty-actions" hidden>
+                <button type="button" class="btn btn-primary" id="btn-empty-show-trips" hidden>Naar ritten</button>
                 <button type="button" class="btn btn-ghost" id="btn-empty-show-overdue" hidden>Bekijk verlopen ritten</button>
                 <button type="button" class="btn btn-ghost" id="btn-empty-show-declined" hidden>Bekijk afgewezen ritten</button>
                 <button type="button" class="btn btn-ghost" id="btn-empty-show-archived-inbox" hidden>Bekijk archief</button>
@@ -3596,9 +3881,10 @@
         </div>
         </div>
 
-        <div id="tab-panel-trips" class="driver-tab-panel" data-main-tab-panel="trips" hidden>
-        <div class="driver-section-head driver-section-head--with-filter"><h2>Ritten</h2>
-            <div class="ride-kind-filter" role="group" aria-label="Toon rittype">
+        <div id="tab-panel-trips" class="driver-tab-panel" data-main-tab-panel="trips">
+        <div class="driver-section-head driver-section-head--with-filter">
+            <h2>Ritten</h2>
+            <div class="ride-kind-filter" role="group" aria-label="Toon rittype" hidden>
                 <button type="button" class="ride-kind-filter__btn is-active" data-ride-kind="all" aria-pressed="true">Alles</button>
                 <button type="button" class="ride-kind-filter__btn" data-ride-kind="taxi" aria-pressed="false">Taxi</button>
                 <button type="button" class="ride-kind-filter__btn" data-ride-kind="contract" aria-pressed="false">Contract</button>
@@ -3613,7 +3899,18 @@
             <div id="scheduled-rides-list"></div>
         </div>
         <div id="active-ride-strip" class="card offer-card active-ride-card" hidden>
-            <div id="active-ride"></div>
+            <div class="active-ride-body">
+                <div id="active-ride"></div>
+                <div id="ride-paid-stamp" hidden aria-hidden="true">
+                    <div class="ride-paid-stamp" role="status" aria-live="polite">
+                        <svg class="ride-paid-stamp__icon" viewBox="0 0 88 88" aria-hidden="true" focusable="false">
+                            <circle cx="44" cy="44" r="42" fill="currentColor"></circle>
+                            <path d="M26.5 45.5 38.8 58.2 62.5 31.8" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        <p class="ride-paid-stamp__label">Betaald</p>
+                    </div>
+                </div>
+            </div>
             <p id="payment-ride-error" hidden role="alert"></p>
             <div class="offer-actions active-ride-actions" id="active-ride-actions">
                 <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
@@ -3634,7 +3931,7 @@
         <div id="tab-panel-planning" class="driver-tab-panel" data-main-tab-panel="planning" hidden>
             <div class="driver-section-head driver-section-head--with-filter">
                 <h2>Planning</h2>
-                <div class="ride-kind-filter" role="group" aria-label="Toon rittype">
+                <div class="ride-kind-filter" role="group" aria-label="Toon rittype" hidden>
                     <button type="button" class="ride-kind-filter__btn is-active" data-ride-kind="all" aria-pressed="true">Alles</button>
                     <button type="button" class="ride-kind-filter__btn" data-ride-kind="taxi" aria-pressed="false">Taxi</button>
                     <button type="button" class="ride-kind-filter__btn" data-ride-kind="contract" aria-pressed="false">Contract</button>
@@ -3661,7 +3958,11 @@
         <div id="tab-panel-earnings" class="driver-tab-panel earnings-panel" data-main-tab-panel="earnings" hidden>
             <div class="driver-section-head">
                 <h2>Inkomsten</h2>
-                <button type="button" class="driver-section-head__today" id="btn-earnings-today" disabled>Vandaag</button>
+                <div class="earnings-period-toggle" role="tablist" aria-label="Inkomstenperiode">
+                    <button type="button" class="earnings-period-toggle__btn is-active" data-earnings-period="day" id="btn-earnings-today" aria-selected="true">Vandaag</button>
+                    <button type="button" class="earnings-period-toggle__btn" data-earnings-period="week" id="btn-earnings-week" aria-selected="false">Week</button>
+                    <button type="button" class="earnings-period-toggle__btn" data-earnings-period="month" id="btn-earnings-month" aria-selected="false">Maand</button>
+                </div>
             </div>
             <div class="earnings-day-nav" id="earnings-day-nav">
                 <button type="button" class="earnings-day-nav__btn" id="btn-earnings-prev" aria-label="Vorige dag">
@@ -3677,7 +3978,7 @@
             </div>
             <div class="earnings-summary" id="earnings-summary" hidden>
                 <div class="card offer-card earnings-summary__card">
-                    <p class="earnings-summary__label">Totaal deze dag</p>
+                    <p class="earnings-summary__label" id="earnings-day-total-label">Totaal deze dag</p>
                     <p class="earnings-summary__value" id="earnings-day-total">€&nbsp;0,00</p>
                     <p class="earnings-summary__hint" id="earnings-day-count">0 ritten</p>
                 </div>
@@ -3723,7 +4024,7 @@
                 @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                 @include('taxi::partials.ride-alert-tone', ['section' => 'picker'])
                 <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
-                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/chauffeur/handleiding') }}">
+                <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">
                     <strong>Handleiding</strong>
                     <span>Openen →</span>
                 </a>
@@ -3774,13 +4075,16 @@
         </div>
         <div class="dispatch-footer"></div>
         <nav class="driver-bottom-nav" aria-label="Hoofdnavigatie">
-            <button type="button" class="driver-bottom-nav__btn is-active" data-main-tab="requests" aria-current="page">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
-                <span>Aanvragen</span>
-            </button>
-            <button type="button" class="driver-bottom-nav__btn" data-main-tab="trips">
+            <button type="button" class="driver-bottom-nav__btn is-active" data-main-tab="trips" aria-current="page">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
                 <span>Ritten</span>
+            </button>
+            <button type="button" class="driver-bottom-nav__btn" data-main-tab="requests" aria-label="Aanvragen">
+                <span class="driver-bottom-nav__icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                    <span id="nav-requests-count" class="toolbar-nav-badge" hidden>0</span>
+                </span>
+                <span>Aanvragen</span>
             </button>
             <button type="button" class="driver-bottom-nav__btn" data-main-tab="planning">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
@@ -3906,22 +4210,22 @@
 
 <div id="nosleep-media-wrap" aria-hidden="true">
     <video id="nosleep-video" loop muted playsinline webkit-playsinline preload="auto" disablePictureInPicture
-        src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.mp4') }}"></video>
+        src="/assets/media/app/nexa-chauffeur-nosleep.mp4"></video>
 </div>
 <audio id="nosleep-audio" loop preload="auto" muted playsinline webkit-playsinline aria-hidden="true"
-    src="{{ asset('assets/media/app/nexa-chauffeur-nosleep.wav') }}"></audio>
+    src="/assets/media/app/nexa-chauffeur-nosleep.wav"></audio>
 <canvas id="nosleep-canvas" width="1" height="1" aria-hidden="true"></canvas>
 
 <script>
 window.NEXA_TAXI_DRIVER = {
-    apiBase: @json($apiBase),
+    apiBase: @json($apiBase ?? '/api/taxi/v1/driver'),
     pollMs: {{ (int) $pollMs }},
     streamEnabled: @json($streamEnabled ?? false),
-    loginUrl: @json(url('/api/taxi/v1/driver/login')),
-    loginCodeRequestUrl: @json(url('/api/taxi/v1/driver/login-code/request')),
-    loginCodeVerifyUrl: @json(url('/api/taxi/v1/driver/login-code/verify')),
-    appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
-    guideUrl: @json($guideUrl ?? url('/taxi/chauffeur/handleiding')),
+    loginUrl: @json($loginUrl ?? '/api/taxi/v1/driver/login'),
+    loginCodeRequestUrl: @json($loginCodeRequestUrl ?? '/api/taxi/v1/driver/login-code/request'),
+    loginCodeVerifyUrl: @json($loginCodeVerifyUrl ?? '/api/taxi/v1/driver/login-code/verify'),
+    appUrl: @json($appUrl ?? '/taxi/chauffeur'),
+    guideUrl: @json($guideUrl ?? '/taxi/chauffeur/handleiding'),
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
     googleMapsApiKey: @json($googleMapsApiKey ?? ''),
     googleMapsMapId: @json($googleMapsMapId ?? ''),
@@ -3929,8 +4233,8 @@ window.NEXA_TAXI_DRIVER = {
     googleMapsCenterLng: @json($googleMapsCenterLng ?? '4.9041'),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=148" defer></script>
+<script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=173" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

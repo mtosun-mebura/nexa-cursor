@@ -50,25 +50,28 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
-            <div class="kt-card-header py-5 flex-wrap gap-2">
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 admin-bulk-header">
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-job-configurations'))
+                {{-- Los van het formulier, zodat de absolute plaatsing vanaf de kaartkop rekent. --}}
+                <button type="button"
+                        class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
+                        hidden
+                        id="bulk-delete-btn"
+                        aria-label="Geselecteerde configuraties verwijderen"
+                        title="Verwijderen">
+                    <i class="ki-filled ki-trash" aria-hidden="true"></i>
+                    <span class="admin-bulk-delete__count">(<span data-configurations-selected-count>0</span>)</span>
+                </button>
+                @endif
                 <div class="flex flex-wrap gap-2 lg:gap-5 w-full items-center">
-                    <!-- Bulk Delete Button (hidden by default, shown when items are selected) - Links uitgelijnd -->
                     @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-job-configurations'))
                     <form method="POST"
                           action="{{ route('admin.job-configurations.bulk-delete') }}"
                           id="bulk-delete-form"
-                          style="display: none;">
+                          hidden>
                         @csrf
                         @method('DELETE')
                         <div id="selected-configurations-container"></div>
-                        <button type="button"
-                                class="kt-btn kt-btn-icon"
-                                id="bulk-delete-btn"
-                                title="Verwijder geselecteerde configuraties"
-                                onclick="handleBulkDelete()"
-                                style="display: none; background: transparent; border: none; color: #ef4444;">
-                            <i class="ki-filled ki-trash" style="color: #ef4444;"></i>
-                        </button>
                     </form>
                     @endif
                     <!-- Search and Filters - Rechts uitgelijnd -->
@@ -139,7 +142,7 @@
             
             <div class="kt-card-content p-0">
                 @if($configurations->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="configurations_table" data-admin-datatable-label="configuraties">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="configurations_table" data-admin-datatable-label="configuraties" data-admin-datatable-on-page="syncConfigurationsBulkSelection">
                         <div class="kt-scrollable-x-auto" style="overflow-x: auto; overflow-y: visible;">
                             <table class="kt-table table-auto kt-table-border">
                             <thead>
@@ -441,89 +444,69 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Select All functionality - Wait for elements to be available
+    // Bulkselectie. Het live filter vervangt de inhoud van de kaart met innerHTML, dus de
+    // tabel en de checkboxes zijn na een filteractie andere elementen. Daarom niets
+    // vasthouden: elk element wordt bij gebruik opnieuw opgezocht en de listeners hangen
+    // aan document.
     function initSelectAll() {
-        let selectAllCheckbox = document.getElementById('select-all-configurations');
-        if (!selectAllCheckbox) {
-            const tableHeader = document.querySelector('#configurations_table thead th');
-            if (tableHeader) {
-                selectAllCheckbox = tableHeader.querySelector('input#select-all-configurations');
-            }
-        }
-        if (!selectAllCheckbox) {
-            selectAllCheckbox = document.querySelector('#configurations_table input#select-all-configurations');
-        }
-
-        const bulkDeleteForm = document.getElementById('bulk-delete-form');
-        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
-        const selectedConfigurationsContainer = document.getElementById('selected-configurations-container');
-
-        if (!selectAllCheckbox || !bulkDeleteBtn || !bulkDeleteForm || !selectedConfigurationsContainer) {
-            if (typeof initSelectAll.retryCount === 'undefined') {
-                initSelectAll.retryCount = 0;
-            }
-            initSelectAll.retryCount++;
-            if (initSelectAll.retryCount < 20) {
-                setTimeout(initSelectAll, 100);
-            }
+        if (initSelectAll.gebonden) {
+            updateBulkDeleteButton();
             return;
         }
+        initSelectAll.gebonden = true;
 
         function getConfigCheckboxes() {
-            return document.querySelectorAll('#configurations_table input.config-checkbox');
+            const root = document.getElementById('configurations_table');
+            return root ? root.querySelectorAll('input.config-checkbox') : [];
         }
 
         function updateBulkDeleteButton() {
-            const checkboxes = getConfigCheckboxes();
-            const selected = Array.from(checkboxes).filter(function(cb) { return cb.checked; });
-            const selectedIds = selected.map(function(cb) { return cb.value; });
+            const checkboxes = Array.from(getConfigCheckboxes());
+            const selected = checkboxes.filter(function(cb) { return cb.checked; });
+            const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+            const selectedConfigurationsContainer = document.getElementById('selected-configurations-container');
+            const countEl = document.querySelector('[data-configurations-selected-count]');
 
-            if (selectedIds.length > 0) {
-                bulkDeleteBtn.classList.add('show');
-                bulkDeleteForm.classList.add('show');
-                bulkDeleteBtn.style.display = 'inline-flex';
-                bulkDeleteForm.style.display = 'block';
-                bulkDeleteBtn.style.visibility = 'visible';
-                bulkDeleteForm.style.visibility = 'visible';
-                console.log('[Bulk Delete] Showing button');
-            } else {
-                bulkDeleteBtn.classList.remove('show');
-                bulkDeleteForm.classList.remove('show');
-                bulkDeleteBtn.style.display = 'none';
-                bulkDeleteForm.style.display = 'none';
-                bulkDeleteBtn.style.visibility = 'hidden';
-                bulkDeleteForm.style.visibility = 'hidden';
-                console.log('[Bulk Delete] Hiding button');
+            if (bulkDeleteBtn) {
+                const show = selected.length > 0;
+                bulkDeleteBtn.hidden = !show;
+                bulkDeleteBtn.classList.toggle('hidden', !show);
+            }
+            if (countEl) {
+                countEl.textContent = String(selected.length);
             }
 
-            selectedConfigurationsContainer.innerHTML = '';
-            selectedIds.forEach(function(id) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'configurations[]';
-                input.value = id;
-                selectedConfigurationsContainer.appendChild(input);
-            });
+            if (selectedConfigurationsContainer) {
+                selectedConfigurationsContainer.innerHTML = '';
+                selected.forEach(function(cb) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'configurations[]';
+                    input.value = cb.value;
+                    selectedConfigurationsContainer.appendChild(input);
+                });
+            }
 
-            const visibleCheckboxes = Array.from(checkboxes).filter(cb => {
-                const row = cb.closest('tr');
-                return row && window.getComputedStyle(row).display !== 'none' && !cb.disabled;
-            });
-
-            if (visibleCheckboxes.length > 0) {
-                const allChecked = visibleCheckboxes.every(cb => cb.checked);
-                const someChecked = visibleCheckboxes.some(cb => cb.checked);
-                selectAllCheckbox.checked = allChecked;
-                selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            const selectAllCheckbox = document.getElementById('select-all-configurations');
+            if (selectAllCheckbox) {
+                const visibleCheckboxes = checkboxes.filter(function(cb) {
+                    const row = cb.closest('tr');
+                    return row && window.getComputedStyle(row).display !== 'none' && !cb.disabled;
+                });
+                const selectedVisible = visibleCheckboxes.filter(function(cb) { return cb.checked; });
+                selectAllCheckbox.checked = visibleCheckboxes.length > 0 && selectedVisible.length === visibleCheckboxes.length;
+                selectAllCheckbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleCheckboxes.length;
             }
         }
 
+        window.syncConfigurationsBulkSelection = updateBulkDeleteButton;
+
         window.handleBulkDelete = function() {
+            const bulkDeleteForm = document.getElementById('bulk-delete-form');
             const checkboxes = getConfigCheckboxes();
             const selected = Array.from(checkboxes).filter(cb => cb.checked);
 
-            if (selected.length === 0) {
-                alert('Selecteer minimaal één configuratie om te verwijderen.');
+            if (!bulkDeleteForm || selected.length === 0) {
                 return;
             }
 
@@ -563,53 +546,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
 
-        const selectAllHandler = function(e) {
-            let checkbox = document.getElementById('select-all-configurations');
-            if (!checkbox) {
-                checkbox = document.querySelector('#configurations_table input#select-all-configurations');
+        document.addEventListener('change', function(e) {
+            const target = e.target;
+            if (!target || !document.getElementById('configurations_table')) {
+                return;
             }
-
-            if (checkbox && (e.target === checkbox || e.target.id === 'select-all-configurations')) {
-                e.stopPropagation();
-                const isChecked = checkbox.checked;
-                const checkboxes = getConfigCheckboxes();
-
-                checkboxes.forEach(cb => {
+            if (target.id === 'select-all-configurations') {
+                const checked = target.checked;
+                Array.from(getConfigCheckboxes()).forEach(function(cb) {
                     if (!cb.disabled) {
-                        cb.checked = isChecked;
+                        cb.checked = checked;
                     }
                 });
-
+                updateBulkDeleteButton();
+                return;
+            }
+            if (target.classList && target.classList.contains('config-checkbox')) {
                 updateBulkDeleteButton();
             }
-        };
+        });
 
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', selectAllHandler);
-        }
-
-        document.addEventListener('change', selectAllHandler);
         document.addEventListener('click', function(e) {
-            if (e.target && e.target.id === 'select-all-configurations') {
-                setTimeout(function() {
-                    selectAllHandler(e);
-                }, 10);
+            const btn = e.target.closest ? e.target.closest('#bulk-delete-btn') : null;
+            if (!btn) {
+                return;
             }
+            e.preventDefault();
+            window.handleBulkDelete();
         });
-
-        document.addEventListener('change', function(e) {
-            if (e.target && e.target.classList && e.target.classList.contains('config-checkbox')) {
-                updateBulkDeleteButton();
-            }
-        });
-
-        const configurationsTable = document.getElementById('configurations_table');
-        if (configurationsTable) {
-            const observer = new MutationObserver(function() {
-                setTimeout(updateBulkDeleteButton, 50);
-            });
-            observer.observe(configurationsTable, { childList: true, subtree: true });
-        }
 
         updateBulkDeleteButton();
     }
@@ -662,32 +626,9 @@ document.addEventListener('DOMContentLoaded', function() {
         --tw-ring-offset-width: 2px;
     }
 
-    /* Bulk delete button - alleen rode prullenbak zonder achtergrond */
-    #bulk-delete-btn {
-        background: transparent !important;
-        border: none !important;
-        color: #ef4444 !important;
-        padding: 0.5rem !important;
-        margin-left: -0.5rem !important;
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    #bulk-delete-btn.show {
-        display: inline-flex !important;
-        visibility: visible !important;
-    }
-
-    #bulk-delete-form {
-        display: none !important;
-        visibility: hidden !important;
-        overflow: visible !important;
-    }
-
-    #bulk-delete-form.show {
-        display: block !important;
-        visibility: visible !important;
-        overflow: visible !important;
+    /* Het vinkje staat hier 30px vanaf de kaartrand, dus schuift de prullenbak mee. */
+    #content #bulk-delete-btn {
+        --admin-bulk-col-width: 60px;
     }
 
     /* Ensure thead and th allow overflow */
@@ -702,18 +643,6 @@ document.addEventListener('DOMContentLoaded', function() {
     #configurations_table .kt-scrollable-x-auto {
         overflow-x: auto !important;
         overflow-y: visible !important;
-    }
-
-    #bulk-delete-btn:hover {
-        background: rgba(239, 68, 68, 0.1) !important;
-        border-radius: 0.375rem !important;
-    }
-
-    #bulk-delete-btn i {
-        color: #ef4444 !important;
-        width: 24px !important;
-        height: 24px !important;
-        font-size: 24px !important;
     }
 
     /* Ensure dropdown can overflow table cells without stretching them */

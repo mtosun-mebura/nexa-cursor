@@ -122,6 +122,7 @@ class AiChatProductFaqServiceTest extends TestCase
 
         $this->assertStringContainsString('ouder', mb_strtolower($reply));
         $this->assertStringContainsString('afmelden', mb_strtolower($reply));
+        $this->assertStringContainsString('iPhone, iPad en Android', $reply);
         $this->assertStringContainsString('/contractvervoer', $reply);
     }
 
@@ -176,5 +177,18 @@ class AiChatProductFaqServiceTest extends TestCase
         $korting = $this->faq()->answer('hebben jullie korting?');
         $this->assertStringContainsString('/prijzen', $korting);
         $this->assertStringContainsString('actuele aanbiedingen', mb_strtolower($korting));
+    }
+
+    public function test_commission_question_distinguishes_own_site_from_nexasuite_nl(): void
+    {
+        \App\Models\NexaSuiteMarketplaceSetting::current()->update(['fee_percent' => 10]);
+
+        $reply = $this->faq()->answer('Betaal ik commissie per rit?');
+
+        $this->assertStringContainsString('eigen website', mb_strtolower($reply));
+        $this->assertStringContainsString('nexasuite.nl', mb_strtolower($reply));
+        $this->assertStringContainsString('10%', $reply);
+        $this->assertStringContainsString('/voorwaarden', $reply);
+        $this->assertStringContainsString('/prijzen', $reply);
     }
 }

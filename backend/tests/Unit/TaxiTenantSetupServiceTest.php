@@ -54,6 +54,7 @@ class TaxiTenantSetupServiceTest extends TestCase
 
         Schema::connection('module_taxi')->create('default_rates', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('company_id')->nullable();
             $table->string('person_range')->nullable();
             $table->decimal('base_fare', 10, 2)->nullable();
             $table->decimal('min_fare', 10, 2)->nullable();

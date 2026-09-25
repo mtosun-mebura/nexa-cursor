@@ -10,7 +10,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     @include('taxi::partials.pwa-accent', ['section' => 'boot'])
-    <link rel="manifest" href="{{ \Illuminate\Support\Facades\Route::has('taxi.contract.manifest') ? route('taxi.contract.manifest') : url('/taxi/contract/manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ $manifestUrl ?? '/taxi/contract/manifest.webmanifest' }}">
     <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
     <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
@@ -35,7 +35,6 @@
             --soft-text: #d1d5db;
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --bottom-nav-h: 4.75rem;
         }
         html[data-theme="dark"] {
             --nexa-pwa-bg: #121214;
@@ -81,9 +80,23 @@
         .app-top-chrome {
             flex-shrink: 0;
             background: var(--chrome);
+            padding-top: var(--safe-top);
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+        }
+        @media (max-width: 48rem) {
+            .app-top-chrome {
+                padding-top: max(var(--safe-top), 3.75rem);
+            }
         }
         .app-top-chrome:not(:has(#guide-hint:not([hidden]))) {
             display: none;
+        }
+        #app:has(#guide-hint:not([hidden])) #screen-login.screen {
+            padding-top: 1rem;
+        }
+        #app:has(#guide-hint:not([hidden])) .home-top {
+            padding-top: 0.65rem;
         }
         .screen {
             display: none;
@@ -101,7 +114,7 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
-            padding: 0 0 calc(var(--bottom-nav-h) + var(--safe-bottom));
+            padding: 0;
         }
         .home-top {
             flex: 0 0 auto;
@@ -139,16 +152,14 @@
             padding: 0.75rem 1rem 0.35rem;
         }
         .contract-bottom-nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: relative;
+            flex: 0 0 auto;
             z-index: 40;
             display: none;
             align-items: stretch;
             justify-content: center;
             gap: 0.15rem;
-            padding: 0.45rem 0.35rem calc(0.45rem + var(--safe-bottom));
+            padding: 0.3rem 0.35rem calc(0.3rem + var(--safe-bottom) * 0.5);
             background: var(--chrome);
             border-top: 1px solid var(--line);
             backdrop-filter: blur(12px);
@@ -163,21 +174,22 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.2rem;
+            gap: 0.15rem;
             min-width: 0;
-            min-height: 3.6rem;
+            min-height: 2.85rem;
             border: none;
             background: transparent;
             color: var(--muted);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
+            line-height: 1.15;
             cursor: pointer;
             border-radius: 0.75rem;
-            padding: 0.35rem 0.2rem;
+            padding: 0.25rem 0.2rem;
         }
         .contract-bottom-nav__btn svg {
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 1.3rem;
+            height: 1.3rem;
         }
         .contract-bottom-nav__btn.is-active {
             color: var(--orange);
@@ -188,7 +200,7 @@
         @media (max-width: 420px) {
             .contract-bottom-nav__btn {
                 font-size: 0.62rem;
-                padding: 0.3rem 0.1rem;
+                padding: 0.22rem 0.1rem;
             }
         }
         #screen-home.is-nav-tab .home-scroll {
@@ -536,7 +548,7 @@
             gap: 0.4rem;
             border: 0;
             border-radius: 0.625rem;
-            padding: 0.75rem 1rem;
+            padding: 0.6rem 1rem;
             font-size: 0.9375rem;
             font-weight: 600;
             cursor: pointer;
@@ -648,7 +660,7 @@
             color: var(--accent-light-ink);
         }
         #guide-hint {
-            margin: 1rem 1rem 0.85rem;
+            margin: 0.65rem 1rem 0.85rem;
             flex-shrink: 0;
         }
         .banner-guide-hint__body {
@@ -1384,7 +1396,7 @@
         }
         .dialog.contract-notice .dialog-actions .btn,
         .dialog.contract-confirm .dialog-actions .btn {
-            min-height: 3rem;
+            min-height: 2.7rem;
         }
         html[data-theme="light"] .card {
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -1403,10 +1415,11 @@
                     Nieuw of even niet zeker? Open de handleiding voor installeren, inloggen, ritten en afmelden.
                     Na wegklikken vind je die altijd terug onder <strong>Profiel</strong>.
                 </p>
-                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">Handleiding openen</a>
+                <a class="btn-inline" id="btn-open-guide" href="{{ $guideUrl ?? '/taxi/contract/handleiding' }}">Handleiding openen</a>
             </div>
         </div>
     </div>
+    @include('taxi::partials.tenant-logo-bar')
     <section id="screen-login" class="screen is-active" aria-label="Inloggen">
         <h1>Contract inloggen</h1>
         <div class="card">
@@ -1502,7 +1515,7 @@
                     </div>
                     @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                     <p class="muted profile-session-note">Gegevens zijn alleen ter inzage.</p>
-                    <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? url('/taxi/contract/handleiding') }}">
+                    <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/contract/handleiding' }}">
                         <strong>Handleiding</strong>
                     </a>
                     <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
@@ -1579,12 +1592,12 @@
 
 <script>
 window.NEXA_TAXI_CONTRACT = {
-    apiBase: @json($apiBase),
-    loginUrl: @json(url('/api/taxi/v1/contract/login')),
-    loginCodeRequestUrl: @json(url('/api/taxi/v1/contract/login-code/request')),
-    loginCodeVerifyUrl: @json(url('/api/taxi/v1/contract/login-code/verify')),
-    appUrl: @json($appUrl ?? url('/taxi/contract')),
-    guideUrl: @json($guideUrl ?? url('/taxi/contract/handleiding')),
+    apiBase: @json($apiBase ?? '/api/taxi/v1/contract'),
+    loginUrl: @json($loginUrl ?? '/api/taxi/v1/contract/login'),
+    loginCodeRequestUrl: @json($loginCodeRequestUrl ?? '/api/taxi/v1/contract/login-code/request'),
+    loginCodeVerifyUrl: @json($loginCodeVerifyUrl ?? '/api/taxi/v1/contract/login-code/verify'),
+    appUrl: @json($appUrl ?? '/taxi/contract'),
+    guideUrl: @json($guideUrl ?? '/taxi/contract/handleiding'),
     pollMs: {{ (int) ($pollMs ?? 15000) }},
     googleMapsApiKey: @json($googleMapsApiKey ?? ''),
     googleMapsMapId: @json($googleMapsMapId ?? ''),
@@ -1592,8 +1605,8 @@ window.NEXA_TAXI_CONTRACT = {
     googleMapsCenterLng: @json($googleMapsCenterLng ?? '4.9041'),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-pwa-accent.js') }}?v=1" defer></script>
-<script src="{{ asset('assets/js/taxi-contract-app.js') }}?v=43" defer></script>
+<script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
+<script src="/assets/js/taxi-contract-app.js?v=46" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

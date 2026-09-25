@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,8 +26,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Achter reverse proxy (Apache/Varnish/Nginx): juiste scheme/host voor URL’s, sessiecookies en CSRF.
         $middleware->trustProxies(at: '*');
 
+        // Lokaal/LAN: genereer URL’s op de Host-header (192.168.x.x) i.p.v. APP_URL=localhost.
+        $middleware->prepend(\App\Http\Middleware\ForceLocalDevRootUrl::class);
+
         // Op https: forceer upgrade van http:// subresources naar https:// (geen mixed-content/"niet beveiligd").
         $middleware->append(\App\Http\Middleware\UpgradeInsecureRequests::class);
+        $middleware->append(\App\Http\Middleware\CompressResponse::class);
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
@@ -36,9 +41,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
             'taxi.contract' => \App\Http\Middleware\EnsureTaxiContractPortal::class,
             'skillmatching.portal' => \App\Http\Middleware\EnsureSkillmatchingModule::class,
+            'admin.skillmatching' => \App\Http\Middleware\EnsureAdminSkillmatchingModule::class,
             'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
             'taxi.portal.password' => \App\Http\Middleware\EnsureTaxiKlantPasswordIsSet::class,
             'admin.password.changed' => \App\Http\Middleware\EnsureAdminPasswordChanged::class,
+            'admin.tenant.sync' => \App\Http\Middleware\SyncAdminSelectedTenantFromQuery::class,
             'auth.query.token' => \App\Http\Middleware\AppendBearerTokenFromQuery::class,
             'tenant.billing' => \App\Http\Middleware\EnforceTenantBillingRestriction::class,
         ]);
@@ -118,6 +125,26 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         });
 
+        // Vacatures/skillmatching-admin zonder actieve module: geen kapotte 404-chrome.
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+                return null;
+            }
+            if (! $request->is('admin/vacancies', 'admin/vacancies/*', 'admin/skillmatching', 'admin/skillmatching/*')) {
+                return null;
+            }
+            if (! auth()->check()) {
+                return null;
+            }
+            if (app(\App\Services\AdminDashboardModuleContext::class)->skillmatchingAvailable()) {
+                return null;
+            }
+
+            return redirect()
+                ->route('admin.dashboard')
+                ->with('warning', 'Nexa Skillmatching is niet actief. Je bent naar het dashboard gestuurd.');
+        });
+
         // Ensure JSON response for favorite routes so frontend can show the error
         $exceptions->render(function (\Throwable $e, Request $request) {
             if ($request->is('favorites/*') && $request->expectsJson()) {
@@ -143,9 +170,13 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($intended === null && ! $request->is('admin/login') && ! $request->is('admin/meld/*')) {
                 $intended = AdminReturnUrl::resolveIntended($request->fullUrl());
             }
+            $isJson = $request->expectsJson() || $request->ajax() || $request->wantsJson();
             if (! $isFirstLoginJson && $intended !== null && $request->hasSession()) {
                 $request->session()->put('url.intended', $intended);
-                $request->session()->regenerateToken();
+                // JSON-clients (AI-chat) houden hun meta-token; geef het huidige token terug i.p.v. te roteren.
+                if (! $isJson) {
+                    $request->session()->regenerateToken();
+                }
             }
             $loginUrl = AdminReturnUrl::loginUrlWithIntended($intended);
             $meldUrl = '/admin/meld/sessie-verlopen?'.http_build_query(array_filter([
@@ -154,11 +185,13 @@ return Application::configure(basePath: dirname(__DIR__))
             $message = 'Uw sessie is verlopen. Log opnieuw in.';
 
             if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+                $csrfToken = $request->hasSession() ? $request->session()->token() : null;
+
                 if ($isFirstLoginJson) {
                     return response()->json([
                         'message' => 'De beveiligingstoken is vernieuwd. Probeer het opnieuw.',
                         'code' => 'csrf_mismatch',
-                        'csrf_token' => $request->hasSession() ? $request->session()->token() : null,
+                        'csrf_token' => $csrfToken,
                     ], 419);
                 }
 
@@ -167,7 +200,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
 
                 return response()->json([
+                    'success' => false,
+                    'error' => $message,
                     'message' => $message,
+                    'code' => 'csrf_mismatch',
+                    'csrf_token' => $csrfToken,
                     'redirect' => $request->is('admin/login') ? $loginUrl : $meldUrl,
                 ], 419);
             }

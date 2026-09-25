@@ -57,9 +57,10 @@ class SystemUpgradeService
             $composerPackages = $this->composerPackagesFromSelections($selections);
             if ($composerPackages !== [] || in_array('step:composer', $selections, true)) {
                 $command = $composerPackages !== []
-                    ? 'composer update '.implode(' ', array_map('escapeshellarg', $composerPackages)).' --with-all-dependencies --no-interaction --no-ansi --prefer-dist'
-                    : 'composer update --with-all-dependencies --no-interaction --no-ansi --prefer-dist';
+                    ? 'composer update '.implode(' ', array_map('escapeshellarg', $composerPackages)).' --with-all-dependencies --no-interaction --no-ansi --prefer-dist --no-scripts'
+                    : 'composer update --with-all-dependencies --no-interaction --no-ansi --prefer-dist --no-scripts';
                 $this->runShellStep($emit, $steps, 'Composer dependencies bijwerken', $command, 900);
+                $this->refreshApplicationAfterComposer($emit, $steps);
             }
 
             $npmPackages = $this->npmPackagesFromSelections($selections);
@@ -238,7 +239,7 @@ class SystemUpgradeService
             $emit,
             $steps,
             'Stabiliteitstests uitvoeren',
-            [PHP_BINARY, $phpunit, '--colors=never'],
+            [PHP_BINARY, $phpunit, '--colors=never', '--no-progress'],
             1200,
             base_path(),
             $this->phpunitProcessEnvironment(),
@@ -289,6 +290,18 @@ class SystemUpgradeService
     }
 
     /**
+     * Composer draait tijdens web-upgrades zonder scripts, zodat Artisan niet
+     * start terwijl vendor nog wordt herschreven. Daarna volgt deze afronding.
+     *
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function refreshApplicationAfterComposer(?callable $emit, array &$steps): void
+    {
+        $this->runArtisanStep($emit, $steps, 'Laravel packages ontdekken', ['package:discover', '--ansi'], 120);
+        $this->runArtisanStep($emit, $steps, 'Config-cache legen', ['config:clear'], 60);
+    }
+
+    /**
      * @param  list<array{label: string, status: string, output?: string}>  $steps
      */
     public function emitProgress(?callable $emit, array &$steps, string $label, string $status): void
@@ -324,9 +337,7 @@ class SystemUpgradeService
         });
 
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
-                $process->getErrorOutput()."\n".$process->getOutput()
-            )));
+            throw new \RuntimeException(trim($label.' mislukt: '.$this->processFailureOutput($output, $process)));
         }
 
         $this->markLastStepDone($steps, $output);
@@ -363,12 +374,7 @@ class SystemUpgradeService
                 }
             });
 
-            $lastOutput = $process->getErrorOutput()."\n".$process->getOutput();
-            if ($lastOutput === "\n") {
-                $lastOutput = $output;
-            } elseif ($output !== '' && ! str_contains($lastOutput, $output)) {
-                $lastOutput = $output."\n".$lastOutput;
-            }
+            $lastOutput = $this->combinedProcessOutput($output, $process);
 
             if ($process->isSuccessful()) {
                 $this->markLastStepDone($steps, $output);
@@ -393,7 +399,9 @@ class SystemUpgradeService
             $attempt = $stripped;
         }
 
-        throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput($lastOutput)));
+        throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
+            $this->compactPhpunitFailureOutput($this->compactComposerFailureOutput($lastOutput))
+        )));
     }
 
     /**
@@ -553,9 +561,7 @@ class SystemUpgradeService
         });
 
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
-                $process->getErrorOutput()."\n".$process->getOutput()
-            )));
+            throw new \RuntimeException(trim($label.' mislukt: '.$this->processFailureOutput($output, $process)));
         }
 
         $this->markLastStepDone($steps, $output);
@@ -584,9 +590,7 @@ class SystemUpgradeService
         });
 
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException(trim($label.' mislukt: '.$this->truncateProcessOutput(
-                $process->getErrorOutput()."\n".$process->getOutput()
-            )));
+            throw new \RuntimeException(trim($label.' mislukt: '.$this->processFailureOutput($output, $process)));
         }
 
         $this->markLastStepDone($steps, $output);
@@ -682,6 +686,102 @@ class SystemUpgradeService
             'TERM' => 'dumb',
             'NO_COLOR' => '1',
         ];
+    }
+
+    private function processFailureOutput(string $capturedOutput, Process $process): string
+    {
+        return $this->truncateProcessOutput(
+            $this->compactPhpunitFailureOutput(
+                $this->compactComposerFailureOutput($this->combinedProcessOutput($capturedOutput, $process))
+            )
+        );
+    }
+
+    private function combinedProcessOutput(string $capturedOutput, Process $process): string
+    {
+        $combined = trim($process->getErrorOutput()."\n".$process->getOutput());
+        $captured = trim($capturedOutput);
+
+        if ($combined === '') {
+            return $captured;
+        }
+        if ($captured !== '' && ! str_contains($combined, $captured)) {
+            return trim($captured."\n".$combined);
+        }
+
+        return $combined;
+    }
+
+    public function compactComposerFailureOutput(string $output): string
+    {
+        $hint = '';
+        if (preg_match('/^Script .+ returned with error code \d+.*/m', $output, $matches) === 1) {
+            $hint = trim($matches[0])."\n";
+        }
+
+        $lines = preg_split('/\R/', $output) ?: [];
+        $kept = [];
+        $skipped = 0;
+        foreach ($lines as $line) {
+            if (preg_match('/^\s*-\s*Conclusion: don\'t install /', $line) === 1) {
+                $skipped++;
+                continue;
+            }
+            $kept[] = $line;
+        }
+        if ($skipped > 0) {
+            $kept[] = '('.$skipped.' verdere Composer-versieconflicten weggelaten)';
+        }
+
+        return trim($hint.implode("\n", $kept));
+    }
+
+    public function compactPhpunitFailureOutput(string $output): string
+    {
+        if (
+            ! str_contains($output, 'PHPUnit')
+            && ! preg_match('/There were \d+ (?:failures|errors)/', $output)
+            && ! str_contains($output, 'FAILURES!')
+        ) {
+            return $output;
+        }
+
+        $lines = preg_split('/\R/', $output) ?: [];
+        $kept = [];
+        foreach ($lines as $line) {
+            if (preg_match('/^[.\-FESWDN]+\s+\d+\s+\/\s+\d+/', $line) === 1) {
+                continue;
+            }
+            if (preg_match('/^[.\-FESWDN]{10,}$/', $line) === 1) {
+                continue;
+            }
+            $kept[] = $line;
+        }
+        $output = implode("\n", $kept);
+
+        $output = preg_replace_callback(
+            '/(Failed asserting that[\s\S]{0,240})([\s\S]*?)(?=\n\d+\) |\n(?:FAILURES!|ERRORS!|WARNINGS!)|$)/',
+            function (array $matches): string {
+                $rest = $matches[2];
+                if (strlen($rest) <= 400) {
+                    return $matches[0];
+                }
+
+                return $matches[1]."\n… [assertiedump ingekort, ".strlen($rest)." tekens] …\n";
+            },
+            $output
+        ) ?? $output;
+
+        if (preg_match_all('/^\d+\) .+$/m', $output, $names) === false || $names[0] === []) {
+            return trim($output);
+        }
+
+        $hint = "Mislukte tests:\n".implode("\n", $names[0])."\n\n";
+        if (! str_starts_with(ltrim($output), 'Mislukte tests:')) {
+            $output = $hint.$output;
+        }
+
+        return trim($output);
     }
 
     private function truncateProcessOutput(string $output, int $max = 6000): string

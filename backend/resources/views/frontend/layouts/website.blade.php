@@ -30,7 +30,7 @@
     @if(!empty($footerMapEarlyLoad))
     @include('frontend.layouts.partials.website-footer-map-scripts')
     @endif
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Georgia&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Georgia&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-cookieconsent@3.1.0/dist/cookieconsent.css">
     @if(!empty($loadAtomV2Styles))
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600&family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -59,6 +59,119 @@
         #main-content {
             max-width: 100%;
             overflow-x: clip;
+        }
+        .modern-home-hero--has-image {
+            background-color: #07111f;
+        }
+        .modern-home-hero--has-image .modern-home-hero__media {
+            max-height: min(48vh, 26rem);
+        }
+        .modern-home-hero--has-image .modern-home-hero__image {
+            max-height: min(48vh, 26rem);
+            object-fit: cover;
+            object-position: center;
+        }
+        @media (max-width: 767px) {
+            .modern-home-hero--has-image {
+                --hero-mobile-min-height: min(46dvh, 22rem);
+                min-height: var(--hero-mobile-min-height);
+                background-color: #07111f;
+            }
+            .modern-home-hero--has-image .modern-home-hero__media {
+                position: absolute;
+                inset: 0;
+                max-height: none;
+                height: 100%;
+                width: 100%;
+                overflow: hidden;
+            }
+            .modern-home-hero--has-image .modern-home-hero__image {
+                position: absolute;
+                inset: 0;
+                width: 100% !important;
+                height: 100% !important;
+                max-height: none !important;
+                min-height: 100%;
+                object-fit: cover;
+                object-position: 20% center;
+            }
+            .modern-home-hero--has-image .modern-home-hero__caption-overlay {
+                position: relative !important;
+                inset: auto !important;
+                top: auto !important;
+                right: auto !important;
+                bottom: auto !important;
+                left: auto !important;
+                min-height: var(--hero-mobile-min-height);
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .modern-home-hero--has-image .hero-caption-subtitle,
+            .modern-home-hero--has-image .hero-caption-width-context,
+            .modern-home-hero--has-image .hero-caption-text-block {
+                width: 100% !important;
+                max-width: 100%;
+            }
+            .modern-home-hero--has-image .hero-caption-title {
+                overflow-wrap: break-word;
+                font-size: 1.15rem !important;
+                line-height: 1.25 !important;
+            }
+            .modern-home-hero--has-image .hero-reveal-btn,
+            .modern-home-cta .cta-reveal-btn {
+                padding: 0.6rem 1rem !important;
+                font-size: 0.875rem !important;
+            }
+            #main-content h1 {
+                font-size: 1.2rem !important;
+                line-height: 1.28 !important;
+                text-wrap: balance;
+            }
+            #main-content h2,
+            #main-content .text-3xl,
+            #main-content .text-4xl,
+            #main-content .nexa-modules-animate-eyebrow,
+            #main-content .nexa-pros-cons__title {
+                font-size: 1.25rem !important;
+                line-height: 1.3 !important;
+                text-wrap: balance;
+            }
+            #main-content h3 {
+                font-size: 1.05rem !important;
+                line-height: 1.35 !important;
+            }
+            #main-content > section {
+                padding-top: 1.35rem;
+                padding-bottom: 1.6rem;
+            }
+            #main-content .mb-8 { margin-bottom: 1rem; }
+            #main-content .mb-12 { margin-bottom: 1.15rem; }
+            #main-content .gap-10 { gap: 1.25rem; }
+            #main-content .gap-8 { gap: 1rem; }
+            #main-content .nexa-pros-cons__columns,
+            #main-content .nexa-pros-cons__columns--both:not(.nexa-pros-cons__columns--stack) {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-title-left {
+                transform: translateX(-18px);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-title-right {
+                transform: translateX(18px);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-zoom {
+                transform: translateY(16px) scale(0.98);
+            }
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-btn-primary,
+            .modern-home-hero.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.hero-reveal-btn-secondary {
+                transform: translateY(18px);
+            }
+            .modern-home-cta.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.cta-reveal-rise {
+                transform: translateY(24px);
+            }
+            .modern-home-cta.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.cta-reveal-btn-left,
+            .modern-home-cta.scroll-reveal-section:not(.is-in-view) .scroll-reveal-item.cta-reveal-btn-right {
+                transform: translateX(0) translateY(18px);
+            }
         }
         /* Eén grootte voor alle paginatitels (h1) */
         .kt-page-title { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
@@ -184,6 +297,32 @@
         html.dark footer a { color: #e5e7eb !important; }
         html.dark footer a:hover { color: #93c5fd !important; }
         html.dark footer h3 { color: #ffffff !important; }
+        .website-nav-book-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 0.5rem 0.95rem;
+            border-radius: 0.65rem;
+            background: var(--theme-primary, #2563eb);
+            color: #fff !important;
+            font-size: 0.95rem;
+            font-weight: 650;
+            line-height: 1.2;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .website-nav-book-cta:hover {
+            filter: brightness(1.06);
+            color: #fff !important;
+        }
+        #website-hamburger-row .website-nav-book-cta {
+            padding: 0.4rem 0.7rem;
+            font-size: 0.85rem;
+        }
+        .website-nav-book-cta.is-active {
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 0 0 4px var(--theme-primary, #2563eb);
+        }
         /* Footer: witte lijntjes grijs in dark mode */
         html.dark footer,
         html.dark footer .border-t { border-color: #4b5563 !important; }
@@ -339,10 +478,19 @@
             var rootMargin = options.rootMargin || '0px';
             var threshold = options.threshold !== undefined ? options.threshold : 0;
             var once = options.once !== false;
+            var minVisiblePx = options.minVisiblePx || 0;
             function run(el) {
                 if (once && el.getAttribute('data-nexa-visible-fired') === '1') return;
                 if (once) el.setAttribute('data-nexa-visible-fired', '1');
                 callback(el);
+            }
+            function isReadyNow(el) {
+                if (!isRoughlyInViewport(el, rootMargin)) return false;
+                if (!minVisiblePx) return true;
+                var rect = el.getBoundingClientRect();
+                var vh = window.innerHeight || document.documentElement.clientHeight;
+                var visible = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
+                return visible >= minVisiblePx || visible >= rect.height * 0.45;
             }
             if (!('IntersectionObserver' in window)) {
                 list.forEach(run);
@@ -358,7 +506,7 @@
             }, { root: options.root || null, rootMargin: rootMargin, threshold: threshold });
             function checkAll() {
                 list.forEach(function(el) {
-                    if (isRoughlyInViewport(el, rootMargin)) run(el);
+                    if (isReadyNow(el)) run(el);
                 });
             }
             list.forEach(function(el) { observer.observe(el); });
@@ -446,21 +594,39 @@
                         'branding' => $branding,
                         'logoHref' => $logoHref,
                         'logoHrefTenantAware' => empty($isStaging),
+                        'logoPlacement' => 'header',
                     ])
                 </div>
+                @php
+                    $isCentralPublicNav = app(\App\Services\WebsiteBuilderService::class)->isCentralPublicSite($page ?? null);
+                    $boekSlug = \App\Services\CentralWelcomePageService::BOEK_SLUG;
+                    $allNavPages = $menuPages ?? collect();
+                    $boekNavPage = $isCentralPublicNav
+                        ? $allNavPages->first(fn ($navPage) => strtolower((string) $navPage->slug) === $boekSlug)
+                        : null;
+                    $productNavPages = $boekNavPage
+                        ? $allNavPages->reject(fn ($navPage) => (int) $navPage->id === (int) $boekNavPage->id)->values()
+                        : $allNavPages;
+                    $isStagingMode = ! empty($isStaging ?? false);
+                    $stagingParamsForNav = $stagingParams ?? null;
+                    $websiteNavUrl = function ($menuPage) use ($isStagingMode, $stagingParamsForNav) {
+                        $isHomeNav = $menuPage->isPublicHomeNavItem();
+                        if ($isStagingMode && is_array($stagingParamsForNav)) {
+                            $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
+                                ? ($isHomeNav ? 'home' : $menuPage->page_type)
+                                : $menuPage->slug;
+                            return route('admin.frontend-themes.staging', array_merge($stagingParamsForNav, ['page' => $pageParam]));
+                        }
+                        return $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
+                    };
+                    $boekNavUrl = $boekNavPage ? $websiteNavUrl($boekNavPage) : null;
+                    $boekNavActive = $boekNavPage && isset($page) && (int) $page->id === (int) $boekNavPage->id;
+                @endphp
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
                 <nav id="website-desktop-nav" class="flex flex-nowrap items-center gap-4 flex-1 justify-center px-4 min-w-0 overflow-hidden" role="navigation" aria-label="Hoofdnavigatie">
-                    @forelse(($menuPages ?? collect()) as $menuPage)
+                    @forelse($productNavPages as $menuPage)
                         @php
-                            $isHomeNav = $menuPage->isPublicHomeNavItem();
-                            if (!empty($isStaging) && isset($stagingParams)) {
-                                $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
-                                    ? ($isHomeNav ? 'home' : $menuPage->page_type)
-                                    : $menuPage->slug;
-                                $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
-                            } else {
-                                $url = $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
-                            }
+                            $url = $websiteNavUrl($menuPage);
                             $isActive = isset($page) && $page->id === $menuPage->id;
                         @endphp
                         <a href="{{ $url }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ $isActive ? 'opacity-100 font-semibold' : '' }}" style="{{ $isActive ? 'color: var(--theme-primary);' : '' }}">{{ $menuPage->publicNavLabel() }}</a>
@@ -481,6 +647,9 @@
                 </nav>
                 {{-- Rechterkant desktop: streep (border-l), thema-toggle + Mijn Nexa/Inloggen; verborgen onder 1025px --}}
                 <div id="website-desktop-right" class="flex items-center gap-2 lg:gap-4 ml-auto flex-shrink-0 pl-4">
+                    @if($boekNavUrl)
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Boek een rit">Boek een rit</a>
+                    @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
                     <span class="sr-only">Weergave</span>
                     <button type="button" id="theme-toggle-btn" class="p-2 rounded-md text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white" aria-label="Wissel licht/donker thema" title="Wissel thema">
@@ -505,6 +674,9 @@
                 </div>
                 {{-- Smalle viewport: desktop-kolom met Mijn Nexa is verborgen; knop hier tonen zodat hij niet alleen in het dichte hamburgerpaneel zit --}}
                 <div id="website-hamburger-row" class="hidden items-center gap-1 sm:gap-2 ml-auto flex-shrink-0">
+                    @if($boekNavUrl)
+                    <a href="{{ $boekNavUrl }}" class="website-nav-book-cta {{ $boekNavActive ? 'is-active' : '' }}" aria-label="Boek een rit">Boek een rit</a>
+                    @endif
                     @if($branding['dashboard_link_visible'] ?? false)
                     @php
                         $portalUrlMobile = $branding['dashboard_link_url'] ?? route('dashboard');
@@ -530,17 +702,9 @@
         </div>
         <div id="website-mobile-menu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div class="container-custom py-4 space-y-1">
-                @forelse(($menuPages ?? collect()) as $menuPage)
+                @forelse($productNavPages as $menuPage)
                     @php
-                        $isHomeNav = $menuPage->isPublicHomeNavItem();
-                        if (!empty($isStaging) && isset($stagingParams)) {
-                            $pageParam = $isHomeNav || in_array($menuPage->page_type, ['home','about','contact'], true)
-                                ? ($isHomeNav ? 'home' : $menuPage->page_type)
-                                : $menuPage->slug;
-                            $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
-                        } else {
-                            $url = $isHomeNav ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
-                        }
+                        $url = $websiteNavUrl($menuPage);
                     @endphp
                     <a href="{{ $url }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $menuPage->publicNavLabel() }}</a>
                 @empty
@@ -931,7 +1095,23 @@
                 }
             );
             if (!sections.length) return;
-            var opts = { rootMargin: '0px 0px -15% 0px', threshold: 0.25 };
+            var isNarrow = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+            var opts = isNarrow
+                ? { rootMargin: '0px 0px -6% 0px', threshold: 0.08, minVisiblePx: 72 }
+                : { rootMargin: '0px 0px -15% 0px', threshold: 0.25, minVisiblePx: 120 };
+            var itemOpts = isNarrow
+                ? { rootMargin: '0px 0px -22% 0px', threshold: 0.18, minVisiblePx: 88 }
+                : { rootMargin: '0px 0px -18% 0px', threshold: 0.22, minVisiblePx: 110 };
+            var sectionOnly = [];
+            var items = [];
+            sections.forEach(function (el) {
+                var kids = el.querySelectorAll('[data-scroll-reveal-item]');
+                if (kids.length) {
+                    Array.prototype.push.apply(items, kids);
+                } else {
+                    sectionOnly.push(el);
+                }
+            });
             function onSectionInView(el) {
                 el.classList.add('is-in-view');
                 if (el.classList.contains('site-footer-reveal') && typeof window.resizeFooterMap === 'function') {
@@ -940,16 +1120,26 @@
                     setTimeout(window.resizeFooterMap, 900);
                 }
             }
-            if (typeof window.nexaObserveWhenVisible === 'function') {
-                window.nexaObserveWhenVisible(sections, onSectionInView, opts);
-                return;
+            function onItemInView(el) {
+                el.classList.add('is-in-view');
+                var parent = el.closest('[data-scroll-reveal]');
+                if (parent) parent.classList.add('is-in-view');
             }
-            var observer = new IntersectionObserver(function(entries) {
-                entries.forEach(function(entry) {
-                    if (entry.isIntersecting) onSectionInView(entry.target);
-                });
-            }, opts);
-            sections.forEach(function(el) { observer.observe(el); });
+            function observeList(list, callback, observeOpts) {
+                if (!list.length) return;
+                if (typeof window.nexaObserveWhenVisible === 'function') {
+                    window.nexaObserveWhenVisible(list, callback, observeOpts);
+                    return;
+                }
+                var observer = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) callback(entry.target);
+                    });
+                }, observeOpts);
+                list.forEach(function(el) { observer.observe(el); });
+            }
+            observeList(sectionOnly, onSectionInView, opts);
+            observeList(items, onItemInView, itemOpts);
         }
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initScrollRevealSections);

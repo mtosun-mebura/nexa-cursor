@@ -116,7 +116,7 @@ return [
             'module_name' => 'Nexa Taxi',
             'module_key' => 'taxi',
             'view' => 'frontend.website.components.nexataxi-algemene-boekingsmodule',
-            'description' => 'Kopie van boekingsmodule v2 voor NEXA Suite: live beschikbare taxi’s op de kaart en ritten naar de dichtstbijzijnde aangesloten tenants.',
+            'description' => 'Kopie van boekingsmodule v2 voor NEXA Suite: live beschikbare taxi’s op de kaart en ritten naar de dichtstbijzijnde aangesloten klanten.',
             'available_on_all_pages' => true,
         ],
         [

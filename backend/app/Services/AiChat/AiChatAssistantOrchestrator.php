@@ -29,18 +29,6 @@ final class AiChatAssistantOrchestrator
         ?array $quoteAddress = null,
         ?array $quoteBaggage = null,
     ): AiChatMessageResult {
-        if ($context->isCentralWebsite()) {
-            $reply = $this->productFaq->answer($message);
-            $this->auditLogger->log(
-                $context,
-                $this->intentService->classify($message, $context),
-                $message,
-                AiChatDataSource::Rag,
-            );
-
-            return new AiChatMessageResult($reply);
-        }
-
         if ($this->quoteConversation->hasActiveSession($context)) {
             $result = $this->quoteConversation->handle($context, $message, $quoteAddress, $quoteBaggage);
             $this->auditLogger->log(
@@ -60,6 +48,13 @@ final class AiChatAssistantOrchestrator
             $this->auditLogger->log($context, $intentResult, $message, AiChatDataSource::Quote);
 
             return $result;
+        }
+
+        if ($context->isCentralWebsite()) {
+            $reply = $this->productFaq->answer($message);
+            $this->auditLogger->log($context, $intentResult, $message, AiChatDataSource::Rag);
+
+            return new AiChatMessageResult($reply);
         }
 
         if ($intentResult->allowPublicRates && ! $context->isPublicChannel()) {

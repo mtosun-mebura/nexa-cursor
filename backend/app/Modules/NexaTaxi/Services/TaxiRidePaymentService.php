@@ -26,25 +26,14 @@ class TaxiRidePaymentService
             return false;
         }
 
-        if ($ride->payment_method === RideRequest::PAYMENT_METHOD_BOOKING) {
-            return true;
-        }
-
-        if ($ride->payment_method === RideRequest::PAYMENT_METHOD_DRIVER) {
-            $companyId = (int) ($ride->company_id ?? 0);
-            if (! $this->dispatchSettings->paymentDriverEnabled($companyId > 0 ? $companyId : null)) {
-                return false;
-            }
-
-            return $ride->payment_status !== RideRequest::PAYMENT_STATUS_PAID;
-        }
-
         // Contractritten worden gefactureerd op abonnementsniveau; geen betaling vóór afronden in de chauffeur-app.
         if ($ride->payment_method === RideRequest::PAYMENT_METHOD_CONTRACT) {
             return false;
         }
 
-        return false;
+        $amount = $ride->chargeableAmount();
+
+        return $amount !== null && $amount >= 0.01;
     }
 
     public function canCompleteRide(RideRequest $ride): bool
@@ -70,6 +59,7 @@ class TaxiRidePaymentService
             'final_price' => $ride->final_price !== null ? (float) $ride->final_price : null,
             'can_complete' => $this->canCompleteRide($ride),
             'requires_payment_before_complete' => $this->requiresPaymentBeforeComplete($ride),
+            'cash_payment_enabled' => true,
             'driver_payment_enabled' => $options['driver'],
             'booking_payment_enabled' => $options['booking'],
             'payment_error' => $this->driverPaymentErrorMessage($ride),
@@ -123,7 +113,7 @@ class TaxiRidePaymentService
                 return RideRequest::PAYMENT_METHOD_CONTRACT;
             }
 
-            return null;
+            return RideRequest::PAYMENT_METHOD_DRIVER;
         }
 
         if ($booking && ! $driver) {
@@ -150,11 +140,6 @@ class TaxiRidePaymentService
     public function markDriverCashPaid(string $conn, RideRequest $ride, ?float $amount = null): RideRequest
     {
         $companyId = (int) ($ride->company_id ?? 0);
-        if (! $this->dispatchSettings->paymentDriverEnabled($companyId > 0 ? $companyId : null)) {
-            throw ValidationException::withMessages([
-                'payment' => ['Betaling via de chauffeur-app is niet ingeschakeld.'],
-            ]);
-        }
 
         if ((int) $ride->driver_id <= 0) {
             throw ValidationException::withMessages([
@@ -182,6 +167,15 @@ class TaxiRidePaymentService
                 throw ValidationException::withMessages([
                     'payment' => ['Deze rit is al betaald.'],
                 ]);
+            }
+
+            if (! in_array($ride->payment_method, [
+                RideRequest::PAYMENT_METHOD_BOOKING,
+                RideRequest::PAYMENT_METHOD_DRIVER,
+                RideRequest::PAYMENT_METHOD_CONTRACT,
+            ], true)) {
+                $ride->payment_method = RideRequest::PAYMENT_METHOD_DRIVER;
+                $ride->save();
             }
 
             RidePayment::on($conn)
@@ -433,6 +427,101 @@ class TaxiRidePaymentService
         }
 
         return $fresh;
+    }
+
+    /**
+     * Volledige terugbetaling van een (vooraf) betaalde rit via Mollie.
+     *
+     * @return array{refunded: bool, payment: ?RidePayment, error: ?string}
+     */
+    public function refundPaidRidePayment(string $conn, RideRequest $ride): array
+    {
+        if ($ride->payment_status === RideRequest::PAYMENT_STATUS_REFUNDED) {
+            return ['refunded' => true, 'payment' => null, 'error' => null];
+        }
+
+        if ($ride->payment_status !== RideRequest::PAYMENT_STATUS_PAID
+            && $ride->payment_status !== RideRequest::PAYMENT_STATUS_REFUND_FAILED
+            && $ride->payment_status !== RideRequest::PAYMENT_STATUS_REFUND_PENDING) {
+            return ['refunded' => false, 'payment' => null, 'error' => null];
+        }
+
+        $payment = RidePayment::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('status', RidePayment::STATUS_PAID)
+            ->whereNotNull('mollie_payment_id')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $payment) {
+            $already = RidePayment::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('status', RidePayment::STATUS_REFUNDED)
+                ->orderByDesc('id')
+                ->first();
+            if ($already) {
+                $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUNDED]);
+
+                return ['refunded' => true, 'payment' => $already, 'error' => null];
+            }
+
+            return ['refunded' => false, 'payment' => null, 'error' => 'Geen betaalde Mollie-betaling gevonden.'];
+        }
+
+        $companyId = $this->resolveRideCompanyId($ride, $payment);
+        $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
+        if (! $apiKey) {
+            $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_FAILED]);
+
+            return ['refunded' => false, 'payment' => $payment, 'error' => 'Mollie is niet geconfigureerd voor terugbetaling.'];
+        }
+
+        $amount = (float) $payment->amount;
+        if ($amount < 0.01) {
+            return ['refunded' => false, 'payment' => $payment, 'error' => 'Ongeldig terug te betalen bedrag.'];
+        }
+
+        $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_PENDING]);
+
+        try {
+            $refund = $this->mollie->createRefund(
+                $apiKey,
+                (string) $payment->mollie_payment_id,
+                $amount,
+                'Terugbetaling taxi rit #'.$ride->id
+            );
+        } catch (\Throwable $e) {
+            $payload = is_array($payment->mollie_payload) ? $payment->mollie_payload : [];
+            $payload['refund_error'] = $e->getMessage();
+            $payment->update([
+                'status' => RidePayment::STATUS_REFUND_FAILED,
+                'mollie_payload' => $payload,
+            ]);
+            $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_FAILED]);
+
+            return ['refunded' => false, 'payment' => $payment->fresh(), 'error' => $e->getMessage()];
+        }
+
+        $payload = is_array($payment->mollie_payload) ? $payment->mollie_payload : [];
+        $payload['refund'] = $refund;
+        $refundStatus = strtolower((string) ($refund['status'] ?? 'pending'));
+        $isDone = in_array($refundStatus, ['refunded', 'paid'], true);
+
+        $payment->update([
+            'status' => $isDone ? RidePayment::STATUS_REFUNDED : RidePayment::STATUS_REFUND_PENDING,
+            'mollie_payload' => $payload,
+        ]);
+        $ride->update([
+            'payment_status' => $isDone
+                ? RideRequest::PAYMENT_STATUS_REFUNDED
+                : RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+        ]);
+
+        return [
+            'refunded' => $isDone || $refundStatus === 'pending' || $refundStatus === 'processing',
+            'payment' => $payment->fresh(),
+            'error' => null,
+        ];
     }
 
     /**

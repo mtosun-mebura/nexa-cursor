@@ -72,6 +72,44 @@ class TaxiMolliePaymentService
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function createRefund(
+        string $apiKey,
+        string $molliePaymentId,
+        float $amount,
+        string $description = 'Terugbetaling taxirit'
+    ): array {
+        $client = new Client(['timeout' => 15]);
+        $payload = [
+            'amount' => [
+                'currency' => 'EUR',
+                'value' => $this->formatAmount($amount),
+            ],
+            'description' => mb_substr($description, 0, 255),
+        ];
+
+        try {
+            $response = $client->post(
+                'https://api.mollie.com/v2/payments/'.urlencode($molliePaymentId).'/refunds',
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer '.trim($apiKey),
+                        'Content-Type' => 'application/json',
+                    ],
+                    'json' => $payload,
+                ]
+            );
+        } catch (RequestException $e) {
+            $this->throwFriendlyMollieError($e, 'createRefund');
+        }
+
+        $body = json_decode((string) $response->getBody(), true);
+
+        return is_array($body) ? $body : [];
+    }
+
     public function checkoutUrl(array $molliePayment): ?string
     {
         return $molliePayment['_links']['checkout']['href'] ?? null;

@@ -12,8 +12,10 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\RideRequestMonthlyStatsService;
+use App\Modules\NexaTaxi\Services\RideTrackService;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerRideAcceptedNotificationService;
+use App\Services\EnvService;
 use Carbon\Carbon;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
@@ -168,6 +170,9 @@ class RideRequestController extends Controller
             route('admin.taxi.ride_requests.index')
         );
 
+        $maps = app(EnvService::class)->mapsFormSettings();
+        $rideTrack = app(RideTrackService::class)->mapPayload($conn, $ride_request);
+
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
             'stopoverAddresses' => $ride_request->resolveStopoverAddresses(),
@@ -178,6 +183,10 @@ class RideRequestController extends Controller
             'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
             'dispatchTablesExist' => TaxiDispatchSchema::tablesExist($conn),
             'rideBackUrl' => $rideBackUrl,
+            'googleMapsApiKey' => $maps['GOOGLE_MAPS_API_KEY'],
+            'googleMapsMapId' => $maps['GOOGLE_MAPS_MAP_ID'],
+            'googleMapsZoom' => (int) $maps['GOOGLE_MAPS_ZOOM'],
+            'rideTrack' => $rideTrack,
         ]);
     }
 
@@ -283,6 +292,39 @@ class RideRequestController extends Controller
         $ride_request->delete();
 
         return redirect()->route('admin.taxi.ride_requests.index')->with('success', 'Rit is verwijderd.');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $this->authorizeOrPermission('rides.delete');
+
+        $data = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ]);
+
+        $conn = $this->moduleConnection();
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+
+        $query = RideRequest::on($conn)->whereIn('id', $ids);
+        $this->applyRideTenantScope($query);
+
+        $deleted = 0;
+        foreach ($query->get() as $ride) {
+            $ride->delete();
+            $deleted++;
+        }
+
+        if ($deleted === 0) {
+            return redirect()->route('admin.taxi.ride_requests.index')
+                ->with('error', 'Geen ritten verwijderd.');
+        }
+
+        $message = $deleted === 1
+            ? '1 rit succesvol verwijderd.'
+            : $deleted.' ritten succesvol verwijderd.';
+
+        return redirect()->route('admin.taxi.ride_requests.index')->with('success', $message);
     }
 
     /** Toewijzen: alleen vehicle_id en driver_id (AJAX of form). */
@@ -406,20 +448,54 @@ class RideRequestController extends Controller
     private function applyRideTenantScope($query): void
     {
         if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $tenantId = session('selected_tenant');
+            $tenantId = (int) session('selected_tenant');
             $query->where(function ($q) use ($tenantId) {
                 $q->where('company_id', $tenantId)
-                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $tenantId));
+                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $tenantId))
+                    ->orWhere(function ($marketplace) use ($tenantId) {
+                        $marketplace->where(function ($source) {
+                            $source->where('source', RideRequest::SOURCE_NEXA_SUITE)
+                                ->orWhere(function ($payload) {
+                                    $payload->whereNotNull('booking_payload')
+                                        ->where('booking_payload->channel', RideRequest::SOURCE_NEXA_SUITE);
+                                });
+                        })
+                            ->whereNull('driver_id')
+                            ->where(function ($company) use ($tenantId) {
+                                $company->whereNull('company_id')
+                                    ->orWhere('company_id', 0)
+                                    ->orWhere('company_id', $tenantId);
+                            })
+                            ->whereNotNull('booking_payload')
+                            ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $tenantId);
+                    });
             });
 
             return;
         }
 
         if (! auth()->user()->hasRole('super-admin') && auth()->user()->company_id) {
-            $companyId = auth()->user()->company_id;
+            $companyId = (int) auth()->user()->company_id;
             $query->where(function ($q) use ($companyId) {
                 $q->where('company_id', $companyId)
-                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $companyId));
+                    ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $companyId))
+                    ->orWhere(function ($marketplace) use ($companyId) {
+                        $marketplace->where(function ($source) {
+                            $source->where('source', RideRequest::SOURCE_NEXA_SUITE)
+                                ->orWhere(function ($payload) {
+                                    $payload->whereNotNull('booking_payload')
+                                        ->where('booking_payload->channel', RideRequest::SOURCE_NEXA_SUITE);
+                                });
+                        })
+                            ->whereNull('driver_id')
+                            ->where(function ($company) use ($companyId) {
+                                $company->whereNull('company_id')
+                                    ->orWhere('company_id', 0)
+                                    ->orWhere('company_id', $companyId);
+                            })
+                            ->whereNotNull('booking_payload')
+                            ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
+                    });
             });
         }
     }
@@ -440,6 +516,9 @@ class RideRequestController extends Controller
             return;
         }
         $companyId = auth()->user()->company_id;
+        if ($ride->isVisibleToMarketplaceTenant((int) $companyId)) {
+            return;
+        }
         $rideCompanyId = $ride->company_id ?? $ride->vehicle?->company_id;
         if ($rideCompanyId === null || (int) $rideCompanyId !== (int) $companyId) {
             abort(403, 'Geen toegang tot deze rit.');
@@ -501,6 +580,16 @@ class RideRequestController extends Controller
             if ($vehicle && ! empty($vehicle->company_id)) {
                 return (int) $vehicle->company_id;
             }
+        }
+
+        $tenantId = (int) ($this->getTenantId() ?: (auth()->user()?->company_id ?? 0));
+        if ($ride->isVisibleToMarketplaceTenant($tenantId)) {
+            return $tenantId;
+        }
+
+        $candidates = $ride->marketplaceCandidateCompanyIds();
+        if (count($candidates) === 1) {
+            return $candidates[0];
         }
 
         return null;

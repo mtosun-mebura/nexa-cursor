@@ -9,14 +9,14 @@
 @section('content')
 <div class="kt-card w-full min-w-0">
     <div class="kt-card-header flex flex-col gap-4 px-5 py-5">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-                <h1 class="kt-card-title text-2xl mb-1">Handleiding</h1>
-                <p class="text-sm text-muted-foreground mb-0">
-                    Stap-voor-stap uitleg van Nexa, met schermvoorbeelden en praktische tips.
-                </p>
+        <div class="flex flex-col items-center">
+            <div class="flex items-center gap-3">
+                <h1 class="kt-card-title text-2xl mb-0">Handleiding</h1>
+                <span class="kt-badge kt-badge-light shrink-0" data-handleiding-count>{{ count($pages) }} {{ count($pages) === 1 ? 'onderwerp' : 'onderwerpen' }}</span>
             </div>
-            <span class="kt-badge kt-badge-light shrink-0" data-handleiding-count>{{ count($pages) }} {{ count($pages) === 1 ? 'onderwerp' : 'onderwerpen' }}</span>
+            <p class="text-sm text-muted-foreground mb-0 mt-1 text-center">
+                Stap-voor-stap uitleg van Nexa, met schermvoorbeelden en praktische tips.
+            </p>
         </div>
         <label class="kt-input w-full max-w-xl">
             <i class="ki-filled ki-magnifier"></i>

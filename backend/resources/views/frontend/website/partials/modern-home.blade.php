@@ -29,7 +29,7 @@
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxi.boekingsmodule_v2' || $sectionKey === 'component:taxi.algemene_boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
         @if($visibility[$sectionKey] ?? true)
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
@@ -37,6 +37,14 @@
             @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey, 'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null])
         @elseif($sectionKey === 'component:taxi.boekingsmodule_v2' && view()->exists('frontend.website.components.nexataxi-boekingsmodule-v2'))
             @include('frontend.website.components.nexataxi-boekingsmodule-v2', [
+                'homeSections' => $homeSections ?? [],
+                'sectionKey' => $sectionKey,
+                'page' => $page ?? null,
+                'googleMapsApiKey' => $googleMapsApiKey ?? '',
+                'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null,
+            ])
+        @elseif($sectionKey === 'component:taxi.algemene_boekingsmodule' && view()->exists('frontend.website.components.nexataxi-algemene-boekingsmodule'))
+            @include('frontend.website.components.nexataxi-algemene-boekingsmodule', [
                 'homeSections' => $homeSections ?? [],
                 'sectionKey' => $sectionKey,
                 'page' => $page ?? null,
@@ -129,7 +137,7 @@
 <section class="modern-home-hero relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'py-16 md:py-24 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : 'modern-home-hero--has-image' }}" data-scroll-reveal>
     @if($heroBgUrl !== '')
     <div class="website-image-carousel-media modern-home-hero__media relative z-0 w-full" aria-hidden="true">
-        <img src="{{ $heroBgUrl }}" alt="" class="website-image-carousel-fit" loading="eager" decoding="async" referrerpolicy="no-referrer">
+        <img src="{{ $heroBgUrl }}" alt="" class="modern-home-hero__image" loading="eager" decoding="async" referrerpolicy="no-referrer">
     </div>
     <div class="absolute inset-0 z-[1] pointer-events-none" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
     @endif
@@ -160,7 +168,9 @@
                 $heroTitleRightDelayMs = 500;
             @endphp
             <h1 class="{{ $heroHasImage ? 'hero-caption-title font-bold text-white mb-2 sm:mb-3 leading-snug' : 'text-4xl md:text-6xl font-bold text-white mb-6 leading-tight' }}"@if($heroHasImage) style="--hero-title-size-max: {{ $heroTitleSizePx }}px;"@endif>
-                @if(count($heroTitleParts) === 2)
+                @if(preg_match('/\R/u', (string) $heroTitle) || str_contains((string) $heroHighlight, '|'))
+                    {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColor, $heroHighlightColor === '' ? 'text-blue-200 dark:text-blue-300' : '') !!}
+                @elseif(count($heroTitleParts) === 2)
                     <span class="scroll-reveal-item hero-reveal-title-left hero-title-part inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="hero-title-spacer inline-block" aria-hidden="true">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right hero-title-part inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
                     @php
@@ -234,12 +244,12 @@
     @if($base === 'why_nexa' && $v(''))
 @php $whyBg = \App\Models\WebsitePage::whyNexaBackgroundPresentation($sectionData); @endphp
 <!-- Waarom Nexa -->
-<section class="modern-home-waarom pt-8 md:pt-10 pb-12 md:pb-16 {{ $whyBg['surface_class'] }} {{ $whyBg['wrapper_class'] }}" @if($whyBg['color_style'] !== '') style="{{ $whyBg['color_style'] }}" @endif>
+<section class="modern-home-waarom why-nexa-reveal-section pt-8 md:pt-10 pb-12 md:pb-16 scroll-reveal-section {{ $whyBg['surface_class'] }} {{ $whyBg['wrapper_class'] }}" data-scroll-reveal @if($whyBg['color_style'] !== '') style="{{ $whyBg['color_style'] }}" @endif>
     @include('frontend.website.partials.why-nexa-background-layers')
     <div class="website-section-inner relative z-10">
         <div class="max-w-5xl mx-auto text-center">
             @if($v('_title'))
-            <h2 class="text-3xl md:text-4xl font-bold mb-6 {{ $whyBg['title_color_style'] === '' ? 'text-gray-900 dark:text-white' : '' }}" @if($whyBg['title_color_style'] !== '') style="{{ $whyBg['title_color_style'] }}" @endif>
+            <h2 class="why-nexa-reveal-title text-3xl md:text-4xl font-bold mb-6 {{ $whyBg['title_color_style'] === '' ? 'text-gray-900 dark:text-white' : '' }}" @if($whyBg['title_color_style'] !== '') style="{{ $whyBg['title_color_style'] }}" @endif>
                 {{ $sectionData['title'] ?? 'Waarom kiezen voor Nexa?' }}
             </h2>
             @endif
@@ -248,43 +258,68 @@
                 $whySubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
                 $whySubtitleColorStyle = ($whySubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $whySubtitleColor)) ? 'color: ' . $whySubtitleColor . ';' : '';
             @endphp
-            <div class="text-xl leading-relaxed prose prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none mx-auto {{ $whySubtitleColorStyle === '' ? 'text-gray-600 dark:text-gray-300' : '' }}" @if($whySubtitleColorStyle !== '') style="{{ $whySubtitleColorStyle }}" @endif>
+            <div class="why-nexa-reveal-subtitle text-xl leading-relaxed prose prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none mx-auto {{ $whySubtitleColorStyle === '' ? 'text-gray-600 dark:text-gray-300' : '' }}" @if($whySubtitleColorStyle !== '') style="{{ $whySubtitleColorStyle }}" @endif>
                 {!! $sectionData['subtitle'] ?? 'Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.' !!}
             </div>
             @endif
         </div>
     </div>
 </section>
+@push('styles')
+<style>
+    .why-nexa-reveal-title {
+        clip-path: inset(0 100% 0 0);
+        opacity: 0;
+        transition: clip-path 0.9s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.25s ease;
+    }
+    .why-nexa-reveal-section.is-in-view .why-nexa-reveal-title {
+        clip-path: inset(0 0 0 0);
+        opacity: 1;
+    }
+    .why-nexa-reveal-subtitle {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.7s ease 0.35s, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s;
+    }
+    .why-nexa-reveal-section.is-in-view .why-nexa-reveal-subtitle {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .why-nexa-reveal-title,
+        .why-nexa-reveal-subtitle {
+            clip-path: none;
+            opacity: 1;
+            transform: none;
+            transition: none;
+        }
+    }
+</style>
+@endpush
     @endif
 
     @if($base === 'features' && $v(''))
 @php
-    $featuresRevealDuration = '0.6s';
-    $featuresRevealDelayStepMs = 200;
-    $featuresTitleDelayMs = 0;
-    $featuresFirstCardDelayMs = 100;
-    $featuresEasing = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    $featuresRevealDuration = '0.95s';
+    $featuresEasing = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+    $featuresRevealStyle = 'transition: opacity ' . $featuresRevealDuration . ' ' . $featuresEasing . ', transform ' . $featuresRevealDuration . ' ' . $featuresEasing . ';';
 @endphp
 <!-- Wat Wij Bieden -->
 <section class="modern-home-features pt-8 md:pt-10 pb-12 md:pb-16 bg-white dark:bg-gray-900 scroll-reveal-section" data-scroll-reveal>
     <div class="website-section-inner">
         <div class="max-w-5xl mx-auto">
             @if($visibility[$sectionKey . '_section_title'] ?? $visibility['features_section_title'] ?? true)
-            <div class="scroll-reveal-item text-center mb-8" style="transition: opacity {{ $featuresRevealDuration }} {{ $featuresEasing }}, transform {{ $featuresRevealDuration }} {{ $featuresEasing }}; transition-delay: {{ $featuresTitleDelayMs }}ms;">
+            <div class="scroll-reveal-item text-center mb-8" data-scroll-reveal-item style="{{ $featuresRevealStyle }}">
                 <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
                     {{ $sectionData['section_title'] ?? 'Wat Wij Bieden' }}
                 </h2>
             </div>
             @endif
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
                 @foreach(($sectionData['items'] ?? []) as $fi => $item)
                 @if($visibility[$sectionKey . '_item_' . $fi] ?? $visibility['features_item_'.$fi] ?? true)
-                @php
-                    $cardRevealDelayMs = $featuresFirstCardDelayMs + $fi * $featuresRevealDelayStepMs;
-                    $cardRevealStyle = 'transition: opacity ' . $featuresRevealDuration . ' ' . $featuresEasing . ', transform ' . $featuresRevealDuration . ' ' . $featuresEasing . '; transition-delay: ' . $cardRevealDelayMs . 'ms;';
-                @endphp
-                <div class="scroll-reveal-item h-full" style="{{ $cardRevealStyle }}">
-                    @include('frontend.website.components.features-card', ['item' => $item, 'index' => $fi, 'class' => 'h-full'])
+                <div class="scroll-reveal-item h-full flex" data-scroll-reveal-item style="{{ $featuresRevealStyle }}">
+                    @include('frontend.website.components.features-card', ['item' => $item, 'index' => $fi, 'class' => 'h-full w-full'])
                 </div>
                 @endif
                 @endforeach
@@ -294,16 +329,50 @@
 </section>
 @push('styles')
 <style>
-    /* Zelfde invliegen als Elementor Overige Diensten: van beneden, lichte scale */
+    /* Elke kaart vliegt in wanneer die in beeld scrollt, niet als de hele sectie zichtbaar wordt */
     .modern-home-features.scroll-reveal-section .scroll-reveal-item {
         opacity: 0;
         transform: translateY(48px) scale(0.98);
         transform-origin: center center;
         will-change: opacity, transform;
     }
-    .modern-home-features.scroll-reveal-section.is-in-view .scroll-reveal-item {
+    .modern-home-features.scroll-reveal-section .scroll-reveal-item.is-in-view {
         opacity: 1;
         transform: translateY(0) scale(1);
+    }
+    .modern-home-features .grid {
+        grid-auto-rows: 1fr;
+        align-items: stretch;
+    }
+    .modern-home-features .grid > .scroll-reveal-item {
+        min-height: 0;
+    }
+    .modern-home-features .grid > .scroll-reveal-item .features-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+    }
+    .modern-home-features .grid > .scroll-reveal-item .features-card > div {
+        flex: 1 1 auto;
+        height: 100%;
+    }
+    @media (min-width: 768px) {
+        .modern-home-features.scroll-reveal-section .grid > .scroll-reveal-item:nth-child(even) {
+            transition-delay: 0.16s;
+        }
+        .modern-home-features.scroll-reveal-section .grid > .scroll-reveal-item:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+            justify-self: center;
+            width: calc((100% - 2rem) / 2);
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .modern-home-features.scroll-reveal-section .scroll-reveal-item {
+            opacity: 1;
+            transform: none;
+            transition: none;
+        }
     }
 </style>
 @endpush

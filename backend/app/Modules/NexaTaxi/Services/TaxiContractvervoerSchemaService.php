@@ -19,6 +19,7 @@ final class TaxiContractvervoerSchemaService
                 $table->id();
                 $table->unsignedBigInteger('company_id')->index();
                 $table->string('name');
+                $table->string('organization_type', 32)->default('overig')->index();
                 $table->string('contact_name')->nullable();
                 $table->string('contact_email')->nullable();
                 $table->string('contact_phone')->nullable();
@@ -29,6 +30,7 @@ final class TaxiContractvervoerSchemaService
                 $table->string('billing_country')->nullable();
                 $table->text('notes')->nullable();
                 $table->boolean('active')->default(true)->index();
+                $table->timestamp('archived_at')->nullable()->index();
                 $table->timestamps();
             });
         }
@@ -218,8 +220,44 @@ final class TaxiContractvervoerSchemaService
             });
         }
 
+        $this->ensureCustomerOrganizationTypeColumn($connection);
+        $this->ensureCustomerArchivedAtColumn($connection);
         $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
+    }
+
+    public function ensureCustomerArchivedAtColumn(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if (! $schema->hasTable('transport_customers')) {
+            return;
+        }
+
+        $cols = $schema->getColumnListing('transport_customers');
+        if (in_array('archived_at', $cols, true)) {
+            return;
+        }
+
+        $schema->table('transport_customers', function (Blueprint $table) {
+            $table->timestamp('archived_at')->nullable()->index();
+        });
+    }
+
+    public function ensureCustomerOrganizationTypeColumn(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if (! $schema->hasTable('transport_customers')) {
+            return;
+        }
+
+        $cols = $schema->getColumnListing('transport_customers');
+        if (in_array('organization_type', $cols, true)) {
+            return;
+        }
+
+        $schema->table('transport_customers', function (Blueprint $table) {
+            $table->string('organization_type', 32)->default('overig')->index();
+        });
     }
 
     public function ensureContractPortalTables(?string $connection = null): void

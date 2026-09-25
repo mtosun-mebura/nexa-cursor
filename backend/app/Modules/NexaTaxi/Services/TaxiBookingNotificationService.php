@@ -2,9 +2,11 @@
 
 namespace App\Modules\NexaTaxi\Services;
 
+use App\Models\Company;
 use App\Models\TenantCustomerEmail;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
+use App\Services\CompanyEmailLogoService;
 use App\Services\EnvService;
 use App\Services\TenantCustomerMailService;
 use App\Services\WhatsAppBookingMessageComposer;
@@ -32,7 +34,9 @@ class TaxiBookingNotificationService
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
         $companyId = (int) ($ride->company_id ?? 0);
-        if (app(\App\Services\NexaDemoAccountService::class)->isDemoCompanyId($companyId)) {
+        $candidateIds = $ride->marketplaceCandidateCompanyIds();
+        $demo = app(\App\Services\NexaDemoAccountService::class);
+        if ($companyId > 0 && $demo->isDemoCompanyId($companyId)) {
             Log::info('Demo company: booking notifications skipped', ['ride_id' => $ride->id]);
 
             return;
@@ -43,11 +47,21 @@ class TaxiBookingNotificationService
             $companyId > 0 ? $companyId : null,
             isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
         );
+        if (($settingsCompanyId === null || $settingsCompanyId <= 0) && $candidateIds !== []) {
+            $settingsCompanyId = $candidateIds[0];
+        }
 
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
-        $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, $settingsCompanyId, $context);
-        $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+
+        $companyNotifyIds = $companyId > 0 ? [$companyId] : $candidateIds;
+        foreach ($companyNotifyIds as $notifyCompanyId) {
+            if ($demo->isDemoCompanyId((int) $notifyCompanyId)) {
+                continue;
+            }
+            $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, (int) $notifyCompanyId, $context);
+            $this->sendDriverEmails($conn, (int) $notifyCompanyId, $ride, $summary, (int) $notifyCompanyId);
+        }
     }
 
     protected function resolveSettingsCompanyId(?int $companyId, ?int $fallbackCompanyId = null): ?int
@@ -318,7 +332,8 @@ class TaxiBookingNotificationService
             }
 
             try {
-                Mail::send('emails.taxi-ride-request-driver', [
+                $brand = $this->companyBrand($companyId);
+                $html = view('emails.taxi-ride-request-driver', [
                     'driver_name' => $driverName,
                     'ride_id' => $ride->id,
                     'pickup_at' => $pickupAt,
@@ -329,10 +344,21 @@ class TaxiBookingNotificationService
                     'customer_email' => $ride->customer_email,
                     'quoted_price' => $ride->quoted_price,
                     'summary_text' => $summary,
-                ], function ($mailMessage) use ($email, $driverName, $subject, $fromAddress, $fromName, $smtpUsername, $ride) {
+                    'company_name' => $brand['name'],
+                    'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+                ])->render();
+
+                Mail::send([], [], function ($mailMessage) use ($email, $driverName, $subject, $fromAddress, $fromName, $smtpUsername, $ride, $html, $brand) {
+                    $htmlBody = app(CompanyEmailLogoService::class)->embedInHtml(
+                        $html,
+                        $mailMessage,
+                        $brand['id'],
+                        $brand['name']
+                    );
                     $mailMessage->to($email, $driverName)
                         ->subject($subject)
-                        ->from($fromAddress, $fromName);
+                        ->from($fromAddress, $fromName)
+                        ->html($htmlBody);
 
                     if ($ride->customer_email) {
                         $mailMessage->replyTo($ride->customer_email, (string) ($ride->customer_name ?: ''));
@@ -418,6 +444,8 @@ class TaxiBookingNotificationService
             ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
             : '—';
         $customerName = trim((string) ($ride->customer_name ?: ''));
+        $brand = $this->companyBrand($settingsCompanyId);
+        $cancelUrl = app(TaxiRideCancellationService::class)->customerCancelUrl($ride);
 
         $html = view('emails.taxi-ride-booking-customer', [
             'customer_name' => $customerName,
@@ -427,6 +455,10 @@ class TaxiBookingNotificationService
             'dropoff_address' => $ride->dropoff_address,
             'quoted_price' => $ride->quoted_price,
             'summary_text' => $summary,
+            'company_name' => $brand['name'],
+            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+            'cancel_url' => $cancelUrl,
+            'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
             'portal_login_url' => route('login', [
                 'code_login' => 1,
                 'intended' => route('taxi.portal.dashboard'),
@@ -499,5 +531,22 @@ class TaxiBookingNotificationService
             'ride_request_id' => $rideId,
             'error' => $record->error_message,
         ]);
+    }
+
+    /**
+     * @return array{id: int|null, name: string}
+     */
+    private function companyBrand(?int $companyId): array
+    {
+        if ($companyId === null || $companyId <= 0) {
+            return ['id' => null, 'name' => 'NEXA Suite'];
+        }
+
+        $name = trim((string) (Company::query()->find($companyId)?->name ?? ''));
+
+        return [
+            'id' => $companyId,
+            'name' => $name !== '' ? $name : 'NEXA Suite',
+        ];
     }
 }

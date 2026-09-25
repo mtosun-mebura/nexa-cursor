@@ -1,0 +1,36 @@
+---
+description: Checkboxkolom in admin-tabellen: gecentreerd en select-all in de header.
+globs: backend/resources/views/admin/**/*.blade.php
+alwaysApply: true
+---
+
+# Admin-tabellen: checkboxkolom
+
+Als een overzichtstabel rijen selecteerbaar maakt met checkboxes:
+
+## Plaatsing
+
+- Checkboxkolom is de **eerste** kolom.
+- **Select-all** staat altijd in de **header** van die kolom (`<th>`), nooit alleen bij de eerste datarij of los boven de tabel.
+
+## Uitlijning
+
+- `<th>` en `<td>` van de checkboxkolom: horizontaal én verticaal gecentreerd (`text-center` + `vertical-align: middle`, of class `admin-table__check-col`).
+- De checkbox zelf in een wrapper (`label.kt-label` met `inline-flex items-center justify-center`) zodat die in het midden van de cel staat, niet links of tegen de bovenkant.
+
+## Markup
+
+```blade
+<th class="admin-table__check-col text-center" data-no-row-link data-label="">
+    <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+        <input type="checkbox" class="kt-checkbox" id="…-select-all" aria-label="Alles selecteren">
+    </label>
+</th>
+```
+
+Rijcellen hetzelfde patroon, met een row-checkbox class. Select-all zet alle rijen aan/uit en toont `indeterminate` bij een deelselectie.
+
+## Niet
+
+- Checkboxes links in de cel of op de eerste tekstregel zonder centrering.
+- Select-all weglaten als er meer dan één rij-checkbox is.

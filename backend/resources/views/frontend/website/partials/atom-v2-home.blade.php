@@ -94,11 +94,7 @@
                             $heroHighlightColorValid = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroHighlightColor);
                             $parts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                         @endphp
-                        @if(count($parts) === 2)
-                            {{ trim($parts[0]) }} <span @class(['text-yellow' => ! $heroHighlightColorValid]) @if($heroHighlightColorValid) style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
-                        @else
-                            {{ $heroTitle }}
-                        @endif
+                        {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColorValid ? $heroHighlightColor : '', $heroHighlightColorValid ? '' : 'text-yellow') !!}
                     </h1>
                     @endif
                     @if($v('_subtitle') && !empty($sectionData['subtitle']))

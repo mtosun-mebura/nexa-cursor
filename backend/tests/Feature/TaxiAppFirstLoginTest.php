@@ -155,7 +155,13 @@ class TaxiAppFirstLoginTest extends TestCase
             'password' => 'NieuwWacht1',
         ])
             ->assertOk()
-            ->assertJsonStructure(['token']);
+            ->assertJsonStructure(['token'])
+            ->assertJsonPath('expires_at', null);
+
+        $this->assertNull(
+            $user->tokens()->where('name', 'taxi-driver')->value('expires_at'),
+            'Chauffeur-tokens blijven geldig tot de gebruiker zelf uitlogt.'
+        );
     }
 
     #[Test]
@@ -223,7 +229,7 @@ class TaxiAppFirstLoginTest extends TestCase
         $this->assertNotNull($created);
         $this->assertTrue((bool) $created->must_change_password);
         $this->assertTrue((bool) $created->password_must_be_set);
-        $this->assertNotNull($created->email_verified_at);
+        $this->assertNull($created->email_verified_at);
         $this->assertFalse(Hash::check('Password1', $created->password));
         $this->assertDatabaseHas('tenant_customer_emails', [
             'recipient_email' => 'nieuwe.chauffeur@example.com',

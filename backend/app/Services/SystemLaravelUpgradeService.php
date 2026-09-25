@@ -13,6 +13,7 @@ class SystemLaravelUpgradeService
         protected SystemStackSnapshotService $snapshots,
         protected SystemUpgradeService $upgrades,
         protected SystemDockerComposeService $compose,
+        protected SystemLaravelPackageCompatibility $compatibility,
     ) {}
 
     /**
@@ -24,6 +25,7 @@ class SystemLaravelUpgradeService
      *     can_minor: bool,
      *     can_major: bool,
      *     major_blocked_reason: string|null,
+     *     incompatible_packages: list<string>,
      *     pending_finalize: bool,
      *     docker_ready: bool,
      *     message: string
@@ -50,6 +52,16 @@ class SystemLaravelUpgradeService
 
         $canMinor = $minorTarget !== null && version_compare($minorTarget, $current, '>');
         $majorBlocked = $this->majorBlockedReason($majorPackage);
+        $incompatible = [];
+        if ($majorTarget !== null && $majorBlocked === null) {
+            try {
+                $incompatible = array_keys($this->compatibility->incompatibleRootPackages(
+                    (int) $this->majorOf($majorTarget)
+                ));
+            } catch (\Throwable) {
+                $incompatible = [];
+            }
+        }
         $canMajor = $majorTarget !== null && $majorBlocked === null && $this->upgrades->webUpgradeEnabled();
 
         $message = $fetchError ?? $this->statusMessage($current, $minorTarget, $majorTarget, $canMinor, $canMajor, $majorBlocked);
@@ -64,6 +76,7 @@ class SystemLaravelUpgradeService
             'can_minor' => $canMinor && $this->upgrades->webUpgradeEnabled() && ! $pendingFinalize,
             'can_major' => $canMajor && ! $pendingFinalize,
             'major_blocked_reason' => $majorBlocked,
+            'incompatible_packages' => $incompatible,
             'pending_finalize' => $pendingFinalize,
             'docker_ready' => $this->compose->ready(),
             'message' => $pendingFinalize
@@ -121,8 +134,10 @@ class SystemLaravelUpgradeService
                     $emit,
                     $steps,
                     'Composer-bestanden terugzetten',
-                    ['composer', 'install', '--no-interaction', '--no-ansi', '--prefer-dist'],
+                    ['composer', 'install', '--no-interaction', '--no-ansi', '--prefer-dist', '--no-progress', '--no-scripts'],
                     600,
+                    null,
+                    $this->composerProcessEnvironment(),
                 );
             } catch (\Throwable) {
                 // Herstel best-effort; de fout van de upgrade blijft leidend.
@@ -139,18 +154,15 @@ class SystemLaravelUpgradeService
 
         try {
             if ($channel === 'major') {
-                $targetMajor = $this->majorOf((string) $status['major_target']);
+                $targetMajor = (int) $this->majorOf((string) $status['major_target']);
+                $currentMajor = (int) $this->majorOf((string) $status['current']);
                 $this->upgrades->emitProgress($emit, $steps, 'Laravel major naar '.$status['major_target'], 'done');
-                $this->bumpComposerForMajor((int) $targetMajor, $status['major_target']);
-                $this->upgrades->runProcessCommand(
+                $this->prepareAndInstallMajor(
                     $emit,
                     $steps,
-                    'Laravel '.$status['major_target'].' installeren',
-                    [
-                        'composer', 'require', 'laravel/framework:^'.$targetMajor.'.0',
-                        '--update-with-all-dependencies', '--no-interaction', '--no-ansi', '--prefer-dist',
-                    ],
-                    900,
+                    $targetMajor,
+                    $currentMajor,
+                    (string) $status['major_target'],
                 );
             } else {
                 $this->upgrades->emitProgress($emit, $steps, 'Laravel minor naar '.$status['minor_target'], 'done');
@@ -160,10 +172,13 @@ class SystemLaravelUpgradeService
                     'Laravel binnen huidige major bijwerken',
                     [
                         'composer', 'update', 'laravel/framework',
-                        '--with-all-dependencies', '--no-interaction', '--no-ansi', '--prefer-dist',
+                        '--with-all-dependencies', '--no-interaction', '--no-ansi', '--prefer-dist', '--no-progress', '--no-scripts',
                     ],
                     900,
+                    null,
+                    $this->composerProcessEnvironment(),
                 );
+                $this->upgrades->refreshApplicationAfterComposer($emit, $steps);
             }
 
             $this->upgrades->runDatabaseMigrations($emit, $steps);
@@ -303,16 +318,246 @@ class SystemLaravelUpgradeService
             throw new \RuntimeException('composer.json ontbreekt.');
         }
 
-        $contents = (string) file_get_contents($path);
+        $contents = $this->applyMajorComposerConstraints(
+            (string) file_get_contents($path),
+            $major,
+            $targetVersion,
+        );
+
+        if (file_put_contents($path, $contents) === false) {
+            throw new \RuntimeException('Kon composer.json niet bijwerken.');
+        }
+    }
+
+    /**
+     * Controleert root-packages, werkt incompatibele dependencies eerst bij,
+     * en installeert daarna pas de Laravel-major.
+     *
+     * @param  callable(array<string, mixed>): void|null  $emit
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    public function prepareAndInstallMajor(
+        ?callable $emit,
+        array &$steps,
+        int $targetMajor,
+        int $currentMajor,
+        string $targetVersion,
+    ): void {
+        $this->upgrades->emitProgress($emit, $steps, 'Packages controleren op Laravel '.$targetMajor.'-compatibiliteit', 'running');
+
+        $plan = $this->compatibility->planForMajor(
+            $targetMajor,
+            $currentMajor,
+            $this->companionConstraintsForMajor($targetMajor),
+        );
+
+        if ($plan['blockers'] !== []) {
+            $messages = array_map(fn (array $blocker): string => $blocker['message'], $plan['blockers']);
+            throw new \RuntimeException(
+                'Laravel '.$targetVersion.' kan niet worden geïnstalleerd zolang deze packages incompatibel zijn: '.implode(' ', $messages)
+            );
+        }
+
+        $preNames = array_column($plan['pre_upgrades'], 'package');
+        $jointNames = array_column($plan['joint_upgrades'], 'package');
+        if ($preNames === [] && $jointNames === []) {
+            $this->note($emit, 'Alle root-packages zijn al compatibel met Laravel '.$targetMajor.'.');
+        } else {
+            if ($preNames !== []) {
+                $this->note($emit, 'Deze packages gaan mee in dezelfde Composer-update als Laravel: '.implode(', ', $preNames).'.');
+            }
+            if ($jointNames !== []) {
+                $this->note($emit, 'Alleen samen met Laravel '.$targetMajor.' te installeren: '.implode(', ', $jointNames).'.');
+            }
+        }
+        $this->upgrades->emitProgress($emit, $steps, 'Packages controleren op Laravel '.$targetMajor.'-compatibiliteit voltooid', 'done');
+
+        $this->applyConstraintBumps($this->newConstraintsFromEntries($plan['pre_upgrades']));
+        $this->applyConstraintBumps($this->newConstraintsFromEntries($plan['joint_upgrades']));
+        $this->bumpComposerForMajor($targetMajor, $targetVersion);
+
+        $packages = array_values(array_unique(array_merge(
+            ['laravel/framework'],
+            $preNames,
+            $jointNames,
+            $this->composerPackagesForMajor($targetMajor),
+        )));
+
+        $this->note($emit, 'Composer-resolutie wordt eerst dry-run gecontroleerd; vendor wordt pas daarna aangepast. Artisan-scripts blijven uit tijdens Composer.');
+        $this->upgrades->runProcessCommand(
+            $emit,
+            $steps,
+            'Composer-resolutie controleren voor Laravel '.$targetVersion,
+            $this->composerUpdateCommand($packages, dryRun: true),
+            300,
+            null,
+            $this->composerProcessEnvironment(),
+        );
+
+        $this->upgrades->runProcessCommand(
+            $emit,
+            $steps,
+            'Laravel '.$targetVersion.' en bijbehorende packages installeren',
+            $this->composerUpdateCommand($packages),
+            900,
+            null,
+            $this->composerProcessEnvironment(),
+        );
+        $this->upgrades->refreshApplicationAfterComposer($emit, $steps);
+    }
+
+    /**
+     * Extra root-constraints uit de Laravel-upgrade-guide. Alleen packages die
+     * al in composer.json staan worden aangepast.
+     *
+     * @return array<string, string>
+     */
+    public function companionConstraintsForMajor(int $major): array
+    {
+        return match ($major) {
+            13 => [
+                'laravel/tinker' => '^3.0',
+                'laravel/boost' => '^2.0',
+                'phpunit/phpunit' => '^12.0',
+                'pestphp/pest' => '^4.0',
+            ],
+            default => [],
+        };
+    }
+
+    public function applyMajorComposerConstraints(string $contents, int $major, ?string $targetVersion = null): string
+    {
         $phpConstraint = $this->phpConstraintForTarget($targetVersion);
         if ($phpConstraint !== null) {
             $contents = $this->replaceRequireConstraint($contents, 'php', $phpConstraint);
         }
         $contents = $this->replaceRequireConstraint($contents, 'laravel/framework', '^'.$major.'.0');
+        foreach ($this->companionConstraintsForMajor($major) as $package => $constraint) {
+            $contents = $this->replaceRequireConstraint($contents, $package, $constraint);
+        }
+
+        return $contents;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function composerUpdateCommandForMajor(int $major): array
+    {
+        return $this->composerUpdateCommand($this->composerPackagesForMajor($major));
+    }
+
+    /**
+     * @param  list<string>  $packages
+     * @return list<string>
+     */
+    public function composerUpdateCommand(array $packages, bool $dryRun = false): array
+    {
+        $packages = array_values(array_unique(array_filter($packages)));
+        if ($packages === []) {
+            $packages = ['laravel/framework'];
+        }
+
+        $command = array_merge(
+            ['composer', 'update'],
+            $packages,
+            [
+                '--with-all-dependencies',
+                '--no-interaction',
+                '--no-ansi',
+                '--prefer-dist',
+                '--no-progress',
+                '--no-scripts',
+            ],
+        );
+
+        if ($dryRun) {
+            $command[] = '--dry-run';
+        }
+
+        return $command;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function composerPackagesForMajor(int $major): array
+    {
+        $packages = ['laravel/framework'];
+        $path = base_path('composer.json');
+        $contents = is_file($path) ? (string) file_get_contents($path) : '';
+        foreach (array_keys($this->companionConstraintsForMajor($major)) as $package) {
+            if (preg_match('/"'.preg_quote($package, '/').'"\s*:/', $contents) === 1) {
+                $packages[] = $package;
+            }
+        }
+
+        return $packages;
+    }
+
+    /**
+     * @param  array<string, string>  $constraints
+     */
+    public function applyConstraintBumps(array $constraints): void
+    {
+        if ($constraints === []) {
+            return;
+        }
+
+        $path = base_path('composer.json');
+        if (! is_file($path)) {
+            throw new \RuntimeException('composer.json ontbreekt.');
+        }
+
+        $contents = (string) file_get_contents($path);
+        foreach ($constraints as $package => $constraint) {
+            $contents = $this->replaceRequireConstraint($contents, $package, $constraint);
+        }
 
         if (file_put_contents($path, $contents) === false) {
             throw new \RuntimeException('Kon composer.json niet bijwerken.');
         }
+    }
+
+    /**
+     * @param  list<array{package: string, new_constraint: string|null}>  $entries
+     * @return array<string, string>
+     */
+    public function newConstraintsFromEntries(array $entries): array
+    {
+        $constraints = [];
+        foreach ($entries as $entry) {
+            if (! is_string($entry['package'] ?? null) || ! is_string($entry['new_constraint'] ?? null)) {
+                continue;
+            }
+            $constraints[$entry['package']] = $entry['new_constraint'];
+        }
+
+        return $constraints;
+    }
+
+    /**
+     * @param  callable(array<string, mixed>): void|null  $emit
+     */
+    private function note(?callable $emit, string $note): void
+    {
+        if ($emit === null || $note === '') {
+            return;
+        }
+
+        $emit(['type' => 'note', 'note' => $note]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function composerProcessEnvironment(): array
+    {
+        return [
+            'COMPOSER_MEMORY_LIMIT' => '-1',
+            'COMPOSER_NO_INTERACTION' => '1',
+            'COMPOSER_DISABLE_XDEBUG_WARN' => '1',
+        ];
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\PaymentReminder;
 use App\Models\TenantCustomerEmail;
+use App\Support\EmailCardHtml;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
@@ -100,16 +101,17 @@ class InvoiceReminderService
 
         $company = $invoice->company ?? Company::find($companyId);
         $details = is_array($invoice->company_details) ? $invoice->company_details : [];
-        $variables = [
+        $companyName = (string) ($details['name'] ?? ($company->name ?? ''));
+        $variables = array_merge([
             'CUSTOMER_NAME' => $invoice->customer_name ?? 'klant',
             'CUSTOMER_EMAIL' => $toEmail,
             'INVOICE_NUMBER' => $invoice->invoice_number,
             'INVOICE_DATE' => $invoice->invoice_date?->format('d-m-Y') ?? '',
             'DUE_DATE' => $invoice->due_date?->format('d-m-Y') ?? '',
             'INVOICE_TOTAL' => '€'.number_format((float) $invoice->total_amount, 2, ',', '.'),
-            'COMPANY_NAME' => $details['name'] ?? ($company->name ?? ''),
+            'COMPANY_NAME' => $companyName,
             'PAYMENT_TERMS_DAYS' => (string) InvoiceSetting::paymentTermsDaysForInvoice($invoice),
-        ];
+        ], app(CompanyEmailLogoService::class)->templateVariable($companyId > 0 ? $companyId : null, $companyName));
 
         if ($template) {
             $subject = $this->emailTemplates->parseTemplateVariables($template->subject, $variables);
@@ -119,12 +121,20 @@ class InvoiceReminderService
                 : strip_tags($htmlContent);
         } else {
             $subject = 'Aanmaning factuur '.$invoice->invoice_number;
-            $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
-                .'<p>Wij herinneren u eraan dat factuur <strong>'.e($invoice->invoice_number).'</strong> '
+            $body = '<p style="margin:0 0 16px;font-size:16px;">Beste '.e($variables['CUSTOMER_NAME']).',</p>'
+                .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Wij herinneren u eraan dat factuur <strong>'.e($invoice->invoice_number).'</strong> '
                 .'met vervaldatum <strong>'.e($variables['DUE_DATE']).'</strong> nog openstaat.</p>'
-                .'<p>Openstaand bedrag: <strong>'.e($variables['INVOICE_TOTAL']).'</strong>.</p>'
-                .'<p>In de bijlage vindt u de factuur opnieuw. Wij verzoeken u vriendelijk het bedrag zo spoedig mogelijk te voldoen.</p>'
-                .'<p>Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+                .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Openstaand bedrag: <strong>'.e($variables['INVOICE_TOTAL']).'</strong>.</p>'
+                .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">In de bijlage vindt u de factuur opnieuw. Wij verzoeken u vriendelijk het bedrag zo spoedig mogelijk te voldoen.</p>'
+                .'<p style="margin:0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+            $htmlContent = EmailCardHtml::wrap(
+                'Aanmaning',
+                'Aanmaning factuur '.e((string) $invoice->invoice_number),
+                $body,
+                $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
+                EmailCardHtml::poweredByFooter(),
+                $companyName,
+            );
             $textContent = strip_tags($htmlContent);
         }
 
@@ -170,8 +180,19 @@ class InvoiceReminderService
                     $pdfBytes,
                     $from,
                     $companyReplyTo,
-                    $details
+                    $details,
+                    $companyId,
+                    $companyName
                 ) {
+                    if ($htmlContent) {
+                        $htmlContent = app(CompanyEmailLogoService::class)->embedInHtml(
+                            $htmlContent,
+                            $message,
+                            $companyId > 0 ? $companyId : null,
+                            $companyName
+                        );
+                    }
+
                     $message->to($toEmail, $toName)
                         ->subject($subject)
                         ->from($from['from_address'], $from['from_name']);

@@ -8,6 +8,9 @@ use App\Models\Company;
 use App\Models\Interview;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\DriverScheduleService;
+use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Support\UserAgendaColor;
@@ -22,7 +25,9 @@ class AgendaController extends Controller
 
     public function __construct(
         protected ModuleManager $moduleManager,
-        protected ModuleDatabaseService $moduleDb
+        protected ModuleDatabaseService $moduleDb,
+        protected DriverScheduleService $driverSchedules,
+        protected TaxiDriverEligibilityService $driverEligibility
     ) {}
 
     public function index(Request $request)
@@ -44,7 +49,28 @@ class AgendaController extends Controller
                 ->get(['id', 'first_name', 'last_name', 'agenda_color']);
         }
 
-        return view('admin.pages.agenda', compact('users'));
+        $agendaDrivers = collect();
+        $agendaVehicles = collect();
+        if ($this->moduleManager->isActive('taxi')) {
+            $companyId = (int) ($this->getTenantId() ?? 0);
+            if ($companyId > 0) {
+                try {
+                    $conn = $this->moduleDb->getModuleConnectionName('taxi');
+                    $this->driverSchedules->ensureReady($conn);
+                    $agendaDrivers = $this->driverEligibility->buildChauffeurQuery($companyId)
+                        ->get(['id', 'first_name', 'last_name', 'agenda_color']);
+                    $agendaVehicles = Vehicle::on($conn)
+                        ->where('company_id', $companyId)
+                        ->where('active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'license_plate']);
+                } catch (\Throwable $e) {
+                    \Log::warning('Admin agenda taxi filters skipped', ['error' => $e->getMessage()]);
+                }
+            }
+        }
+
+        return view('admin.pages.agenda', compact('users', 'agendaDrivers', 'agendaVehicles'));
     }
 
     public function events(Request $request)
@@ -52,9 +78,12 @@ class AgendaController extends Controller
         $start = $request->get('start');
         $end = $request->get('end');
         $selectedUserId = $request->get('user_id');
+        $driverId = $request->integer('driver_id') ?: null;
+        $vehicleId = $request->integer('vehicle_id') ?: null;
 
         $appointments = [];
         $rides = [];
+        $schedules = [];
 
         try {
             $appointments = $this->getAppointmentsForDateRange($start, $end, $selectedUserId);
@@ -63,12 +92,18 @@ class AgendaController extends Controller
         }
 
         try {
-            $rides = $this->getRideEventsForDateRange($start, $end, $selectedUserId);
+            $rides = $this->getRideEventsForDateRange($start, $end, $selectedUserId, $driverId, $vehicleId);
         } catch (\Throwable $e) {
             \Log::error('Admin agenda rides error', ['error' => $e->getMessage()]);
         }
 
-        return response()->json(array_merge($appointments, $rides));
+        try {
+            $schedules = $this->getDriverScheduleEventsForDateRange($start, $end, $selectedUserId, $driverId, $vehicleId);
+        } catch (\Throwable $e) {
+            \Log::error('Admin agenda driver schedules error', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json(array_merge($appointments, $rides, $schedules));
     }
 
     /**
@@ -196,7 +231,7 @@ class AgendaController extends Controller
     /**
      * @return list<array<string, mixed>>
      */
-    private function getRideEventsForDateRange($start, $end, $selectedUserId = null): array
+    private function getRideEventsForDateRange($start, $end, $selectedUserId = null, ?int $driverId = null, ?int $vehicleId = null): array
     {
         $user = Auth::user();
         if (! $user || ! $this->moduleManager->isActive('taxi')) {
@@ -226,8 +261,12 @@ class AgendaController extends Controller
 
         $this->applyRideTenantFilter($query, $user);
 
-        if ($selectedUserId && $user->hasRole('super-admin')) {
-            $query->where('driver_id', (int) $selectedUserId);
+        $rideDriverId = $driverId ?: (($selectedUserId && $user->hasRole('super-admin')) ? (int) $selectedUserId : null);
+        if ($rideDriverId) {
+            $query->where('driver_id', $rideDriverId);
+        }
+        if ($vehicleId) {
+            $query->where('vehicle_id', $vehicleId);
         }
 
         $rides = $query->orderBy('pickup_at')->get();
@@ -302,6 +341,35 @@ class AgendaController extends Controller
         }
 
         return $events;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function getDriverScheduleEventsForDateRange($start, $end, $selectedUserId = null, ?int $driverId = null, ?int $vehicleId = null): array
+    {
+        $user = Auth::user();
+        if (! $user || ! $this->moduleManager->isActive('taxi')) {
+            return [];
+        }
+
+        try {
+            $conn = $this->moduleDb->getModuleConnectionName('taxi');
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $companyId = (int) ($this->getTenantId() ?? 0);
+        $scheduleDriverId = $driverId ?: (($selectedUserId && $user->hasRole('super-admin')) ? (int) $selectedUserId : null);
+
+        return $this->driverSchedules->agendaEvents(
+            $conn,
+            $companyId > 0 ? $companyId : null,
+            (string) $start,
+            (string) $end,
+            $scheduleDriverId,
+            $vehicleId
+        );
     }
 
     private function applyRideTenantFilter($query, User $user): void

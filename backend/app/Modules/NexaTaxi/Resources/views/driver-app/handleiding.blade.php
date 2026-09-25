@@ -561,7 +561,7 @@
 
     <section class="guide-section" id="online">
         <h2>3. Online zetten</h2>
-        <p>Na het inloggen kom je op Aanvragen. Rechtsboven staat de schakelaar <strong style="color:var(--text)">Online</strong>. Alleen als die aan staat, ontvang je nieuwe ritten.</p>
+        <p>Na het inloggen kom je op <strong style="color:var(--text)">Ritten</strong>, zodat je meteen kunt starten. Staat er een nieuwe aanvraag klaar, dan opent de app Aanvragen. Rechtsboven staat de schakelaar <strong style="color:var(--text)">Online</strong>. Alleen als die aan staat, ontvang je nieuwe ritten.</p>
         <ol class="guide-steps">
             <li data-step="1"><strong>Zet Online aan</strong> als je klaar bent om te rijden.</li>
             <li data-step="2"><strong>Zet Online uit</strong> als je pauzeert of klaar bent — dan komen er geen nieuwe aanvragen binnen.</li>
@@ -571,15 +571,15 @@
             <div class="phone-frame">
                 <div class="mock" aria-hidden="true">
                     <div class="mock-row"><span>Online</span><span class="mock-switch"></span></div>
-                    <p style="margin:0.4rem 0 0;color:#9ca3af;">Aanvragen</p>
+                    <p style="margin:0.4rem 0 0;color:#9ca3af;">Ritten</p>
                     <div class="mock-nav" aria-hidden="true">
                         <b>
-                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
-                            Aanvragen
-                        </b>
-                        <span>
                             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
                             Ritten
+                        </b>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                            Aanvragen
                         </span>
                         <span>
                             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
@@ -751,12 +751,12 @@
                     <div class="mock-btn" style="display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.78rem;">Start navigatie</div>
                     <div class="mock-nav" aria-hidden="true">
                         <span>
-                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
-                            Aanvragen
-                        </span>
-                        <span>
                             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
                             Ritten
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                            Aanvragen
                         </span>
                         <span>
                             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>
@@ -780,24 +780,24 @@
 
     <section class="guide-section" id="tabs">
         <h2>9. Tabbladen onderin</h2>
-        <p>Onderin de app staan de tabbladen. Tik erop om te wisselen — ook tijdens een rit kun je naar Ritten of Planning.</p>
+        <p>Onderin de app staan de tabbladen. Na het inloggen open je Ritten. Aanvragen krijgt een rood cijfer als er een nieuwe rit binnenkomt.</p>
         <ul class="guide-icons">
-            <li>
-                <span class="guide-icon-pic" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
-                </span>
-                <div>
-                    <strong>Auto — Aanvragen</strong>
-                    <p>Nieuwe ritten die op jou wachten.</p>
-                </div>
-            </li>
             <li>
                 <span class="guide-icon-pic" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
                 </span>
                 <div>
                     <strong>Kalender — Ritten</strong>
-                    <p>Gepland, actief, verlopen en archief — om een rit te starten of af te ronden.</p>
+                    <p>Gepland en actief — om een rit te starten of af te ronden. Dit is het startscherm.</p>
+                </div>
+            </li>
+            <li>
+                <span class="guide-icon-pic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                </span>
+                <div>
+                    <strong>Auto — Aanvragen</strong>
+                    <p>Nieuwe ritten die op jou wachten. Het rode cijfer toont hoeveel open aanvragen er zijn.</p>
                 </div>
             </li>
             <li>
@@ -806,7 +806,7 @@
                 </span>
                 <div>
                     <strong>Lijst — Planning</strong>
-                    <p>Dag of week, tik een dag aan, tik een rit open.</p>
+                    <p>Dag of week. Op ingeplande dagen zie je je dienst (tijden en voertuig) boven de ritten. Tik een rit open.</p>
                 </div>
             </li>
             <li>
@@ -847,12 +847,12 @@
                     <div class="mock-input" style="height:2.2rem;margin-top:0.45rem;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Uitloggen</div>
                     <div class="mock-nav" aria-hidden="true">
                         <span>
-                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
-                            Aanvragen
-                        </span>
-                        <span>
                             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/></svg>
                             Ritten
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 11h14M6 11l1.2-3.6A1.5 1.5 0 0 1 8.6 6h6.8a1.5 1.5 0 0 1 1.4 1.04L18 11M6 11v5a1 1 0 0 0 1 1h1M16 17h1a1 1 0 0 0 1-1v-5"/><circle cx="8" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="1.3" stroke="currentColor" stroke-width="2"/></svg>
+                            Aanvragen
                         </span>
                         <span>
                             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 3v4M16 3v4M4 10h16"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 14h2M12 14h2M16 14h.01M8 17h2M12 17h2"/></svg>

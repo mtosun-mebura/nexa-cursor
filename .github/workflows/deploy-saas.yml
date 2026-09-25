@@ -2,7 +2,7 @@
 # Gebruikt docker-compose v1 op de VM is OK — docker-compose.deploy.yml heeft geen `include:`.
 # PROD (Hostinger VPS): alleen via git-tag — deploy-prod.yml + create-prod-tag.yml
 #
-# Auto-merge via GITHUB_TOKEN triggert geen on:push; Open PR start daarom
+# Merge via GITHUB_TOKEN triggert geen on:push; Open PR start daarom
 # één workflow_dispatch. Geen pull_request-closed: dat zou een tweede run geven.
 
 name: Deploy TEST (Proxmox)

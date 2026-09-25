@@ -17,11 +17,7 @@
     <div class="container mx-auto px-4 relative z-10 text-center max-w-4xl">
         @if($v('_title'))
         <h1 class="hero-overlay-title text-4xl font-bold leading-tight tracking-tight text-white lg:text-5xl xl:text-6xl">
-            @if(count($parts) === 2)
-                {{ trim($parts[0]) }} <span style="color: {{ $heroHighlightColor }};">{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
-            @else
-                {{ $heroTitle }}
-            @endif
+            {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColor) !!}
         </h1>
         @endif
         @if($v('_subtitle') && !empty($sectionData['subtitle']))
@@ -107,11 +103,7 @@
             <div class="p-10 lg:p-16 text-white flex flex-col justify-center">
                 @if($v('_title'))
                 <h1 class="text-4xl font-bold leading-tight tracking-tight lg:text-5xl">
-                    @if(count($parts) === 2)
-                        {{ trim($parts[0]) }} <span class="text-white/90">{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
-                    @else
-                        {{ $heroTitle }}
-                    @endif
+                    {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColor, 'text-white/90') !!}
                 </h1>
                 @endif
                 @if($v('_subtitle') && !empty($sectionData['subtitle']))
@@ -130,11 +122,7 @@
             <div class="w-full lg:w-1/2 order-2 lg:order-1 text-center lg:text-left">
                 @if($v('_title'))
                 <h1 class="text-4xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white lg:text-5xl xl:text-6xl">
-                    @if(count($parts) === 2)
-                        {{ trim($parts[0]) }} <span style="color: {{ $heroHighlightColor }};">{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
-                    @else
-                        {{ $heroTitle }}
-                    @endif
+                    {!! nexa_hero_title_html($heroTitle, $heroHighlight, $heroHighlightColor) !!}
                 </h1>
                 @endif
                 @if($v('_subtitle') && !empty($sectionData['subtitle']))

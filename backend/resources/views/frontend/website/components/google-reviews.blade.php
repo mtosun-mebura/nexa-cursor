@@ -27,10 +27,10 @@
 #{{ $componentId }} .grw-card { height: 220px; min-height: 220px; max-height: 220px; display: flex; flex-direction: column; overflow: hidden; }
 @media (max-width: 767px) {
     #{{ $componentId }} .grw-card { height: auto; min-height: 11rem; max-height: none; }
-    #{{ $componentId }} .grw-slider { flex-direction: column; align-items: stretch; }
     #{{ $componentId }} .grw-btn-prev,
-    #{{ $componentId }} .grw-btn-next { align-self: center; }
+    #{{ $componentId }} .grw-btn-next { display: none !important; }
 }
+#{{ $componentId }} .grw-slider-viewport { touch-action: pan-y; }
 #{{ $componentId }} .grw-card .grw-text { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 #{{ $componentId }} .grw-card .grw-text-short { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
 #{{ $componentId }} .grw-card .grw-read-more { margin-top: auto; flex-shrink: 0; }
@@ -58,21 +58,13 @@ html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded {
 html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.35);
 }
-/* Dot-navigatie: zichtbaar in light/dark; actieve dot wit in dark mode (html.dark = class-based theme) */
-#{{ $componentId }} .grw-dot.grw-dot-active { background-color: #111827 !important; }
-html.dark #{{ $componentId }} .grw-dot.grw-dot-active { background-color: #ffffff !important; }
-#{{ $componentId }} .grw-dot:not(.grw-dot-active) { background-color: #9ca3af !important; }
-#{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-color: #6b7280 !important; }
-html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active) { background-color: #6b7280 !important; }
-html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-color: #9ca3af !important; }
 /* Scroll-animaties: startstaten */
 #{{ $componentId }}:not(.grw-in-view) .grw-summary { opacity: 0; transform: translateX(-48px); }
 #{{ $componentId }}:not(.grw-in-view) .grw-slider-wrapper .grw-header h2 { opacity: 0; transform: translateZ(-12px); }
 #{{ $componentId }}:not(.grw-in-view) .grw-slider-wrapper .grw-header p { opacity: 0; transform: translateZ(-12px); }
 #{{ $componentId }}:not(.grw-in-view) .grw-review-card .grw-card { opacity: 0; transform: translateY(32px); }
 #{{ $componentId }}:not(.grw-in-view) .grw-btn-prev,
-#{{ $componentId }}:not(.grw-in-view) .grw-btn-next,
-#{{ $componentId }}:not(.grw-in-view) .grw-dots { opacity: 0; transform: translateZ(-8px); }
+#{{ $componentId }}:not(.grw-in-view) .grw-btn-next { opacity: 0; transform: translateZ(-8px); }
 /* Overgangen */
 #{{ $componentId }} .grw-summary { transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
 #{{ $componentId }} .grw-slider-wrapper .grw-header h2 { transition: opacity 0.45s ease-out 0.12s, transform 0.45s ease-out 0.12s; }
@@ -85,16 +77,14 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 #{{ $componentId }} .grw-review-card:nth-child(5) .grw-card { transition-delay: 0.72s; }
 #{{ $componentId }} .grw-review-card:nth-child(n+6) .grw-card { transition-delay: 0.82s; }
 #{{ $componentId }} .grw-btn-prev,
-#{{ $componentId }} .grw-btn-next,
-#{{ $componentId }} .grw-dots { transition: opacity 0.4s ease-out 0.85s, transform 0.4s ease-out 0.85s; }
+#{{ $componentId }} .grw-btn-next { transition: opacity 0.4s ease-out 0.85s, transform 0.4s ease-out 0.85s; }
 /* Eindstaten bij in view */
 #{{ $componentId }}.grw-in-view .grw-summary { opacity: 1; transform: translateX(0); }
 #{{ $componentId }}.grw-in-view .grw-slider-wrapper .grw-header h2 { opacity: 1; transform: translateZ(0); }
 #{{ $componentId }}.grw-in-view .grw-slider-wrapper .grw-header p { opacity: 1; transform: translateZ(0); }
 #{{ $componentId }}.grw-in-view .grw-review-card .grw-card { opacity: 1; transform: translateY(0); }
 #{{ $componentId }}.grw-in-view .grw-btn-prev,
-#{{ $componentId }}.grw-in-view .grw-btn-next,
-#{{ $componentId }}.grw-in-view .grw-dots { opacity: 1; transform: translateZ(0); }
+#{{ $componentId }}.grw-in-view .grw-btn-next { opacity: 1; transform: translateZ(0); }
 </style>
 <section class="google-reviews-section pt-6 md:pt-8 pb-10 md:pb-14 @if($sectionBackground === '') bg-gray-100 dark:bg-gray-800 @endif" @if($sectionBackground !== '') style="background-color: {{ e($sectionBackground) }};" @endif aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
     <div class="website-section-inner">
@@ -140,13 +130,13 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
                         <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                     </p>
                 </div>
-                <div class="grw-slider flex-1 min-w-0 relative flex items-center gap-2 md:gap-4">
+                <div class="grw-slider min-w-0 relative flex items-center gap-2 md:gap-4 lg:mt-auto">
                 @if(count($reviews) > 3)
-                    <button type="button" class="grw-btn grw-btn-prev flex-shrink-0 relative z-20 p-1 md:p-2 text-gray-700 dark:text-gray-200 hover:text-primary transition-colors focus:outline-none cursor-pointer bg-transparent border-0" aria-label="Vorige review">
+                    <button type="button" class="grw-btn grw-btn-prev hidden md:flex flex-shrink-0 relative z-20 p-1 md:p-2 text-gray-700 dark:text-gray-200 hover:text-primary transition-colors focus:outline-none cursor-pointer bg-transparent border-0" aria-label="Vorige review">
                         <svg class="w-6 h-6 rtl:rotate-180" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m15 19-7-7 7-7"/></svg>
                     </button>
                 @endif
-                <div class="grw-slider-viewport flex-1 min-w-0 overflow-hidden bg-white/5 dark:bg-black/10 rounded-2xl" id="{{ $carouselId }}">
+                <div class="grw-slider-viewport flex-1 min-w-0 overflow-hidden rounded-2xl" id="{{ $carouselId }}">
                     <div class="grw-slider-track flex flex-nowrap transition-transform duration-300 ease-out will-change-transform" role="list" aria-live="polite">
                         @foreach($reviews as $index => $review)
                             @php
@@ -193,18 +183,9 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
                     </div>
                 </div>
                 @if(count($reviews) > 3)
-                    <button type="button" class="grw-btn grw-btn-next flex-shrink-0 relative z-20 p-1 md:p-2 text-gray-700 dark:text-gray-200 hover:text-primary transition-colors focus:outline-none cursor-pointer bg-transparent border-0" aria-label="Volgende review">
+                    <button type="button" class="grw-btn grw-btn-next hidden md:flex flex-shrink-0 relative z-20 p-1 md:p-2 text-gray-700 dark:text-gray-200 hover:text-primary transition-colors focus:outline-none cursor-pointer bg-transparent border-0" aria-label="Volgende review">
                         <svg class="w-6 h-6 rtl:rotate-180" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
                     </button>
-                @endif
-                </div>
-                @if(count($reviews) > 3)
-                    <div class="grw-dots flex justify-center gap-2 mt-4" role="tablist" aria-label="Review navigatie">
-                        @php $totalSlides = max(1, count($reviews) - $visibleCardsDesktop + 1); @endphp
-                        @for($i = 0; $i < $totalSlides; $i++)
-                            <button type="button" class="grw-dot w-2.5 h-2.5 rounded-full border-0 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary {{ $i === 0 ? 'grw-dot-active' : '' }}" role="tab" aria-selected="{{ $i === 0 ? 'true' : 'false' }}" aria-label="Slide {{ $i + 1 }}" data-grw-slide="{{ $i }}"></button>
-                        @endfor
-                    </div>
                 @endif
             </div>
         </div>
@@ -240,31 +221,52 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
         function initGrwCarousel() {
         var visibleCardsDesktop = @json($visibleCardsDesktop);
         var wrap = document.getElementById(componentId);
-        if (!wrap) return;
+        if (!wrap || wrap.getAttribute('data-grw-inited') === '1') return;
+        wrap.setAttribute('data-grw-inited', '1');
         var viewport = wrap.querySelector('.grw-slider-viewport');
         var track = wrap.querySelector('.grw-slider-track');
         var cards = wrap.querySelectorAll('.grw-review-card');
         var prevBtn = wrap.querySelector('.grw-btn-prev');
         var nextBtn = wrap.querySelector('.grw-btn-next');
-        var dots = wrap.querySelectorAll('.grw-dot');
-        var total = cards.length;
-        if (total <= 1 || !track || !viewport) return;
+        var originalTotal = cards.length;
+        if (originalTotal <= 1 || !track || !viewport) return;
+
+        var isPreview = document.body && document.body.getAttribute('data-nexa-block-preview') === '1';
+        var autoPlayMs = isPreview ? 2800 : 5000;
 
         function getVisibleCards() {
+            if (isPreview) {
+                return visibleCardsDesktop;
+            }
             var w = window.innerWidth || document.documentElement.clientWidth || 1024;
             if (w < 640) return 1;
             if (w < 1024) return 2;
             return visibleCardsDesktop;
         }
         var visibleCards = getVisibleCards();
+        var looping = isPreview && originalTotal >= 2;
 
-        var maxSlide = Math.max(0, total - visibleCards);
+        if (looping) {
+            for (var ci = 0; ci < originalTotal; ci++) {
+                var clone = cards[ci].cloneNode(true);
+                clone.setAttribute('data-grw-clone', '1');
+                clone.setAttribute('aria-hidden', 'true');
+                track.appendChild(clone);
+            }
+            cards = wrap.querySelectorAll('.grw-review-card');
+        }
+        var total = cards.length;
+        var maxSlide = looping ? originalTotal : Math.max(0, originalTotal - visibleCards);
         var current = 0;
-        var autoPlayMs = 5000;
         var autoPlayTimer = null;
         var cardWidthPx = 0;
+        var snapping = false;
 
         function setSizes() {
+            visibleCards = getVisibleCards();
+            if (!looping) {
+                maxSlide = Math.max(0, originalTotal - visibleCards);
+            }
             var vw = viewport.offsetWidth;
             if (vw <= 0 || total === 0) return;
             cardWidthPx = Math.floor(vw / visibleCards);
@@ -277,30 +279,54 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
             }
         }
 
-        function updateSlider() {
-            current = Math.max(0, Math.min(current, maxSlide));
+        function updateSlider(animate) {
+            if (!looping) {
+                current = Math.max(0, Math.min(current, maxSlide));
+            }
             var offsetPx = -(current * cardWidthPx);
-            track.style.transform = 'translate3d(' + offsetPx + 'px, 0, 0)';
-            dots.forEach(function(dot, i) {
-                var isActive = i === current;
-                dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                if (isActive) {
-                    dot.classList.add('grw-dot-active');
-                } else {
-                    dot.classList.remove('grw-dot-active');
-                }
-            });
+            if (animate === false) {
+                track.style.transition = 'none';
+                track.style.transform = 'translate3d(' + offsetPx + 'px, 0, 0)';
+                void track.offsetWidth;
+                track.style.transition = '';
+            } else {
+                track.style.transform = 'translate3d(' + offsetPx + 'px, 0, 0)';
+            }
         }
 
         function goNext() {
+            if (snapping) return;
+            if (looping) {
+                current++;
+                updateSlider(true);
+                if (current >= originalTotal) {
+                    snapping = true;
+                    window.setTimeout(function() {
+                        current = 0;
+                        updateSlider(false);
+                        snapping = false;
+                    }, 320);
+                }
+                return;
+            }
             if (current >= maxSlide) current = -1;
             current++;
-            updateSlider();
+            updateSlider(true);
         }
         function goPrev() {
+            if (snapping) return;
+            if (looping) {
+                if (current <= 0) {
+                    current = originalTotal;
+                    updateSlider(false);
+                }
+                current--;
+                updateSlider(true);
+                return;
+            }
             current--;
             if (current < 0) current = maxSlide;
-            updateSlider();
+            updateSlider(true);
         }
         function startAutoPlay() {
             stopAutoPlay();
@@ -312,23 +338,94 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 
         if (prevBtn) prevBtn.addEventListener('click', function(e) { e.preventDefault(); stopAutoPlay(); goPrev(); startAutoPlay(); });
         if (nextBtn) nextBtn.addEventListener('click', function(e) { e.preventDefault(); stopAutoPlay(); goNext(); startAutoPlay(); });
-        dots.forEach(function(dot, i) {
-            dot.addEventListener('click', function() { stopAutoPlay(); current = i - 1; goNext(); startAutoPlay(); });
+
+        var touchStartX = 0;
+        var touchStartY = 0;
+        var touchActive = false;
+        var didSwipe = false;
+        viewport.addEventListener('touchstart', function(e) {
+            if (!e.changedTouches || !e.changedTouches.length) return;
+            touchStartX = e.changedTouches[0].clientX;
+            touchStartY = e.changedTouches[0].clientY;
+            touchActive = true;
+            didSwipe = false;
+            stopAutoPlay();
+        }, { passive: true });
+        viewport.addEventListener('touchend', function(e) {
+            if (!touchActive || !e.changedTouches || !e.changedTouches.length) {
+                startAutoPlay();
+                return;
+            }
+            touchActive = false;
+            var dx = e.changedTouches[0].clientX - touchStartX;
+            var dy = e.changedTouches[0].clientY - touchStartY;
+            if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) {
+                startAutoPlay();
+                return;
+            }
+            didSwipe = true;
+            if (dx < 0) goNext(); else goPrev();
+            startAutoPlay();
+        }, { passive: true });
+        viewport.addEventListener('touchcancel', function() {
+            touchActive = false;
+            startAutoPlay();
+        }, { passive: true });
+        viewport.addEventListener('click', function(e) {
+            if (!didSwipe) return;
+            didSwipe = false;
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+
+        viewport.addEventListener('mouseenter', function() {
+            if (!isPreview) stopAutoPlay();
         });
-        viewport.addEventListener('mouseenter', stopAutoPlay);
-        viewport.addEventListener('mouseleave', startAutoPlay);
-        viewport.addEventListener('focusin', stopAutoPlay);
-        viewport.addEventListener('focusout', startAutoPlay);
+        viewport.addEventListener('mouseleave', function() {
+            if (!isPreview) startAutoPlay();
+        });
+        viewport.addEventListener('focusin', function() {
+            if (!isPreview) stopAutoPlay();
+        });
+        viewport.addEventListener('focusout', function() {
+            if (!isPreview) startAutoPlay();
+        });
         window.addEventListener('resize', function() {
-            visibleCards = getVisibleCards();
             setSizes();
-            maxSlide = Math.max(0, total - visibleCards);
-            current = Math.min(current, maxSlide);
-            updateSlider();
+            if (!looping) {
+                current = Math.min(current, maxSlide);
+            }
+            updateSlider(false);
         });
+        if (typeof ResizeObserver !== 'undefined') {
+            var ro = new ResizeObserver(function() {
+                setSizes();
+                updateSlider(false);
+            });
+            ro.observe(viewport);
+        }
+        function restartCarousel() {
+            snapping = false;
+            current = 0;
+            setSizes();
+            updateSlider(false);
+            startAutoPlay();
+        }
+        wrap._grwRestart = restartCarousel;
+        window.nexaRestartGoogleReviews = function() {
+            document.querySelectorAll('.google-reviews-section').forEach(function(el) {
+                if (typeof el._grwRestart === 'function') {
+                    el._grwRestart();
+                }
+            });
+        };
         setSizes();
-        updateSlider();
-        startAutoPlay();
+        updateSlider(false);
+        window.setTimeout(function() {
+            setSizes();
+            updateSlider(false);
+            startAutoPlay();
+        }, 40);
 
         var modal = document.getElementById('grw-review-modal-' + componentId);
         var writeBtn = wrap.querySelector('.grw-write-btn');

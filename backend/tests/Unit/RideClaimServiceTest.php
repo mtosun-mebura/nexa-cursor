@@ -85,6 +85,8 @@ class RideClaimServiceTest extends TestCase
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
         });
+
+        \App\Modules\NexaTaxi\Support\TaxiRideTrackSchema::ensure('module_taxi');
     }
 
     public function test_accept_assigns_driver_atomically(): void
@@ -230,6 +232,7 @@ class RideClaimServiceTest extends TestCase
         $started = $claim->startRide('module_taxi', $driver, $ride->id);
 
         $this->assertSame(RideRequest::STATUS_ASSIGNED, $started->status);
+        $this->assertNotNull($started->trip_started_at);
     }
 
     public function test_complete_marks_ride_completed_for_assigned_driver(): void

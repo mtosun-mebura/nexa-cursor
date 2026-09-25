@@ -1,6 +1,8 @@
 <p>
     Onder <strong>Gebruikers</strong> beheert u accounts van medewerkers en chauffeurs.
     De eerste beheerder is de company-admin uit de welkomstmail (e-mailadres als gebruikersnaam).
+    Nieuwe gebruikers krijgen <strong>geen wachtwoord</strong> in de mail: zij activeren hun account
+    met <strong>Eerste keer inloggen</strong> en een eenmalige code.
 </p>
 
 <x-admin.handleiding-screenshot caption="Gebruikerslijst met rollen." title="Nexa — Gebruikers">
@@ -26,5 +28,9 @@
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">2</span>
-    <div>Vul naam en e-mail in en kies de rol (bijvoorbeeld chauffeur of medewerker).</div>
+    <div>Vul naam en e-mail in en kies de rol (bijvoorbeeld chauffeur of medewerker). Een wachtwoord is niet nodig.</div>
+</div>
+<div class="handleiding-step">
+    <span class="handleiding-step-num">3</span>
+    <div>De nieuwe gebruiker opent het inlogscherm van de admin of de app, kiest <strong>Eerste keer inloggen</strong>, vraagt een code aan op dat e-mailadres en stelt zelf een wachtwoord in.</div>
 </div>

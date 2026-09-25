@@ -18,6 +18,73 @@
     #mail .kt-card-footer {
         padding-bottom: 0.5rem;
     }
+    /* SMTP-provider: volledige namen in display én dropdown, zonder afbreken/ellipsis. */
+    #mail #mail-settings-table td:has(#MAIL_SMTP_PROVIDER),
+    #mail #mail-settings-table td:has(.mail-smtp-provider-select) {
+        overflow: visible !important;
+    }
+    #mail .mail-smtp-provider-select.kt-select.admin-field-fit,
+    #mail .kt-select-wrapper:has(.mail-smtp-provider-select),
+    #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) {
+        width: max-content !important;
+        max-width: min(100%, 36rem) !important;
+        min-width: 14rem !important;
+        overflow: visible !important;
+    }
+    #mail .kt-select-wrapper:has(.mail-smtp-provider-select) .kt-select-display,
+    #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) [data-kt-select-display],
+    #mail .kt-select-wrapper:has(.mail-smtp-provider-select) .kt-select-option-text,
+    #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) .kt-select-option-text {
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+    #content #mail .kt-select-wrapper:has(.mail-smtp-provider-select) .kt-select-dropdown.open,
+    #content #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) .kt-select-dropdown.open,
+    #content #mail .kt-select-wrapper:has(.mail-smtp-provider-select) [data-kt-select-dropdown].open,
+    #content #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) [data-kt-select-dropdown].open,
+    #content #mail .kt-select-wrapper.is-dropdown-open:has(.mail-smtp-provider-select) .kt-select-dropdown.open,
+    #content #mail .kt-select-wrapper.is-dropdown-open:has(#MAIL_SMTP_PROVIDER) .kt-select-dropdown.open,
+    #content .kt-select-dropdown.mail-smtp-provider-dropdown.open,
+    #content [data-kt-select-dropdown].mail-smtp-provider-dropdown.open {
+        position: absolute !important;
+        top: calc(100% + 4px) !important;
+        left: 0 !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: max-content !important;
+        min-width: max(100%, 22rem) !important;
+        max-width: min(100vw - 2rem, 36rem) !important;
+        transform: none !important;
+        overflow-x: visible !important;
+        overflow-y: auto !important;
+        z-index: 120 !important;
+    }
+    #content #mail .kt-select-wrapper:has(.mail-smtp-provider-select) [data-kt-select-option],
+    #content #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) [data-kt-select-option],
+    #content #mail .kt-select-wrapper:has(.mail-smtp-provider-select) [data-kt-select-option] .kt-select-option-text,
+    #content #mail .kt-select-wrapper:has(#MAIL_SMTP_PROVIDER) [data-kt-select-option] .kt-select-option-text,
+    #content .kt-select-dropdown.mail-smtp-provider-dropdown [data-kt-select-option],
+    #content .kt-select-dropdown.mail-smtp-provider-dropdown .kt-select-option-text,
+    #content [data-kt-select-dropdown].mail-smtp-provider-dropdown [data-kt-select-option],
+    #content [data-kt-select-dropdown].mail-smtp-provider-dropdown .kt-select-option-text {
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+        max-width: none !important;
+        width: auto !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+    }
+    #mail-smtp-provider-help {
+        overflow-wrap: break-word;
+        word-break: normal;
+        hyphens: none;
+        max-width: 40rem;
+    }
     #test-email-btn .test-email-spinner {
         display: none;
         width: 1rem;
@@ -47,9 +114,17 @@
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">
-            Configuraties
-        </h1>
+        <div class="flex flex-wrap items-center gap-3">
+            @if(!empty($backToTenantSetupUrl))
+                <a href="{{ $backToTenantSetupUrl }}" class="kt-btn kt-btn-outline kt-btn-sm inline-flex items-center gap-2">
+                    <i class="ki-filled ki-arrow-left text-base" aria-hidden="true"></i>
+                    Tenant configureren
+                </a>
+            @endif
+            <h1 class="text-xl font-medium leading-none text-mono mb-0">
+                Configuraties
+            </h1>
+        </div>
     </div>
 
     @if(session('tenant_sync_report'))
@@ -60,7 +135,7 @@
 
     <div class="grid gap-5 lg:gap-7.5 min-w-0 w-full max-w-full" id="settings-collapsible-root">
         <!-- Mail Server Instellingen: NEXA Suite (Alle Tenants) of per tenant -->
-        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
+        <div class="kt-card min-w-full settings-collapsible-card {{ ($canManageFullSettings ?? true) ? 'settings-collapsible-card--collapsed' : '' }}" id="mail">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => ($mailSettingsIsPlatform ?? false)
                 ? '<i class="ki-filled ki-sms me-2"></i> NEXA Suite Mail Server'
                 : '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
@@ -87,13 +162,13 @@
             <div class="kt-card-table kt-scrollable-x-auto pb-0">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground" id="mail-settings-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Mailer *</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <select class="kt-select @error('MAIL_MAILER') border-destructive @enderror" 
-                                            id="MAIL_MAILER" name="MAIL_MAILER" required>
+                                    <select class="kt-select admin-field-fit @error('MAIL_MAILER') border-destructive @enderror"
+                                            id="MAIL_MAILER" name="MAIL_MAILER" required data-kt-select="true">
                                         <option value="log" {{ old('MAIL_MAILER', $mailSettings['MAIL_MAILER']) === 'log' ? 'selected' : '' }}>Log (alleen loggen)</option>
                                         <option value="smtp" {{ old('MAIL_MAILER', $mailSettings['MAIL_MAILER']) === 'smtp' ? 'selected' : '' }}>SMTP</option>
                                         <option value="sendmail" {{ old('MAIL_MAILER', $mailSettings['MAIL_MAILER']) === 'sendmail' ? 'selected' : '' }}>Sendmail</option>
@@ -109,16 +184,62 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="mail-smtp-only">
+                            <td class="min-w-56 text-secondary-foreground font-normal">SMTP Provider</td>
+                            <td class="min-w-48 w-full">
+                                @php
+                                    $mailSmtpProviders = $mailSmtpProviders ?? [];
+                                    $mailSmtpProviderId = old('MAIL_SMTP_PROVIDER', $mailSmtpProviderId ?? \App\Support\MailSmtpProviderCatalog::MANUAL_ID);
+                                @endphp
+                                <div class="relative">
+                                    <select class="kt-select admin-field-fit mail-smtp-provider-select"
+                                            id="MAIL_SMTP_PROVIDER"
+                                            name="MAIL_SMTP_PROVIDER"
+                                            data-kt-select="true"
+                                            aria-describedby="mail-smtp-provider-help">
+                                        <option value="{{ \App\Support\MailSmtpProviderCatalog::MANUAL_ID }}" {{ $mailSmtpProviderId === \App\Support\MailSmtpProviderCatalog::MANUAL_ID ? 'selected' : '' }}>
+                                            Handmatig / eigen server
+                                        </option>
+                                        @foreach($mailSmtpProviders as $provider)
+                                            <option
+                                                value="{{ $provider['id'] }}"
+                                                data-host="{{ $provider['host'] }}"
+                                                data-port="{{ $provider['port'] }}"
+                                                data-encryption="{{ $provider['encryption'] }}"
+                                                {{ $mailSmtpProviderId === $provider['id'] ? 'selected' : '' }}
+                                            >{{ $provider['name'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div id="mail-smtp-provider-help" class="text-xs text-muted-foreground mt-1">
+                                    Kies een provider om host, poort en encryptie automatisch in te vullen. Alleen gebruikersnaam, wachtwoord, From-adres en -naam blijven nodig.
+                                </div>
+                                <div id="mail-smtp-provider-name-wrap" class="mt-3 {{ $mailSmtpProviderId === \App\Support\MailSmtpProviderCatalog::MANUAL_ID ? '' : 'hidden' }}">
+                                    <label for="MAIL_SMTP_PROVIDER_NAME" class="kt-form-label text-sm mb-1">Naam voor nieuwe provider (optioneel)</label>
+                                    <input type="text"
+                                           class="kt-input"
+                                           id="MAIL_SMTP_PROVIDER_NAME"
+                                           name="MAIL_SMTP_PROVIDER_NAME"
+                                           value="{{ old('MAIL_SMTP_PROVIDER_NAME') }}"
+                                           placeholder="Bijv. Mijn hostingprovider"
+                                           maxlength="120">
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Bij opslaan met een onbekende host/poort/encryptie wordt deze combinatie aan de providerlijst toegevoegd.
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="mail-smtp-only">
                             <td class="min-w-56 text-secondary-foreground font-normal">SMTP Host</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('MAIL_HOST') border-destructive @enderror" 
-                                           id="MAIL_HOST" 
-                                           name="MAIL_HOST" 
-                                           value="{{ old('MAIL_HOST', $mailSettings['MAIL_HOST']) }}" 
-                                           placeholder="smtp.example.com">
+                                    <input type="text"
+                                           class="kt-input @error('MAIL_HOST') border-destructive @enderror"
+                                           id="MAIL_HOST"
+                                           name="MAIL_HOST"
+                                           value="{{ old('MAIL_HOST', $mailSettings['MAIL_HOST']) }}"
+                                           placeholder="smtp.example.com"
+                                           autocomplete="off">
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">SMTP server hostname</div>
                                 @error('MAIL_HOST')
@@ -126,17 +247,17 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="mail-smtp-only">
                             <td class="min-w-56 text-secondary-foreground font-normal">SMTP Poort</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="number" 
-                                           class="kt-input @error('MAIL_PORT') border-destructive @enderror" 
-                                           id="MAIL_PORT" 
-                                           name="MAIL_PORT" 
-                                           value="{{ old('MAIL_PORT', $mailSettings['MAIL_PORT']) }}" 
-                                           placeholder="587" 
-                                           min="1" 
+                                    <input type="number"
+                                           class="kt-input @error('MAIL_PORT') border-destructive @enderror"
+                                           id="MAIL_PORT"
+                                           name="MAIL_PORT"
+                                           value="{{ old('MAIL_PORT', $mailSettings['MAIL_PORT']) }}"
+                                           placeholder="587"
+                                           min="1"
                                            max="65535">
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">Meestal 587 (TLS) of 465 (SSL)</div>
@@ -145,13 +266,14 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="mail-smtp-only">
                             <td class="min-w-56 text-secondary-foreground font-normal">Encryptie</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <select class="kt-select @error('MAIL_ENCRYPTION') border-destructive @enderror" 
-                                            id="MAIL_ENCRYPTION" 
-                                            name="MAIL_ENCRYPTION">
+                                    <select class="kt-select admin-field-fit @error('MAIL_ENCRYPTION') border-destructive @enderror"
+                                            id="MAIL_ENCRYPTION"
+                                            name="MAIL_ENCRYPTION"
+                                            data-kt-select="true">
                                         <option value="tls" {{ old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION']) === 'tls' ? 'selected' : '' }}>TLS</option>
                                         <option value="ssl" {{ old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION']) === 'ssl' ? 'selected' : '' }}>SSL</option>
                                         <option value="null" {{ old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION']) === 'null' || empty(old('MAIL_ENCRYPTION', $mailSettings['MAIL_ENCRYPTION'])) ? 'selected' : '' }}>Geen</option>
@@ -163,16 +285,17 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="mail-smtp-only">
                             <td class="min-w-56 text-secondary-foreground font-normal">SMTP Gebruikersnaam</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('MAIL_USERNAME') border-destructive @enderror" 
-                                           id="MAIL_USERNAME" 
-                                           name="MAIL_USERNAME" 
-                                           value="{{ old('MAIL_USERNAME', $mailSettings['MAIL_USERNAME']) }}" 
-                                           placeholder="your-username">
+                                    <input type="text"
+                                           class="kt-input @error('MAIL_USERNAME') border-destructive @enderror"
+                                           id="MAIL_USERNAME"
+                                           name="MAIL_USERNAME"
+                                           value="{{ old('MAIL_USERNAME', $mailSettings['MAIL_USERNAME']) }}"
+                                           placeholder="your-username"
+                                           autocomplete="username">
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">SMTP authenticatie gebruikersnaam</div>
                                 @error('MAIL_USERNAME')
@@ -180,16 +303,17 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="mail-smtp-only">
                             <td class="min-w-56 text-secondary-foreground font-normal">SMTP Wachtwoord</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="password" 
-                                           class="kt-input @error('MAIL_PASSWORD') border-destructive @enderror" 
-                                           id="MAIL_PASSWORD" 
-                                           name="MAIL_PASSWORD" 
-                                           value="" 
-                                           placeholder="Laat leeg om niet te wijzigen">
+                                    <input type="password"
+                                           class="kt-input @error('MAIL_PASSWORD') border-destructive @enderror"
+                                           id="MAIL_PASSWORD"
+                                           name="MAIL_PASSWORD"
+                                           value=""
+                                           placeholder="Laat leeg om niet te wijzigen"
+                                           autocomplete="new-password">
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">Laat leeg om het huidige wachtwoord te behouden</div>
                                 @error('MAIL_PASSWORD')
@@ -201,12 +325,12 @@
                             <td class="min-w-56 text-secondary-foreground font-normal">From Adres *</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="email" 
-                                           class="kt-input @error('MAIL_FROM_ADDRESS') border-destructive @enderror" 
-                                           id="MAIL_FROM_ADDRESS" 
-                                           name="MAIL_FROM_ADDRESS" 
-                                           value="{{ old('MAIL_FROM_ADDRESS', $mailSettings['MAIL_FROM_ADDRESS']) }}" 
-                                           placeholder="noreply@nexa-skillmatching.nl" 
+                                    <input type="email"
+                                           class="kt-input @error('MAIL_FROM_ADDRESS') border-destructive @enderror"
+                                           id="MAIL_FROM_ADDRESS"
+                                           name="MAIL_FROM_ADDRESS"
+                                           value="{{ old('MAIL_FROM_ADDRESS', $mailSettings['MAIL_FROM_ADDRESS']) }}"
+                                           placeholder="noreply@nexa-skillmatching.nl"
                                            required>
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">E-mailadres waarvan emails worden verzonden</div>
@@ -219,12 +343,12 @@
                             <td class="min-w-56 text-secondary-foreground font-normal">From Naam *</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="text" 
-                                           class="kt-input @error('MAIL_FROM_NAME') border-destructive @enderror" 
-                                           id="MAIL_FROM_NAME" 
-                                           name="MAIL_FROM_NAME" 
-                                           value="{{ old('MAIL_FROM_NAME', $mailSettings['MAIL_FROM_NAME']) }}" 
-                                           placeholder="NEXA Skillmatching" 
+                                    <input type="text"
+                                           class="kt-input @error('MAIL_FROM_NAME') border-destructive @enderror"
+                                           id="MAIL_FROM_NAME"
+                                           name="MAIL_FROM_NAME"
+                                           value="{{ old('MAIL_FROM_NAME', $mailSettings['MAIL_FROM_NAME']) }}"
+                                           placeholder="NEXA Skillmatching"
                                            required>
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">Naam die wordt getoond als afzender</div>
@@ -235,6 +359,7 @@
                         </tr>
                     </table>
                     <div class="kt-card-footer flex justify-between items-start gap-5 pt-4 pb-2 border-t border-border">
+                        @if($canEditMailSettings ?? true)
                         <button type="submit" class="kt-btn kt-btn-primary mt-6">
                             <i class="ki-filled ki-check me-2"></i> Mail Instellingen Opslaan
                         </button>
@@ -261,12 +386,14 @@
                                 <span id="test-email-status" class="hidden inline-flex items-center justify-center shrink-0 w-8 h-8 mt-0.5" role="status" aria-live="polite"></span>
                             </div>
                         </div>
+                        @endif
                     </div>
                 </form>
             </div>
             </div>
         </div>
 
+        @if($canManageFullSettings ?? false)
     @if($tenantScopedSettingsActive ?? $adminTenantScopedActive ?? false)
         <!-- Google SEO Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
@@ -684,158 +811,14 @@
         </div>
 
         <!-- WhatsApp: tenant widget / click-to-chat (Business API staat onder Algemene configuraties) -->
-        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="whatsapp">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp (tenant)'])
-            <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <div class="px-5 pb-3 text-xs text-muted-foreground" style="padding-top: 10px;">
-                    Widget en optionele click-to-chat voor deze tenant.
-                    De <strong>WhatsApp Business API</strong> (token / Phone Number ID) configureer je platform-breed onder
-                    <a href="{{ route('admin.settings.general.index') }}#whatsapp" class="underline">Algemene configuraties</a>.
-                    @if(!empty($whatsappPlatformConfigured))
-                        <span class="text-emerald-700 dark:text-emerald-300">Platform-API is actief — boekingsberichten gaan automatisch via Cloud API; click-to-chat is uitgeschakeld.</span>
-                    @endif
-                </div>
-                <form method="POST" action="{{ route('admin.settings.whatsapp.update') }}" data-validate="true">
-                    @csrf
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                        <tr>
-                            <td colspan="2" class="pt-2">
-                                <div class="rounded-lg border border-border bg-background px-4 py-3">
-                                    <div class="text-sm font-semibold text-secondary-foreground">WhatsApp Direct (zonder Business API)</div>
-                                    <div class="text-xs text-muted-foreground mt-1">Alleen relevant als de platform Business API niet is geconfigureerd.</div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Direct inschakelen</td>
-                            <td class="min-w-48 w-full">
-                                <label class="inline-flex items-center gap-2">
-                                    <input type="hidden" name="WHATSAPP_CLICK_TO_CHAT_ENABLED" value="0">
-                                    <input type="checkbox"
-                                           class="kt-checkbox"
-                                           id="WHATSAPP_CLICK_TO_CHAT_ENABLED"
-                                           name="WHATSAPP_CLICK_TO_CHAT_ENABLED"
-                                           value="1"
-                                           {{ old('WHATSAPP_CLICK_TO_CHAT_ENABLED', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}
-                                           @if(!empty($whatsappPlatformConfigured)) disabled @endif>
-                                    <span class="text-sm text-secondary-foreground">Fallback: boekingsknop opent WhatsApp (alleen zonder Business API)</span>
-                                </label>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Nummer (zonder Business API)</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="tel"
-                                           class="kt-input @error('WHATSAPP_CLICK_TO_CHAT_NUMBER') border-destructive @enderror"
-                                           id="WHATSAPP_CLICK_TO_CHAT_NUMBER"
-                                           name="WHATSAPP_CLICK_TO_CHAT_NUMBER"
-                                           value="{{ old('WHATSAPP_CLICK_TO_CHAT_NUMBER', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_NUMBER'] ?? '') }}"
-                                           placeholder="0612345678 of +31612345678"
-                                           autocomplete="tel">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Nummer voor wa.me-fallback (zonder Business API).</div>
-                                @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2" class="pt-4">
-                                <div class="rounded-lg border border-border bg-background px-4 py-3">
-                                    <div class="text-sm font-semibold text-secondary-foreground">Boekingsmelding naar bedrijf</div>
-                                    <div class="text-xs text-muted-foreground mt-1">
-                                        Ontvangernummer voor WhatsApp bij nieuwe boekingen (template “dispatch”).
-                                        Aan/uit staat onder Algemene configuraties → WhatsApp Business API →
-                                        <a href="{{ route('admin.settings.general.index') }}#whatsapp-booking-templates" class="underline">Boekingssjablonen</a>.
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp-nummer bedrijf</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="tel"
-                                           class="kt-input @error('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER') border-destructive @enderror"
-                                           id="WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER"
-                                           name="WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER"
-                                           value="{{ old('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER', $whatsappSettings['WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER'] ?? '') }}"
-                                           placeholder="0612345678 of +31612345678"
-                                           autocomplete="tel">
-                                </div>
-                                <div class="text-xs text-muted-foreground mt-1">Leeg = geen bericht naar het bedrijf, ook als de platform-optie aan staat.</div>
-                                @error('WHATSAPP_COMPANY_BOOKING_NOTIFY_NUMBER')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2" class="pt-4">
-                                <div class="rounded-lg border border-border bg-background px-4 py-3">
-                                    <div class="text-sm font-semibold text-secondary-foreground">Frontend WhatsApp Widget</div>
-                                    <div class="text-xs text-muted-foreground mt-1">Toont rechtsonder op de frontend een WhatsApp-icoon.</div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Widget tonen op frontend</td>
-                            <td class="min-w-48 w-full">
-                                <label class="inline-flex items-center gap-2">
-                                    <input type="hidden" name="WHATSAPP_WIDGET_ENABLED" value="0">
-                                    <input type="checkbox"
-                                           class="kt-checkbox"
-                                           id="WHATSAPP_WIDGET_ENABLED"
-                                           name="WHATSAPP_WIDGET_ENABLED"
-                                           value="1"
-                                           {{ old('WHATSAPP_WIDGET_ENABLED', $whatsappSettings['WHATSAPP_WIDGET_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
-                                    <span class="text-sm text-secondary-foreground">WhatsApp widget rechtsonder weergeven</span>
-                                </label>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Widget telefoonnummer</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <input type="tel"
-                                           class="kt-input @error('WHATSAPP_WIDGET_PHONE') border-destructive @enderror"
-                                           id="WHATSAPP_WIDGET_PHONE"
-                                           name="WHATSAPP_WIDGET_PHONE"
-                                           value="{{ old('WHATSAPP_WIDGET_PHONE', $whatsappSettings['WHATSAPP_WIDGET_PHONE'] ?? '') }}"
-                                           placeholder="0612345678 of +31612345678"
-                                           autocomplete="tel">
-                                </div>
-                                @error('WHATSAPP_WIDGET_PHONE')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Widget standaardbericht</td>
-                            <td class="min-w-48 w-full">
-                                <div class="relative">
-                                    <textarea rows="3"
-                                              class="kt-input pt-1 @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE') border-destructive @enderror"
-                                              id="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
-                                              name="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
-                                              placeholder="Hallo, ik heb een vraag over jullie diensten.">{{ old('WHATSAPP_WIDGET_DEFAULT_MESSAGE', $whatsappSettings['WHATSAPP_WIDGET_DEFAULT_MESSAGE'] ?? 'Hallo, ik heb een vraag over jullie diensten.') }}</textarea>
-                                </div>
-                                @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                    </table>
-                    <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
-                        <button type="submit" class="kt-btn kt-btn-primary">
-                            <i class="ki-filled ki-check me-2"></i> WhatsApp tenant opslaan
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-        </div>
+        @include('admin.settings.partials.whatsapp-tenant', [
+            'whatsappSettings' => $whatsappSettings,
+            'whatsappPlatformConfigured' => $whatsappPlatformConfigured ?? false,
+            'whatsappCardCollapsed' => request()->query('open') !== 'whatsapp',
+            'whatsappFormIdPrefix' => 'settings-wa',
+            'whatsappBackUrl' => $backToTenantSetupUrl ?? null,
+            'whatsappReturnTo' => $backToTenantSetupUrl ?? null,
+        ])
 
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mollie">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-dollar me-2"></i> Mollie (tenant)'])
@@ -1435,12 +1418,165 @@
         </div>
 
         @include('admin.settings.partials.database-backups')
+        @endif
 
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // SMTP provider presets
+    (function initMailSmtpProvider() {
+        var providerSelect = document.getElementById('MAIL_SMTP_PROVIDER');
+        var mailerSelect = document.getElementById('MAIL_MAILER');
+        var hostInput = document.getElementById('MAIL_HOST');
+        var portInput = document.getElementById('MAIL_PORT');
+        var encryptionSelect = document.getElementById('MAIL_ENCRYPTION');
+        var providerNameWrap = document.getElementById('mail-smtp-provider-name-wrap');
+        var syncingFromProvider = false;
+        var MANUAL_ID = @json(\App\Support\MailSmtpProviderCatalog::MANUAL_ID);
+
+        function setSelectValue(selectEl, value) {
+            if (!selectEl) {
+                return;
+            }
+            selectEl.value = value;
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            if (typeof window.KTSelect !== 'undefined' && selectEl._ktSelect && typeof selectEl._ktSelect.update === 'function') {
+                try { selectEl._ktSelect.update(); } catch (e) {}
+            }
+        }
+
+        function toggleSmtpRows() {
+            var isSmtp = mailerSelect && mailerSelect.value === 'smtp';
+            document.querySelectorAll('.mail-smtp-only').forEach(function(row) {
+                row.classList.toggle('hidden', !isSmtp);
+            });
+        }
+
+        function toggleProviderNameField() {
+            if (!providerNameWrap || !providerSelect) {
+                return;
+            }
+            var show = providerSelect.value === MANUAL_ID;
+            providerNameWrap.classList.toggle('hidden', !show);
+        }
+
+        function applyProviderOption(option) {
+            if (!option || !option.dataset.host) {
+                return;
+            }
+            syncingFromProvider = true;
+            if (hostInput) {
+                hostInput.value = option.dataset.host || '';
+            }
+            if (portInput) {
+                portInput.value = option.dataset.port || '587';
+            }
+            if (encryptionSelect) {
+                setSelectValue(encryptionSelect, option.dataset.encryption || 'tls');
+            }
+            if (mailerSelect && mailerSelect.value !== 'smtp') {
+                setSelectValue(mailerSelect, 'smtp');
+            }
+            syncingFromProvider = false;
+            toggleSmtpRows();
+            toggleProviderNameField();
+        }
+
+        function markManualIfSettingsChanged() {
+            if (syncingFromProvider || !providerSelect || providerSelect.value === MANUAL_ID) {
+                toggleProviderNameField();
+                return;
+            }
+            var option = providerSelect.options[providerSelect.selectedIndex];
+            if (!option || !option.dataset.host) {
+                return;
+            }
+            var host = (hostInput && hostInput.value || '').trim().toLowerCase();
+            var port = String(portInput && portInput.value || '').trim();
+            var enc = (encryptionSelect && encryptionSelect.value || 'tls').toLowerCase();
+            if (
+                host !== String(option.dataset.host || '').toLowerCase()
+                || port !== String(option.dataset.port || '')
+                || enc !== String(option.dataset.encryption || '').toLowerCase()
+            ) {
+                setSelectValue(providerSelect, MANUAL_ID);
+            }
+            toggleProviderNameField();
+        }
+
+        if (providerSelect) {
+            providerSelect.addEventListener('change', function() {
+                var option = providerSelect.options[providerSelect.selectedIndex];
+                if (providerSelect.value !== MANUAL_ID) {
+                    applyProviderOption(option);
+                } else {
+                    toggleProviderNameField();
+                }
+            });
+
+            // Tag de KTSelect-dropdown en forceer breedte t.o.v. langste option-tekst
+            var measureProviderDropdownWidth = function() {
+                var longest = 0;
+                Array.prototype.forEach.call(providerSelect.options, function(opt) {
+                    var label = (opt.textContent || '').trim();
+                    if (label.length > longest) {
+                        longest = label.length;
+                    }
+                });
+                // ~0.55rem per karakter + padding; min 22rem
+                var rem = Math.max(22, Math.min(36, longest * 0.55 + 2.5));
+                return rem + 'rem';
+            };
+            var markProviderDropdown = function() {
+                var wrapper = providerSelect.closest('.kt-select-wrapper') || providerSelect.parentElement;
+                if (!wrapper) {
+                    return;
+                }
+                var minW = measureProviderDropdownWidth();
+                wrapper.style.minWidth = '14rem';
+                wrapper.querySelectorAll('.kt-select-dropdown, [data-kt-select-dropdown]').forEach(function(dd) {
+                    dd.classList.add('mail-smtp-provider-dropdown');
+                    dd.style.setProperty('width', 'max-content', 'important');
+                    dd.style.setProperty('min-width', minW, 'important');
+                    dd.style.setProperty('max-width', 'min(100vw - 2rem, 36rem)', 'important');
+                    dd.style.setProperty('right', 'auto', 'important');
+                    dd.style.setProperty('overflow-x', 'visible', 'important');
+                });
+            };
+            providerSelect.addEventListener('focus', markProviderDropdown);
+            var display = (providerSelect.closest('.kt-select-wrapper') || document).querySelector('[data-kt-select-display]');
+            if (display) {
+                display.addEventListener('click', function() {
+                    setTimeout(markProviderDropdown, 0);
+                    setTimeout(markProviderDropdown, 50);
+                    setTimeout(markProviderDropdown, 150);
+                });
+            }
+            var providerObserver = new MutationObserver(function() {
+                markProviderDropdown();
+            });
+            var wrapForObserve = providerSelect.closest('.kt-select-wrapper');
+            if (wrapForObserve) {
+                providerObserver.observe(wrapForObserve, { attributes: true, subtree: true, attributeFilter: ['class', 'style'] });
+            }
+            markProviderDropdown();
+        }
+        if (mailerSelect) {
+            mailerSelect.addEventListener('change', toggleSmtpRows);
+        }
+        [hostInput, portInput, encryptionSelect].forEach(function(el) {
+            if (!el) {
+                return;
+            }
+            el.addEventListener('input', markManualIfSettingsChanged);
+            el.addEventListener('change', markManualIfSettingsChanged);
+        });
+        toggleSmtpRows();
+        toggleProviderNameField();
+    })();
+
     // Test email functionality
     const testEmailBtn = document.getElementById('test-email-btn');
     const testEmailInput = document.getElementById('test-email-input');
@@ -1504,6 +1640,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (testEmailBtnLabel) {
                 testEmailBtnLabel.textContent = 'Verzenden...';
             }
+
+            var fromAddressEl = document.getElementById('MAIL_FROM_ADDRESS');
+            var fromNameEl = document.getElementById('MAIL_FROM_NAME');
             
             fetch('{{ route("admin.settings.mail.test") }}', {
                 method: 'POST',
@@ -1514,7 +1653,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
-                    test_email: email
+                    test_email: email,
+                    from_address: fromAddressEl ? fromAddressEl.value.trim() : '',
+                    from_name: fromNameEl ? fromNameEl.value.trim() : ''
                 })
             })
             .then(function(response) {

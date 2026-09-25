@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "flag-icons/css/flag-icons.min.css";
 @import "flowbite-typography/dist/typography.min.css";
 
 /* Vertel Tailwind waar klassen voorkomen (Laravel) */
@@ -178,7 +177,7 @@
       width: 100% !important;
       max-width: 100dvw !important;
       box-sizing: border-box;
-      overflow-x: hidden;
+      overflow: hidden;
       height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
       max-height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
       border-radius: 0.75rem 0.75rem 0 0 !important;
@@ -208,6 +207,7 @@
       max-width: 100%;
       padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
       padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+      padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
     }
     .ai-chat-panel__footer form.flex {
       width: 100%;
@@ -452,11 +452,169 @@
   .dark .ai-chat-address-suggestion:focus {
     background: #374151;
   }
+  .ai-chat-datetime {
+    position: relative;
+    z-index: 40;
+  }
   .ai-chat-datetime-input {
     color-scheme: light;
+    cursor: pointer;
   }
   .dark .ai-chat-datetime-input {
     color-scheme: dark;
+  }
+  .ai-chat-datetime-popover {
+    position: static;
+    width: 100%;
+    margin-top: 0.4rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.65rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    box-shadow: none;
+  }
+  .dark .ai-chat-datetime-popover {
+    background: #0b0f19;
+    border-color: #4b5563;
+  }
+  .ai-chat-datetime-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .ai-chat-datetime-nav__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .ai-chat-datetime-nav__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    font-size: 1.125rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .ai-chat-datetime-nav__btn:hover {
+    background: rgb(15 23 42 / 0.06);
+  }
+  .dark .ai-chat-datetime-nav__btn:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+  .ai-chat-datetime-week,
+  .ai-chat-datetime-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.15rem;
+  }
+  .ai-chat-datetime-week span {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: lowercase;
+  }
+  .ai-chat-datetime-day {
+    min-height: 1.6rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .ai-chat-datetime-day:hover:not(:disabled) {
+    background: rgb(15 23 42 / 0.06);
+  }
+  .dark .ai-chat-datetime-day:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.08);
+  }
+  .ai-chat-datetime-day.is-empty,
+  .ai-chat-datetime-day.is-disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+  .ai-chat-datetime-day.is-selected {
+    background: var(--theme-primary, #2563eb);
+    color: #ffffff;
+    opacity: 1;
+  }
+  .ai-chat-datetime-times {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 5.75rem;
+    height: 5.75rem;
+    min-height: 0;
+    overflow: hidden;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 0.35rem;
+  }
+  .dark .ai-chat-datetime-times {
+    border-top-color: #4b5563;
+  }
+  .ai-chat-datetime-col {
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    height: 100%;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af transparent;
+  }
+  .dark .ai-chat-datetime-col {
+    scrollbar-color: #6b7280 transparent;
+  }
+  .ai-chat-datetime-col::-webkit-scrollbar {
+    width: 8px;
+  }
+  .ai-chat-datetime-col::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .ai-chat-datetime-col::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 9999px;
+  }
+  .dark .ai-chat-datetime-col::-webkit-scrollbar-thumb {
+    background: #6b7280;
+  }
+  .ai-chat-datetime-col + .ai-chat-datetime-col {
+    border-inline-start: 1px solid #e5e7eb;
+  }
+  .dark .ai-chat-datetime-col + .ai-chat-datetime-col {
+    border-inline-start-color: #4b5563;
+  }
+  .ai-chat-datetime-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 1.85rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .ai-chat-datetime-item:hover {
+    background: rgb(15 23 42 / 0.06);
+  }
+  .dark .ai-chat-datetime-item:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+  .ai-chat-datetime-item.is-active {
+    background: var(--theme-primary, #2563eb);
+    color: #ffffff;
   }
 
   .select {
@@ -632,13 +790,18 @@
     overflow: hidden;
   }
   /* Hero banner: houd hoogte in toom bij breed productbeeld */
-  .modern-home-hero--has-image .modern-home-hero__media {
-    max-height: min(62vh, 34rem);
+  .modern-home-hero--has-image {
+    background-color: #07111f;
   }
-  .modern-home-hero--has-image .modern-home-hero__media .website-image-carousel-fit {
+  .modern-home-hero--has-image .modern-home-hero__media {
+    max-height: min(48vh, 26rem);
+  }
+  .modern-home-hero--has-image .modern-home-hero__media .website-image-carousel-fit,
+  .modern-home-hero--has-image .modern-home-hero__image {
+    display: block;
     width: 100% !important;
     height: auto !important;
-    max-height: min(62vh, 34rem);
+    max-height: min(48vh, 26rem);
     object-fit: cover;
     object-position: center;
   }
@@ -709,12 +872,39 @@
     line-height: inherit;
   }
   @media (max-width: 767px) {
+    .modern-home-hero--has-image {
+      --hero-mobile-min-height: min(46dvh, 22rem);
+      min-height: var(--hero-mobile-min-height);
+      background-color: #07111f;
+    }
+    .modern-home-hero--has-image .modern-home-hero__media {
+      position: absolute;
+      inset: 0;
+      max-height: none;
+      height: 100%;
+      width: 100%;
+    }
+    .modern-home-hero--has-image .modern-home-hero__media .website-image-carousel-fit,
+    .modern-home-hero--has-image .modern-home-hero__image {
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      max-height: none !important;
+      object-fit: cover;
+      object-position: 20% center;
+    }
     .modern-home-hero--has-image .modern-home-hero__caption-overlay {
+      position: relative;
+      inset: auto;
+      min-height: var(--hero-mobile-min-height);
+      width: 100%;
+      box-sizing: border-box;
       padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
       padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
     }
     .hero-caption-text-block.carousel-caption-text-block {
-      width: min(100%, calc(var(--hero-caption-width-pct, 70) * 1%));
+      width: 100%;
       max-width: 100%;
       padding-left: 0.75rem;
       padding-right: 0.75rem;
@@ -722,30 +912,40 @@
       padding-bottom: 0.5rem;
     }
     .modern-home-hero--has-image .hero-caption-title {
-      font-size: clamp(
-        1.125rem,
-        calc(0.25rem + 4.8vw),
-        calc(var(--hero-title-size-max, 44px) * 0.78)
-      );
-      line-height: 1.25;
-      overflow-wrap: anywhere;
+      font-size: 1.2rem;
+      line-height: 1.28;
+      overflow-wrap: break-word;
     }
     .modern-home-hero--has-image .hero-caption-title .hero-title-part {
       display: inline;
     }
     .modern-home-hero--has-image .hero-caption-subtitle {
-      font-size: clamp(
-        0.8125rem,
-        calc(0.15rem + 3.1vw),
-        calc(var(--hero-subtitle-size-max, 22px) * 0.9)
-      );
-      line-height: 1.45;
+      width: 100%;
+      max-width: 100%;
+      font-size: 0.875rem;
+      line-height: 1.4;
       overflow-wrap: break-word;
       hyphens: auto;
     }
     .carousel-caption-text-block:not(.hero-caption-text-block) {
       width: min(100%, calc(var(--carousel-caption-width-pct, 70) * 1%));
       max-width: 100%;
+    }
+    #main-content h1 {
+      font-size: 1.2rem;
+      line-height: 1.28;
+      text-wrap: balance;
+    }
+    #main-content h2,
+    #main-content .text-3xl,
+    #main-content .text-4xl {
+      font-size: 1.25rem;
+      line-height: 1.3;
+      text-wrap: balance;
+    }
+    #main-content h3 {
+      font-size: 1.05rem;
+      line-height: 1.35;
     }
   }
 
@@ -844,15 +1044,23 @@
       max-width: 100% !important;
       flex: 1 1 100% !important;
     }
+    .lw-faq__inner {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
   }
   @media (min-width: 768px) {
     .text-block-section__inner {
       padding-left: 2.5rem;
       padding-right: 2.5rem;
     }
+    .lw-faq__inner.website-section-inner {
+      width: var(--lw-faq-width, 60%);
+      max-width: var(--lw-faq-width, 60%);
+    }
   }
 
-  /* Footer: kaart altijd zichtbaar; desktop 50/50 met links */
+  /* Footer: kaart links/rechts (helft) of onder (volle breedte) */
   .footer-map-reveal {
     min-height: 200px;
   }
@@ -862,12 +1070,23 @@
     min-width: 0;
   }
   @media (min-width: 768px) {
-    .footer-grid-with-map {
-      grid-template-columns: 1fr 1fr;
-    }
     .footer-grid-with-map #footer-google-map {
       width: 100% !important;
       min-width: 0;
+    }
+    .footer-grid-with-map--left .footer-map-reveal--side,
+    .footer-grid-with-map--right .footer-map-reveal--side,
+    .footer-grid-with-map--left .footer-map-content,
+    .footer-grid-with-map--right .footer-map-content {
+      width: 50%;
+      max-width: 50%;
+      flex: 1 1 50%;
+    }
+    .footer-map-reveal--side {
+      min-height: 220px;
+    }
+    .footer-map-reveal--side #footer-google-map {
+      height: 100% !important;
     }
   }
 

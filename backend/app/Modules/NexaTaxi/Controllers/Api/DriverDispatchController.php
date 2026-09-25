@@ -34,17 +34,20 @@ class DriverDispatchController extends Controller
 
         $companyId = (int) $request->attributes->get('taxi_company_id');
 
-        $dispatch->expireStaleOffers($conn);
-
-        if (TaxiDispatchSchema::tablesExist($conn)) {
-            $dispatch->expireOffersForPastPickups($conn, $companyId);
-            $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
-            if (TaxiDispatchSchema::driverAvailabilityExists($conn)) {
-                DriverAvailability::on($conn)->updateOrCreate(
-                    ['driver_id' => $user->id],
-                    ['company_id' => $companyId, 'last_seen_at' => now()]
-                );
+        $maintainKey = 'taxi_inbox_maintain:'.$companyId.':'.$user->id;
+        if (Cache::add($maintainKey, 1, 12)) {
+            $dispatch->expireStaleOffers($conn);
+            if (TaxiDispatchSchema::tablesExist($conn)) {
+                $dispatch->expireOffersForPastPickups($conn, $companyId);
+                $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
             }
+        }
+
+        if (TaxiDispatchSchema::driverAvailabilityExists($conn)) {
+            DriverAvailability::on($conn)->updateOrCreate(
+                ['driver_id' => $user->id],
+                ['company_id' => $companyId, 'last_seen_at' => now()]
+            );
         }
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
@@ -77,7 +80,7 @@ class DriverDispatchController extends Controller
             ->with('rideRequest')
             ->archivedForDriver($user->id)
             ->orderByDesc('archived_at')
-            ->limit(100)
+            ->limit(50)
             ->get();
 
         $declinedOffers = RideDispatchOffer::on($conn)
@@ -90,7 +93,11 @@ class DriverDispatchController extends Controller
             })
             ->values();
 
-        $unclaimedRides = $dispatch->unclaimedRidesForCompany($conn, $companyId);
+        $unclaimedRides = Cache::remember(
+            'taxi_unclaimed:'.$companyId,
+            20,
+            fn () => $dispatch->unclaimedRidesForCompany($conn, $companyId)
+        );
 
         $assignedRides = RideRequest::on($conn)
             ->visibleToDriver((int) $user->id, $vehicleId)
@@ -168,55 +175,69 @@ class DriverDispatchController extends Controller
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
         $pickupProposalAlert = Cache::pull('taxi_driver_pickup_proposal_alert:'.(int) $user->id);
 
-        return response()->json([
-            'data' => [
-                'offers' => $offers->map(
-                    fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest)
-                )->values(),
-                'pending_approval_offers' => $pendingApprovalOffers->map(
-                    fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest, true)
-                )->values(),
-                'declined_offers' => $declinedOffers
-                    ->concat($customerDeclinedProposalOffers)
-                    ->map(fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest))
-                    ->values(),
-                'active_ride' => $activeRide
-                    ? TaxiDispatchOfferResource::rideSummary($activeRide)
-                    : null,
-                'parked_assigned_rides' => $parkedAssignedRides
-                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
-                    ->values(),
-                'scheduled_rides' => $scheduledRides
-                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
-                    ->values(),
-                'overdue_scheduled_rides' => $overdueScheduledRides
-                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true))
-                    ->values(),
-                'overdue_released_offers' => $overdueReleasedOffers
-                    ->map(function (RideDispatchOffer $offer) {
-                        return TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true);
-                    })
-                    ->values(),
-                'archived_offers' => $archivedOffers
-                    ->map(function (RideDispatchOffer $offer) {
-                        return TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true);
-                    })
-                    ->values(),
-                'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
-                'pickup_proposal_alert' => is_array($pickupProposalAlert) ? $pickupProposalAlert : null,
-            ],
-            'meta' => array_merge(
-                [
-                    'server_time' => now()->toIso8601String(),
-                    'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
-                    'offer_ttl_seconds' => $dispatchSettings->offerTtlSeconds($companyId),
-                    'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
-                    'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
-                    'unclaimed_rides' => $unclaimedRides,
+        $waitingRideIds = $offers
+            ->concat($pendingApprovalOffers)
+            ->concat($declinedOffers)
+            ->concat($customerDeclinedProposalOffers)
+            ->concat($overdueReleasedOffers)
+            ->concat($archivedOffers)
+            ->map(fn (RideDispatchOffer $offer) => $offer->rideRequest)
+            ->filter(fn ($ride) => $ride && ! $ride->driver_id)
+            ->map(fn (RideRequest $ride) => (int) $ride->id)
+            ->unique()
+            ->values()
+            ->all();
+
+        TaxiDispatchOfferResource::preloadWaitingState($conn, $waitingRideIds);
+        try {
+            return response()->json([
+                'data' => [
+                    'offers' => $offers->map(
+                        fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest)
+                    )->values(),
+                    'pending_approval_offers' => $pendingApprovalOffers->map(
+                        fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest, true)
+                    )->values(),
+                    'declined_offers' => $declinedOffers
+                        ->concat($customerDeclinedProposalOffers)
+                        ->map(fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest))
+                        ->values(),
+                    'active_ride' => $activeRide
+                        ? TaxiDispatchOfferResource::rideSummary($activeRide)
+                        : null,
+                    'parked_assigned_rides' => $parkedAssignedRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
+                        ->values(),
+                    'scheduled_rides' => $scheduledRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
+                        ->values(),
+                    'overdue_scheduled_rides' => $overdueScheduledRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
+                        ->values(),
+                    'overdue_released_offers' => $overdueReleasedOffers
+                        ->map(fn (RideDispatchOffer $offer) => TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true))
+                        ->values(),
+                    'archived_offers' => $archivedOffers
+                        ->map(fn (RideDispatchOffer $offer) => TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true))
+                        ->values(),
+                    'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
+                    'pickup_proposal_alert' => is_array($pickupProposalAlert) ? $pickupProposalAlert : null,
                 ],
-                $dispatchSettings->paymentOptionsForTenant($companyId)
-            ),
-        ]);
+                'meta' => array_merge(
+                    [
+                        'server_time' => now()->toIso8601String(),
+                        'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
+                        'offer_ttl_seconds' => $dispatchSettings->offerTtlSeconds($companyId),
+                        'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
+                        'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
+                        'unclaimed_rides' => $unclaimedRides,
+                    ],
+                    $dispatchSettings->paymentOptionsForTenant($companyId)
+                ),
+            ]);
+        } finally {
+            TaxiDispatchOfferResource::clearWaitingStatePreload();
+        }
     }
 
     public function accept(
@@ -389,6 +410,12 @@ class DriverDispatchController extends Controller
         TaxiDispatchSettingsService $dispatchSettings,
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $validated = $request->validate([
+            'track' => ['sometimes', 'array', 'max:1500'],
+            'track.*.lat' => ['required', 'numeric', 'between:-90,90'],
+            'track.*.lng' => ['required', 'numeric', 'between:-180,180'],
+            'track.*.t' => ['nullable', 'numeric'],
+        ]);
         $rideModel = RideRequest::on($conn)->find($ride);
         $allowOverdueContractComplete = $rideModel
             && $rideModel->isContractRide()
@@ -404,6 +431,7 @@ class DriverDispatchController extends Controller
                 $request->user(),
                 $ride,
                 $allowOverdueContractComplete,
+                $validated['track'] ?? [],
             );
         } catch (ValidationException $e) {
             return response()->json([

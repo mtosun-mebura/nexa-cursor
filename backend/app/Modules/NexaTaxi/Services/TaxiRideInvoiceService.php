@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\TenantCustomerEmail;
 use App\Models\User;
+use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\CompanyEmailLogoService;
@@ -16,7 +17,10 @@ use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
 use App\Services\TenantCustomerMailService;
+use App\Support\EmailCardHtml;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class TaxiRideInvoiceService
@@ -49,14 +53,14 @@ class TaxiRideInvoiceService
                 RideRequest::on($conn)->whereKey($ride->id)->update(['invoice_id' => $existing->id]);
             }
 
-            return $existing;
+            return $this->ensureInvoiceHasNumber($existing);
         }
 
         return DB::transaction(function () use ($conn, $ride, $companyId, $generatePdf) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             $existing = $this->findInvoiceForRide($ride);
             if ($existing) {
-                return $existing;
+                return $this->ensureInvoiceHasNumber($existing);
             }
 
             $invoice = $this->createInvoiceFromRide($ride, $companyId);
@@ -83,14 +87,14 @@ class TaxiRideInvoiceService
 
         $existing = $this->findInvoiceForRide($ride, $billingPeriod);
         if ($existing) {
-            return $existing;
+            return $this->ensureInvoiceHasNumber($existing);
         }
 
         return DB::transaction(function () use ($conn, $ride, $companyId, $billingPeriod, $generatePdf) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             $existing = $this->findInvoiceForRide($ride, $billingPeriod);
             if ($existing) {
-                return $existing;
+                return $this->ensureInvoiceHasNumber($existing);
             }
 
             $amounts = $ride->splitReturnTripLegAmounts();
@@ -152,7 +156,7 @@ class TaxiRideInvoiceService
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             $existing = $this->findInvoiceForRide($ride);
             if ($existing) {
-                return $existing;
+                return $this->ensureInvoiceHasNumber($existing);
             }
 
             $companyId = $this->resolveCompanyIdForRide($ride);
@@ -234,7 +238,7 @@ class TaxiRideInvoiceService
     /**
      * @return array<string, mixed>
      */
-    public function driverInvoicePayload(RideRequest $ride): array
+    public function driverInvoicePayload(RideRequest $ride, bool $ensureInvoice = true): array
     {
         $conn = $ride->getConnectionName();
         $sendableLeg = $this->resolveSendableInvoiceBillingPeriod($ride);
@@ -244,7 +248,7 @@ class TaxiRideInvoiceService
             ? $this->findInvoiceForRide($ride, $billingPeriod)
             : $this->findInvoiceForRide($ride);
 
-        if (! $invoice && $sendableLeg !== null) {
+        if ($ensureInvoice && ! $invoice && $sendableLeg !== null) {
             try {
                 if ($ride->requiresPerLegDriverPayment() && $sendableLeg !== '') {
                     $invoice = $this->ensureInvoiceForLeg($conn, $ride->fresh(), $sendableLeg, false);
@@ -260,6 +264,10 @@ class TaxiRideInvoiceService
             } catch (\Throwable $e) {
                 report($e);
             }
+        }
+
+        if ($ensureInvoice && $invoice) {
+            $invoice = $this->ensureInvoiceHasNumber($invoice);
         }
 
         $outboundInvoice = $ride->requiresPerLegDriverPayment()
@@ -284,6 +292,7 @@ class TaxiRideInvoiceService
             'includes_total_invoice' => $sendableLeg === RideRequest::INVOICE_BILLING_TERUG
                 && $ride->returnPaidAmount() !== null,
             'can_send' => $sendableLeg !== null
+                && filled($invoice?->invoice_number)
                 && $invoice?->status !== 'sent'
                 && $this->invoicePdfAllowedForRide($ride),
         ];
@@ -323,8 +332,13 @@ class TaxiRideInvoiceService
             ]);
         }
 
+        $invoice = $this->ensureInvoiceHasNumber($invoice);
+
         return DB::transaction(function () use ($conn, $ride, $invoice, $email, $invoiceNumber, $sendableLeg) {
             $invoice = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+            if (trim((string) $invoice->invoice_number) === '') {
+                $invoice = $this->ensureInvoiceHasNumber($invoice);
+            }
 
             $submittedNumber = $invoiceNumber !== null ? trim($invoiceNumber) : '';
             if ($submittedNumber !== '' && $submittedNumber !== $invoice->invoice_number) {
@@ -454,7 +468,7 @@ class TaxiRideInvoiceService
         $returnNet = $this->grossToNetAmount($returnGross, $taxRate);
         $taxAmount = round($totalGross * ($taxRate / (100 + $taxRate)), 2);
         $netAmount = round($totalGross - $taxAmount, 2);
-        $invoiceDate = now();
+        $invoiceDate = $this->invoiceDateForPaidRide($ride);
         $dueDate = $invoiceDate->copy()->addDays((int) $settings->payment_terms_days);
         $company = Company::find($companyId);
 
@@ -517,7 +531,7 @@ class TaxiRideInvoiceService
         $taxRate = (float) $settings->default_tax_rate;
         $taxAmount = round($grossAmount * ($taxRate / (100 + $taxRate)), 2);
         $netAmount = round($grossAmount - $taxAmount, 2);
-        $invoiceDate = now();
+        $invoiceDate = $this->invoiceDateForPaidRide($ride);
         $dueDate = $invoiceDate->copy()->addDays((int) $settings->payment_terms_days);
 
         $companyDetails = array_merge(
@@ -557,6 +571,28 @@ class TaxiRideInvoiceService
             ],
             'company_details' => $companyDetails,
         ]);
+    }
+
+    protected function invoiceDateForPaidRide(RideRequest $ride): Carbon
+    {
+        try {
+            $conn = $ride->getConnectionName();
+            if ($conn && Schema::connection($conn)->hasTable('ride_payments')) {
+                $paidAt = RidePayment::on($conn)
+                    ->where('ride_request_id', $ride->id)
+                    ->where('status', RidePayment::STATUS_PAID)
+                    ->whereNotNull('paid_at')
+                    ->orderByDesc('paid_at')
+                    ->value('paid_at');
+                if ($paidAt) {
+                    return Carbon::parse($paidAt, (string) config('app.timezone'))->timezone((string) config('app.timezone'));
+                }
+            }
+        } catch (\Throwable) {
+            // Factuurdatum valt terug op nu.
+        }
+
+        return now();
     }
 
     protected function legRouteDescription(RideRequest $ride, string $billingPeriod): string
@@ -660,16 +696,24 @@ class TaxiRideInvoiceService
                 : strip_tags($htmlContent);
         } else {
             $attachmentNote = $extraAttachments !== []
-                ? '<p>Bij deze e-mail vindt u de factuur van de terugrit en een totaalfactuur met het gecombineerde bedrag van heen- en terugrit.</p>'
+                ? '<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bij deze e-mail vindt u de factuur van de terugrit en een totaalfactuur met het gecombineerde bedrag van heen- en terugrit.</p>'
                 : '';
             $subject = 'Factuur '.$invoice->invoice_number;
-            $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
-                .'<p>In de bijlage vindt u factuur <strong>'.e($invoice->invoice_number).'</strong> van '
+            $body = '<p style="margin:0 0 16px;font-size:16px;">Beste '.e($variables['CUSTOMER_NAME']).',</p>'
+                .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">In de bijlage vindt u factuur <strong>'.e($invoice->invoice_number).'</strong> van '
                 .e($variables['INVOICE_DATE']).'.</p>'
                 .$attachmentNote
                 .($variables['INVOICE_PAID_NOTICE_HTML'] ?? '')
-                .$variables['INVOICE_AMOUNTS_HTML']
-                .'<p>Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+                .($variables['INVOICE_AMOUNTS_HTML'] ?? '')
+                .'<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+            $htmlContent = EmailCardHtml::wrap(
+                'Factuur',
+                'Factuur '.e((string) $invoice->invoice_number),
+                $body,
+                $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
+                EmailCardHtml::poweredByFooter(),
+                (string) $companyName,
+            );
             $textContent = ($variables['INVOICE_PAID_NOTICE_TEXT'] ?? '')
                 ."\n\n"
                 .($variables['INVOICE_AMOUNTS_TEXT'] ?? strip_tags($htmlContent));
@@ -845,6 +889,21 @@ class TaxiRideInvoiceService
         }
 
         return $text;
+    }
+
+    public function ensureInvoiceHasNumber(Invoice $invoice): Invoice
+    {
+        if (trim((string) $invoice->invoice_number) !== '') {
+            return $invoice;
+        }
+
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $settings = InvoiceSetting::getSettingsForCompany($companyId > 0 ? $companyId : null);
+        $invoice->update([
+            'invoice_number' => $settings->generateInvoiceNumber(),
+        ]);
+
+        return $invoice->fresh() ?? $invoice;
     }
 
     protected function resolveCompanyIdForRide(RideRequest $ride): int

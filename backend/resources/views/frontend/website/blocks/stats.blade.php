@@ -53,7 +53,7 @@
                     if ($valueColor !== '') { $valueStyle .= ' color: ' . $valueColor . ';'; }
                 @endphp
                 <div class="{{ $valueSizeClass }} font-bold mb-2 {{ $valueColor === '' ? $defaultColorClass : '' }}" @if($valueStyle !== '') style="{{ $valueStyle }}" @endif>
-                        @if($parsed['num'] > 0)
+                        @if($parsed['num'] > 0 && ! str_starts_with($parsed['suffix'], '/'))
                             <span class="stats-count" data-stat-end="{{ $parsed['num'] }}" data-stat-prefix="{{ e($parsed['prefix']) }}" data-stat-suffix="{{ e($parsed['suffix']) }}">0</span>
                         @else
                             {{ $val }}
@@ -88,34 +88,24 @@
 @push('scripts')
 <script>
 (function() {
-    function initStatsSection() {
-        var section = document.querySelector('[data-stats-section]');
-        if (!section) return;
-        var opts = { rootMargin: '0px 0px -60px 0px', threshold: 0.1 };
-        if (typeof window.nexaObserveWhenVisible === 'function') {
-            window.nexaObserveWhenVisible(section, function(el) {
-                el.classList.add('is-in-view');
-                runCountUp(el);
-            }, opts);
-            return;
-        }
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('is-in-view');
-                    runCountUp(entry.target);
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, opts);
-        observer.observe(section);
+    var countToken = 0;
+    function resetCounters(section) {
+        section.querySelectorAll('.stats-count[data-stat-end]').forEach(function(el) {
+            var prefix = el.getAttribute('data-stat-prefix') || '';
+            var suffix = el.getAttribute('data-stat-suffix') || '';
+            el.textContent = prefix + '0' + suffix;
+        });
     }
     function runCountUp(section) {
+        var token = ++countToken;
         var counters = section.querySelectorAll('.stats-count[data-stat-end]');
+        if (!counters.length) return;
+        resetCounters(section);
         var duration = 1500;
         var startTime = null;
         function easeOutQuart(t) { return 1 - (--t) * t * t * t; }
         function step(timestamp) {
+            if (token !== countToken) return;
             if (!startTime) startTime = timestamp;
             var elapsed = timestamp - startTime;
             var progress = Math.min(elapsed / duration, 1);
@@ -138,6 +128,36 @@
             }
         }
         requestAnimationFrame(step);
+    }
+    function playStats(section) {
+        if (!section) return;
+        section.classList.add('is-in-view');
+        runCountUp(section);
+    }
+    function initStatsSection() {
+        var section = document.querySelector('[data-stats-section]');
+        if (!section) return;
+        window.nexaRestartStatsCountUp = function () {
+            playStats(section);
+        };
+        if (document.body.getAttribute('data-nexa-block-preview') === '1') {
+            playStats(section);
+            return;
+        }
+        var opts = { rootMargin: '0px 0px -60px 0px', threshold: 0.1 };
+        if (typeof window.nexaObserveWhenVisible === 'function') {
+            window.nexaObserveWhenVisible(section, playStats, opts);
+            return;
+        }
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    playStats(entry.target);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, opts);
+        observer.observe(section);
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initStatsSection);

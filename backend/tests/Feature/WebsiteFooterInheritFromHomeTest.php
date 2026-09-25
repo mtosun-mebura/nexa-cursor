@@ -140,8 +140,26 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
             ->assertSee('>Website</a>', false)
             ->assertSee('>Prijzen</a>', false)
             ->assertSee('>Contact</a>', false)
+            ->assertDontSee('website-nav-audience', false)
+            ->assertSee('Voor taxibedrijven', false)
+            ->assertSee('>Boek een rit</a>', false)
+            ->assertSee('/boek', false)
+            ->assertDontSee('>Boeken</a>', false)
+            ->assertDontSee('data-nexataxi-booking-module', false)
             ->assertDontSee(WebsitePage::CENTRAL_WELCOME_SLUG, false)
             ->assertDontSee('id="prijzen-pakketten"', false);
+    }
+
+    #[Test]
+    public function central_boek_page_shows_booking_module(): void
+    {
+        $this->get('http://localhost:8085/boek')
+            ->assertOk()
+            ->assertSee('data-nexataxi-booking-module', false)
+            ->assertSee('id="boek-rit"', false)
+            ->assertSee('>Boek een rit</a>', false)
+            ->assertDontSee('website-nav-audience', false)
+            ->assertDontSee('>Voor taxibedrijven</a>', false);
     }
 
     #[Test]
@@ -350,5 +368,77 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
         $this->assertSame('Kalverstraat', $location['street']);
         $this->assertSame(52.3702, $location['lat']);
         $this->assertSame(4.8952, $location['lng']);
+    }
+
+    #[Test]
+    public function footer_map_can_sit_left_right_or_below_links_and_social(): void
+    {
+        $theme = FrontendTheme::query()->where('slug', 'modern')->first();
+        $this->assertNotNull($theme);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'home-map-pos-'.uniqid(),
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'is_active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $baseSections = [
+            'footer' => [
+                'quick_links' => [['label' => 'Home', 'url' => '/']],
+                'social_facebook' => 'nexasuite',
+                'map_city' => 'Enschede',
+                'map_position' => 'bottom',
+            ],
+            'visibility' => [
+                'footer' => true,
+                'footer_map' => true,
+                'footer_quick_links' => true,
+                'footer_social' => true,
+            ],
+        ];
+
+        $viewData = [
+            'page' => $page,
+            'branding' => ['site_name' => 'NEXA'],
+            'googleMapsApiKey' => 'test-maps-key',
+            'websiteBuilder' => app(WebsiteBuilderService::class),
+        ];
+
+        $left = view('frontend.layouts.partials.website-footer', array_merge($viewData, [
+            'homeSections' => array_replace_recursive($baseSections, ['footer' => ['map_position' => 'left']]),
+        ]))->render();
+        $this->assertStringContainsString('footer-grid-with-map--left', $left);
+        $this->assertStringContainsString('data-map-position="left"', $left);
+        $this->assertLessThan(
+            strpos($left, 'footer-map-content'),
+            strpos($left, 'data-map-position="left"')
+        );
+
+        $right = view('frontend.layouts.partials.website-footer', array_merge($viewData, [
+            'homeSections' => array_replace_recursive($baseSections, ['footer' => ['map_position' => 'right']]),
+        ]))->render();
+        $this->assertStringContainsString('footer-grid-with-map--right', $right);
+        $this->assertStringContainsString('data-map-position="right"', $right);
+        $this->assertLessThan(
+            strpos($right, 'data-map-position="right"'),
+            strpos($right, 'footer-map-content')
+        );
+
+        $bottom = view('frontend.layouts.partials.website-footer', array_merge($viewData, [
+            'homeSections' => $baseSections,
+        ]))->render();
+        $this->assertStringContainsString('footer-grid-with-map--bottom', $bottom);
+        $this->assertStringContainsString('data-map-position="bottom"', $bottom);
+        $this->assertLessThan(
+            strpos($bottom, 'footer-social-row'),
+            strpos($bottom, 'data-map-position="bottom"')
+        );
+        $this->assertLessThan(
+            strpos($bottom, 'data-map-position="bottom"'),
+            strpos($bottom, 'footer-quick-links-list')
+        );
     }
 }

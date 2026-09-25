@@ -58,6 +58,21 @@
         return ta.value.trim();
     }
 
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function emphasizeVersions(text) {
+        return escapeHtml(text).replace(
+            /\b(?:v)?\d+\.\d+(?:\.\d+){0,2}(?:-[A-Za-z0-9]+)?\b/gi,
+            '<strong class="font-semibold text-foreground">$&</strong>'
+        );
+    }
+
     function extractConfirmMessage(el) {
         if (!el || !el.getAttribute) {
             return '';
@@ -146,7 +161,7 @@
             titleEl.textContent = opts.title || 'Bevestigen';
         }
         if (messageEl) {
-            messageEl.textContent = message;
+            messageEl.innerHTML = emphasizeVersions(message);
         }
         if (acceptBtn) {
             acceptBtn.textContent = opts.confirmLabel || 'Bevestigen';

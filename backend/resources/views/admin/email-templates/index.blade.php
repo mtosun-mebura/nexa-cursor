@@ -66,9 +66,9 @@
                 <h3 class="kt-card-title text-sm mb-0 w-full">
                     Toon 1 tot {{ $emailTemplates->count() }} van {{ $emailTemplates->count() }} templates
                 </h3>
-                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full">
                     <!-- Search -->
-                    <div class="flex w-full sm:w-auto justify-center sm:justify-start">
+                    <div class="flex w-full sm:w-auto justify-end">
                         <form method="GET" action="{{ route('admin.email-templates.index') }}" class="flex gap-2" id="search-form">
                             @if(request('type'))
                                 <input type="hidden" name="type" value="{{ request('type') }}">
@@ -100,7 +100,7 @@
                         </form>
                     </div>
                     <!-- Filters -->
-                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-center justify-center sm:justify-start w-full sm:w-auto">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-center justify-end w-full sm:w-auto">
                         <form method="GET" action="{{ route('admin.email-templates.index') }}" id="filters-form" class="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-center sm:items-stretch">
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">

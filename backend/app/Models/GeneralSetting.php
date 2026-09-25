@@ -14,6 +14,7 @@ class GeneralSetting extends Model
     /** Platform-breed: niet per tenant (sync-doel, vlag, WhatsApp Business API, algemene configuraties). */
     public const GLOBAL_PLATFORM_KEYS = [
         'nexa_release_version',
+        'COOLIFY_VPS_PUBLIC_IP',
         'tenant_sync_target_database_url',
         'tenant_sync_target_database_password_enc',
         'tenant_sync_push_enabled',
@@ -82,6 +83,20 @@ class GeneralSetting extends Model
 
     /** Tenant-mailserver; leeg = NEXA Suite-mailserver (`company_id` null) of `.env`. */
     public const MAIL_SETTING_KEYS = [
+        'MAIL_MAILER',
+        'MAIL_HOST',
+        'MAIL_PORT',
+        'MAIL_USERNAME',
+        'MAIL_PASSWORD',
+        'MAIL_ENCRYPTION',
+        'MAIL_FROM_ADDRESS',
+        'MAIL_FROM_NAME',
+        'MAIL_SMTP_PROVIDER',
+        'MAIL_SMTP_CUSTOM_PROVIDERS',
+    ];
+
+    /** Keys die aangeven dat de tenant een eigen mailserver heeft (geen provider-meta). */
+    public const MAIL_DELIVERY_SETTING_KEYS = [
         'MAIL_MAILER',
         'MAIL_HOST',
         'MAIL_PORT',

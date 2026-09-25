@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\CompanyDomain;
 use App\Models\GeneralSetting;
+use App\Support\EmailCardHtml;
 use Illuminate\Mail\Message;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -57,7 +58,9 @@ class CompanyEmailLogoService
      */
     public function embedInHtml(string $html, Message $message, ?int $companyId, ?string $fallbackName = null): string
     {
-        $html = \App\Support\NexaBranding::embedInMessage($html, $message);
+        $html = EmailCardHtml::stripRedundantBrandKickerHtml(
+            \App\Support\NexaBranding::embedInMessage($html, $message)
+        );
 
         if (! str_contains($html, self::HTML_PLACEHOLDER)) {
             return $html;
@@ -107,6 +110,53 @@ class CompanyEmailLogoService
         return url(route('email.company-logo', ['company' => $companyId], false));
     }
 
+    /**
+     * Light- en dark-logo voor chauffeur-/contract-PWA (huidige host).
+     *
+     * @return array{light: ?string, dark: ?string}
+     */
+    public function pwaLogoUrls(?int $companyId): array
+    {
+        $light = $this->adminPreviewLogoUrl($companyId);
+        if ($light === null) {
+            return ['light' => null, 'dark' => null];
+        }
+
+        $dark = $this->resolveDarkLogoPayload($companyId) !== null
+            ? $light.(str_contains($light, '?') ? '&' : '?').'variant=dark'
+            : $light;
+
+        return ['light' => $light, 'dark' => $dark];
+    }
+
+    /**
+     * @return array{data: string, mime: string}|null
+     */
+    public function resolveDarkLogoPayload(?int $companyId): ?array
+    {
+        if ($companyId === null || $companyId <= 0) {
+            return null;
+        }
+
+        $company = Company::query()->find($companyId);
+        if ($company && filled($company->logo_dark_blob)) {
+            $binary = base64_decode((string) $company->logo_dark_blob, true);
+            if ($binary !== false && $binary !== '') {
+                return [
+                    'data' => $binary,
+                    'mime' => (string) ($company->logo_dark_mime_type ?: 'image/png'),
+                ];
+            }
+        }
+
+        $path = GeneralSetting::get('logo_dark', null, $companyId);
+        if (is_string($path) && trim($path) !== '') {
+            return $this->payloadFromStoragePath($path);
+        }
+
+        return null;
+    }
+
     public function resolveEmailLogoMaxHeightPx(?int $companyId): int
     {
         $raw = GeneralSetting::get('logo_size', '56', $companyId && $companyId > 0 ? $companyId : null);
@@ -141,7 +191,9 @@ class CompanyEmailLogoService
             return $html;
         }
 
-        $html = \App\Support\NexaBranding::injectPreviewLogo($html);
+        $html = EmailCardHtml::stripRedundantBrandKickerHtml(
+            \App\Support\NexaBranding::injectPreviewLogo($html)
+        );
 
         $hasPlaceholder = str_contains($html, 'COMPANY_LOGO')
             || str_contains($html, self::HTML_PLACEHOLDER);

@@ -16,9 +16,10 @@ class NexaTaxiPublicRatesService
     ) {}
 
     /**
+     * @param  ?int  $companyId  Null = NEXA Suite (algemene website). Tenant-id = tarieven van dat bedrijf, met fallback op platform.
      * @return array{rates_1_4: \App\Modules\NexaTaxi\Models\DefaultRate|null, rates_5_8: \App\Modules\NexaTaxi\Models\DefaultRate|null, cleaning_costs: float|null}|null
      */
-    public function getRatesForDisplay(): ?array
+    public function getRatesForDisplay(?int $companyId = null): ?array
     {
         if (!Module::where('installed', true)->where('active', true)->whereRaw('LOWER(name) = ?', ['taxi'])->exists()) {
             return null;
@@ -30,9 +31,9 @@ class NexaTaxiPublicRatesService
             return null;
         }
         try {
-            $forEdit = DefaultRate::getRatesForEdit($conn);
-            $rates1_4 = $forEdit->firstWhere('person_range', '1-4');
-            $rates5_8 = $forEdit->firstWhere('person_range', '5-8');
+            $forDisplay = DefaultRate::getRatesForDisplay($conn, $companyId);
+            $rates1_4 = $forDisplay->firstWhere('person_range', '1-4');
+            $rates5_8 = $forDisplay->firstWhere('person_range', '5-8');
             $cleaning = null;
             if ($rates1_4 && $rates1_4->cleaning_costs !== null) {
                 $cleaning = (float) $rates1_4->cleaning_costs;
@@ -45,7 +46,7 @@ class NexaTaxiPublicRatesService
                 'cleaning_costs' => $cleaning,
             ];
         } catch (\Throwable $e) {
-            Log::debug('NexaTaxiPublicRatesService: getRatesForEdit failed', ['message' => $e->getMessage()]);
+            Log::debug('NexaTaxiPublicRatesService: getRatesForDisplay failed', ['message' => $e->getMessage()]);
             return null;
         }
     }

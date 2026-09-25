@@ -64,19 +64,39 @@ class AdminCompanyDomainController extends Controller
             'is_primary' => $isPrimary,
         ]);
 
-        $company->refresh();
-        $company->load('domains');
+        return $this->domainsJsonOrRedirect($request, $company, 'Domein toegevoegd.');
+    }
 
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Domein toegevoegd.',
-                'tbody_html' => view('admin.companies.partials.domain-table-rows', ['company' => $company])->render(),
-                'has_domains' => $company->domains->isNotEmpty(),
-            ]);
+    public function update(Request $request, Company $company, CompanyDomain $domain)
+    {
+        $this->ensureDomainAccess($company);
+        if (! $this->canAccessResource($company)) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+        if ((int) $domain->company_id !== (int) $company->id) {
+            abort(404);
         }
 
-        return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Domein toegevoegd.');
+        $request->merge([
+            'host' => CompanyDomain::normalizeHost((string) $request->input('host', $domain->host)),
+        ]);
+
+        $validated = $request->validate([
+            'host' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[a-z0-9.\-]+$/',
+                Rule::unique('company_domains', 'host')->ignore($domain->id),
+            ],
+        ], [
+            'host.regex' => 'Voer een geldige hostnaam in (alleen letters, cijfers, punten en koppeltekens; geen poort).',
+            'host.unique' => 'Deze hostnaam is al gekoppeld aan een bedrijf.',
+        ]);
+
+        $domain->update(['host' => $validated['host']]);
+
+        return $this->domainsJsonOrRedirect($request, $company, 'Domein bijgewerkt.');
     }
 
     public function destroy(Request $request, Company $company, CompanyDomain $domain)
@@ -89,21 +109,14 @@ class AdminCompanyDomainController extends Controller
             abort(404);
         }
 
+        $wasPrimary = (bool) $domain->is_primary;
         $domain->delete();
 
-        $company->refresh();
-        $company->load('domains');
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Domein verwijderd.',
-                'tbody_html' => view('admin.companies.partials.domain-table-rows', ['company' => $company])->render(),
-                'has_domains' => $company->domains->isNotEmpty(),
-            ]);
+        if ($wasPrimary) {
+            $this->ensurePrimaryDomain($company);
         }
 
-        return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Domein verwijderd.');
+        return $this->domainsJsonOrRedirect($request, $company, 'Domein verwijderd.');
     }
 
     public function setPrimary(Request $request, Company $company, CompanyDomain $domain)
@@ -116,21 +129,67 @@ class AdminCompanyDomainController extends Controller
             abort(404);
         }
 
+        // Explicit clear (primair uitzetten): bij meerdere domeinen een ander primair maken.
+        if ($request->boolean('clear') || $request->input('is_primary') === '0' || $request->input('is_primary') === 0) {
+            if ($domain->is_primary) {
+                $domain->update(['is_primary' => false]);
+                $this->ensurePrimaryDomain($company, excludeId: (int) $domain->id);
+                // Alleen-domein: blijft primair via ensurePrimaryDomain.
+            }
+
+            return $this->domainsJsonOrRedirect($request, $company, 'Primair domein bijgewerkt.');
+        }
+
         CompanyDomain::query()->where('company_id', $company->id)->update(['is_primary' => false]);
         $domain->update(['is_primary' => true]);
 
+        return $this->domainsJsonOrRedirect($request, $company, 'Primair domein ingesteld.');
+    }
+
+    /**
+     * Zorgt dat er altijd een primair domein is zolang er domeinen bestaan.
+     */
+    private function ensurePrimaryDomain(Company $company, ?int $excludeId = null): void
+    {
+        $company->refresh();
+        $query = CompanyDomain::query()->where('company_id', $company->id);
+        if ($excludeId !== null) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        if (! $query->clone()->where('is_primary', true)->exists()) {
+            $next = $query->orderBy('id')->first();
+            if ($next) {
+                $next->update(['is_primary' => true]);
+            }
+        }
+
+        // Als clear op het enige domein werd gedaan: zet het weer primair.
+        if ($excludeId !== null && ! CompanyDomain::query()->where('company_id', $company->id)->where('is_primary', true)->exists()) {
+            $only = CompanyDomain::query()->where('company_id', $company->id)->whereKey($excludeId)->first();
+            $only?->update(['is_primary' => true]);
+        }
+    }
+
+    private function domainsJsonOrRedirect(Request $request, Company $company, string $message)
+    {
         $company->refresh();
         $company->load('domains');
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'Primair domein ingesteld.',
+                'message' => $message,
                 'tbody_html' => view('admin.companies.partials.domain-table-rows', ['company' => $company])->render(),
                 'has_domains' => $company->domains->isNotEmpty(),
             ]);
         }
 
+        $redirect = $request->headers->get('referer');
+        if (is_string($redirect) && $redirect !== '') {
+            return redirect()->to($redirect)->with('success', $message);
+        }
+
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Primair domein ingesteld.');
+            ->with('success', $message);
     }
 }

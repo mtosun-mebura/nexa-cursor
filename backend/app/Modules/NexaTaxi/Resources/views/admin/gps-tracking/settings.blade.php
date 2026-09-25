@@ -267,7 +267,7 @@
         position: relative;
         z-index: 1;
         display: flex;
-        transform-origin: 50% 55%;
+        transform-origin: 50% 50%;
         filter: drop-shadow(0 2px 3px rgba(0,0,0,.35));
     }
     .nexa-gps-car-img {

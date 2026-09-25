@@ -71,7 +71,8 @@
 
         <!-- Chat Messages -->
         <div class="ai-chat-panel__messages flex-1 min-h-0 overflow-y-auto p-4 space-y-4"
-             x-ref="messagesContainer">
+             x-ref="messagesContainer"
+             @click="onChatLinkClick($event)">
             <template x-for="message in messages" :key="message.id">
                 <div class="flex" :class="message.sender === 'user' ? 'justify-end' : 'justify-start'">
                     <div class="ai-chat-bubble max-w-[85%] px-4 py-2 rounded-lg"
@@ -79,7 +80,7 @@
                              message.sender === 'user' ? 'ai-chat-bubble--user' : 'ai-chat-bubble--ai',
                              isExpanded ? 'ai-chat-bubble--expanded' : '',
                          ]">
-                        <p class="text-sm whitespace-pre-wrap" x-show="message.sender === 'user'" x-text="message.text"></p>
+                        <p class="text-sm whitespace-pre-wrap" x-show="message.sender === 'user'" x-text="formatUserMessage(message.text)"></p>
                         <div class="text-sm ai-chat-message" x-show="message.sender !== 'user'" x-html="formatChatMessage(message.text)"></div>
                         <p class="ai-chat-bubble__time text-xs mt-1" x-text="message.time"></p>
                     </div>
@@ -109,7 +110,7 @@
                        x-ref="messageInput"
                        class="input flex-1 text-sm min-w-0"
                        :disabled="isTyping"
-                       :placeholder="config.requiresTenant ? 'Selecteer eerst een tenant…' : 'Typ je vraag...'"
+                       :placeholder="config.requiresTenant ? 'Selecteer eerst een klant…' : 'Typ je vraag...'"
                        autocomplete="off">
                 <button type="submit"
                         :disabled="!canSubmitTextInput()"
@@ -181,12 +182,63 @@
 
             <!-- Datum/tijd picker -->
             <form x-show="activeQuoteInput()?.type === 'datetime'" @submit.prevent="submitStructuredInput()" class="space-y-2">
-                <input type="datetime-local"
-                       x-ref="datetimeInput"
-                       x-model="datetimeValue"
-                       class="input w-full text-sm ai-chat-datetime-input"
-                       :min="activeQuoteInput()?.min || ''"
-                       :disabled="isTyping">
+                <div class="relative ai-chat-datetime">
+                    <button type="button"
+                            class="input w-full text-sm ai-chat-datetime-input text-left"
+                            :disabled="isTyping"
+                            @click="toggleDatetimePicker()"
+                            x-text="datetimeDisplayLabel()"></button>
+                    <div x-show="datetimePickerOpen"
+                         x-cloak
+                         class="ai-chat-datetime-popover"
+                         @click.stop
+                         @mousedown.stop>
+                        <div class="ai-chat-datetime-nav">
+                            <button type="button" class="ai-chat-datetime-nav__btn" @click="shiftDatetimeMonth(-1)" aria-label="Vorige maand">‹</button>
+                            <span class="ai-chat-datetime-nav__label" x-text="datetimeMonthLabel()"></span>
+                            <button type="button" class="ai-chat-datetime-nav__btn" @click="shiftDatetimeMonth(1)" aria-label="Volgende maand">›</button>
+                        </div>
+                        <div class="ai-chat-datetime-week">
+                            <template x-for="dayName in datetimeWeekdays" :key="dayName">
+                                <span x-text="dayName"></span>
+                            </template>
+                        </div>
+                        <div class="ai-chat-datetime-grid">
+                            <template x-for="(day, index) in datetimeCalendarDays()" :key="index">
+                                <button type="button"
+                                        class="ai-chat-datetime-day"
+                                        :class="{
+                                            'is-empty': !day,
+                                            'is-selected': isDatetimeDaySelected(day),
+                                            'is-disabled': isDatetimeDayDisabled(day),
+                                        }"
+                                        :disabled="!day || isDatetimeDayDisabled(day)"
+                                        @click="selectDatetimeDay(day)"
+                                        x-text="day || ''"></button>
+                            </template>
+                        </div>
+                        <div class="ai-chat-datetime-times">
+                            <div class="ai-chat-datetime-col" x-ref="datetimeHourCol" role="listbox" aria-label="Uren">
+                                <template x-for="hour in datetimeHours" :key="hour">
+                                    <button type="button"
+                                            class="ai-chat-datetime-item"
+                                            :class="{ 'is-active': datetimeSelectedHour() === hour }"
+                                            @click="selectDatetimeHour(hour)"
+                                            x-text="hour"></button>
+                                </template>
+                            </div>
+                            <div class="ai-chat-datetime-col" x-ref="datetimeMinuteCol" role="listbox" aria-label="Minuten">
+                                <template x-for="minute in datetimeMinutes" :key="minute">
+                                    <button type="button"
+                                            class="ai-chat-datetime-item"
+                                            :class="{ 'is-active': datetimeSelectedMinute() === minute }"
+                                            @click="selectDatetimeMinute(minute)"
+                                            x-text="minute"></button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <button type="submit"
                         :disabled="!canSubmitStructuredInput()"
                         class="btn btn-primary w-full text-sm disabled:opacity-50 disabled:cursor-not-allowed">

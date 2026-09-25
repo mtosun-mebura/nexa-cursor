@@ -19,7 +19,7 @@ class Module extends BaseModule
 
     public function getVersion(): string
     {
-        return '1.0.0';
+        return '1.0.33';
     }
 
     public function getDescription(): string
@@ -69,13 +69,30 @@ class Module extends BaseModule
                 'order' => 20,
             ],
             [
+                'key' => 'dispatch_settings',
+                'title' => 'Chauffeur dispatch',
+                'route' => 'admin.taxi.dispatch_settings.edit',
+                'icon' => 'ki-filled ki-phone',
+                'permission' => 'rides.view',
+                'package_capability' => TenantPackageCapability::DISPATCH,
+                'order' => 21,
+            ],
+            [
+                'key' => 'driver_schedules',
+                'title' => 'Chauffeurplanning',
+                'route' => 'admin.taxi.driver_schedules.index',
+                'icon' => 'ki-filled ki-time',
+                'permission' => 'rides.view',
+                'order' => 22,
+            ],
+            [
                 'key' => 'transport_customers',
                 'title' => 'Contractvervoer',
                 'route' => 'admin.taxi.transport_customers.index',
                 'icon' => 'ki-filled ki-people',
                 'permission' => 'rides.view',
                 'package_capability' => TenantPackageCapability::CONTRACT_TRANSPORT,
-                'order' => 22,
+                'order' => 23,
                 'children' => [
                     [
                         'title' => 'Contractklanten',
@@ -109,15 +126,6 @@ class Module extends BaseModule
                         'route' => 'admin.taxi.gps_tracking.settings',
                     ],
                 ],
-            ],
-            [
-                'key' => 'dispatch_settings',
-                'title' => 'Chauffeur dispatch',
-                'route' => 'admin.taxi.dispatch_settings.edit',
-                'icon' => 'ki-filled ki-phone',
-                'permission' => 'rides.view',
-                'package_capability' => TenantPackageCapability::DISPATCH,
-                'order' => 25,
             ],
             [
                 'key' => 'ai_chatbot',
