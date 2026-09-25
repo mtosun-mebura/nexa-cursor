@@ -843,12 +843,12 @@ class WebsiteBuilderService
         }
 
         $logoUrl = TenantFrontendUrl::for(
-            route('frontend.company-brand.logo', $company),
+            $company->publicBrandLogoUrl(false),
             (int) $company->id
         );
         $logoDarkUrl = $company->logo_dark_blob
             ? TenantFrontendUrl::for(
-                route('frontend.company-brand.logo.dark', $company),
+                $company->publicBrandLogoUrl(true),
                 (int) $company->id
             )
             : $logoUrl;
@@ -900,8 +900,10 @@ class WebsiteBuilderService
     {
         $path = str_replace(['../', '..'], '', $path);
         $encoded = str_replace('/', '--', trim($path, '/'));
+        $url = url('/file/'.$encoded);
+        $absolute = storage_path('app/public/'.ltrim($path, '/'));
 
-        return url('/file/'.$encoded);
+        return \App\Support\TenantPublicCache::appendFileMtime($url, $absolute);
     }
 
     /**
@@ -936,7 +938,7 @@ class WebsiteBuilderService
 
                 return [
                     'url' => TenantFrontendUrl::for(
-                        route('frontend.company-brand.favicon', $company),
+                        (string) $company->publicBrandFaviconUrl(),
                         (int) $company->id
                     ),
                     'type' => $company->favicon_mime_type ?: 'image/png',
@@ -962,11 +964,10 @@ class WebsiteBuilderService
             }
         }
 
-        $mtime = Storage::disk('public')->lastModified($path);
         $mime = Storage::disk('public')->mimeType($path) ?: 'image/png';
 
         return [
-            'url' => $this->publicFileUrl(ltrim($path, '/')).'?v='.$mtime,
+            'url' => $this->publicFileUrl(ltrim($path, '/')),
             'type' => $mime,
         ];
     }
@@ -991,7 +992,7 @@ class WebsiteBuilderService
         }
 
         $faviconUrl = TenantFrontendUrl::for(
-            route('frontend.company-brand.favicon', $company),
+            (string) $company->publicBrandFaviconUrl(),
             (int) $company->id
         );
     }

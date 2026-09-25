@@ -31,6 +31,7 @@ final class TaxiContractvervoerSchemaService
                 $table->text('notes')->nullable();
                 $table->boolean('active')->default(true)->index();
                 $table->timestamp('archived_at')->nullable()->index();
+                $table->boolean('archive_keep_past_rides')->default(false);
                 $table->timestamps();
             });
         }
@@ -222,6 +223,7 @@ final class TaxiContractvervoerSchemaService
 
         $this->ensureCustomerOrganizationTypeColumn($connection);
         $this->ensureCustomerArchivedAtColumn($connection);
+        $this->ensureCustomerArchiveKeepPastRidesColumn($connection);
         $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
     }
@@ -240,6 +242,23 @@ final class TaxiContractvervoerSchemaService
 
         $schema->table('transport_customers', function (Blueprint $table) {
             $table->timestamp('archived_at')->nullable()->index();
+        });
+    }
+
+    public function ensureCustomerArchiveKeepPastRidesColumn(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if (! $schema->hasTable('transport_customers')) {
+            return;
+        }
+
+        $cols = $schema->getColumnListing('transport_customers');
+        if (in_array('archive_keep_past_rides', $cols, true)) {
+            return;
+        }
+
+        $schema->table('transport_customers', function (Blueprint $table) {
+            $table->boolean('archive_keep_past_rides')->default(false);
         });
     }
 

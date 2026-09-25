@@ -25,11 +25,14 @@
 @if($logoInHeader)
     @once
         <style>
-            /* Mobiele header (h-16): logo los van de ingestelde desktopgrootte, zodat kleine tekst in het logo leesbaar blijft. */
+            /* Mobiele header: iets hoger + groter logo zodat wapen/tekst leesbaar blijft. */
             @media (max-width: 767.98px) {
+                .fe-site-header-bar.h-16 {
+                    height: 4.75rem; /* ~76px */
+                }
                 .fe-brand-logo-img.fe-brand-logo-img--header {
-                    height: clamp(2.5rem, 6vw + 1.25rem, 3rem) !important;
-                    max-width: min(48vw, 12rem) !important;
+                    height: clamp(3.5rem, 11vw + 1.5rem, 4.35rem) !important;
+                    max-width: min(68vw, 16rem) !important;
                 }
             }
         </style>

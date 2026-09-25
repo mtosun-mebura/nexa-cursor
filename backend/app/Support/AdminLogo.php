@@ -50,9 +50,23 @@ class AdminLogo
             $settingsLogoDark = GeneralSetting::get('logo_dark');
             $hasSettingsLogoDark = $settingsLogoDark && Storage::disk('public')->exists($settingsLogoDark);
             $logoLightUrl = route('admin.settings.logo');
+            $logoDarkUrlBase = route('admin.settings.logo-dark');
             $logoDarkUrl = ($settingsLogoMode === 'light_dark' && $hasSettingsLogoDark)
-                ? route('admin.settings.logo-dark')
+                ? $logoDarkUrlBase
                 : $logoLightUrl;
+
+            $logoLightUrl = \App\Support\TenantPublicCache::appendFileMtime(
+                $logoLightUrl,
+                Storage::disk('public')->path($settingsLogo)
+            );
+            if ($settingsLogoMode === 'light_dark' && $hasSettingsLogoDark) {
+                $logoDarkUrl = \App\Support\TenantPublicCache::appendFileMtime(
+                    $logoDarkUrlBase,
+                    Storage::disk('public')->path($settingsLogoDark)
+                );
+            } else {
+                $logoDarkUrl = $logoLightUrl;
+            }
 
             return [
                 'source' => 'settings',

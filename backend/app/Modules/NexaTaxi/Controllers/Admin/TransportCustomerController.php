@@ -209,7 +209,7 @@ class TransportCustomerController extends Controller
             ->with('success', 'Contractklant opgeslagen.');
     }
 
-    public function destroy(int $id)
+    public function destroy(Request $request, int $id, TransportCustomerCascadeDeleteService $cascadeDelete)
     {
         $this->authorizeOrPermission('rides.delete');
 
@@ -222,13 +222,92 @@ class TransportCustomerController extends Controller
                 ->with('success', 'Dit contract staat al in het archief.');
         }
 
+        $keepPastRides = $request->boolean('keep_past_rides');
+
+        $cascadeDelete->purgePlanningAndAgendaRides($conn, $customer, $keepPastRides);
+
         $customer->update([
             'archived_at' => now(),
             'active' => false,
+            'archive_keep_past_rides' => $keepPastRides,
+        ]);
+
+        $suffix = $keepPastRides
+            ? ' Verleden ritten blijven zichtbaar in planning en agenda; toekomstige ritten zijn verwijderd.'
+            : ' Alle ritten zijn uit planning en agenda verwijderd.';
+
+        return redirect()->route('admin.taxi.transport_customers.index')
+            ->with('success', 'Contract "'.$customer->name.'" is naar het archief verplaatst. Facturatiehistorie blijft bewaard.'.$suffix);
+    }
+
+    public function updateArchiveKeepPastRides(Request $request, int $id, TransportCustomerCascadeDeleteService $cascadeDelete)
+    {
+        $this->authorizeOrPermission('rides.update');
+
+        $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
+        $customer = TransportCustomer::on($conn)->findOrFail($id);
+
+        if (! $customer->isArchived()) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Alleen gearchiveerde contracten kunnen deze optie wijzigen.',
+                ], 422);
+            }
+
+            return redirect()->route('admin.taxi.transport_customers.index')
+                ->withErrors(['archive' => 'Alleen gearchiveerde contracten kunnen deze optie wijzigen.']);
+        }
+
+        $keepPastRides = $request->boolean('keep_past_rides');
+
+        if (! $keepPastRides && $customer->archive_keep_past_rides) {
+            // Optie uit: ook verleden ritten wissen.
+            $cascadeDelete->purgePlanningAndAgendaRides($conn, $customer, keepPastRides: false);
+        }
+
+        $customer->update([
+            'archive_keep_past_rides' => $keepPastRides,
+        ]);
+
+        $message = $keepPastRides
+            ? 'Verleden ritten van "'.$customer->name.'" blijven zichtbaar in planning en agenda.'
+            : 'Verleden ritten van "'.$customer->name.'" zijn uit planning en agenda verwijderd.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'keep_past_rides' => $keepPastRides,
+            ]);
+        }
+
+        return redirect()->route('admin.taxi.transport_customers.index', ['view' => 'archive'])
+            ->with('success', $message);
+    }
+
+    public function restore(int $id)
+    {
+        $this->authorizeOrPermission('rides.update');
+
+        $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTablesExist($conn);
+        $customer = TransportCustomer::on($conn)->findOrFail($id);
+
+        if (! $customer->isArchived()) {
+            return redirect()->route('admin.taxi.transport_customers.index')
+                ->with('success', 'Dit contract is al actief.');
+        }
+
+        $customer->update([
+            'archived_at' => null,
+            'active' => true,
+            'archive_keep_past_rides' => false,
         ]);
 
         return redirect()->route('admin.taxi.transport_customers.index')
-            ->with('success', 'Contract "'.$customer->name.'" is naar het archief verplaatst. Facturatiehistorie blijft bewaard.');
+            ->with('success', 'Contract "'.$customer->name.'" is hersteld en weer actief.');
     }
 
     public function forceDestroy(int $id, TransportCustomerCascadeDeleteService $cascadeDelete)
@@ -248,7 +327,7 @@ class TransportCustomerController extends Controller
         $cascadeDelete->delete($conn, $customer);
 
         return redirect()->route('admin.taxi.transport_customers.index')
-            ->with('success', 'Contract "'.$name.'" is definitief verwijderd, inclusief abonnementen en passagiers.');
+            ->with('success', 'Contract "'.$name.'" is definitief verwijderd, inclusief abonnementen, passagiers en ritten.');
     }
 
     // -----------------------------------------------------------------------

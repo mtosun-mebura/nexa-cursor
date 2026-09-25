@@ -8,8 +8,11 @@ use App\Modules\NexaTaxi\Controllers\Admin\TransportCustomerController;
 use App\Modules\NexaTaxi\Models\TransportContract;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
+use App\Modules\NexaTaxi\Models\TransportOccurrence;
+use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TransportCustomerCascadeDeleteService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -86,14 +89,102 @@ class TransportCustomerDestroyCascadeTest extends TestCase
         $this->actingAs($admin);
         session(['selected_tenant' => $company->id]);
 
-        $response = app(TransportCustomerController::class)->destroy($customer->id);
+        $pastOccurrence = TransportOccurrence::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'transport_contract_id' => $contract->id,
+            'occurrence_type' => 'group',
+            'scheduled_date' => now()->subDays(3)->toDateString(),
+            'scheduled_at' => now()->subDays(3),
+            'status' => 'planned',
+        ]);
+        $futureOccurrence = TransportOccurrence::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'transport_contract_id' => $contract->id,
+            'occurrence_type' => 'group',
+            'scheduled_date' => now()->addDays(3)->toDateString(),
+            'scheduled_at' => now()->addDays(3),
+            'status' => 'planned',
+        ]);
+
+        $response = app(TransportCustomerController::class)->destroy(
+            Request::create('/admin/taxi/contractklanten/'.$customer->id, 'DELETE', [
+                'keep_past_rides' => '1',
+            ]),
+            $customer->id,
+            app(TransportCustomerCascadeDeleteService::class)
+        );
 
         $this->assertTrue($response->isRedirect());
         $customer->refresh();
         $this->assertNotNull($customer->archived_at);
         $this->assertFalse($customer->active);
+        $this->assertTrue($customer->archive_keep_past_rides);
         $this->assertNotNull(TransportContract::on('module_taxi')->find($contract->id));
         $this->assertNotNull(TransportPassenger::on('module_taxi')->find($passenger->id));
+        $this->assertNotNull(TransportOccurrence::on('module_taxi')->find($pastOccurrence->id));
+        $this->assertNull(TransportOccurrence::on('module_taxi')->find($futureOccurrence->id));
+    }
+
+    #[Test]
+    #[Group('taxi')]
+    public function destroy_without_keep_past_removes_all_occurrences(): void
+    {
+        $company = $this->bootTaxiModule();
+        $admin = User::factory()->create(['company_id' => $company->id]);
+        $admin->assignRole('super-admin');
+
+        $customer = TransportCustomer::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'name' => 'O.B.S. Roombeek',
+            'organization_type' => 'school',
+            'contact_name' => 'Directeur Mehmet',
+            'active' => true,
+        ]);
+
+        $contract = TransportContract::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'transport_customer_id' => $customer->id,
+            'name' => 'Schoolvervoer Roombeek',
+            'status' => 'active',
+            'billing_model' => 'fixed_monthly',
+            'monthly_amount' => 100,
+            'invoice_day' => 1,
+            'payment_terms_days' => 14,
+            'tax_rate' => 0,
+        ]);
+
+        $pastOccurrence = TransportOccurrence::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'transport_contract_id' => $contract->id,
+            'occurrence_type' => 'group',
+            'scheduled_date' => now()->subDays(2)->toDateString(),
+            'scheduled_at' => now()->subDays(2),
+            'status' => 'planned',
+        ]);
+        $futureOccurrence = TransportOccurrence::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'transport_contract_id' => $contract->id,
+            'occurrence_type' => 'group',
+            'scheduled_date' => now()->addDays(2)->toDateString(),
+            'scheduled_at' => now()->addDays(2),
+            'status' => 'planned',
+        ]);
+
+        $this->actingAs($admin);
+        session(['selected_tenant' => $company->id]);
+
+        $response = app(TransportCustomerController::class)->destroy(
+            Request::create('/admin/taxi/contractklanten/'.$customer->id, 'DELETE'),
+            $customer->id,
+            app(TransportCustomerCascadeDeleteService::class)
+        );
+
+        $this->assertTrue($response->isRedirect());
+        $customer->refresh();
+        $this->assertNotNull($customer->archived_at);
+        $this->assertFalse($customer->archive_keep_past_rides);
+        $this->assertNull(TransportOccurrence::on('module_taxi')->find($pastOccurrence->id));
+        $this->assertNull(TransportOccurrence::on('module_taxi')->find($futureOccurrence->id));
     }
 
     #[Test]
@@ -148,7 +239,7 @@ class TransportCustomerDestroyCascadeTest extends TestCase
 
     #[Test]
     #[Group('taxi')]
-    public function force_destroy_rejects_non_archived_customer(): void
+    public function restore_reactivates_archived_customer(): void
     {
         $company = $this->bootTaxiModule();
         $admin = User::factory()->create(['company_id' => $company->id]);
@@ -156,18 +247,22 @@ class TransportCustomerDestroyCascadeTest extends TestCase
 
         $customer = TransportCustomer::on('module_taxi')->create([
             'company_id' => $company->id,
-            'name' => 'Actieve klant',
+            'name' => 'O.B.S. Roombeek',
             'organization_type' => 'school',
-            'active' => true,
+            'active' => false,
+            'archived_at' => now(),
+            'archive_keep_past_rides' => true,
         ]);
 
         $this->actingAs($admin);
         session(['selected_tenant' => $company->id]);
 
-        $response = app(TransportCustomerController::class)
-            ->forceDestroy($customer->id, app(TransportCustomerCascadeDeleteService::class));
+        $response = app(TransportCustomerController::class)->restore($customer->id);
 
         $this->assertTrue($response->isRedirect());
-        $this->assertNotNull(TransportCustomer::on('module_taxi')->find($customer->id));
+        $customer->refresh();
+        $this->assertNull($customer->archived_at);
+        $this->assertTrue($customer->active);
+        $this->assertFalse($customer->archive_keep_past_rides);
     }
 }

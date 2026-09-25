@@ -21,6 +21,7 @@ use App\Modules\NexaTaxi\Models\TransportPaymentMandate;
 use App\Modules\NexaTaxi\Models\TransportRouteStop;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use App\Modules\NexaTaxi\Models\TransportScheduleException;
+use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -34,6 +35,8 @@ final class TransportCustomerCascadeDeleteService
     public function delete(string $conn, TransportCustomer $customer): void
     {
         DB::connection($conn)->transaction(function () use ($conn, $customer) {
+            $this->purgePlanningAndAgendaRides($conn, $customer, keepPastRides: false);
+
             $contractIds = TransportContract::on($conn)
                 ->where('transport_customer_id', $customer->id)
                 ->pluck('id')
@@ -58,6 +61,100 @@ final class TransportCustomerCascadeDeleteService
 
             $customer->delete();
         });
+    }
+
+    /**
+     * Verwijder planning-/agenda-ritten van dit contract.
+     * Met $keepPastRides blijven ritten vóór vandaag staan; toekomst verdwijnt altijd.
+     *
+     * @return array{occurrences: int, rides: int}
+     */
+    public function purgePlanningAndAgendaRides(
+        string $conn,
+        TransportCustomer $customer,
+        bool $keepPastRides = false,
+    ): array {
+        $contractIds = TransportContract::on($conn)
+            ->where('transport_customer_id', $customer->id)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($contractIds === []) {
+            return ['occurrences' => 0, 'rides' => 0];
+        }
+
+        $today = now(ContractTransportTimezone::TIMEZONE)->toDateString();
+
+        $occurrenceQuery = TransportOccurrence::on($conn)
+            ->whereIn('transport_contract_id', $contractIds);
+        if ($keepPastRides) {
+            $occurrenceQuery->whereDate('scheduled_date', '>=', $today);
+        }
+        $occurrenceIds = $occurrenceQuery->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $rideIdsFromOccurrences = $occurrenceIds === []
+            ? []
+            : TransportOccurrence::on($conn)
+                ->whereIn('id', $occurrenceIds)
+                ->whereNotNull('ride_request_id')
+                ->pluck('ride_request_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+        $rideIdsDirect = [];
+        if ($this->hasTable($conn, 'ride_requests')) {
+            $rideQuery = RideRequest::on($conn)
+                ->whereIn('transport_contract_id', $contractIds);
+            if ($keepPastRides) {
+                $rideQuery->where(function ($q) use ($today) {
+                    $q->whereNull('pickup_at')
+                        ->orWhereDate('pickup_at', '>=', $today);
+                });
+            }
+            $rideIdsDirect = $rideQuery->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        $rideIds = array_values(array_unique(array_merge($rideIdsFromOccurrences, $rideIdsDirect)));
+
+        if ($occurrenceIds !== []) {
+            TransportOccurrence::on($conn)->whereIn('id', $occurrenceIds)->delete();
+        }
+
+        if ($rideIds !== [] && $this->hasTable($conn, 'ride_requests')) {
+            $this->deleteRideRequests($conn, $rideIds);
+        }
+
+        return [
+            'occurrences' => count($occurrenceIds),
+            'rides' => count($rideIds),
+        ];
+    }
+
+    /**
+     * @param  list<int>  $rideIds
+     */
+    private function deleteRideRequests(string $conn, array $rideIds): void
+    {
+        $rideIds = array_values(array_unique(array_filter(array_map('intval', $rideIds))));
+        if ($rideIds === []) {
+            return;
+        }
+
+        if ($this->hasTable($conn, 'ride_dispatch_offers')) {
+            DB::connection($conn)
+                ->table('ride_dispatch_offers')
+                ->whereIn('ride_request_id', $rideIds)
+                ->delete();
+        }
+
+        if ($this->hasTable($conn, 'ride_stops')) {
+            RideStop::on($conn)->whereIn('ride_request_id', $rideIds)->delete();
+        }
+
+        RideRequest::on($conn)->whereIn('id', $rideIds)->delete();
     }
 
     /**
@@ -175,13 +272,12 @@ final class TransportCustomerCascadeDeleteService
         }
 
         if ($this->hasTable($conn, 'ride_requests')) {
-            RideRequest::on($conn)
+            $remainingRideIds = RideRequest::on($conn)
                 ->whereIn('transport_contract_id', $contractIds)
-                ->update([
-                    'transport_contract_id' => null,
-                    'transport_occurrence_id' => null,
-                    'transport_passenger_id' => null,
-                ]);
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            $this->deleteRideRequests($conn, $remainingRideIds);
         }
 
         $this->deleteDraftInvoicesForContracts($contractIds);

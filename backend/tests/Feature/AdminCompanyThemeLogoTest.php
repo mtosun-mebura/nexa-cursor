@@ -57,12 +57,17 @@ class AdminCompanyThemeLogoTest extends TestCase
         $super = User::factory()->create(['company_id' => $company->id]);
         $super->assignRole('super-admin');
 
-        $this->actingAs($super)
+        $response = $this->actingAs($super)
             ->withSession(['selected_tenant' => $company->id])
-            ->get(route('admin.companies.logo.dark', $company))
-            ->assertOk()
+            ->get(route('admin.companies.logo.dark', $company));
+
+        $response->assertOk()
             ->assertHeader('Content-Type', 'image/png')
             ->assertSee('dark-bytes');
+
+        $cacheControl = strtolower((string) $response->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('private', $cacheControl);
     }
 
     #[Test]
@@ -85,8 +90,9 @@ class AdminCompanyThemeLogoTest extends TestCase
         $urls = AdminLogo::displayUrls($super);
 
         $this->assertSame('company', $urls['source']);
-        $this->assertSame(route('admin.companies.logo', $company), $urls['light_url']);
-        $this->assertSame(route('admin.companies.logo.dark', $company), $urls['dark_url']);
+        $this->assertStringStartsWith(route('admin.companies.logo', $company), $urls['light_url']);
+        $this->assertStringStartsWith(route('admin.companies.logo.dark', $company), $urls['dark_url']);
+        $this->assertStringContainsString('v=', $urls['light_url']);
         $this->assertSame('Gekozen Tenant', $urls['alt']);
     }
 }

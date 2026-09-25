@@ -67,11 +67,99 @@
     .nexa-gps-legend-wrap {
         border: 1px solid color-mix(in oklab, var(--foreground) 22%, var(--border));
         border-radius: 14px;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
         background: color-mix(in oklab, var(--foreground) 3%, var(--background));
+        max-width: 100%;
     }
     .nexa-gps-legend-wrap .kt-table {
         margin-bottom: 0;
+        width: max-content;
+        min-width: 100%;
+    }
+    .nexa-gps-legend-wrap .kt-table th,
+    .nexa-gps-legend-wrap .kt-table td {
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    .nexa-gps-legend-wrap .kt-table td .text-xs {
+        white-space: normal;
+    }
+    @media (max-width: 767.98px) {
+        .nexa-gps-legend-wrap {
+            border: 0;
+            border-radius: 0;
+            overflow: visible;
+            background: transparent;
+        }
+        .nexa-gps-legend-wrap .kt-table,
+        .nexa-gps-legend-wrap .kt-table thead,
+        .nexa-gps-legend-wrap .kt-table tbody,
+        .nexa-gps-legend-wrap .kt-table tr,
+        .nexa-gps-legend-wrap .kt-table th,
+        .nexa-gps-legend-wrap .kt-table td {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .nexa-gps-legend-wrap .kt-table {
+            width: 100%;
+            min-width: 0;
+        }
+        .nexa-gps-legend-wrap .kt-table thead {
+            display: none;
+        }
+        .nexa-gps-legend-wrap .kt-table tbody {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .nexa-gps-legend-wrap .kt-table tr {
+            border: 1px solid color-mix(in oklab, var(--foreground) 22%, var(--border));
+            border-radius: 14px;
+            background: color-mix(in oklab, var(--foreground) 3%, var(--background));
+            padding: 0.85rem 1rem;
+            box-sizing: border-box;
+        }
+        .nexa-gps-legend-wrap .kt-table td {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.4rem 0;
+            border: 0;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .nexa-gps-legend-wrap .kt-table td:first-child {
+            justify-content: center;
+            padding-top: 0;
+            padding-bottom: 0.65rem;
+            margin-bottom: 0.35rem;
+            border-bottom: 1px solid color-mix(in oklab, var(--foreground) 12%, var(--border));
+        }
+        .nexa-gps-legend-wrap .kt-table td:not(:first-child)::before {
+            content: attr(data-label);
+            flex: 0 0 auto;
+            max-width: 42%;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            line-height: 1.35;
+        }
+        .nexa-gps-legend-wrap .nexa-gps-legend-cell-value {
+            flex: 1 1 auto;
+            min-width: 0;
+            text-align: right;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .nexa-gps-legend-wrap .nexa-gps-seen {
+            white-space: nowrap;
+        }
     }
     .nexa-gps-map-card,
     .gps-map-canvas {
@@ -774,7 +862,7 @@ window.initGpsTrackingMap = function () {
             return;
         }
         box.setAttribute('data-gps-legend-sig', signature);
-        var html = '<div class="nexa-gps-legend-wrap overflow-x-auto"><table class="kt-table align-middle text-sm w-full admin-keep-table-layout" data-admin-no-cards="true"><thead><tr><th class="w-14"></th><th>Kenteken</th><th>Chauffeur</th><th>Status</th><th>Laatst gezien</th></tr></thead><tbody>';
+        var html = '<div class="nexa-gps-legend-wrap"><table class="kt-table align-middle text-sm w-full admin-keep-table-layout" data-admin-no-cards="true"><thead><tr><th class="w-14"></th><th>Kenteken</th><th>Chauffeur</th><th>Status</th><th>Laatst gezien</th></tr></thead><tbody>';
         items.forEach(function (item) {
             var color = window.NexaGpsMarker.bodyColor(item, appearance);
             var luma = (function (hex) {
@@ -788,10 +876,10 @@ window.initGpsTrackingMap = function () {
                 : 'Zoom in op ' + plate + ' op de kaart';
             html += '<tr>' +
                 '<td><button type="button" class="nexa-gps-focus-btn' + (luma > 0.72 ? ' is-light' : '') + (followVehicleId === String(item.id) ? ' is-following' : '') + '" data-gps-focus="' + window.NexaGpsMarker.escapeHtml(item.id) + '" data-gps-plate="' + plate + '" data-gps-tooltip="' + focusHint + '" style="background:' + color + '" aria-label="' + focusHint + '" aria-pressed="' + (followVehicleId === String(item.id) ? 'true' : 'false') + '" onclick="if(window.nexaGpsFocusVehicle)window.nexaGpsFocusVehicle(this.getAttribute(\'data-gps-focus\'))"><i class="ki-filled ki-geolocation"></i></button></td>' +
-                '<td class="font-medium text-foreground">' + plate + (item.vehicle_name ? '<div class="text-xs text-muted-foreground">' + window.NexaGpsMarker.escapeHtml(item.vehicle_name) + '</div>' : '') + '</td>' +
-                '<td>' + window.NexaGpsMarker.escapeHtml(item.driver_name) + '</td>' +
-                '<td>' + (item.is_online ? '<span class="text-green-600">Online</span>' : '<span class="text-muted-foreground">Offline</span>') + '</td>' +
-                '<td class="text-muted-foreground">' + seenHtml(item.location_updated_at || item.last_seen_at, item.id) + '</td>' +
+                '<td class="font-medium text-foreground" data-label="Kenteken"><span class="nexa-gps-legend-cell-value">' + plate + (item.vehicle_name ? '<div class="text-xs text-muted-foreground">' + window.NexaGpsMarker.escapeHtml(item.vehicle_name) + '</div>' : '') + '</span></td>' +
+                '<td data-label="Chauffeur"><span class="nexa-gps-legend-cell-value">' + window.NexaGpsMarker.escapeHtml(item.driver_name) + '</span></td>' +
+                '<td data-label="Status"><span class="nexa-gps-legend-cell-value">' + (item.is_online ? '<span class="text-green-600">Online</span>' : '<span class="text-muted-foreground">Offline</span>') + '</span></td>' +
+                '<td class="text-muted-foreground" data-label="Laatst gezien"><span class="nexa-gps-legend-cell-value">' + seenHtml(item.location_updated_at || item.last_seen_at, item.id) + '</span></td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';

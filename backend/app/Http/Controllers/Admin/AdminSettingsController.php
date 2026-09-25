@@ -2420,7 +2420,9 @@ class AdminSettingsController extends Controller
 
         return response($file, 200)
             ->header('Content-Type', $mimeType)
-            ->header('Content-Disposition', 'inline; filename="logo"');
+            ->header('Content-Disposition', 'inline; filename="logo"')
+            ->header('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     /**
@@ -2437,7 +2439,9 @@ class AdminSettingsController extends Controller
 
         return response($file, 200)
             ->header('Content-Type', $mimeType)
-            ->header('Content-Disposition', 'inline; filename="logo-dark"');
+            ->header('Content-Disposition', 'inline; filename="logo-dark"')
+            ->header('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     /**

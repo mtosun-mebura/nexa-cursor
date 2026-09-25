@@ -29,6 +29,7 @@
         </div>
         <div class="px-5 py-5">
             <p id="admin-confirm-modal-message" class="text-sm text-muted-foreground mb-0 whitespace-pre-wrap"></p>
+            <div id="admin-confirm-modal-extra" class="mt-4 hidden"></div>
         </div>
         <div class="border-t border-border px-5 py-5 flex flex-wrap justify-end gap-2">
             <button type="button" class="kt-btn kt-btn-outline" data-admin-confirm-dismiss>Annuleren</button>
@@ -44,9 +45,11 @@
     }
     var titleEl = document.getElementById('admin-confirm-modal-title');
     var messageEl = document.getElementById('admin-confirm-modal-message');
+    var extraEl = document.getElementById('admin-confirm-modal-extra');
     var acceptBtn = modal.querySelector('[data-admin-confirm-accept]');
     var pending = null;
     var lastActive = null;
+    var lastExtraChecked = false;
 
     function decodeAttr(value) {
         var s = String(value || '')
@@ -119,6 +122,12 @@
     }
 
     function closeModal(didAccept) {
+        if (didAccept && extraEl) {
+            var check = extraEl.querySelector('#admin-confirm-keep-past-rides, input[type="checkbox"]');
+            lastExtraChecked = Boolean(check && check.checked);
+        } else {
+            lastExtraChecked = false;
+        }
         var action = pending;
         pending = null;
         modal.hidden = true;
@@ -162,6 +171,16 @@
         }
         if (messageEl) {
             messageEl.innerHTML = emphasizeVersions(message);
+        }
+        if (extraEl) {
+            var extraHtml = (opts.extraHtml || '').toString().trim();
+            if (extraHtml) {
+                extraEl.innerHTML = extraHtml;
+                extraEl.classList.remove('hidden');
+            } else {
+                extraEl.innerHTML = '';
+                extraEl.classList.add('hidden');
+            }
         }
         if (acceptBtn) {
             acceptBtn.textContent = opts.confirmLabel || 'Bevestigen';
@@ -222,10 +241,21 @@
                 message: message,
                 confirmLabel: options.confirmLabel || inferConfirmLabel(message, null),
                 destructive: destructive,
+                extraHtml: options.extraHtml || '',
                 onAccept: function () { resolve(true); },
                 onCancel: function () { resolve(false); },
             });
         });
+    };
+
+    window.adminConfirmExtraChecked = function (selector) {
+        if (selector && extraEl) {
+            var el = extraEl.querySelector(selector);
+            if (el) {
+                return Boolean(el.checked);
+            }
+        }
+        return lastExtraChecked;
     };
 
     function confirmElement(el, thenSubmitForm) {

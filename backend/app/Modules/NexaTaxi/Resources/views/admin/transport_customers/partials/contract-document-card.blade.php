@@ -110,18 +110,62 @@
             </div>
         </div>
     </a>
-    @can('rides.delete')
-    <button
-        type="button"
-        class="transport-contract-doc__delete"
-        data-transport-customer-delete
-        data-delete-mode="{{ $deleteMode }}"
-        data-action="{{ $deleteAction }}"
-        data-label="{{ $customer->name }}"
-        title="{{ $deleteTitle }}"
-        aria-label="{{ $deleteTitle }}: {{ $customer->name }}"
-    >
-        <i class="ki-filled ki-trash" aria-hidden="true"></i>
-    </button>
-    @endcan
+
+    <div class="transport-contract-doc__actions" onclick="event.stopPropagation();">
+        @if($isArchived)
+            @can('rides.update')
+            <div class="transport-contract-doc__action-col">
+                <form
+                    method="POST"
+                    action="{{ route('admin.taxi.transport_customers.restore', $customer->id) }}"
+                    class="transport-contract-doc__restore-form"
+                >
+                    @csrf
+                    <button
+                        type="submit"
+                        class="transport-contract-doc__action-btn transport-contract-doc__restore"
+                        title="Contract herstellen en activeren"
+                        aria-label="Contract herstellen en activeren: {{ $customer->name }}"
+                    >
+                        <i class="ki-filled ki-arrows-circle" aria-hidden="true"></i>
+                    </button>
+                </form>
+                <span class="transport-contract-doc__action-label">Herstellen</span>
+            </div>
+            <div class="transport-contract-doc__action-col">
+                <label class="transport-contract-doc__keep-past">
+                    <input
+                        type="checkbox"
+                        class="kt-switch kt-switch-sm"
+                        name="keep_past_rides"
+                        value="1"
+                        @checked($customer->archive_keep_past_rides)
+                        data-archive-keep-past
+                        data-action="{{ route('admin.taxi.transport_customers.archive_keep_past_rides', $customer->id) }}"
+                        aria-label="Verleden ritten zichtbaar houden in planning en agenda"
+                        title="Verleden ritten zichtbaar houden in planning/agenda (alleen vóór vandaag)"
+                    >
+                </label>
+                <span class="transport-contract-doc__action-label">Verleden ritten</span>
+            </div>
+            @endcan
+        @endif
+        @can('rides.delete')
+        <div class="transport-contract-doc__action-col">
+            <button
+                type="button"
+                class="transport-contract-doc__action-btn transport-contract-doc__delete"
+                data-transport-customer-delete
+                data-delete-mode="{{ $deleteMode }}"
+                data-action="{{ $deleteAction }}"
+                data-label="{{ $customer->name }}"
+                title="{{ $deleteTitle }}"
+                aria-label="{{ $deleteTitle }}: {{ $customer->name }}"
+            >
+                <i class="ki-filled ki-trash" aria-hidden="true"></i>
+            </button>
+            <span class="transport-contract-doc__action-label">{{ $forceDelete ? 'Verwijderen' : 'Archiveren' }}</span>
+        </div>
+        @endcan
+    </div>
 </article>

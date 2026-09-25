@@ -110,6 +110,10 @@ class TarievenController extends Controller
             DefaultRate::queryForCompany($conn, $scopeCompanyId)->whereIn('person_range', $toDelete)->delete();
         }
 
+        if ($scopeCompanyId) {
+            \App\Support\TenantPublicCache::bump($scopeCompanyId);
+        }
+
         return redirect()->route('admin.taxi.tarieven.edit')->with('success', 'Tarieven zijn bijgewerkt.');
     }
 

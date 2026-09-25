@@ -522,6 +522,11 @@ class ContractOccurrenceGeneratorService
             return;
         }
 
+        $customer = TransportCustomer::on($conn)->find($contract->transport_customer_id);
+        if (! $customer || $customer->isArchived()) {
+            return;
+        }
+
         if ($contract->start_date && $contract->start_date->gt($end)) {
             return;
         }
@@ -650,6 +655,11 @@ class ContractOccurrenceGeneratorService
 
         $contract = $booking->contract ?? TransportContract::on($conn)->find($booking->transport_contract_id);
         if (! $contract || $contract->status !== 'active') {
+            return false;
+        }
+
+        $customer = TransportCustomer::on($conn)->find($contract->transport_customer_id);
+        if (! $customer || $customer->isArchived()) {
             return false;
         }
 

@@ -42,7 +42,7 @@ class TransportPlanningController extends Controller
                 'rideRequest.driver',
                 'rideRequest.vehicle',
                 'rideRequest.rideStops',
-                'contract',
+                'contract.customer',
                 'routeTemplate.group',
                 'routeTemplate.assignment.driver',
                 'routeTemplate.assignment.vehicle',
@@ -55,7 +55,20 @@ class TransportPlanningController extends Controller
             $occurrenceQuery->where('transport_contract_id', $contractFilter);
         }
 
-        $occurrences = $occurrenceQuery->get();
+        $todayDate = now(ContractTransportTimezone::TIMEZONE)->toDateString();
+
+        $occurrences = $occurrenceQuery->get()->filter(function (TransportOccurrence $item) use ($todayDate) {
+            $customer = $item->contract?->customer;
+            if (! $customer || ! $customer->isArchived()) {
+                return true;
+            }
+            if (! $customer->keepsPastRidesInPlanning()) {
+                return false;
+            }
+            $date = $item->scheduled_date?->toDateString();
+
+            return $date !== null && $date < $todayDate;
+        })->values();
 
         $exceptions = TransportScheduleException::on($conn)
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
@@ -63,8 +76,6 @@ class TransportPlanningController extends Controller
             ->whereBetween('exception_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->orderBy('exception_date')
             ->get();
-
-        $todayDate = now(ContractTransportTimezone::TIMEZONE)->toDateString();
 
         $days = collect(range(0, 6))->map(function (int $offset) use ($weekStart, $occurrences, $exceptions, $todayDate) {
             $date = $weekStart->copy()->addDays($offset);

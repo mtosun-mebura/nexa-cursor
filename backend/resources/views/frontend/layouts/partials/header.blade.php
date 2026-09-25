@@ -31,7 +31,7 @@
     x-data="{ mobileMenuOpen: false }"
 >
     <div class="container-custom">
-        <div class="flex justify-between items-center h-16 md:h-20">
+        <div class="fe-site-header-bar flex justify-between items-center h-16 md:h-20">
             <!-- Hamburger (links) + logo -->
             <div class="flex items-center gap-2 flex-shrink-0">
                 <div class="{{ $mobileMenuHiddenClass }} flex-shrink-0">

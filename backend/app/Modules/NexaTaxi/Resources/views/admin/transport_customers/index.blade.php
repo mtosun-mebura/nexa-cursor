@@ -76,6 +76,7 @@
                      data-admin-datatable-label="klanten"
                      data-admin-datatable-on-page="initTransportCustomerTablePage">
                     <div class="transport-customers-table-wrap min-w-0" data-customers-pane="table" @if(! $hasActiveCustomers) hidden @endif>
+                        @if($hasActiveCustomers)
                         <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                             <table id="transport-customers-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                                 <thead>
@@ -186,8 +187,16 @@
                                 </tbody>
                             </table>
                         </div>
+                        @else
+                        <div class="px-5 py-5">
+                            <p class="py-8 text-center text-muted-foreground text-sm mb-0" data-customers-table-none>
+                                Geen contracten.
+                            </p>
+                        </div>
+                        @endif
                     </div>
                     <div class="transport-customers-contracts px-5 py-5" data-customers-pane="contracts">
+                        @if($hasActiveCustomers)
                         <div class="transport-customers-contracts__grid" id="transport-customers-contracts">
                             @foreach($customers as $customer)
                                 @php
@@ -205,6 +214,11 @@
                         <p id="transport-customers-contracts-empty" class="py-8 text-center text-muted-foreground text-sm" hidden>
                             Geen contracten voor deze filters.
                         </p>
+                        @else
+                        <p class="py-8 text-center text-muted-foreground text-sm mb-0" data-customers-contracts-none>
+                            Geen contracten.
+                        </p>
+                        @endif
                     </div>
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0 px-5 pb-5" data-customers-active-footer>
                         <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
@@ -249,8 +263,20 @@
                     @endif
                 </div>
                 @else
-                <div class="py-10 px-5 text-center text-muted-foreground text-sm">
-                    Geen contractklanten gevonden.
+                <div class="transport-customers-table-wrap min-w-0 px-5 py-5" data-customers-pane="table" hidden>
+                    <p class="py-8 text-center text-muted-foreground text-sm mb-0">
+                        Geen contracten.
+                    </p>
+                </div>
+                <div class="transport-customers-contracts px-5 py-5" data-customers-pane="contracts">
+                    <p class="py-8 text-center text-muted-foreground text-sm mb-0">
+                        Geen contracten.
+                    </p>
+                </div>
+                <div class="transport-customers-archive px-5 py-5" data-customers-pane="archive" hidden>
+                    <p class="py-8 text-center text-muted-foreground text-sm mb-0">
+                        Geen gearchiveerde contracten.
+                    </p>
                 </div>
                 @endif
             </div>
@@ -328,52 +354,143 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(min(100%, 22.5rem), 1fr));
         gap: 1.5rem;
+        align-items: start;
     }
 
+    /* Acties staan onder de kaart; card-content mag ze niet clippen. */
+    #transport-customers-card > .kt-card-content {
+        overflow: visible;
+    }
     .transport-contract-doc-wrap {
         position: relative;
-        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        height: auto;
+        min-height: 0;
     }
     .transport-contract-doc-wrap[hidden] {
         display: none !important;
     }
-    .transport-contract-doc-wrap:hover .transport-contract-doc__delete,
-    .transport-contract-doc-wrap:focus-within .transport-contract-doc__delete {
-        background: rgb(15 23 42 / 0.72);
-    }
-    .transport-contract-doc__delete {
-        position: absolute;
-        top: 0.55rem;
-        right: 0.55rem;
+    .transport-contract-doc__actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+        justify-items: center;
+        gap: 0.35rem 0.5rem;
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 22rem;
+        margin-inline: auto;
+        padding: 0.35rem 0.15rem 0.55rem;
+        position: relative;
         z-index: 2;
+    }
+    .transport-contract-doc__actions:has(> .transport-contract-doc__action-col:only-child) {
+        grid-template-columns: 1fr;
+        max-width: 8rem;
+    }
+    .transport-contract-doc__action-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.35rem;
+        min-width: 0;
+        width: 100%;
+        text-align: center;
+    }
+    .transport-contract-doc__keep-past {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 2rem;
-        height: 2rem;
+        margin: 0;
+        padding: 0;
         border: 0;
-        border-radius: 0.5rem;
-        background: rgb(15 23 42 / 0.45);
-        color: #fff;
+        background: transparent;
         cursor: pointer;
-        transition: background 0.15s ease, transform 0.15s ease;
+        min-height: 2.125rem;
+    }
+    .transport-contract-doc__action-label {
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--muted-foreground, #64748b);
+        white-space: nowrap;
+    }
+    .transport-contract-doc__restore-form {
+        margin: 0;
+        line-height: 1;
+    }
+    .transport-contract-doc__action-btn {
+        appearance: none;
+        border: 0;
+        background: transparent !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.125rem;
+        height: 2.125rem;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        box-shadow: none !important;
+        transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .transport-contract-doc__action-btn i {
+        font-size: 1.15rem;
+        line-height: 1;
+        color: inherit;
+    }
+    .transport-contract-doc__restore {
+        color: #0f766e !important;
+    }
+    .transport-contract-doc__restore:hover,
+    .transport-contract-doc__restore:focus-visible {
+        color: #0d9488 !important;
+        outline: none;
+        transform: scale(1.1);
+    }
+    .transport-contract-doc__delete {
+        position: static;
+        z-index: 1;
+        color: #dc2626 !important;
+    }
+    .transport-contract-doc-wrap:hover .transport-contract-doc__delete,
+    .transport-contract-doc-wrap:focus-within .transport-contract-doc__delete {
+        background: transparent !important;
+        color: #b91c1c !important;
     }
     .transport-contract-doc__delete:hover,
     .transport-contract-doc__delete:focus-visible {
-        background: #b91c1c;
+        background: transparent !important;
+        color: #991b1b !important;
         outline: none;
-        transform: scale(1.05);
+        transform: scale(1.1);
     }
-    .transport-contract-doc__delete i {
-        font-size: 0.95rem;
-        line-height: 1;
+    html.dark .transport-contract-doc__restore {
+        color: #2dd4bf !important;
+    }
+    html.dark .transport-contract-doc__delete {
+        color: #f87171 !important;
+        background: transparent !important;
+    }
+    html.dark .transport-contract-doc__delete:hover,
+    html.dark .transport-contract-doc__delete:focus-visible {
+        color: #ef4444 !important;
+    }
+    html.dark .transport-contract-doc__action-label {
+        color: #94a3b8;
     }
 
     .transport-contract-doc {
         position: relative;
         display: flex;
         flex-direction: column;
-        min-height: 100%;
+        flex: 0 0 auto;
+        width: 100%;
+        min-height: 0;
         text-decoration: none;
         color: inherit;
         background: #f6f1e4;
@@ -673,9 +790,6 @@ function setTransportCustomersView(view) {
         return;
     }
     var next = view === 'archive' ? 'archive' : (view === 'table' ? 'table' : 'contracts');
-    if (next !== 'archive' && card.getAttribute('data-has-active') === '0' && card.getAttribute('data-has-archived') === '1') {
-        next = 'archive';
-    }
     card.setAttribute('data-customers-view', next);
     card.querySelectorAll('[data-customers-pane]').forEach(function(pane) {
         pane.hidden = pane.getAttribute('data-customers-pane') !== next;
@@ -690,11 +804,11 @@ function setTransportCustomersView(view) {
     });
     var activeFilters = card.querySelector('[data-customers-active-filters]');
     if (activeFilters) {
-        activeFilters.hidden = next === 'archive';
+        activeFilters.hidden = next === 'archive' || card.getAttribute('data-has-active') === '0';
     }
     var activeFooter = card.querySelector('[data-customers-active-footer]');
     if (activeFooter) {
-        activeFooter.hidden = next === 'archive';
+        activeFooter.hidden = next === 'archive' || card.getAttribute('data-has-active') === '0';
     }
     try {
         window.localStorage.setItem('nexa-contractklanten-view', next);
@@ -704,18 +818,15 @@ function setTransportCustomersView(view) {
 
 document.addEventListener('DOMContentLoaded', function() {
     window.initTransportCustomerTablePage();
-    var card = document.getElementById('transport-customers-card');
-    var stored = 'contracts';
+    // Standaard Contracten; ?view=archive na archief-acties.
+    var initialView = 'contracts';
     try {
-        stored = window.localStorage.getItem('nexa-contractklanten-view') || 'contracts';
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('view') === 'archive') {
+            initialView = 'archive';
+        }
     } catch (e) {}
-    if (card && card.getAttribute('data-has-active') === '0' && card.getAttribute('data-has-archived') === '1') {
-        stored = 'archive';
-    } else if (stored === 'archive' && card && card.getAttribute('data-has-archived') === '0') {
-        stored = 'contracts';
-    }
-    setTransportCustomersView(stored);
-
+    setTransportCustomersView(initialView);
     document.querySelectorAll('.transport-customers-view-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             setTransportCustomersView(btn.getAttribute('data-customers-view'));
@@ -755,11 +866,29 @@ document.addEventListener('DOMContentLoaded', function() {
             var confirmLabel = isForce ? 'Definitief verwijderen' : 'Naar archief';
             var message = isForce
                 ? ('Weet je zeker dat je het contract van ' + label + ' definitief wilt verwijderen?\n\n'
-                    + 'Alles onder dit contract wordt permanent gewist, inclusief abonnementen en passagiers. Facturatiehistorie en gekoppelde gegevens gaan verloren. Dit kan niet ongedaan worden gemaakt.')
+                    + 'Alles onder dit contract wordt permanent gewist, inclusief abonnementen, passagiers en ritten in planning/agenda. Facturatiehistorie en gekoppelde gegevens gaan verloren. Dit kan niet ongedaan worden gemaakt.')
                 : ('Weet je zeker dat je het contract van ' + label + ' naar het archief wilt verplaatsen?\n\n'
-                    + 'Het contract verdwijnt uit de actieve lijst, maar blijft bewaard in het archief inclusief facturatiehistorie.');
-            var runDelete = function () {
+                    + 'Het contract verdwijnt uit de actieve lijst. Ritten verdwijnen uit planning en agenda, tenzij je hieronder kiest om verleden ritten te bewaren.');
+            var extraHtml = isForce ? '' : (
+                '<label class="kt-label flex items-start gap-2 cursor-pointer mb-0">'
+                + '<input type="checkbox" class="kt-checkbox mt-0.5" id="admin-confirm-keep-past-rides" value="1">'
+                + '<span class="text-sm text-foreground">Verleden ritten zichtbaar houden in planning en agenda '
+                + '<span class="text-muted-foreground font-normal">(geen ritten vanaf vandaag)</span></span>'
+                + '</label>'
+            );
+            var runDelete = function (keepPast) {
                 deleteForm.action = action;
+                var existing = deleteForm.querySelector('input[name="keep_past_rides"]');
+                if (existing) {
+                    existing.remove();
+                }
+                if (!isForce) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'keep_past_rides';
+                    input.value = keepPast ? '1' : '0';
+                    deleteForm.appendChild(input);
+                }
                 deleteForm.submit();
             };
             if (typeof window.showAdminConfirm === 'function') {
@@ -767,19 +896,70 @@ document.addEventListener('DOMContentLoaded', function() {
                     title: title,
                     message: message,
                     confirmLabel: confirmLabel,
-                    destructive: true
+                    destructive: true,
+                    extraHtml: extraHtml
                 }).then(function (ok) {
                     if (ok) {
-                        runDelete();
+                        var keepPast = !isForce && typeof window.adminConfirmExtraChecked === 'function'
+                            && window.adminConfirmExtraChecked('#admin-confirm-keep-past-rides');
+                        runDelete(keepPast);
                     }
                 });
                 return;
             }
             if (window.confirm(message)) {
-                runDelete();
+                runDelete(false);
             }
         });
     }
+
+    document.addEventListener('change', function (event) {
+        var input = event.target.closest('[data-archive-keep-past]');
+        if (!input) {
+            return;
+        }
+        event.preventDefault();
+        var action = input.getAttribute('data-action') || '';
+        if (!action) {
+            return;
+        }
+        var previous = !input.checked;
+        input.disabled = true;
+        var token = document.querySelector('meta[name="csrf-token"]');
+        var csrf = token ? token.getAttribute('content') : '';
+        var body = new URLSearchParams();
+        body.set('_method', 'PUT');
+        body.set('keep_past_rides', input.checked ? '1' : '0');
+        if (csrf) {
+            body.set('_token', csrf);
+        }
+        fetch(action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+            },
+            credentials: 'same-origin',
+            body: body.toString()
+        }).then(function (res) {
+            return res.json().then(function (data) {
+                return { ok: res.ok && data && data.ok !== false, data: data };
+            }).catch(function () {
+                return { ok: false, data: null };
+            });
+        }).then(function (result) {
+            if (!result.ok) {
+                input.checked = previous;
+            } else if (result.data && typeof result.data.keep_past_rides === 'boolean') {
+                input.checked = result.data.keep_past_rides;
+            }
+        }).catch(function () {
+            input.checked = previous;
+        }).finally(function () {
+            input.disabled = false;
+        });
+    });
 });
 </script>
 @endpush

@@ -246,7 +246,10 @@ class Company extends Model
             return null;
         }
 
-        return route('admin.companies.logo', $this);
+        return \App\Support\TenantPublicCache::appendVersion(
+            route('admin.companies.logo', $this),
+            $this
+        );
     }
 
     public function adminLogoDarkUrl(): ?string
@@ -256,7 +259,10 @@ class Company extends Model
         }
 
         if (filled($this->logo_dark_blob)) {
-            return route('admin.companies.logo.dark', $this);
+            return \App\Support\TenantPublicCache::appendVersion(
+                route('admin.companies.logo.dark', $this),
+                $this
+            );
         }
 
         return $this->adminLogoLightUrl();
@@ -273,6 +279,30 @@ class Company extends Model
             return null;
         }
 
-        return route('admin.companies.favicon', $this);
+        return \App\Support\TenantPublicCache::appendVersion(
+            route('admin.companies.favicon', $this),
+            $this
+        );
+    }
+
+    public function publicBrandLogoUrl(bool $dark = false): string
+    {
+        $route = $dark && filled($this->logo_dark_blob)
+            ? route('frontend.company-brand.logo.dark', $this)
+            : route('frontend.company-brand.logo', $this);
+
+        return \App\Support\TenantPublicCache::appendVersion($route, $this);
+    }
+
+    public function publicBrandFaviconUrl(): ?string
+    {
+        if (! $this->hasFavicon()) {
+            return null;
+        }
+
+        return \App\Support\TenantPublicCache::appendVersion(
+            route('frontend.company-brand.favicon', $this),
+            $this
+        );
     }
 }

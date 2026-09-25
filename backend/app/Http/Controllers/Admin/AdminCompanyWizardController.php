@@ -263,6 +263,13 @@ class AdminCompanyWizardController extends AdminCompanyController
 
         $company->update($data);
 
+        if (
+            array_key_exists('logo_blob', $data)
+            || array_key_exists('logo_dark_blob', $data)
+        ) {
+            \App\Support\TenantPublicCache::bump($company);
+        }
+
         $this->setMaxReachable($company, max(2, $this->getMaxReachable($company)));
 
         return $this->continueWizard($company, 1, 'Bedrijfsgegevens bijgewerkt.');
@@ -656,7 +663,15 @@ class AdminCompanyWizardController extends AdminCompanyController
             $companyData['logo_dark_mime_type'] = null;
         }
 
-        return Company::create($companyData);
+        $company = Company::create($companyData);
+        if (
+            ! empty($companyData['logo_blob'])
+            || ! empty($companyData['logo_dark_blob'])
+        ) {
+            \App\Support\TenantPublicCache::bump($company);
+        }
+
+        return $company;
     }
 
     /**

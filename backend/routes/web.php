@@ -344,7 +344,8 @@ Route::get('/company-logo/{company}', function ($companyId) {
 
     return response($content, 200, [
         'Content-Type' => $mimeType,
-        'Cache-Control' => 'private, max-age=3600',
+        'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma' => 'no-cache',
         'X-Content-Type-Options' => 'nosniff',
         'X-Frame-Options' => 'DENY',
     ]);
@@ -371,7 +372,8 @@ Route::get('/company-logo/{company}/dark', function ($companyId) {
 
     return response($content, 200, [
         'Content-Type' => $mimeType,
-        'Cache-Control' => 'private, max-age=3600',
+        'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma' => 'no-cache',
         'X-Content-Type-Options' => 'nosniff',
         'X-Frame-Options' => 'DENY',
     ]);
@@ -398,7 +400,8 @@ Route::get('/company-favicon/{company}', function ($companyId) {
 
     return response($content, 200, [
         'Content-Type' => $mimeType,
-        'Cache-Control' => 'private, max-age=3600',
+        'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma' => 'no-cache',
         'X-Content-Type-Options' => 'nosniff',
         'X-Frame-Options' => 'DENY',
     ]);

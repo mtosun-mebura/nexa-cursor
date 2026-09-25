@@ -332,6 +332,12 @@
             [data-nexataxi-booking-module] .booking-step-panels-shell {
                 min-height: var(--booking-panels-min-height, 0px);
             }
+            /* Mobiel: geen vaste paneelhoogte — anders lege ruimte onder korte stappen (bagage, etc.). */
+            @media (max-width: 767.98px) {
+                [data-nexataxi-booking-module] .booking-step-panels-shell {
+                    min-height: 0 !important;
+                }
+            }
             @keyframes booking-step-tab-pop {
                 0% { transform: scale(1); }
                 40% { transform: scale(1.07); }
@@ -2497,6 +2503,23 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     container-type: inline-size;
     container-name: booking-dt;
 }
+/* Boven hero/carousel (slides vaak z-20): boekingsmodule + datetime-popover erbovenop. */
+section#boek-rit[data-nexataxi-booking-module],
+[data-nexataxi-booking-module] {
+    position: relative;
+    z-index: 40;
+}
+[data-nexataxi-booking-module].is-dt-picker-open {
+    z-index: 80;
+}
+[data-nexataxi-booking-module].is-dt-picker-open .booking-module-card,
+[data-nexataxi-booking-module].is-dt-picker-open .booking-module-body,
+[data-nexataxi-booking-module].is-dt-picker-open .booking-module-body-main,
+[data-nexataxi-booking-module].is-dt-picker-open .booking-step-panels-shell,
+[data-nexataxi-booking-module].is-dt-picker-open .booking-trip-layout,
+[data-nexataxi-booking-module].is-dt-picker-open .booking-datetime-wrap {
+    overflow: visible !important;
+}
 [data-nexataxi-booking-module] .booking-datetime-control {
     display: flex;
     align-items: center;
@@ -2731,36 +2754,45 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         0 0 0 3px color-mix(in srgb, var(--booking-cta, #f97316) 22%, transparent),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
-[data-nexataxi-booking-module] .booking-dt-popover {
-    position: absolute;
-    z-index: 80;
-    left: auto;
-    right: 0;
-    top: calc(100% + 0.45rem);
+/* Portaled + Popover API (top layer): boven carousel/hero, UA-margin/positie resetten.
+   Geen `inset: auto !important` — dat blokkeert inline top/left/bottom. */
+[data-nexataxi-booking-module] .booking-dt-popover,
+.booking-dt-popover[data-booking-dt-portaled],
+.booking-dt-popover[popover] {
+    position: fixed !important;
+    z-index: 2147483000 !important;
+    margin: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     width: max(100%, 23rem);
     min-width: 23rem;
     max-width: min(28rem, calc(100vw - 1.5rem));
     padding: 0.85rem;
+    border-style: solid;
+    border-width: 1px;
     border-radius: 1.05rem;
-    border: 1px solid color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 90%, transparent);
-    background:
-        linear-gradient(165deg, color-mix(in srgb, var(--booking-cta, #f97316) 10%, transparent), transparent 42%),
-        var(--booking-skin-card, #0f172a);
+    border-color: color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 90%, transparent);
+    background-color: var(--booking-skin-card, #0f172a);
+    background-image: linear-gradient(165deg, color-mix(in srgb, var(--booking-cta, #f97316) 10%, transparent), transparent 42%);
     color: var(--booking-skin-text, #f8fafc);
     box-shadow:
         0 18px 40px rgba(2, 6, 23, 0.38),
         0 2px 8px rgba(2, 6, 23, 0.18),
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    /* Geen backdrop-filter: compositor-stacking boven hero/carousel. */
     animation: booking-dt-pop-in 0.16s ease-out;
 }
-[data-nexataxi-booking-module] .booking-dt-popover[hidden] {
+.booking-dt-popover[popover]:popover-open {
+    display: block !important;
+}
+[data-nexataxi-booking-module] .booking-dt-popover[hidden],
+.booking-dt-popover[data-booking-dt-portaled][hidden],
+.booking-dt-popover[popover]:not(:popover-open) {
     display: none !important;
 }
-[data-nexataxi-booking-module] .booking-dt-popover.is-above {
-    top: auto;
-    bottom: calc(100% + 0.45rem);
+[data-nexataxi-booking-module] .booking-dt-popover.is-above,
+.booking-dt-popover[data-booking-dt-portaled].is-above {
     animation-name: booking-dt-pop-in-above;
 }
 @keyframes booking-dt-pop-in {
@@ -2771,24 +2803,25 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     from { opacity: 0; transform: translateY(6px) scale(0.98); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
-[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-popover {
-    background:
-        linear-gradient(165deg, color-mix(in srgb, var(--booking-cta, #f97316) 8%, #fff), #fff 46%),
-        #ffffff;
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-popover,
+.booking-dt-popover[data-booking-dt-portaled][data-booking-skin="light"],
+.booking-dt-popover[popover][data-booking-skin="light"] {
+    background-color: #ffffff;
+    background-image: linear-gradient(165deg, color-mix(in srgb, var(--booking-cta, #f97316) 8%, #fff), #fff 46%);
     color: #0f172a;
     border-color: rgba(148, 163, 184, 0.35);
     box-shadow:
         0 18px 40px rgba(15, 23, 42, 0.14),
         0 2px 8px rgba(15, 23, 42, 0.06);
 }
-[data-nexataxi-booking-module] .booking-dt-popover__header {
+[data-nexataxi-booking-module] .booking-dt-popover__header, .booking-dt-popover .booking-dt-popover__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     margin-bottom: 0.7rem;
 }
-[data-nexataxi-booking-module] .booking-dt-popover__month {
+[data-nexataxi-booking-module] .booking-dt-popover__month, .booking-dt-popover .booking-dt-popover__month {
     flex: 1 1 auto;
     min-width: 0;
     text-align: center;
@@ -2797,7 +2830,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     letter-spacing: -0.01em;
     text-transform: capitalize;
 }
-[data-nexataxi-booking-module] .booking-dt-nav {
+[data-nexataxi-booking-module] .booking-dt-nav, .booking-dt-popover .booking-dt-nav {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2810,38 +2843,40 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-nav {
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-nav, .booking-dt-popover[data-booking-skin="light"] .booking-dt-nav {
     background: #f8fafc;
     border-color: rgba(148, 163, 184, 0.4);
     color: #334155;
 }
-[data-nexataxi-booking-module] .booking-dt-nav:hover {
+[data-nexataxi-booking-module] .booking-dt-nav:hover,
+.booking-dt-popover .booking-dt-nav:hover {
     border-color: color-mix(in srgb, var(--booking-cta, #f97316) 55%, transparent);
     color: var(--booking-cta, #f97316);
 }
-[data-nexataxi-booking-module] .booking-dt-nav:disabled {
+[data-nexataxi-booking-module] .booking-dt-nav:disabled,
+.booking-dt-popover .booking-dt-nav:disabled {
     opacity: 0.35;
     cursor: not-allowed;
 }
-[data-nexataxi-booking-module] .booking-dt-popover__body {
+[data-nexataxi-booking-module] .booking-dt-popover__body, .booking-dt-popover .booking-dt-popover__body {
     display: grid;
     grid-template-columns: minmax(15.75rem, 1fr) minmax(6.25rem, auto);
     gap: 0.85rem;
     align-items: stretch;
 }
-[data-nexataxi-booking-module] .booking-dt-cal {
+[data-nexataxi-booking-module] .booking-dt-cal, .booking-dt-popover .booking-dt-cal {
     min-width: 15.75rem;
 }
-[data-nexataxi-booking-module] .booking-dt-weekdays,
-[data-nexataxi-booking-module] .booking-dt-days {
+[data-nexataxi-booking-module] .booking-dt-weekdays, .booking-dt-popover .booking-dt-weekdays,
+[data-nexataxi-booking-module] .booking-dt-days, .booking-dt-popover .booking-dt-days {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 0.2rem;
 }
-[data-nexataxi-booking-module] .booking-dt-weekdays {
+[data-nexataxi-booking-module] .booking-dt-weekdays, .booking-dt-popover .booking-dt-weekdays {
     margin-bottom: 0.35rem;
 }
-[data-nexataxi-booking-module] .booking-dt-weekday {
+[data-nexataxi-booking-module] .booking-dt-weekday, .booking-dt-popover .booking-dt-weekday {
     text-align: center;
     font-size: 0.72rem;
     font-weight: 700;
@@ -2850,7 +2885,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     color: var(--booking-skin-muted, #94a3b8);
     padding: 0.15rem 0;
 }
-[data-nexataxi-booking-module] .booking-dt-day {
+[data-nexataxi-booking-module] .booking-dt-day, .booking-dt-popover .booking-dt-day {
     appearance: none;
     border: 0;
     background: transparent;
@@ -2863,104 +2898,129 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     cursor: pointer;
     transition: background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 }
-[data-nexataxi-booking-module] .booking-dt-day:hover:not(:disabled):not(.is-selected) {
+[data-nexataxi-booking-module] .booking-dt-day:hover:not(:disabled):not(.is-selected),
+.booking-dt-popover .booking-dt-day:hover:not(:disabled):not(.is-selected) {
     background: color-mix(in srgb, var(--booking-cta, #f97316) 14%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-day.is-outside {
+[data-nexataxi-booking-module] .booking-dt-day.is-outside,
+.booking-dt-popover .booking-dt-day.is-outside {
     color: var(--booking-skin-muted, #64748b);
     opacity: 0.45;
 }
-[data-nexataxi-booking-module] .booking-dt-day.is-today:not(.is-selected) {
+[data-nexataxi-booking-module] .booking-dt-day.is-today:not(.is-selected),
+.booking-dt-popover .booking-dt-day.is-today:not(.is-selected) {
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--booking-cta, #f97316) 55%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-day.is-selected {
+[data-nexataxi-booking-module] .booking-dt-day.is-selected,
+.booking-dt-popover .booking-dt-day.is-selected {
     background: var(--booking-cta, #f97316);
     color: #fff;
     box-shadow: 0 6px 14px color-mix(in srgb, var(--booking-cta, #f97316) 35%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-day:disabled {
+[data-nexataxi-booking-module] .booking-dt-day:disabled,
+.booking-dt-popover .booking-dt-day:disabled {
     opacity: 0.28;
     cursor: not-allowed;
 }
-[data-nexataxi-booking-module] .booking-dt-time {
+[data-nexataxi-booking-module] .booking-dt-time, .booking-dt-popover .booking-dt-time {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.35rem;
+    grid-template-columns: minmax(2.75rem, 1fr) minmax(2.75rem, 1fr);
+    gap: 0.4rem;
+    min-width: 6.25rem;
     min-height: 11.5rem;
-    padding: 0.15rem 0;
+    padding: 0.15rem 0 0.15rem 0.15rem;
     border: 0;
     background: transparent;
 }
-[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time {
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time, .booking-dt-popover[data-booking-skin="light"] .booking-dt-time {
     background: transparent;
 }
-[data-nexataxi-booking-module] .booking-dt-time-col {
+[data-nexataxi-booking-module] .booking-dt-time-col, .booking-dt-popover .booking-dt-time-col {
     display: flex;
     flex-direction: column;
+    min-width: 2.75rem;
     min-height: 0;
     max-height: 12.5rem;
     overflow-y: auto;
     overscroll-behavior: contain;
     background: transparent;
-    gap: 0.15rem;
-    padding: 0.1rem 0.15rem;
+    gap: 0.2rem;
+    padding: 0 0.1rem 0.15rem;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--booking-skin-muted, #94a3b8) 55%, transparent) transparent;
 }
-[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time-col {
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time-col, .booking-dt-popover[data-booking-skin="light"] .booking-dt-time-col {
     scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
 }
-[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar {
+[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar,
+.booking-dt-popover .booking-dt-time-col::-webkit-scrollbar {
     width: 0.35rem;
 }
-[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar-track {
+[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar-track,
+.booking-dt-popover .booking-dt-time-col::-webkit-scrollbar-track {
     background: transparent;
 }
-[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar-thumb {
+[data-nexataxi-booking-module] .booking-dt-time-col::-webkit-scrollbar-thumb,
+.booking-dt-popover .booking-dt-time-col::-webkit-scrollbar-thumb {
     border-radius: 999px;
     background: color-mix(in srgb, var(--booking-skin-muted, #94a3b8) 55%, transparent);
 }
-[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time-col::-webkit-scrollbar-thumb {
+[data-nexataxi-booking-module][data-booking-skin="light"] .booking-dt-time-col::-webkit-scrollbar-thumb,
+.booking-dt-popover[data-booking-skin="light"] .booking-dt-time-col::-webkit-scrollbar-thumb {
     background: rgba(100, 116, 139, 0.45);
 }
-[data-nexataxi-booking-module] .booking-dt-time-label {
+[data-nexataxi-booking-module] .booking-dt-time-label, .booking-dt-popover .booking-dt-time-label {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
+    flex: 0 0 auto;
     text-align: center;
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--booking-skin-muted, #94a3b8);
-    padding: 0.2rem 0 0.35rem;
-    background: transparent;
+    padding: 0.15rem 0 0.4rem;
+    margin: 0;
+    /* Zelfde tint als popover: cijfers scrollen er niet doorheen. */
+    background: var(--booking-skin-card, #0f172a);
+    box-shadow: 0 6px 8px -4px var(--booking-skin-card, #0f172a);
 }
-[data-nexataxi-booking-module] .booking-dt-time-btn {
+.booking-dt-popover[data-booking-skin="light"] .booking-dt-time-label {
+    background: #ffffff;
+    box-shadow: 0 6px 8px -4px #ffffff;
+}
+[data-nexataxi-booking-module] .booking-dt-time-btn, .booking-dt-popover .booking-dt-time-btn {
     appearance: none;
     border: 0;
     background: transparent;
     color: inherit;
     border-radius: 0.55rem;
     min-height: 1.85rem;
+    width: 100%;
+    padding: 0 0.15rem;
     font-size: 0.84rem;
     font-weight: 650;
     font-variant-numeric: tabular-nums;
+    line-height: 1;
     cursor: pointer;
     transition: background-color 0.12s ease, color 0.12s ease;
 }
-[data-nexataxi-booking-module] .booking-dt-time-btn:hover:not(:disabled):not(.is-selected) {
+[data-nexataxi-booking-module] .booking-dt-time-btn:hover:not(:disabled):not(.is-selected),
+.booking-dt-popover .booking-dt-time-btn:hover:not(:disabled):not(.is-selected) {
     background: color-mix(in srgb, var(--booking-cta, #f97316) 14%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-time-btn.is-selected {
+[data-nexataxi-booking-module] .booking-dt-time-btn.is-selected,
+.booking-dt-popover .booking-dt-time-btn.is-selected {
     background: var(--booking-cta, #f97316);
     color: #fff;
 }
-[data-nexataxi-booking-module] .booking-dt-time-btn:disabled {
+[data-nexataxi-booking-module] .booking-dt-time-btn:disabled,
+.booking-dt-popover .booking-dt-time-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
 }
-[data-nexataxi-booking-module] .booking-dt-popover__footer {
+[data-nexataxi-booking-module] .booking-dt-popover__footer, .booking-dt-popover .booking-dt-popover__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2969,7 +3029,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     padding-top: 0.65rem;
     border-top: 1px solid color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 75%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-footer-btn {
+[data-nexataxi-booking-module] .booking-dt-footer-btn, .booking-dt-popover .booking-dt-footer-btn {
     appearance: none;
     border: 0;
     background: transparent;
@@ -2981,46 +3041,123 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     border-radius: 0.55rem;
     transition: background-color 0.14s ease;
 }
-[data-nexataxi-booking-module] .booking-dt-footer-btn:hover {
+[data-nexataxi-booking-module] .booking-dt-footer-btn:hover,
+.booking-dt-popover .booking-dt-footer-btn:hover {
     background: color-mix(in srgb, var(--booking-cta, #f97316) 12%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-footer-btn--done {
+[data-nexataxi-booking-module] .booking-dt-footer-btn--done,
+.booking-dt-popover .booking-dt-footer-btn--done {
     background: var(--booking-cta, #f97316);
     color: #fff;
     padding: 0.45rem 0.85rem;
     box-shadow: 0 6px 14px color-mix(in srgb, var(--booking-cta, #f97316) 28%, transparent);
 }
-[data-nexataxi-booking-module] .booking-dt-footer-btn--done:hover {
+[data-nexataxi-booking-module] .booking-dt-footer-btn--done:hover,
+.booking-dt-popover .booking-dt-footer-btn--done:hover {
     background: var(--booking-cta-hover, #ea580c);
 }
-[data-nexataxi-booking-module] .booking-dt-footer-actions {
+[data-nexataxi-booking-module] .booking-dt-footer-actions, .booking-dt-popover .booking-dt-footer-actions {
     display: inline-flex;
     align-items: center;
     gap: 0.15rem;
 }
 @media (max-width: 639px) {
-    [data-nexataxi-booking-module] .booking-dt-popover {
-        left: 0;
-        right: 0;
-        width: 100%;
+    .booking-dt-popover[data-booking-dt-portaled],
+    .booking-dt-popover[popover] {
+        padding: 0.55rem;
+        border-radius: 0.9rem;
         min-width: 0;
-        max-width: none;
+        max-width: calc(100vw - 1rem);
     }
-    [data-nexataxi-booking-module] .booking-dt-cal {
+    .booking-dt-popover .booking-dt-popover__header {
+        margin-bottom: 0.4rem;
+        gap: 0.35rem;
+    }
+    .booking-dt-popover .booking-dt-popover__month {
+        font-size: 0.84rem;
+    }
+    .booking-dt-popover .booking-dt-nav {
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 0.55rem;
+    }
+    .booking-dt-popover .booking-dt-nav svg {
+        width: 14px;
+        height: 14px;
+    }
+    .booking-dt-popover .booking-dt-popover__body {
+        grid-template-columns: minmax(0, 1fr) minmax(6.5rem, 7rem);
+        gap: 0.55rem;
+        align-items: start;
+    }
+    .booking-dt-popover .booking-dt-cal {
         min-width: 0;
+    }
+    .booking-dt-popover .booking-dt-weekdays,
+    .booking-dt-popover .booking-dt-days {
+        gap: 0.1rem;
+    }
+    .booking-dt-popover .booking-dt-weekdays {
+        margin-bottom: 0.15rem;
+    }
+    .booking-dt-popover .booking-dt-weekday {
+        font-size: 0.62rem;
+        padding: 0.05rem 0;
+        letter-spacing: 0.02em;
+    }
+    .booking-dt-popover .booking-dt-day {
+        font-size: 0.8rem;
+        border-radius: 0.5rem;
+    }
+    .booking-dt-popover .booking-dt-day.is-selected {
+        box-shadow: 0 3px 8px color-mix(in srgb, var(--booking-cta, #f97316) 30%, transparent);
+    }
+    .booking-dt-popover .booking-dt-time {
+        min-height: 0;
+        min-width: 6.5rem;
+        width: 100%;
+        padding: 0 0 0 0.2rem;
+        gap: 0.35rem;
+        grid-template-columns: minmax(3rem, 1fr) minmax(3rem, 1fr);
+        border-left: 1px solid color-mix(in srgb, var(--booking-skin-line, rgba(148, 163, 184, 0.35)) 70%, transparent);
+    }
+    .booking-dt-popover .booking-dt-time-col {
+        min-width: 3rem;
+        max-height: 9.5rem;
+        gap: 0.15rem;
+        padding: 0 0.15rem 0.2rem;
+    }
+    .booking-dt-popover .booking-dt-time-label {
+        font-size: 0.58rem;
+        letter-spacing: 0.05em;
+        padding: 0.1rem 0 0.45rem;
+    }
+    .booking-dt-popover .booking-dt-time-btn {
+        min-height: 1.7rem;
+        font-size: 0.8rem;
+        border-radius: 0.45rem;
+        padding: 0 0.2rem;
+    }
+    .booking-dt-popover .booking-dt-popover__footer {
+        margin-top: 0.45rem;
+        padding-top: 0.4rem;
+        gap: 0.35rem;
+    }
+    .booking-dt-popover .booking-dt-footer-btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.4rem;
+    }
+    .booking-dt-popover .booking-dt-footer-btn--done {
+        padding: 0.35rem 0.7rem;
+        box-shadow: 0 3px 8px color-mix(in srgb, var(--booking-cta, #f97316) 24%, transparent);
     }
 }
-@media (max-width: 420px) {
-    [data-nexataxi-booking-module] .booking-dt-popover__body {
+@media (max-width: 360px) {
+    .booking-dt-popover .booking-dt-popover__body {
         grid-template-columns: 1fr;
     }
-    [data-nexataxi-booking-module] .booking-dt-time {
-        min-height: 0;
-        max-height: none;
-        grid-template-columns: 1fr 1fr;
-    }
-    [data-nexataxi-booking-module] .booking-dt-time-col {
-        max-height: 8.5rem;
+    .booking-dt-popover .booking-dt-time-col {
+        max-height: 6.5rem;
     }
 }
 [data-nexataxi-booking-module] .booking-datetime-wrap:has(.booking-datetime-input--past-invalid) .booking-datetime-control {
@@ -4731,14 +4868,20 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
     }
 
     /**
-     * Zorg dat elk stap-paneel minstens zo hoog is als de hoogste formulierstap
-     * (Contactgegevens is vaak iets hoger dan Reisgegevens). Bevestiging mag
-     * groeien; die telt niet mee als basis, anders wordt de kaart te hoog.
-     * Kortere stappen krijgen dus geen kleinere boekingskaart; langere mogen groeien.
+     * Desktop: elk stap-paneel minstens zo hoog als de hoogste formulierstap,
+     * zodat de kaart naast de module stabiel blijft. Bevestiging telt niet mee.
+     * Mobiel: geen min-hoogte — korte stappen mogen inklappen (geen lege ruimte).
      */
     function syncBookingPanelsMinHeight() {
         var shell = root.querySelector('[data-booking-step-panels-shell]');
         if (!shell) {
+            return;
+        }
+
+        var isMobile = window.matchMedia && window.matchMedia('(max-width: 767.98px)').matches;
+        if (isMobile) {
+            shell.style.removeProperty('--booking-panels-min-height');
+            shell.style.minHeight = '';
             return;
         }
 
@@ -5410,15 +5553,101 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             return now;
         }
 
+        var bookingDtThemeVars = [
+            '--booking-cta',
+            '--booking-cta-hover',
+            '--booking-skin-line',
+            '--booking-skin-input',
+            '--booking-skin-card',
+            '--booking-skin-text',
+            '--booking-skin-muted'
+        ];
+
+        function getPopoverForWrap(wrap) {
+            if (!wrap) return null;
+            var popId = wrap.getAttribute('data-booking-dt-popover-id');
+            if (popId) {
+                var byId = document.getElementById(popId);
+                if (byId) return byId;
+            }
+            return wrap.querySelector('[data-booking-dt-popover]');
+        }
+
+        function syncPopoverTheme(pop) {
+            if (!pop || !root) return;
+            var skin = root.getAttribute('data-booking-skin') || 'dark';
+            pop.setAttribute('data-booking-skin', skin);
+            pop.setAttribute('data-booking-dt-portaled', '1');
+            var sourceStyles = window.getComputedStyle(root);
+            bookingDtThemeVars.forEach(function(name) {
+                var val = sourceStyles.getPropertyValue(name);
+                if (val) {
+                    pop.style.setProperty(name, val.trim());
+                }
+            });
+        }
+
+        function supportsPopoverApi(el) {
+            return !!(el && typeof el.showPopover === 'function');
+        }
+
+        function isBookingPopoverOpen(pop) {
+            if (!pop) return false;
+            if (supportsPopoverApi(pop) && pop.hasAttribute('popover')) {
+                try { return pop.matches(':popover-open'); } catch (e) { /* fall through */ }
+            }
+            return !pop.hidden;
+        }
+
+        function showBookingPopover(pop) {
+            if (!pop) return;
+            if (supportsPopoverApi(pop) && pop.hasAttribute('popover')) {
+                try {
+                    if (!pop.matches(':popover-open')) pop.showPopover();
+                    return;
+                } catch (e) { /* fall through */ }
+            }
+            pop.hidden = false;
+        }
+
+        function hideBookingPopover(pop) {
+            if (!pop) return;
+            if (supportsPopoverApi(pop) && pop.hasAttribute('popover')) {
+                try {
+                    if (pop.matches(':popover-open')) pop.hidePopover();
+                    return;
+                } catch (e) { /* fall through */ }
+            }
+            pop.hidden = true;
+        }
+
         function ensurePopover(wrap) {
-            var pop = wrap.querySelector('[data-booking-dt-popover]');
-            if (pop) return pop;
+            var pop = getPopoverForWrap(wrap);
+            if (pop) {
+                if (pop.parentElement !== document.body) {
+                    document.body.appendChild(pop);
+                }
+                if (supportsPopoverApi(pop) && !pop.hasAttribute('popover')) {
+                    pop.removeAttribute('hidden');
+                    pop.setAttribute('popover', 'manual');
+                }
+                syncPopoverTheme(pop);
+                return pop;
+            }
             pop = document.createElement('div');
             pop.className = 'booking-dt-popover';
             pop.setAttribute('data-booking-dt-popover', '');
+            pop.setAttribute('data-booking-dt-portaled', '1');
             pop.setAttribute('role', 'dialog');
             pop.setAttribute('aria-modal', 'false');
-            pop.hidden = true;
+            if (supportsPopoverApi(pop)) {
+                pop.setAttribute('popover', 'manual');
+            } else {
+                pop.hidden = true;
+            }
+            var popId = 'booking-dt-popover-' + String(Math.random()).slice(2);
+            pop.id = popId;
+            wrap.setAttribute('data-booking-dt-popover-id', popId);
             pop.innerHTML =
                 '<div class="booking-dt-popover__header">' +
                     '<button type="button" class="booking-dt-nav" data-dt-prev aria-label="Vorige maand">' +
@@ -5452,16 +5681,18 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
                     '</div>' +
                     '<button type="button" class="booking-dt-footer-btn booking-dt-footer-btn--done" data-dt-done>Klaar</button>' +
                 '</div>';
-            wrap.appendChild(pop);
+            document.body.appendChild(pop);
+            syncPopoverTheme(pop);
             return pop;
         }
 
         function closePicker() {
             if (!activeInput) return;
             var wrap = activeInput.closest('.booking-datetime-wrap');
-            var pop = wrap ? wrap.querySelector('[data-booking-dt-popover]') : null;
-            if (pop) pop.hidden = true;
+            var pop = getPopoverForWrap(wrap);
+            if (pop) hideBookingPopover(pop);
             if (wrap) wrap.classList.remove('is-picker-open');
+            root.classList.remove('is-dt-picker-open');
             activeInput.setAttribute('aria-expanded', 'false');
             activeInput = null;
         }
@@ -5481,12 +5712,41 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         }
 
         function positionPopover(wrap, pop) {
+            if (!wrap || !pop) return;
+            syncPopoverTheme(pop);
             pop.classList.remove('is-above');
+            // Reset UA popover inset (inset:0) zonder !important die inline top/left blokkeert.
+            pop.style.inset = 'auto';
+            pop.style.margin = '0';
             var rect = wrap.getBoundingClientRect();
+            var gap = 7;
+            var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+            var isMobile = vw <= 639;
+            if (isMobile) {
+                pop.style.width = Math.max(0, rect.width) + 'px';
+                pop.style.minWidth = '0';
+                pop.style.maxWidth = 'none';
+                pop.style.left = Math.max(0, rect.left) + 'px';
+                pop.style.right = 'auto';
+            } else {
+                var popWidth = Math.min(Math.max(vw - 24, 0), Math.max(rect.width, 368));
+                pop.style.width = popWidth + 'px';
+                pop.style.minWidth = '23rem';
+                pop.style.maxWidth = 'min(28rem, calc(100vw - 1.5rem))';
+                var left = rect.right - popWidth;
+                left = Math.max(12, Math.min(left, Math.max(12, vw - popWidth - 12)));
+                pop.style.left = left + 'px';
+                pop.style.right = 'auto';
+            }
+            var approxHeight = Math.min(420, Math.max(isMobile ? 280 : 320, pop.offsetHeight || (isMobile ? 300 : 360)));
             var spaceBelow = window.innerHeight - rect.bottom;
-            var approxHeight = Math.min(420, Math.max(320, pop.offsetHeight || 360));
             if (spaceBelow < approxHeight && rect.top > spaceBelow) {
                 pop.classList.add('is-above');
+                pop.style.top = 'auto';
+                pop.style.bottom = (window.innerHeight - rect.top + gap) + 'px';
+            } else {
+                pop.style.bottom = 'auto';
+                pop.style.top = (rect.bottom + gap) + 'px';
             }
         }
 
@@ -5609,6 +5869,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             activeInput = input;
             input.setAttribute('aria-expanded', 'true');
             wrap.classList.add('is-picker-open');
+            root.classList.add('is-dt-picker-open');
 
             var ms = parseLocalDateTimeMs(String(input.value || '').trim());
             var base = !isNaN(ms) ? new Date(ms) : minAllowedDate(input);
@@ -5620,7 +5881,7 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             draftMinute = base.getMinutes();
             viewYear = draftDate.getFullYear();
             viewMonth = draftDate.getMonth();
-            pop.hidden = false;
+            showBookingPopover(pop);
             renderAll(pop, input);
             if (!String(input.value || '').trim()) {
                 commitDraft(input);
@@ -5630,13 +5891,14 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
         root._openBookingDateTimePicker = openPicker;
         root._closeBookingDateTimePicker = closePicker;
 
-        root.addEventListener('click', function(e) {
+        document.addEventListener('click', function(e) {
+            if (!root.isConnected) return;
             var popBtn = e.target.closest('[data-booking-dt-popover] button');
             if (popBtn && activeInput) {
                 e.preventDefault();
                 e.stopPropagation();
-                var pop = activeInput.closest('.booking-datetime-wrap').querySelector('[data-booking-dt-popover]');
-                if (!pop) return;
+                var pop = getPopoverForWrap(activeInput.closest('.booking-datetime-wrap'));
+                if (!pop || !pop.contains(popBtn)) return;
 
                 if (popBtn.hasAttribute('data-dt-prev')) {
                     viewMonth -= 1;
@@ -5730,12 +5992,15 @@ html.dark [data-nexataxi-booking-module] [data-step-panel] .rounded-lg,
             }
         });
 
-        window.addEventListener('resize', function() {
+        function repositionOpenPicker() {
             if (!activeInput) return;
             var wrap = activeInput.closest('.booking-datetime-wrap');
-            var pop = wrap ? wrap.querySelector('[data-booking-dt-popover]') : null;
-            if (wrap && pop && !pop.hidden) positionPopover(wrap, pop);
-        });
+            var pop = getPopoverForWrap(wrap);
+            if (wrap && pop && isBookingPopoverOpen(pop)) positionPopover(wrap, pop);
+        }
+
+        window.addEventListener('resize', repositionOpenPicker);
+        window.addEventListener('scroll', repositionOpenPicker, true);
     }
 
     function offersForDisplayMode() {

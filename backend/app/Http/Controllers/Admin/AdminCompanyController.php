@@ -243,6 +243,14 @@ class AdminCompanyController extends Controller
 
         $company = Company::create($companyData);
 
+        if (
+            ! empty($companyData['logo_blob'])
+            || ! empty($companyData['logo_dark_blob'])
+            || ! empty($companyData['favicon_blob'])
+        ) {
+            \App\Support\TenantPublicCache::bump($company);
+        }
+
         if (auth()->user()?->isSuperAdmin() && trim((string) ($company->package_key ?? '')) !== '') {
             $subscription = app(TenantSubscriptionService::class);
             $subscription->syncBillingPackageFromCompany($company, true);
@@ -557,6 +565,14 @@ class AdminCompanyController extends Controller
         $previousAddons = is_array($company->package_addons) ? $company->package_addons : [];
         $company->update($data);
 
+        if (
+            array_key_exists('logo_blob', $data)
+            || array_key_exists('logo_dark_blob', $data)
+            || array_key_exists('favicon_blob', $data)
+        ) {
+            \App\Support\TenantPublicCache::bump($company);
+        }
+
         if (auth()->user()?->isSuperAdmin()) {
             $company->refresh();
             $newPackageKey = trim((string) ($company->package_key ?? ''));
@@ -627,6 +643,7 @@ class AdminCompanyController extends Controller
                 'logo_path' => null, // Clear old file path
                 'updated_at' => now(), // Force update timestamp
             ]);
+            \App\Support\TenantPublicCache::bump($company->fresh());
         } catch (\Exception $e) {
             \Log::error('Database storage error: '.$e->getMessage());
 
@@ -636,10 +653,12 @@ class AdminCompanyController extends Controller
             ], 500);
         }
 
+        $company->refresh();
+
         return response()->json([
             'success' => true,
             'message' => 'Logo succesvol geüpload.',
-            'logo_url' => route('admin.companies.logo', ['company' => $company->id]),
+            'logo_url' => $company->adminLogoLightUrl(),
         ]);
     }
 

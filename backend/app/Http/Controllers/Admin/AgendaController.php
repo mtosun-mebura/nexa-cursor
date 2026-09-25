@@ -274,6 +274,11 @@ class AgendaController extends Controller
             return [];
         }
 
+        $rides = $this->filterOutArchivedContractRides($conn, $rides);
+        if ($rides->isEmpty()) {
+            return [];
+        }
+
         $driverIds = $rides->pluck('driver_id')->filter()->unique()->values();
         $driversById = User::query()
             ->whereIn('id', $driverIds)
@@ -454,5 +459,59 @@ class AgendaController extends Controller
         ];
 
         return $colors[$type] ?? '#6b7280';
+    }
+
+    /**
+     * Verberg ritten van gearchiveerde contractklanten, tenzij
+     * archive_keep_past_rides aan staat én de rit vóór vandaag ligt.
+     *
+     * @param  \Illuminate\Support\Collection<int, RideRequest>  $rides
+     * @return \Illuminate\Support\Collection<int, RideRequest>
+     */
+    private function filterOutArchivedContractRides(string $conn, $rides)
+    {
+        $contractIds = $rides->pluck('transport_contract_id')->filter()->unique()->values()->all();
+        if ($contractIds === []) {
+            return $rides;
+        }
+
+        if (! Schema::connection($conn)->hasTable('transport_contracts')
+            || ! Schema::connection($conn)->hasTable('transport_customers')) {
+            return $rides;
+        }
+
+        $contracts = \App\Modules\NexaTaxi\Models\TransportContract::on($conn)
+            ->whereIn('id', $contractIds)
+            ->get(['id', 'transport_customer_id'])
+            ->keyBy('id');
+
+        $customerIds = $contracts->pluck('transport_customer_id')->filter()->unique()->values()->all();
+        $customers = \App\Modules\NexaTaxi\Models\TransportCustomer::on($conn)
+            ->whereIn('id', $customerIds)
+            ->get(['id', 'archived_at', 'archive_keep_past_rides'])
+            ->keyBy('id');
+
+        $today = now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)->toDateString();
+
+        return $rides->filter(function (RideRequest $ride) use ($contracts, $customers, $today) {
+            $contractId = (int) ($ride->transport_contract_id ?? 0);
+            if ($contractId <= 0) {
+                return true;
+            }
+            $contract = $contracts->get($contractId);
+            if (! $contract) {
+                return true;
+            }
+            $customer = $customers->get((int) $contract->transport_customer_id);
+            if (! $customer || ! $customer->isArchived()) {
+                return true;
+            }
+            if (! $customer->keepsPastRidesInPlanning()) {
+                return false;
+            }
+            $pickupDate = $ride->pickup_at?->toDateString();
+
+            return $pickupDate !== null && $pickupDate < $today;
+        })->values();
     }
 }

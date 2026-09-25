@@ -369,6 +369,50 @@
         @media (min-width: 768px) {
             body:not(:has(#frontend-whatsapp-widget)) .scrollup.right { right: 24px; bottom: 28px; }
         }
+        /* Binnen de boekingsmodule: FABs uitfaden (boven/onder de module weer zichtbaar). */
+        #frontend-whatsapp-widget,
+        #scrollup-btn.scrollup {
+            transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s ease, background-color 0.2s ease;
+        }
+        body.is-over-booking-module #frontend-whatsapp-widget,
+        body.is-over-booking-module #scrollup-btn.scrollup {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            transform: translateY(8px);
+        }
+        /* Mobiel: iets kleinere WhatsApp-FAB. */
+        @media (max-width: 767.98px) {
+            #frontend-whatsapp-widget {
+                right: 14px !important;
+                bottom: 14px !important;
+            }
+            #frontend-whatsapp-widget-toggle,
+            #frontend-whatsapp-widget-menu a {
+                width: 2.75rem !important;
+                height: 2.75rem !important;
+            }
+            #frontend-whatsapp-widget-toggle .h-9,
+            #frontend-whatsapp-widget-toggle .w-9,
+            #frontend-whatsapp-widget-menu .h-9,
+            #frontend-whatsapp-widget-menu .w-9 {
+                width: 1.5rem !important;
+                height: 1.5rem !important;
+            }
+            #frontend-whatsapp-widget-menu {
+                bottom: 3.75rem !important;
+            }
+            .scrollup.right {
+                right: 4.35rem;
+                bottom: 16px;
+                width: 2.25rem;
+                height: 2.25rem;
+            }
+            body:not(:has(#frontend-whatsapp-widget)) .scrollup.right {
+                right: 14px;
+                bottom: 16px;
+            }
+        }
         /* Footer: wrapper zonder blok-translate; losse animaties op kinderen */
         .site-footer-reveal.scroll-reveal-section .footer-reveal-soft {
             opacity: 1;
@@ -575,7 +619,7 @@
 
     <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div class="container-custom">
-            <div class="flex justify-between items-center h-16 md:h-20">
+            <div class="fe-site-header-bar flex justify-between items-center h-16 md:h-20">
                 <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0 -ml-1 sm:ml-0">
                     <div id="website-mobile-menu-toggle-wrap" class="hidden flex-shrink-0">
                         <button type="button" id="website-mobile-menu-toggle" class="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
@@ -1079,6 +1123,74 @@
                 scrollToTop();
             });
             updateVisibility();
+        })();
+
+        (function() {
+            var booking = document.querySelector('[data-nexataxi-booking-module], #boek-rit');
+            if (!booking) return;
+
+            var over = false;
+            var queued = false;
+
+            function setOverBooking(next) {
+                if (over === next) return;
+                over = next;
+                document.body.classList.toggle('is-over-booking-module', over);
+                var wa = document.getElementById('frontend-whatsapp-widget');
+                if (wa && over) {
+                    var menu = document.getElementById('frontend-whatsapp-widget-menu');
+                    var toggle = document.getElementById('frontend-whatsapp-widget-toggle');
+                    var openIcon = document.getElementById('frontend-whatsapp-widget-icon-open');
+                    var closeIcon = document.getElementById('frontend-whatsapp-widget-icon-close');
+                    if (menu) menu.style.display = 'none';
+                    if (toggle) {
+                        toggle.setAttribute('aria-expanded', 'false');
+                        toggle.style.backgroundColor = '#25D366';
+                    }
+                    if (openIcon) openIcon.style.display = 'inline-flex';
+                    if (closeIcon) closeIcon.style.display = 'none';
+                }
+            }
+
+            function bookingBottomEdge() {
+                // Onderkant van de module = map indien aanwezig (mobiel vaak onder de stappen).
+                var mapEl = booking.querySelector('.booking-module-v2-map-col, [data-booking-live-map], .booking-module-v2-map-canvas');
+                var el = mapEl || booking;
+                return el.getBoundingClientRect().bottom;
+            }
+
+            function updateOverBooking() {
+                queued = false;
+                var rect = booking.getBoundingClientRect();
+                var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+                // Ruimte onderin voor WhatsApp + scroll-pijl (mobiel iets compacter).
+                var fabClearance = (window.matchMedia && window.matchMedia('(max-width: 767.98px)').matches)
+                    ? 72
+                    : 88;
+                var bottom = bookingBottomEdge();
+                // Verberg alleen zolang de onderkant van de module/map de knoppenzone bedekt.
+                // Zodra die onderkant iets boven de schermrand zit (ruimte voor de knoppen), weer tonen.
+                var coversFabZone = bottom > (vh - fabClearance) && rect.top < vh;
+                setOverBooking(coversFabZone);
+            }
+
+            function queueUpdate() {
+                if (queued) return;
+                queued = true;
+                window.requestAnimationFrame(updateOverBooking);
+            }
+
+            window.addEventListener('scroll', queueUpdate, { passive: true });
+            window.addEventListener('resize', queueUpdate, { passive: true });
+            if (typeof IntersectionObserver === 'function') {
+                var io = new IntersectionObserver(function() {
+                    queueUpdate();
+                }, { root: null, threshold: [0, 0.01, 0.1, 0.5, 1] });
+                io.observe(booking);
+                var mapEl = booking.querySelector('.booking-module-v2-map-col, [data-booking-live-map]');
+                if (mapEl) io.observe(mapEl);
+            }
+            queueUpdate();
         })();
     </script>
     @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')

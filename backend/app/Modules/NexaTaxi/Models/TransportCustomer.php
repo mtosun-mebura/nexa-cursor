@@ -33,16 +33,23 @@ class TransportCustomer extends Model
         'notes',
         'active',
         'archived_at',
+        'archive_keep_past_rides',
     ];
 
     protected $casts = [
         'active' => 'boolean',
         'archived_at' => 'datetime',
+        'archive_keep_past_rides' => 'boolean',
     ];
 
     public function isArchived(): bool
     {
         return $this->archived_at !== null;
+    }
+
+    public function keepsPastRidesInPlanning(): bool
+    {
+        return $this->isArchived() && (bool) $this->archive_keep_past_rides;
     }
 
     public function scopeNotArchived($query)

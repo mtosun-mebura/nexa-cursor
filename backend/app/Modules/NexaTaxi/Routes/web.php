@@ -93,6 +93,10 @@ Route::get('contractklanten/{id}/bewerken', [TransportCustomerController::class,
 Route::put('contractklanten/{id}', [TransportCustomerController::class, 'update'])->name('transport_customers.update');
 Route::delete('contractklanten/{id}', [TransportCustomerController::class, 'destroy'])->name('transport_customers.destroy');
 Route::delete('contractklanten/{id}/definitief', [TransportCustomerController::class, 'forceDestroy'])->name('transport_customers.force_destroy');
+Route::post('contractklanten/{id}/herstellen', [TransportCustomerController::class, 'restore'])
+    ->name('transport_customers.restore');
+Route::put('contractklanten/{id}/archief-ritten', [TransportCustomerController::class, 'updateArchiveKeepPastRides'])
+    ->name('transport_customers.archive_keep_past_rides');
 
 Route::post('contractklanten/{customerId}/portaal', [TransportCustomerPortalController::class, 'store'])
     ->name('transport_customers.portal.store');

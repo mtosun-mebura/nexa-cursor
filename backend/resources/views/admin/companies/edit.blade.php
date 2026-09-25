@@ -61,9 +61,9 @@
                             $hasFormLogo = (bool) $company->logo_blob;
                             $hasFormLogoDark = ! empty($company->logo_dark_blob);
                             $useFormLightDark = $formLogoMode === 'light_dark';
-                            $formLightUrl = $hasFormLogo ? route('admin.companies.logo', $company) : null;
+                            $formLightUrl = $hasFormLogo ? $company->adminLogoLightUrl() : null;
                             $formDarkUrl = ($hasFormLogo && $useFormLightDark && $hasFormLogoDark)
-                                ? route('admin.companies.logo.dark', $company)
+                                ? $company->adminLogoDarkUrl()
                                 : $formLightUrl;
                         @endphp
                         <tr>
@@ -115,7 +115,7 @@
                                             'areaId' => 'company-form-logo-upload-area',
                                             'linkId' => 'company-form-logo-upload-link',
                                             'removeBtnId' => 'company-form-logo-remove',
-                                            'existingUrl' => $company->logo_blob ? route('admin.companies.logo', $company) : null,
+                                            'existingUrl' => $company->logo_blob ? $company->adminLogoLightUrl() : null,
                                             'dropzoneKey' => 'light',
                                             'clientMsgId' => 'company-form-logo-client-msg',
                                             'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
@@ -143,7 +143,7 @@
                                                 'areaId' => 'company-form-logo-dark-upload-area',
                                                 'linkId' => 'company-form-logo-dark-upload-link',
                                                 'removeBtnId' => 'company-form-logo-dark-remove',
-                                                'existingUrl' => $company->logo_dark_blob ? route('admin.companies.logo.dark', $company) : null,
+                                                'existingUrl' => $company->logo_dark_blob ? $company->adminLogoDarkUrl() : null,
                                                 'dropzoneKey' => 'dark',
                                                 'clientMsgId' => 'company-form-logo-dark-client-msg',
                                                 'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
@@ -172,7 +172,7 @@
                                                 'areaId' => 'company-form-favicon-upload-area',
                                                 'linkId' => 'company-form-favicon-upload-link',
                                                 'removeBtnId' => 'company-form-favicon-remove',
-                                                'existingUrl' => $company->favicon_blob ? route('admin.companies.favicon', $company) : null,
+                                                'existingUrl' => $company->favicon_blob ? $company->adminFaviconUrl() : null,
                                                 'dropzoneKey' => 'favicon',
                                                 'clientMsgId' => 'company-form-favicon-client-msg',
                                                 'hintLine' => 'ICO, PNG, JPG, SVG (max. 2MB)',
