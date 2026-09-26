@@ -145,7 +145,9 @@ class WebsiteFooterInheritFromHomeTest extends TestCase
             ->assertSee('>Boek een rit</a>', false)
             ->assertSee('/boek', false)
             ->assertDontSee('>Boeken</a>', false)
-            ->assertDontSee('data-nexataxi-booking-module', false)
+            // Boekingsmodule zelf hoort op /boek; layout-JS mag wel de selector-string bevatten.
+            ->assertDontSee('id="boek-rit"', false)
+            ->assertDontSee('<section id="boek-rit"', false)
             ->assertDontSee(WebsitePage::CENTRAL_WELCOME_SLUG, false)
             ->assertDontSee('id="prijzen-pakketten"', false);
     }
