@@ -67,4 +67,25 @@ class PublicSitemapTest extends TestCase
         $this->assertStringContainsString('Disallow: /admin', $body);
         $this->assertStringContainsString('Sitemap: '.url('/sitemap.xml'), $body);
     }
+
+    #[Test]
+    public function tenant_sitemap_excludes_central_legal_routes(): void
+    {
+        config(['tenancy.central_domains' => ['localhost']]);
+
+        $this->mock(WebsiteBuilderService::class, function ($mock): void {
+            $mock->shouldReceive('loadAllPagesForAdminIndex')->andReturn(collect());
+            $mock->shouldReceive('getAboutPage')->andReturn(null);
+            $mock->shouldReceive('getContactPage')->andReturn(null);
+        });
+
+        // Simuleer tenant company scope ≠ central
+        $xml = app(PublicSitemapBuilder::class)->toXml(companyId: 1);
+
+        $this->assertStringNotContainsString('/privacy', $xml);
+        $this->assertStringNotContainsString('/voorwaarden', $xml);
+        $this->assertStringNotContainsString('/disclaimer', $xml);
+        $this->assertStringNotContainsString('/help', $xml);
+        $this->assertStringContainsString('<loc>'.url('/').'</loc>', $xml);
+    }
 }

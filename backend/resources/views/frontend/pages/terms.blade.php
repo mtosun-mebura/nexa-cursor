@@ -6,7 +6,7 @@
 @section('content')
 <article class="website-section-inner py-10 md:py-16">
     <div class="w-full max-w-3xl mx-auto">
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Laatst bijgewerkt: 16 september 2026</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Laatst bijgewerkt: 26 september 2026</p>
         <h1 class="text-3xl md:text-4xl font-semibold text-gray-900 dark:text-white mb-4" style="font-family: var(--theme-font-heading);">Algemene voorwaarden</h1>
         <p class="text-base text-gray-600 dark:text-gray-300 mb-10 leading-relaxed">
             Deze voorwaarden gelden voor het gebruik van NEXA Suite, het SaaS-platform van NEXA voor taxibedrijven (website, online boeking, chauffeur-app, contractvervoer en gerelateerde modules). Door een account aan te maken, een abonnement af te nemen of het platform te gebruiken, ga je hiermee akkoord.
@@ -47,6 +47,7 @@
                 <p>Dit artikel geldt <strong>alleen</strong> voor NEXA Suite-ritten: boekingen via de algemene website nexasuite.nl die naar het dichtstbijzijnde aangesloten taxibedrijf gaan. Het geldt <strong>niet</strong> voor ritten via jouw eigen website. Die vallen onder het maandabonnement uit artikel 4.</p>
                 <p class="mt-3">Over voltooide NEXA Suite-ritten betaal je een provisie van <strong>{{ \App\Support\NexaMarketplaceFeeCopy::percent() }}%</strong> over de ritomzet, exclusief btw. Dit percentage kan wijzigen; de actuele waarde staat op deze pagina en op de prijzenpagina. Wij factureren die provisie periodiek, los van het maandabonnement.</p>
                 <p class="mt-3">NEXA is geen vervoerder op deze ritten. De vervoersovereenkomst is tussen de reiziger en het taxibedrijf dat de rit uitvoert.</p>
+                <p class="mt-3">Ritprijzen en tariefindicaties in NEXA Suite zijn bepaald op basis van <a href="https://www.rijksoverheid.nl/vraag-en-antwoord/taxi/wat-zijn-de-kosten-voor-een-taxi" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">de wettelijke maximum taxitarieven in Nederland</a>.</p>
             </section>
 
             <section>

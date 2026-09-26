@@ -70,6 +70,8 @@ class LegalPagesController extends Controller
      */
     private function layoutData(): array
     {
+        $seoNoindex = ! \App\Support\Tenancy\CentralDomains::isCentral((string) request()->getHost());
+
         $page = $this->websiteBuilder->getCentralMarketingWelcomePage()
             ?? $this->websiteBuilder->getHomePage();
 
@@ -99,6 +101,7 @@ class LegalPagesController extends Controller
                 'whatsappWidget' => $this->websiteBuilder->resolveWhatsappWidgetForPage($page),
                 'structuredDataGraph' => [],
                 'seoTracking' => app(GoogleSeoSettingsService::class)->trackingConfigForCompany($companyId),
+                'seoNoindex' => $seoNoindex,
             ];
         }
 
@@ -116,6 +119,7 @@ class LegalPagesController extends Controller
             'whatsappWidget' => ['enabled' => false, 'phone' => '', 'message' => ''],
             'structuredDataGraph' => [],
             'seoTracking' => [],
+            'seoNoindex' => $seoNoindex,
         ];
     }
 }

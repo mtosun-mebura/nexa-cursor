@@ -108,10 +108,11 @@ class PublicSitemapBuilder
             ['route' => 'starten', 'changefreq' => 'weekly', 'priority' => '0.8', 'central_only' => true],
             ['route' => 'about', 'changefreq' => 'monthly', 'priority' => '0.6'],
             ['route' => 'contact', 'changefreq' => 'monthly', 'priority' => '0.7'],
-            ['route' => 'help', 'changefreq' => 'monthly', 'priority' => '0.4'],
-            ['route' => 'privacy', 'changefreq' => 'yearly', 'priority' => '0.3'],
-            ['route' => 'terms', 'changefreq' => 'yearly', 'priority' => '0.3'],
-            ['route' => 'disclaimer', 'changefreq' => 'yearly', 'priority' => '0.2'],
+            // Centrale NEXA-/Skillmatching-pagina's horen niet in de tenant-sitemap
+            ['route' => 'help', 'changefreq' => 'monthly', 'priority' => '0.4', 'central_only' => true],
+            ['route' => 'privacy', 'changefreq' => 'yearly', 'priority' => '0.3', 'central_only' => true],
+            ['route' => 'terms', 'changefreq' => 'yearly', 'priority' => '0.3', 'central_only' => true],
+            ['route' => 'disclaimer', 'changefreq' => 'yearly', 'priority' => '0.2', 'central_only' => true],
         ];
 
         $isCentral = $companyId === null;

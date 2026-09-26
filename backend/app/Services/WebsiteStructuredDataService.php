@@ -25,14 +25,14 @@ class WebsiteStructuredDataService
 
         $pageTitle = filled(trim((string) ($page->title ?? '')))
             ? trim($page->title)
-            : ($branding['site_name'] ?? config('app.name', 'Nexa'));
+            : \App\Support\WebsiteSeoMeta::brandLabel($branding);
 
-        $pageDescription = filled(trim((string) ($page->meta_description ?? '')))
-            ? trim($page->meta_description)
-            : Str::limit(strip_tags((string) ($page->content ?? '')), 160, '…');
-        if ($pageDescription === '') {
-            $pageDescription = trim((string) ($branding['site_description'] ?? ''));
-        }
+        $pageDescription = \App\Support\WebsiteSeoMeta::resolveDescription(
+            $page->meta_description ?? null,
+            $page->content ?? null,
+            $branding['site_description'] ?? null,
+            \App\Support\WebsiteSeoMeta::brandLabel($branding),
+        );
 
         $company = null;
         if ($page->company_id) {
@@ -77,12 +77,18 @@ class WebsiteStructuredDataService
             $company
         );
 
+        $websiteName = \App\Support\WebsiteSeoMeta::brandLabel($branding);
+        $siteDescRaw = trim((string) ($branding['site_description'] ?? ''));
+        $websiteDescription = \App\Support\WebsiteSeoMeta::isUsableDescription($siteDescRaw)
+            ? \App\Support\WebsiteSeoMeta::resolveDescription($siteDescRaw)
+            : null;
+
         $website = $this->compactNode([
             '@type' => 'WebSite',
             '@id' => $websiteId,
             'url' => $baseUrl,
-            'name' => $branding['site_name'] ?? config('app.name', 'Nexa'),
-            'description' => $this->cleanText($branding['site_description'] ?? ''),
+            'name' => $websiteName !== '' ? $websiteName : (config('app.name', 'Nexa')),
+            'description' => $websiteDescription,
             'publisher' => ['@id' => $orgId],
             'inLanguage' => $this->localeTag(),
         ]);

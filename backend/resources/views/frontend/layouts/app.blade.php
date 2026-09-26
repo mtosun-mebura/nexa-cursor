@@ -43,6 +43,13 @@
     
     <title>@yield('title', $layoutSiteName)</title>
     <meta name="description" content="@yield('description', $layoutSiteDescription !== '' ? $layoutSiteDescription : 'Log in op je account.')">
+    @php
+        $layoutSeoNoindex = ! empty($seoNoindex)
+            || request()->routeIs('privacy', 'help')
+                && ! \App\Support\Tenancy\CentralDomains::isCentral((string) request()->getHost());
+    @endphp
+    <meta name="robots" content="{{ $layoutSeoNoindex ? 'noindex, nofollow' : 'index, follow' }}">
+    <link rel="canonical" href="{{ url()->current() }}">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">

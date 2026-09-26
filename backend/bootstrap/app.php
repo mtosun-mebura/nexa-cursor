@@ -55,6 +55,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(prepend: [
+            \App\Http\Middleware\PreferApexHostRedirect::class,
             \App\Http\Middleware\ResolveTenantFromHost::class,
             \App\Http\Middleware\AdminRoutesUseWebGuard::class,
         ]);

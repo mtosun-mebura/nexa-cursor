@@ -12,10 +12,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', $branding['site_name'] ?? config('app.name'))</title>
-    <meta name="description" content="@yield('description', $branding['site_description'] ?? '')">
-    <meta property="og:site_name" content="{{ $branding['site_name'] ?? config('app.name') }}">
-    <meta property="og:description" content="@yield('description', $branding['site_description'] ?? '')">
+    @php
+        $seoBrandName = \App\Support\WebsiteSeoMeta::brandLabel($branding ?? []);
+        $seoPageTitle = trim($__env->yieldContent('title', $seoBrandName !== '' ? $seoBrandName : (config('app.name') ?? 'Nexa')));
+        $seoRawDescription = trim($__env->yieldContent('description', ''));
+        $seoPageDescription = \App\Support\WebsiteSeoMeta::resolveDescription(
+            $seoRawDescription !== '' ? $seoRawDescription : null,
+            null,
+            $branding['site_description'] ?? null,
+            $seoBrandName,
+        );
+        $seoCanonical = url()->current();
+        $seoRobots = ! empty($seoNoindex) ? 'noindex, nofollow' : 'index, follow';
+    @endphp
+    <title>{{ $seoPageTitle }}</title>
+    <meta name="description" content="{{ $seoPageDescription }}">
+    <meta name="robots" content="{{ $seoRobots }}">
+    <link rel="canonical" href="{{ $seoCanonical }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ $seoBrandName !== '' ? $seoBrandName : ($branding['site_name'] ?? config('app.name')) }}">
+    <meta property="og:url" content="{{ $seoCanonical }}">
+    <meta property="og:title" content="{{ $seoPageTitle }}">
+    <meta property="og:description" content="{{ $seoPageDescription }}">
     @php $seoTracking = $seoTracking ?? []; @endphp
     @include('frontend.layouts.partials.google-seo-tracking')
     @include('frontend.layouts.partials.website-structured-data')

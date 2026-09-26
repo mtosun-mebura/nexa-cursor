@@ -1,7 +1,20 @@
 @extends('frontend.layouts.website')
 
-@section('title', filled(trim((string) ($page->title ?? ''))) ? trim($page->title).' - '.($branding['site_name'] ?? config('app.name')) : ($branding['site_name'] ?? config('app.name')))
-@section('description', $page->meta_description ?? Str::limit(strip_tags($page->content), 160))
+@php
+    $seoBrand = \App\Support\WebsiteSeoMeta::brandLabel($branding ?? []);
+    $seoTitleBase = filled(trim((string) ($page->title ?? ''))) ? trim($page->title) : $seoBrand;
+    $seoTitle = ($seoTitleBase !== '' && strcasecmp($seoTitleBase, $seoBrand) !== 0)
+        ? $seoTitleBase.' - '.$seoBrand
+        : ($seoBrand !== '' ? $seoBrand : config('app.name'));
+    $seoDescription = \App\Support\WebsiteSeoMeta::resolveDescription(
+        $page->meta_description ?? null,
+        $page->content ?? null,
+        $branding['site_description'] ?? null,
+        $seoBrand,
+    );
+@endphp
+@section('title', $seoTitle)
+@section('description', $seoDescription)
 
 @section('content')
 @php
