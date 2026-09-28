@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -149,6 +150,28 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(5)->by($request->ip()),
                 Limit::perHour(20)->by($request->ip()),
             ];
+        });
+
+        RateLimiter::for('auth-register', function ($request) {
+            return [
+                Limit::perMinute(5)->by($request->ip()),
+                Limit::perHour(20)->by($request->ip()),
+            ];
+        });
+
+        RateLimiter::for('auth-login', function ($request) {
+            $email = strtolower(trim((string) $request->input('email', '')));
+
+            return [
+                Limit::perMinute(10)->by($request->ip()),
+                Limit::perMinute(5)->by($request->ip().'|'.$email),
+            ];
+        });
+
+        Password::defaults(function () {
+            return Password::min(8)
+                ->mixedCase()
+                ->numbers();
         });
 
         // Named limiters: Laravel's throttle:N,1 uses domain+IP without the route,

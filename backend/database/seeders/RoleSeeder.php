@@ -87,6 +87,7 @@ class RoleSeeder extends Seeder
         $staff = Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web']);
         $candidate = Role::firstOrCreate(['name' => 'candidate', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'driver_pending', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
@@ -98,6 +99,7 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'candidate', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'api']);
+        Role::firstOrCreate(['name' => 'driver_pending', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'api']);
