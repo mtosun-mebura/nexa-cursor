@@ -3,13 +3,27 @@
 @include('layouts.partials.apexcharts')
 @include('admin.settings.partials.collapsible-section-assets')
 
-@section('title', 'Ritten')
+@php
+    $ridesIndexRoute = $ridesIndexRoute ?? 'admin.taxi.ride_requests.index';
+    $ridesBulkDestroyRoute = $ridesBulkDestroyRoute ?? 'admin.taxi.ride_requests.bulk-destroy';
+    $ridesPageTitle = $ridesPageTitle ?? 'Ritten';
+    $ridesIsContractTransport = (bool) ($ridesIsContractTransport ?? false);
+@endphp
+
+@section('title', $ridesPageTitle)
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Ritten</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ $ridesPageTitle }}</h1>
     </div>
+
+    @if(!empty($packageDeniedMessage))
+        <div class="kt-alert kt-alert-warning mb-5" role="alert">
+            <i class="ki-filled ki-information me-2"></i>
+            {{ $packageDeniedMessage }}
+        </div>
+    @else
 
     @include('taxi::admin.ride_requests.partials.monthly-stats')
 
@@ -32,7 +46,7 @@
             @endif
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Overzicht ritten</h3>
             <div class="flex flex-col sm:flex-row flex-wrap gap-2 gap-2.5 w-full justify-end items-stretch sm:items-center min-w-0">
-                <form method="GET" action="{{ route('admin.taxi.ride_requests.index') }}" id="ride-filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
+                <form method="GET" action="{{ route($ridesIndexRoute) }}" id="ride-filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
                     @if(request('per_page'))<input type="hidden" name="per_page" value="{{ request('per_page') }}">@endif
                     @if(!empty($monthlyStats['month']))<input type="hidden" name="stats_month" value="{{ $monthlyStats['month'] }}">@endif
                     <select name="status" id="ride-status-filter" class="kt-select w-full sm:w-40">
@@ -68,7 +82,7 @@
                     <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full sm:w-auto shrink-0">Filter</button>
                 </form>
                 @if(request('status') !== null && request('status') !== '' || request('vehicle_id') !== null && request('vehicle_id') !== '' || request('from') || request('to'))
-                <a href="{{ route('admin.taxi.ride_requests.index', array_filter(['stats_month' => $monthlyStats['month'] ?? null])) }}" class="kt-btn kt-btn-outline kt-btn-icon rides-filter-reset-btn shrink-0 w-full sm:w-auto" title="Filters resetten">
+                <a href="{{ route($ridesIndexRoute, array_filter(['stats_month' => $monthlyStats['month'] ?? null])) }}" class="kt-btn kt-btn-outline kt-btn-icon rides-filter-reset-btn shrink-0 w-full sm:w-auto" title="Filters resetten">
                     <i class="ki-filled ki-arrows-circle text-base"></i>
                 </a>
                 @endif
@@ -245,7 +259,7 @@
         <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0">
             <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
                 Toon
-                <form method="GET" action="{{ route('admin.taxi.ride_requests.index') }}" class="inline-flex" id="ride-perpage-form">
+                <form method="GET" action="{{ route($ridesIndexRoute) }}" class="inline-flex" id="ride-perpage-form">
                     @if(request('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
                     @if(request('vehicle_id'))<input type="hidden" name="vehicle_id" value="{{ request('vehicle_id') }}">@endif
                     @if(request('from'))<input type="hidden" name="from" value="{{ request('from') }}">@endif
@@ -266,10 +280,9 @@
         </div>
         @endif
     </div>
-</div>
 @if($canDeleteRides)
 <form method="POST"
-      action="{{ route('admin.taxi.ride_requests.bulk-destroy') }}"
+      action="{{ route($ridesBulkDestroyRoute) }}"
       id="rides-bulk-delete-form"
       class="hidden"
       data-admin-confirm="Weet je zeker dat je de geselecteerde ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
@@ -280,6 +293,8 @@
     <div id="rides-bulk-delete-ids"></div>
 </form>
 @endif
+    @endif
+</div>
 @push('styles')
 <style>
     #ride-stats-collapsible-root .settings-collapsible-toggle:hover .kt-card-title {
@@ -541,18 +556,85 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var stats = @json($monthlyStats ?? []);
-    var isDark = document.documentElement.classList.contains('dark');
-    var labelColor = isDark ? '#94a3b8' : '#64748b';
-    var gridColor = 'var(--border)';
     var primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#3b82f6';
     var success = getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#22c55e';
     var warning = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#f59e0b';
+
+    function resolveThemeColors() {
+        var dark = document.documentElement.classList.contains('dark');
+        return {
+            dark: dark,
+            label: dark ? '#94a3b8' : '#64748b',
+            value: dark ? '#e2e8f0' : '#0f172a',
+            grid: dark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(100, 116, 139, 0.25)',
+            tooltip: dark ? 'dark' : 'light'
+        };
+    }
 
     function euro(value) {
         return '€ ' + Number(value || 0).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function donutCenterLabels(theme, withTotal) {
+        var labels = {
+            show: true,
+            name: {
+                show: true,
+                fontSize: '11px',
+                color: theme.label,
+                offsetY: withTotal ? -4 : 0
+            },
+            value: {
+                show: true,
+                fontSize: '13px',
+                fontWeight: 600,
+                color: theme.value,
+                offsetY: withTotal ? 2 : 0
+            }
+        };
+        if (withTotal) {
+            labels.total = {
+                show: true,
+                showAlways: true,
+                label: 'Totaal',
+                fontSize: '11px',
+                fontWeight: 500,
+                color: theme.label,
+                formatter: function () {
+                    return euro(Number(stats.revenue_cash || 0) + Number(stats.revenue_mollie || 0));
+                }
+            };
+        }
+        return labels;
+    }
+
+    function rideStatsThemeOptions(theme) {
+        return {
+            chart: { foreColor: theme.label },
+            legend: { labels: { colors: theme.label } },
+            grid: { borderColor: theme.grid },
+            xaxis: { labels: { style: { colors: theme.label } } },
+            yaxis: [
+                { labels: { style: { colors: theme.label } } },
+                { labels: { style: { colors: theme.label } } }
+            ],
+            tooltip: { theme: theme.tooltip },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        labels: {
+                            name: { color: theme.label },
+                            value: { color: theme.value },
+                            total: { color: theme.label }
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     if (typeof ApexCharts !== 'undefined') {
+        var theme = resolveThemeColors();
         var daily = stats.daily || [];
         var trendEl = document.querySelector('#ride-stats-trend-chart');
         if (trendEl) {
@@ -561,25 +643,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     { name: 'Voltooid', type: 'column', data: daily.map(function (d) { return d.completed; }) },
                     { name: 'Omzet', type: 'line', data: daily.map(function (d) { return d.revenue; }) }
                 ],
-                chart: { height: 168, type: 'line', toolbar: { show: false }, fontFamily: 'inherit', zoom: { enabled: false }, parentHeightOffset: 0 },
+                chart: { height: 168, type: 'line', toolbar: { show: false }, fontFamily: 'inherit', foreColor: theme.label, zoom: { enabled: false }, parentHeightOffset: 0 },
                 stroke: { width: [0, 2], curve: 'smooth' },
                 colors: [primary, success],
                 plotOptions: { bar: { columnWidth: '42%', borderRadius: 2 } },
                 dataLabels: { enabled: false },
                 xaxis: {
                     categories: daily.map(function (d) { return d.label; }),
-                    labels: { style: { colors: labelColor, fontSize: '10px' } },
+                    labels: { style: { colors: theme.label, fontSize: '10px' } },
                     axisBorder: { show: false },
                     axisTicks: { show: false }
                 },
                 yaxis: [
-                    { labels: { style: { colors: labelColor, fontSize: '10px' } }, min: 0, forceNiceScale: true },
-                    { opposite: true, labels: { style: { colors: labelColor, fontSize: '10px' }, formatter: euro }, min: 0 }
+                    { labels: { style: { colors: theme.label, fontSize: '10px' } }, min: 0, forceNiceScale: true },
+                    { opposite: true, labels: { style: { colors: theme.label, fontSize: '10px' }, formatter: euro }, min: 0 }
                 ],
-                legend: { position: 'top', horizontalAlign: 'left', fontSize: '11px', itemMargin: { horizontal: 8, vertical: 0 }, labels: { colors: labelColor } },
-                grid: { borderColor: gridColor, strokeDashArray: 4, padding: { top: 0, right: 4, bottom: 0, left: 0 }, xaxis: { lines: { show: false } } },
+                legend: { position: 'top', horizontalAlign: 'left', fontSize: '11px', itemMargin: { horizontal: 8, vertical: 0 }, labels: { colors: theme.label } },
+                grid: { borderColor: theme.grid, strokeDashArray: 4, padding: { top: 0, right: 4, bottom: 0, left: 0 }, xaxis: { lines: { show: false } } },
                 tooltip: {
                     shared: true,
+                    theme: theme.tooltip,
                     y: [
                         { formatter: function (val) { return val + ' ritten'; } },
                         { formatter: euro }
@@ -597,16 +680,22 @@ document.addEventListener('DOMContentLoaded', function() {
             var paymentChart = new ApexCharts(paymentEl, {
                 series: (cash === 0 && mollie === 0) ? [1] : [cash, mollie],
                 labels: (cash === 0 && mollie === 0) ? ['Geen omzet'] : ['Cash', 'Mollie'],
-                chart: { type: 'donut', height: 140, fontFamily: 'inherit', parentHeightOffset: 0 },
+                chart: { type: 'donut', height: 140, fontFamily: 'inherit', foreColor: theme.label, parentHeightOffset: 0 },
                 colors: (cash === 0 && mollie === 0) ? ['#94a3b8'] : [warning, primary],
-                legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: labelColor } },
+                legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: theme.label } },
                 dataLabels: { enabled: false },
                 stroke: { width: 0 },
                 tooltip: {
+                    theme: theme.tooltip,
                     y: { formatter: function (val) { return (cash === 0 && mollie === 0) ? '—' : euro(val); } }
                 },
                 plotOptions: {
-                    pie: { donut: { size: '70%', labels: { show: true, name: { fontSize: '11px' }, value: { fontSize: '13px' }, total: { show: true, label: 'Totaal', fontSize: '11px', formatter: function () { return euro(cash + mollie); } } } } }
+                    pie: {
+                        donut: {
+                            size: '70%',
+                            labels: donutCenterLabels(theme, true)
+                        }
+                    }
                 }
             });
             paymentChart.render();
@@ -619,15 +708,39 @@ document.addEventListener('DOMContentLoaded', function() {
             var statusChart = new ApexCharts(statusEl, {
                 series: statusRows.length ? statusRows.map(function (row) { return row.value; }) : [1],
                 labels: statusRows.length ? statusRows.map(function (row) { return row.label; }) : ['Geen ritten'],
-                chart: { type: 'donut', height: 140, fontFamily: 'inherit', parentHeightOffset: 0 },
-                legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: labelColor } },
+                chart: { type: 'donut', height: 140, fontFamily: 'inherit', foreColor: theme.label, parentHeightOffset: 0 },
+                legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: theme.label } },
                 dataLabels: { enabled: false },
                 stroke: { width: 0 },
-                plotOptions: { pie: { donut: { size: '70%', labels: { show: true, name: { fontSize: '11px' }, value: { fontSize: '13px' } } } } }
+                tooltip: {
+                    theme: theme.tooltip
+                },
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: '70%',
+                            labels: donutCenterLabels(theme, false)
+                        }
+                    }
+                }
             });
             statusChart.render();
             window.rideStatsCharts.push(statusChart);
         }
+
+        var lastDark = theme.dark;
+        new MutationObserver(function () {
+            var next = resolveThemeColors();
+            if (next.dark === lastDark) {
+                return;
+            }
+            lastDark = next.dark;
+            (window.rideStatsCharts || []).forEach(function (chart) {
+                if (chart && typeof chart.updateOptions === 'function') {
+                    chart.updateOptions(rideStatsThemeOptions(next), false, true);
+                }
+            });
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     }
 
     var filterForm = document.getElementById('ride-filters-form');

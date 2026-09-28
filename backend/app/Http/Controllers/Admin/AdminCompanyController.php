@@ -346,9 +346,11 @@ class AdminCompanyController extends Controller
 
         $needsCompanyAdminWelcome = false;
         if (auth()->user()?->isSuperAdmin()) {
-            $adminEmail = strtolower(trim((string) $company->email));
-            $needsCompanyAdminWelcome = $adminEmail !== ''
-                && ! $company->users->contains(fn (User $user) => strtolower((string) $user->email) === $adminEmail);
+            // Alleen tonen als deze tenant nog geen actieve gebruiker heeft (Gebruikers),
+            // niet op basis van het contact-e-mailadres van het bedrijf.
+            $needsCompanyAdminWelcome = ! $company->users->contains(
+                fn (User $user) => (bool) $user->is_active
+            );
         }
 
         return view('admin.companies.show', compact(
@@ -607,7 +609,7 @@ class AdminCompanyController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.companies.show', $company)
+        return redirect()->route('admin.companies.edit', $company)
             ->with('success', 'Bedrijf succesvol bijgewerkt.');
     }
 

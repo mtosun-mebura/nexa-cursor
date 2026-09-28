@@ -22,7 +22,7 @@
                 <p class="text-xs text-muted-foreground mb-0 mt-1">{{ $stats['month_label'] }} · ritten, omzet en opvolging</p>
             </button>
             <form method="GET"
-                  action="{{ route('admin.taxi.ride_requests.index') }}"
+                  action="{{ route($ridesIndexRoute ?? 'admin.taxi.ride_requests.index') }}"
                   id="ride-stats-month-form"
                   class="flex flex-wrap items-center gap-2 min-w-0 shrink-0">
                 @if(request('status') !== null && request('status') !== '')

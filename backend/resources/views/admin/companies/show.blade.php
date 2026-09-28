@@ -10,8 +10,8 @@
             <div>
                 <div class="font-medium">Company-admin ontbreekt — welkomstmail is nog niet verstuurd.</div>
                 <p class="text-sm mb-0 mt-1 opacity-90">
-                    De wizard is niet tot de laatste stap afgerond. {{ $company->email }} heeft nog geen account
-                    en dus ook nog geen welkomstmail om een inlogcode aan te vragen.
+                    Er is nog geen actieve gebruiker voor deze tenant. De wizard is niet tot de laatste stap afgerond,
+                    dus er is nog geen welkomstmail verstuurd om een inlogcode aan te vragen.
                 </p>
             </div>
             <form method="POST" action="{{ route('admin.companies.send-welcome', $company) }}" class="shrink-0" id="company-welcome-mail-form">

@@ -397,10 +397,141 @@ class RideRequest extends Model
     }
 
     /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
+     */
+    public function scopeContractRides($query)
+    {
+        $connection = $query->getConnection()->getName();
+        $schema = \Illuminate\Support\Facades\Schema::connection($connection);
+        $hasSource = $schema->hasColumn('ride_requests', 'source');
+        $hasPayment = $schema->hasColumn('ride_requests', 'payment_method');
+        $hasContractId = $schema->hasColumn('ride_requests', 'transport_contract_id');
+        $hasRideType = $schema->hasColumn('ride_requests', 'ride_type');
+
+        if (! $hasSource && ! $hasPayment && ! $hasContractId && ! $hasRideType) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where(function ($q) use ($hasSource, $hasPayment, $hasContractId, $hasRideType) {
+            if ($hasSource) {
+                $q->orWhere('source', self::SOURCE_CONTRACT);
+            }
+            if ($hasPayment) {
+                $q->orWhere('payment_method', self::PAYMENT_METHOD_CONTRACT);
+            }
+            if ($hasContractId) {
+                $q->orWhere(function ($contractId) {
+                    $contractId->whereNotNull('transport_contract_id')
+                        ->where('transport_contract_id', '>', 0);
+                });
+            }
+            if ($hasRideType) {
+                $q->orWhereIn('ride_type', [
+                    self::RIDE_TYPE_CONTRACT_GROUP,
+                    self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Gewone taxi-/boekingsritten (geen contractvervoer).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
+     */
+    public function scopeWithoutContractRides($query)
+    {
+        $connection = $query->getConnection()->getName();
+        $schema = \Illuminate\Support\Facades\Schema::connection($connection);
+        $hasSource = $schema->hasColumn('ride_requests', 'source');
+        $hasPayment = $schema->hasColumn('ride_requests', 'payment_method');
+        $hasContractId = $schema->hasColumn('ride_requests', 'transport_contract_id');
+        $hasRideType = $schema->hasColumn('ride_requests', 'ride_type');
+
+        if (! $hasSource && ! $hasPayment && ! $hasContractId && ! $hasRideType) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($hasSource, $hasPayment, $hasContractId, $hasRideType) {
+            if ($hasSource) {
+                $q->where(function ($source) {
+                    $source->whereNull('source')
+                        ->orWhere('source', '!=', self::SOURCE_CONTRACT);
+                });
+            }
+            if ($hasPayment) {
+                $q->where(function ($payment) {
+                    $payment->whereNull('payment_method')
+                        ->orWhere('payment_method', '!=', self::PAYMENT_METHOD_CONTRACT);
+                });
+            }
+            if ($hasContractId) {
+                $q->where(function ($contractId) {
+                    $contractId->whereNull('transport_contract_id')
+                        ->orWhere('transport_contract_id', 0);
+                });
+            }
+            if ($hasRideType) {
+                $q->where(function ($rideType) {
+                    $rideType->whereNull('ride_type')
+                        ->orWhereNotIn('ride_type', [
+                            self::RIDE_TYPE_CONTRACT_GROUP,
+                            self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
+                        ]);
+                });
+            }
+        });
+    }
+
+    /**
+     * Verberg ritten van gearchiveerde contractklanten, tenzij keep-past én pickup vóór vandaag.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
+     */
+    public function scopeExcludeHiddenArchivedContractCustomers($query, string $connection)
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection($connection);
+        if (! $schema->hasTable('transport_contracts') || ! $schema->hasTable('transport_customers')) {
+            return $query;
+        }
+
+        $today = now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)->toDateString();
+
+        return $query->where(function ($outer) use ($today) {
+            $outer->whereNull('transport_contract_id')
+                ->orWhere('transport_contract_id', 0)
+                ->orWhereNotExists(function ($sub) use ($today) {
+                    $sub->selectRaw('1')
+                        ->from('transport_contracts as tc')
+                        ->join('transport_customers as cu', 'cu.id', '=', 'tc.transport_customer_id')
+                        ->whereColumn('tc.id', 'ride_requests.transport_contract_id')
+                        ->whereNotNull('cu.archived_at')
+                        ->where(function ($hide) use ($today) {
+                            $hide->where(function ($noKeep) {
+                                $noKeep->whereNull('cu.archive_keep_past_rides')
+                                    ->orWhere('cu.archive_keep_past_rides', false)
+                                    ->orWhere('cu.archive_keep_past_rides', 0);
+                            })->orWhere(function ($keepFuture) use ($today) {
+                                $keepFuture->where(function ($keep) {
+                                    $keep->where('cu.archive_keep_past_rides', true)
+                                        ->orWhere('cu.archive_keep_past_rides', 1);
+                                })->whereDate('ride_requests.pickup_at', '>=', $today);
+                            });
+                        });
+                });
+        });
+    }
+
+    /**
      * Ritten zichtbaar voor een chauffeur: toegewezen op chauffeur, of
      * contractrit gekoppeld aan het geselecteerde voertuig (zonder andere chauffeur).
      *
      * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @param  int  $driverId
+     * @param  int|null  $vehicleId
      * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
      */
     public function scopeVisibleToDriver($query, int $driverId, ?int $vehicleId = null)
