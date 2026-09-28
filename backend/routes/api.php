@@ -17,10 +17,14 @@ use App\Http\Controllers\Api\MatchController;
 */
 
 // Public routes
-Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login', [AuthController::class, 'login']);
-Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/auth/register', [AuthController::class, 'register'])
+    ->middleware('throttle:auth-register');
+Route::post('/auth/login', [AuthController::class, 'login'])
+    ->middleware('throttle:auth-login');
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:auth-register');
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])
+    ->middleware('throttle:auth-register');
 
 // Matching routes (for n8n integration)
 // Note: Consider adding API key authentication for production

@@ -18,6 +18,7 @@ use App\Services\CompanyEmailLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
+use App\Services\PublicRegistrationService;
 use App\Support\TenantPackageCapability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -179,6 +180,13 @@ class DriverAuthController extends Controller
         if (! $user->email_verified_at) {
             return response()->json([
                 'message' => 'E-mailadres is nog niet geverifieerd.',
+            ], 403);
+        }
+
+        if ($user->hasRole(PublicRegistrationService::ROLE_DRIVER_PENDING)) {
+            return response()->json([
+                'message' => 'Je chauffeuraccount is nog in behandeling en heeft geen toegang tot de chauffeur-app.',
+                'error' => 'driver_pending',
             ], 403);
         }
 
