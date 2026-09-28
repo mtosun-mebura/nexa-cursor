@@ -38,6 +38,7 @@ class RideRequestController extends Controller
         $conn = $this->moduleConnection();
         $query = RideRequest::on($conn)->with(['vehicle.company', 'driver', 'company']);
         $this->applyRideTenantScope($query);
+        $query->withoutContractRides();
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -81,7 +82,10 @@ class RideRequestController extends Controller
         $monthlyStats = app(RideRequestMonthlyStatsService::class)->forMonth(
             $conn,
             $monthStart,
-            fn ($ridesQuery) => $this->applyRideTenantScope($ridesQuery)
+            function ($ridesQuery) {
+                $this->applyRideTenantScope($ridesQuery);
+                $ridesQuery->withoutContractRides();
+            }
         );
 
         return view('taxi::admin.ride_requests.index', [
@@ -90,6 +94,10 @@ class RideRequestController extends Controller
             'statusLabels' => $statusLabels,
             'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
             'monthlyStats' => $monthlyStats,
+            'ridesIndexRoute' => 'admin.taxi.ride_requests.index',
+            'ridesBulkDestroyRoute' => 'admin.taxi.ride_requests.bulk-destroy',
+            'ridesPageTitle' => 'Ritten',
+            'ridesIsContractTransport' => false,
         ]);
     }
 
@@ -306,7 +314,7 @@ class RideRequestController extends Controller
         $conn = $this->moduleConnection();
         $ids = array_values(array_unique(array_map('intval', $data['ids'])));
 
-        $query = RideRequest::on($conn)->whereIn('id', $ids);
+        $query = RideRequest::on($conn)->whereIn('id', $ids)->withoutContractRides();
         $this->applyRideTenantScope($query);
 
         $deleted = 0;

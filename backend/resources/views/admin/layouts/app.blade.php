@@ -1435,6 +1435,8 @@
         function saveScroll() {
             var data = readPayload();
             data.y = window.scrollY || window.pageYOffset || 0;
+            data.path = location.pathname || '';
+            data.search = location.search || '';
             writePayload(data);
         }
         function cssEscape(value) {
@@ -1467,6 +1469,8 @@
         function markListReturn(fromEl) {
             var data = readPayload();
             data.y = window.scrollY || window.pageYOffset || 0;
+            data.path = location.pathname || '';
+            data.search = location.search || '';
             data.return = {
                 path: location.pathname,
                 search: location.search || '',
@@ -1476,13 +1480,42 @@
             writePayload(data);
         }
         var scrollSaveTimer;
+        var restoreTimers = [];
+        var restoreCancelled = false;
+        function clearRestoreTimers() {
+            restoreTimers.forEach(function (id) { clearTimeout(id); });
+            restoreTimers = [];
+        }
+        function cancelRestore() {
+            if (restoreCancelled) return;
+            restoreCancelled = true;
+            clearRestoreTimers();
+            try {
+                var next = readPayload();
+                delete next.y;
+                writePayload(next);
+            } catch (err) {}
+        }
         document.addEventListener('scroll', function() {
             clearTimeout(scrollSaveTimer);
             scrollSaveTimer = setTimeout(saveScroll, 150);
         }, { passive: true });
+        // Stop geforceerd terugscrollen zodra de gebruiker zelf beweegt.
+        ['wheel', 'touchmove', 'pointerdown', 'keydown'].forEach(function (evt) {
+            document.addEventListener(evt, function (e) {
+                if (evt === 'keydown') {
+                    var k = e.key || '';
+                    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].indexOf(k) === -1) {
+                        return;
+                    }
+                }
+                cancelRestore();
+            }, { passive: true, capture: true });
+        });
         document.addEventListener('submit', function(e) {
             var form = e.target && e.target.tagName === 'FORM' ? e.target : (e.target && e.target.closest ? e.target.closest('form') : null);
             if (form && (form.method === 'post' || form.method === 'POST') && form.action) {
+                restoreCancelled = false;
                 saveScroll();
             }
         }, true);
@@ -1522,21 +1555,34 @@
             if (!justSaved && !hasSavedParam) return;
             try {
                 var data = readPayload();
+                // Alleen herstellen op dezelfde pagina (niet na redirect naar een andere route).
+                if (data.path && data.path !== location.pathname) {
+                    delete data.y;
+                    writePayload(data);
+                    return;
+                }
                 var y = parseInt(data.y, 10);
                 if (!isNaN(y) && y >= 0) {
-                    function doScroll() { window.scrollTo(0, y); }
+                    if ('scrollRestoration' in history) {
+                        try { history.scrollRestoration = 'manual'; } catch (err) {}
+                    }
+                    restoreCancelled = false;
+                    clearRestoreTimers();
+                    function doScroll() {
+                        if (restoreCancelled) return;
+                        window.scrollTo(0, y);
+                    }
                     doScroll();
                     requestAnimationFrame(function() { doScroll(); });
-                    setTimeout(doScroll, 100);
-                    setTimeout(doScroll, 350);
-                    setTimeout(doScroll, 800);
-                    setTimeout(doScroll, 1500);
-                    setTimeout(function() {
-                        doScroll();
+                    [100, 350, 800].forEach(function (ms) {
+                        restoreTimers.push(setTimeout(doScroll, ms));
+                    });
+                    restoreTimers.push(setTimeout(function() {
+                        if (!restoreCancelled) doScroll();
                         var next = readPayload();
                         delete next.y;
                         writePayload(next);
-                    }, 2500);
+                    }, 1200));
                 }
             } catch (err) {}
         }

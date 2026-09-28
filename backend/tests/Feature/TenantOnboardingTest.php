@@ -374,4 +374,29 @@ class TenantOnboardingTest extends TestCase
             'status' => 'sent',
         ]);
     }
+
+    #[Test]
+    public function company_welcome_banner_hides_when_tenant_has_active_user_regardless_of_contact_email(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $company = Company::query()->create([
+            'name' => 'Taxi Met Gebruiker',
+            'email' => 'contact-anders@example.com',
+            'package_key' => 'business',
+            'is_active' => true,
+        ]);
+
+        User::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'actieve-gebruiker@example.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.companies.show', $company))
+            ->assertOk()
+            ->assertDontSee('Company-admin ontbreekt', false);
+    }
 }

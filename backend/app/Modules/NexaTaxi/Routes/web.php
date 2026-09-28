@@ -16,6 +16,7 @@ use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupRouteController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportIndividualBookingController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportPassengerController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportPlanningController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportRideController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportScheduleExceptionController;
 use App\Modules\NexaTaxi\Controllers\Admin\VehicleController;
 use App\Modules\NexaTaxi\Models\KnowledgeDocument;
@@ -84,7 +85,10 @@ Route::get('chauffeurplanning/{id}/bewerken', [DriverScheduleController::class, 
 Route::put('chauffeurplanning/{id}', [DriverScheduleController::class, 'update'])->name('driver_schedules.update');
 Route::delete('chauffeurplanning/{id}', [DriverScheduleController::class, 'destroy'])->name('driver_schedules.destroy');
 
-// ---- Contractvervoer: contractklanten ----
+// ---- Contractvervoer: ritten + contractklanten ----
+Route::get('contractritten', [TransportRideController::class, 'index'])->name('transport_rides.index');
+Route::delete('contractritten/bulk-destroy', [TransportRideController::class, 'bulkDestroy'])
+    ->name('transport_rides.bulk-destroy');
 Route::get('contractklanten', [TransportCustomerController::class, 'index'])->name('transport_customers.index');
 Route::get('contractklanten/nieuw', [TransportCustomerController::class, 'create'])->name('transport_customers.create');
 Route::post('contractklanten', [TransportCustomerController::class, 'store'])->name('transport_customers.store');
