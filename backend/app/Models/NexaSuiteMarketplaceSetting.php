@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Crypt;
 
 class NexaSuiteMarketplaceSetting extends Model
 {
@@ -27,6 +28,12 @@ class NexaSuiteMarketplaceSetting extends Model
         'sender_email',
         'invoice_footer',
         'invoice_payment_terms_text',
+        'mollie_api_key',
+        'mollie_webhook_url',
+    ];
+
+    protected $hidden = [
+        'mollie_api_key',
     ];
 
     protected $casts = [
@@ -153,5 +160,45 @@ class NexaSuiteMarketplaceSetting extends Model
             [(string) $days, $daysLabel],
             $template
         );
+    }
+
+    public function hasStoredMollieApiKey(): bool
+    {
+        return trim((string) $this->mollie_api_key) !== '';
+    }
+
+    public function decryptedMollieApiKey(): ?string
+    {
+        $stored = trim((string) $this->mollie_api_key);
+        if ($stored === '') {
+            return null;
+        }
+
+        try {
+            $key = trim(Crypt::decryptString($stored));
+        } catch (\Throwable) {
+            $key = $stored;
+        }
+
+        return $key !== '' ? $key : null;
+    }
+
+    public function maskedMollieApiKey(): ?string
+    {
+        $key = $this->decryptedMollieApiKey();
+        if ($key === null) {
+            return null;
+        }
+
+        $prefix = str_starts_with($key, 'live_') ? 'live_' : (str_starts_with($key, 'test_') ? 'test_' : '');
+        $tail = substr($key, -4);
+
+        return $prefix.'••••••••'.$tail;
+    }
+
+    public function setEncryptedMollieApiKey(?string $plainKey): void
+    {
+        $plainKey = trim((string) $plainKey);
+        $this->mollie_api_key = $plainKey !== '' ? Crypt::encryptString($plainKey) : null;
     }
 }

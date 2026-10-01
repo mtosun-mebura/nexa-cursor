@@ -175,7 +175,8 @@ final class TenantParentDomains
             $columns[] = 'slug';
         }
 
-        return Company::query()
+        // Alleen id/name/slug laden voor de match (geen zware logo-blobs in de scan).
+        $match = Company::query()
             ->where('is_active', true)
             ->get($columns)
             ->first(function (Company $c) use ($subKey, $hasSlug) {
@@ -188,5 +189,13 @@ final class TenantParentDomains
 
                 return self::normalizeSubdomainKey(Str::slug((string) $c->name)) === $subKey;
             });
+
+        if ($match === null) {
+            return null;
+        }
+
+        // Volledig model herladen: logo/email e.d. ontbreken anders op resolved_tenant
+        // (Coming Soon viel daardoor terug op het NEXA Suite-logo).
+        return Company::query()->find($match->id);
     }
 }

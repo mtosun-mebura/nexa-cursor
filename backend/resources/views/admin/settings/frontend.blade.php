@@ -19,7 +19,15 @@
                     <h3 class="kt-card-title">
                         <i class="ki-filled ki-calendar-tick me-2"></i> Coming Soon-pagina
                     </h3>
-                    <p class="text-sm text-muted-foreground mt-1">Deze pagina wordt getoond op de homepage zolang er geen actieve module is. Logo en favicon komen uit Algemene configuraties.</p>
+                    <p class="text-sm text-muted-foreground mt-1 mb-0 max-w-3xl">
+                        Wordt automatisch getoond op het tenant-domein zolang er <strong class="font-medium text-foreground">geen actieve homepage</strong> is (Websitepagina’s).
+                        Tekst en optionele afbeelding stel je hier in. Het <strong class="font-medium text-foreground">bedrijfslogo</strong> (Bedrijven → logo) heeft voorrang; anders het logo uit Algemene configuraties.
+                    </p>
+                    <ul class="text-sm text-muted-foreground mt-3 mb-0 list-disc ps-5 space-y-1 max-w-3xl">
+                        <li><strong class="font-medium text-foreground">Coming Soon actief houden:</strong> nog geen homepage, of zet de homepage op inactief.</li>
+                        <li><strong class="font-medium text-foreground">Echte website tonen:</strong> maak of activeer de homepage onder Websitepagina’s (type Home, actief).</li>
+                        <li><strong class="font-medium text-foreground">Logo tonen:</strong> upload het tenantlogo bij het bedrijf (of in Algemene configuraties).</li>
+                    </ul>
                 </div>
                 <a href="{{ route('admin.settings.frontend.preview') }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-outline shrink-0">
                     <i class="ki-filled ki-eye me-2"></i> Voorbeeld pagina
@@ -347,22 +355,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (csImgRemoveBtn && csImgPreviewWrap) {
         csImgRemoveBtn.addEventListener('click', function() {
+            clearCsImgError();
             var token = document.querySelector('meta[name="csrf-token"]');
+            var formData = new FormData();
+            if (token) formData.append('_token', token.getAttribute('content'));
             fetch('{{ route("admin.settings.remove-coming-soon-image") }}', {
-                method: 'DELETE',
+                method: 'POST',
+                body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': token ? token.getAttribute('content') : ''
                 }
             })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    csImgPreviewWrap.classList.add('hidden');
-                    if (csImgPreview) csImgPreview.src = '';
-                    if (csImgUrlHidden) csImgUrlHidden.value = '';
-                }
+            .then(function(r) {
+                return r.json().then(function(data) {
+                    if (!r.ok || !data.success) {
+                        throw new Error(data.message || 'Verwijderen mislukt.');
+                    }
+                    return data;
+                });
+            })
+            .then(function() {
+                csImgPreviewWrap.classList.add('hidden');
+                if (csImgPreview) csImgPreview.src = '';
+                if (csImgUrlHidden) csImgUrlHidden.value = '';
+                clearCsImgError();
+            })
+            .catch(function(err) {
+                showCsImgError(err && err.message ? err.message : 'Verwijderen mislukt.');
             });
         });
     }

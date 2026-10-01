@@ -72,7 +72,7 @@ class CustomerMarketplaceBookingService
         $nearest = $candidates[0];
         $settingsCompanyId = (int) $nearest['company_id'];
         $paymentOptions = app(TaxiDispatchSettingsService::class)
-            ->paymentOptionsForTenant($settingsCompanyId > 0 ? $settingsCompanyId : null);
+            ->paymentOptionsForMarketplace();
 
         $sectionConfig = $this->pricing->getDefaultSectionConfig();
         $sectionConfig['logic']['offer_display_mode'] = 'person_range';
@@ -375,9 +375,7 @@ class CustomerMarketplaceBookingService
             'special_baggage' => $this->normalizeBaggageMap($data['special_baggage'] ?? []),
         ], null);
 
-        $paymentOptions = app(TaxiDispatchSettingsService::class)->paymentOptionsForTenant(
-            $candidateIds[0] ?? null
-        );
+        $paymentOptions = app(TaxiDispatchSettingsService::class)->paymentOptionsForMarketplace();
 
         return [
             'offers' => array_values($quotes['offers'] ?? []),

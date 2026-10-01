@@ -665,6 +665,24 @@ class TaxiDispatchSettingsService
         ];
     }
 
+    /**
+     * Nexa Suite klant-app / marktplaats: klant betaalt NEXA (platform-Mollie), geen tenant-sleutel.
+     *
+     * @return array{booking: bool, driver: bool, cash: bool, mollie_configured: bool, mollie_package_allowed: bool}
+     */
+    public function paymentOptionsForMarketplace(): array
+    {
+        $configured = app(\App\Services\NexaSuiteMollieService::class)->isConfigured();
+
+        return [
+            'booking' => $configured,
+            'driver' => false,
+            'cash' => false,
+            'mollie_configured' => $configured,
+            'mollie_package_allowed' => true,
+        ];
+    }
+
     public function customerAcceptNotificationEnabled(?int $companyId = null): bool
     {
         $stored = GeneralSetting::get(self::KEY_CUSTOMER_ACCEPT_ENABLED, null, $companyId);
