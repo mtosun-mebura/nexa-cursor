@@ -93,6 +93,22 @@ class ModuleServiceProvider extends ServiceProvider
                 ->name('taxi.contract.')
                 ->group($routesPath . '/contract-web.php');
         }
+
+        // Klant-app PWA (boeking + live follow)
+        if (file_exists($routesPath . '/customer-web.php')) {
+            Route::middleware(['web'])
+                ->prefix('taxi/klant')
+                ->name('taxi.klant.')
+                ->group($routesPath . '/customer-web.php');
+        }
+
+        // Unified app launcher (klant / chauffeur / contract)
+        if (file_exists($routesPath . '/app-launcher-web.php')) {
+            Route::middleware(['web'])
+                ->prefix('taxi/app')
+                ->name('taxi.app.')
+                ->group($routesPath . '/app-launcher-web.php');
+        }
     }
 
     protected function registerModuleViews($module): void

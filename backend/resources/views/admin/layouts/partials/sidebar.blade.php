@@ -98,7 +98,7 @@
 
                 <!-- Dashboard -->
                 @if(auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.tenant-setup-checklist') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.tenant-setup-checklist') || request()->routeIs('admin.nexa-network.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -137,6 +137,15 @@
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Tenant configureren
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-network.guide') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.nexa-network.guide') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    NEXA Network
                                 </span>
                             </a>
                         </div>
@@ -394,6 +403,49 @@
                 @endif
 
                 @if(auth()->user()?->isSuperAdmin() || (auth()->user()?->canAccessAdminPanel() && auth()->user()?->company_id))
+                @if(auth()->user()?->isSuperAdmin())
+                <div class="kt-menu-item {{ request()->routeIs('admin.incidents.*') ? 'here show' : '' }}"
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-flag text-lg"></i>
+                        </span>
+                        <span
+                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Incidenten
+                        </span>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden">
+                                <i class="ki-filled ki-plus text-[11px]"></i>
+                            </span>
+                            <span class="hidden kt-menu-item-show:inline-flex">
+                                <i class="ki-filled ki-minus text-[11px]"></i>
+                            </span>
+                        </span>
+                    </div>
+                    <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.incidents.index') || request()->routeIs('admin.incidents.show') || request()->routeIs('admin.incidents.list') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.incidents.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Overzicht
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.incidents.settings.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.incidents.settings.edit') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Instellingen
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                @else
                 <div class="kt-menu-item {{ request()->routeIs('admin.incidents.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.incidents.index') }}" tabindex="0">
@@ -406,6 +458,7 @@
                         </span>
                     </a>
                 </div>
+                @endif
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin'))
@@ -641,7 +694,7 @@
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.nexa-suite-bookings.*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.payout-identities.*') || request()->routeIs('admin.nexa-suite-bookings.*') || request()->routeIs('admin.payment-flows.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -726,12 +779,30 @@
                                 </span>
                             </a>
                         </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payment-flows.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                href="{{ route('admin.payment-flows.guide') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                    Uitleg betalingen
+                                </span>
+                            </a>
+                        </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.payment-providers.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                 href="{{ route('admin.payment-providers.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
                                     Betalingsproviders
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payout-identities.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                href="{{ route('admin.payout-identities.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                    Payout onboarding
                                 </span>
                             </a>
                         </div>
@@ -819,7 +890,7 @@
                 </div>
                 @endif
                 @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payments.overzichten*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payments.overzichten*') || request()->routeIs('admin.payout-identities.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" tabindex="0">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
@@ -846,6 +917,13 @@
                                href="{{ route('admin.payments.overzichten') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Overzichten</span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.payout-identities.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                               href="{{ route('admin.payout-identities.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Payout onboarding</span>
                             </a>
                         </div>
                     </div>

@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Modules\NexaTaxi\Services\TaxiNetworkPartnershipService;
 use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
@@ -53,6 +54,7 @@ class DriverDispatchController extends Controller
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
         $pickupCutoff = $dispatchSettings->pickupQueueCutoffAt($companyId);
         $vehicleId = $this->resolveDriverVehicleId($request, $conn, (int) $user->id);
+        $networkMeta = $this->networkMetaForCompany($companyId);
 
         $offers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
@@ -231,6 +233,8 @@ class DriverDispatchController extends Controller
                         'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
                         'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
                         'unclaimed_rides' => $unclaimedRides,
+                        'network' => $networkMeta,
+                        'requires_vehicle_to_accept' => true,
                     ],
                     $dispatchSettings->paymentOptionsForTenant($companyId)
                 ),
@@ -249,6 +253,7 @@ class DriverDispatchController extends Controller
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $data = $request->validate([
             'pickup_at' => ['nullable', 'date'],
+            'vehicle_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         try {
@@ -256,7 +261,8 @@ class DriverDispatchController extends Controller
                 $conn,
                 $request->user(),
                 $offer,
-                $data['pickup_at'] ?? null
+                $data['pickup_at'] ?? null,
+                isset($data['vehicle_id']) ? (int) $data['vehicle_id'] : $this->resolveDriverVehicleId($request, $conn, (int) $request->user()->id)
             );
         } catch (ValidationException $e) {
             return response()->json([
@@ -323,6 +329,42 @@ class DriverDispatchController extends Controller
 
         return response()->json([
             'message' => 'Rit vrijgegeven. Andere chauffeurs kunnen deze nu overnemen.',
+        ]);
+    }
+
+    public function handOverToNetwork(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $companyId = (int) $request->attributes->get('taxi_company_id');
+        $data = $request->validate([
+            'partner_company_ids' => ['nullable', 'array', 'max:50'],
+            'partner_company_ids.*' => ['integer', 'min:1'],
+        ]);
+
+        try {
+            $claim->handOverToNetwork(
+                $conn,
+                $request->user(),
+                $ride,
+                $companyId,
+                $data['partner_company_ids'] ?? null
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet overhandigen.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Rit overhandigd aan NEXA Network. Partner-chauffeurs krijgen het aanbod.',
+            'data' => [
+                'network' => $this->networkMetaForCompany($companyId),
+            ],
         ]);
     }
 
@@ -655,5 +697,49 @@ class DriverDispatchController extends Controller
         }
 
         return DriverAvailability::vehicleIdForDriver($conn, $driverId);
+    }
+
+    /**
+     * @return array{
+     *   enabled: bool,
+     *   mode: string,
+     *   can_hand_over: bool,
+     *   partners: list<array{id: int, name: string}>
+     * }
+     */
+    private function networkMetaForCompany(int $companyId): array
+    {
+        $settings = app(TaxiDispatchSettingsService::class);
+        $enabled = $companyId > 0 && $settings->networkEnabled($companyId);
+        $mode = $enabled ? $settings->networkMode($companyId) : TaxiDispatchSettingsService::NETWORK_MODE_OFF;
+        $partners = [];
+
+        if ($enabled && $mode !== TaxiDispatchSettingsService::NETWORK_MODE_OFF) {
+            $partnerIds = $settings->networkPartnerCompanyIds($companyId);
+            if ($partnerIds !== []) {
+                $names = app(TaxiNetworkPartnershipService::class)
+                    ->acceptedAsOwner($companyId)
+                    ->mapWithKeys(fn ($p) => [
+                        (int) $p->partner_company_id => (string) ($p->partnerCompany?->name ?: ('Partner #'.$p->partner_company_id)),
+                    ])
+                    ->all();
+
+                foreach ($partnerIds as $partnerId) {
+                    $partners[] = [
+                        'id' => (int) $partnerId,
+                        'name' => $names[(int) $partnerId] ?? ('Partner #'.$partnerId),
+                    ];
+                }
+            }
+        }
+
+        return [
+            'enabled' => $enabled && $mode !== TaxiDispatchSettingsService::NETWORK_MODE_OFF,
+            'mode' => $mode,
+            'can_hand_over' => $enabled
+                && $mode !== TaxiDispatchSettingsService::NETWORK_MODE_OFF
+                && $partners !== [],
+            'partners' => $partners,
+        ];
     }
 }

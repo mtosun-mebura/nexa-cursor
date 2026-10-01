@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\GeneralSetting;
 use App\Models\Incident;
 use App\Models\Notification;
 use App\Models\User;
 use App\Support\IncidentCatalog;
+use App\Support\NexaBranding;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class IncidentNotifier
 {
@@ -85,6 +88,72 @@ class IncidentNotifier
                 ]);
             }
         }
+
+        $this->emailSupportOfNewIncident($incident);
+    }
+
+    /**
+     * Stuur een e-mail naar het geconfigureerde supportadres wanneer een klant
+     * (geen super-admin) een incident aanmaakt.
+     */
+    public function emailSupportOfNewIncident(Incident $incident): void
+    {
+        $incident->loadMissing(['company', 'reporter']);
+
+        $reporter = $incident->reporter;
+        if ($reporter && $reporter->isSuperAdmin()) {
+            return;
+        }
+
+        $to = $this->notificationEmail();
+        if ($to === '') {
+            return;
+        }
+
+        try {
+            $url = route('admin.incidents.index', ['open' => $incident->id]);
+            $html = view('emails.incident-created', [
+                'incident' => $incident,
+                'url' => $url,
+                'companyName' => (string) ($incident->company?->name ?: 'Onbekend bedrijf'),
+                'reporterName' => $this->displayName($reporter) ?: 'Onbekend',
+                'reporterEmail' => (string) ($reporter?->email ?: ''),
+                'kindLabel' => IncidentCatalog::kindLabel((string) $incident->kind),
+                'priorityLabel' => IncidentCatalog::priorityLabel((string) ($incident->priority ?: IncidentCatalog::PRIORITY_NORMAL)),
+                'pageUrl' => trim((string) ($incident->page_url ?: '')),
+                'nexaLogoHtml' => NexaBranding::EMAIL_LOGO_PLACEHOLDER,
+            ])->render();
+
+            $fromAddress = config('mail.from.address', 'noreply@nexasuite.nl');
+            $fromName = config('mail.from.name', 'Nexa Suite');
+            $subject = 'Nieuw incident '.$incident->reference.': '.$incident->title;
+
+            Mail::html($html, function ($message) use ($to, $subject, $fromAddress, $fromName) {
+                $message->to($to)
+                    ->subject($subject)
+                    ->from($fromAddress, $fromName);
+            });
+        } catch (\Throwable $e) {
+            Log::error('Failed to email support about new incident', [
+                'incident_id' => $incident->id,
+                'to' => $to,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function notificationEmail(): string
+    {
+        $email = trim((string) GeneralSetting::get(
+            IncidentCatalog::SETTING_NOTIFICATION_EMAIL,
+            IncidentCatalog::DEFAULT_NOTIFICATION_EMAIL
+        ));
+
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return IncidentCatalog::DEFAULT_NOTIFICATION_EMAIL;
+        }
+
+        return strtolower($email);
     }
 
     public function notifyReporterIncidentHandled(Incident $incident): void

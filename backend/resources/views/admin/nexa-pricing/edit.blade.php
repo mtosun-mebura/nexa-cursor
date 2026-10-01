@@ -119,6 +119,20 @@
                                     <input class="kt-input w-full" type="text" name="vat_note" value="{{ old('vat_note', $pricing['vat_note'] ?? '') }}">
                                 </td>
                             </tr>
+                            <tr>
+                                <td class="text-secondary-foreground font-normal">Pakketten-intro titel</td>
+                                <td>
+                                    <input class="kt-input w-full" type="text" name="packages_intro_title" value="{{ old('packages_intro_title', $pricing['packages_intro_title'] ?? 'Wat zit erin') }}" placeholder="Wat zit erin">
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Links in de vergelijkingstabel en als eerste deel van de mobiele caption.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-secondary-foreground font-normal align-top">Pakketten-intro ondertitel</td>
+                                <td>
+                                    <textarea class="kt-input w-full" name="packages_intro_subtitle" rows="3" placeholder="excl. btw · maandelijks opzegbaar">{{ old('packages_intro_subtitle', $pricing['packages_intro_subtitle'] ?? 'excl. btw · maandelijks opzegbaar') }}</textarea>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Onder de titel in de tabel. Enter = nieuwe regel op /prijzen. Op mobiel worden regels met · gecombineerd.</p>
+                                </td>
+                            </tr>
                         </table>
                     </div>
                 </div>
@@ -126,16 +140,34 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Proeftijd</h3>
+                    <h3 class="kt-card-title mb-0">Contract &amp; proeftijd</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-5 min-w-0">
+                        @php
+                            $commitmentMonths = (int) old('commitment_months', $pricing['commitment_months'] ?? 0);
+                        @endphp
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                            <tr>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top">Contracttermijn</td>
+                                <td class="min-w-48 w-full">
+                                    <select name="commitment_months" class="kt-select admin-field-fit" data-kt-select="true">
+                                        <option value="0" @selected($commitmentMonths === 0)>Maandelijks opzegbaar</option>
+                                        <option value="3" @selected($commitmentMonths === 3)>3 maanden</option>
+                                        <option value="6" @selected($commitmentMonths === 6)>6 maanden</option>
+                                        <option value="12" @selected($commitmentMonths === 12)>12 maanden (jaarcontract)</option>
+                                    </select>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Bepaalt wanneer klanten mogen opzeggen of downgraden. Facturatie blijft altijd maandelijks. Standaard: maandelijks opzegbaar.</p>
+                                    @error('commitment_months')
+                                        <div class="text-xs text-destructive mt-1" role="alert">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                            </tr>
                             <tr>
                                 <td class="min-w-56 text-secondary-foreground font-normal align-top">Aankondiging (dagen)</td>
                                 <td class="min-w-48 w-full">
                                     <input class="kt-input w-28 tabular-nums" type="number" name="trial_notice_days" value="{{ old('trial_notice_days', $pricing['trial_notice_days'] ?? 5) }}" min="1" max="30" step="1" inputmode="numeric" required>
-                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Aantal dagen vóór het einde van de gratis maanden waarop NEXA de klant mailt: het abonnement gaat beginnen en de eerste incasso volgt. Zonder reactie gaat het jaarcontract in (inclusief de proefperiode). Standaard 5.</p>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Aantal dagen vóór het einde van de gratis maanden waarop NEXA de klant mailt: het abonnement gaat beginnen en de eerste incasso volgt. Zonder reactie gaat het abonnement in (inclusief de proefperiode). Standaard 5.</p>
                                     @error('trial_notice_days')
                                         <div class="text-xs text-destructive mt-1" role="alert">{{ $message }}</div>
                                     @enderror

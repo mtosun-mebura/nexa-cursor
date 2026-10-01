@@ -354,8 +354,8 @@ class TaxiPortalDataService
             'from' => (string) $ride->pickup_address,
             'to' => (string) $ride->dropoff_address,
             'route' => trim($ride->pickup_address).' → '.trim($ride->dropoff_address),
-            'at' => $ride->pickup_at?->format('d-m-Y H:i') ?? '—',
-            'pickup_at_iso' => $ride->pickup_at?->toIso8601String(),
+            'at' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::asAmsterdamWall($ride->pickup_at)?->format('d-m-Y H:i') ?? '—',
+            'pickup_at_iso' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::toDriverIso8601($ride->pickup_at),
             'status' => $status,
             'status_label' => $labels[$status] ?? $status,
             'status_badge' => $this->rideStatusBadge($status),
@@ -364,7 +364,21 @@ class TaxiPortalDataService
             'invoice_id' => $invoiceId,
             'has_invoice' => $invoiceId !== null,
             'can_view_invoice_pdf' => $invoiceId !== null,
+            'can_download_invoice' => $status === RideRequest::STATUS_COMPLETED,
+            'can_cancel' => app(TaxiRideCancellationService::class)->isCancellableByCustomer($ride),
+            'settlement_status' => $ride->settlement_status,
+            'settlement_status_label' => $ride->settlement_status
+                ? ($ride->settlement_status_label)
+                : null,
+            'can_confirm_completion' => $this->customerCanConfirmOrReport($ride),
+            'can_report_problem' => $this->customerCanConfirmOrReport($ride),
         ];
+    }
+
+    protected function customerCanConfirmOrReport(RideRequest $ride): bool
+    {
+        return app(\App\Modules\NexaTaxi\Services\RideSettlementEligibilityService::class)
+            ->customerCanSignal($ride);
     }
 
     protected function portalInvoiceIdForRide(RideRequest $ride, ?Invoice $knownInvoice = null): ?int

@@ -398,18 +398,49 @@ class TaxiRidePaymentService
 
         if ($ride->status === RideRequest::STATUS_PENDING_PAYMENT) {
             $ride->update(['status' => RideRequest::STATUS_PENDING_DISPATCH]);
-            $companyId = (int) ($ride->company_id ?? 0);
-            if ($companyId > 0) {
-                $freshRide = $ride->fresh();
+            $freshRide = $ride->fresh() ?? $ride;
+            $payload = is_array($freshRide->booking_payload) ? $freshRide->booking_payload : [];
+            $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+            $candidateIds = array_values(array_filter(array_map(
+                'intval',
+                $marketplace['candidate_company_ids'] ?? []
+            )));
+            $settingsCompanyId = (int) ($marketplace['settings_company_id']
+                ?? $marketplace['company_id']
+                ?? $freshRide->company_id
+                ?? 0);
+
+            if ($candidateIds !== []) {
                 try {
-                    app(RideDispatchService::class)->startDispatch($conn, $freshRide, $companyId);
+                    \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatch(
+                        (int) $freshRide->id,
+                        0,
+                        $candidateIds,
+                        false
+                    );
                 } catch (\Throwable) {
                     // dispatch failure logged elsewhere
                 }
                 try {
-                    app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $freshRide);
+                    \App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob::dispatch((int) $freshRide->id, [
+                        'settings_company_id' => $settingsCompanyId > 0 ? $settingsCompanyId : null,
+                    ]);
                 } catch (\Throwable) {
                     // notification failure logged elsewhere
+                }
+            } else {
+                $companyId = (int) ($freshRide->company_id ?? 0);
+                if ($companyId > 0) {
+                    try {
+                        app(RideDispatchService::class)->startDispatch($conn, $freshRide, $companyId);
+                    } catch (\Throwable) {
+                        // dispatch failure logged elsewhere
+                    }
+                    try {
+                        app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $freshRide);
+                    } catch (\Throwable) {
+                        // notification failure logged elsewhere
+                    }
                 }
             }
         }
@@ -539,6 +570,13 @@ class TaxiRidePaymentService
             if ($fromPayment > 0) {
                 return $fromPayment;
             }
+        }
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+        $fromMarketplace = (int) ($marketplace['settings_company_id'] ?? $marketplace['company_id'] ?? 0);
+        if ($fromMarketplace > 0) {
+            return $fromMarketplace;
         }
 
         $user = auth()->user();

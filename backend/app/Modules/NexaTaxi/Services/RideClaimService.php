@@ -7,12 +7,14 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
+use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class RideClaimService
@@ -23,9 +25,14 @@ class RideClaimService
         protected ContractRideStopService $contractStops,
     ) {}
 
-    public function acceptOffer(string $conn, User $driver, int $offerId, ?string $pickupAt = null): array
-    {
-        $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, $pickupAt) {
+    public function acceptOffer(
+        string $conn,
+        User $driver,
+        int $offerId,
+        ?string $pickupAt = null,
+        ?int $vehicleId = null
+    ): array {
+        $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, $pickupAt, $vehicleId) {
             $offer = RideDispatchOffer::on($conn)->whereKey($offerId)->lockForUpdate()->first();
             if (! $offer || (int) $offer->driver_id !== (int) $driver->id) {
                 throw ValidationException::withMessages([
@@ -67,6 +74,14 @@ class RideClaimService
                     'offer' => ['Deze rit kan niet meer worden geaccepteerd.'],
                 ]);
             }
+
+            $offerCompanyId = (int) ($offer->company_id ?? 0);
+            $resolvedVehicleId = $this->resolveVehicleForAccept(
+                $conn,
+                $driver,
+                $vehicleId,
+                $offerCompanyId > 0 ? $offerCompanyId : (int) ($ride->company_id ?? 0)
+            );
 
             $now = now();
             $requiresNewPickup = in_array($offer->status, [
@@ -122,10 +137,36 @@ class RideClaimService
             $rideUpdates = [
                 'driver_id' => $driver->id,
                 'status' => RideRequest::STATUS_ACCEPTED,
-                'company_id' => $ride->company_id ?: $offer->company_id,
             ];
+            if ($resolvedVehicleId !== null) {
+                $rideUpdates['vehicle_id'] = $resolvedVehicleId;
+            }
+
+            TaxiDispatchSchema::ensureFulfillingCompanyColumn($conn);
+
+            $ownerId = (int) ($ride->company_id ?? 0);
+
+            if ($ownerId <= 0) {
+                // Marketplace: claimer becomes booking owner.
+                if ($offerCompanyId > 0) {
+                    $rideUpdates['company_id'] = $offerCompanyId;
+                }
+                $rideUpdates['fulfilling_company_id'] = null;
+            } else {
+                // Preserve booking owner. Partner offer → network fulfiller.
+                $rideUpdates['company_id'] = $ownerId;
+                if ($offerCompanyId > 0 && $offerCompanyId !== $ownerId) {
+                    $rideUpdates['fulfilling_company_id'] = $offerCompanyId;
+                } else {
+                    $rideUpdates['fulfilling_company_id'] = null;
+                }
+            }
 
             $ride->update($rideUpdates);
+
+            if ($resolvedVehicleId !== null) {
+                $this->syncDriverAvailabilityVehicle($conn, $driver, $offerCompanyId, $resolvedVehicleId);
+            }
 
             $freshRide = $ride->fresh();
             $freshOffer = $offer->fresh();
@@ -305,6 +346,7 @@ class RideClaimService
 
             $ride->update(array_merge([
                 'driver_id' => null,
+                'vehicle_id' => null,
                 'status' => RideRequest::STATUS_PENDING_DISPATCH,
             ], $this->clearedPickupProposalAttributes()));
 
@@ -321,6 +363,144 @@ class RideClaimService
             WhatsAppBookingMessageComposer::EVENT_REDISPATCHED,
             null,
             ['extra_lines' => ['We zoeken een nieuwe chauffeur voor uw rit.']]
+        );
+
+        return $released->fresh() ?? $released;
+    }
+
+    /**
+     * Overhandig een owner-rit aan NEXA Network-partners (zonder ownership te verplaatsen).
+     *
+     * @param  list<int>|null  $partnerCompanyIds
+     */
+    public function handOverToNetwork(
+        string $conn,
+        User $driver,
+        int $rideId,
+        int $actingCompanyId,
+        ?array $partnerCompanyIds = null
+    ): RideRequest {
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+        TaxiDispatchSchema::ensureFulfillingCompanyColumn($conn);
+
+        $settings = app(TaxiDispatchSettingsService::class);
+        $allowedPartners = [];
+
+        $released = DB::connection($conn)->transaction(function () use (
+            $conn,
+            $driver,
+            $rideId,
+            $actingCompanyId,
+            $partnerCompanyIds,
+            $settings,
+            &$allowedPartners
+        ) {
+            $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
+            if (! $ride) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Rit niet gevonden.'],
+                ]);
+            }
+
+            $ownerId = (int) ($ride->company_id ?? 0);
+            if ($ownerId <= 0 || $ownerId !== $actingCompanyId) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Alleen ritten van jouw bedrijf kun je aan het network overhandigen.'],
+                ]);
+            }
+
+            if ($ride->isContractRide()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Contractritten kunnen niet naar het network.'],
+                ]);
+            }
+
+            if ($ride->isNetworkFulfilled()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Deze rit is al door een network-partner overgenomen.'],
+                ]);
+            }
+
+            if (! in_array($ride->status, [
+                RideRequest::STATUS_PENDING_DISPATCH,
+                RideRequest::STATUS_OFFERED,
+                RideRequest::STATUS_ACCEPTED,
+            ], true)) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Deze rit kan nu niet naar het network.'],
+                ]);
+            }
+
+            if ($ride->status === RideRequest::STATUS_ACCEPTED
+                && (int) ($ride->driver_id ?? 0) !== (int) $driver->id) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Alleen de toegewezen chauffeur kan deze rit overhandigen.'],
+                ]);
+            }
+
+            if (! $settings->networkEnabled($ownerId)
+                || $settings->networkMode($ownerId) === TaxiDispatchSettingsService::NETWORK_MODE_OFF) {
+                throw ValidationException::withMessages([
+                    'ride' => ['NEXA Network staat uit voor jouw bedrijf.'],
+                ]);
+            }
+
+            $allowedPartners = $settings->networkPartnerCompanyIds($ownerId);
+            $allowedPartners = array_values(array_filter(
+                array_map('intval', $allowedPartners),
+                static fn (int $id): bool => $id > 0 && $id !== $ownerId
+            ));
+
+            if ($allowedPartners === []) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Er zijn geen network-partners gekoppeld.'],
+                ]);
+            }
+
+            if ($partnerCompanyIds !== null) {
+                $requested = array_values(array_unique(array_filter(
+                    array_map('intval', $partnerCompanyIds),
+                    static fn (int $id): bool => $id > 0
+                )));
+                $allowedPartners = array_values(array_intersect($allowedPartners, $requested));
+                if ($allowedPartners === []) {
+                    throw ValidationException::withMessages([
+                        'partner_company_ids' => ['Kies minstens één gekoppelde network-partner.'],
+                    ]);
+                }
+            }
+
+            $now = now();
+
+            RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->whereIn('status', [
+                    RideDispatchOffer::STATUS_PENDING,
+                    RideDispatchOffer::STATUS_ACCEPTED,
+                ])
+                ->update([
+                    'status' => RideDispatchOffer::STATUS_EXPIRED,
+                    'responded_at' => $now,
+                ]);
+
+            $ride->update(array_merge([
+                'driver_id' => null,
+                'vehicle_id' => null,
+                'fulfilling_company_id' => null,
+                'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            ], $this->clearedPickupProposalAttributes()));
+
+            return $ride->fresh();
+        });
+
+        $this->dispatch->startNetworkPartnerDispatch($conn, $released, $allowedPartners);
+
+        $this->notifyCustomerStatus(
+            $conn,
+            $released,
+            WhatsAppBookingMessageComposer::EVENT_REDISPATCHED,
+            null,
+            ['extra_lines' => ['We zoeken een partner-taxi via NEXA Network voor uw rit.']]
         );
 
         return $released->fresh() ?? $released;
@@ -546,6 +726,11 @@ class RideClaimService
         if ($completedFully) {
             try {
                 $ride = app(RideTrackService::class)->finalizeRide($conn, $ride, $clientTrack);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+            try {
+                $ride = app(RideSettlementEligibilityService::class)->evaluateAfterCompletion($conn, $ride);
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -786,6 +971,78 @@ class RideClaimService
             'pickup_proposal_responded_at' => null,
             'pickup_proposal_whatsapp_wamid' => null,
         ];
+    }
+
+    /**
+     * Voertuig is verplicht wanneer driver_availability.vehicle_id bestaat (productie).
+     * Unit-tests zonder die tabel blijven werken.
+     */
+    private function resolveVehicleForAccept(
+        string $conn,
+        User $driver,
+        ?int $vehicleId,
+        int $companyId
+    ): ?int {
+        $availabilityHasVehicle = Schema::connection($conn)->hasTable('driver_availability')
+            && Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id');
+
+        $resolved = ($vehicleId !== null && $vehicleId > 0)
+            ? $vehicleId
+            : DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+
+        if (! $availabilityHasVehicle) {
+            return ($resolved !== null && $resolved > 0) ? $resolved : null;
+        }
+
+        if ($resolved === null || $resolved <= 0) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => [
+                    'Kies eerst een voertuig bovenin, zodat de klant weet welke auto komt ophalen.',
+                ],
+            ]);
+        }
+
+        if (Schema::connection($conn)->hasTable('vehicles') && $companyId > 0) {
+            $vehicle = Vehicle::on($conn)->whereKey($resolved)->first();
+            if (! $vehicle) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => ['Gekozen voertuig bestaat niet.'],
+                ]);
+            }
+            $vehicleCompany = (int) ($vehicle->company_id ?? 0);
+            if ($vehicleCompany > 0 && $vehicleCompany !== $companyId) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => ['Dit voertuig hoort niet bij jouw bedrijf.'],
+                ]);
+            }
+        }
+
+        return $resolved;
+    }
+
+    private function syncDriverAvailabilityVehicle(
+        string $conn,
+        User $driver,
+        int $companyId,
+        int $vehicleId
+    ): void {
+        if (! Schema::connection($conn)->hasTable('driver_availability')
+            || ! Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id')) {
+            return;
+        }
+
+        $payload = [
+            'vehicle_id' => $vehicleId,
+            'last_seen_at' => now(),
+        ];
+        if ($companyId > 0) {
+            $payload['company_id'] = $companyId;
+        }
+
+        DriverAvailability::on($conn)->updateOrCreate(
+            ['driver_id' => $driver->id],
+            $payload
+        );
     }
 
     private function driverHasBlockingAssignedRide(string $conn, int $driverId, ?int $exceptRideId = null): bool

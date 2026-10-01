@@ -2691,7 +2691,8 @@
             @endif
             <div id="copyright-editable-block" class="{{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Copyrighttekst</label>
-                <input type="text" name="home_sections[copyright]" id="copyright-text-input" class="kt-input home-section-input-400" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} Nexa Skillmatching. Alle rechten voorbehouden.">
+                <input type="text" name="home_sections[copyright]" id="copyright-text-input" class="kt-input home-section-input-400" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} [NEXA Suite](https://nexasuite.nl). Alle rechten voorbehouden.">
+                <p class="text-xs text-muted-foreground mt-1 mb-0">Gebruik <code>{year}</code> voor het jaar. Link: <code>[NEXA Suite](https://nexasuite.nl)</code>.</p>
                 <p class="text-xs text-muted-foreground mt-1">Gebruik <code>{year}</code> voor het huidige jaar.</p>
             </div>
         </div>

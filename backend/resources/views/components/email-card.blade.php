@@ -7,7 +7,7 @@
 ])
 @php
     $pageTitle = $pageTitle ?: $heading;
-    $footerHtml = $footerHtml ?? '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>';
+    $footerHtml = $footerHtml ?? \App\Support\EmailCardHtml::poweredByFooter();
 @endphp
 <!DOCTYPE html>
 <html lang="nl">

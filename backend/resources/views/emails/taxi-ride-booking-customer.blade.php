@@ -45,5 +45,5 @@
         </a>
     </p>
     @endif
-    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Vragen? Neem contact op met {{ $company_name ?? 'ons' }}.</p>
+    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Vragen? Neem contact op met {!! \App\Support\EmailCardHtml::companyNameHtml($company_name ?? 'ons', $company_website_url ?? null) !!}.</p>
 </x-email-card>

@@ -438,8 +438,8 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       type: 'text',
       key: 'text',
       label: 'Copyrighttekst',
-      placeholder: '© {year} Nexa Skillmatching. Alle rechten voorbehouden.',
-      hint: 'Gebruik {year} voor het huidige jaar.',
+      placeholder: '© {year} [NEXA Suite](https://nexasuite.nl). Alle rechten voorbehouden.',
+      hint: 'Gebruik {year} voor het huidige jaar. Link: [zichtbare tekst](https://voorbeeld.nl) — bijv. [NEXA Suite](https://nexasuite.nl).',
     },
   ],
 }

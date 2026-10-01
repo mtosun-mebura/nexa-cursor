@@ -215,17 +215,31 @@ class NexaSuiteMarketplaceBillingService
         }
 
         $companyName = $invoice->company?->name ?: 'relatie';
-        $body = "Beste {$companyName},\n\n".
-            "Hierbij ontvangt u factuur {$invoice->invoice_number} voor gereden ritten vanuit NEXA Suite ".
-            "(periode {$invoice->billing_period}).\n".
-            $invoice->ride_count.' rit(ten), provisie '.(int) $invoice->fee_percent."%.\n".
-            'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.').".\n\n".
-            "Met vriendelijke groet,\nNEXA Suite";
+        $platformCollect = (bool) config('nexa_payout.platform_collect_enabled', true);
+        if ($platformCollect) {
+            $body = "Beste {$companyName},\n\n".
+                "Hierbij ontvangt u specificatie {$invoice->invoice_number} van de NEXA Suite-provisie ".
+                "die in periode {$invoice->billing_period} reeds is ingehouden bij de ritbetalingen ".
+                "(platform collect).\n".
+                $invoice->ride_count.' rit(ten), provisie '.(int) $invoice->fee_percent."%.\n".
+                'Totaal (naslag): €'.number_format((float) $invoice->total_amount, 2, ',', '.').".\n".
+                "Dit is geen openstaande factuur: er hoeft niets extra te worden overgemaakt.\n\n".
+                "Met vriendelijke groet,\nNEXA Suite";
+            $mailTitle = 'NEXA Suite fee-specificatie '.$invoice->invoice_number;
+        } else {
+            $body = "Beste {$companyName},\n\n".
+                "Hierbij ontvangt u factuur {$invoice->invoice_number} voor gereden ritten vanuit NEXA Suite ".
+                "(periode {$invoice->billing_period}).\n".
+                $invoice->ride_count.' rit(ten), provisie '.(int) $invoice->fee_percent."%.\n".
+                'Totaalbedrag: €'.number_format((float) $invoice->total_amount, 2, ',', '.').".\n\n".
+                "Met vriendelijke groet,\nNEXA Suite";
+            $mailTitle = 'NEXA Suite boekingsfactuur '.$invoice->invoice_number;
+        }
 
         EmailCardHtml::sendNexa(
             $email,
-            'NEXA Suite boekingsfactuur '.$invoice->invoice_number,
-            'NEXA Suite boekingsfactuur '.$invoice->invoice_number,
+            $mailTitle,
+            $mailTitle,
             $body,
             function ($message) use ($invoice, $pdf) {
                 if ($pdf && ! empty($pdf['bytes'])) {
@@ -311,10 +325,18 @@ class NexaSuiteMarketplaceBillingService
         [$from, $to] = $this->periodBounds($period);
         $this->moduleDb->ensureModuleStorageReady('taxi');
         $conn = $this->moduleDb->getModuleConnectionName('taxi');
+        \App\Modules\NexaTaxi\Support\TaxiDispatchSchema::ensureSettlementColumns($conn);
 
         $query = RideRequest::on($conn)
             ->where('source', RideRequest::SOURCE_NEXA_SUITE)
             ->where('status', RideRequest::STATUS_COMPLETED)
+            ->where(function ($q) {
+                // Phase 4 gate: only settlement-eligible rides; null = pre-gate legacy.
+                $q->whereIn('settlement_status', [
+                    RideRequest::SETTLEMENT_ELIGIBLE,
+                    RideRequest::SETTLEMENT_SETTLED,
+                ])->orWhereNull('settlement_status');
+            })
             ->whereBetween('pickup_at', [$from, $to]);
 
         if ($companyId) {

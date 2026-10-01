@@ -66,8 +66,19 @@
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
                 <div class="flex gap-1.25 items-center">
                     <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />
-                    <span class="text-secondary-foreground font-medium">{{ $ride->vehicle?->company?->name ?? '—' }}</span>
+                    <span class="text-secondary-foreground font-medium">
+                        Eigenaar: {{ $ride->company?->name ?? $ride->vehicle?->company?->name ?? '—' }}
+                    </span>
                 </div>
+                @if($ride->isNetworkFulfilled())
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-delivery text-muted-foreground text-sm"></i>
+                    <span class="text-secondary-foreground font-medium">
+                        Uitgevoerd door: {{ $ride->fulfillingCompany?->name ?? '—' }}
+                    </span>
+                </div>
+                <span class="kt-badge kt-badge-outline kt-badge-primary rounded-[30px]">Network</span>
+                @endif
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-car text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">{{ $ride->vehicle?->name ?? '—' }}</span>
@@ -203,6 +214,23 @@
                 @if($ride->customer_note)
                     <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Opmerking:</span><span class="flex-1">{{ $ride->customer_note }}</span></p>
                 @endif
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Eigenaar:</span><span class="flex-1">{{ $ride->company?->name ?? '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Uitvoerder:</span><span class="flex-1">{{ $ride->isNetworkFulfilled() ? ($ride->fulfillingCompany?->name ?? '—') : ($ride->company?->name ?? '—') }}@if($ride->isNetworkFulfilled()) <span class="text-xs text-muted-foreground">(network)</span>@endif</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Settlement:</span><span class="flex-1">{{ $ride->settlement_status_label }}@if($ride->settlement_hold_until) <span class="text-xs text-muted-foreground">(hold tot {{ $ride->settlement_hold_until->timezone(config('app.timezone'))->format('d-m-Y H:i') }})</span>@endif</span></p>
+                @if(is_array($ride->settlement_risk_flags) && $ride->settlement_risk_flags !== [])
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Risk flags:</span><span class="flex-1 font-mono text-xs">{{ implode(', ', $ride->settlement_risk_flags) }}</span></p>
+                @endif
+                @can('rides.update')
+                    @if(in_array($ride->settlement_status, [\App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_HOLD, \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_REVIEW], true))
+                        <form action="{{ route('admin.taxi.ride_requests.release_settlement', $ride) }}" method="POST" class="pt-1">
+                            @csrf
+                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline"
+                                    onclick="return confirm('Settlement vrijgeven? De rit wordt settlement-eligible (uitbetaling mogelijk).');">
+                                Settlement vrijgeven
+                            </button>
+                        </form>
+                    @endif
+                @endcan
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Voertuig:</span><span class="flex-1">{{ $ride->vehicle?->name ?? '—' }}</span></p>
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Chauffeur:</span><span class="flex-1">{{ $ride->driver ? $ride->driver->first_name . ' ' . $ride->driver->last_name : '—' }}</span></p>
             </div>

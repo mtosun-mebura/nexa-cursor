@@ -484,7 +484,7 @@
                         <p class="text-sm text-secondary-foreground mb-4">
                             Alleen gebruiken bij noodzaak. Het abonnement loopt door tot
                             <strong class="text-foreground">{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>
-                            (einde van de lopende maand). De volgende SEPA-incasso wordt direct gestopt, ook als het jaarcontract nog loopt.
+                            (einde van de lopende maand). De volgende SEPA-incasso wordt direct gestopt, ook als er nog een contracttermijn loopt.
                         </p>
                         <form id="tenant-emergency-terminate-form"
                               method="POST"

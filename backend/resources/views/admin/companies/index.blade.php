@@ -259,16 +259,29 @@
                                 @foreach($companies as $company)
                                     <tr class="company-row" data-row-href="{{ route('admin.companies.show', $company) }}">
                                         <td>
-                                            <span class="text-sm font-medium text-mono" data-company-id="{{ $company->id }}">
-                                                {{ $company->name }}
-                                            </span>
+                                            <div class="flex flex-col gap-0.5 min-w-0">
+                                                <span class="text-sm font-medium text-mono truncate" title="{{ $company->name }}">
+                                                    {{ $company->name }}
+                                                </span>
+                                                <div class="inline-flex items-center gap-1" data-no-row-link>
+                                                    <span class="text-xs text-muted-foreground">ID</span>
+                                                    <span class="text-xs font-mono font-semibold text-foreground" data-company-id="{{ $company->id }}">{{ $company->id }}</span>
+                                                    <button type="button"
+                                                            class="admin-email-copy shrink-0 inline-flex items-center justify-center size-5 rounded text-muted-foreground hover:text-primary"
+                                                            data-copy-text="{{ $company->id }}"
+                                                            title="ID kopiëren"
+                                                            aria-label="Bedrijfs-ID {{ $company->id }} kopiëren">
+                                                        <i class="ki-filled ki-copy text-[10px] pointer-events-none" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td>
-                                            <div class="flex flex-col gap-1">
+                                            <div class="flex flex-col gap-1 min-w-0">
                                                 @if($company->email)
                                                     <div class="flex items-center gap-1 min-w-0">
                                                         <i class="ki-filled ki-sms shrink-0 text-xs text-muted-foreground" aria-hidden="true"></i>
-                                                        <span class="admin-email-text text-sm text-foreground truncate">{{ $company->email }}</span>
+                                                        <span class="admin-email-text text-sm text-foreground truncate" title="{{ $company->email }}">{{ $company->email }}</span>
                                                         <button type="button"
                                                                 class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
                                                                 data-copy-text="{{ $company->email }}"
@@ -280,7 +293,7 @@
                                                     </div>
                                                 @endif
                                                 @if($company->phone)
-                                                    <div class="text-sm text-foreground">
+                                                    <div class="text-sm text-foreground whitespace-nowrap">
                                                         <i class="ki-filled ki-phone me-1 text-xs"></i>
                                                         {{ $company->phone }}
                                                     </div>
@@ -292,7 +305,7 @@
                                         </td>
                                         <td class="text-foreground font-normal">
                                             @if($company->city || $company->country)
-                                                <div class="text-sm">
+                                                <div class="text-sm truncate" title="{{ trim(($company->city ?? '').(($company->city && $company->country) ? ', ' : '').($company->country ?? '')) }}">
                                                     @if($company->city){{ $company->city }}@endif
                                                     @if($company->city && $company->country), @endif
                                                     @if($company->country){{ $company->country }}@endif
@@ -303,20 +316,20 @@
                                         </td>
                                         <td>
                                             @if($company->is_intermediary)
-                                                <span class="kt-badge kt-badge-info">Tussenpartij / Recruiter</span>
+                                                <span class="kt-badge kt-badge-info whitespace-nowrap">Tussenpartij</span>
                                             @else
-                                                <span class="kt-badge kt-badge-success">Directe werkgever</span>
+                                                <span class="kt-badge kt-badge-success whitespace-nowrap">Direct</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if($company->is_active)
-                                                <span class="kt-badge kt-badge-success">Actief</span>
+                                                <span class="kt-badge kt-badge-success whitespace-nowrap">Actief</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger whitespace-nowrap">Inactief</span>
                                             @endif
                                         </td>
-                                        <td class="text-foreground font-normal">
-                                            <span class="text-sm">{{ $company->created_at?->format('d-m-Y') ?? '—' }}</span>
+                                        <td class="text-foreground font-normal companies-table__date-col">
+                                            <span class="text-sm whitespace-nowrap">{{ $company->created_at?->format('d-m-Y') ?? '—' }}</span>
                                         </td>
                                         <td class="text-center companies-table__actions-col" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
@@ -681,6 +694,55 @@
         .company-row:hover {
             background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
         }
+    }
+
+    /* Bedrijven-tabel: vaste kolomverdeling + geen letter-voor-letter wrap */
+    #content #companies_table .admin-fluid-table th,
+    #content #companies_table .admin-fluid-table td {
+        vertical-align: middle !important;
+    }
+    #content #companies_table .admin-fluid-table th:nth-child(1),
+    #content #companies_table .admin-fluid-table td:nth-child(1) {
+        width: 18%;
+    }
+    #content #companies_table .admin-fluid-table th:nth-child(2),
+    #content #companies_table .admin-fluid-table td:nth-child(2) {
+        width: 24%;
+    }
+    #content #companies_table .admin-fluid-table th:nth-child(3),
+    #content #companies_table .admin-fluid-table td:nth-child(3) {
+        width: 16%;
+    }
+    #content #companies_table .admin-fluid-table th:nth-child(4),
+    #content #companies_table .admin-fluid-table td:nth-child(4) {
+        width: 12%;
+    }
+    #content #companies_table .admin-fluid-table th:nth-child(5),
+    #content #companies_table .admin-fluid-table td:nth-child(5) {
+        width: 10%;
+    }
+    #content #companies_table .admin-fluid-table th:nth-child(6),
+    #content #companies_table .admin-fluid-table td:nth-child(6),
+    #content #companies_table .companies-table__date-col {
+        width: 7.5rem;
+        white-space: nowrap !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+    }
+    #content #companies_table .admin-fluid-table th:last-child,
+    #content #companies_table .admin-fluid-table td:last-child,
+    #content #companies_table .companies-table__actions-col {
+        width: 3.5rem !important;
+        min-width: 3.5rem !important;
+        max-width: 3.5rem !important;
+        white-space: nowrap !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+    }
+    #content #companies_table .admin-fluid-table td .kt-badge {
+        max-width: 100%;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
     }
 </style>
 @endpush

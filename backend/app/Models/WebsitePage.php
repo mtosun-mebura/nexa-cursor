@@ -750,8 +750,48 @@ class WebsitePage extends Model
     public static function footerPlainText(?string $html): string
     {
         $plain = html_entity_decode(strip_tags((string) $html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Strip markdown links [label](url) → label for comparisons.
+        $plain = (string) preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '$1', $plain);
 
         return trim((string) preg_replace('/\s+/u', ' ', $plain));
+    }
+
+    /**
+     * Copyrighttekst voor weergave: {year} + markdown-links [tekst](https://…).
+     * Alleen http(s)-URLs; overige tekst wordt ge-escaped.
+     */
+    public static function renderCopyrightHtml(?string $copyright): string
+    {
+        $raw = trim((string) $copyright);
+        if ($raw === '') {
+            return '';
+        }
+
+        $withYear = str_replace('{year}', (string) date('Y'), $raw);
+        $parts = preg_split('/(\[[^\]]+\]\([^)\s]+\))/', $withYear, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if ($parts === false) {
+            return e($withYear);
+        }
+
+        $html = '';
+        foreach ($parts as $part) {
+            if ($part === '') {
+                continue;
+            }
+            if (preg_match('/^\[([^\]]+)\]\(([^)\s]+)\)$/', $part, $m) === 1) {
+                $label = $m[1];
+                $url = $m[2];
+                if (preg_match('#^https?://#i', $url) === 1) {
+                    $html .= '<a href="'.e($url).'" style="color:inherit;text-decoration:underline;" rel="noopener noreferrer" target="_blank">'.e($label).'</a>';
+                } else {
+                    $html .= e($label);
+                }
+                continue;
+            }
+            $html .= e($part);
+        }
+
+        return $html;
     }
 
     public static function isLegacySkillmatchingFooterTagline(?string $html): bool

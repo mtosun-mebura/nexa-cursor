@@ -26,11 +26,26 @@ return [
     ),
 
     /**
-     * Minuten na het (actuele) ophaalmoment waarna een niet-geaccepteerde rit automatisch
-     * wordt geannuleerd (met terugbetaling bij vooraf betaald). 0 = uit.
-     * Per tenant: GeneralSetting `taxi_dispatch_unaccepted_auto_cancel_minutes`.
+     * Minuten na het (actuele) ophaalmoment waarna de klant mag kiezen: wachten of annuleren.
+     * 0 = geen keuze-prompt / geen auto-annulering.
+     * Per tenant: Admin → NexaTaxi → Chauffeur dispatch
+     * (`taxi_dispatch_unaccepted_auto_cancel_minutes`). Fallback: deze env.
      */
     'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 30),
+
+    /**
+     * Minuten zonder klantreactie (wachten/annuleren) waarna de rit alsnog automatisch
+     * wordt geannuleerd. 0 = nooit automatisch na de prompt.
+     * Per tenant: Admin → NexaTaxi → Chauffeur dispatch
+     * (`taxi_dispatch_customer_unaccepted_decision_minutes`). Fallback: deze env.
+     */
+    'customer_unaccepted_decision_minutes' => (int) env('TAXI_CUSTOMER_UNACCEPTED_DECISION_MINUTES', 30),
+
+    /**
+     * Werkdagen waarbinnen een terugbetaling na annulering doorgaans zichtbaar is
+     * (communicatie naar klant; Mollie/bank kan afwijken).
+     */
+    'customer_refund_business_days' => (int) env('TAXI_CUSTOMER_REFUND_BUSINESS_DAYS', 10),
 
     /**
      * Geldigheid eenmalige inlogcode Mijn Taxi (minuten) als er geen waarde in admin staat.
@@ -84,4 +99,23 @@ return [
      * localhost en 192.168.x.x worden bij betalingen niet naar Mollie gestuurd.
      */
     'mollie_webhook_url' => env('TAXI_MOLLIE_WEBHOOK_URL'),
+
+    /**
+     * NEXA Network (owner ≠ fulfiller). Default OFF — per tenant via GeneralSetting.
+     */
+    'network_enabled' => filter_var(env('TAXI_NETWORK_ENABLED', false), FILTER_VALIDATE_BOOL),
+    'network_mode' => env('TAXI_NETWORK_MODE', 'off'),
+    'network_fallback_seconds' => (int) env('TAXI_NETWORK_FALLBACK_SECONDS', 120),
+    'network_max_radius_km' => (int) env('TAXI_NETWORK_MAX_RADIUS_KM', 25),
+
+    /**
+     * Hours to hold a completed ride before settlement_eligible (Phase 4 gate).
+     * High-risk rides use RideSettlementEligibilityService::HOLD_HOURS_HIGH_RISK.
+     */
+    'settlement_hold_hours' => (int) env('TAXI_SETTLEMENT_HOLD_HOURS', 24),
+
+    /**
+     * Hours after completion during which the customer may confirm or report a problem (Phase 5).
+     */
+    'customer_settlement_signal_hours' => (int) env('TAXI_CUSTOMER_SETTLEMENT_SIGNAL_HOURS', 48),
 ];

@@ -456,6 +456,7 @@ class TaxiBookingNotificationService
             'quoted_price' => $ride->quoted_price,
             'summary_text' => $summary,
             'company_name' => $brand['name'],
+            'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($settingsCompanyId),
             'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
             'cancel_url' => $cancelUrl,
             'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,

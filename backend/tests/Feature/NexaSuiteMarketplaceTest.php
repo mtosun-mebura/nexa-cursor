@@ -370,8 +370,38 @@ class NexaSuiteMarketplaceTest extends TestCase
 
         $response->assertOk();
         $vehicles = $response->json('vehicles');
-        $this->assertCount(1, $vehicles);
-        $this->assertEqualsWithDelta(52.37, (float) $vehicles[0]['lat'], 0.001);
+        $this->assertCount(2, $vehicles);
+        $busyFlags = collect($vehicles)->pluck('busy')->all();
+        $this->assertContains(true, $busyFlags);
+        $this->assertContains(false, $busyFlags);
+        $this->assertEqualsWithDelta(52.37, (float) $vehicles[0]['lat'], 0.002);
+    }
+
+    #[Test]
+    public function nearby_taxis_includes_online_driver_with_stale_gps_but_fresh_last_seen(): void
+    {
+        [$near, $vehicle] = $this->twoTaxiTenants();
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 21,
+            'company_id' => $near->id,
+            'vehicle_id' => $vehicle->id,
+            'is_online' => true,
+            'lat' => 52.3705,
+            'lng' => 4.9005,
+            // GPS niet ververst (stilstand / accuracy-reject), wel recent heartbeat.
+            'location_updated_at' => now()->subDays(14),
+            'last_seen_at' => now()->subSeconds(30),
+        ]);
+
+        $response = $this->getJson(route('nexataxi.booking.nearby-taxis', [
+            'section_key' => 'component:taxi.algemene_boekingsmodule',
+            'lat' => 52.37,
+            'lng' => 4.90,
+            'radius_km' => 10,
+        ]));
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json('vehicles'));
     }
 
     #[Test]

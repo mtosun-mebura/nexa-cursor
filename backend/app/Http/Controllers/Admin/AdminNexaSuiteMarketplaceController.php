@@ -171,6 +171,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
 
         return view('admin.nexa-suite-bookings.settings', [
             'settings' => NexaSuiteMarketplaceSetting::current(),
+            'platformCollectEnabled' => (bool) config('nexa_payout.platform_collect_enabled', true),
             'nav' => 'settings',
         ]);
     }

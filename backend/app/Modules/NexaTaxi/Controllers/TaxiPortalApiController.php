@@ -44,6 +44,48 @@ class TaxiPortalApiController extends Controller
         ]);
     }
 
+    public function confirmRideCompletion(int $ride): JsonResponse
+    {
+        $user = $this->portalUser();
+        $model = $this->portalData->findRideForCustomer($user, $ride);
+        if (! $model) {
+            abort(404, 'Rit niet gevonden.');
+        }
+
+        $conn = $model->getConnectionName();
+        $updated = app(\App\Modules\NexaTaxi\Services\RideSettlementEligibilityService::class)
+            ->recordCustomerConfirmation($conn, $model);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bedankt voor je bevestiging.',
+            'data' => $this->portalData->rideDetailPayload($user, (int) $updated->id),
+        ]);
+    }
+
+    public function reportRideProblem(Request $request, int $ride): JsonResponse
+    {
+        $validated = $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $user = $this->portalUser();
+        $model = $this->portalData->findRideForCustomer($user, $ride);
+        if (! $model) {
+            abort(404, 'Rit niet gevonden.');
+        }
+
+        $conn = $model->getConnectionName();
+        $updated = app(\App\Modules\NexaTaxi\Services\RideSettlementEligibilityService::class)
+            ->recordCustomerProblem($conn, $model, $validated['note'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Probleem gemeld. We nemen dit mee in de controle.',
+            'data' => $this->portalData->rideDetailPayload($user, (int) $updated->id),
+        ]);
+    }
+
     public function invoices(Request $request): JsonResponse
     {
         return response()->json([

@@ -73,9 +73,12 @@ class CentralWelcomePageService
     public function ensureMarketingPagesExist(): Collection
     {
         $boekPage = $this->firstOrCreateCentralPage(self::BOEK_SLUG, $this->boekPageAttributes());
+        $taxiPage = $this->applyTaxiNetworkMarketingContent(
+            $this->firstOrCreateCentralPage(self::TAXI_SLUG, $this->taxiPageAttributes())
+        );
         $pages = collect([
             $this->ensurePageExists(),
-            $this->firstOrCreateCentralPage(self::TAXI_SLUG, $this->taxiPageAttributes()),
+            $taxiPage,
             $this->ensureBookingModuleOnBoekPage($boekPage),
             $this->firstOrCreateCentralPage(self::CONTRACT_SLUG, $this->contractPageAttributes()),
             $this->firstOrCreateCentralPage(self::WEBSITE_SLUG, $this->websiteBuilderPageAttributes()),
@@ -122,6 +125,57 @@ class CentralWelcomePageService
 
         if ($this->applyHomeAudienceHeroCtas($sections)) {
             $changed = true;
+        }
+
+        if ($changed) {
+            $page->home_sections = $sections;
+            $page->save();
+        }
+
+        return $page->fresh() ?? $page;
+    }
+
+    /**
+     * Idempotent: werkt hero/features/meta van centrale /taxi bij naar network-positioning
+     * zonder de hele pagebuilder-inhoud te forceren (tenzij secties nog leeg zijn).
+     */
+    public function applyTaxiNetworkMarketingContent(?WebsitePage $page = null): WebsitePage
+    {
+        $page ??= $this->findCentralPage(self::TAXI_SLUG) ?? $this->firstOrCreateCentralPage(
+            self::TAXI_SLUG,
+            $this->taxiPageAttributes()
+        );
+
+        $attrs = $this->taxiPageAttributes();
+        $changed = false;
+
+        if (($page->title ?? '') !== ($attrs['title'] ?? '')) {
+            $page->title = $attrs['title'];
+            $changed = true;
+        }
+        if (($page->meta_description ?? '') !== ($attrs['meta_description'] ?? '')) {
+            $page->meta_description = $attrs['meta_description'];
+            $changed = true;
+        }
+
+        $sections = $page->getHomeSections();
+        $defaults = $attrs['home_sections'] ?? [];
+        $heroTitle = (string) ($sections['hero']['title'] ?? '');
+        $needsNetworkCopy = $heroTitle === ''
+            || ! str_contains(mb_strtolower($heroTitle), 'netwerk');
+
+        if ($needsNetworkCopy && is_array($defaults)) {
+            foreach (['hero', 'features', 'text_block', 'cta'] as $key) {
+                if (isset($defaults[$key]) && is_array($defaults[$key])) {
+                    $sections[$key] = $defaults[$key];
+                    $changed = true;
+                }
+            }
+            $faqKey = 'component:landwind.faq';
+            if (isset($defaults[$faqKey]) && is_array($defaults[$faqKey])) {
+                $sections[$faqKey] = $defaults[$faqKey];
+                $changed = true;
+            }
         }
 
         if ($changed) {
@@ -466,10 +520,10 @@ class CentralWelcomePageService
         $themeSlug = $themeSlug ?? ($theme?->slug ?? 'modern');
 
         return [
-            'title' => 'Nexa Taxi',
+            'title' => 'Nexa Taxi - Taxi software, dispatch en netwerk voor taxibedrijven',
             'menu_title' => 'Nexa Taxi',
             'page_type' => 'custom',
-            'meta_description' => 'Van telefoon naar online boeking en chauffeur-app. Website, dispatch, betaling en chauffeur-PWA in één stack.',
+            'meta_description' => 'Beheer boekingen, chauffeurs, betalingen en dispatch vanuit één platform. Gebruik je eigen vloot en schaal optioneel op via het NEXA Network.',
             'content' => null,
             'home_sections' => $this->defaultTaxiSections($themeSlug),
             'is_active' => true,
@@ -791,45 +845,48 @@ class CentralWelcomePageService
         $sections = WebsitePage::defaultPageSectionsForNonHome($themeSlug);
         $galleryKey = 'component:website.screenshot_gallery';
 
-        $sections['hero']['title'] = 'Laat klanten 24/7 zelf boeken.';
-        $sections['hero']['title_highlight'] = 'zelf boeken';
-        $sections['hero']['subtitle'] = 'Website, dispatch en chauffeur-app in één systeem.';
+        $sections['hero']['title'] = 'Nexa Taxi: jouw taxibedrijf. Eén slim netwerk.';
+        $sections['hero']['title_highlight'] = 'Eén slim netwerk';
+        $sections['hero']['subtitle'] = 'Eigen merk, eigen vloot eerst. Optioneel opschalen via NEXA Network of marketplace-ritten via nexasuite.nl.';
         $sections['hero']['cta_primary_text'] = 'Boek een taxi';
         $sections['hero']['cta_primary_url'] = '/boek';
         $sections['hero']['cta_secondary_text'] = 'Bekijk prijzen';
         $sections['hero']['cta_secondary_url'] = '/prijzen';
         $sections['hero']['overlay'] = true;
-        $sections['hero']['subtitle_width_percent'] = '50';
+        $sections['hero']['subtitle_width_percent'] = '55';
         $sections['hero']['background_image_url'] = $this->marketingImage('feature-taxi-booking.png');
 
         $sections['features'] = [
-            'section_title' => 'Wat je verkoopt',
+            'section_title' => 'Drie manieren om ritten te rijden',
             'items' => [
                 [
-                    'title' => 'Online boeking',
-                    'description' => 'Meerstapsflow op de klantwebsite: route, voertuig, offerte, gegevens. Minder gemiste calls.',
-                    'icon' => 'computer-desktop',
+                    'title' => 'Eigen tenant',
+                    'description' => 'Klanten boeken op jouw site. Jouw tarieven, jouw chauffeurs, jouw merk. Geen provisie per rit via je eigen website.',
+                    'icon' => 'building-office',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
+                    'image_url' => '/images/nexa-taxi/nexa-rittype-tenant.jpg',
                 ],
                 [
-                    'title' => 'Dispatch',
-                    'description' => 'Ritten toewijzen, waves, accept/decline, redispatch: overzicht voor de centrale.',
-                    'icon' => 'map',
+                    'title' => 'NEXA Marketplace',
+                    'description' => 'Boekingen via nexasuite.nl gaan naar de dichtstbijzijnde aangesloten centrale. Provisie alleen over díe ritten.',
+                    'icon' => 'globe-alt',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
+                    'image_url' => '/images/nexa-taxi/nexa-rittype-marketplace.jpg',
                 ],
                 [
-                    'title' => 'Chauffeur-PWA',
-                    'description' => 'Online/offline, inbox, rit starten/afronden, stops, betaling.',
+                    'title' => 'NEXA Network',
+                    'description' => 'Geen capaciteit? Een partner-taxi rijdt als uitvoerder — jij blijft eigenaar van de klantrelatie.',
+                    'icon' => 'share',
+                    'icon_size' => 'medium',
+                    'icon_align' => 'center',
+                    'image_url' => '/images/nexa-taxi/nexa-rittype-network.jpg',
+                ],
+                [
+                    'title' => 'Eén chauffeur-app',
+                    'description' => 'Inbox, starten/afronden, betaling en fee-splitsing (Owner / Executor / NEXA fee) in dezelfde PWA.',
                     'icon' => 'device-phone-mobile',
-                    'icon_size' => 'medium',
-                    'icon_align' => 'center',
-                ],
-                [
-                    'title' => 'Klantportaal',
-                    'description' => 'Klanten zien eigen ritten en chat over hun boeking, zonder nabelen.',
-                    'icon' => 'user-group',
                     'icon_size' => 'medium',
                     'icon_align' => 'center',
                 ],
@@ -837,11 +894,11 @@ class CentralWelcomePageService
         ];
 
         $sections['text_block'] = [
-            'content' => '<p><strong>Waarom dit scoort in sales</strong></p><ul><li>Directe ROI: zichtbare online boekingen</li><li>Chauffeurs zien iets concreets (app), niet alleen “admin”</li><li>Upsellpad naar contractvervoer en AI</li><li>White-label past bij merk van de taxicentrale</li></ul>',
+            'content' => '<p><strong>Jouw taxibedrijf. Eén slim netwerk.</strong></p><ul><li>Eigen merk, klanten en tarieven blijven van de tenant</li><li>Eigen vloot eerst — network is optioneel en standaard uit</li><li>Marketplace-boekingen vanaf NEXA zijn een apart kanaal</li><li>Complete ≠ uitbetaling: settlement-gate voor risk/hold</li><li>Transparante fee (zelfde % als marketplace)</li></ul>',
             'alignment' => 'left',
             'side_component_key' => '',
             'side_template_id' => null,
-            'image_url' => $this->marketingImage('feature-taxi-booking.png'),
+            'image_url' => '/images/nexa-taxi/nexa-rittype-network.jpg',
             'width_percent' => 100,
         ];
 
@@ -879,12 +936,12 @@ class CentralWelcomePageService
         $sections[$bookingKey] = $bookingDefaults;
 
         $sections['cta'] = [
-            'title' => 'Klaar voor meer online boekingen?',
-            'subtitle' => 'We laten website, dispatch en chauffeur-app zien, met jullie merkkleuren.',
+            'title' => 'Klaar voor eigen vloot én slim netwerk?',
+            'subtitle' => 'We laten website, dispatch, chauffeur-app en optioneel NEXA Network zien — met jullie merkkleuren.',
             'cta_primary_text' => 'Neem contact op',
             'cta_primary_url' => '/contact',
-            'cta_secondary_text' => 'Contractvervoer',
-            'cta_secondary_url' => '/contractvervoer',
+            'cta_secondary_text' => 'Boek via NEXA',
+            'cta_secondary_url' => '/boek',
             'background_image_url' => $this->marketingImage('hero-nexa-platform.png'),
         ];
         $checklistKey = 'component:landwind.feature_checklist';
@@ -892,8 +949,8 @@ class CentralWelcomePageService
         $sections[$checklistKey] = $this->nexaBookingChecklist();
         $sections[$faqKey] = $this->nexaMarketingFaq([
             'eyebrow' => 'Nexa Taxi',
-            'title' => 'Vragen over online boeking',
-            'subtitle' => 'Website, dispatch en chauffeur-app in één systeem.',
+            'title' => 'Vragen over netwerk en boeking',
+            'subtitle' => 'Eigen site, marketplace en NEXA Network — wat is het verschil?',
         ]);
         $sections['footer'] = $this->centralFooter($sections['footer'] ?? []);
         $sections['footer']['inherit_from_home'] = true;

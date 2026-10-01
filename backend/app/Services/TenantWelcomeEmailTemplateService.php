@@ -371,25 +371,7 @@ class TenantWelcomeEmailTemplateService
 
     private function ensurePoweredByFooter(string $html): string
     {
-        if (str_contains($html, 'Powered by NEXA Suite')) {
-            return $html;
-        }
-
-        $powered = '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>';
-        if (preg_match('/Dit bericht is automatisch verstuurd door NEXA Suite\./', $html)) {
-            return preg_replace(
-                '/Dit bericht is automatisch verstuurd door NEXA Suite\./',
-                'Powered by NEXA Suite.',
-                $html,
-                1
-            ) ?? $html;
-        }
-
-        if (str_contains($html, '</body>')) {
-            return str_replace('</body>', $powered.'</body>', $html);
-        }
-
-        return $html.$powered;
+        return EmailCardHtml::ensurePoweredByLink($html);
     }
 
     private function ensureStartVideoText(string $text): string
@@ -547,7 +529,7 @@ class TenantWelcomeEmailTemplateService
                                 Heb je vragen over je abonnement of inloggen? Neem contact op via
                                 <a href="mailto:info@nexasuite.nl" style="color: #2563eb;">info@nexasuite.nl</a>.
                             </p>
-                            <p style="margin: 20px 0 0; font-size: 13px; color: #6b7280; text-align: center; line-height: 1.6;">Powered by NEXA Suite.</p>
+                            <p style="margin: 20px 0 0; font-size: 13px; color: #6b7280; text-align: center; line-height: 1.6;">Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.</p>
                         </td>
                     </tr>
                 </table>

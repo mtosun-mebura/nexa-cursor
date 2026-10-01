@@ -10,6 +10,8 @@ return [
     'exempt_route_names' => [
         'admin.dashboard',
         'admin.tenant.switch',
+        'admin.tenant-setup-checklist',
+        'admin.nexa-network.*',
         'admin.handleiding.*',
         'admin.companies.*',
         'admin.modules.index',
@@ -47,6 +49,9 @@ return [
         'admin.nexa-pricing.*',
         'admin.platform-billing.*',
         'admin.nexa-suite-bookings.*',
+        'admin.payment-flows.*',
+        'admin.payout-identities.*',
+        'admin.taxi.dispatch_settings.*',
         'admin.taxi.tarieven.*',
         'admin.website-pages.*',
         'admin.website-ai.*',

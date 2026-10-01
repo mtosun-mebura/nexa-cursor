@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\CompanyBillingProfile;
 use App\Models\CompanySubscriptionChange;
 use App\Models\User;
+use App\Services\NexaPricingService;
 use App\Services\PlatformBilling\SubscriptionBillingCalculator;
 use App\Services\PlatformBilling\TenantSubscriptionService;
 use App\Services\UserRoleAssignmentService;
@@ -48,7 +49,7 @@ class AdminCompanySubscriptionTest extends TestCase
             ->assertSee('Aanvullende modules', false)
             ->assertSee('Start', false)
             ->assertSee('Nu upgraden', false)
-            ->assertSee('Opzeggen per 15-03-2027', false)
+            ->assertSee('Opzeggen per 31-03-2026', false)
             ->assertSee('data-upgrade-open', false)
             ->assertSee('id="subscription-upgrade-modal"', false)
             ->assertSee('Upgraden bevestigen', false)
@@ -57,7 +58,8 @@ class AdminCompanySubscriptionTest extends TestCase
             ->assertSee('Opzeggen bevestigen', false)
             ->assertSee('Direct opzeggen kan alleen tijdens de', false)
             ->assertSee('proefperiode', false)
-            ->assertSee('einde van het jaarcontract', false)
+            ->assertSee('einde van de lopende maand', false)
+            ->assertDontSee('jaarcontract', false)
             ->assertDontSee('wordt meegenomen in de SEPA-incasso. Doorgaan?', false)
             ->assertDontSee("onclick=\"return confirm('Opzeggen per", false);
     }
@@ -116,6 +118,7 @@ class AdminCompanySubscriptionTest extends TestCase
     #[Test]
     public function downgrade_during_first_year_waits_until_contract_end(): void
     {
+        $this->enableYearCommitment();
         [$user, $company] = $this->companyAdmin('pro');
 
         $this->actingAs($user)
@@ -135,6 +138,7 @@ class AdminCompanySubscriptionTest extends TestCase
     #[Test]
     public function applying_a_scheduled_downgrade_sets_the_new_price(): void
     {
+        $this->enableYearCommitment();
         [$user, $company] = $this->companyAdmin('pro');
         $this->actingAs($user)
             ->post(route('admin.subscriptions.downgrade'), ['package_key' => 'start']);
@@ -153,6 +157,7 @@ class AdminCompanySubscriptionTest extends TestCase
     #[Test]
     public function cancel_during_first_year_stops_sepa_at_contract_end(): void
     {
+        $this->enableYearCommitment();
         [$user, $company] = $this->companyAdmin('start');
 
         $this->actingAs($user)
@@ -172,8 +177,22 @@ class AdminCompanySubscriptionTest extends TestCase
     }
 
     #[Test]
+    public function monthly_cancel_is_allowed_at_month_end(): void
+    {
+        [$user, $company] = $this->companyAdmin('start');
+
+        $this->actingAs($user)
+            ->post(route('admin.subscriptions.cancel'))
+            ->assertRedirect(route('admin.subscriptions.show', ['saved' => 1]));
+
+        $profile = CompanyBillingProfile::query()->where('company_id', $company->id)->first();
+        $this->assertSame('2026-03-31', $profile->subscription_end_date->toDateString());
+    }
+
+    #[Test]
     public function after_first_year_cancel_is_allowed_at_month_end(): void
     {
+        $this->enableYearCommitment();
         [$user, $company] = $this->companyAdmin('start');
         Carbon::setTestNow('2027-04-10 10:00:00');
 
@@ -287,6 +306,13 @@ class AdminCompanySubscriptionTest extends TestCase
         app(UserRoleAssignmentService::class)->syncWebRoles($user, ['company-admin']);
 
         return [$user, $company];
+    }
+
+    private function enableYearCommitment(): void
+    {
+        $pricing = app(NexaPricingService::class)->get();
+        $pricing['commitment_months'] = 12;
+        app(NexaPricingService::class)->save($pricing);
     }
 
     private function company(string $packageKey): Company

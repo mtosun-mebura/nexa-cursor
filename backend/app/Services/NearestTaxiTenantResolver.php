@@ -71,7 +71,7 @@ class NearestTaxiTenantResolver
             if ($this->billingAccess->isBookingBlocked($company)) {
                 continue;
             }
-            if (! $this->entitlements->allows($company, \App\Support\TenantPackageCapability::WEBSITE_BOOKING)) {
+            if (! $this->canReceiveMarketplaceRides($company)) {
                 continue;
             }
             if (! $this->companyHasActiveVehicles($company)) {
@@ -196,6 +196,19 @@ class NearestTaxiTenantResolver
             ->where('company_id', $company->id)
             ->where('active', true)
             ->exists();
+    }
+
+    /**
+     * Eigen website-boeking óf fee-only marketplace (dispatch + chauffeur-app).
+     */
+    public function canReceiveMarketplaceRides(Company $company): bool
+    {
+        if ($this->entitlements->allows($company, \App\Support\TenantPackageCapability::WEBSITE_BOOKING)) {
+            return true;
+        }
+
+        return $this->entitlements->allows($company, \App\Support\TenantPackageCapability::DISPATCH)
+            && $this->entitlements->allows($company, \App\Support\TenantPackageCapability::DRIVER_APP);
     }
 
     private function numericOrNull(mixed $value): ?float

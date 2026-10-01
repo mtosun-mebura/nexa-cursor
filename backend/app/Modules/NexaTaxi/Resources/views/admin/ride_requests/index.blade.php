@@ -170,6 +170,9 @@
                             @if($r->isNexaSuiteBooking())
                                 <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] text-[11px] mt-1">NEXA Suite</span>
                             @endif
+                            @if($r->isNetworkFulfilled())
+                                <span class="kt-badge kt-badge-outline kt-badge-primary rounded-[30px] text-[11px] mt-1">Network</span>
+                            @endif
                             @if($r->customer_phone)<span class="text-muted-foreground text-xs block truncate">{{ $r->customer_phone }}</span>@endif
                         </td>
                         <td class="rides-list-table__route" title="{{ $r->pickup_address }} → {{ $r->dropoff_address }}">
@@ -183,7 +186,17 @@
                                 <span class="rides-route-stack__address">{{ $shortRideAddress($r->dropoff_address) }}</span>
                             </div>
                         </td>
-                        <td class="rides-list-table__status truncate">{{ $r->status_label }}</td>
+                        <td class="rides-list-table__status">
+                            <span class="block truncate">{{ $r->status_label }}</span>
+                            @if($r->settlement_status)
+                                <span class="kt-badge kt-badge-outline rounded-[30px] text-[11px] mt-1
+                                    @if($r->settlement_status === \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_REVIEW) kt-badge-warning
+                                    @elseif($r->settlement_status === \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_HOLD) kt-badge-warning
+                                    @elseif(in_array($r->settlement_status, [\App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_ELIGIBLE, \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_SETTLED], true)) kt-badge-primary
+                                    @endif
+                                ">{{ $r->settlement_status_label }}</span>
+                            @endif
+                        </td>
                         <td class="rides-list-table__price whitespace-nowrap tabular-nums admin-currency-cell">@if($r->quoted_price !== null)€&nbsp;{{ number_format((float) $r->quoted_price, 2, ',', '.') }}@else—@endif</td>
                         <td class="rides-list-table__actions-col rides-list-table__actions" data-no-row-link onclick="event.stopPropagation();">
                             @if($canViewRide || $canUpdateRide)

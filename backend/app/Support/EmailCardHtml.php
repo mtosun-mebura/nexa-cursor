@@ -74,7 +74,121 @@ HTML;
 
     public static function poweredByFooter(): string
     {
-        return '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>';
+        return '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">'
+            .'Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.'
+            .'</p>';
+    }
+
+    /**
+     * "Vragen? Neem contact op met {tenant}." — $companyNameHtml mag platte tekst of een <a> zijn.
+     */
+    public static function questionsContactLine(string $companyNameHtml): string
+    {
+        $name = trim($companyNameHtml);
+        if ($name === '') {
+            $name = 'ons';
+        }
+
+        return '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">'
+            .'Vragen? Neem contact op met '.$name.'.'
+            .'</p>';
+    }
+
+    /**
+     * Tenantnaam als link naar primaire website, anders ge-escaped platte tekst.
+     */
+    public static function companyNameHtml(string $companyName, ?string $websiteUrl = null): string
+    {
+        $name = trim($companyName);
+        if ($name === '') {
+            return 'ons';
+        }
+
+        $url = self::normalizeWebsiteUrl($websiteUrl);
+        if ($url === null) {
+            return e($name);
+        }
+
+        return '<a href="'.e($url).'" style="color:#6b7280;text-decoration:underline;">'.e($name).'</a>';
+    }
+
+    public static function questionsAndPoweredByFooter(string $companyNameHtml): string
+    {
+        $powered = '<p style="margin:8px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">'
+            .'Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.'
+            .'</p>';
+
+        return self::questionsContactLine($companyNameHtml).$powered;
+    }
+
+    /**
+     * Zet platte "Powered by NEXA Suite." om naar een link (bestaande templates).
+     */
+    public static function ensurePoweredByLink(string $html): string
+    {
+        if ($html === '' || str_contains($html, 'nexasuite.nl')) {
+            return $html;
+        }
+
+        if (preg_match('/Dit bericht is automatisch verstuurd door NEXA Suite\./', $html)) {
+            $html = preg_replace(
+                '/Dit bericht is automatisch verstuurd door NEXA Suite\./',
+                'Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.',
+                $html,
+                1
+            ) ?? $html;
+        }
+
+        if (str_contains($html, 'Powered by NEXA Suite.') && ! str_contains($html, 'nexasuite.nl')) {
+            $html = str_replace(
+                'Powered by NEXA Suite.',
+                'Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.',
+                $html
+            );
+        }
+
+        if (! str_contains($html, 'Powered by') && ! str_contains($html, 'nexasuite.nl')) {
+            $powered = self::poweredByFooter();
+            if (str_contains($html, '</body>')) {
+                $html = str_replace('</body>', $powered.'</body>', $html);
+            } else {
+                $html .= $powered;
+            }
+        }
+
+        return $html;
+    }
+
+    public static function normalizeWebsiteUrl(?string $websiteUrl): ?string
+    {
+        $raw = trim((string) $websiteUrl);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $raw)) {
+            $raw = 'https://'.ltrim($raw, '/');
+        }
+
+        if (filter_var($raw, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        return $raw;
+    }
+
+    /**
+     * Primaire tenant-host als https-URL (company_domains.is_primary).
+     */
+    public static function primaryWebsiteUrlForCompany(?int $companyId): ?string
+    {
+        if ($companyId === null || $companyId <= 0) {
+            return null;
+        }
+
+        $host = \App\Support\Tenancy\TenantFrontendUrl::resolvePrimaryHostForCompany($companyId);
+
+        return self::normalizeWebsiteUrl($host);
     }
 
     public static function bodyFromPlainText(string $text): string

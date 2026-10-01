@@ -66,11 +66,13 @@
             <h1 class="text-xl font-medium leading-none text-mono">Abonnementen</h1>
             <div class="text-sm font-normal text-secondary-foreground">
                 @if(! empty($trial_declined) && ! empty($in_trial))
-                    Je hebt gekozen het jaarcontract niet te laten ingaan. Tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je het pakket blijven gebruiken en het abonnement weer activeren.
+                    Je hebt gekozen het abonnement niet te laten ingaan. Tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je het pakket blijven gebruiken en het abonnement weer activeren.
                 @elseif(! empty($in_trial))
-                    Proefperiode: tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je stoppen zonder jaarcontract. Daarna start facturatie.
+                    Proefperiode: tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je stoppen zonder abonnementskosten. Daarna start facturatie.
+                @elseif(! empty($has_commitment) && empty($past_first_year))
+                    Maandabonnement met contracttermijn van {{ (int) $commitment_months }} {{ (int) $commitment_months === 1 ? 'maand' : 'maanden' }}. Upgraden kan direct; downgraden en opzeggen per einde contract.
                 @else
-                    Jaarcontract met maandelijkse incasso's. Upgraden kan direct; downgraden en opzeggen per einde contract.
+                    Maandabonnement met maandelijkse incasso. Upgraden kan direct; downgraden en opzeggen per einde van de lopende maand.
                 @endif
             </div>
         </div>
@@ -90,7 +92,7 @@
                 $pendingAlertHtml = 'Opzegging ingepland per <strong>'.e($pendingDate).'</strong>. Tot die datum blijft je huidige pakket actief; daarna stopt de SEPA-incasso.';
             } elseif ($pending_type === 'trial_end') {
                 $pendingWithdrawLabel = 'Abonnement activeren';
-                $pendingAlertHtml = 'Het jaarcontract gaat niet in. Tot <strong>'.e($pendingDate).'</strong> kun je het pakket blijven gebruiken. Er volgt geen incasso. De ingangsdatum blijft <strong>'.e($start_date->translatedFormat('j F Y')).'</strong>.';
+                $pendingAlertHtml = 'Het abonnement gaat niet in. Tot <strong>'.e($pendingDate).'</strong> kun je het pakket blijven gebruiken. Er volgt geen incasso. De ingangsdatum blijft <strong>'.e($start_date->translatedFormat('j F Y')).'</strong>.';
             } else {
                 $pendingAlertHtml = 'Downgrade naar <strong>'.e($pending_package_name).'</strong> ingepland per <strong>'.e($pendingDate).'</strong>. Tot die datum blijf je '.e($current_name).' gebruiken tegen de huidige prijs.';
             }
@@ -155,23 +157,27 @@
                             <td class="font-medium text-foreground">{{ $billing_start_date->translatedFormat('j F Y') }}</td>
                         </tr>
                     @endif
+                    @if(! empty($has_commitment) && $contract_end_date)
                     <tr>
-                        <td class="text-secondary-foreground font-normal">Einde jaarcontract</td>
+                        <td class="text-secondary-foreground font-normal">Einde contracttermijn</td>
                         <td class="font-medium text-foreground">{{ $contract_end_date->translatedFormat('j F Y') }}</td>
                     </tr>
+                    @endif
                     <tr>
                         <td class="text-secondary-foreground font-normal">Opzegtermijn</td>
                         <td class="font-medium text-foreground">
                             @if($ended)
                                 Abonnement beëindigd.
                             @elseif(! empty($trial_declined) && ! empty($in_trial))
-                                Jaarcontract is niet geactiveerd. Tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je het pakket blijven gebruiken en het abonnement weer activeren.
+                                Abonnement is niet geactiveerd. Tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je het pakket blijven gebruiken en het abonnement weer activeren.
+                            @elseif(! empty($in_trial) && ! empty($has_commitment) && $contract_end_date)
+                                Proefperiode: je kunt nu nog stoppen. Daarna geldt een contracttermijn tot {{ $contract_end_date->translatedFormat('j F Y') }}.
                             @elseif(! empty($in_trial))
-                                Proefperiode: je kunt nu nog stoppen. Daarna zit je vast aan het jaarcontract tot {{ $contract_end_date->translatedFormat('j F Y') }}.
-                            @elseif($past_first_year)
-                                Eerste jaar is voorbij: maandelijks opzegbaar (einde van de lopende maand).
+                                Proefperiode: je kunt nu nog stoppen. Daarna is het abonnement maandelijks opzegbaar (einde van de lopende maand).
+                            @elseif(! empty($has_commitment) && empty($past_first_year) && $contract_end_date)
+                                Contracttermijn: opzeggen of downgraden kan per {{ $contract_end_date->translatedFormat('j F Y') }}.
                             @else
-                                Jaarcontract: opzeggen of downgraden kan per {{ $contract_end_date->translatedFormat('j F Y') }}.
+                                Maandelijks opzegbaar (einde van de lopende maand).
                             @endif
                         </td>
                     </tr>
@@ -318,7 +324,7 @@
                     </div>
                     <div class="kt-card-content p-5">
                         <p class="text-sm text-secondary-foreground mb-4">
-                            Tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je kiezen het jaarcontract niet te laten ingaan. Je blijft het pakket tot die datum gebruiken en er volgt geen incasso. Je kunt het abonnement daarna altijd weer activeren; de ingangsdatum blijft {{ $start_date->translatedFormat('j F Y') }}. Laat je de proef doorlopen, dan gaat het jaarcontract in en start de facturatie.
+                            Tot {{ $trial_ends_at?->translatedFormat('j F Y') }} kun je kiezen het abonnement niet te laten ingaan. Je blijft het pakket tot die datum gebruiken en er volgt geen incasso. Je kunt het abonnement daarna altijd weer activeren; de ingangsdatum blijft {{ $start_date->translatedFormat('j F Y') }}. Laat je de proef doorlopen, dan gaat het abonnement in en start de facturatie.
                         </p>
                         <form id="subscription-end-trial-form" action="{{ route('admin.subscriptions.end-trial') }}" method="POST">
                             @csrf
@@ -335,10 +341,10 @@
                     </div>
                     <div class="kt-card-content p-5">
                         <p class="text-sm text-secondary-foreground mb-4">
-                            @if($past_first_year)
-                                Direct opzeggen kan alleen tijdens de proefperiode. Die is voorbij; na het eerste jaar kun je maandelijks opzeggen. Het abonnement en de SEPA-incasso lopen door tot {{ $change_effective_on->translatedFormat('j F Y') }}.
+                            @if(! empty($has_commitment) && empty($past_first_year))
+                                Direct opzeggen kan alleen tijdens de proefperiode. Die is voorbij, dus opzeggen kan alleen per einde van de contracttermijn ({{ $change_effective_on->translatedFormat('j F Y') }}). Tot die datum blijf je het huidige pakket gebruiken en wordt er maandelijks geïncasseerd.
                             @else
-                                Direct opzeggen kan alleen tijdens de proefperiode. Die is voorbij, dus opzeggen kan alleen per einde van het jaarcontract ({{ $change_effective_on->translatedFormat('j F Y') }}). Tot die datum blijf je het huidige pakket gebruiken en wordt er maandelijks geïncasseerd.
+                                Direct opzeggen kan alleen tijdens de proefperiode. Die is voorbij; je kunt maandelijks opzeggen. Het abonnement en de SEPA-incasso lopen door tot {{ $change_effective_on->translatedFormat('j F Y') }}.
                             @endif
                         </p>
                         <form id="subscription-cancel-form" action="{{ route('admin.subscriptions.cancel') }}" method="POST">
@@ -389,8 +395,13 @@
                 Extra functies zijn vanaf vandaag beschikbaar. De nieuwe prijs geldt vanaf vandaag en gaat mee in de maandelijkse incasso.
             </p>
             <p class="text-sm text-muted-foreground mb-0">
-                Terug naar een lager pakket kan daarna pas per einde van het jaarcontract
-                (<strong class="text-foreground">{{ $change_effective_on->translatedFormat('j F Y') }}</strong>).
+                @if(! empty($has_commitment) && empty($past_first_year))
+                    Terug naar een lager pakket kan daarna pas per einde van de contracttermijn
+                    (<strong class="text-foreground">{{ $change_effective_on->translatedFormat('j F Y') }}</strong>).
+                @else
+                    Terug naar een lager pakket kan daarna per einde van de lopende maand
+                    (<strong class="text-foreground">{{ $change_effective_on->translatedFormat('j F Y') }}</strong>).
+                @endif
             </p>
         </div>
         <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
@@ -443,14 +454,14 @@
             </p>
         </div>
         <div class="px-6 py-5 space-y-3">
-            @if($past_first_year)
+            @if(! empty($has_commitment) && empty($past_first_year))
                 <p class="text-sm text-foreground mb-0">
-                    De proefperiode is voorbij. Het eerste jaarcontract is afgerond, daarom gaat de opzegging in per einde van de lopende maand:
+                    De proefperiode is voorbij. Opzeggen kan daardoor alleen per einde van de contracttermijn:
                     <strong>{{ $change_effective_on->translatedFormat('j F Y') }}</strong>.
                 </p>
             @else
                 <p class="text-sm text-foreground mb-0">
-                    De proefperiode is voorbij. Opzeggen kan daardoor alleen per einde van het jaarcontract:
+                    De proefperiode is voorbij. De opzegging gaat in per einde van de lopende maand:
                     <strong>{{ $change_effective_on->translatedFormat('j F Y') }}</strong>.
                 </p>
             @endif
@@ -487,14 +498,19 @@
         </div>
         <div class="px-6 py-5 space-y-3">
             <p class="text-sm text-foreground mb-0">
-                Het jaarcontract gaat dan niet in en er volgt geen incasso. Je kunt het pakket blijven gebruiken tot
+                Het abonnement gaat dan niet in en er volgt geen incasso. Je kunt het pakket blijven gebruiken tot
                 <strong class="text-foreground">{{ $trial_ends_at?->translatedFormat('j F Y') }}</strong>.
             </p>
             <p class="text-sm text-muted-foreground mb-0">
                 Je kunt het abonnement altijd weer activeren; de ingangsdatum blijft
                 <strong class="text-foreground">{{ $start_date->translatedFormat('j F Y') }}</strong>.
-                Laat je de proef doorlopen, dan gaat het jaarcontract in. Daarna kun je alleen nog opzeggen per einde contractsdatum
-                (<strong class="text-foreground">{{ $contract_end_date->translatedFormat('j F Y') }}</strong>).
+                Laat je de proef doorlopen, dan gaat het abonnement in.
+                @if(! empty($has_commitment) && $contract_end_date)
+                    Daarna kun je alleen nog opzeggen per einde contractsdatum
+                    (<strong class="text-foreground">{{ $contract_end_date->translatedFormat('j F Y') }}</strong>).
+                @else
+                    Daarna kun je maandelijks opzeggen (einde van de lopende maand).
+                @endif
             </p>
         </div>
         <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">

@@ -295,21 +295,27 @@ Implement canonical server-side role assignment, verification states, policies, 
 
 ### Phase 2 — provider/KYB/payout onboarding
 Implement provider-linked payout identities/capabilities; no raw payout card storage.
+→ See [NEXA_TAXI_NETWORK_PHASE2.md](./NEXA_TAXI_NETWORK_PHASE2.md) (done on `feature/nexa-taxi`; Mollie Connect live API still stub).
 
 ### Phase 3 — network owner/fulfiller model
 Minimal additive schema and dispatch/claim changes.
+→ See [NEXA_TAXI_NETWORK_PHASE3.md](./NEXA_TAXI_NETWORK_PHASE3.md) (done on `feature/nexa-taxi`).
 
 ### Phase 4 — verified completion and settlement gate
-Implement evidence/risk evaluation, hold/review states, immutable financial snapshot/ledger integration.
+Implement evidence/risk evaluation, hold/review states; billing/earnings gated on `settlement_eligible`.
+→ See [NEXA_TAXI_NETWORK_PHASE4.md](./NEXA_TAXI_NETWORK_PHASE4.md) (done on `feature/nexa-taxi`; ledger snapshot still later).
 
 ### Phase 5 — planner/driver/customer UX
 Expose only safe controls and status. Never make UI state authoritative.
+→ See [NEXA_TAXI_NETWORK_PHASE5.md](./NEXA_TAXI_NETWORK_PHASE5.md) (done on `feature/nexa-taxi`).
 
 ### Phase 6 — /taxi marketing page
 Use existing pagebuilder with safe idempotent synchronization.
+→ See [NEXA_TAXI_NETWORK_PHASE6.md](./NEXA_TAXI_NETWORK_PHASE6.md) (done on `feature/nexa-taxi`).
 
 ### Phase 7 — adversarial/security test pass
 Run relevant Laravel tests and project lint/format tools. Separate pre-existing failures from new failures.
+Core unit/feature tests for phases 2–6 are in place; full adversarial matrix remains ongoing.
 
 ## 19. Definition of Done
 

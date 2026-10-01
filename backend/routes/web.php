@@ -14,6 +14,8 @@ use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminTenantSetupChecklistController;
+use App\Http\Controllers\Admin\AdminNexaNetworkGuideController;
+use App\Http\Controllers\Admin\AdminPaymentFlowsGuideController;
 use App\Http\Controllers\Admin\AdminFinancialOverviewController;
 use App\Http\Controllers\Admin\AdminForcePasswordController;
 use App\Http\Controllers\Admin\AdminFormFieldController;
@@ -21,6 +23,7 @@ use App\Http\Controllers\Admin\AdminFrontendComponentController;
 use App\Http\Controllers\Admin\AdminFrontendThemeController;
 use App\Http\Controllers\Admin\AdminHandleidingController;
 use App\Http\Controllers\Admin\AdminIncidentController;
+use App\Http\Controllers\Admin\AdminIncidentSettingsController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminJobConfigurationController;
 use App\Http\Controllers\Admin\AdminLegacyVacancyRedirectController;
@@ -34,6 +37,7 @@ use App\Http\Controllers\Admin\AdminNexaSuiteMarketplaceController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentProviderController;
+use App\Http\Controllers\Admin\AdminPayoutIdentityController;
 use App\Http\Controllers\Admin\AdminPermissionController;
 use App\Http\Controllers\Admin\AdminPlatformBillingLineItemController;
 use App\Http\Controllers\Admin\AdminPlatformBillingPackageController;
@@ -452,6 +456,7 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name(
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login')->name('admin.login.post');
 Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-code');
 Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-verify');
+Route::post('/admin/login/marketplace-register', [AdminAuthController::class, 'registerMarketplaceCompany'])->middleware('throttle:admin-first-login')->name('admin.login.marketplace-register');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 Route::get('/admin/manifest.webmanifest', AdminWebManifestController::class)->name('admin.manifest');
 
@@ -502,6 +507,18 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::middleware('role:super-admin')->group(function () {
         Route::get('tenant-configureren', [AdminTenantSetupChecklistController::class, 'index'])
             ->name('tenant-setup-checklist');
+        Route::get('nexa-network', [AdminNexaNetworkGuideController::class, 'index'])
+            ->name('nexa-network.guide');
+        Route::get('payment-flows', [AdminPaymentFlowsGuideController::class, 'guide'])
+            ->name('payment-flows.guide');
+        Route::get('payment-flows/settlements', [AdminPaymentFlowsGuideController::class, 'settlements'])
+            ->name('payment-flows.settlements');
+        Route::post('payment-flows/settlements/process', [AdminPaymentFlowsGuideController::class, 'processQueue'])
+            ->name('payment-flows.settlements.process');
+        Route::post('payment-flows/settlements/{settlement}/retry', [AdminPaymentFlowsGuideController::class, 'retryPayout'])
+            ->name('payment-flows.settlements.retry');
+        Route::post('payment-flows/settlements/{settlement}/force-paid', [AdminPaymentFlowsGuideController::class, 'forcePaidOut'])
+            ->name('payment-flows.settlements.force-paid');
     });
 
     // Legacy /admin/vacancies: nooit een kapotte 404; door naar skillmatching of dashboard.
@@ -522,6 +539,16 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::post('abonnementen/modules/{addon}/intrekken', [AdminCompanySubscriptionController::class, 'withdrawAddon'])
         ->where('addon', 'extra_clients|gps_tracking|vloot')
         ->name('subscriptions.addons.withdraw');
+
+    // Payout identities (company settlement; controller enforces payment-provider permissions)
+    Route::get('payout-identities', [AdminPayoutIdentityController::class, 'index'])->name('payout-identities.index');
+    Route::post('payout-identities/company', [AdminPayoutIdentityController::class, 'ensureCompany'])->name('payout-identities.company.ensure');
+    Route::post('payout-identities/bank-account', [AdminPayoutIdentityController::class, 'setBankAccount'])->name('payout-identities.bank-account');
+    Route::post('payout-identities/independent-driver', [AdminPayoutIdentityController::class, 'ensureIndependentDriver'])->name('payout-identities.independent-driver.ensure');
+    Route::post('payout-identities/{payoutIdentity}/sync', [AdminPayoutIdentityController::class, 'sync'])->name('payout-identities.sync');
+    Route::post('payout-identities/{payoutIdentity}/destination-change', [AdminPayoutIdentityController::class, 'requestDestinationChange'])->name('payout-identities.destination.request');
+    Route::post('payout-identities/{payoutIdentity}/destination-change/apply', [AdminPayoutIdentityController::class, 'applyDestinationChange'])->name('payout-identities.destination.apply');
+    Route::post('payout-identities/{payoutIdentity}/disable', [AdminPayoutIdentityController::class, 'disable'])->name('payout-identities.disable');
 
     Route::get('email-communicatie', [AdminTenantCustomerEmailController::class, 'index'])->name('customer-emails.index');
     Route::get('email-communicatie/{customerEmail}/voorbeeld', [AdminTenantCustomerEmailController::class, 'preview'])->name('customer-emails.preview');
@@ -753,6 +780,8 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::resource('notifications', AdminNotificationController::class);
 
     Route::get('incidents', [AdminIncidentController::class, 'index'])->name('incidents.index');
+    Route::get('incidents/settings', [AdminIncidentSettingsController::class, 'edit'])->name('incidents.settings.edit');
+    Route::put('incidents/settings', [AdminIncidentSettingsController::class, 'update'])->name('incidents.settings.update');
     Route::get('incidents/list', [AdminIncidentController::class, 'list'])->name('incidents.list');
     Route::post('incidents/archive', [AdminIncidentController::class, 'archive'])->name('incidents.archive');
     Route::post('incidents', [AdminIncidentController::class, 'store'])->name('incidents.store');
@@ -1258,6 +1287,12 @@ Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(functi
         Route::get('rides', [TaxiPortalApiController::class, 'rides'])->name('rides');
         Route::get('rides/{ride}', [TaxiPortalApiController::class, 'showRide'])
             ->name('rides.show')
+            ->whereNumber('ride');
+        Route::post('rides/{ride}/confirm-completion', [TaxiPortalApiController::class, 'confirmRideCompletion'])
+            ->name('rides.confirm_completion')
+            ->whereNumber('ride');
+        Route::post('rides/{ride}/report-problem', [TaxiPortalApiController::class, 'reportRideProblem'])
+            ->name('rides.report_problem')
             ->whereNumber('ride');
         Route::get('invoices', [TaxiPortalApiController::class, 'invoices'])->name('invoices');
         Route::get('profile', [TaxiPortalApiController::class, 'profile'])->name('profile');

@@ -102,7 +102,16 @@ class AdminCompanyWizardController extends AdminCompanyController
     {
         $this->authorizeWizard();
 
-        $company = $this->createCompanyFromWizardRequest($request);
+        try {
+            $company = $this->createCompanyFromWizardRequest($request);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            report($e);
+
+            throw ValidationException::withMessages([
+                'name' => 'Er bestaat al een bedrijf met deze of een sterk gelijkende naam. Kies een andere bedrijfsnaam.',
+            ]);
+        }
+
         $this->bindWizardTenantContext($company);
         $this->setMaxReachable($company, 2);
 

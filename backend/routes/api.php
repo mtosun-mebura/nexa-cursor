@@ -92,11 +92,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/vacancies/{vacancy}', [VacancyController::class, 'show']);
         Route::put('/vacancies/{vacancy}', [VacancyController::class, 'update']);
         Route::delete('/vacancies/{vacancy}', [VacancyController::class, 'destroy']);
-        
+
         // Additional tenant routes will be added as controllers are created
     });
-});
 
+    // Company payout identity (bank account via app; only masked last-4 stored)
+    Route::middleware(['role:company-admin|super-admin'])->prefix('tenant')->group(function () {
+        Route::get('/payout-identity', [\App\Http\Controllers\Api\TenantPayoutIdentityController::class, 'show'])
+            ->name('api.tenant.payout-identity.show');
+        Route::put('/payout-identity/bank-account', [\App\Http\Controllers\Api\TenantPayoutIdentityController::class, 'updateBankAccount'])
+            ->middleware('throttle:10,1')
+            ->name('api.tenant.payout-identity.bank-account');
+    });
+});
 
 Route::post('/platform/webhooks/mollie', App\Http\Controllers\Api\PlatformMollieWebhookController::class)
     ->name('api.platform.webhooks.mollie');

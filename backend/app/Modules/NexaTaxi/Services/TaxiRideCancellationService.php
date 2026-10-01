@@ -23,6 +23,10 @@ class TaxiRideCancellationService
 
     public const REASON_AUTO_UNACCEPTED = 'auto_unaccepted';
 
+    public const CHOICE_WAIT = 'wait';
+
+    public const PAYLOAD_DECISION_KEY = 'unaccepted_customer_decision';
+
     public function __construct(
         protected TaxiDispatchSettingsService $dispatchSettings,
         protected TaxiRidePaymentService $payments,
@@ -41,12 +45,12 @@ class TaxiRideCancellationService
             return false;
         }
 
-        $companyId = (int) ($ride->company_id ?? 0);
-        $cancelAt = $this->dispatchSettings->unacceptedAutoCancelAt(
-            $ride,
-            $companyId > 0 ? $companyId : null
-        );
-        if (! $cancelAt) {
+        if ($this->customerChoseWait($ride)) {
+            return false;
+        }
+
+        $timeoutAt = $this->decisionTimeoutAt($ride);
+        if (! $timeoutAt) {
             return false;
         }
 
@@ -54,7 +58,141 @@ class TaxiRideCancellationService
             ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
             : now(ContractTransportTimezone::TIMEZONE);
 
-        return $cancelAt->lte($base);
+        return $timeoutAt->lte($base);
+    }
+
+    public function customerDecisionMinutes(?int $companyId = null): int
+    {
+        return $this->dispatchSettings->customerUnacceptedDecisionMinutes(
+            $companyId !== null && $companyId > 0 ? $companyId : null
+        );
+    }
+
+    public function customerDecisionMinutesForRide(RideRequest $ride): int
+    {
+        return $this->dispatchSettings->customerUnacceptedDecisionMinutesForRide(
+            $ride,
+            $this->settingsCompanyIdForRide($ride) ?: null
+        );
+    }
+
+    public function searchDeadlineAt(RideRequest $ride): ?CarbonInterface
+    {
+        $companyId = $this->settingsCompanyIdForRide($ride);
+
+        return $this->dispatchSettings->unacceptedAutoCancelAt(
+            $ride,
+            $companyId > 0 ? $companyId : null
+        );
+    }
+
+    public function decisionTimeoutAt(RideRequest $ride): ?CarbonInterface
+    {
+        $minutes = $this->customerDecisionMinutesForRide($ride);
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $decision = $this->decisionPayload($ride);
+        if (! empty($decision['prompt_at'])) {
+            try {
+                return Carbon::parse($decision['prompt_at'])
+                    ->timezone(ContractTransportTimezone::TIMEZONE)
+                    ->addMinutes($minutes);
+            } catch (\Throwable) {
+                // val terug op zoekdeadline
+            }
+        }
+
+        $deadline = $this->searchDeadlineAt($ride);
+        if (! $deadline) {
+            return null;
+        }
+
+        return $deadline->copy()->addMinutes($minutes);
+    }
+
+    public function customerChoseWait(RideRequest $ride): bool
+    {
+        return ($this->decisionPayload($ride)['choice'] ?? null) === self::CHOICE_WAIT;
+    }
+
+    public function needsCustomerDecision(RideRequest $ride, ?CarbonInterface $now = null): bool
+    {
+        if (! $this->isUnacceptedOpenBooking($ride) || $this->customerChoseWait($ride)) {
+            return false;
+        }
+
+        $deadline = $this->searchDeadlineAt($ride);
+        if (! $deadline) {
+            return false;
+        }
+
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
+
+        return $deadline->lte($base);
+    }
+
+    public function rememberDecisionPrompt(string $conn, RideRequest $ride, ?CarbonInterface $now = null): RideRequest
+    {
+        $ride = RideRequest::on($conn)->find($ride->id) ?? $ride;
+        if (! $this->needsCustomerDecision($ride, $now)) {
+            return $ride;
+        }
+
+        $decision = $this->decisionPayload($ride);
+        if (! empty($decision['prompt_at'])) {
+            return $ride;
+        }
+
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $payload[self::PAYLOAD_DECISION_KEY] = array_merge($decision, [
+            'prompt_at' => $base->toIso8601String(),
+        ]);
+        $ride->update(['booking_payload' => $payload]);
+
+        return $ride->fresh() ?? $ride;
+    }
+
+    /**
+     * @return array{ride: RideRequest}
+     */
+    public function chooseToWait(string $conn, RideRequest $ride): array
+    {
+        if (! $this->isUnacceptedOpenBooking($ride)) {
+            throw ValidationException::withMessages([
+                'ride' => ['Deze rit kan niet meer worden aangepast.'],
+            ]);
+        }
+
+        $ride = RideRequest::on($conn)->find($ride->id) ?? $ride;
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $decision = $this->decisionPayload($ride);
+        $payload[self::PAYLOAD_DECISION_KEY] = array_merge($decision, [
+            'choice' => self::CHOICE_WAIT,
+            'choice_at' => now()->toIso8601String(),
+            'prompt_at' => $decision['prompt_at'] ?? now()->toIso8601String(),
+        ]);
+        $ride->update(['booking_payload' => $payload]);
+
+        return ['ride' => $ride->fresh() ?? $ride];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function decisionPayload(RideRequest $ride): array
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $decision = $payload[self::PAYLOAD_DECISION_KEY] ?? null;
+
+        return is_array($decision) ? $decision : [];
     }
 
     public function customerCancelUrl(RideRequest $ride): ?string
@@ -113,6 +251,7 @@ class TaxiRideCancellationService
 
         $candidates = RideRequest::on($conn)
             ->whereIn('status', [
+                RideRequest::STATUS_PENDING_PAYMENT,
                 RideRequest::STATUS_PENDING_DISPATCH,
                 RideRequest::STATUS_OFFERED,
             ])
@@ -132,6 +271,7 @@ class TaxiRideCancellationService
 
         foreach ($candidates as $ride) {
             try {
+                $ride = $this->rememberDecisionPrompt($conn, $ride, $now);
                 $result = $this->cancelIfDue($conn, $ride, $now);
                 if ($result === null) {
                     continue;
@@ -238,7 +378,8 @@ class TaxiRideCancellationService
                 ? ['Er is binnen de beschikbare tijd geen chauffeur gevonden.']
                 : ['U heeft deze rit geannuleerd.'];
             if ($refunded) {
-                $extra[] = 'Het vooraf betaalde bedrag wordt teruggestort.';
+                $days = app(TaxiCustomerRideCancelledMailer::class)->refundBusinessDays();
+                $extra[] = 'Het vooraf betaalde bedrag wordt teruggestort (doorgaans binnen '.$days.' werkdagen).';
             } elseif ($refundError) {
                 $extra[] = 'De terugbetaling kon niet automatisch worden afgerond. Neem contact op met de taxi.';
             }
@@ -257,6 +398,19 @@ class TaxiRideCancellationService
                     'error' => $e->getMessage(),
                 ]);
             }
+
+            try {
+                app(TaxiCustomerRideCancelledMailer::class)->send($conn, $fresh, [
+                    'reason' => $reason,
+                    'refunded' => $refunded,
+                    'refund_error' => $refundError,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Annulatie-e-mail na annulering mislukt', [
+                    'ride_request_id' => $fresh->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return [
@@ -264,6 +418,19 @@ class TaxiRideCancellationService
             'refunded' => $refunded,
             'refund_error' => $refundError,
         ];
+    }
+
+    public function settingsCompanyIdForRide(RideRequest $ride): int
+    {
+        $companyId = (int) ($ride->company_id ?? 0);
+        if ($companyId > 0) {
+            return $companyId;
+        }
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+
+        return (int) ($marketplace['settings_company_id'] ?? $marketplace['company_id'] ?? 0);
     }
 
     private function isUnacceptedOpenBooking(RideRequest $ride): bool
@@ -277,6 +444,7 @@ class TaxiRideCancellationService
         }
 
         return in_array($ride->status, [
+            RideRequest::STATUS_PENDING_PAYMENT,
             RideRequest::STATUS_PENDING_DISPATCH,
             RideRequest::STATUS_OFFERED,
         ], true);
@@ -284,7 +452,7 @@ class TaxiRideCancellationService
 
     private function signedCancelUrlExpiresAt(RideRequest $ride): CarbonInterface
     {
-        $companyId = (int) ($ride->company_id ?? 0);
+        $companyId = $this->settingsCompanyIdForRide($ride);
         $cancelAt = $this->dispatchSettings->unacceptedAutoCancelAt(
             $ride,
             $companyId > 0 ? $companyId : null

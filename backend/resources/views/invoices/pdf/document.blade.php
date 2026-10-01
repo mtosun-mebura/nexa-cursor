@@ -9,7 +9,7 @@
         .page-body { padding: 0; }
         .header { width: 100%; margin-bottom: 28px; }
         .header td { vertical-align: top; }
-        .logo img { max-height: 64px; max-width: 200px; }
+        .logo img { max-height: 132px; max-width: 380px; }
         .company-block { text-align: right; font-size: 11px; line-height: 1.5; color: #475569; }
         .customer-block { text-align: right; font-size: 12px; line-height: 1.5; }
         .title { font-size: 22px; font-weight: bold; margin: 0 0 6px; color: #0f172a; text-align: left; }

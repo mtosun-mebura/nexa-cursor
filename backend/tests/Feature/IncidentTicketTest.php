@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\GeneralSetting;
 use App\Models\Incident;
 use App\Models\Notification;
 use App\Models\User;
 use App\Support\IncidentCatalog;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -79,6 +81,92 @@ class IncidentTicketTest extends TestCase
             'category' => IncidentCatalog::NOTIFICATION_CATEGORY,
             'title' => 'Nieuw incident '.$incident->reference,
         ]);
+
+        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $this->assertCount(1, $messages);
+        $sent = $messages->first()->getOriginalMessage();
+        $this->assertSame(IncidentCatalog::DEFAULT_NOTIFICATION_EMAIL, $sent->getTo()[0]->getAddress());
+        $this->assertStringContainsString($incident->reference, $sent->getSubject());
+        $this->assertStringContainsString('Planning opent niet', (string) $sent->getHtmlBody());
+    }
+
+    #[Test]
+    public function customer_incident_email_uses_configured_address(): void
+    {
+        GeneralSetting::set(IncidentCatalog::SETTING_NOTIFICATION_EMAIL, 'incidents@example.test');
+        [, $admin] = $this->companyAdmin();
+        $this->superAdmin();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.incidents.store'), [
+                'kind' => IncidentCatalog::KIND_VRAAG,
+                'title' => 'Hoe werkt export?',
+                'description' => 'Ik zoek de exportknop in facturen.',
+                'priority' => IncidentCatalog::PRIORITY_NORMAL,
+            ])
+            ->assertCreated();
+
+        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $this->assertCount(1, $messages);
+        $this->assertSame('incidents@example.test', $messages->first()->getOriginalMessage()->getTo()[0]->getAddress());
+    }
+
+    #[Test]
+    public function super_admin_created_incident_does_not_email_support(): void
+    {
+        $super = $this->superAdmin();
+
+        $this->actingAs($super)
+            ->postJson(route('admin.incidents.store'), [
+                'kind' => IncidentCatalog::KIND_VRAAG,
+                'title' => 'Interne notitie',
+                'description' => 'Geen mail naar support nodig.',
+                'priority' => IncidentCatalog::PRIORITY_LOW,
+            ])
+            ->assertCreated();
+
+        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $this->assertCount(0, $messages);
+    }
+
+    #[Test]
+    public function super_admin_can_open_and_save_incident_settings(): void
+    {
+        $super = $this->superAdmin();
+
+        $this->actingAs($super)
+            ->get(route('admin.incidents.settings.edit'))
+            ->assertOk()
+            ->assertSee('Incidentinstellingen', false)
+            ->assertSee(IncidentCatalog::DEFAULT_NOTIFICATION_EMAIL, false);
+
+        $this->actingAs($super)
+            ->put(route('admin.incidents.settings.update'), [
+                'notification_email' => 'tickets@nexasuite.nl',
+            ])
+            ->assertRedirect(route('admin.incidents.settings.edit'))
+            ->assertSessionHas('success');
+
+        $this->assertSame(
+            'tickets@nexasuite.nl',
+            GeneralSetting::get(IncidentCatalog::SETTING_NOTIFICATION_EMAIL)
+        );
+    }
+
+    #[Test]
+    public function company_admin_cannot_access_incident_settings(): void
+    {
+        [, $admin] = $this->companyAdmin();
+
+        $this->actingAs($admin)
+            ->get(route('admin.incidents.settings.edit'))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->put(route('admin.incidents.settings.update'), [
+                'notification_email' => 'hack@example.com',
+            ])
+            ->assertForbidden();
     }
 
     #[Test]
