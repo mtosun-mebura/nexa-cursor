@@ -70,7 +70,6 @@ use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\FavoriteController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
-use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\InfoRequestController;
 use App\Http\Controllers\Frontend\MarketingPreviewController;
 use App\Http\Controllers\Frontend\MatchController;
@@ -95,7 +94,6 @@ use App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalAiChatController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
-use App\Services\ModuleManager;
 use App\Services\WebsiteBuilderService;
 use App\Support\AdminLogo;
 use App\Support\AdminReturnUrl;
@@ -1095,12 +1093,8 @@ Route::get('/', function (Request $request) {
         return app(WebsitePageController::class)->showHome($request);
     }
 
-    $moduleManager = app(ModuleManager::class);
-    if (! $moduleManager->hasAnyActiveModule()) {
-        return app(ComingSoonController::class)->index();
-    }
-
-    return app(HomeController::class)->index($request);
+    // Geen actieve homepage: neutrale Coming Soon (niet de Skillmatching-fallback).
+    return app(ComingSoonController::class)->index();
 })->name('home');
 
 Route::get('/starten', [\App\Http\Controllers\Frontend\LegalPagesController::class, 'starten'])->name('starten');

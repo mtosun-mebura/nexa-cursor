@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $settings['coming_soon_title'] ?? 'We zijn bijna live' }} – {{ $settings['site_name'] ?? config('app.name') }}</title>
+    <title>{{ $settings['coming_soon_title'] ?? 'Website in voorbereiding' }} – {{ $settings['site_name'] ?? config('app.name') }}</title>
     <meta name="description" content="{{ \Illuminate\Support\Str::limit(strip_tags($settings['coming_soon_text'] ?? ''), 160) }}">
     <meta name="robots" content="noindex, nofollow">
 
@@ -91,7 +91,11 @@
         <div class="w-full max-w-xl mx-auto text-center space-y-8">
             @if(!empty($settings['logo_url']))
                 <div class="flex justify-center mb-10">
-                    <img src="{{ $settings['logo_url'] }}" alt="{{ $settings['site_name'] ?? config('app.name') }}" class="h-12 w-auto object-contain sm:h-14 dark:brightness-0 dark:invert" />
+                    <img
+                        src="{{ $settings['logo_url'] }}"
+                        alt="{{ $settings['site_name'] ?? config('app.name') }}"
+                        class="h-16 w-auto max-w-[300px] object-contain sm:h-20"
+                    />
                 </div>
             @endif
 
@@ -103,10 +107,10 @@
 
             <div class="space-y-4">
                 <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white dark:text-slate-100 tracking-tight">
-                    {{ $settings['coming_soon_title'] ?? 'We zijn bijna live' }}
+                    {{ $settings['coming_soon_title'] ?? 'Website in voorbereiding' }}
                 </h1>
                 <p class="text-lg sm:text-xl text-slate-200 dark:text-slate-300 leading-relaxed max-w-xl mx-auto">
-                    {{ $settings['coming_soon_text'] ?? 'Onze website wordt op dit moment voor u klaargemaakt. Binnenkort vindt u hier alle informatie en mogelijkheden.' }}
+                    {{ $settings['coming_soon_text'] ?? 'Hier komt binnenkort de website van dit bedrijf.' }}
                 </p>
                 @if(!empty($settings['coming_soon_secondary_text']))
                     <p class="text-base text-slate-300 dark:text-slate-400">
@@ -128,7 +132,7 @@
                 $footerText = \Illuminate\Support\Str::replace(
                     ['{year}', '{site}'],
                     [date('Y'), $settings['site_name'] ?? config('app.name')],
-                    $settings['coming_soon_footer_text'] ?? '© {year} {site}. Binnenkort beschikbaar.'
+                    $settings['coming_soon_footer_text'] ?? '© {year} {site}. Website binnenkort beschikbaar.'
                 );
             @endphp
             <p class="text-xs text-slate-500 dark:text-slate-600 mt-5">{{ $footerText }}</p>

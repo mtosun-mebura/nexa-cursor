@@ -11,7 +11,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div>
             <h1 class="text-xl font-medium leading-none text-mono">NEXA Suite boekingsinstellingen</h1>
-            <div class="text-sm text-secondary-foreground mt-2">Fee-percentage en maandelijkse fee-specificatie (PDF)</div>
+            <div class="text-sm text-secondary-foreground mt-2">Mollie-sleutel (test/live), fee en maandelijkse specificatie</div>
         </div>
         <a href="{{ route('admin.payment-flows.guide') }}" class="kt-btn kt-btn-outline shrink-0">Uitleg betalingen</a>
     </div>
@@ -45,6 +45,7 @@
                 </p>
             @endif
             <ol class="list-decimal ps-5 mb-0 space-y-1">
+                <li><strong class="text-foreground">Mollie</strong> — platform-sleutel voor betalingen in de klant-app (<code>test_</code> / <code>live_</code>). Via Configuraties → Nexa Suite.</li>
                 <li><strong class="text-foreground">Fee %</strong> — bron voor zowel rit-inhouding (platform collect) als de bedragen op de maand-PDF.</li>
                 <li><strong class="text-foreground">Automatische facturatie</strong> — maakt (en mailt optioneel) de maandelijkse specificatie over voltooide NEXA Suite-ritten van de vorige maand.</li>
                 <li><strong class="text-foreground">BTW / factuurkop</strong> — layout van die PDF. Bij platform collect: naslagdocument; bij collect uit: inningsfactuur.</li>
@@ -57,6 +58,94 @@
         @method('PUT')
 
         <div class="grid gap-5 lg:gap-7.5">
+            <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header px-5 py-5">
+                    <h3 class="kt-card-title mb-0">Mollie (klant-app / marktplaats)</h3>
+                </div>
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                        <p class="text-xs text-muted-foreground pt-3 mb-3">
+                            API-sleutel van het <strong class="text-foreground">NEXA Mollie-account</strong>
+                            waarmee klanten in de Nexa Suite-app betalen. Gebruik <code>test_…</code> in staging
+                            en <code>live_…</code> in productie. Geen tenant-sleutel.
+                        </p>
+                        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                            <tr>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top whitespace-nowrap">Status</td>
+                                <td class="min-w-0 w-full">
+                                    @if($mollieConfigured ?? false)
+                                        <span class="kt-badge kt-badge-sm kt-badge-success">Geconfigureerd</span>
+                                        @if(($mollieKeyMode ?? null) === 'live')
+                                            <span class="kt-badge kt-badge-sm kt-badge-primary ms-1">live</span>
+                                        @elseif(($mollieKeyMode ?? null) === 'test')
+                                            <span class="kt-badge kt-badge-sm kt-badge-warning ms-1">test</span>
+                                        @endif
+                                    @else
+                                        <span class="kt-badge kt-badge-sm kt-badge-warning">Niet geconfigureerd</span>
+                                    @endif
+                                    @if($mollieFromPlatformFallback ?? false)
+                                        <div class="text-xs text-muted-foreground mt-1 min-w-0 whitespace-normal break-words">
+                                            Tijdelijk via NEXA facturatie / <code>PLATFORM_MOLLIE_API_KEY</code>.
+                                            Sla hier een eigen sleutel op voor go-live.
+                                        </div>
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top whitespace-nowrap">API-sleutel</td>
+                                <td class="min-w-0">
+                                    @if(!empty($mollieApiKeyMasked))
+                                        <div class="text-xs text-muted-foreground mb-1 min-w-0 whitespace-normal break-words">
+                                            Huidige sleutel: <code class="break-all">{{ $mollieApiKeyMasked }}</code> (versleuteld opgeslagen)
+                                        </div>
+                                    @endif
+                                    <div class="relative w-full max-w-md">
+                                        <input type="password"
+                                               name="mollie_api_key"
+                                               class="kt-input w-full @error('mollie_api_key') border-destructive @enderror"
+                                               value=""
+                                               autocomplete="new-password"
+                                               placeholder="{{ !empty($mollieApiKeyMasked) ? 'Leeg laten om huidige sleutel te behouden' : 'test_… of live_…' }}">
+                                    </div>
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Alleen Nexa Suite klantbetalingen. Niet de tenant-betalingsprovider.
+                                    </div>
+                                    @error('mollie_api_key')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                    @if(!empty($mollieApiKeyMasked))
+                                        <label class="kt-label flex items-center gap-2 mt-2 mb-0">
+                                            <input type="checkbox" name="clear_mollie_api_key" value="1" class="kt-checkbox">
+                                            <span class="text-sm">API-sleutel verwijderen</span>
+                                        </label>
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top whitespace-nowrap">Webhook-URL</td>
+                                <td class="min-w-0">
+                                    <input type="url"
+                                           name="mollie_webhook_url"
+                                           class="kt-input w-full min-w-0 max-w-xl @error('mollie_webhook_url') border-destructive @enderror"
+                                           value="{{ old('mollie_webhook_url', $settings->mollie_webhook_url) }}"
+                                           placeholder="{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}">
+                                    <div class="text-xs text-muted-foreground mt-1 min-w-0 whitespace-normal">
+                                        Publieke URL voor Mollie-statusupdates op ritten. Leeg laten = standaard taxi-webhook.
+                                        <span class="block mt-1">
+                                            Standaard:
+                                            <code class="break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
+                                        </span>
+                                    </div>
+                                    @error('mollie_webhook_url')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Provisie</h3></div>
                 <div class="kt-card-content p-5">

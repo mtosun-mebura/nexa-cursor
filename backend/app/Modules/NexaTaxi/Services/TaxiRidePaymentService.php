@@ -256,18 +256,37 @@ class TaxiRidePaymentService
         string $redirectUrl
     ): array {
         $companyId = $this->resolveRideCompanyId($ride);
-        $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
-        if (! $apiKey) {
-            $hint = $this->paymentProviders->allowMollieTestProviders()
-                ? ' Stel onder Configuraties → Mollie (tenant) een API-sleutel in voor dit bedrijf (test_-sleutel en testmodus zijn toegestaan in deze omgeving).'
-                : ' Stel onder Configuraties → Mollie (tenant) een actieve Mollie-omgeving in voor dit bedrijf.';
+        $usesPlatformMollie = $ride->isNexaSuiteBooking() || $companyId === null;
 
-            throw ValidationException::withMessages([
-                'payment' => ['Mollie is niet geconfigureerd voor dit bedrijf.'.$hint],
-            ]);
+        if ($usesPlatformMollie) {
+            $suiteMollie = app(\App\Services\NexaSuiteMollieService::class);
+            if (! $suiteMollie->isConfigured()) {
+                throw ValidationException::withMessages([
+                    'payment' => [
+                        'Mollie voor Nexa Suite is niet geconfigureerd. '
+                        .'Stel de API-sleutel in via Configuraties → Nexa Suite (klant-app) (geen tenant nodig).',
+                    ],
+                ]);
+            }
+            $apiKey = $suiteMollie->apiKey();
+            // Rit-webhooks: Nexa Suite-webhook of standaard taxi-endpoint.
+            $webhookUrl = $suiteMollie->webhookUrl()
+                ?? $this->paymentProviders->mollieWebhookUrlForPayment(null);
+        } else {
+            $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
+            if (! $apiKey) {
+                $hint = $this->paymentProviders->allowMollieTestProviders()
+                    ? ' Stel onder Configuraties → Mollie (tenant) een API-sleutel in voor dit bedrijf (test_-sleutel en testmodus zijn toegestaan in deze omgeving).'
+                    : ' Stel onder Configuraties → Mollie (tenant) een actieve Mollie-omgeving in voor dit bedrijf.';
+
+                throw ValidationException::withMessages([
+                    'payment' => ['Mollie is niet geconfigureerd voor dit bedrijf.'.$hint],
+                ]);
+            }
+            $webhookUrl = $this->paymentProviders->mollieWebhookUrlForPayment($companyId);
         }
 
-        return DB::connection($conn)->transaction(function () use ($conn, $ride, $amount, $channel, $redirectUrl, $apiKey, $companyId) {
+        return DB::connection($conn)->transaction(function () use ($conn, $ride, $amount, $channel, $redirectUrl, $apiKey, $companyId, $webhookUrl) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
 
             RidePayment::on($conn)
@@ -278,7 +297,7 @@ class TaxiRidePaymentService
 
             $ridePayment = RidePayment::on($conn)->create([
                 'ride_request_id' => $ride->id,
-                'company_id' => $companyId > 0 ? $companyId : null,
+                'company_id' => $companyId !== null && $companyId > 0 ? $companyId : null,
                 'channel' => $channel,
                 'amount' => round($amount, 2),
                 'currency' => 'EUR',
@@ -289,8 +308,6 @@ class TaxiRidePaymentService
             if ($ride->customer_name) {
                 $description .= ' – '.$ride->customer_name;
             }
-
-            $webhookUrl = $this->paymentProviders->mollieWebhookUrlForPayment($companyId);
 
             try {
                 $molliePayment = $this->mollie->createPayment(
@@ -349,7 +366,7 @@ class TaxiRidePaymentService
         $companyId = $ride
             ? $this->resolveRideCompanyId($ride, $ridePayment)
             : (((int) ($ridePayment->company_id ?? 0)) > 0 ? (int) $ridePayment->company_id : null);
-        $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
+        $apiKey = $this->resolveMollieApiKey($ride, $companyId);
         if (! $apiKey || ! $ridePayment->mollie_payment_id) {
             return $ridePayment;
         }
@@ -500,7 +517,7 @@ class TaxiRidePaymentService
         }
 
         $companyId = $this->resolveRideCompanyId($ride, $payment);
-        $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
+        $apiKey = $this->resolveMollieApiKey($ride, $companyId);
         if (! $apiKey) {
             $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_FAILED]);
 
@@ -585,6 +602,28 @@ class TaxiRidePaymentService
         }
 
         return null;
+    }
+
+    /**
+     * Nexa Suite / marktplaats → Nexa Suite Mollie; anders tenant-Mollie.
+     */
+    protected function resolveMollieApiKey(?RideRequest $ride, ?int $companyId): ?string
+    {
+        $usePlatform = $ride?->isNexaSuiteBooking() || $companyId === null || $companyId <= 0;
+        if ($usePlatform) {
+            $suite = app(\App\Services\NexaSuiteMollieService::class);
+            if (! $suite->isConfigured()) {
+                return null;
+            }
+
+            try {
+                return $suite->apiKey();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return $this->paymentProviders->mollieApiKeyForCompany($companyId);
     }
 
     public function handleWebhookPaymentId(string $molliePaymentId): void

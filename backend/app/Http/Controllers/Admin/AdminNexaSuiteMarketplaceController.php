@@ -10,10 +10,13 @@ use App\Services\ModuleDatabaseService;
 use App\Services\NexaSuiteMarketplaceBillingService;
 use App\Services\NexaSuiteMarketplaceDunningService;
 use App\Services\NexaSuiteMarketplaceInvoicePdfService;
+use App\Services\NexaSuiteMollieService;
+use App\Services\PaymentProviderService;
 use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class AdminNexaSuiteMarketplaceController extends Controller
@@ -165,13 +168,19 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
     }
 
-    public function settings(): View
+    public function settings(NexaSuiteMollieService $mollie): View
     {
         $this->ensureSuperAdmin();
+        $settings = NexaSuiteMarketplaceSetting::current();
 
         return view('admin.nexa-suite-bookings.settings', [
-            'settings' => NexaSuiteMarketplaceSetting::current(),
+            'settings' => $settings,
             'platformCollectEnabled' => (bool) config('nexa_payout.platform_collect_enabled', true),
+            'mollieConfigured' => $mollie->isConfigured(),
+            'mollieApiKeyMasked' => $settings->maskedMollieApiKey(),
+            'mollieKeyMode' => $mollie->keyMode(),
+            'mollieFromPlatformFallback' => ! $settings->hasStoredMollieApiKey() && $mollie->usesPlatformBillingFallback(),
+            'defaultTaxiWebhookUrl' => url('/api/taxi/webhooks/mollie'),
             'nav' => 'settings',
         ]);
     }
@@ -194,9 +203,37 @@ class AdminNexaSuiteMarketplaceController extends Controller
             'sender_email' => 'nullable|email|max:255',
             'sender_name' => 'nullable|string|max:120',
             'invoice_footer' => 'nullable|string|max:2000',
+            'mollie_api_key' => 'nullable|string|max:255',
+            'mollie_webhook_url' => 'nullable|url|max:500',
+            'clear_mollie_api_key' => 'nullable|boolean',
         ]);
 
         $settings = NexaSuiteMarketplaceSetting::current();
+        $plainMollieKey = trim((string) ($validated['mollie_api_key'] ?? ''));
+        $clearMollieKey = $request->boolean('clear_mollie_api_key');
+        unset($validated['mollie_api_key'], $validated['clear_mollie_api_key']);
+
+        if (array_key_exists('mollie_webhook_url', $validated)) {
+            $validated['mollie_webhook_url'] = trim((string) ($validated['mollie_webhook_url'] ?? '')) ?: null;
+        }
+
+        if ($plainMollieKey !== '') {
+            if (! PaymentProviderService::isValidMollieApiKeyFormat($plainMollieKey)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['mollie_api_key' => 'Ongeldige Mollie API-sleutel. Gebruik een test_… of live_… sleutel.']);
+            }
+            if (Schema::hasColumn('nexa_suite_marketplace_settings', 'mollie_api_key')) {
+                $settings->setEncryptedMollieApiKey($plainMollieKey);
+            }
+        } elseif ($clearMollieKey && Schema::hasColumn('nexa_suite_marketplace_settings', 'mollie_api_key')) {
+            $settings->setEncryptedMollieApiKey(null);
+        }
+
+        if (! Schema::hasColumn('nexa_suite_marketplace_settings', 'mollie_webhook_url')) {
+            unset($validated['mollie_webhook_url']);
+        }
+
         $settings->fill([
             ...$validated,
             'auto_generate' => $request->boolean('auto_generate'),

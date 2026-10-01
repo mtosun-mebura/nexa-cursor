@@ -3,56 +3,73 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
 
 /**
- * Toont de "Coming soon" landing page wanneer er geen actieve module is.
- * Instellingen zijn configureerbaar in admin (Configuraties).
+ * Neutrale "Coming soon"-pagina voor tenants zonder actieve homepage.
+ * Teksten en afbeelding zijn configureerbaar in admin (Front-end configuraties).
  */
 class ComingSoonController extends Controller
 {
     /**
-     * Default waarden voor coming soon (als nog niet ingesteld).
+     * @return array<string, string>
      */
-    protected static function defaults(): array
+    public static function defaults(?Company $company = null): array
     {
+        $name = trim((string) ($company?->name ?? ''));
+        if ($name === '') {
+            $name = trim((string) GeneralSetting::get('site_name', config('app.name', 'NEXA')));
+        }
+        if ($name === '') {
+            $name = 'uw bedrijf';
+        }
+
         return [
-            'coming_soon_title' => 'We zijn bijna live',
-            'coming_soon_text' => 'Onze website wordt op dit moment voor u klaargemaakt. Binnenkort vindt u hier alle informatie en mogelijkheden.',
+            'coming_soon_title' => 'Website in voorbereiding',
+            'coming_soon_text' => 'Hier komt binnenkort de website van '.$name.'. We werken aan een overzichtelijke en professionele online aanwezigheid.',
             'coming_soon_secondary_text' => 'Heeft u vragen? Neem gerust contact met ons op.',
             'coming_soon_show_email' => '1',
-            'coming_soon_contact_email' => '',
+            'coming_soon_contact_email' => trim((string) ($company?->email ?? '')),
             'coming_soon_contact_label' => 'E-mail',
-            'coming_soon_footer_text' => '© {year} {site}. Binnenkort beschikbaar.',
+            'coming_soon_footer_text' => '© {year} {site}. Website binnenkort beschikbaar.',
         ];
     }
 
     /**
-     * Haal alle coming-soon instellingen op (met defaults).
+     * @return array<string, mixed>
      */
     public static function getSettings(): array
     {
-        $defaults = static::defaults();
+        $company = static::resolvedCompany();
+        $defaults = static::defaults($company);
         $settings = [];
         foreach (array_keys($defaults) as $key) {
             $settings[$key] = GeneralSetting::get($key, $defaults[$key]);
         }
 
-        $logoPath = GeneralSetting::get('logo');
-        $settings['logo_url'] = null;
-        if ($logoPath && Storage::disk('public')->exists($logoPath)) {
-            $settings['logo_url'] = app(WebsiteBuilderService::class)->publicFileUrl(ltrim($logoPath, '/'));
+        if (trim((string) ($settings['coming_soon_contact_email'] ?? '')) === '' && $company?->email) {
+            $settings['coming_soon_contact_email'] = trim((string) $company->email);
         }
 
-        $faviconPath = GeneralSetting::get('favicon');
+        $settings['site_name'] = $company?->name
+            ?: GeneralSetting::get('site_name', config('app.name', 'NEXA'));
+
+        // Coming Soon: eerst tenantlogo, anders NEXA Suite dark.
+        $settings['logo_url'] = static::resolveComingSoonLogoUrl($company);
+
         $settings['favicon_url'] = null;
-        if ($faviconPath && Storage::disk('public')->exists($faviconPath)) {
-            $settings['favicon_url'] = app(WebsiteBuilderService::class)->publicFileUrl(ltrim($faviconPath, '/'));
+        if ($company && $company->hasFavicon()) {
+            $settings['favicon_url'] = $company->publicBrandFaviconUrl();
+        } else {
+            $faviconPath = GeneralSetting::get('favicon');
+            if ($faviconPath && Storage::disk('public')->exists($faviconPath)) {
+                $settings['favicon_url'] = app(WebsiteBuilderService::class)->publicFileUrl(ltrim($faviconPath, '/'));
+            }
         }
-
-        $settings['site_name'] = GeneralSetting::get('site_name', config('app.name', 'Nexa'));
 
         $comingSoonImagePath = GeneralSetting::get('coming_soon_image');
         $settings['coming_soon_image_url'] = null;
@@ -63,10 +80,7 @@ class ComingSoonController extends Controller
         return $settings;
     }
 
-    /**
-     * Toon de coming soon pagina.
-     */
-    public function index()
+    public function index(): View
     {
         $settings = static::getSettings();
 
@@ -76,5 +90,44 @@ class ComingSoonController extends Controller
             'contactEmail' => $settings['coming_soon_contact_email'] ?? '',
             'adminPreviewReturnUrl' => session('website_preview_admin_url'),
         ]);
+    }
+
+    protected static function resolvedCompany(): ?Company
+    {
+        if (app()->bound('resolved_tenant')) {
+            $tenant = app('resolved_tenant');
+            if ($tenant instanceof Company) {
+                return $tenant;
+            }
+        }
+
+        $id = GeneralSetting::resolveScopeCompanyId();
+        if ($id === null || $id <= 0) {
+            try {
+                $st = session('selected_tenant');
+                if ($st !== null && $st !== '' && is_numeric($st)) {
+                    $id = (int) $st;
+                }
+            } catch (\Throwable) {
+                $id = null;
+            }
+        }
+
+        if ($id === null || $id <= 0) {
+            return null;
+        }
+
+        return Company::query()->find($id);
+    }
+
+    protected static function resolveComingSoonLogoUrl(?Company $company): string
+    {
+        // 1) Tenantlogo (dark variant bij voorkeur, anders light)
+        if ($company && $company->hasAdminLogo()) {
+            return $company->publicBrandLogoUrl(filled($company->logo_dark_blob));
+        }
+
+        // 2) Geen tenantlogo → NEXA Suite dark (past bij Coming Soon-achtergrond)
+        return \App\Support\NexaBranding::defaultLogoDarkUrl();
     }
 }

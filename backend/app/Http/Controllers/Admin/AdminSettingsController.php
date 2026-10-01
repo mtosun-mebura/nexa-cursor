@@ -1603,13 +1603,13 @@ class AdminSettingsController extends Controller
         $tenantScopedSettingsActive = $settingsCompanyId !== null;
 
         $comingSoonSettings = [
-            'coming_soon_title' => GeneralSetting::get('coming_soon_title', 'We zijn bijna live'),
-            'coming_soon_text' => GeneralSetting::get('coming_soon_text', 'Onze website wordt op dit moment voor u klaargemaakt. Binnenkort vindt u hier alle informatie en mogelijkheden.'),
+            'coming_soon_title' => GeneralSetting::get('coming_soon_title', 'Website in voorbereiding'),
+            'coming_soon_text' => GeneralSetting::get('coming_soon_text', 'Hier komt binnenkort de website van dit bedrijf. We werken aan een overzichtelijke en professionele online aanwezigheid.'),
             'coming_soon_secondary_text' => GeneralSetting::get('coming_soon_secondary_text', 'Heeft u vragen? Neem gerust contact met ons op.'),
             'coming_soon_show_email' => GeneralSetting::get('coming_soon_show_email', '1'),
             'coming_soon_contact_email' => GeneralSetting::get('coming_soon_contact_email', ''),
             'coming_soon_contact_label' => GeneralSetting::get('coming_soon_contact_label', 'E-mail'),
-            'coming_soon_footer_text' => GeneralSetting::get('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'),
+            'coming_soon_footer_text' => GeneralSetting::get('coming_soon_footer_text', '© {year} {site}. Website binnenkort beschikbaar.'),
         ];
 
         $comingSoonImagePath = GeneralSetting::get('coming_soon_image');
@@ -1627,6 +1627,15 @@ class AdminSettingsController extends Controller
     public function frontendComingSoonPreview()
     {
         $this->ensureSuperAdmin();
+
+        $companyId = $this->settingsCompanyId();
+        if ($companyId !== null) {
+            $company = Company::query()->find($companyId);
+            if ($company) {
+                app()->instance('resolved_tenant', $company);
+                app()->instance('resolved_tenant_id', $company->id);
+            }
+        }
 
         $settings = ComingSoonController::getSettings();
         $showEmail = ! empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0';
