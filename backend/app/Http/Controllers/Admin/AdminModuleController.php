@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Jobs\InstallModuleJob;
 use App\Models\Module as ModuleModel;
+use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
 use App\Services\DatabaseResetService;
 use App\Services\MenuService;
 use App\Services\ModuleConfigurationService;
@@ -188,6 +189,15 @@ class AdminModuleController extends Controller
         $tenantCompanyId = $this->moduleConfigurationService->resolveCompanyId();
         $tenantCompany = $tenantCompanyId ? \App\Models\Company::find($tenantCompanyId) : null;
 
+        $taxiAppLogoPreviews = ['light' => null, 'dark' => null];
+        $taxiAppLogoDefaults = [
+            'light' => asset(TaxiAppLogoService::DEFAULT_LIGHT),
+            'dark' => asset(TaxiAppLogoService::DEFAULT_DARK),
+        ];
+        if (strtolower($moduleModel->name) === 'taxi') {
+            $taxiAppLogoPreviews = app(TaxiAppLogoService::class)->uploadedPreviewUrls();
+        }
+
         return view('admin.modules.config', [
             'moduleName' => $moduleModel->name,
             'module' => $module,
@@ -201,6 +211,8 @@ class AdminModuleController extends Controller
             'dashboard_link_label' => $config['dashboard_link_label'] ?? 'Mijn Nexa',
             'moduleConfigTenantScopedActive' => ! $this->moduleConfigurationService->superAdminRequiresTenantSelection(),
             'moduleConfigTenantCompany' => $tenantCompany,
+            'taxiAppLogoPreviews' => $taxiAppLogoPreviews,
+            'taxiAppLogoDefaults' => $taxiAppLogoDefaults,
         ]);
     }
 
@@ -242,6 +254,19 @@ class AdminModuleController extends Controller
             $raw = $request->input('dashboard_link_visible');
             $config['dashboard_link_visible'] = ($raw === '1' || $raw === true || $raw === 1) ? '1' : '0';
             $config['dashboard_link_label'] = $request->input('dashboard_link_label', 'Mijn Nexa');
+        }
+
+        if (strtolower($moduleModel->name) === 'taxi') {
+            $request->validate([
+                'app_logo_light' => 'nullable|image|max:5120',
+                'app_logo_dark' => 'nullable|image|max:5120',
+            ]);
+            app(TaxiAppLogoService::class)->storeUploads(
+                $request->file('app_logo_light'),
+                $request->file('app_logo_dark'),
+                $request->boolean('app_logo_light_remove'),
+                $request->boolean('app_logo_dark_remove'),
+            );
         }
 
         $this->moduleConfigurationService->saveTenantConfiguration($moduleModel, $companyId, $config);

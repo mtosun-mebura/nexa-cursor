@@ -13,7 +13,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
 /**
- * Chauffeur-dispatch instellingen (per tenant via GeneralSetting, fallback naar config/.env).
+ * Chauffeur-dispatch instellingen (per tenant via GeneralSetting, platformdefault
+ * zonder company_id voor Nexa Suite marktplaats/network, daarna config/.env).
  */
 class TaxiDispatchSettingsService
 {
@@ -27,6 +28,8 @@ class TaxiDispatchSettingsService
     public const KEY_PAST_PICKUP_GRACE_MINUTES = 'taxi_dispatch_past_pickup_grace_minutes';
 
     public const KEY_UNACCEPTED_AUTO_CANCEL_MINUTES = 'taxi_dispatch_unaccepted_auto_cancel_minutes';
+
+    public const KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 'taxi_dispatch_customer_unaccepted_decision_minutes';
 
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
@@ -62,6 +65,25 @@ class TaxiDispatchSettingsService
 
     public const KEY_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES = 'taxi_dispatch_customer_login_code_expires_minutes';
 
+    public const KEY_NETWORK_ENABLED = 'taxi_network_enabled';
+
+    public const KEY_NETWORK_MODE = 'taxi_network_mode';
+
+    public const KEY_NETWORK_FALLBACK_SECONDS = 'taxi_network_fallback_seconds';
+
+    public const KEY_NETWORK_MAX_RADIUS_KM = 'taxi_network_max_radius_km';
+
+    public const KEY_NETWORK_PARTNER_COMPANY_IDS = 'taxi_network_partner_company_ids';
+
+    /** Super-admin handmatige IDs (gemerged met accepted invite-partnerships). */
+    public const KEY_NETWORK_MANUAL_PARTNER_COMPANY_IDS = 'taxi_network_manual_partner_company_ids';
+
+    public const NETWORK_MODE_OFF = 'off';
+
+    public const NETWORK_MODE_MANUAL = 'manual';
+
+    public const NETWORK_MODE_AUTO = 'auto';
+
     public const MIN_LOGIN_CODE_EXPIRES_MINUTES = 5;
 
     public const MAX_LOGIN_CODE_EXPIRES_MINUTES = 1440;
@@ -88,6 +110,11 @@ class TaxiDispatchSettingsService
     public const MIN_UNACCEPTED_AUTO_CANCEL_MINUTES = 0;
 
     public const MAX_UNACCEPTED_AUTO_CANCEL_MINUTES = 1440; // 24 uur
+
+    /** 0 = geen auto-annulering na de klantprompt */
+    public const MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 0;
+
+    public const MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 180;
 
     public function __construct(
         protected EnvService $env,
@@ -183,6 +210,135 @@ class TaxiDispatchSettingsService
         return $this->clampUnacceptedAutoCancelMinutes((int) $raw);
     }
 
+    /**
+     * Eerste tenant-override in de lijst; anders serverdefault.
+     *
+     * @param  list<int>  $companyIds
+     */
+    public function unacceptedAutoCancelMinutesForCompanies(array $companyIds, ?int $fallbackCompanyId = null): int
+    {
+        foreach ($companyIds as $cid) {
+            $cid = (int) $cid;
+            if ($cid <= 0) {
+                continue;
+            }
+            $raw = $this->companyScopedSetting(self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES, $cid);
+            if ($raw !== null && $raw !== '') {
+                return $this->clampUnacceptedAutoCancelMinutes((int) $raw);
+            }
+        }
+
+        return $this->unacceptedAutoCancelMinutes($fallbackCompanyId);
+    }
+
+    /**
+     * Minuten voor klantkeuze-prompt, met marketplace-snapshot / kandidaten.
+     */
+    public function unacceptedAutoCancelMinutesForRide(RideRequest $ride, ?int $companyId = null): int
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $snap = $payload['dispatch_timers']['unaccepted_auto_cancel_minutes'] ?? null;
+        if ($snap !== null && $snap !== '') {
+            return $this->clampUnacceptedAutoCancelMinutes((int) $snap);
+        }
+
+        return $this->unacceptedAutoCancelMinutesForCompanies(
+            $this->dispatchSettingsCompanyIdsForRide($ride, $companyId),
+            $companyId
+        );
+    }
+
+    public function customerUnacceptedDecisionMinutes(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.customer_unaccepted_decision_minutes', 30);
+        $raw = GeneralSetting::get(self::KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES, null, $companyId);
+        if ($raw === null || $raw === '') {
+            return $this->clampCustomerUnacceptedDecisionMinutes($default);
+        }
+
+        return $this->clampCustomerUnacceptedDecisionMinutes((int) $raw);
+    }
+
+    /**
+     * @param  list<int>  $companyIds
+     */
+    public function customerUnacceptedDecisionMinutesForCompanies(array $companyIds, ?int $fallbackCompanyId = null): int
+    {
+        foreach ($companyIds as $cid) {
+            $cid = (int) $cid;
+            if ($cid <= 0) {
+                continue;
+            }
+            $raw = $this->companyScopedSetting(self::KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES, $cid);
+            if ($raw !== null && $raw !== '') {
+                return $this->clampCustomerUnacceptedDecisionMinutes((int) $raw);
+            }
+        }
+
+        return $this->customerUnacceptedDecisionMinutes($fallbackCompanyId);
+    }
+
+    public function customerUnacceptedDecisionMinutesForRide(RideRequest $ride, ?int $companyId = null): int
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $snap = $payload['dispatch_timers']['customer_unaccepted_decision_minutes'] ?? null;
+        if ($snap !== null && $snap !== '') {
+            return $this->clampCustomerUnacceptedDecisionMinutes((int) $snap);
+        }
+
+        return $this->customerUnacceptedDecisionMinutesForCompanies(
+            $this->dispatchSettingsCompanyIdsForRide($ride, $companyId),
+            $companyId
+        );
+    }
+
+    /**
+     * Alleen tenant-rij (geen platform-fallback), zodat we echte tenant-overrides vinden.
+     */
+    protected function companyScopedSetting(string $key, int $companyId): mixed
+    {
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        try {
+            $setting = GeneralSetting::query()
+                ->where('key', $key)
+                ->where('company_id', $companyId)
+                ->first();
+
+            return $setting?->value;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return list<int>
+     */
+    protected function dispatchSettingsCompanyIdsForRide(RideRequest $ride, ?int $preferredCompanyId = null): array
+    {
+        $ids = [];
+        $push = static function (int $id) use (&$ids): void {
+            if ($id > 0 && ! in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        };
+
+        $push((int) ($preferredCompanyId ?? 0));
+        $push((int) ($ride->fulfilling_company_id ?? 0));
+        $push((int) ($ride->company_id ?? 0));
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+        $push((int) ($marketplace['settings_company_id'] ?? 0));
+        $push((int) ($marketplace['company_id'] ?? 0));
+        // Geen candidate_company_ids: timers komen van de settings-tenant of de
+        // Nexa Suite-platformdefault (company_id = null), niet van een willekeurige kandidaat.
+
+        return $ids;
+    }
+
     public function setUnacceptedAutoCancelMinutes(int $minutes, ?int $companyId = null): void
     {
         GeneralSetting::set(
@@ -197,6 +353,23 @@ class TaxiDispatchSettingsService
         return max(
             self::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
             min(self::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES, $minutes)
+        );
+    }
+
+    public function setCustomerUnacceptedDecisionMinutes(int $minutes, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
+            (string) $this->clampCustomerUnacceptedDecisionMinutes($minutes),
+            $companyId
+        );
+    }
+
+    public function clampCustomerUnacceptedDecisionMinutes(int $minutes): int
+    {
+        return max(
+            self::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
+            min(self::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES, $minutes)
         );
     }
 
@@ -226,7 +399,7 @@ class TaxiDispatchSettingsService
     public function unacceptedAutoCancelAt(RideRequest $ride, ?int $companyId = null): ?CarbonInterface
     {
         $companyId = $companyId ?? ((int) ($ride->company_id ?? 0) > 0 ? (int) $ride->company_id : null);
-        $minutes = $this->unacceptedAutoCancelMinutes($companyId);
+        $minutes = $this->unacceptedAutoCancelMinutesForRide($ride, $companyId);
         if ($minutes <= 0) {
             return null;
         }
@@ -753,5 +926,195 @@ class TaxiDispatchSettingsService
     public function clampLoginCodeExpiresMinutes(int $minutes): int
     {
         return max(self::MIN_LOGIN_CODE_EXPIRES_MINUTES, min(self::MAX_LOGIN_CODE_EXPIRES_MINUTES, $minutes));
+    }
+
+    /**
+     * Network is deny-by-default: unset / false = off.
+     */
+    public function networkEnabled(?int $companyId = null): bool
+    {
+        $stored = GeneralSetting::get(self::KEY_NETWORK_ENABLED, null, $companyId);
+        if ($stored === null || $stored === '') {
+            return (bool) config('taxi-dispatch.network_enabled', false);
+        }
+
+        return filter_var($stored, FILTER_VALIDATE_BOOL);
+    }
+
+    public function setNetworkEnabled(bool $enabled, ?int $companyId = null): void
+    {
+        GeneralSetting::set(self::KEY_NETWORK_ENABLED, $enabled ? '1' : '0', $companyId);
+    }
+
+    public function networkMode(?int $companyId = null): string
+    {
+        if (! $this->networkEnabled($companyId)) {
+            return self::NETWORK_MODE_OFF;
+        }
+
+        $stored = strtolower(trim((string) GeneralSetting::get(self::KEY_NETWORK_MODE, null, $companyId)));
+        if (in_array($stored, [self::NETWORK_MODE_MANUAL, self::NETWORK_MODE_AUTO], true)) {
+            return $stored;
+        }
+
+        $fallback = strtolower((string) config('taxi-dispatch.network_mode', self::NETWORK_MODE_OFF));
+
+        return in_array($fallback, [self::NETWORK_MODE_MANUAL, self::NETWORK_MODE_AUTO], true)
+            ? $fallback
+            : self::NETWORK_MODE_OFF;
+    }
+
+    public function setNetworkMode(string $mode, ?int $companyId = null): void
+    {
+        $mode = strtolower(trim($mode));
+        if (! in_array($mode, [self::NETWORK_MODE_OFF, self::NETWORK_MODE_MANUAL, self::NETWORK_MODE_AUTO], true)) {
+            $mode = self::NETWORK_MODE_OFF;
+        }
+        GeneralSetting::set(self::KEY_NETWORK_MODE, $mode, $companyId);
+        if ($mode === self::NETWORK_MODE_OFF) {
+            $this->setNetworkEnabled(false, $companyId);
+        } else {
+            $this->setNetworkEnabled(true, $companyId);
+        }
+    }
+
+    public function networkFallbackSeconds(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.network_fallback_seconds', 120);
+        $raw = GeneralSetting::get(self::KEY_NETWORK_FALLBACK_SECONDS, null, $companyId);
+        $seconds = ($raw === null || $raw === '') ? $default : (int) $raw;
+
+        return max(30, min(3600, $seconds));
+    }
+
+    public function setNetworkFallbackSeconds(int $seconds, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_NETWORK_FALLBACK_SECONDS,
+            (string) max(30, min(3600, $seconds)),
+            $companyId
+        );
+    }
+
+    public function networkMaxRadiusKm(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.network_max_radius_km', 25);
+        $raw = GeneralSetting::get(self::KEY_NETWORK_MAX_RADIUS_KM, null, $companyId);
+        $km = ($raw === null || $raw === '') ? $default : (int) $raw;
+
+        return max(1, min(200, $km));
+    }
+
+    public function setNetworkMaxRadiusKm(int $km, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_NETWORK_MAX_RADIUS_KM,
+            (string) max(1, min(200, $km)),
+            $companyId
+        );
+    }
+
+    /**
+     * Partner tenant IDs allowed to fulfil this owner's network rides.
+     * Effective list = accepted invite-partnerships + optional super-admin manual IDs.
+     *
+     * @return list<int>
+     */
+    public function networkPartnerCompanyIds(?int $companyId = null): array
+    {
+        return $this->parsePartnerIdList(
+            GeneralSetting::get(self::KEY_NETWORK_PARTNER_COMPANY_IDS, null, $companyId)
+        );
+    }
+
+    /**
+     * Super-admin-only manual partner IDs (not visible as a directory to tenants).
+     *
+     * @return list<int>
+     */
+    public function networkManualPartnerCompanyIds(?int $companyId = null): array
+    {
+        return $this->parsePartnerIdList(
+            GeneralSetting::get(self::KEY_NETWORK_MANUAL_PARTNER_COMPANY_IDS, null, $companyId)
+        );
+    }
+
+    /**
+     * @param  list<int|string>|string  $ids
+     */
+    public function setNetworkManualPartnerCompanyIds(array|string $ids, ?int $companyId = null): void
+    {
+        $clean = $this->normalizePartnerIdList($ids);
+
+        GeneralSetting::set(
+            self::KEY_NETWORK_MANUAL_PARTNER_COMPANY_IDS,
+            json_encode($clean, JSON_THROW_ON_ERROR),
+            $companyId
+        );
+    }
+
+    /**
+     * @param  list<int|string>|string  $ids
+     */
+    public function setNetworkPartnerCompanyIds(array|string $ids, ?int $companyId = null): void
+    {
+        $clean = $this->normalizePartnerIdList($ids);
+
+        GeneralSetting::set(
+            self::KEY_NETWORK_PARTNER_COMPANY_IDS,
+            json_encode($clean, JSON_THROW_ON_ERROR),
+            $companyId
+        );
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function parsePartnerIdList(mixed $raw): array
+    {
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        if (is_array($raw)) {
+            $ids = $raw;
+        } else {
+            $decoded = json_decode((string) $raw, true);
+            if (is_array($decoded)) {
+                $ids = $decoded;
+            } else {
+                $ids = preg_split('/[\s,;]+/', (string) $raw) ?: [];
+            }
+        }
+
+        return $this->normalizePartnerIdList($ids);
+    }
+
+    /**
+     * @param  list<int|string>|string  $ids
+     * @return list<int>
+     */
+    private function normalizePartnerIdList(array|string $ids): array
+    {
+        if (is_string($ids)) {
+            $ids = preg_split('/[\s,;]+/', $ids) ?: [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('intval', $ids),
+            static fn (int $id): bool => $id > 0
+        )));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function networkModeOptions(): array
+    {
+        return [
+            self::NETWORK_MODE_OFF => 'Uit',
+            self::NETWORK_MODE_MANUAL => 'Handmatig (chauffeur stuurt naar partners)',
+            self::NETWORK_MODE_AUTO => 'Automatisch (fallback naar partners)',
+        ];
     }
 }

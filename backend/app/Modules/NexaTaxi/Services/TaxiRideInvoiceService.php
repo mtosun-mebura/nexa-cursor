@@ -908,6 +908,10 @@ class TaxiRideInvoiceService
 
     protected function resolveCompanyIdForRide(RideRequest $ride): int
     {
+        if (! empty($ride->fulfilling_company_id) && (int) $ride->fulfilling_company_id > 0) {
+            return (int) $ride->fulfilling_company_id;
+        }
+
         if (! empty($ride->company_id) && (int) $ride->company_id > 0) {
             return (int) $ride->company_id;
         }

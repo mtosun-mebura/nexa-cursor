@@ -20,8 +20,10 @@ class TaxiCustomerAcceptEmailTemplateService
         return [
             'COMPANY_LOGO' => 'Bedrijfslogo (HTML, automatisch ingevuld)',
             'COMPANY_NAME' => 'Bedrijfsnaam',
+            'COMPANY_NAME_HTML' => 'Bedrijfsnaam (link naar primaire website indien aanwezig)',
             'COMPANY_PHONE' => 'Telefoon bedrijf',
             'COMPANY_EMAIL' => 'E-mail bedrijf',
+            'COMPANY_WEBSITE_URL' => 'Primaire website-URL (company domain)',
             'COMPANY_ADDRESS' => 'Bedrijfsadres',
             'CUSTOMER_NAME' => 'Naam klant',
             'CUSTOMER_EMAIL' => 'E-mail klant',
@@ -115,6 +117,7 @@ class TaxiCustomerAcceptEmailTemplateService
     {
         $template = $this->upsertScopedEmailTemplate(self::TYPE, null, $this->defaultPayload(null));
         EmailCardHtml::upgradeTypeToCardLayout(self::TYPE, fn () => $this->defaultHtmlContent());
+        $this->upgradeStoredTemplates();
 
         return $template->fresh() ?? $template;
     }
@@ -130,6 +133,85 @@ class TaxiCustomerAcceptEmailTemplateService
     public function resolveActiveTemplate(?int $companyId): ?EmailTemplate
     {
         return $this->resolveActiveScopedEmailTemplate(self::TYPE, $companyId);
+    }
+
+    /**
+     * Bestaande templates: contactregel + Powered by-link bijwerken.
+     */
+    public function upgradeStoredTemplates(): int
+    {
+        $updated = 0;
+        EmailTemplate::query()
+            ->where('type', self::TYPE)
+            ->get()
+            ->each(function (EmailTemplate $template) use (&$updated): void {
+                $current = (string) $template->html_content;
+                $next = EmailCardHtml::ensurePoweredByLink($current);
+                $next = $this->upgradeQuestionsContactHtml($next);
+                $text = (string) ($template->text_content ?? '');
+                $nextText = $this->upgradeQuestionsContactText($text);
+
+                if ($next === $current && $nextText === $text) {
+                    return;
+                }
+
+                $template->html_content = $next;
+                if ($nextText !== $text) {
+                    $template->text_content = $nextText;
+                }
+                $template->save();
+                $updated++;
+            });
+
+        return $updated;
+    }
+
+    private function upgradeQuestionsContactHtml(string $html): string
+    {
+        $replacement = EmailCardHtml::questionsContactLine('{{ COMPANY_NAME_HTML }}');
+
+        $patterns = [
+            // Oude body-regel met telefoon/e-mail
+            '/<p\b[^>]*>\s*Vragen\?\s*Neem contact op via\s*\{\{\s*COMPANY_PHONE\s*\}\}\s*of\s*\{\{\s*COMPANY_EMAIL\s*\}\}\s*\.?<\/p>/iu',
+            // Variant met ingevulde telefoon/e-mail (tenant-kopieën)
+            '/<p\b[^>]*>\s*Vragen\?\s*Neem contact op via\s*[^<]+<\/p>/iu',
+            // Platte "met COMPANY_NAME" zonder HTML-link-token
+            '/<p\b[^>]*>\s*Vragen\?\s*Neem contact op met\s*\{\{\s*COMPANY_NAME\s*\}\}\s*\.?<\/p>/iu',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $html) === 1) {
+                return preg_replace($pattern, $replacement, $html, 1) ?? $html;
+            }
+        }
+
+        if (! str_contains($html, 'Vragen? Neem contact op met') && str_contains($html, 'Powered by')) {
+            return str_replace(
+                EmailCardHtml::poweredByFooter(),
+                EmailCardHtml::questionsAndPoweredByFooter('{{ COMPANY_NAME_HTML }}'),
+                $html
+            );
+        }
+
+        return $html;
+    }
+
+    private function upgradeQuestionsContactText(string $text): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+
+        if (preg_match('/Vragen\?\s*.*COMPANY_PHONE.*COMPANY_EMAIL.*/u', $text) === 1) {
+            return preg_replace(
+                '/Vragen\?\s*.*COMPANY_PHONE.*COMPANY_EMAIL.*/u',
+                'Vragen? Neem contact op met {{ COMPANY_NAME }}.',
+                $text,
+                1
+            ) ?? $text;
+        }
+
+        return $text;
     }
 
     /**
@@ -163,7 +245,6 @@ class TaxiCustomerAcceptEmailTemplateService
         <p style="margin:0;font-size:15px;line-height:1.6;"><strong>Afzetten:</strong> {{ DROPOFF_ADDRESS }}</p>
     </td></tr>
 </table>
-<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Vragen? Neem contact op via {{ COMPANY_PHONE }} of {{ COMPANY_EMAIL }}.</p>
 <p style="margin:0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>{{ COMPANY_NAME }}</p>
 HTML;
 
@@ -172,7 +253,7 @@ HTML;
             'Uw taxirit is geaccepteerd',
             $body,
             EmailCardHtml::companyLogoMarkup(),
-            EmailCardHtml::poweredByFooter(),
+            EmailCardHtml::questionsAndPoweredByFooter('{{ COMPANY_NAME_HTML }}'),
             '{{ COMPANY_NAME }}',
         );
     }
@@ -188,10 +269,13 @@ Ophaalmoment: {{ PICKUP_AT }}
 Ophalen: {{ PICKUP_ADDRESS }}
 Afzetten: {{ DROPOFF_ADDRESS }}
 
-Vragen? {{ COMPANY_PHONE }} / {{ COMPANY_EMAIL }}
-
 Met vriendelijke groet,
 {{ COMPANY_NAME }}
+
+Vragen? Neem contact op met {{ COMPANY_NAME }}.
+{{ COMPANY_WEBSITE_URL }}
+
+Powered by NEXA Suite: https://nexasuite.nl
 TEXT;
     }
 }

@@ -173,6 +173,15 @@ return [
             'estimated_minutes' => 8,
             'super_admin_only' => true,
         ],
+        'nexa-network' => [
+            'title' => 'NEXA Network',
+            'summary' => 'Tenant vs marketplace vs network, settlement-gate en fee — zie ook de aparte overzichtspagina.',
+            'icon' => 'ki-share',
+            'order' => 225,
+            'view' => 'admin.handleiding.pages.nexa-network',
+            'estimated_minutes' => 10,
+            'super_admin_only' => true,
+        ],
         'nexa-facturatie' => [
             'title' => 'NEXA facturatie',
             'summary' => 'SaaS-facturen, tenant-abonnementen en facturatie-instellingen.',

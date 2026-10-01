@@ -22,6 +22,11 @@ final class IncidentCatalog
     public const NOTIFICATION_TYPE = 'incident';
     public const NOTIFICATION_CATEGORY = 'incident';
 
+    /** Platform setting: e-mailadres voor nieuwe incidenten van klanten. */
+    public const SETTING_NOTIFICATION_EMAIL = 'incident_notification_email';
+
+    public const DEFAULT_NOTIFICATION_EMAIL = 'support@nexasuite.nl';
+
     /**
      * @return list<string>
      */

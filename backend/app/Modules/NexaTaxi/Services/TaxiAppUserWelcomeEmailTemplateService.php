@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\EmailTemplate;
 use App\Modules\NexaTaxi\Services\Concerns\ResolvesScopedEmailTemplate;
+use App\Support\EmailCardHtml;
 
 class TaxiAppUserWelcomeEmailTemplateService
 {
@@ -96,7 +97,7 @@ class TaxiAppUserWelcomeEmailTemplateService
             .'</table>';
 
         $footer = '<p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.</p>'
-            .'<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>';
+            .EmailCardHtml::poweredByFooter();
 
         EmailTemplate::query()
             ->whereIn('type', self::types())
@@ -111,7 +112,7 @@ class TaxiAppUserWelcomeEmailTemplateService
                 ) ?? $html;
 
                 $updated = preg_replace(
-                    '/<p style="margin:0;font-size:13px;color:#6b7280;">Heeft u deze e-mail niet verwacht\? Neem contact op met \{\{ COMPANY_NAME \}\}\.<\/p>(?:\s*<p[^>]*>Powered by NEXA Suite\.<\/p>)?/i',
+                    '/<p style="margin:0;font-size:13px;color:#6b7280;">Heeft u deze e-mail niet verwacht\? Neem contact op met \{\{ COMPANY_NAME \}\}\.<\/p>(?:\s*<p[^>]*>Powered by(?: <a[^>]*>)?NEXA Suite(?:<\/a>)?\.<\/p>)?/i',
                     $footer,
                     $updated,
                     1
@@ -229,7 +230,7 @@ class TaxiAppUserWelcomeEmailTemplateService
             </a>
         </p>
         <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.</p>
-        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>
+        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.</p>
     </td>
 </tr>
 </table>
@@ -261,7 +262,7 @@ Er staat geen wachtwoord in deze e-mail.
 
 Heeft u deze e-mail niet verwacht? Neem contact op met {{ COMPANY_NAME }}.
 
-Powered by NEXA Suite.
+Powered by NEXA Suite: https://nexasuite.nl
 TEXT;
     }
 }

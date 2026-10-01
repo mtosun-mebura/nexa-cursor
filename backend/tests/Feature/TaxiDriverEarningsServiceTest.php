@@ -26,12 +26,14 @@ class TaxiDriverEarningsServiceTest extends TestCase
         Schema::connection('module_taxi')->create('ride_requests', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('company_id')->nullable();
+            $table->unsignedBigInteger('fulfilling_company_id')->nullable();
             $table->unsignedBigInteger('driver_id')->nullable();
             $table->unsignedBigInteger('outbound_driver_id')->nullable();
             $table->string('status', 32)->default('offered');
             $table->string('ride_type', 32)->nullable();
             $table->string('payment_method', 32)->nullable();
             $table->string('payment_status', 32)->nullable();
+            $table->string('settlement_status', 32)->nullable();
             $table->unsignedBigInteger('transport_contract_id')->nullable();
             $table->string('pickup_address');
             $table->string('dropoff_address');
@@ -93,6 +95,38 @@ class TaxiDriverEarningsServiceTest extends TestCase
         $this->assertSame(3, $month['ride_count']);
         $this->assertSame('Totaal deze maand', $month['total_label']);
         $this->assertNull($month['month']);
+    }
+
+    #[Test]
+    public function network_fulfiller_company_sees_eligible_partner_ride_earnings(): void
+    {
+        $completedUtc = Carbon::parse('2026-09-17 09:00:00', 'Europe/Amsterdam')->utc();
+        $ride = new RideRequest;
+        $ride->setConnection('module_taxi');
+        $ride->forceFill([
+            'id' => 99,
+            'company_id' => 10, // owner A
+            'fulfilling_company_id' => 20, // partner B
+            'driver_id' => 7,
+            'status' => RideRequest::STATUS_COMPLETED,
+            'settlement_status' => RideRequest::SETTLEMENT_ELIGIBLE,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'quoted_price' => 45,
+            'customer_name' => 'Network',
+            'passengers' => 1,
+            'created_at' => $completedUtc,
+            'updated_at' => $completedUtc,
+        ]);
+        $ride->save();
+
+        $service = app(TaxiDriverEarningsService::class);
+        $forFulfiller = $service->forDriverPeriod(20, 7, '2026-09-17', TaxiDriverEarningsService::PERIOD_DAY, false);
+        $forOwner = $service->forDriverPeriod(10, 7, '2026-09-17', TaxiDriverEarningsService::PERIOD_DAY, false);
+
+        $this->assertSame(1, $forFulfiller['ride_count']);
+        $this->assertSame(45.0, $forFulfiller['period_total']);
+        $this->assertSame(0, $forOwner['ride_count']);
     }
 
     private function seedRide(int $id, string $completedAtAmsterdam, float $amount): void

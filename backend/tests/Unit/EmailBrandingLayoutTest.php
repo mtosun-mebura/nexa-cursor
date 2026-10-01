@@ -31,7 +31,7 @@ class EmailBrandingLayoutTest extends TestCase
 
         $this->assertStringContainsString('#0f172a', $reset);
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $reset);
-        $this->assertStringContainsString('Powered by NEXA Suite.', $reset);
+        $this->assertStringContainsString('https://nexasuite.nl', $reset);
         $this->assertStringContainsString('NEXA Suite-account', $reset);
         $this->assertStringNotContainsString('NEXA Suite</p>', $reset);
 
@@ -46,7 +46,7 @@ class EmailBrandingLayoutTest extends TestCase
 
         $this->assertStringContainsString('#0f172a', $contact);
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $contact);
-        $this->assertStringContainsString('Powered by NEXA Suite.', $contact);
+        $this->assertStringContainsString('https://nexasuite.nl', $contact);
         $this->assertStringNotContainsString('NEXA Suite</p>', $contact);
     }
 
@@ -102,7 +102,7 @@ class EmailBrandingLayoutTest extends TestCase
         $this->assertStringContainsString('table-layout: auto', (string) $template->html_content);
         $this->assertStringContainsString('@media only screen and (max-width: 600px)', (string) $template->html_content);
         $this->assertStringNotContainsString('table-layout: fixed', (string) $template->html_content);
-        $this->assertStringContainsString('Powered by NEXA Suite.', (string) $template->html_content);
+        $this->assertStringContainsString('https://nexasuite.nl', (string) $template->html_content);
         $this->assertStringNotContainsString('NEXA Suite · nexasuite.nl', (string) $template->html_content);
     }
 
@@ -131,7 +131,7 @@ class EmailBrandingLayoutTest extends TestCase
         $login = app(TaxiCustomerLoginCodeEmailTemplateService::class)->defaultHtmlContent();
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', $login);
         $this->assertStringContainsString('#0f172a', $login);
-        $this->assertStringContainsString('Powered by NEXA Suite.', $login);
+        $this->assertStringContainsString('https://nexasuite.nl', $login);
 
         $appLogin = app(TaxiAppLoginCodeEmailTemplateService::class)->defaultHtmlContent();
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', $appLogin);
@@ -182,8 +182,25 @@ class EmailBrandingLayoutTest extends TestCase
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $html);
         $this->assertStringContainsString('#0f172a', $html);
         $this->assertStringContainsString('Beste klant', $html);
-        $this->assertStringContainsString('Powered by NEXA Suite.', $html);
+        $this->assertStringContainsString('https://nexasuite.nl', $html);
+        $this->assertStringContainsString('text-decoration:underline', $html);
         $this->assertStringNotContainsString('NEXA Suite</p>', $html);
+    }
+
+    #[Test]
+    public function questions_footer_uses_tenant_name_and_optional_website_link(): void
+    {
+        $plain = EmailCardHtml::questionsAndPoweredByFooter(
+            EmailCardHtml::companyNameHtml('Taxi Royaal', null)
+        );
+        $this->assertStringContainsString('Vragen? Neem contact op met Taxi Royaal.', $plain);
+        $this->assertStringContainsString('https://nexasuite.nl', $plain);
+
+        $linked = EmailCardHtml::questionsAndPoweredByFooter(
+            EmailCardHtml::companyNameHtml('Taxi Royaal', 'royaaltaxi.nl')
+        );
+        $this->assertStringContainsString('href="https://royaaltaxi.nl"', $linked);
+        $this->assertStringContainsString('>Taxi Royaal</a>', $linked);
     }
 
     #[Test]

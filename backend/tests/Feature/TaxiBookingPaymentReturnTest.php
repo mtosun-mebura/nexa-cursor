@@ -140,6 +140,70 @@ class TaxiBookingPaymentReturnTest extends TestCase
     }
 
     #[Test]
+    public function failed_payment_redirects_to_booking_page_with_failure_flag(): void
+    {
+        $ride = RideRequest::on('module_taxi')->create([
+            'status' => RideRequest::STATUS_PENDING_PAYMENT,
+            'payment_status' => RideRequest::PAYMENT_STATUS_PENDING,
+            'pickup_address' => 'Station Enschede',
+            'dropoff_address' => 'Molenstraat 22',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Test Klant',
+        ]);
+
+        RidePayment::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'status' => RidePayment::STATUS_CANCELED,
+        ]);
+
+        $response = $this->withSession([
+            'nexataxi.booking_payment.'.$ride->id => [
+                'return_url' => 'http://localhost/taxi/klant?token=abc123token',
+                'channel' => 'customer_app',
+                'track_token' => 'abc123token',
+            ],
+        ])->get(route('nexataxi.booking.payment.return', ['ride' => $ride->id]));
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString('boeking=betaling-mislukt', $location);
+        $this->assertStringContainsString('reden=geannuleerd', $location);
+        $this->assertStringContainsString('token=abc123token', $location);
+        $this->assertStringContainsString('/taxi/klant', $location);
+    }
+
+    #[Test]
+    public function customer_app_open_payment_returns_to_ride_as_processing(): void
+    {
+        $ride = RideRequest::on('module_taxi')->create([
+            'status' => RideRequest::STATUS_PENDING_PAYMENT,
+            'payment_status' => RideRequest::PAYMENT_STATUS_PENDING,
+            'pickup_address' => 'Station Enschede',
+            'dropoff_address' => 'Molenstraat 22',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Test Klant',
+        ]);
+
+        RidePayment::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'status' => RidePayment::STATUS_OPEN,
+        ]);
+
+        $response = $this->withSession([
+            'nexataxi.booking_payment.'.$ride->id => [
+                'return_url' => 'http://localhost/taxi/klant',
+                'channel' => 'customer_app',
+                'track_token' => 'opentoken123',
+            ],
+        ])->get(route('nexataxi.booking.payment.return', ['ride' => $ride->id]));
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString('boeking=betaling-bezig', $location);
+        $this->assertStringContainsString('token=opentoken123', $location);
+    }
+
+    #[Test]
     public function with_booking_result_query_keeps_hash_and_existing_query(): void
     {
         $out = TaxiBookingPaymentController::withBookingResultQuery(
@@ -151,5 +215,20 @@ class TaxiBookingPaymentReturnTest extends TestCase
             'http://localhost/?_tenant_host=taxiroyaal.nexasuite.nl&boeking=betaald#boek-rit',
             $out
         );
+    }
+
+    #[Test]
+    public function with_booking_result_query_skips_hash_for_customer_app(): void
+    {
+        $out = TaxiBookingPaymentController::withBookingResultQuery(
+            'http://localhost/taxi/klant?token=xyz',
+            'betaling-mislukt',
+            ['reden' => 'mislukt', 'token' => 'xyz']
+        );
+
+        $this->assertStringContainsString('/taxi/klant?', $out);
+        $this->assertStringContainsString('boeking=betaling-mislukt', $out);
+        $this->assertStringContainsString('reden=mislukt', $out);
+        $this->assertStringNotContainsString('#boek-rit', $out);
     }
 }

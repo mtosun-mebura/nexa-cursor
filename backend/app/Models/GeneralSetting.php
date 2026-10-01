@@ -79,6 +79,7 @@ class GeneralSetting extends Model
         'info_request_success_image',
         'nexa_pricing',
         'frontend_component_disabled_overrides',
+        'incident_notification_email',
     ];
 
     /** Tenant-mailserver; leeg = NEXA Suite-mailserver (`company_id` null) of `.env`. */
@@ -162,6 +163,26 @@ class GeneralSetting extends Model
     public static function isMailSettingKey(string $key): bool
     {
         return in_array($key, self::MAIL_SETTING_KEYS, true);
+    }
+
+    /**
+     * Taxi dispatch/network: platformdefault (company_id = null) die tenants mogen overrulen.
+     * Niet in GLOBAL_PLATFORM_KEYS zetten — anders verdwijnt tenant-override in get().
+     */
+    public static function isTaxiDispatchPlatformDefaultKey(string $key): bool
+    {
+        return str_starts_with($key, 'taxi_dispatch_')
+            || str_starts_with($key, 'taxi_network_');
+    }
+
+    /**
+     * Mag met company_id = null worden opgeslagen (platformdefault of echt globaal).
+     */
+    public static function allowsNullCompanyId(string $key): bool
+    {
+        return self::isGlobalPlatformKey($key)
+            || self::isMailSettingKey($key)
+            || self::isTaxiDispatchPlatformDefaultKey($key);
     }
 
     public function company(): BelongsTo
@@ -393,14 +414,14 @@ class GeneralSetting extends Model
             $companyId = null;
         } else {
             $companyId = $forCompanyId ?? self::resolveScopeCompanyId();
-            if ($companyId === null && ! self::isMailSettingKey($key)) {
+            if ($companyId === null && ! self::allowsNullCompanyId($key)) {
                 throw new RuntimeException(
                     'GeneralSetting::set vereist een tenant (company_id). Selecteer een tenant in de admin of gebruik een account met bedrijf.'
                 );
             }
         }
 
-        if (self::isGlobalPlatformKey($key) || ($companyId === null && self::isMailSettingKey($key))) {
+        if (self::isGlobalPlatformKey($key) || ($companyId === null && self::allowsNullCompanyId($key))) {
             $model = self::upsertNullCompanySetting($key, (string) $value);
             self::clearRequestCache();
 

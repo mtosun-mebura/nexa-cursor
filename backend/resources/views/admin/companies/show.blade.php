@@ -139,6 +139,17 @@
                     {{ $company->name }}
                 </div>
             </div>
+            <div class="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span>ID</span>
+                <span class="font-mono font-semibold text-foreground">{{ $company->id }}</span>
+                <button type="button"
+                        class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
+                        data-copy-text="{{ $company->id }}"
+                        title="ID kopiëren"
+                        aria-label="Bedrijfs-ID {{ $company->id }} kopiëren">
+                    <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
+                </button>
+            </div>
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
                 <div class="flex gap-1.25 items-center">
                     <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />

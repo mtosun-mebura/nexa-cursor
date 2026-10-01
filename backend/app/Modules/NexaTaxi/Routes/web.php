@@ -64,9 +64,23 @@ Route::get('dispatch-instellingen/klant-e-mail', [DispatchSettingsController::cl
     ->name('dispatch_settings.customer_accept_email.edit');
 Route::put('dispatch-instellingen/klant-e-mail', [DispatchSettingsController::class, 'updateCustomerAcceptEmail'])
     ->name('dispatch_settings.customer_accept_email.update');
+Route::post('dispatch-instellingen/network/invite-rotate', [DispatchSettingsController::class, 'rotateNetworkInvite'])
+    ->name('dispatch_settings.network.invite_rotate');
+Route::post('dispatch-instellingen/network/invite-auto-accept', [DispatchSettingsController::class, 'updateNetworkInviteAutoAccept'])
+    ->name('dispatch_settings.network.invite_auto_accept');
+Route::post('dispatch-instellingen/network/invite-redeem', [DispatchSettingsController::class, 'redeemNetworkInvite'])
+    ->name('dispatch_settings.network.invite_redeem');
+Route::post('dispatch-instellingen/network/partnerships/{partnership}/accept', [DispatchSettingsController::class, 'acceptNetworkPartnership'])
+    ->name('dispatch_settings.network.partnership_accept');
+Route::post('dispatch-instellingen/network/partnerships/{partnership}/decline', [DispatchSettingsController::class, 'declineNetworkPartnership'])
+    ->name('dispatch_settings.network.partnership_decline');
+Route::post('dispatch-instellingen/network/partnerships/{partnership}/revoke', [DispatchSettingsController::class, 'revokeNetworkPartnership'])
+    ->name('dispatch_settings.network.partnership_revoke');
 Route::get('tarieven', [TarievenController::class, 'edit'])->name('tarieven.edit');
 Route::put('tarieven', [TarievenController::class, 'update'])->name('tarieven.update');
 Route::post('ride_requests/{ride_request}/assign', [RideRequestController::class, 'assign'])->name('ride_requests.assign');
+Route::post('ride_requests/{ride_request}/release-settlement', [RideRequestController::class, 'releaseSettlement'])
+    ->name('ride_requests.release_settlement');
 Route::post('ride_requests/{ride_request}/reoffer-dispatch', [RideRequestController::class, 'reofferDispatch'])
     ->name('ride_requests.reoffer_dispatch');
 Route::get('ride_requests/{ride_request}/notificatielog', [RideRequestController::class, 'notificationLog'])

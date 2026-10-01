@@ -46,7 +46,7 @@
         <tr><td>Vloot / maatwerk</td><td>vanaf €249</td><td>op maat</td><td>Multi-vestiging / SLA</td></tr>
     </tbody>
 </table>
-<p>Publieke pagina: <a href="{{ url('/prijzen') }}"><code>/prijzen</code></a> · interne one-pager: <a href="{{ route('marketing.show', 'prijzen') }}">Prijzen</a>. Extra: AI +€29/mnd, extra vestiging +€49/mnd. 12 maanden als standaard.</p>
+<p>Publieke pagina: <a href="{{ url('/prijzen') }}"><code>/prijzen</code></a> · interne one-pager: <a href="{{ route('marketing.show', 'prijzen') }}">Prijzen</a>. Extra: AI +€29/mnd, extra vestiging +€49/mnd. Maandelijks opzegbaar als standaard.</p>
 
 <h2>Elevator (30 seconden)</h2>
 <div class="card">

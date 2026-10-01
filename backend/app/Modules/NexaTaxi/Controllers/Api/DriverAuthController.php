@@ -14,7 +14,7 @@ use App\Modules\NexaTaxi\Support\PwaAccent;
 use App\Modules\NexaTaxi\Support\RideAlertTone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
-use App\Services\CompanyEmailLogoService;
+use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
@@ -255,7 +255,7 @@ class DriverAuthController extends Controller
             }
         }
 
-        $logoUrls = app(CompanyEmailLogoService::class)->pwaLogoUrls($companyId);
+        $logoUrls = app(TaxiAppLogoService::class)->pwaLogoUrls($companyId);
 
         $vehicleId = $availability && $availability->vehicle_id ? (int) $availability->vehicle_id : null;
         $vehicleLocked = false;

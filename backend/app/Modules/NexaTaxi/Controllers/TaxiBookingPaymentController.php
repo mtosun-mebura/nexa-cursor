@@ -26,16 +26,6 @@ class TaxiBookingPaymentController extends Controller
             ? RideRequest::on($conn)->find($rideId)
             : null;
 
-        $latestPayment = null;
-        if ($ride) {
-            $latestPayment = $ride->payments()->orderByDesc('id')->first();
-            if ($latestPayment && $latestPayment->status === RidePayment::STATUS_OPEN) {
-                $payments->syncRidePaymentFromMollie($conn, $latestPayment);
-                $ride = $ride->fresh();
-                $latestPayment = $latestPayment->fresh();
-            }
-        }
-
         $sessionKey = 'nexataxi.booking_payment.'.$rideId;
         $sessionStored = is_array($request->session()->get($sessionKey))
             ? $request->session()->get($sessionKey)
@@ -51,11 +41,40 @@ class TaxiBookingPaymentController extends Controller
             $ride !== null ? (int) ($ride->company_id ?? 0) : null
         );
 
+        $trackToken = '';
+        if (is_string($stored['track_token'] ?? null) && $stored['track_token'] !== '') {
+            $trackToken = (string) $stored['track_token'];
+        } elseif ($ride && is_string($ride->customer_track_token ?? null)) {
+            $trackToken = (string) $ride->customer_track_token;
+        }
+
+        $isCustomerApp = (($stored['channel'] ?? '') === 'customer_app')
+            || str_contains($returnUrl, '/taxi/klant');
+
+        $latestPayment = null;
+        if ($ride) {
+            $latestPayment = $ride->payments()->orderByDesc('id')->first();
+            // Mollie redirect komt vaak vóór de definitieve status: kort snel doorsyncen.
+            $attempts = $isCustomerApp ? 5 : 1;
+            for ($i = 0; $i < $attempts; $i++) {
+                if (! $latestPayment || $latestPayment->status !== RidePayment::STATUS_OPEN) {
+                    break;
+                }
+                if ($i > 0) {
+                    usleep(250_000);
+                }
+                $payments->syncRidePaymentFromMollie($conn, $latestPayment);
+                $ride = $ride->fresh();
+                $latestPayment = $latestPayment->fresh();
+            }
+        }
+
         $paid = $ride && (
             $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID
             || ($latestPayment && $latestPayment->status === RidePayment::STATUS_PAID)
         );
-        $failed = $latestPayment && in_array($latestPayment->status, [
+        $paymentStatus = $latestPayment ? (string) $latestPayment->status : '';
+        $failed = in_array($paymentStatus, [
             RidePayment::STATUS_FAILED,
             RidePayment::STATUS_CANCELED,
             RidePayment::STATUS_EXPIRED,
@@ -64,7 +83,9 @@ class TaxiBookingPaymentController extends Controller
         if ($paid) {
             $request->session()->forget($sessionKey);
 
-            $redirect = redirect()->to(self::withBookingResultQuery($returnUrl, 'betaald'));
+            $redirect = redirect()->to(self::withBookingResultQuery($returnUrl, 'betaald', [
+                'token' => $trackToken,
+            ]));
             if (is_string($stored['message'] ?? null) && $stored['message'] !== '') {
                 $redirect->with('nexataxi_booking_message', $stored['message']);
             }
@@ -78,7 +99,26 @@ class TaxiBookingPaymentController extends Controller
         if ($failed) {
             $request->session()->forget($sessionKey);
 
-            return redirect()->to(self::withBookingResultQuery($returnUrl, 'betaling-mislukt'));
+            $reden = match ($paymentStatus) {
+                RidePayment::STATUS_FAILED => 'mislukt',
+                RidePayment::STATUS_CANCELED => 'geannuleerd',
+                RidePayment::STATUS_EXPIRED => 'verlopen',
+                default => 'mislukt',
+            };
+
+            return redirect()->to(self::withBookingResultQuery($returnUrl, 'betaling-mislukt', [
+                'reden' => $reden,
+                'token' => $trackToken,
+            ]));
+        }
+
+        // Klant-app: meteen terug naar rit; live-poll bevestigt betaling als die nog open staat.
+        if ($isCustomerApp) {
+            $request->session()->forget($sessionKey);
+
+            return redirect()->to(self::withBookingResultQuery($returnUrl, 'betaling-bezig', [
+                'token' => $trackToken,
+            ]));
         }
 
         return view('taxi::booking.payment-return', [
@@ -120,14 +160,20 @@ class TaxiBookingPaymentController extends Controller
         return $candidate;
     }
 
-    public static function withBookingResultQuery(string $url, string $result): string
+    /**
+     * @param  array<string, string>  $extra
+     */
+    public static function withBookingResultQuery(string $url, string $result, array $extra = []): string
     {
         $hash = '';
         if (str_contains($url, '#')) {
             [$url, $hash] = explode('#', $url, 2);
             $hash = '#'.$hash;
         }
-        if ($hash === '') {
+
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?: '/');
+        if ($hash === '' && ! str_contains($path, '/taxi/klant')) {
+            // Website-boeking: anker; klant-app heeft geen #boek-rit nodig.
             $hash = '#boek-rit';
         }
 
@@ -137,8 +183,14 @@ class TaxiBookingPaymentController extends Controller
             parse_str($queryString, $query);
         }
         $query['boeking'] = $result;
+        foreach ($extra as $key => $value) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+            $query[$key] = $value;
+        }
 
-        $path = (string) (parse_url($url, PHP_URL_PATH) ?: '/');
         $scheme = parse_url($url, PHP_URL_SCHEME);
         $host = parse_url($url, PHP_URL_HOST);
         $port = parse_url($url, PHP_URL_PORT);

@@ -36,7 +36,7 @@ class RideRequestController extends Controller
         $this->authorizeOrPermission('rides.view');
 
         $conn = $this->moduleConnection();
-        $query = RideRequest::on($conn)->with(['vehicle.company', 'driver', 'company']);
+        $query = RideRequest::on($conn)->with(['vehicle.company', 'driver', 'company', 'fulfillingCompany']);
         $this->applyRideTenantScope($query);
         $query->withoutContractRides();
 
@@ -155,7 +155,7 @@ class RideRequestController extends Controller
         $this->authorizeOrPermission('rides.view');
         $this->ensureCanAccessRide($ride_request);
 
-        $ride_request->load(['vehicle.company', 'driver']);
+        $ride_request->load(['vehicle.company', 'driver', 'company', 'fulfillingCompany']);
         $statusLabels = RideRequest::statusLabels();
 
         $conn = $this->moduleConnection();
@@ -384,6 +384,29 @@ class RideRequestController extends Controller
         return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', 'Voertuig en chauffeur toegewezen.');
     }
 
+    public function releaseSettlement(RideRequest $ride_request)
+    {
+        $this->authorizeOrPermission('rides.update');
+        $this->ensureCanAccessRide($ride_request);
+
+        if (! in_array($ride_request->settlement_status, [
+            RideRequest::SETTLEMENT_HOLD,
+            RideRequest::SETTLEMENT_REVIEW,
+        ], true)) {
+            return redirect()
+                ->route('admin.taxi.ride_requests.show', $ride_request)
+                ->with('error', 'Deze rit staat niet in hold of review.');
+        }
+
+        $conn = $this->moduleConnection();
+        app(\App\Modules\NexaTaxi\Services\RideSettlementEligibilityService::class)
+            ->markEligible($conn, $ride_request);
+
+        return redirect()
+            ->route('admin.taxi.ride_requests.show', $ride_request)
+            ->with('success', 'Settlement vrijgegeven (settlement-eligible).');
+    }
+
     public function reofferDispatch(RideRequest $ride_request)
     {
         $this->authorizeOrPermission('rides.update');
@@ -459,6 +482,7 @@ class RideRequestController extends Controller
             $tenantId = (int) session('selected_tenant');
             $query->where(function ($q) use ($tenantId) {
                 $q->where('company_id', $tenantId)
+                    ->orWhere('fulfilling_company_id', $tenantId)
                     ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $tenantId))
                     ->orWhere(function ($marketplace) use ($tenantId) {
                         $marketplace->where(function ($source) {
@@ -486,6 +510,7 @@ class RideRequestController extends Controller
             $companyId = (int) auth()->user()->company_id;
             $query->where(function ($q) use ($companyId) {
                 $q->where('company_id', $companyId)
+                    ->orWhere('fulfilling_company_id', $companyId)
                     ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', $companyId))
                     ->orWhere(function ($marketplace) use ($companyId) {
                         $marketplace->where(function ($source) {

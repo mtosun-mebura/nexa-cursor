@@ -69,7 +69,7 @@ class AdminCompanyController extends Controller
         $sortBy = $request->get('sort', 'created_at');
         $sortDirection = $request->get('direction', 'desc');
 
-        if (in_array($sortBy, ['name', 'created_at', 'is_active'])) {
+        if (in_array($sortBy, ['id', 'name', 'created_at', 'is_active'])) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
             $query->orderBy('created_at', 'desc');

@@ -117,7 +117,7 @@ class TaxiDispatchOfferResource
             'is_pickup_overdue' => $isPickupOverdue,
             'urgency' => $urgency,
             'ride' => $ride ? array_merge(
-                self::rideSummary($ride, $isScheduledOverdue, $includeBilling),
+                self::rideSummary($ride, $isScheduledOverdue, $includeBilling, (int) ($offer->company_id ?? 0) ?: null),
                 ['is_pickup_overdue' => $isPickupOverdue || $isScheduledOverdue]
             ) : null,
             'actions' => [
@@ -127,11 +127,18 @@ class TaxiDispatchOfferResource
         ];
     }
 
-    public static function rideSummary(RideRequest $ride, bool $isScheduledOverdue = false, bool $includeBilling = true): array
-    {
+    public static function rideSummary(
+        RideRequest $ride,
+        bool $isScheduledOverdue = false,
+        bool $includeBilling = true,
+        ?int $offerCompanyId = null,
+    ): array {
         $payments = app(TaxiRidePaymentService::class);
         $conn = $ride->getConnectionName();
         $isContract = $ride->isContractRide();
+        $feeBreakdown = self::feeBreakdownForDriver($ride, $offerCompanyId);
+        $isNetwork = $ride->isNetworkFulfilled()
+            || ($feeBreakdown !== null && ! empty($feeBreakdown['is_network']));
 
         $stopsMeta = null;
         $schedule = null;
@@ -174,6 +181,28 @@ class TaxiDispatchOfferResource
                 : ($ride->dropoff_lng !== null ? (float) $ride->dropoff_lng : null),
         ];
 
+        $vehicleId = $ride->vehicle_id ? (int) $ride->vehicle_id : null;
+        $vehicleLabel = null;
+        $vehiclePlate = null;
+        $vehicleName = null;
+        $vehicleModel = null;
+        if ($vehicleId && $ride->relationLoaded('vehicle') && $ride->vehicle) {
+            $vehicleModel = $ride->vehicle;
+        } elseif ($vehicleId) {
+            try {
+                $vehicleModel = \App\Modules\NexaTaxi\Models\Vehicle::on($conn)->find($vehicleId);
+            } catch (\Throwable) {
+                $vehicleModel = null;
+            }
+        }
+        if ($vehicleModel) {
+            $vehiclePlate = trim((string) ($vehicleModel->license_plate ?? '')) ?: null;
+            $vehicleName = trim((string) ($vehicleModel->name ?? '')) ?: null;
+            $vehicleLabel = $vehiclePlate ?: ($vehicleName ?: $vehicleModel->fleetLabel());
+        }
+
+        $canHandOverToNetwork = self::canHandOverToNetwork($ride);
+
         return [
             'id' => $ride->id,
             'status' => $ride->status,
@@ -182,6 +211,24 @@ class TaxiDispatchOfferResource
             'is_contract' => $isContract,
             'is_nexa_suite' => $ride->isNexaSuiteBooking(),
             'nexa_suite_label' => $ride->isNexaSuiteBooking() ? $ride->nexaSuiteLabel() : null,
+            'is_network_ride' => $isNetwork,
+            'network_label' => $isNetwork ? 'NEXA Network' : null,
+            'owner_company_name' => self::ownerCompanyNameForRide($ride, $feeBreakdown),
+            'fee_breakdown' => $feeBreakdown,
+            'vehicle_id' => $vehicleId,
+            'vehicle_label' => $vehicleLabel,
+            'vehicle_plate' => $vehiclePlate,
+            'vehicle_name' => $vehicleName,
+            'can_hand_over_to_network' => $canHandOverToNetwork,
+            'payment_status' => $ride->payment_status,
+            'payment_method' => $ride->payment_method,
+            'payment_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
+            'settlement_status' => $ride->settlement_status,
+            'settlement_status_label' => $ride->settlement_status
+                ? ($ride->settlement_status_label)
+                : null,
+            'settlement_hold_until' => $ride->settlement_hold_until?->toIso8601String(),
+            'settlement_payable' => $ride->isSettlementPayable(),
             'contract_label' => $isContract ? 'Contract' : null,
             'return_trip' => $ride->isReturnTrip(),
             'return_at' => $ride->resolveReturnAt()?->toIso8601String(),
@@ -219,6 +266,8 @@ class TaxiDispatchOfferResource
             'passengers' => (int) $ride->passengers,
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
+            'customer_note' => $ride->customer_note ? (string) $ride->customer_note : null,
+            'baggage' => self::baggagePayload($ride),
             'distance_km' => $ride->distance_meters ? round($ride->distance_meters / 1000, 1) : null,
             'duration_seconds' => $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
             'duration_minutes' => $ride->duration_minutes,
@@ -231,12 +280,111 @@ class TaxiDispatchOfferResource
             'actions' => [
                 'start' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start"),
                 'release' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release"),
+                'hand_over_network' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/hand-over-network"),
                 'release_return' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release-return"),
                 'start_return' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start-return"),
                 'complete' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/complete"),
                 'stops' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/stops"),
             ],
         ];
+    }
+
+    public static function canHandOverToNetwork(RideRequest $ride): bool
+    {
+        if ($ride->isContractRide() || $ride->isNetworkFulfilled()) {
+            return false;
+        }
+
+        $ownerId = (int) ($ride->company_id ?? 0);
+        if ($ownerId <= 0) {
+            return false;
+        }
+
+        if (! in_array($ride->status, [
+            RideRequest::STATUS_PENDING_DISPATCH,
+            RideRequest::STATUS_OFFERED,
+            RideRequest::STATUS_ACCEPTED,
+        ], true)) {
+            return false;
+        }
+
+        $settings = app(TaxiDispatchSettingsService::class);
+        if (! $settings->networkEnabled($ownerId)
+            || $settings->networkMode($ownerId) === TaxiDispatchSettingsService::NETWORK_MODE_OFF) {
+            return false;
+        }
+
+        return $settings->networkPartnerCompanyIds($ownerId) !== [];
+    }
+
+    /**
+     * Fee-splitsing voor chauffeur bij marketplace/network (zelfde % als marketplace fee).
+     *
+     * @return array{
+     *   customer_pays: float,
+     *   owner_name: string,
+     *   executor_name: string,
+     *   nexa_fee: float,
+     *   nexa_fee_percent: int,
+     *   is_marketplace: bool,
+     *   is_network: bool
+     * }|null
+     */
+    public static function feeBreakdownForDriver(RideRequest $ride, ?int $offerCompanyId = null): ?array
+    {
+        $isMarketplace = $ride->isNexaSuiteBooking();
+        $ownerId = (int) ($ride->company_id ?? 0);
+        $executorId = (int) ($ride->fulfilling_company_id ?? 0);
+        $offerCompanyId = $offerCompanyId !== null ? (int) $offerCompanyId : 0;
+
+        $isNetwork = $ride->isNetworkFulfilled();
+        if (! $isNetwork && $ownerId > 0 && $offerCompanyId > 0 && $offerCompanyId !== $ownerId) {
+            $isNetwork = true;
+            $executorId = $offerCompanyId;
+        }
+
+        if (! $isMarketplace && ! $isNetwork) {
+            return null;
+        }
+
+        if ($executorId <= 0) {
+            $executorId = $offerCompanyId > 0 ? $offerCompanyId : $ownerId;
+        }
+
+        $gross = (float) ($ride->final_price ?? $ride->quoted_price ?? 0);
+        $percent = \App\Support\NexaMarketplaceFeeCopy::percent();
+        $fee = round(max(0, $gross) * ($percent / 100), 2);
+
+        $ownerName = self::companyDisplayName($ownerId);
+        if ($ownerName === '—' && $isMarketplace) {
+            $ownerName = 'NEXA Suite';
+        }
+
+        $executorName = self::companyDisplayName($executorId);
+        if ($executorName === '—' && $ownerId > 0 && $executorId === $ownerId) {
+            $executorName = $ownerName;
+        }
+
+        return [
+            'customer_pays' => round(max(0, $gross), 2),
+            'owner_name' => $ownerName,
+            'executor_name' => $executorName,
+            'nexa_fee' => $fee,
+            'nexa_fee_percent' => $percent,
+            'is_marketplace' => $isMarketplace,
+            'is_network' => $isNetwork,
+        ];
+    }
+
+    private static function companyDisplayName(int $companyId): string
+    {
+        if ($companyId <= 0) {
+            return '—';
+        }
+
+        $name = trim((string) (\App\Models\Company::query()->whereKey($companyId)->value('name') ?? ''));
+
+        return $name !== '' ? $name : '—';
     }
 
     /**
@@ -248,6 +396,9 @@ class TaxiDispatchOfferResource
     {
         $pickupAt = $ride->pickup_at;
         $status = (string) $ride->status;
+        $feeBreakdown = self::feeBreakdownForDriver($ride);
+        $isNetwork = $ride->isNetworkFulfilled()
+            || ($feeBreakdown !== null && ! empty($feeBreakdown['is_network']));
 
         return [
             'id' => $ride->id,
@@ -256,6 +407,17 @@ class TaxiDispatchOfferResource
             'is_contract' => $ride->isContractRide(),
             'is_nexa_suite' => $ride->isNexaSuiteBooking(),
             'nexa_suite_label' => $ride->isNexaSuiteBooking() ? $ride->nexaSuiteLabel() : null,
+            'is_network_ride' => $isNetwork,
+            'network_label' => $isNetwork ? 'NEXA Network' : null,
+            'owner_company_name' => self::ownerCompanyNameForRide($ride, $feeBreakdown),
+            'fee_breakdown' => $feeBreakdown,
+            'payment_status' => $ride->payment_status,
+            'payment_method' => $ride->payment_method,
+            'payment_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
+            'settlement_status' => $ride->settlement_status,
+            'settlement_status_label' => $ride->settlement_status
+                ? ($ride->settlement_status_label)
+                : null,
             'pickup_address' => (string) $ride->pickup_address,
             'dropoff_address' => (string) $ride->dropoff_address,
             'pickup_lat' => $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null,
@@ -268,5 +430,72 @@ class TaxiDispatchOfferResource
             'passengers' => (int) $ride->passengers,
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
         ];
+    }
+
+    /**
+     * @return array{items: list<array{key: string, label: string, qty: int}>, summary: string|null}
+     */
+    public static function baggagePayload(RideRequest $ride): array
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $step = is_array($payload['step_data'] ?? null) ? $payload['step_data'] : [];
+        $labels = [
+            'large' => 'Grote ruimbagage',
+            'small' => 'Kleine ruimbagage',
+            'hand' => 'Handbagage',
+            'wheelchair' => 'Opvouwbare rolstoel',
+            'pets' => 'Huisdieren',
+            'winter' => 'Wintersport',
+            'golf' => 'Golftas',
+        ];
+
+        $items = [];
+        foreach (['baggage', 'special_baggage'] as $bagKey) {
+            $bag = is_array($step[$bagKey] ?? null) ? $step[$bagKey] : [];
+            foreach ($bag as $key => $qty) {
+                $count = (int) $qty;
+                if ($count <= 0) {
+                    continue;
+                }
+                $keyStr = (string) $key;
+                $items[] = [
+                    'key' => $keyStr,
+                    'label' => $labels[$keyStr] ?? $keyStr,
+                    'qty' => $count,
+                ];
+            }
+        }
+
+        $summary = $items === []
+            ? null
+            : implode(', ', array_map(
+                static fn (array $row): string => $row['label'].' × '.$row['qty'],
+                $items
+            ));
+
+        return [
+            'items' => $items,
+            'summary' => $summary,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $feeBreakdown
+     */
+    private static function ownerCompanyNameForRide(RideRequest $ride, ?array $feeBreakdown): ?string
+    {
+        $fromFee = trim((string) ($feeBreakdown['owner_name'] ?? ''));
+        if ($fromFee !== '' && $fromFee !== '—') {
+            return $fromFee;
+        }
+
+        $ownerId = (int) ($ride->company_id ?? 0);
+        if ($ownerId <= 0) {
+            return null;
+        }
+
+        $name = self::companyDisplayName($ownerId);
+
+        return $name !== '—' ? $name : null;
     }
 }

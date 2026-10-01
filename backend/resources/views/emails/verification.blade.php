@@ -37,7 +37,7 @@
         </table>
         <p style="margin:0 0 20px;font-size:15px;line-height:1.6;">Deze link is 7 dagen geldig.</p>
         <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u deze e-mail niet verwacht? Neem contact op met {{ $suiteBrand }}.</p>
-        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Powered by NEXA Suite.</p>
+        {!! \App\Support\EmailCardHtml::poweredByFooter() !!}
     </td>
 </tr>
 </table>

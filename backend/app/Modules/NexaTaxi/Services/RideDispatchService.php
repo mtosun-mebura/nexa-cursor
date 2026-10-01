@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,8 +18,17 @@ class RideDispatchService
         protected TaxiDispatchSettingsService $dispatchSettings
     ) {}
 
-    public function startDispatch(string $conn, RideRequest $ride, int $companyId, array $excludeDriverIds = [], bool $assignCompany = true): void
-    {
+    /**
+     * @param  bool  $enforceNetworkRadius  true = alleen chauffeurs binnen owner's max. network-radius
+     */
+    public function startDispatch(
+        string $conn,
+        RideRequest $ride,
+        int $companyId,
+        array $excludeDriverIds = [],
+        bool $assignCompany = true,
+        bool $enforceNetworkRadius = false,
+    ): void {
         if ($companyId <= 0) {
             return;
         }
@@ -35,12 +45,46 @@ class RideDispatchService
         $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
         $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
         $exclude = array_values(array_unique(array_map('intval', $excludeDriverIds)));
+
+        $pickupLat = null;
+        $pickupLng = null;
+        $maxKm = null;
+        if ($enforceNetworkRadius) {
+            $radius = $this->networkRadiusFilter($ride);
+            if ($radius === null) {
+                Log::info('Network dispatch overgeslagen: geen bruikbare pickup-coördinaten of radius.', [
+                    'ride_request_id' => $ride->id,
+                    'company_id' => $companyId,
+                ]);
+
+                return;
+            }
+            [$pickupLat, $pickupLng, $maxKm] = $radius;
+        }
+
         $driverIds = array_values(array_filter(
-            $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch),
+            $this->drivers->onlineDriverIdsForCompany(
+                $conn,
+                $companyId,
+                $batch,
+                $pickupLat,
+                $pickupLng,
+                $maxKm
+            ),
             fn (int $driverId) => ! in_array($driverId, $exclude, true)
         ));
 
         if ($driverIds === []) {
+            if ($enforceNetworkRadius) {
+                Log::info('Network dispatch: geen partner-chauffeurs binnen radius.', [
+                    'ride_request_id' => $ride->id,
+                    'company_id' => $companyId,
+                    'max_radius_km' => $maxKm,
+                    'pickup_lat' => $pickupLat,
+                    'pickup_lng' => $pickupLng,
+                ]);
+            }
+
             return;
         }
 
@@ -111,6 +155,44 @@ class RideDispatchService
         }
     }
 
+    /**
+     * Offer a network ride to partner companies without assigning ownership (assignCompany=false).
+     * Alleen partner-chauffeurs binnen max. radius (GPS) van de ophaallocatie.
+     *
+     * @param  list<int>|null  $partnerCompanyIds  null = use owner network settings
+     */
+    public function startNetworkPartnerDispatch(string $conn, RideRequest $ride, ?array $partnerCompanyIds = null): void
+    {
+        $ownerId = (int) ($ride->company_id ?? 0);
+        if ($ownerId <= 0 || ! $this->dispatchSettings->networkEnabled($ownerId)) {
+            return;
+        }
+
+        $mode = $this->dispatchSettings->networkMode($ownerId);
+        if ($mode === TaxiDispatchSettingsService::NETWORK_MODE_OFF) {
+            return;
+        }
+
+        $partners = $partnerCompanyIds ?? $this->dispatchSettings->networkPartnerCompanyIds($ownerId);
+        $partners = array_values(array_filter(
+            array_map('intval', $partners),
+            static fn (int $id): bool => $id > 0 && $id !== $ownerId
+        ));
+
+        if ($partners === []) {
+            return;
+        }
+
+        foreach ($partners as $companyId) {
+            $current = $ride->fresh() ?? $ride;
+            if ($current->driver_id) {
+                return;
+            }
+            // Never let partner dispatch claim ownership; enforce network radius.
+            $this->startDispatch($conn, $current, $companyId, [], false, true);
+        }
+    }
+
     public function expireStaleOffers(string $conn, ?int $rideId = null): int
     {
         if (! TaxiDispatchSchema::tablesExist($conn)) {
@@ -166,6 +248,25 @@ class RideDispatchService
         $companyIds = (int) $ride->company_id > 0
             ? [(int) $ride->company_id]
             : $ride->marketplaceCandidateCompanyIds();
+
+        // Network auto: partners pas ná fallback-seconden, binnen max. radius.
+        $ownerId = (int) ($ride->company_id ?? 0);
+        $partnerCompanyIds = [];
+        if ($ownerId > 0
+            && $this->dispatchSettings->networkMode($ownerId) === TaxiDispatchSettingsService::NETWORK_MODE_AUTO
+            && $this->ownerNetworkFallbackElapsed($conn, $ride, $ownerId)
+        ) {
+            foreach ($this->dispatchSettings->networkPartnerCompanyIds($ownerId) as $partnerId) {
+                if ($partnerId !== $ownerId) {
+                    $partnerCompanyIds[] = $partnerId;
+                }
+            }
+        }
+
+        $companyIds = array_values(array_unique(array_filter(
+            array_map('intval', array_merge($companyIds, $partnerCompanyIds)),
+            static fn (int $id): bool => $id > 0
+        )));
         if ($companyIds === []) {
             return;
         }
@@ -182,11 +283,24 @@ class RideDispatchService
 
         $now = now();
         $driverIdsToNotify = [];
+        $partnerLookup = array_fill_keys($partnerCompanyIds, true);
+        $partnerRadius = $partnerCompanyIds !== [] ? $this->networkRadiusFilter($ride) : null;
 
         foreach ($companyIds as $companyId) {
             $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
             $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
-            $driverIds = $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
+            $isPartner = isset($partnerLookup[$companyId]);
+            if ($isPartner && $partnerRadius === null) {
+                continue;
+            }
+            $driverIds = $this->drivers->onlineDriverIdsForCompany(
+                $conn,
+                $companyId,
+                $batch,
+                $isPartner ? $partnerRadius[0] : null,
+                $isPartner ? $partnerRadius[1] : null,
+                $isPartner ? $partnerRadius[2] : null,
+            );
             $expires = $now->copy()->addSeconds($ttl);
 
             foreach ($driverIds as $driverId) {
@@ -385,5 +499,51 @@ class RideDispatchService
         }
 
         return $offers->every(fn (RideDispatchOffer $offer) => $offer->status === RideDispatchOffer::STATUS_DECLINED);
+    }
+
+    /**
+     * @return array{0: float, 1: float, 2: int}|null pickupLat, pickupLng, maxRadiusKm — null = niet bruikbaar
+     */
+    protected function networkRadiusFilter(RideRequest $ride): ?array
+    {
+        $ownerId = (int) ($ride->company_id ?? 0);
+        if ($ownerId <= 0) {
+            return null;
+        }
+
+        $lat = $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null;
+        $lng = $ride->pickup_lng !== null ? (float) $ride->pickup_lng : null;
+        if ($lat === null || $lng === null) {
+            Log::info('Network radius: rit zonder pickup-coördinaten — geen partner-offers.', [
+                'ride_request_id' => $ride->id,
+                'owner_company_id' => $ownerId,
+            ]);
+
+            return null;
+        }
+
+        return [$lat, $lng, $this->dispatchSettings->networkMaxRadiusKm($ownerId)];
+    }
+
+    /**
+     * Auto-network: pas na fallback-seconden sinds eerste eigen-vloot-aanbod.
+     */
+    protected function ownerNetworkFallbackElapsed(string $conn, RideRequest $ride, int $ownerId): bool
+    {
+        if ($ownerId <= 0) {
+            return false;
+        }
+
+        $fallbackSeconds = $this->dispatchSettings->networkFallbackSeconds($ownerId);
+        $firstOfferAt = RideDispatchOffer::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('company_id', $ownerId)
+            ->min('offered_at');
+
+        if ($firstOfferAt === null) {
+            return false;
+        }
+
+        return Carbon::parse($firstOfferAt)->addSeconds($fallbackSeconds)->lte(now());
     }
 }

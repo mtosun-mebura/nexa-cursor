@@ -257,6 +257,40 @@ function wysiwygEditorKey(fieldKey: string, itemIndex?: number): string {
   return `${block}-${fieldKey}`
 }
 
+function insertCopyrightNexaSuiteLink(fieldKey: string) {
+  const current = str(fieldKey)
+  const linked = '[NEXA Suite](https://nexasuite.nl)'
+  if (/\[NEXA Suite\]\(https:\/\/nexasuite\.nl\/?\)/i.test(current)) {
+    return
+  }
+  if (/NEXA Suite/i.test(current)) {
+    updateField(fieldKey, current.replace(/NEXA Suite/i, linked))
+    return
+  }
+  const base = current.trim() || '© {year} Alle rechten voorbehouden.'
+  updateField(fieldKey, base.replace(/Alle rechten voorbehouden\./i, `${linked}. Alle rechten voorbehouden.`))
+}
+
+function insertCopyrightLinkSnippet(fieldKey: string) {
+  const label = window.prompt('Zichtbare linktekst', 'NEXA Suite')
+  if (label === null) return
+  const trimmedLabel = label.trim() || 'NEXA Suite'
+  const url = window.prompt('URL (https://…)', 'https://nexasuite.nl')
+  if (url === null) return
+  const trimmedUrl = url.trim()
+  if (!/^https?:\/\//i.test(trimmedUrl)) {
+    window.alert('Gebruik een URL die met http:// of https:// begint.')
+    return
+  }
+  const snippet = `[${trimmedLabel}](${trimmedUrl})`
+  const current = str(fieldKey)
+  if (current.includes(trimmedLabel) && !current.includes(`[${trimmedLabel}](`)) {
+    updateField(fieldKey, current.replace(trimmedLabel, snippet))
+    return
+  }
+  updateField(fieldKey, current.trim() ? `${current.trim()} ${snippet}` : snippet)
+}
+
 function resolveSubVisibilityKey(key: string): string {
   if (key.startsWith('_') && props.blockKey) {
     return `${props.blockKey}${key}`
@@ -1388,6 +1422,25 @@ function uploadRootWebsiteMedia(fieldKey: string, file: File) {
           :placeholder="field.placeholder"
           @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
         />
+        <div
+          v-if="blockKey === 'copyright' && field.key === 'text'"
+          class="flex flex-wrap items-center gap-2 mt-2"
+        >
+          <button
+            type="button"
+            class="kt-btn kt-btn-sm kt-btn-outline"
+            @click="insertCopyrightNexaSuiteLink(field.key)"
+          >
+            Link NEXA Suite
+          </button>
+          <button
+            type="button"
+            class="kt-btn kt-btn-sm kt-btn-outline"
+            @click="insertCopyrightLinkSnippet(field.key)"
+          >
+            Link invoegen…
+          </button>
+        </div>
         <p v-if="field.hint" class="builder-field-hint">{{ field.hint }}</p>
       </label>
 

@@ -89,7 +89,9 @@ class AdminNexaPricingTest extends TestCase
             ->assertSee('Aanbiedingsprijs', false)
             ->assertSee('Gratis maanden', false)
             ->assertSee('name="trial_notice_days"', false)
-            ->assertSee('Proeftijd', false)
+            ->assertSee('name="commitment_months"', false)
+            ->assertSee('Contract &amp; proeftijd', false)
+            ->assertSee('Maandelijks opzegbaar', false)
             ->assertDontSee('getal, zonder €', false)
             ->assertSee('>€</span>', false)
             ->assertSee('Website (eenmalig)', false)
@@ -330,6 +332,9 @@ class AdminNexaPricingTest extends TestCase
             'title' => $pricing['title'],
             'subtitle' => $pricing['subtitle'],
             'vat_note' => $pricing['vat_note'],
+            'packages_intro_title' => $pricing['packages_intro_title'] ?? 'Wat zit erin',
+            'packages_intro_subtitle' => $pricing['packages_intro_subtitle'] ?? 'excl. btw · maandelijks opzegbaar',
+            'commitment_months' => $pricing['commitment_months'] ?? 0,
             'trial_notice_days' => $pricing['trial_notice_days'] ?? 5,
             'packages' => $packages,
             'website' => [

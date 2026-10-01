@@ -7,7 +7,7 @@
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">NEXA Suite ritten</h1>
-            <div class="text-sm text-secondary-foreground">Centrale boekingen vanaf nexasuite.nl, per tenant</div>
+            <div class="text-sm text-secondary-foreground">Centrale boekingen vanaf nexasuite.nl, per tenant. Maand-PDF’s zijn fee-naslag (geen tweede incasso bij platform collect).</div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
             <form method="POST" action="{{ route('admin.nexa-suite-bookings.run-dunning') }}">

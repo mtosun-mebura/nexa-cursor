@@ -83,7 +83,7 @@
                     <td class="text-secondary-foreground font-normal">Gratis maanden</td>
                     <td>
                         <input class="kt-input w-28 tabular-nums" type="number" name="packages[{{ $i }}][free_months]" value="{{ (int) ($package['free_months'] ?? 0) }}" min="0" max="24" step="1" inputmode="numeric">
-                        <p class="text-xs text-muted-foreground mt-1">0 = geen. 1 = “1 maand gratis, daarna € …,-”. Facturatie start ná deze maanden; het jaarcontract telt vanaf de start van de proef.</p>
+                        <p class="text-xs text-muted-foreground mt-1">0 = geen. 1 = “1 maand gratis, daarna € …,-”. Facturatie start ná deze maanden; de contracttermijn telt vanaf de start van de proef.</p>
                     </td>
                 </tr>
                 <tr>

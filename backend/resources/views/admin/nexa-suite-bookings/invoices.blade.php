@@ -7,7 +7,11 @@
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div>
             <h1 class="text-xl font-medium leading-none text-mono">NEXA Suite facturen</h1>
-            <div class="text-sm text-secondary-foreground mt-2">Provisie over gereden ritten vanaf nexasuite.nl</div>
+            <div class="text-sm text-secondary-foreground mt-2">
+                Maandelijkse fee-specificatie over gereden ritten vanaf nexasuite.nl.
+                Bij platform collect: naslag van reeds ingehouden fee — geen openstaande vordering.
+                <a href="{{ route('admin.nexa-suite-bookings.settings') }}" class="text-primary underline">Uitleg op Instellingen</a>
+            </div>
         </div>
         <form method="POST" action="{{ route('admin.nexa-suite-bookings.generate') }}" class="flex flex-wrap gap-2">
             @csrf

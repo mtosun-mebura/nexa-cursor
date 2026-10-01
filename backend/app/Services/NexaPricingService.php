@@ -48,7 +48,7 @@ class NexaPricingService
             $pricing['subtitle'] = NexaMarketplaceFeeCopy::packagesSubtitle();
         }
 
-        return $pricing;
+        return $this->ensureDefaultPackagesPresent($pricing);
     }
 
     /**
@@ -87,6 +87,8 @@ class NexaPricingService
             'title' => $pricing['title'],
             'subtitle' => $pricing['subtitle'],
             'note' => $pricing['vat_note'],
+            'packages_intro_title' => $pricing['packages_intro_title'],
+            'packages_intro_subtitle' => $pricing['packages_intro_subtitle'],
             'packages' => $packages,
             'website' => $website,
             'addons' => $pricing['addons'],
@@ -388,6 +390,25 @@ class NexaPricingService
         }
 
         return max(1, min(30, (int) $raw));
+    }
+
+    /**
+     * Minimale contracttermijn in maanden. 0 = maandelijks opzegbaar (einde maand).
+     */
+    public function commitmentMonths(?array $pricing = null): int
+    {
+        $pricing = $pricing ?? $this->get();
+        $raw = $pricing['commitment_months'] ?? 0;
+        if (is_string($raw) && trim($raw) === '') {
+            $raw = 0;
+        }
+
+        return max(0, min(36, (int) $raw));
+    }
+
+    public function hasCommitmentLock(?array $pricing = null): bool
+    {
+        return $this->commitmentMonths($pricing) > 0;
     }
 
     public function freeMonthsLabel(int $months): string
@@ -724,9 +745,17 @@ class NexaPricingService
             $trialNoticeDays = 5;
         }
 
+        $commitmentMonths = $raw['commitment_months'] ?? 0;
+        if (is_string($commitmentMonths) && trim($commitmentMonths) === '') {
+            $commitmentMonths = 0;
+        }
+
         return [
             'trial_notice_days' => max(1, min(30, (int) $trialNoticeDays)),
+            'commitment_months' => max(0, min(36, (int) $commitmentMonths)),
             'vat_note' => trim((string) ($raw['vat_note'] ?? '')),
+            'packages_intro_title' => trim((string) ($raw['packages_intro_title'] ?? 'Wat zit erin')),
+            'packages_intro_subtitle' => $this->normalizeIntroMultiline((string) ($raw['packages_intro_subtitle'] ?? 'excl. btw · maandelijks opzegbaar')),
             'eyebrow' => trim((string) ($raw['eyebrow'] ?? 'Prijzen')),
             'title' => trim((string) ($raw['title'] ?? '')),
             'subtitle' => trim((string) ($raw['subtitle'] ?? '')),
@@ -747,6 +776,52 @@ class NexaPricingService
                 is_array($raw['modules'] ?? null) ? $raw['modules'] : []
             ),
         ];
+    }
+
+    private function normalizeIntroMultiline(string $value): string
+    {
+        $value = preg_replace('/<br\s*\/?>/i', "\n", $value) ?? $value;
+        $value = str_replace(["\r\n", "\r"], "\n", $value);
+        $value = preg_replace("/\n{3,}/", "\n\n", $value) ?? $value;
+
+        return trim($value);
+    }
+
+    /**
+     * Nieuwe config-pakketten (bijv. marketplace) tonen ook als nexa_pricing al in de DB staat.
+     *
+     * @param  array<string, mixed>  $pricing
+     * @return array<string, mixed>
+     */
+    private function ensureDefaultPackagesPresent(array $pricing): array
+    {
+        $existing = is_array($pricing['packages'] ?? null) ? $pricing['packages'] : [];
+        $keys = [];
+        foreach ($existing as $package) {
+            if (is_array($package)) {
+                $key = trim((string) ($package['key'] ?? ''));
+                if ($key !== '') {
+                    $keys[$key] = true;
+                }
+            }
+        }
+
+        $defaults = $this->defaults();
+        foreach ($defaults['packages'] ?? [] as $defaultPackage) {
+            if (! is_array($defaultPackage)) {
+                continue;
+            }
+            $key = trim((string) ($defaultPackage['key'] ?? ''));
+            if ($key === '' || isset($keys[$key])) {
+                continue;
+            }
+            $existing[] = $defaultPackage;
+            $keys[$key] = true;
+        }
+
+        $pricing['packages'] = array_values($existing);
+
+        return $pricing;
     }
 
     /**

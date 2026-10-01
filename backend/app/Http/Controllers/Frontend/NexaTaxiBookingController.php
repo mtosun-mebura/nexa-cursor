@@ -101,6 +101,7 @@ class NexaTaxiBookingController extends Controller
         $data = $request->validate([
             'lat' => 'nullable|numeric',
             'lng' => 'nullable|numeric',
+            'radius_km' => 'nullable|numeric|min:1|max:100',
             'section_key' => 'nullable|string|max:120',
             'page_id' => 'nullable|integer',
             'module' => 'nullable|string|max:64',
@@ -113,6 +114,9 @@ class NexaTaxiBookingController extends Controller
             $lat = null;
             $lng = null;
         }
+        $radiusKm = isset($data['radius_km']) && is_numeric($data['radius_km'])
+            ? \App\Services\NearestTaxiTenantResolver::normalizeRadiusKm($data['radius_km'])
+            : null;
 
         $resolved = $this->resolveSectionConfig(
             isset($data['page_id']) ? (int) $data['page_id'] : null,
@@ -122,16 +126,22 @@ class NexaTaxiBookingController extends Controller
         $company = ! empty($resolved['tenant_company_id'])
             ? Company::query()->find((int) $resolved['tenant_company_id'])
             : null;
-        $vehicles = app(\App\Services\TenantBookingLiveFleetService::class)->vehiclesForSection(
-            $sectionKey,
-            $resolved['config'] ?? [],
-            $company,
-            $lat,
-            $lng
-        );
+        $fleet = app(\App\Services\TenantBookingLiveFleetService::class);
+        if ($fleet->isMarketplaceSection($sectionKey)) {
+            $vehicles = app(\App\Services\NearbyAvailableTaxiFleetService::class)->vehicles($lat, $lng, $radiusKm);
+        } else {
+            $vehicles = $fleet->vehiclesForSection(
+                $sectionKey,
+                $resolved['config'] ?? [],
+                $company,
+                $lat,
+                $lng
+            );
+        }
 
         return response()->json([
             'vehicles' => $vehicles,
+            'radius_km' => $radiusKm,
             'server_now' => now()->toIso8601String(),
         ]);
     }

@@ -17,8 +17,30 @@ class TenantSubscriptionServiceTest extends TestCase
         parent::tearDown();
     }
 
+    private function enableYearCommitment(): void
+    {
+        $pricing = app(NexaPricingService::class)->get();
+        $pricing['commitment_months'] = 12;
+        app(NexaPricingService::class)->save($pricing);
+    }
+
+    public function test_monthly_commitment_change_date_is_end_of_current_month(): void
+    {
+        Carbon::setTestNow('2026-06-01 10:00:00');
+        $pricing = app(NexaPricingService::class)->get();
+        $pricing['commitment_months'] = 0;
+        app(NexaPricingService::class)->save($pricing);
+
+        $profile = $this->profileStarting('2026-03-15');
+        $service = app(TenantSubscriptionService::class);
+
+        $this->assertTrue($service->isPastFirstYear($profile));
+        $this->assertSame('2026-06-30', $service->nextAllowedChangeDate($profile)->toDateString());
+    }
+
     public function test_first_year_change_date_is_the_contract_anniversary(): void
     {
+        $this->enableYearCommitment();
         Carbon::setTestNow('2026-06-01 10:00:00');
         $profile = $this->profileStarting('2026-03-15');
         $service = app(TenantSubscriptionService::class);
@@ -30,6 +52,7 @@ class TenantSubscriptionServiceTest extends TestCase
 
     public function test_after_first_year_change_date_is_end_of_current_month(): void
     {
+        $this->enableYearCommitment();
         Carbon::setTestNow('2027-04-10 10:00:00');
         $profile = $this->profileStarting('2026-03-15');
         $service = app(TenantSubscriptionService::class);
@@ -50,6 +73,7 @@ class TenantSubscriptionServiceTest extends TestCase
 
     public function test_new_profile_with_free_months_starts_billing_after_the_trial(): void
     {
+        $this->enableYearCommitment();
         Carbon::setTestNow('2026-03-15 10:00:00');
         $pricing = app(NexaPricingService::class)->get();
         $pricing['packages'][0]['free_months'] = 1;
@@ -193,6 +217,7 @@ class TenantSubscriptionServiceTest extends TestCase
 
     public function test_emergency_terminate_always_uses_end_of_current_month_even_in_first_year(): void
     {
+        $this->enableYearCommitment();
         Carbon::setTestNow('2026-06-10 10:00:00');
         $profile = $this->profileStarting('2026-03-15');
         $service = app(TenantSubscriptionService::class);
@@ -208,6 +233,7 @@ class TenantSubscriptionServiceTest extends TestCase
 
     public function test_emergency_terminate_overrides_scheduled_contract_cancel(): void
     {
+        $this->enableYearCommitment();
         Carbon::setTestNow('2026-06-10 10:00:00');
         $profile = $this->profileStarting('2026-03-15');
         $service = app(TenantSubscriptionService::class);

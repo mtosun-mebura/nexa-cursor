@@ -162,7 +162,9 @@ const configReadonlyMessage = computed(() => {
 const copyrightPreview = computed(() => {
   const text = getCopyrightText()
   if (!text.trim()) return ''
-  return text.replace(/\{year\}/gi, String(new Date().getFullYear()))
+  return text
+    .replace(/\{year\}/gi, String(new Date().getFullYear()))
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
 })
 
 const selectedComponentInfo = computed(() => {

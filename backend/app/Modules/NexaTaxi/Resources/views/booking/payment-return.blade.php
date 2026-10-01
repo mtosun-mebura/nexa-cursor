@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @if(! empty($refreshUrl))
-        <meta http-equiv="refresh" content="2;url={{ e($refreshUrl) }}">
+        <meta http-equiv="refresh" content="0.8;url={{ e($refreshUrl) }}">
     @endif
     <title>Betaling {{ $paid ? 'voltooid' : 'status' }}</title>
     <style>

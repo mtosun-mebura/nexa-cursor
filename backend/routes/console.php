@@ -5,7 +5,6 @@ use App\Jobs\ProcessNexaSuiteMarketplaceDunningJob;
 use App\Jobs\ProcessPlatformBillingJob;
 use App\Jobs\ProcessPlatformDunningJob;
 use App\Jobs\ProcessSaasTrialNoticeJob;
-use App\Modules\NexaTaxi\Jobs\CancelUnacceptedTaxiRidesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob;
 use App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
@@ -62,7 +61,7 @@ Schedule::command('nexa:reset-demo')
     ->name('nexa-reset-demo')
     ->withoutOverlapping();
 
-Schedule::job(new CancelUnacceptedTaxiRidesJob)
+Schedule::command('taxi:cancel-unaccepted-rides')
     ->everyMinute()
     ->name('taxi-cancel-unaccepted-rides')
     ->withoutOverlapping();
@@ -100,6 +99,16 @@ Schedule::job(new ProcessNexaSuiteMarketplaceBillingJob)
 Schedule::job(new ProcessNexaSuiteMarketplaceDunningJob)
     ->dailyAt('06:15')
     ->name('nexa-suite-marketplace-dunning')
+    ->withoutOverlapping();
+
+Schedule::command('taxi:release-settlement-holds')
+    ->everyFifteenMinutes()
+    ->name('taxi-release-settlement-holds')
+    ->withoutOverlapping();
+
+Schedule::command('taxi:process-platform-settlements')
+    ->everyFifteenMinutes()
+    ->name('taxi-process-platform-settlements')
     ->withoutOverlapping();
 
 Schedule::command('database:backup-scheduled')

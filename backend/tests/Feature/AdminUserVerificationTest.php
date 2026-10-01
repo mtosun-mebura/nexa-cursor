@@ -183,7 +183,7 @@ class AdminUserVerificationTest extends TestCase
         $this->assertStringContainsString('alt="NEXA Suite"', $html);
         $this->assertStringContainsString('Heeft u deze e-mail niet verwacht?', $html);
         $this->assertStringContainsString('text-align:center', $html);
-        $this->assertStringContainsString('Powered by NEXA Suite.', $html);
+        $this->assertStringContainsString('https://nexasuite.nl', $html);
         $this->assertStringNotContainsString('Skillmatching', $html);
         $this->assertStringNotContainsString('Het Nexa', $html);
     }

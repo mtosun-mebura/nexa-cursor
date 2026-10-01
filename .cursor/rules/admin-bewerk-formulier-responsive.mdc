@@ -1,12 +1,38 @@
 ---
 description: Responsive bewerk- en aanmaakformulieren in admin (label/veld-tabellen, spacing, acties)
 globs: backend/**/views/admin/**/*.blade.php, backend/app/Modules/**/Resources/views/admin/**/*.blade.php
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Admin: responsive bewerk- en aanmaakformulieren
 
-Alle **edit**- en **create**-pagina’s in admin/modules gebruiken hetzelfde patroon. Styling en mobiele spacing zitten in **`backend/resources/css/admin-responsive.css`** (gebundeld via `app.js`) — geen pagina-specifieke `@push('styles')` voor tabel-padding of `min-height: 48px`.
+Alle **edit**- en **create**-pagina’s (en vergelijkbare settings-/onboarding-kaarten) in admin/modules gebruiken hetzelfde patroon: **label links, veld rechts op één regel**. Styling en mobiele spacing zitten in **`backend/resources/css/admin-responsive.css`** (gebundeld via `app.js`) — geen pagina-specifieke `@push('styles')` voor tabel-padding of `min-height: 48px`.
+
+## Verplicht: velden naast het label (niet gestapeld)
+
+Elke invoerregel is een tabelrij: label in de linker kolom, input/select/helptekst in de rechter kolom.
+
+```blade
+{{-- ✅ GOED — label | veld op één regel --}}
+<table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+    <tr>
+        <td class="min-w-56 text-secondary-foreground font-normal">Provider account ID</td>
+        <td class="min-w-48 w-full">
+            <input type="text" name="provider_account_id" class="kt-input" …>
+        </td>
+    </tr>
+</table>
+
+{{-- ❌ FOUT — label boven het veld, gestapeld in flex-col --}}
+<form class="flex flex-col gap-4 max-w-xl">
+    <div>
+        <label class="kt-form-label">Provider account ID</label>
+        <input class="kt-input" …>
+    </div>
+</form>
+```
+
+Geldt ook voor korte settings-/onboarding-kaarten (niet alleen klassieke create/edit-resources).
 
 ## Pagina
 
@@ -110,6 +136,7 @@ Zo breed als de inhoud, nooit de volle rij of pagina. Geen `w-full` op `kt-selec
 
 ## Veelgemaakte fouten (ook in NexaTaxi gevonden)
 
+- Gestapelde velden (`flex flex-col` + `kt-form-label` boven `kt-input`) i.p.v. label|veld-tabel.
 - `wizard-onboarding-form-table` op een `<p>` of `<label>` — alleen op `<table>`.
 - Show-pagina met `<dl style="grid-template-columns: 16rem …">` — breekt op mobiel.
 - Detailregels met `flex` + vaste `w-28` zonder class `admin-detail-field-list`.

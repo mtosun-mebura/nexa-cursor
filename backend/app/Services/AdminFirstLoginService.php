@@ -109,14 +109,6 @@ class AdminFirstLoginService
             ];
         }
 
-        if (! $this->needsFirstLogin($user)) {
-            return [
-                'ok' => false,
-                'status' => 422,
-                'message' => 'Dit account is al geactiveerd. Log in met uw wachtwoord.',
-            ];
-        }
-
         $recent = CustomerLoginCode::query()
             ->where('user_id', $user->id)
             ->where('purpose', CustomerLoginCode::PURPOSE_ADMIN)
@@ -181,13 +173,21 @@ class AdminFirstLoginService
         if ($user) {
             $this->applyPermissionsTeam($user);
         }
-        if (! $user || ! $user->canAccessAdminPanel() || ! $this->needsFirstLogin($user)) {
+        if (! $user || ! $user->canAccessAdminPanel()) {
             $this->burnDummyHash();
 
             return [
                 'ok' => false,
                 'status' => 422,
                 'message' => 'Code of e-mailadres is onjuist.',
+            ];
+        }
+
+        if (Schema::hasColumn('users', 'is_active') && $user->is_active === false) {
+            return [
+                'ok' => false,
+                'status' => 403,
+                'message' => 'Dit account is uitgeschakeld.',
             ];
         }
 
@@ -265,6 +265,115 @@ class AdminFirstLoginService
             'ok' => true,
             'status' => 200,
             'message' => 'Wachtwoord opgeslagen. U bent ingelogd.',
+            'user' => $user->fresh(),
+        ];
+    }
+
+    /**
+     * Inloggen met alleen e-mailcode (geen wachtwoord verplicht). Sessies blijven via "remember me".
+     *
+     * @return array{ok: bool, status: int, message: string, code?: string, user?: User}
+     */
+    public function verifyAndLoginWithCode(string $email, string $code, string $ip): array
+    {
+        $email = strtolower(trim($email));
+        $code = preg_replace('/\s+/', '', $code) ?? '';
+
+        $attemptKey = 'admin-first-login-verify:'.$email.':'.$ip;
+        if (RateLimiter::tooManyAttempts($attemptKey, 8)) {
+            return $this->tooMany($attemptKey);
+        }
+        RateLimiter::hit($attemptKey, 900);
+
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($user) {
+            $this->applyPermissionsTeam($user);
+        }
+        if (! $user || ! $user->canAccessAdminPanel()) {
+            $this->burnDummyHash();
+
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Code of e-mailadres is onjuist.',
+            ];
+        }
+
+        if (Schema::hasColumn('users', 'is_active') && $user->is_active === false) {
+            return [
+                'ok' => false,
+                'status' => 403,
+                'message' => 'Dit account is uitgeschakeld.',
+            ];
+        }
+
+        if (strlen($code) !== self::CODE_LENGTH || ! ctype_digit($code)) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Vul de '.self::CODE_LENGTH.'-cijferige code uit uw e-mail in.',
+            ];
+        }
+
+        $openCodes = CustomerLoginCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', CustomerLoginCode::PURPOSE_ADMIN)
+            ->whereNull('consumed_at')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+
+        $validCodes = $openCodes->filter(fn (CustomerLoginCode $record) => $record->expires_at && $record->expires_at->isFuture());
+        if ($validCodes->isEmpty()) {
+            $hadExpired = $openCodes->contains(fn (CustomerLoginCode $record) => $record->expires_at && $record->expires_at->isPast());
+
+            return [
+                'ok' => false,
+                'status' => 410,
+                'code' => 'code_expired',
+                'message' => $hadExpired
+                    ? 'Je inlogcode is verlopen. Vraag een nieuwe code aan.'
+                    : 'Er is geen geldige code meer. Vraag een nieuwe code aan.',
+            ];
+        }
+
+        $match = null;
+        foreach ($validCodes as $record) {
+            if (Hash::check($code, $record->code_hash)) {
+                $match = $record;
+                break;
+            }
+        }
+
+        if (! $match) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Deze code is onjuist. Controleer de code uit je e-mail of vraag een nieuwe aan.',
+            ];
+        }
+
+        $match->update(['consumed_at' => now()]);
+        $this->invalidateOpenCodes($user);
+
+        $payload = [
+            'must_change_password' => false,
+            'password_must_be_set' => false,
+        ];
+        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
+            $payload['email_verified_at'] = now();
+        }
+        if ($this->needsFirstLogin($user) && Schema::hasColumn('users', 'welcome_handleiding_pending')) {
+            $payload['welcome_handleiding_pending'] = true;
+        }
+
+        $user->forceFill($payload)->save();
+        RateLimiter::clear($attemptKey);
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'message' => 'U bent ingelogd. U blijft ingelogd op dit apparaat.',
             'user' => $user->fresh(),
         ];
     }

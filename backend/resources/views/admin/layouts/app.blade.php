@@ -399,6 +399,35 @@
             color: inherit !important;
         }
 
+        /* Dark mode: hover/selectie lichter dan dropdown (#111827), anders amper zichtbaar (accent = zinc-900) */
+        html.dark .kt-select-option:hover,
+        html.dark .kt-select-option.hover,
+        html.dark .kt-select-option.focused,
+        html.dark .kt-select-option.highlighted,
+        html.dark .kt-select-option.selected,
+        html.dark .kt-select-option[aria-selected="true"],
+        html.dark [data-kt-select-option]:hover,
+        html.dark [data-kt-select-option].hover,
+        html.dark [data-kt-select-option].focused,
+        html.dark [data-kt-select-option].highlighted,
+        html.dark [data-kt-select-option].selected,
+        html.dark [data-kt-select-option][aria-selected="true"],
+        .dark .kt-select-option:hover,
+        .dark .kt-select-option.hover,
+        .dark .kt-select-option.focused,
+        .dark .kt-select-option.highlighted,
+        .dark .kt-select-option.selected,
+        .dark .kt-select-option[aria-selected="true"],
+        .dark [data-kt-select-option]:hover,
+        .dark [data-kt-select-option].hover,
+        .dark [data-kt-select-option].focused,
+        .dark [data-kt-select-option].highlighted,
+        .dark [data-kt-select-option].selected,
+        .dark [data-kt-select-option][aria-selected="true"] {
+            background-color: #374151 !important; /* gray-700 */
+            color: #f9fafb !important;
+        }
+
         /* Scrollbalk in dropdowns: geen track-put, kleuren per modus */
         .kt-select-dropdown,
         .kt-select-dropdown[data-kt-select-dropdown],

@@ -33,11 +33,11 @@ class AdminFirstLoginTest extends TestCase
     {
         $this->get(route('admin.login'))
             ->assertOk()
-            ->assertSee('Eerste keer inloggen', false)
+            ->assertSee('Inloggen met e-mailcode', false)
             ->assertSee('Inlogcode aanvragen', false)
             ->assertSee('Terug naar inloggen', false)
-            ->assertSee('eenmalige code aan', false)
-            ->assertSee('Minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.', false);
+            ->assertSee('Taxibedrijf aanmelden (Marketplace)', false)
+            ->assertSee('eenmalige code aan', false);
     }
 
     #[Test]
@@ -57,7 +57,7 @@ class AdminFirstLoginTest extends TestCase
 
         $this->get(route('admin.login'))
             ->assertOk()
-            ->assertSee('Eerste keer inloggen', false)
+            ->assertSee('Inloggen met code', false)
             ->assertSee(AdminFirstLoginService::ACTIVATION_REQUIRED_MESSAGE, false)
             ->assertSee($user->email, false)
             ->assertSee('Inlogcode aanvragen', false);
@@ -148,7 +148,7 @@ class AdminFirstLoginTest extends TestCase
     }
 
     #[Test]
-    public function activated_account_must_use_password(): void
+    public function activated_account_can_request_code_login(): void
     {
         $company = Company::query()->create(['name' => 'Klaar BV', 'is_active' => true]);
         $user = User::factory()->create([
@@ -164,9 +164,12 @@ class AdminFirstLoginTest extends TestCase
 
         $this->postJson(route('admin.login.first-code'), [
             'email' => $user->email,
-        ])
-            ->assertStatus(422)
-            ->assertJsonFragment(['message' => 'Dit account is al geactiveerd. Log in met uw wachtwoord.']);
+        ])->assertOk();
+
+        $this->assertDatabaseHas('customer_login_codes', [
+            'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_ADMIN,
+        ]);
     }
 
     #[Test]

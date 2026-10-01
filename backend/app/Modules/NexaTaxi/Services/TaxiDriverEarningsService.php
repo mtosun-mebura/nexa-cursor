@@ -128,9 +128,29 @@ class TaxiDriverEarningsService
      */
     private function completedRidesForRange(string $conn, int $companyId, int $driverId, Carbon $from, Carbon $to): Collection
     {
+        \App\Modules\NexaTaxi\Support\TaxiDispatchSchema::ensureSettlementColumns($conn);
+
         return RideRequest::on($conn)
-            ->where('company_id', $companyId)
+            ->where(function ($q) use ($companyId) {
+                // Network: partner driver earnings belong to fulfiller company.
+                $q->where(function ($inner) use ($companyId) {
+                    $inner->where('fulfilling_company_id', $companyId);
+                })->orWhere(function ($inner) use ($companyId) {
+                    $inner->where('company_id', $companyId)
+                        ->where(function ($ownerOnly) {
+                            $ownerOnly->whereNull('fulfilling_company_id')
+                                ->orWhereColumn('fulfilling_company_id', 'company_id');
+                        });
+                });
+            })
             ->where('status', RideRequest::STATUS_COMPLETED)
+            ->where(function ($q) {
+                // Phase 4 gate: hold/review/rejected are not payable earnings yet.
+                $q->whereIn('settlement_status', [
+                    RideRequest::SETTLEMENT_ELIGIBLE,
+                    RideRequest::SETTLEMENT_SETTLED,
+                ])->orWhereNull('settlement_status');
+            })
             ->where(function ($q) use ($driverId) {
                 $q->where('driver_id', $driverId)
                     ->orWhere('outbound_driver_id', $driverId);

@@ -9444,7 +9444,13 @@ section#boek-rit[data-nexataxi-booking-module],
             var poiName = (row.name && String(row.name).trim()) ? String(row.name).trim() : '';
             if (!row.address) {
                 var fallback = poiName || displayName;
-                return fallback ? { label: fallback, value: fallback } : null;
+                if (!fallback) return null;
+                var fallbackIsStation = String(row.category || row.class || '').toLowerCase() === 'railway'
+                    || /^(station|halt)$/i.test(String(row.type || ''));
+                if (fallbackIsStation && !/^station\b/i.test(fallback)) {
+                    fallback = 'Station ' + fallback;
+                }
+                return { label: fallback, value: fallback, is_station: fallbackIsStation };
             }
             var a = row.address;
             var street = a.road || a.pedestrian || a.footway || a.cycleway || a.path || a.railway || '';
@@ -9476,7 +9482,11 @@ section#boek-rit[data-nexataxi-booking-module],
             var value = [lead, second].filter(Boolean).join(', ').trim();
             if (!value) { value = poiName || displayName || ''; }
             if (!value) return null;
-            return { label: value, value: value };
+            return {
+                label: value,
+                value: value,
+                is_station: category === 'railway' || placeType === 'station' || placeType === 'halt'
+            };
         }
 
         function buildNominatimUrl(params) {
@@ -9621,6 +9631,72 @@ section#boek-rit[data-nexataxi-booking-module],
             });
         }
 
+        function queryWantsStation(query) {
+            var q = String(query || '').toLowerCase();
+            return /\bstation\b/.test(q) || /\bcentraal\b/.test(q) || /\bcs\b/.test(q);
+        }
+
+        function isStationTypes(types) {
+            return (Array.isArray(types) ? types : []).some(function(t) {
+                return /^(train_station|transit_station|subway_station|light_rail_station|bus_station)$/i.test(String(t));
+            });
+        }
+
+        function ensureStationLabel(name) {
+            var n = String(name || '').trim();
+            if (!n) return n;
+            if (/^station\b/i.test(n)) return n;
+            return 'Station ' + n;
+        }
+
+        function formatGooglePredictionItem(prediction) {
+            var description = String((prediction && prediction.description) || '').trim();
+            var main = String((prediction && prediction.structured_formatting && prediction.structured_formatting.main_text) || '').trim();
+            var secondary = String((prediction && prediction.structured_formatting && prediction.structured_formatting.secondary_text) || '').trim();
+            var types = Array.isArray(prediction && prediction.types) ? prediction.types : [];
+            var station = isStationTypes(types);
+            var label = description;
+            if (station) {
+                var name = ensureStationLabel(main || description.split(',')[0] || description);
+                label = secondary ? (name + ', ' + secondary) : name;
+            }
+            return {
+                label: label,
+                value: label,
+                place_id: (prediction && prediction.place_id) || '',
+                is_station: station
+            };
+        }
+
+        function mergeStationAwareSuggestions(googleSuggestions, nominatimSuggestions, query) {
+            var wantsStation = queryWantsStation(query);
+            var out = [];
+            var seen = {};
+            function keyOf(item) {
+                return String((item && (item.place_id || item.value || item.label)) || '').toLowerCase();
+            }
+            function push(item) {
+                if (!item || !(item.value || item.label)) return;
+                var key = keyOf(item);
+                if (!key || seen[key]) return;
+                seen[key] = true;
+                out.push(item);
+            }
+            var google = Array.isArray(googleSuggestions) ? googleSuggestions : [];
+            var nomi = Array.isArray(nominatimSuggestions) ? nominatimSuggestions : [];
+            if (wantsStation) {
+                google.filter(function(i) { return i.is_station; }).forEach(push);
+                nomi.filter(function(i) {
+                    return i.is_station || /^station\b/i.test(String(i.label || i.value || ''));
+                }).forEach(push);
+                google.forEach(push);
+                nomi.forEach(push);
+                return out.slice(0, 8);
+            }
+            if (google.length > 0) return google.slice(0, 8);
+            return nomi.slice(0, 8);
+        }
+
         function fetchGooglePredictions(query, sourceKey) {
             return new Promise(function(resolve) {
                 if (!mapsApiKey) {
@@ -9656,8 +9732,13 @@ section#boek-rit[data-nexataxi-booking-module],
                         resolve([]);
                         return;
                     }
-                    /* Zelfde wereldwijde Google Places-zoekopdracht als AI-chatbot (Schiphol vertrek/aankomst, DUS-terminals, …). */
-                    var request = { input: query };
+                    /* Bij stationszoekopdracht expliciet "Station …" zodat Google het
+                       treinstation teruggeeft i.p.v. alleen de plaatsnaam. */
+                    var input = String(query || '').trim();
+                    if (queryWantsStation(input) && !/^station\b/i.test(input)) {
+                        input = 'Station ' + input.replace(/\bstation\b/gi, ' ').replace(/\s+/g, ' ').trim();
+                    }
+                    var request = { input: input };
                     var finished = false;
                     var timer = setTimeout(function() {
                         if (finished) return;
@@ -9672,13 +9753,8 @@ section#boek-rit[data-nexataxi-booking-module],
                             resolve([]);
                             return;
                         }
-                        resolve(results.slice(0, 8).map(function(prediction) {
-                            var description = prediction.description || '';
-                            return {
-                                label: description,
-                                value: description,
-                                place_id: prediction.place_id || ''
-                            };
+                        resolve(results.slice(0, 8).map(formatGooglePredictionItem).filter(function(item) {
+                            return !!(item && item.value);
                         }));
                     });
                 }
@@ -9704,13 +9780,7 @@ section#boek-rit[data-nexataxi-booking-module],
             }
 
             function finalize() {
-                if (googleSuggestions.length > 0) {
-                    return googleSuggestions;
-                }
-                if (nominatimSuggestions.length > 0) {
-                    return nominatimSuggestions;
-                }
-                return [];
+                return mergeStationAwareSuggestions(googleSuggestions, nominatimSuggestions, q);
             }
 
             return new Promise(function(resolve) {
@@ -9724,7 +9794,7 @@ section#boek-rit[data-nexataxi-booking-module],
                     nominatimDone = true;
                     nominatimSuggestions = Array.isArray(suggestions) ? suggestions : [];
                     if (!googleDone && nominatimSuggestions.length > 0) {
-                        notifyPartial(nominatimSuggestions);
+                        notifyPartial(mergeStationAwareSuggestions([], nominatimSuggestions, q));
                     }
                     maybeFinish();
                 });
@@ -9732,8 +9802,9 @@ section#boek-rit[data-nexataxi-booking-module],
                 fetchGooglePredictions(q, sourceKey).then(function(suggestions) {
                     googleDone = true;
                     googleSuggestions = Array.isArray(suggestions) ? suggestions : [];
-                    if (googleSuggestions.length > 0) {
-                        notifyPartial(googleSuggestions);
+                    if (googleSuggestions.length > 0 || nominatimDone) {
+                        var merged = mergeStationAwareSuggestions(googleSuggestions, nominatimSuggestions, q);
+                        if (merged.length > 0) notifyPartial(merged);
                     }
                     maybeFinish();
                 });

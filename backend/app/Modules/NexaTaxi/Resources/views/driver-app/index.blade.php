@@ -205,17 +205,58 @@
         }
         .driver-vehicle-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 0.6rem;
             margin: 0.35rem 0 0.15rem;
+            width: 100%;
+            min-width: 0;
+        }
+        .driver-vehicle-row.is-assigned {
+            display: block;
+            text-align: left;
+            padding: 0.15rem 0 0.35rem;
+        }
+        .driver-vehicle-row.is-assigned .driver-vehicle-pick {
+            display: none !important;
+        }
+        .driver-vehicle-row.is-assigned .driver-vehicle-assigned {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 100%;
+            text-align: left;
+            gap: 0.15rem;
+        }
+        .driver-vehicle-row.needs-vehicle {
+            outline: 2px solid #f59e0b;
+            outline-offset: 2px;
+            border-radius: 0.65rem;
+            padding: 0.35rem 0.45rem;
+            background: rgba(245, 158, 11, 0.12);
+        }
+        .driver-vehicle-row.needs-vehicle label {
+            color: #f59e0b;
+            font-weight: 650;
+        }
+        .driver-vehicle-row.needs-vehicle select {
+            border-color: #f59e0b;
         }
         .driver-vehicle-row label {
             font-size: 0.75rem;
             color: var(--muted);
             flex-shrink: 0;
+            padding-top: 0.55rem;
+        }
+        .driver-vehicle-pick {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
         }
         .driver-vehicle-row select {
-            flex: 1;
+            width: 100%;
             min-width: 0;
             background: var(--card-elevated);
             color: var(--text);
@@ -223,6 +264,21 @@
             border-radius: 0.6rem;
             padding: 0.4rem 0.55rem;
             font-size: 0.8125rem;
+        }
+        .driver-vehicle-name {
+            display: block;
+            font-size: 0.72rem;
+            line-height: 1.3;
+            color: var(--muted);
+            font-weight: 550;
+            padding-left: 0.15rem;
+        }
+        .driver-vehicle-row.is-assigned .driver-vehicle-name {
+            padding-left: 0;
+            display: inline;
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 550;
         }
         .driver-vehicle-assigned {
             flex: 1;
@@ -234,18 +290,29 @@
         .driver-vehicle-assigned-label {
             font-size: 0.7rem;
             color: var(--muted);
+            line-height: 1.25;
+        }
+        .driver-vehicle-assigned-main {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.35rem 0.55rem;
+            min-width: 0;
+            max-width: 100%;
         }
         .driver-vehicle-assigned-value {
-            font-size: 0.8125rem;
+            font-size: 0.95rem;
             line-height: 1.35;
-            padding-top: 0.05rem;
             color: var(--text);
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            word-break: break-word;
         }
         .driver-vehicle-assigned-until {
             font-size: 0.72rem;
             color: var(--muted);
             font-weight: 550;
+            line-height: 1.3;
         }
         .driver-app-header__center {
             grid-column: 2;
@@ -1327,6 +1394,30 @@
             text-transform: uppercase;
             margin: 0 0 0.5rem;
         }
+        .network-ride-badge,
+        .offer-badge.is-network {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            color: #93c5fd;
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: none;
+            margin: 0 0.35rem 0.5rem 0;
+            max-width: 12rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .offer-badge.is-network {
+            display: inline-flex;
+            margin: 0;
+            max-width: 14rem;
+        }
         .nexa-suite-ride-badge,
         .offer-badge.is-nexa-suite {
             display: inline-block;
@@ -1528,6 +1619,12 @@
             border-color: rgba(var(--ride-taxi-rgb), 0.38);
             box-shadow: inset 3px 0 0 var(--ride-taxi);
         }
+        .scheduled-ride-card.is-network-ride,
+        .offer-card.is-network-ride,
+        #active-ride-strip.is-network-ride {
+            border-color: rgba(59, 130, 246, 0.45);
+            box-shadow: inset 3px 0 0 #3b82f6;
+        }
         .scheduled-ride-card.is-contract-ride,
         .offer-card.is-contract-ride,
         #active-ride-strip.is-contract-ride {
@@ -1547,11 +1644,21 @@
         }
         .offer-card-top {
             display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.55rem;
+            margin-bottom: 0.85rem;
+        }
+        .offer-card-top__row {
+            display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            gap: 0.75rem;
-            margin-bottom: 0.85rem;
+            gap: 0.55rem 0.75rem;
+            width: 100%;
+        }
+        .offer-card-top__row .offer-ago {
+            margin-left: auto;
         }
         .offer-badge {
             display: inline-flex;
@@ -1576,8 +1683,10 @@
         .offer-badge-row .offer-badge,
         .offer-badge-row .contract-ride-badge,
         .offer-badge-row .taxi-ride-badge,
+        .offer-badge-row .network-ride-badge,
         .offer-badge-row .nexa-suite-ride-badge,
-        .offer-badge-row .return-ride-badge {
+        .offer-badge-row .return-ride-badge,
+        .offer-badge-row .paid-ride-badge {
             margin: 0;
             display: inline-flex;
             align-items: center;
@@ -1613,19 +1722,15 @@
             gap: 0.35rem;
             text-align: right;
         }
-        #active-ride-strip .offer-card-meta-right {
-            flex-direction: row;
+        #active-ride-strip .offer-card-top__row {
             flex-wrap: nowrap;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.4rem;
         }
         #active-ride-strip .offer-card-top .offer-badge,
-        #active-ride-strip .offer-card-meta-right .contract-ride-badge,
-        #active-ride-strip .offer-card-meta-right .taxi-ride-badge,
-        #active-ride-strip .offer-card-meta-right .nexa-suite-ride-badge,
-        #active-ride-strip .offer-card-meta-right .return-ride-badge,
-        #active-ride-strip .offer-card-meta-right .offer-vehicle-pill {
+        #active-ride-strip .offer-card-top .contract-ride-badge,
+        #active-ride-strip .offer-card-top .taxi-ride-badge,
+        #active-ride-strip .offer-card-top .network-ride-badge,
+        #active-ride-strip .offer-card-top .nexa-suite-ride-badge,
+        #active-ride-strip .offer-card-top .return-ride-badge {
             margin: 0;
             display: inline-flex;
             align-items: center;
@@ -1640,16 +1745,15 @@
             white-space: nowrap;
             border-radius: 0.5rem;
         }
-        #active-ride-strip .offer-card-meta-right .contract-ride-badge,
-        #active-ride-strip .offer-card-meta-right .taxi-ride-badge,
-        #active-ride-strip .offer-card-meta-right .nexa-suite-ride-badge,
-        #active-ride-strip .offer-card-meta-right .return-ride-badge {
+        #active-ride-strip .offer-card-top .contract-ride-badge,
+        #active-ride-strip .offer-card-top .taxi-ride-badge,
+        #active-ride-strip .offer-card-top .network-ride-badge,
+        #active-ride-strip .offer-card-top .nexa-suite-ride-badge,
+        #active-ride-strip .offer-card-top .return-ride-badge {
             font-weight: 800;
         }
-        #active-ride-strip .offer-card-meta-right .offer-vehicle-pill {
-            font-weight: 600;
-            letter-spacing: 0;
-            text-transform: none;
+        #active-ride-strip .offer-vehicle-pill--full {
+            width: 100%;
         }
         .offer-ago {
             font-size: 0.75rem;
@@ -1657,12 +1761,28 @@
         }
         .offer-vehicle-pill {
             display: inline-flex;
-            padding: 0.2rem 0.55rem;
-            border-radius: 999px;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.55rem;
             background: rgba(148, 163, 184, 0.16);
             color: var(--soft-text);
-            font-size: 0.7rem;
+            font-size: 0.78rem;
             font-weight: 600;
+            box-sizing: border-box;
+        }
+        .offer-vehicle-pill--full {
+            width: 100%;
+            justify-content: flex-start;
+            text-align: left;
+            min-height: 2.15rem;
+            padding: 0.55rem 0.85rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text);
+            background: rgba(37, 99, 235, 0.12);
+            border: 1px solid rgba(37, 99, 235, 0.28);
+            letter-spacing: 0.01em;
         }
         .offer-body-grid {
             display: flex;
@@ -1672,20 +1792,93 @@
         .offer-meta-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
-            gap: 0.75rem 1rem;
-            align-items: end;
-            margin-bottom: 0.65rem;
+            gap: 0.85rem 1rem;
+            align-items: start;
+            margin-bottom: 0.15rem;
         }
         .offer-meta-grid .offer-customer-block {
             margin: 0;
-            align-self: end;
+            align-self: start;
+            min-width: 0;
         }
         .offer-meta-grid .offer-stats {
             text-align: right;
-            align-self: end;
+            align-self: start;
+            justify-self: end;
+            min-width: 5.5rem;
+            max-width: 42%;
+            padding-left: 0.25rem;
         }
         .offer-meta-grid .offer-stats .offer-price-wrap {
             align-items: flex-end;
+        }
+        .offer-meta-grid .offer-stats-line { display: none; }
+        .offer-details-panel {
+            margin-top: 0.15rem;
+            padding: 0.85rem 0.9rem;
+            border: 1px solid var(--line);
+            border-radius: 0.75rem;
+            background: rgba(148, 163, 184, 0.07);
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            width: 100%;
+        }
+        .offer-details-panel:empty { display: none; }
+        .offer-details-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            padding-top: 0.55rem;
+            border-top: 1px solid var(--line);
+        }
+        .offer-details-stats__row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
+        }
+        .offer-details-stat {
+            margin: 0;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .offer-details-stat strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+        .offer-details-stat--stack {
+            width: 100%;
+        }
+        .offer-details-stat--end {
+            margin-left: auto;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .offer-details-stat--full {
+            width: 100%;
+            margin-top: 0.2rem;
+            padding-top: 0.4rem;
+            border-top: 1px solid var(--line);
+        }
+        .offer-details-note {
+            margin: 0;
+            padding-top: 0.45rem;
+            border-top: 1px solid var(--line);
+            font-size: 0.875rem;
+            line-height: 1.45;
+            color: var(--text);
+        }
+        .offer-details-note span {
+            color: var(--muted);
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.15rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
         .offer-actions:has(> :only-child),
         .offer-actions.declined-ride-actions,
@@ -1754,10 +1947,11 @@
         }
         .offer-route-main {
             display: block;
-            font-size: 0.95rem;
-            font-weight: 700;
+            font-size: 1.05rem;
+            font-weight: 800;
             color: var(--text);
-            line-height: 1.3;
+            line-height: 1.35;
+            letter-spacing: -0.01em;
         }
         .offer-route-sub {
             display: block;
@@ -1771,22 +1965,48 @@
             margin-bottom: 0;
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.4rem;
             min-width: 0;
         }
         .offer-customer-row {
             margin: 0;
+            display: grid;
+            grid-template-columns: 4.75rem minmax(0, 1fr);
+            gap: 0.45rem 0.55rem;
+            align-items: baseline;
             font-size: 0.9rem;
             color: var(--text);
             line-height: 1.4;
         }
         .offer-customer-label {
-            font-size: 0.8125rem;
+            font-size: 0.78rem;
             letter-spacing: 0.01em;
             color: var(--soft-text);
             font-weight: 600;
+            line-height: 1.35;
+            margin: 0;
+        }
+        .offer-customer-value {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .offer-vehicle-value {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+        .offer-vehicle-plate {
+            font-weight: 700;
+            color: var(--text);
+        }
+        .offer-vehicle-name {
+            font-size: 0.78rem;
+            font-weight: 550;
+            color: var(--muted);
             line-height: 1.3;
-            margin-right: 0.25rem;
         }
         a.offer-phone {
             color: #93c5fd;
@@ -1801,22 +2021,28 @@
         }
         .offer-stats {
             text-align: right;
+            min-width: 0;
         }
         .offer-stats .offer-price-wrap {
             margin: 0;
             align-items: flex-end;
+            overflow: visible;
         }
         .offer-stats .offer-price {
             margin: 0;
-            font-size: 1.45rem;
+            font-size: 1.35rem;
             font-weight: 800;
             color: var(--price);
+            line-height: 1.2;
+            padding-left: 0.15rem;
+            letter-spacing: -0.01em;
         }
         .offer-stats-line {
-            margin: 0.25rem 0 0;
+            margin: 0.3rem 0 0;
             font-size: 0.78rem;
             color: var(--muted);
             line-height: 1.35;
+            white-space: nowrap;
         }
         .offer-title { font-size: 1.125rem; font-weight: 700; margin: 0 0 0.5rem; }
         .offer-meta { font-size: 0.875rem; color: var(--muted); line-height: 1.45; }
@@ -1837,6 +2063,48 @@
             margin: 0.2rem 0 0;
             font-size: 0.75rem;
             color: var(--muted);
+        }
+        .offer-fee-breakdown {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .offer-fee-line,
+        .offer-fee-row {
+            margin: 0;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.85rem;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .offer-fee-row__label { min-width: 0; }
+        .offer-fee-row__value {
+            color: var(--text);
+            font-weight: 600;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .offer-fee-line strong,
+        .offer-fee-row strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+        .offer-fee-pct {
+            color: var(--muted);
+            font-weight: 400;
+        }
+        .offer-badge.is-network,
+        .nexa-suite-ride-badge.is-network,
+        .network-ride-badge {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            border-color: rgba(59, 130, 246, 0.5);
         }
         #offer-container { flex-shrink: 0; }
         .offer-actions {
@@ -2660,6 +2928,7 @@
         }
         .scheduled-ride-card .scheduled-ride-toggle-text .contract-ride-badge,
         .scheduled-ride-card .scheduled-ride-toggle-text .taxi-ride-badge,
+        .scheduled-ride-card .scheduled-ride-toggle-text .network-ride-badge,
         .scheduled-ride-card .scheduled-ride-toggle-text .nexa-suite-ride-badge,
         .scheduled-ride-card .scheduled-ride-toggle-text .return-ride-badge {
             align-self: flex-start;
@@ -2750,6 +3019,10 @@
             gap: 0.75rem;
             margin-top: 0.85rem;
         }
+        .scheduled-ride-actions:has(.btn-hand-over-network) .btn-start-ride,
+        .overdue-ride-actions:has(.btn-hand-over-network) .btn-start-ride {
+            grid-column: 1 / -1;
+        }
         .contract-start-hint {
             margin: 0;
             width: 100%;
@@ -2766,12 +3039,34 @@
             color: var(--text);
             border: 1.5px solid var(--orange);
         }
+        .scheduled-ride-actions .btn-hand-over-network,
+        .overdue-ride-actions .btn-hand-over-network {
+            background: transparent;
+            color: var(--text);
+            border: 1.5px solid rgba(59, 130, 246, 0.65);
+        }
         .scheduled-ride-actions .btn-release-ride:hover,
         .overdue-ride-actions .btn-release-ride:hover {
             background: rgba(var(--accent-rgb), 0.12);
         }
         .scheduled-ride-card .btn-start-ride { margin-top: 0; }
-        .offer-pickup-at { margin: 0 0 0.75rem; font-size: 1.0625rem; font-weight: 600; color: #fbbf24; }
+        .offer-pickup-at {
+            margin: 0 0 0.75rem;
+            padding: 0.55rem 0.75rem;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fbbf24;
+            line-height: 1.35;
+            text-align: center;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            border: 1px solid rgba(251, 191, 36, 0.28);
+            border-radius: 0.65rem;
+            background: rgba(251, 191, 36, 0.1);
+        }
         .offer-queue-nav {
             display: flex;
             align-items: center;
@@ -3443,6 +3738,13 @@
             border-color: rgba(234, 88, 12, 0.4);
             color: #c2410c;
         }
+        html[data-theme="light"] .network-ride-badge,
+        html[data-theme="light"] .nexa-suite-ride-badge.is-network,
+        html[data-theme="light"] .offer-badge.is-network {
+            background: rgba(37, 99, 235, 0.12);
+            border-color: rgba(37, 99, 235, 0.4);
+            color: #1d4ed8;
+        }
         html[data-theme="light"] .contract-ride-badge {
             background: rgba(37, 99, 235, 0.1);
             border-color: rgba(37, 99, 235, 0.35);
@@ -3470,6 +3772,11 @@
         html[data-theme="light"] .scheduled-ride-card.is-taxi-ride,
         html[data-theme="light"] .offer-card.is-taxi-ride {
             border-color: rgba(249, 115, 22, 0.35);
+        }
+        html[data-theme="light"] .scheduled-ride-card.is-network-ride,
+        html[data-theme="light"] .offer-card.is-network-ride,
+        html[data-theme="light"] #active-ride-strip.is-network-ride {
+            border-color: rgba(37, 99, 235, 0.4);
         }
         html[data-theme="light"] .scheduled-ride-card.is-contract-ride,
         html[data-theme="light"] .offer-card.is-contract-ride,
@@ -3690,12 +3997,18 @@
             <div class="dispatch-banners">
                 <div id="driver-vehicle-row" class="driver-vehicle-row" hidden>
                     <label for="driver-vehicle-select">Voertuig</label>
-                    <select id="driver-vehicle-select" aria-label="Voertuig dat je nu bestuurt">
-                        <option value="">Kies kenteken</option>
-                    </select>
+                    <div class="driver-vehicle-pick">
+                        <select id="driver-vehicle-select" aria-label="Voertuig dat je nu bestuurt">
+                            <option value="">Kies kenteken</option>
+                        </select>
+                        <span id="driver-vehicle-name" class="driver-vehicle-name" hidden></span>
+                    </div>
                     <div id="driver-vehicle-assigned" class="driver-vehicle-assigned" hidden>
                         <span class="driver-vehicle-assigned-label">Gekoppeld aan</span>
-                        <span id="driver-vehicle-assigned-value" class="driver-vehicle-assigned-value"></span>
+                        <div class="driver-vehicle-assigned-main">
+                            <span id="driver-vehicle-assigned-value" class="driver-vehicle-assigned-value"></span>
+                            <span id="driver-vehicle-assigned-name" class="driver-vehicle-name" hidden></span>
+                        </div>
                         <span id="driver-vehicle-assigned-until" class="driver-vehicle-assigned-until" hidden></span>
                     </div>
                 </div>
@@ -3804,14 +4117,15 @@
             <div id="offer-container">
                 <div class="card offer-card" id="offer-card">
                     <div class="offer-card-top">
-                        <div class="offer-badge-row">
-                            <span class="offer-badge" id="offer-badge">Nieuw</span>
-                            <span class="offer-waiting-dot" id="offer-waiting-dot" hidden aria-hidden="true"></span>
-                        </div>
-                        <div class="offer-card-meta-right">
+                        <div class="offer-card-top__row">
+                            <div class="offer-badge-row">
+                                <span class="offer-badge" id="offer-badge">Nieuw</span>
+                                <span class="offer-badge is-success paid-ride-badge" id="offer-paid-badge" hidden>Betaald</span>
+                                <span class="offer-waiting-dot" id="offer-waiting-dot" hidden aria-hidden="true"></span>
+                            </div>
                             <span class="offer-ago" id="offer-ago"></span>
-                            <span class="offer-vehicle-pill" id="offer-vehicle-badge">Sedan</span>
                         </div>
+                        <span class="offer-vehicle-pill offer-vehicle-pill--full" id="offer-vehicle-badge">Sedan</span>
                     </div>
                     <p class="offer-waiting-banner" id="offer-waiting-banner" role="status" aria-live="polite"></p>
                     <p class="offer-title" id="offer-title" hidden>Nieuwe rit</p>
@@ -3846,10 +4160,9 @@
                             <div class="offer-customer-block" id="offer-customer"></div>
                             <div class="offer-stats">
                                 <div class="offer-price-wrap" id="offer-price"></div>
-                                <p class="offer-stats-line" id="offer-stats-distance"></p>
-                                <p class="offer-stats-line" id="offer-stats-duration"></p>
                             </div>
                         </div>
+                        <div class="offer-details-panel" id="offer-details"></div>
                     </div>
                     <div id="offer-actions-panel" class="offer-actions">
                         <button type="button" class="btn btn-danger" id="btn-decline">Weigeren</button>
@@ -4234,7 +4547,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
-<script src="/assets/js/taxi-driver-app.js?v=173" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=184" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

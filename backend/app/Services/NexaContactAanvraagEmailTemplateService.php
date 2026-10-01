@@ -123,7 +123,7 @@ class NexaContactAanvraagEmailTemplateService
                                 Antwoord deze e-mail om de klant te bereiken.
                             </p>
                             <p style="margin: 16px 0 0; color: #6b7280; font-size: 13px; text-align: center; line-height: 1.6;">
-                                Powered by NEXA Suite.
+                                Powered by <a href="https://nexasuite.nl" style="color:#6b7280;text-decoration:underline;">NEXA Suite</a>.
                             </p>
                         </td>
                     </tr>
@@ -153,7 +153,7 @@ Omschrijving:
 
 Antwoord deze e-mail om de klant te bereiken.
 
-Powered by NEXA Suite.
+Powered by NEXA Suite: https://nexasuite.nl
 TEXT;
     }
 }

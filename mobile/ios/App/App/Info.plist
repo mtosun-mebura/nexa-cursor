@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Nexa Chauffeur</string>
+        <string>Nexa Taxi</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,9 +25,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Je locatie wordt gedeeld met de centrale zodra je online staat, zodat ritten in je buurt aan je toegewezen kunnen worden.</string>
+	<string>Nexa Taxi gebruikt je locatie om je ophaaladres te bepalen (klant) of om ritten in de buurt te tonen (chauffeur).</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Kies Altijd, dan blijft je locatie doorkomen terwijl je navigeert of je telefoon in je zak zit. Buiten je dienst wordt er niets gedeeld.</string>
+	<string>Als chauffeur: kies Altijd zodat je locatie blijft doorkomen tijdens navigatie. Als klant volstaat Bij gebruik.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

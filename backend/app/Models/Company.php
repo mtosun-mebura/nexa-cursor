@@ -6,6 +6,7 @@ use App\Support\CompanyBuildingImages;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Company extends Model
@@ -37,15 +38,27 @@ class Company extends Model
     {
         parent::boot();
 
-        static::creating(function ($company) {
+        static::creating(function (Company $company) {
             if (empty($company->slug)) {
-                $company->slug = Str::slug($company->name);
+                $company->slug = static::uniqueSlugFromName((string) $company->name);
             }
         });
 
-        static::updating(function ($company) {
+        static::updating(function (Company $company) {
             if ($company->isDirty('name') && empty($company->slug)) {
-                $company->slug = Str::slug($company->name);
+                $company->slug = static::uniqueSlugFromName((string) $company->name, $company->id);
+            }
+        });
+
+        static::created(function (Company $company) {
+            if (! Schema::hasTable('payout_identities')) {
+                return;
+            }
+
+            try {
+                app(\App\Services\Payout\PayoutIdentityService::class)->bootstrapCompanyIdentity($company);
+            } catch (\Throwable $e) {
+                report($e);
             }
         });
 
@@ -54,6 +67,32 @@ class Company extends Model
         };
         static::saved($forgetTenantSwitcherCache);
         static::deleted($forgetTenantSwitcherCache);
+    }
+
+    /**
+     * Unique slug for companies.slug (unique index). Empty slug() falls back to "company".
+     */
+    public static function uniqueSlugFromName(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name);
+        if ($base === '') {
+            $base = 'company';
+        }
+        $base = Str::limit($base, 90, '');
+        $slug = $base;
+        $i = 2;
+
+        while (
+            static::query()
+                ->when($ignoreId !== null, static fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->where('slug', $slug)
+                ->exists()
+        ) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        return $slug;
     }
 
     /**

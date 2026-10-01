@@ -215,15 +215,27 @@ class AdminAuthController extends Controller
         $validated = $request->validate([
             'email' => 'required|email',
             'code' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'nullable|string|min:8|confirmed',
+            'skip_password' => 'nullable|boolean',
         ]);
 
-        $result = $firstLogin->verifyAndSetPassword(
-            $validated['email'],
-            $validated['code'],
-            $validated['password'],
-            (string) $request->ip()
-        );
+        $skipPassword = $request->boolean('skip_password')
+            || trim((string) ($validated['password'] ?? '')) === '';
+
+        if ($skipPassword) {
+            $result = $firstLogin->verifyAndLoginWithCode(
+                $validated['email'],
+                $validated['code'],
+                (string) $request->ip()
+            );
+        } else {
+            $result = $firstLogin->verifyAndSetPassword(
+                $validated['email'],
+                $validated['code'],
+                (string) $validated['password'],
+                (string) $request->ip()
+            );
+        }
 
         if (! $result['ok'] || ! isset($result['user'])) {
             return response()->json(array_filter([
@@ -243,15 +255,60 @@ class AdminAuthController extends Controller
             }
         }
 
-        Auth::guard('web')->login($user);
+        // Blijf ingelogd op dit apparaat (remember cookie).
+        Auth::guard('web')->login($user, true);
         $request->session()->regenerate();
         $request->session()->put('has_logged_in_before', true);
         $this->maybePromptTaxiSetup($user);
 
+        $redirect = $user->welcome_handleiding_pending
+            ? route('admin.handleiding.index', ['saved' => 1])
+            : route('admin.dashboard');
+
         return response()->json([
             'message' => $result['message'],
-            'redirect' => route('admin.handleiding.index', ['saved' => 1]),
+            'redirect' => $redirect,
         ]);
+    }
+
+    public function registerMarketplaceCompany(
+        Request $request,
+        \App\Services\MarketplaceCompanyRegistrationService $registration
+    ): JsonResponse {
+        $validated = $request->validate([
+            'company_name' => 'required|string|max:180',
+            'email' => 'required|email|max:180',
+            'phone' => 'nullable|string|max:40',
+            'city' => 'nullable|string|max:120',
+            'contact_first_name' => 'nullable|string|max:80',
+            'contact_last_name' => 'nullable|string|max:80',
+        ], [
+            'company_name.required' => 'Vul de bedrijfsnaam in.',
+            'email.required' => 'Vul een e-mailadres in.',
+            'email.email' => 'Vul een geldig e-mailadres in.',
+        ]);
+
+        try {
+            $result = $registration->register($validated, (string) $request->ip());
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Registratie mislukt. Probeer het later opnieuw.',
+            ], 500);
+        }
+
+        $code = $result['code_result'];
+
+        return response()->json([
+            'message' => $code['ok']
+                ? ('Bedrijf aangemaakt. '.$code['message'])
+                : ('Bedrijf aangemaakt, maar de code kon niet worden verstuurd: '.$code['message']),
+            'email' => $validated['email'],
+            'next' => 'verify_code',
+        ], $code['ok'] ? 201 : 422);
     }
 
     private function maybePromptTaxiSetup(\App\Models\User $user): void

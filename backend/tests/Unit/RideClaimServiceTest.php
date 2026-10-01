@@ -30,6 +30,7 @@ class RideClaimServiceTest extends TestCase
         Schema::connection('module_taxi')->create('ride_requests', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('company_id')->nullable();
+            $table->unsignedBigInteger('fulfilling_company_id')->nullable();
             $table->unsignedBigInteger('vehicle_id')->nullable();
             $table->unsignedBigInteger('driver_id')->nullable();
             $table->unsignedBigInteger('transport_contract_id')->nullable();
@@ -253,6 +254,9 @@ class RideClaimServiceTest extends TestCase
         $completed = $claim->completeRide('module_taxi', $driver, $ride->id);
 
         $this->assertSame(RideRequest::STATUS_COMPLETED, $completed->status);
+        $this->assertNotNull($completed->settlement_status);
+        $this->assertNotSame(RideRequest::SETTLEMENT_ELIGIBLE, $completed->settlement_status);
+        $this->assertFalse($completed->isSettlementPayable());
     }
 
     public function test_complete_rejects_accepted_ride_without_start(): void
@@ -1055,5 +1059,250 @@ class RideClaimServiceTest extends TestCase
         $this->assertTrue($ok);
         $fresh = RideRequest::on('module_taxi')->find($ride->id);
         $this->assertSame('wamid.HBgNSTORED', $fresh->pickup_proposal_whatsapp_wamid);
+    }
+
+    public function test_marketplace_accept_claims_company_id_from_offer(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => null,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Market',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 42,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $result = app(RideClaimService::class)->acceptOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(42, (int) $result['ride']->company_id);
+        $this->assertNull($result['ride']->fulfilling_company_id);
+    }
+
+    public function test_network_accept_preserves_owner_and_sets_fulfiller(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 10,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Network',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 20,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $result = app(RideClaimService::class)->acceptOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(10, (int) $result['ride']->company_id);
+        $this->assertSame(20, (int) $result['ride']->fulfilling_company_id);
+        $this->assertTrue($result['ride']->isNetworkFulfilled());
+    }
+
+    public function test_tenant_accept_does_not_set_fulfiller_when_same_company(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 7,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Tenant',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 7,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $result = app(RideClaimService::class)->acceptOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(7, (int) $result['ride']->company_id);
+        $this->assertNull($result['ride']->fulfilling_company_id);
+        $this->assertFalse($result['ride']->isNetworkFulfilled());
+    }
+
+    public function test_accept_requires_vehicle_when_availability_column_exists(): void
+    {
+        $this->ensureDriverAvailabilitySchema();
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Klant',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $this->expectException(ValidationException::class);
+        app(RideClaimService::class)->acceptOffer('module_taxi', $driver, $offer->id);
+    }
+
+    public function test_accept_stores_selected_vehicle_on_ride(): void
+    {
+        $this->ensureDriverAvailabilitySchema();
+        $this->ensureVehiclesSchema();
+        $driver = User::factory()->create();
+
+        Schema::connection('module_taxi')->getConnection()->table('vehicles')->insert([
+            'id' => 55,
+            'company_id' => 1,
+            'name' => 'Touran',
+            'license_plate' => 'X-123-YZ',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Klant',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $result = app(RideClaimService::class)->acceptOffer(
+            'module_taxi',
+            $driver,
+            $offer->id,
+            null,
+            55
+        );
+
+        $this->assertSame(55, (int) $result['ride']->vehicle_id);
+        $this->assertDatabaseHas('driver_availability', [
+            'driver_id' => $driver->id,
+            'vehicle_id' => 55,
+        ], 'module_taxi');
+    }
+
+    public function test_hand_over_to_network_clears_assignment_and_offers_to_partners(): void
+    {
+        $this->ensureDriverAvailabilitySchema();
+        $driver = User::factory()->create();
+        $owner = \App\Models\Company::query()->create(['name' => 'Owner Taxi', 'is_active' => true]);
+        $partner = \App\Models\Company::query()->create(['name' => 'Partner Taxi', 'is_active' => true]);
+
+        $settings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $settings->setNetworkMode(
+            \App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::NETWORK_MODE_MANUAL,
+            $owner->id
+        );
+        $settings->setNetworkPartnerCompanyIds([(int) $partner->id], $owner->id);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => $owner->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => 9,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Klant',
+        ]);
+
+        RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => $owner->id,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_ACCEPTED,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+            'responded_at' => now(),
+        ]);
+
+        $released = app(RideClaimService::class)->handOverToNetwork(
+            'module_taxi',
+            $driver,
+            (int) $ride->id,
+            (int) $owner->id
+        );
+
+        $this->assertNull($released->driver_id);
+        $this->assertNull($released->vehicle_id);
+        $this->assertSame(RideRequest::STATUS_PENDING_DISPATCH, $released->status);
+        $this->assertSame((int) $owner->id, (int) $released->company_id);
+    }
+
+    private function ensureDriverAvailabilitySchema(): void
+    {
+        if (Schema::connection('module_taxi')->hasTable('driver_availability')) {
+            return;
+        }
+
+        Schema::connection('module_taxi')->create('driver_availability', function (Blueprint $table) {
+            $table->unsignedBigInteger('driver_id')->primary();
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->unsignedBigInteger('vehicle_id')->nullable();
+            $table->boolean('is_online')->default(false);
+            $table->decimal('lat', 10, 7)->nullable();
+            $table->decimal('lng', 10, 7)->nullable();
+            $table->timestamp('location_updated_at')->nullable();
+            $table->timestamp('last_seen_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    private function ensureVehiclesSchema(): void
+    {
+        if (Schema::connection('module_taxi')->hasTable('vehicles')) {
+            return;
+        }
+
+        Schema::connection('module_taxi')->create('vehicles', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->string('name')->nullable();
+            $table->string('license_plate')->nullable();
+            $table->string('type')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
     }
 }

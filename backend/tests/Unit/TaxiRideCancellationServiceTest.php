@@ -37,6 +37,7 @@ class TaxiRideCancellationServiceTest extends TestCase
             'prefix' => '',
         ]]);
         config(['taxi-dispatch.unaccepted_auto_cancel_minutes' => 30]);
+        config(['taxi-dispatch.customer_unaccepted_decision_minutes' => 30]);
 
         $this->mock(ModuleDatabaseService::class, function ($mock): void {
             $mock->shouldReceive('ensureModuleStorageReady')->with('taxi')->andReturnNull();
@@ -118,7 +119,7 @@ class TaxiRideCancellationServiceTest extends TestCase
     }
 
     #[Test]
-    public function auto_cancel_uses_default_thirty_minutes_after_pickup(): void
+    public function auto_cancel_is_not_due_right_after_search_deadline(): void
     {
         $service = $this->cancellationService();
         $pickup = now(ContractTransportTimezone::TIMEZONE)->subMinutes(31);
@@ -133,7 +134,49 @@ class TaxiRideCancellationServiceTest extends TestCase
             'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
         ]);
 
+        $this->assertTrue($service->needsCustomerDecision($ride));
+        $this->assertFalse($service->isDueForAutoCancel($ride));
+    }
+
+    #[Test]
+    public function auto_cancel_is_due_after_decision_window_without_response(): void
+    {
+        $service = $this->cancellationService();
+        $pickup = now(ContractTransportTimezone::TIMEZONE)->subMinutes(61);
+
+        $ride = RideRequest::on($this->conn)->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => ContractTransportTimezone::naiveUtcForWallClockQuery($pickup),
+            'customer_name' => 'Klant',
+            'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
+        ]);
+
         $this->assertTrue($service->isDueForAutoCancel($ride));
+    }
+
+    #[Test]
+    public function auto_cancel_skipped_when_customer_chooses_to_wait(): void
+    {
+        $service = $this->cancellationService();
+        $pickup = now(ContractTransportTimezone::TIMEZONE)->subMinutes(61);
+
+        $ride = RideRequest::on($this->conn)->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => ContractTransportTimezone::naiveUtcForWallClockQuery($pickup),
+            'customer_name' => 'Klant',
+        ]);
+
+        $service->chooseToWait($this->conn, $ride);
+        $ride = $ride->fresh();
+
+        $this->assertTrue($service->customerChoseWait($ride));
+        $this->assertFalse($service->isDueForAutoCancel($ride));
     }
 
     #[Test]
@@ -303,5 +346,6 @@ class TaxiRideCancellationServiceTest extends TestCase
     {
         $service = app(TaxiDispatchSettingsService::class);
         $this->assertSame(30, $service->unacceptedAutoCancelMinutes(999991));
+        $this->assertSame(30, $service->customerUnacceptedDecisionMinutes(999991));
     }
 }

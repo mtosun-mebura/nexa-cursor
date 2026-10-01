@@ -115,25 +115,71 @@ class TaxiDriverEligibilityService
     }
 
     /**
-     * Online chauffeurs voor dispatch (zonder locatie-filter in fase 1).
+     * Online chauffeurs voor dispatch.
+     *
+     * Met $maxRadiusKm + pickup-coördinaten: alleen chauffeurs met bekende GPS
+     * binnen die straal (hemelsbreed). Zonder radius: bestaande gedrag (online,
+     * anders fallback naar chauffeur-rol).
      *
      * @return list<int> user ids
      */
-    public function onlineDriverIdsForCompany(string $conn, int $companyId, int $limit = 8): array
-    {
+    public function onlineDriverIdsForCompany(
+        string $conn,
+        int $companyId,
+        int $limit = 8,
+        ?float $pickupLat = null,
+        ?float $pickupLng = null,
+        ?int $maxRadiusKm = null,
+    ): array {
+        $enforceRadius = $maxRadiusKm !== null
+            && $maxRadiusKm > 0
+            && $pickupLat !== null
+            && $pickupLng !== null;
+
+        if ($enforceRadius && ! TaxiDispatchSchema::driverAvailabilityExists($conn)) {
+            return [];
+        }
+
         $onlineIds = [];
         if (TaxiDispatchSchema::driverAvailabilityExists($conn)) {
-            $onlineIds = DriverAvailability::on($conn)
+            $rows = DriverAvailability::on($conn)
                 ->where('company_id', $companyId)
                 ->where('is_online', true)
                 ->orderByDesc('last_seen_at')
-                ->limit($limit * 2)
-                ->pluck('driver_id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
+                ->limit(max(16, $limit * 8))
+                ->get(['driver_id', 'lat', 'lng']);
+
+            if ($enforceRadius) {
+                $within = [];
+                foreach ($rows as $row) {
+                    if ($row->lat === null || $row->lng === null) {
+                        continue;
+                    }
+                    $km = $this->haversineKm(
+                        $pickupLat,
+                        $pickupLng,
+                        (float) $row->lat,
+                        (float) $row->lng
+                    );
+                    if ($km <= (float) $maxRadiusKm) {
+                        $within[] = (int) $row->driver_id;
+                    }
+                    if (count($within) >= $limit * 2) {
+                        break;
+                    }
+                }
+                $onlineIds = $within;
+            } else {
+                $onlineIds = $rows->pluck('driver_id')->map(fn ($id) => (int) $id)->all();
+            }
         }
 
         if ($onlineIds === []) {
+            // Met radius-eis: geen locatie = geen aanbod (niet terugvallen op alle chauffeurs).
+            if ($enforceRadius) {
+                return [];
+            }
+
             return $this->buildChauffeurQuery($companyId)->limit($limit)->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
 
@@ -144,7 +190,7 @@ class TaxiDriverEligibilityService
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        if (count($eligible) < $limit) {
+        if (! $enforceRadius && count($eligible) < $limit) {
             $more = $this->buildChauffeurQuery($companyId)
                 ->whereNotIn('id', $eligible)
                 ->limit($limit - count($eligible))
@@ -155,5 +201,30 @@ class TaxiDriverEligibilityService
         }
 
         return $eligible;
+    }
+
+    public function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthKm = 6371.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthKm * 2 * atan2(sqrt($a), sqrt(max(0.0, 1 - $a)));
+    }
+
+    public function isWithinRadiusKm(
+        float $pickupLat,
+        float $pickupLng,
+        float $lat,
+        float $lng,
+        int $maxRadiusKm
+    ): bool {
+        if ($maxRadiusKm <= 0) {
+            return false;
+        }
+
+        return $this->haversineKm($pickupLat, $pickupLng, $lat, $lng) <= (float) $maxRadiusKm;
     }
 }

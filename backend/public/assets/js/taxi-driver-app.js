@@ -349,6 +349,12 @@
     })();
     let lastVehiclesRefreshAt = 0;
     let vehicleChoiceLocked = false;
+    let networkMeta = {
+        enabled: false,
+        mode: 'off',
+        can_hand_over: false,
+        partners: [],
+    };
 
     function selectedVehicleQuery(prefix) {
         if (!selectedVehicleId) {
@@ -420,6 +426,7 @@
     let earningsLoading = false;
     let paymentPollTimer = null;
     let paidStampAnimatedRideId = null;
+    let pendingPaidStampRideId = null;
     let cachedOpenPayment = null;
     let audioCtx = null;
     let screenWakeLock = null;
@@ -877,6 +884,7 @@
             const err = new Error(msg);
             err.code = data && data.error;
             err.status = res.status;
+            err.errors = data && data.errors ? data.errors : null;
             throw err;
         }
         return data;
@@ -1815,7 +1823,7 @@
             '<span class="offer-badge is-danger">Ophaalmoment verlopen</span>' +
             taxiBadgeHtml(ride) +
             (contract ? contractBadgeHtml(ride) : '') +
-            nexaSuiteBadgeHtml(ride) +
+            nexaSuiteAndPaidBadgesHtml(ride) +
             '<span class="offer-title">' +
             escapeHtml(contract ? scheduledRideTitle(ride) : 'Rit #' + rideId) +
             '</span>' +
@@ -5539,9 +5547,12 @@
                     const badges = [];
                     if (ride.is_contract) {
                         badges.push('<span class="offer-badge is-muted">Contract</span>');
+                    } else if (isNetworkRide(ride)) {
+                        badges.push(networkBadgeHtml(ride));
                     } else if (isNexaSuiteRide(ride)) {
                         badges.push('<span class="offer-badge is-nexa-suite">' + escapeHtml(nexaSuiteRideLabel(ride)) + '</span>');
-                    } else if (ride.payment_status === 'paid') {
+                    }
+                    if (ride.payment_status === 'paid' || ride.payment_paid) {
                         badges.push('<span class="offer-badge is-success">Betaald</span>');
                     } else if (ride.payment_method === 'cash') {
                         badges.push('<span class="offer-badge is-muted">Contant</span>');
@@ -5613,6 +5624,12 @@
                         '</div>' +
                         '</div>' +
                         '</div>' +
+                        (function () {
+                            const details = rideDetailsPanelHtml(ride);
+                            return details
+                                ? '<div class="offer-details-panel">' + details + '</div>'
+                                : '';
+                        })() +
                         '</div>' +
                         '</div>' +
                         '</article>'
@@ -5781,17 +5798,116 @@
         if (select && selectedVehicleId && !select.hidden) {
             select.value = String(selectedVehicleId);
         }
+        updateSelectedVehicleNameDisplay(selectedVehicleId);
+        updateVehicleRequiredUi(false);
+    }
+
+    function hasSelectedVehicle() {
+        return !!(selectedVehicleId && selectedVehicleId > 0);
+    }
+
+    function updateVehicleRequiredUi(forceHighlight) {
+        const row = $('#driver-vehicle-row');
+        if (!row || row.hidden) {
+            return;
+        }
+        const needs = !hasSelectedVehicle() && !vehicleChoiceLocked;
+        row.classList.toggle('needs-vehicle', !!(forceHighlight || needs));
+    }
+
+    function ensureVehicleSelectedForAccept() {
+        if (hasSelectedVehicle()) {
+            updateVehicleRequiredUi(false);
+            return true;
+        }
+        const row = $('#driver-vehicle-row');
+        // Geen vlootkeuze zichtbaar (geen voertuigen / vast gekoppeld zonder id) → backend beslist.
+        if (!row || row.hidden) {
+            return true;
+        }
+        updateVehicleRequiredUi(true);
+        if (typeof row.scrollIntoView === 'function') {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        const select = $('#driver-vehicle-select');
+        if (select && !select.hidden) {
+            try {
+                select.focus();
+            } catch (e) {
+                /* ignore */
+            }
+        }
+        showDriverNotice(
+            'Kies eerst een voertuig bovenin. De klant moet weten welke auto komt ophalen.',
+            {
+                type: 'error',
+                title: 'Voertuig verplicht',
+            }
+        );
+        return false;
     }
 
     function vehicleOptionLabel(item) {
         if (!item) {
             return '';
         }
-        if (item.label) {
-            return String(item.label);
+        const plate = item.license_plate ? String(item.license_plate).trim() : '';
+        if (plate) {
+            return plate;
         }
-        const plate = item.license_plate ? String(item.license_plate) : '';
-        return plate ? (plate + (item.name ? ' · ' + item.name : '')) : (item.name || ('Voertuig ' + item.id));
+        if (item.name) {
+            return String(item.name).trim();
+        }
+        if (item.label) {
+            // Legacy "kenteken · naam" → alleen kenteken tonen.
+            return String(item.label).split(' · ')[0].trim() || String(item.label);
+        }
+        return item.id ? 'Voertuig ' + item.id : '';
+    }
+
+    function vehicleNameFromItem(item) {
+        if (!item) {
+            return '';
+        }
+        if (item.name) {
+            return String(item.name).trim();
+        }
+        if (item.label && String(item.label).indexOf(' · ') !== -1) {
+            return String(item.label).split(' · ').slice(1).join(' · ').trim();
+        }
+        return '';
+    }
+
+    function findVehicleById(id) {
+        const select = $('#driver-vehicle-select');
+        if (!select) {
+            return null;
+        }
+        const opt = Array.prototype.find.call(select.options || [], function (o) {
+            return String(o.value) === String(id);
+        });
+        if (!opt) {
+            return null;
+        }
+        return {
+            id: id,
+            license_plate: opt.textContent,
+            name: opt.dataset.vehicleName || '',
+        };
+    }
+
+    function updateSelectedVehicleNameDisplay(itemOrId) {
+        const nameEl = $('#driver-vehicle-name');
+        if (!nameEl) {
+            return;
+        }
+        let item = itemOrId;
+        if (itemOrId != null && (typeof itemOrId === 'string' || typeof itemOrId === 'number')) {
+            item = findVehicleById(itemOrId);
+        }
+        const name = vehicleNameFromItem(item);
+        nameEl.textContent = name;
+        nameEl.hidden = !name;
     }
 
     function renderDriverVehicles(payload) {
@@ -5800,6 +5916,7 @@
         const assigned = $('#driver-vehicle-assigned');
         const assignedValue = $('#driver-vehicle-assigned-value');
         const assignedUntil = $('#driver-vehicle-assigned-until');
+        const assignedName = $('#driver-vehicle-assigned-name');
         const label = row ? row.querySelector('label[for="driver-vehicle-select"]') : null;
         if (!row || !select) {
             return;
@@ -5817,18 +5934,30 @@
             if (label) {
                 label.hidden = true;
             }
+            const pick = row.querySelector('.driver-vehicle-pick');
+            if (pick) {
+                pick.hidden = true;
+            }
+            row.classList.add('is-assigned');
             if (assigned) {
                 assigned.hidden = false;
             }
             if (assignedValue) {
                 assignedValue.textContent = vehicleOptionLabel(assignedVehicle);
             }
+            if (assignedName) {
+                const n = vehicleNameFromItem(assignedVehicle);
+                assignedName.textContent = n;
+                assignedName.hidden = !n;
+            }
+            updateSelectedVehicleNameDisplay(null);
             if (assignedUntil) {
                 const until = payload && payload.assigned_until ? String(payload.assigned_until).trim() : '';
                 assignedUntil.hidden = !until;
                 assignedUntil.textContent = until ? 'Dienst tot ' + until : '';
             }
             row.hidden = false;
+            updateVehicleRequiredUi(false);
             return;
         }
 
@@ -5836,8 +5965,17 @@
         if (label) {
             label.hidden = false;
         }
+        const pick = row.querySelector('.driver-vehicle-pick');
+        if (pick) {
+            pick.hidden = false;
+        }
+        row.classList.remove('is-assigned');
         if (assigned) {
             assigned.hidden = true;
+        }
+        if (assignedName) {
+            assignedName.hidden = true;
+            assignedName.textContent = '';
         }
         if (assignedUntil) {
             assignedUntil.hidden = true;
@@ -5846,6 +5984,8 @@
 
         if (!list.length) {
             row.hidden = true;
+            updateSelectedVehicleNameDisplay(null);
+            updateVehicleRequiredUi(false);
             return;
         }
         const current = select.value;
@@ -5854,12 +5994,21 @@
             const opt = document.createElement('option');
             opt.value = String(item.id);
             opt.textContent = vehicleOptionLabel(item);
+            const name = vehicleNameFromItem(item);
+            if (name) {
+                opt.dataset.vehicleName = name;
+            }
             select.appendChild(opt);
         });
         const preferred = selectedVehicleId ? String(selectedVehicleId) : current;
         if (preferred && list.some(function (item) { return String(item.id) === preferred; })) {
             select.value = preferred;
             persistSelectedVehicle(preferred);
+            const match = list.find(function (item) { return String(item.id) === preferred; });
+            updateSelectedVehicleNameDisplay(match || preferred);
+        } else {
+            updateSelectedVehicleNameDisplay(null);
+            updateVehicleRequiredUi(false);
         }
         row.hidden = false;
     }
@@ -6634,9 +6783,12 @@
         }
         const isContract =
             !!(ride && isDriverInProgressRide(ride) && isContractRide(ride));
+        const isNetwork =
+            !!(ride && isDriverInProgressRide(ride) && !isContract && isNetworkRide(ride));
         const isTaxi =
-            !!(ride && isDriverInProgressRide(ride) && !isContractRide(ride));
+            !!(ride && isDriverInProgressRide(ride) && !isContract && !isNetwork);
         strip.classList.toggle('is-contract-ride', isContract);
+        strip.classList.toggle('is-network-ride', isNetwork);
         strip.classList.toggle('is-taxi-ride', isTaxi);
         strip.classList.toggle(
             'is-contract-group-ride',
@@ -6700,7 +6852,7 @@
             activeBadge +
             taxiBadgeHtml(ride) +
             contractBadgeHtml(ride) +
-            nexaSuiteBadgeHtml(ride) +
+            nexaSuiteAndPaidBadgesHtml(ride) +
             returnTripBadgeHtml(ride) +
             '</div>' +
             navBtn +
@@ -6844,8 +6996,43 @@
     }
 
     function isRidePaymentPaid(ride) {
-        const payment = ride && ride.payment ? ride.payment : {};
-        return payment.status === 'paid';
+        if (!ride) {
+            return false;
+        }
+        if (ride.payment_paid === true) {
+            return true;
+        }
+        const payment = ride.payment || {};
+        if (payment.status === 'paid') {
+            return true;
+        }
+        return ride.payment_status === 'paid';
+    }
+
+    function isRidePrepaidAtBooking(ride) {
+        if (!isRidePaymentPaid(ride)) {
+            return false;
+        }
+        const payment = ride.payment || {};
+        const method = String(payment.method || ride.payment_method || '');
+        return method === 'booking';
+    }
+
+    function paidBadgeHtml(ride) {
+        // Banner naast NEXA Suite: alleen als de rit al (vooraf) betaald is.
+        if (!isRidePaymentPaid(ride)) {
+            return '';
+        }
+        return '<span class="offer-badge is-success paid-ride-badge">Betaald</span>';
+    }
+
+    function triggerPaidStampForRide(rideId) {
+        const id = rideId != null ? String(rideId) : '';
+        if (!id) {
+            return;
+        }
+        pendingPaidStampRideId = id;
+        paidStampAnimatedRideId = null;
     }
 
     function syncPaidRideStamp(ride) {
@@ -6854,19 +7041,24 @@
         if (!strip || !stamp) {
             return;
         }
-        const show =
+        const rideId = ride && ride.id != null ? String(ride.id) : '';
+        // Groen vinkje alleen na zojuist gelukte klantbetaling in de app — niet bij vooraf betaalde ritten.
+        const shouldCelebrate =
             !!(ride &&
+                rideId &&
+                pendingPaidStampRideId === rideId &&
+                !isRidePrepaidAtBooking(ride) &&
                 isDriverInProgressRide(ride) &&
                 !isContractRide(ride) &&
                 isRidePaymentPaid(ride));
-        if (!show) {
+
+        if (!shouldCelebrate) {
             strip.classList.remove('is-paid', 'is-paid-animating');
             stamp.hidden = true;
             stamp.setAttribute('aria-hidden', 'true');
-            paidStampAnimatedRideId = null;
             return;
         }
-        const rideId = String(ride.id);
+
         stamp.hidden = false;
         stamp.setAttribute('aria-hidden', 'false');
         strip.classList.add('is-paid');
@@ -6886,13 +7078,18 @@
         paidStampAnimatedRideId = rideId;
         const stampInner = stamp.querySelector('.ride-paid-stamp');
         function settlePaidStamp() {
-            strip.classList.remove('is-paid-animating');
+            strip.classList.remove('is-paid-animating', 'is-paid');
+            stamp.hidden = true;
+            stamp.setAttribute('aria-hidden', 'true');
+            pendingPaidStampRideId = null;
             if (stampInner) {
                 stampInner.removeEventListener('animationend', settlePaidStamp);
             }
         }
         if (stampInner) {
             stampInner.addEventListener('animationend', settlePaidStamp, { once: true });
+        } else {
+            setTimeout(settlePaidStamp, 1000);
         }
     }
 
@@ -7182,7 +7379,7 @@
         }
         syncSendInvoiceButton(ride);
         syncCompleteRideButton(ride);
-        syncPaidRideStamp(showPayButton || isPaid ? ride : null);
+        syncPaidRideStamp(ride);
         if (errEl) {
             if (paymentError) {
                 errEl.hidden = false;
@@ -7350,6 +7547,7 @@
                     stopPaymentPoll();
                     activeRideInboxCollapsed = false;
                     closePaymentPanel();
+                    triggerPaidStampForRide(rideId);
                     renderActiveRide(data.ride);
                     return;
                 }
@@ -7362,6 +7560,7 @@
                     setTimeout(function () {
                         activeRideInboxCollapsed = false;
                         closePaymentPanel();
+                        triggerPaidStampForRide(rideId);
                         renderActiveRide(data.ride);
                         refreshActiveRideInvoiceState();
                     }, 800);
@@ -7550,6 +7749,7 @@
             if (res.data && res.data.ride) {
                 currentActiveRide = res.data.ride;
                 activeRideInboxCollapsed = false;
+                triggerPaidStampForRide(rideId);
                 renderActiveRide(res.data.ride);
                 refreshActiveRideInvoiceState();
             } else {
@@ -7832,16 +8032,24 @@
         setPickupAtLine($('#offer-pickup-at'), offer.ride.pickup_at);
         setCustomerLine($('#offer-customer'), offer.ride.customer_name, offer.ride.customer_phone);
         setRidePriceDisplay($('#offer-price'), offer.ride);
+        setRideDetailsPanel($('#offer-details'), offer.ride);
 
         const badge = $('#offer-badge');
         if (badge) {
             const label = offerBadgeLabel(offer.ride, offer);
             badge.textContent = label;
             const isNexa = label === 'NEXA Suite' || (offer.ride && isNexaSuiteRide(offer.ride) && label === nexaSuiteRideLabel(offer.ride));
-            badge.classList.toggle('is-muted', label !== 'Nieuw' && label !== 'Groep' && label !== 'Verlopen' && !isNexa);
+            const isNetwork = !!(offer.ride && isNetworkRide(offer.ride));
+            badge.classList.toggle('is-muted', label !== 'Nieuw' && label !== 'Groep' && label !== 'Verlopen' && !isNexa && !isNetwork);
             badge.classList.toggle('is-success', label === 'Nieuw');
             badge.classList.toggle('is-danger', label === 'Verlopen');
-            badge.classList.toggle('is-nexa-suite', !!isNexa);
+            badge.classList.toggle('is-nexa-suite', !!isNexa && !isNetwork);
+            badge.classList.toggle('is-network', !!isNetwork);
+        }
+        const paidBadge = $('#offer-paid-badge');
+        if (paidBadge) {
+            const showPaid = isRidePaymentPaid(offer.ride);
+            paidBadge.hidden = !showPaid;
         }
         const vehicleBadge = $('#offer-vehicle-badge');
         if (vehicleBadge) {
@@ -7850,14 +8058,6 @@
         const ago = $('#offer-ago');
         if (ago) {
             ago.textContent = formatOfferAgo(offer.offered_at || offer.ride.created_at || offer.ride.waiting_since_at);
-        }
-        const distEl = $('#offer-stats-distance');
-        if (distEl) {
-            distEl.textContent = rideDistanceLabel(offer.ride);
-        }
-        const durEl = $('#offer-stats-duration');
-        if (durEl) {
-            durEl.textContent = rideDurationLabel(offer.ride);
         }
 
         startOfferTimer(offer);
@@ -7873,6 +8073,49 @@
         return ride.source === 'nexa_suite';
     }
 
+    function isNetworkRide(ride) {
+        if (!ride) {
+            return false;
+        }
+        if (ride.is_network_ride) {
+            return true;
+        }
+        const fb = ride.fee_breakdown;
+        return !!(fb && fb.is_network);
+    }
+
+    function networkOwnerCompanyName(ride) {
+        if (!ride) {
+            return '';
+        }
+        if (ride.owner_company_name) {
+            return String(ride.owner_company_name).trim();
+        }
+        const fb = ride.fee_breakdown;
+        if (fb && fb.owner_name) {
+            const name = String(fb.owner_name).trim();
+            if (name && name !== '—') {
+                return name;
+            }
+        }
+        return '';
+    }
+
+    function networkBadgeHtml(ride) {
+        if (!isNetworkRide(ride)) {
+            return '';
+        }
+        const company = networkOwnerCompanyName(ride);
+        const label = company || 'NEXA Network';
+        return (
+            '<span class="network-ride-badge" title="NEXA Network-rit van ' +
+            escapeHtml(label) +
+            '">' +
+            escapeHtml(label) +
+            '</span>'
+        );
+    }
+
     function nexaSuiteRideLabel(ride) {
         if (ride && ride.nexa_suite_label) {
             return String(ride.nexa_suite_label);
@@ -7881,10 +8124,17 @@
     }
 
     function nexaSuiteBadgeHtml(ride) {
+        if (isNetworkRide(ride)) {
+            return networkBadgeHtml(ride);
+        }
         if (!isNexaSuiteRide(ride)) {
             return '';
         }
         return '<span class="nexa-suite-ride-badge">' + escapeHtml(nexaSuiteRideLabel(ride)) + '</span>';
+    }
+
+    function nexaSuiteAndPaidBadgesHtml(ride) {
+        return nexaSuiteBadgeHtml(ride) + paidBadgeHtml(ride);
     }
 
     function isContractRide(ride) {
@@ -8053,6 +8303,12 @@
                 '<button type="button" class="btn btn-danger btn-release-ride" data-ride-id="' +
                 escapedRideId +
                 '">Vrijgeven</button>';
+            if (canHandOverRideToNetwork(ride)) {
+                html +=
+                    '<button type="button" class="btn btn-ghost btn-hand-over-network" data-ride-id="' +
+                    escapedRideId +
+                    '">Naar network</button>';
+            }
         }
         if (canStartToday) {
             html +=
@@ -8067,6 +8323,23 @@
         }
         html += '</div>';
         return html;
+    }
+
+    function canHandOverRideToNetwork(ride) {
+        if (!ride || isContractRide(ride) || isNetworkRide(ride)) {
+            return false;
+        }
+        if (ride.can_hand_over_to_network === false) {
+            return false;
+        }
+        if (ride.can_hand_over_to_network === true) {
+            return true;
+        }
+        if (!networkMeta || !networkMeta.can_hand_over) {
+            return false;
+        }
+        const status = String(ride.status || '');
+        return status === 'accepted' || status === 'pending_dispatch' || status === 'offered';
     }
 
     function isOpenPickupProposalRide(ride) {
@@ -8128,6 +8401,12 @@
                 '<button type="button" class="btn btn-danger btn-release-ride" data-ride-id="' +
                 escapedRideId +
                 '">Vrijgeven</button>';
+            if (canHandOverRideToNetwork(ride)) {
+                html +=
+                    '<button type="button" class="btn btn-ghost btn-hand-over-network" data-ride-id="' +
+                    escapedRideId +
+                    '">Naar network</button>';
+            }
             if (proposalStatus === 'accepted') {
                 html +=
                     '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
@@ -8215,18 +8494,24 @@
     }
 
     function taxiBadgeHtml(ride) {
-        if (!ride || isContractRide(ride)) {
+        if (!ride || isContractRide(ride) || isNetworkRide(ride)) {
             return '';
         }
         return '<span class="taxi-ride-badge">Taxi</span>';
     }
 
     function rideKindCardClass(ride) {
-        return isContractRide(ride) ? ' is-contract-ride' : ' is-taxi-ride';
+        if (isContractRide(ride)) {
+            return ' is-contract-ride';
+        }
+        if (isNetworkRide(ride)) {
+            return ' is-network-ride';
+        }
+        return ' is-taxi-ride';
     }
 
     function contractOrMarketplaceBadgesHtml(ride) {
-        return contractBadgeHtml(ride) + nexaSuiteBadgeHtml(ride);
+        return contractBadgeHtml(ride) + nexaSuiteAndPaidBadgesHtml(ride);
     }
 
     function isReturnTripRide(ride) {
@@ -8298,30 +8583,137 @@
 
     function ridePriceDisplayHtml(ride) {
         const total = resolveReturnTripDisplayTotal(ride);
+        let html;
         if (total == null) {
-            return '<p class="offer-price">—</p>';
-        }
-        if (!isPerLegReturnPaymentRide(ride)) {
-            return '<p class="offer-price">' + formatEuro(total) + '</p>';
+            html = '<p class="offer-price">—</p>';
+        } else if (!isPerLegReturnPaymentRide(ride)) {
+            html = '<p class="offer-price">' + formatEuro(total) + '</p>';
+        } else {
+            const legLabel = resolveReturnLegDisplayLabel(ride);
+            const legAmount = resolvePerLegDisplayAmount(ride);
+
+            if (legLabel && legAmount != null) {
+                html =
+                    '<p class="offer-price-leg">' +
+                    '<span class="offer-customer-label">' +
+                    escapeHtml(legLabel) +
+                    ':</span></p>' +
+                    '<p class="offer-price">' +
+                    formatEuro(legAmount) +
+                    '</p>';
+                html += '<p class="offer-price-total">Totaal ' + formatEuro(total) + '</p>';
+            } else {
+                html = '<p class="offer-price">' + formatEuro(total) + '</p>';
+            }
         }
 
-        const legLabel = resolveReturnLegDisplayLabel(ride);
-        const legAmount = resolvePerLegDisplayAmount(ride);
+        return html;
+    }
 
-        if (legLabel && legAmount != null) {
-            let html =
-                '<p class="offer-price-leg">' +
-                '<span class="offer-customer-label">' +
-                escapeHtml(legLabel) +
-                ':</span></p>' +
-                '<p class="offer-price">' +
-                formatEuro(legAmount) +
-                '</p>';
-            html += '<p class="offer-price-total">Totaal ' + formatEuro(total) + '</p>';
-            return html;
+    function feeBreakdownHtml(ride) {
+        const fb = ride && ride.fee_breakdown ? ride.fee_breakdown : null;
+        if (!fb || (fb.customer_pays == null && !fb.owner_name && !fb.executor_name)) {
+            return '';
         }
+        const pays = fb.customer_pays != null ? formatEuro(fb.customer_pays) : '—';
+        const fee = fb.nexa_fee != null ? formatEuro(fb.nexa_fee) : '—';
+        const owner = fb.owner_name != null ? String(fb.owner_name) : '—';
+        const executor = fb.executor_name != null ? String(fb.executor_name) : '—';
+        const pct =
+            fb.nexa_fee_percent != null
+                ? ' <span class="offer-fee-pct">(' + escapeHtml(String(fb.nexa_fee_percent)) + '%)</span>'
+                : '';
 
-        return '<p class="offer-price">' + formatEuro(total) + '</p>';
+        return (
+            '<div class="offer-fee-breakdown" role="group" aria-label="Fee-splitsing">' +
+            '<div class="offer-fee-row"><span class="offer-fee-row__label">Klant betaalt</span>' +
+            '<span class="offer-fee-row__value">' +
+            escapeHtml(pays) +
+            '</span></div>' +
+            '<div class="offer-fee-row"><span class="offer-fee-row__label">Eigenaar</span>' +
+            '<span class="offer-fee-row__value">' +
+            escapeHtml(owner) +
+            '</span></div>' +
+            '<div class="offer-fee-row"><span class="offer-fee-row__label">Uitvoerder</span>' +
+            '<span class="offer-fee-row__value">' +
+            escapeHtml(executor) +
+            '</span></div>' +
+            '<div class="offer-fee-row"><span class="offer-fee-row__label">NEXA fee</span>' +
+            '<span class="offer-fee-row__value">' +
+            escapeHtml(fee) +
+            pct +
+            '</span></div>' +
+            '</div>'
+        );
+    }
+
+    function rideBaggageLabel(ride) {
+        if (!ride) return '';
+        if (ride.baggage && ride.baggage.summary) {
+            return String(ride.baggage.summary);
+        }
+        return '';
+    }
+
+    function rideDetailsPanelHtml(ride) {
+        if (!ride) return '';
+        const fee = feeBreakdownHtml(ride);
+        const dist = rideDistanceLabel(ride);
+        const dur = rideDurationLabel(ride);
+        const bag = rideBaggageLabel(ride);
+        const note = ride.customer_note ? String(ride.customer_note).trim() : '';
+        const passengers =
+            ride.passengers != null && Number(ride.passengers) > 0
+                ? String(ride.passengers) + (Number(ride.passengers) === 1 ? ' persoon' : ' personen')
+                : '';
+        if (!fee && !dist && !dur && !bag && !note && !passengers) {
+            return '';
+        }
+        let stats = '';
+        if (dist || dur || bag || passengers) {
+            stats = '<div class="offer-details-stats">';
+            if (dist || dur) {
+                stats += '<div class="offer-details-stats__row">';
+                if (dist) {
+                    stats +=
+                        '<p class="offer-details-stat">' +
+                        '<strong>' +
+                        escapeHtml(dist.replace(/^Afstand:\s*/i, '')) +
+                        '</strong> afstand</p>';
+                } else {
+                    stats += '<p class="offer-details-stat"></p>';
+                }
+                if (dur) {
+                    stats +=
+                        '<p class="offer-details-stat offer-details-stat--end">' +
+                        '<strong>' +
+                        escapeHtml(dur.replace(/^Tijd:\s*/i, '')) +
+                        '</strong> rijtijd</p>';
+                }
+                stats += '</div>';
+            }
+            if (passengers) {
+                stats +=
+                    '<p class="offer-details-stat offer-details-stat--stack">' +
+                    '<strong>' +
+                    escapeHtml(passengers) +
+                    '</strong></p>';
+            }
+            if (bag) {
+                stats +=
+                    '<p class="offer-details-stat offer-details-stat--full"><strong>Bagage:</strong> ' +
+                    escapeHtml(bag) +
+                    '</p>';
+            } else {
+                stats +=
+                    '<p class="offer-details-stat offer-details-stat--full"><strong>Bagage:</strong> Geen</p>';
+            }
+            stats += '</div>';
+        }
+        const noteHtml = note
+            ? '<p class="offer-details-note"><span>Opmerking</span>' + escapeHtml(note) + '</p>'
+            : '';
+        return fee + stats + noteHtml;
     }
 
     function setRidePriceDisplay(container, ride) {
@@ -8329,6 +8721,22 @@
             return;
         }
         container.innerHTML = ridePriceDisplayHtml(ride);
+    }
+
+    function setRideDetailsPanel(container, ride) {
+        if (!container) {
+            return;
+        }
+        const html = rideDetailsPanelHtml(ride);
+        container.id = 'offer-details';
+        container.className = 'offer-details-panel';
+        if (!html) {
+            container.hidden = true;
+            container.innerHTML = '';
+            return;
+        }
+        container.hidden = false;
+        container.innerHTML = html;
     }
 
     function updateOfferTitle(ride, index, total) {
@@ -8908,7 +9316,7 @@
                 return String(item.id) === String(ride.id);
             });
         });
-        const tripsRides = sortRidesEarliestPickupFirst(
+        const tripsRides = sortRidesMostRecentPickupFirst(
             filterRidesByKind(scheduledRides.concat(overdueOnly))
         );
         const hideForActiveDetail =
@@ -8950,7 +9358,7 @@
                     '<span class="scheduled-ride-toggle-text">' +
                     taxiBadgeHtml(ride) +
                     contractBadgeHtml(ride) +
-                    nexaSuiteBadgeHtml(ride) +
+                    nexaSuiteAndPaidBadgesHtml(ride) +
                     '<span class="offer-title">' +
                     escapeHtml(scheduledRideTitle(ride)) +
                     '</span>' +
@@ -9065,7 +9473,7 @@
             const acceptedText = String(activeRideAcceptedMessage || 'Rit gestart.')
                 .replace(/\.+$/, '')
                 .trim() || 'Rit gestart';
-            const contractBadge = taxiBadgeHtml(ride) + contractBadgeHtml(ride) + nexaSuiteBadgeHtml(ride);
+            const contractBadge = taxiBadgeHtml(ride) + contractBadgeHtml(ride) + nexaSuiteAndPaidBadgesHtml(ride);
             const stopsHtml =
                 ride.ride_type === 'contract_group'
                     ? renderRideStopsHtml(activeRideStops, activeRideStopsProgress)
@@ -9086,20 +9494,20 @@
                 '</button>';
             el.innerHTML =
                 '<div class="offer-card-top">' +
+                '<div class="offer-card-top__row">' +
                 '<div class="offer-badge-row">' +
                 '<span class="offer-badge">Actief</span>' +
                 '<span class="offer-badge is-success" role="status">' +
                 escapeHtml(acceptedText) +
                 '</span>' +
-                '</div>' +
-                '<div class="offer-card-meta-right">' +
-                navBtn +
                 (contractBadge || '') +
                 returnTripBadgeHtml(ride) +
-                '<span class="offer-vehicle-pill">' +
+                '</div>' +
+                navBtn +
+                '</div>' +
+                '<span class="offer-vehicle-pill offer-vehicle-pill--full">' +
                 escapeHtml(offerVehicleLabel(ride)) +
                 '</span>' +
-                '</div>' +
                 '</div>' +
                 '<p class="offer-title">' +
                 escapeHtml(title) +
@@ -9197,22 +9605,31 @@
         return parts.join(' · ');
     }
 
-    function customerLineHtml(name, phone) {
+    function customerLineHtml(name, phone, vehicleLabel, vehiclePlate, vehicleName) {
         const nameStr = name != null ? String(name).trim() : '';
         const phoneStr = phone != null ? String(phone).trim() : '';
-        if (!nameStr && !phoneStr) {
+        let plateStr = vehiclePlate != null ? String(vehiclePlate).trim() : '';
+        let carNameStr = vehicleName != null ? String(vehicleName).trim() : '';
+        if (!plateStr && !carNameStr && vehicleLabel) {
+            const parts = String(vehicleLabel).split(' · ');
+            plateStr = (parts[0] || '').trim();
+            carNameStr = parts.slice(1).join(' · ').trim();
+        }
+        if (!nameStr && !phoneStr && !plateStr && !carNameStr) {
             return '';
         }
         let html = '<div class="offer-customer-block">';
         html +=
-            '<p class="offer-customer-row"><span class="offer-customer-label">Naam:</span> ' +
+            '<p class="offer-customer-row"><span class="offer-customer-label">Naam</span>' +
+            '<span class="offer-customer-value">' +
             escapeHtml(nameStr || '—') +
-            '</p>';
+            '</span></p>';
         if (phoneStr) {
             const digits = phoneStr.replace(/[^\d+]/g, '');
             const href = digits ? 'tel:' + digits : '';
             html +=
-                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> ' +
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon</span>' +
+                '<span class="offer-customer-value">' +
                 (href
                     ? '<a class="offer-phone" href="' +
                       escapeHtml(href) +
@@ -9222,10 +9639,24 @@
                       escapeHtml(phoneStr) +
                       '</a>'
                     : escapeHtml(phoneStr)) +
-                '</p>';
+                '</span></p>';
         } else {
             html +=
-                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> —</p>';
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon</span>' +
+                '<span class="offer-customer-value">—</span></p>';
+        }
+        if (plateStr || carNameStr) {
+            html +=
+                '<div class="offer-customer-row offer-customer-row--vehicle">' +
+                '<span class="offer-customer-label">Voertuig</span>' +
+                '<span class="offer-customer-value offer-vehicle-value">' +
+                (plateStr
+                    ? '<span class="offer-vehicle-plate">' + escapeHtml(plateStr) + '</span>'
+                    : '') +
+                (carNameStr
+                    ? '<span class="offer-vehicle-name">' + escapeHtml(carNameStr) + '</span>'
+                    : '') +
+                '</span></div>';
         }
         html += '</div>';
         return html;
@@ -9245,14 +9676,16 @@
         el.hidden = false;
         let html = '';
         html +=
-            '<p class="offer-customer-row"><span class="offer-customer-label">Naam:</span> ' +
+            '<p class="offer-customer-row"><span class="offer-customer-label">Naam</span>' +
+            '<span class="offer-customer-value">' +
             escapeHtml(nameStr || '—') +
-            '</p>';
+            '</span></p>';
         if (phoneStr) {
             const digits = phoneStr.replace(/[^\d+]/g, '');
             const href = digits ? 'tel:' + digits : '';
             html +=
-                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> ' +
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon</span>' +
+                '<span class="offer-customer-value">' +
                 (href
                     ? '<a class="offer-phone" href="' +
                       escapeHtml(href) +
@@ -9262,10 +9695,11 @@
                       escapeHtml(phoneStr) +
                       '</a>'
                     : escapeHtml(phoneStr)) +
-                '</p>';
+                '</span></p>';
         } else {
             html +=
-                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon:</span> —</p>';
+                '<p class="offer-customer-row"><span class="offer-customer-label">Telefoon</span>' +
+                '<span class="offer-customer-value">—</span></p>';
         }
         el.innerHTML = html;
     }
@@ -9342,6 +9776,9 @@
         }
         if (ride.is_contract || ride.contract_label) {
             return 'Contract';
+        }
+        if (isNetworkRide(ride)) {
+            return networkOwnerCompanyName(ride) || 'NEXA Network';
         }
         if (isNexaSuiteRide(ride)) {
             return nexaSuiteRideLabel(ride);
@@ -9455,15 +9892,11 @@
     function rideStatsHtml(ride, options) {
         const opts = options || {};
         const hidePrice = !!opts.hidePrice || isContractRide(ride);
-        const dist = rideDistanceLabel(ride);
-        const dur = rideDurationLabel(ride);
         return (
             '<div class="offer-stats">' +
             '<div class="offer-price-wrap">' +
             (hidePrice ? '' : ridePriceDisplayHtml(ride)) +
             '</div>' +
-            (dist ? '<p class="offer-stats-line">' + escapeHtml(dist) + '</p>' : '') +
-            (dur ? '<p class="offer-stats-line">' + escapeHtml(dur) + '</p>' : '') +
             '</div>'
         );
     }
@@ -9476,9 +9909,19 @@
         if (opts.stopsHtml) {
             return opts.stopsHtml;
         }
+        const vehicleLabel = ride.vehicle_label ? String(ride.vehicle_label).trim() : '';
+        const vehiclePlate = ride.vehicle_plate ? String(ride.vehicle_plate).trim() : '';
+        const vehicleName = ride.vehicle_name ? String(ride.vehicle_name).trim() : '';
         const customerHtml = opts.hideCustomer
             ? ''
-            : customerLineHtml(ride.customer_name, ride.customer_phone);
+            : customerLineHtml(
+                  ride.customer_name,
+                  ride.customer_phone,
+                  vehicleLabel,
+                  vehiclePlate,
+                  vehicleName
+              );
+        const details = rideDetailsPanelHtml(ride);
         return (
             '<div class="offer-body-grid">' +
             routeTimelineHtml(ride.pickup_address, ride.dropoff_address) +
@@ -9486,6 +9929,7 @@
             (customerHtml || '<div class="offer-customer-block"></div>') +
             rideStatsHtml(ride, opts) +
             '</div>' +
+            (details ? '<div class="offer-details-panel">' + details + '</div>' : '') +
             '</div>'
         );
     }
@@ -9579,6 +10023,16 @@
                     syncPaymentPanelUi({ qrVisible: isPaymentQrVisible() });
                 }
                 unclaimedRides = res.meta.unclaimed_rides || [];
+                if (res.meta.network && typeof res.meta.network === 'object') {
+                    networkMeta = {
+                        enabled: !!res.meta.network.enabled,
+                        mode: String(res.meta.network.mode || 'off'),
+                        can_hand_over: !!res.meta.network.can_hand_over,
+                        partners: Array.isArray(res.meta.network.partners)
+                            ? res.meta.network.partners
+                            : [],
+                    };
+                }
             }
             const active = res.data && res.data.active_ride;
             const scheduled = (res.data && res.data.scheduled_rides) || [];
@@ -10504,6 +10958,9 @@
             offerAcceptInFlight = false;
             document.body.classList.remove('driver-accept-in-flight');
         }
+        if (!ensureVehicleSelectedForAccept()) {
+            return;
+        }
         const btn =
             ev && ev.target && ev.target.closest
                 ? ev.target.closest('#btn-accept, .btn-accept-declined, .btn-accept-overdue')
@@ -10567,6 +11024,10 @@
                 }
             }
 
+            if (selectedVehicleId) {
+                acceptBody.vehicle_id = selectedVehicleId;
+            }
+
             offerAcceptInFlight = true;
             document.body.classList.add('driver-accept-in-flight');
             setOfferActionButtonsDisabled(true, activeBtn);
@@ -10593,6 +11054,9 @@
             }
         } catch (e) {
             acceptErrorMessage = e.message || 'Accepteren mislukt.';
+            if (e && e.errors && e.errors.vehicle_id) {
+                updateVehicleRequiredUi(true);
+            }
             try {
                 await refreshInbox();
                 if (fromDeclinedView) {
@@ -11006,6 +11470,60 @@
             updateEmptyState();
         } catch (e) {
             alert(e.message);
+            await refreshInbox();
+        } finally {
+            clearButtonLoading(btn);
+        }
+    }
+
+    async function handOverRideToNetwork(ev) {
+        const btn = ev.target.closest('.btn-hand-over-network');
+        const rideId = btn && btn.dataset.rideId ? parseInt(btn.dataset.rideId, 10) : NaN;
+        if (!Number.isFinite(rideId) || rideId <= 0) {
+            return;
+        }
+        const partners = (networkMeta && networkMeta.partners) || [];
+        const partnerNames = partners
+            .map(function (p) {
+                return p && p.name ? String(p.name) : '';
+            })
+            .filter(Boolean);
+        const partnerText =
+            partnerNames.length > 0
+                ? partnerNames.join(', ')
+                : 'gekoppelde network-partners';
+        const confirmed = await showDriverConfirm(
+            'Rit overhandigen aan NEXA Network?\n\nPartner-chauffeurs van: ' +
+                partnerText +
+                '.\n\nJouw bedrijf blijft eigenaar van de klant. Je eigen toewijzing vervalt.',
+            {
+                title: 'Naar network?',
+                confirmLabel: 'Overhandigen',
+                danger: false,
+            }
+        );
+        if (!confirmed) {
+            return;
+        }
+        setButtonLoading(btn, true);
+        try {
+            const res = await api('/dispatch/rides/' + rideId + '/hand-over-network', {
+                method: 'POST',
+                body: {},
+            });
+            delete scheduledRideExpanded[String(rideId)];
+            vibrate(50);
+            showDriverNotice(
+                (res && res.message) || 'Rit overhandigd aan NEXA Network.',
+                { title: 'Network' }
+            );
+            await refreshInbox();
+            updateEmptyState();
+        } catch (e) {
+            showDriverNotice(e.message || 'Overhandigen mislukt.', {
+                type: 'error',
+                title: 'Network',
+            });
             await refreshInbox();
         } finally {
             clearButtonLoading(btn);
@@ -11870,6 +12388,13 @@
             if (ev.target.closest('.btn-release-ride')) {
                 ev.preventDefault();
                 releaseScheduledRide(ev);
+                return;
+            }
+            if (ev.target.closest('.btn-hand-over-network')) {
+                ev.preventDefault();
+                handOverRideToNetwork(ev).catch(function (err) {
+                    console.warn('handOverRideToNetwork', err);
+                });
                 return;
             }
             if (ev.target.closest('.archived-offer-check')) {

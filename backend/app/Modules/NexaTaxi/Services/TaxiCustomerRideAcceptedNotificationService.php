@@ -14,6 +14,7 @@ use App\Services\EnvService;
 use App\Services\TenantCustomerMailService;
 use App\Services\WhatsAppBookingMessageComposer;
 use App\Services\WhatsAppBusinessService;
+use App\Support\EmailCardHtml;
 use Illuminate\Support\Facades\Log;
 
 class TaxiCustomerRideAcceptedNotificationService
@@ -104,6 +105,22 @@ class TaxiCustomerRideAcceptedNotificationService
         $companyName = (string) ($settings->company_name ?? $company?->name ?? '');
         $companyPhone = (string) ($settings->company_phone ?? $company?->phone ?? '');
         $companyEmail = (string) ($settings->company_email ?? $company?->email ?? '');
+        $companyIdForSite = (int) ($company?->id ?? $ride->company_id ?? 0);
+        $companyWebsiteUrl = EmailCardHtml::primaryWebsiteUrlForCompany($companyIdForSite > 0 ? $companyIdForSite : null);
+        $companyNameHtml = EmailCardHtml::companyNameHtml($companyName !== '' ? $companyName : 'ons', $companyWebsiteUrl);
+
+        $vehicleLabel = '';
+        $vehicleId = (int) ($ride->vehicle_id ?? 0);
+        if ($vehicleId > 0) {
+            try {
+                $vehicle = $ride->relationLoaded('vehicle')
+                    ? $ride->vehicle
+                    : \App\Modules\NexaTaxi\Models\Vehicle::on($ride->getConnectionName())->find($vehicleId);
+                $vehicleLabel = $vehicle ? $vehicle->fleetLabel() : '';
+            } catch (\Throwable) {
+                $vehicleLabel = '';
+            }
+        }
 
         return [
             'CUSTOMER_NAME' => (string) ($ride->customer_name ?: 'klant'),
@@ -111,11 +128,15 @@ class TaxiCustomerRideAcceptedNotificationService
             'CUSTOMER_PHONE' => (string) ($ride->customer_phone ?? ''),
             'DRIVER_NAME' => $driverName,
             'DRIVER_PHONE' => (string) ($driver->phone ?? ''),
+            'VEHICLE_LABEL' => $vehicleLabel,
+            'LICENSE_PLATE' => $vehicleLabel,
             'PICKUP_AT' => $pickupAt,
             'PICKUP_ADDRESS' => (string) ($ride->pickup_address ?: '—'),
             'DROPOFF_ADDRESS' => (string) ($ride->dropoff_address ?: '—'),
             'RIDE_ID' => (string) $ride->id,
             'COMPANY_NAME' => $companyName,
+            'COMPANY_NAME_HTML' => $companyNameHtml,
+            'COMPANY_WEBSITE_URL' => $companyWebsiteUrl ?? '',
             'COMPANY_PHONE' => $companyPhone,
             'COMPANY_EMAIL' => $companyEmail,
             'COMPANY_ADDRESS' => trim(
@@ -260,10 +281,13 @@ class TaxiCustomerRideAcceptedNotificationService
 
         if ($template) {
             $subject = $this->emailTemplates->parseTemplateVariables($template->subject, $vars);
-            $htmlContent = $this->emailTemplates->parseTemplateVariables($template->html_content, $vars);
+            $htmlContent = EmailCardHtml::ensurePoweredByLink(
+                $this->emailTemplates->parseTemplateVariables($template->html_content, $vars)
+            );
             $textContent = $template->text_content
                 ? $this->emailTemplates->parseTemplateVariables($template->text_content, $vars)
                 : strip_tags($htmlContent);
+            $textContent = trim(preg_replace("/\n{3,}/", "\n\n", str_replace("\n\n\n", "\n\n", $textContent)) ?? $textContent);
         } else {
             $subject = 'Uw taxirit is geaccepteerd – '.$variables['COMPANY_NAME'];
             $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
@@ -539,7 +563,7 @@ class TaxiCustomerRideAcceptedNotificationService
                 $variables['CUSTOMER_NAME'],
                 $phone,
                 (int) $ride->driver_id,
-                'SMS-provider staat uit in dispatch-instellingen.'
+                'SMS-provider staat uit in Chauffeur dispatch.'
             );
 
             return;

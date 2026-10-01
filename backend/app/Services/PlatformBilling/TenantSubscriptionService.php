@@ -232,14 +232,14 @@ class TenantSubscriptionService
     }
 
     /**
-     * Stop het jaarcontract tijdens de proef: geen incasso, toegang blijft tot trial_ends_at.
+     * Stop het abonnement tijdens de proef: geen incasso, toegang blijft tot trial_ends_at.
      */
     public function endTrialAndDeactivate(Company $company, ?CarbonInterface $asOf = null): CompanyBillingProfile
     {
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
         $profile = $this->ensureProfile($company);
         if (! $this->isInTrial($profile, $asOf)) {
-            throw new RuntimeException('De proefperiode is al voorbij; het jaarcontract is ingegaan.');
+            throw new RuntimeException('De proefperiode is al voorbij; het abonnement is ingegaan.');
         }
         if ($this->hasDeclinedTrial($profile)) {
             return $profile->fresh(['package', 'company']) ?? $profile;
@@ -293,6 +293,7 @@ class TenantSubscriptionService
             ? (int) round($start->diffInMonths($billingStart))
             : 0;
         $anniversary = $this->contractAnniversary($profile);
+        $hasCommitment = $this->pricing->hasCommitmentLock();
         $pastFirstYear = $this->isPastFirstYear($profile, $asOf);
         $changeDate = $this->nextAllowedChangeDate($profile, $asOf);
         $pendingType = trim((string) ($profile->pending_change_type ?? ''));
@@ -308,7 +309,9 @@ class TenantSubscriptionService
             'current_amount' => $monthlyAmount,
             'current_amount_label' => $this->pricing->displayAmount(number_format($monthlyAmount, 2, '.', '')),
             'start_date' => $start,
-            'contract_end_date' => $anniversary,
+            'commitment_months' => $this->pricing->commitmentMonths(),
+            'has_commitment' => $hasCommitment,
+            'contract_end_date' => $hasCommitment ? $anniversary : null,
             'past_first_year' => $pastFirstYear,
             'change_effective_on' => $changeDate,
             'cancel_allowed' => $pendingType !== CompanySubscriptionChange::TYPE_CANCEL,
@@ -525,11 +528,21 @@ class TenantSubscriptionService
 
     public function contractAnniversary(CompanyBillingProfile $profile): Carbon
     {
-        return $this->contractStart($profile)->copy()->addYear();
+        $months = $this->pricing->commitmentMonths();
+        $start = $this->contractStart($profile)->copy();
+        if ($months <= 0) {
+            return $start;
+        }
+
+        return $start->addMonthsNoOverflow($months);
     }
 
     public function isPastFirstYear(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): bool
     {
+        if (! $this->pricing->hasCommitmentLock()) {
+            return true;
+        }
+
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
 
         return $asOf->greaterThanOrEqualTo($this->contractAnniversary($profile));
@@ -538,7 +551,7 @@ class TenantSubscriptionService
     public function nextAllowedChangeDate(CompanyBillingProfile $profile, ?CarbonInterface $asOf = null): Carbon
     {
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
-        if ($this->isPastFirstYear($profile, $asOf)) {
+        if (! $this->pricing->hasCommitmentLock() || $this->isPastFirstYear($profile, $asOf)) {
             return $asOf->copy()->endOfMonth()->startOfDay();
         }
 
@@ -655,7 +668,7 @@ class TenantSubscriptionService
 
     /**
      * Super-admin noodbeeindiging: altijd per einde van de lopende maand,
-     * ongeacht het jaarcontract. De volgende Mollie-incasso wordt gestopt.
+     * ongeacht een eventuele contracttermijn. De volgende Mollie-incasso wordt gestopt.
      */
     public function emergencyTerminateAtMonthEnd(Company $company, ?CarbonInterface $asOf = null): CompanyBillingProfile
     {

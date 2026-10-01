@@ -15,6 +15,7 @@ class RideRequest extends Model
 
     protected $fillable = [
         'company_id',
+        'fulfilling_company_id',
         'vehicle_id',
         'driver_id',
         'status',
@@ -53,6 +54,7 @@ class RideRequest extends Model
         'customer_user_id',
         'customer_phone',
         'customer_note',
+        'customer_track_token',
         'quote_expires_at',
         'booking_payload',
         'selected_offer_payload',
@@ -74,12 +76,16 @@ class RideRequest extends Model
         'quote_expires_at' => 'datetime',
         'trip_started_at' => 'datetime',
         'trip_completed_at' => 'datetime',
+        'settlement_hold_until' => 'datetime',
+        'settlement_evaluated_at' => 'datetime',
+        'settlement_eligible_at' => 'datetime',
         'pickup_lat' => 'decimal:7',
         'pickup_lng' => 'decimal:7',
         'dropoff_lat' => 'decimal:7',
         'dropoff_lng' => 'decimal:7',
         'quoted_price' => 'decimal:2',
         'final_price' => 'decimal:2',
+        'settlement_risk_flags' => 'array',
         'booking_payload' => 'array',
         'selected_offer_payload' => 'array',
     ];
@@ -99,6 +105,18 @@ class RideRequest extends Model
     public const STATUS_COMPLETED = 'completed';
 
     public const STATUS_CANCELLED = 'cancelled';
+
+    public const SETTLEMENT_COMPLETION_CLAIMED = 'completion_claimed';
+
+    public const SETTLEMENT_HOLD = 'hold';
+
+    public const SETTLEMENT_REVIEW = 'review';
+
+    public const SETTLEMENT_ELIGIBLE = 'settlement_eligible';
+
+    public const SETTLEMENT_SETTLED = 'settled';
+
+    public const SETTLEMENT_REJECTED = 'rejected';
 
     public const PICKUP_PROPOSAL_PENDING = 'pending';
 
@@ -239,9 +257,72 @@ class RideRequest extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function fulfillingCompany(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'fulfilling_company_id');
+    }
+
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
+    }
+
+    /**
+     * Network fulfilment: uitvoerder ≠ booking-owner.
+     */
+    public function isNetworkFulfilled(): bool
+    {
+        $owner = (int) ($this->company_id ?? 0);
+        $fulfiller = (int) ($this->fulfilling_company_id ?? 0);
+
+        return $owner > 0 && $fulfiller > 0 && $owner !== $fulfiller;
+    }
+
+    /**
+     * Bedrijf dat de rit uitvoert (fulfiller of anders owner).
+     */
+    public function executingCompanyId(): ?int
+    {
+        $fulfiller = (int) ($this->fulfilling_company_id ?? 0);
+        if ($fulfiller > 0) {
+            return $fulfiller;
+        }
+
+        $owner = (int) ($this->company_id ?? 0);
+
+        return $owner > 0 ? $owner : null;
+    }
+
+    public function isSettlementPayable(): bool
+    {
+        return in_array($this->settlement_status, [
+            self::SETTLEMENT_ELIGIBLE,
+            self::SETTLEMENT_SETTLED,
+        ], true);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function settlementStatusLabels(): array
+    {
+        return [
+            self::SETTLEMENT_COMPLETION_CLAIMED => 'Afronding geclaimd',
+            self::SETTLEMENT_HOLD => 'Hold',
+            self::SETTLEMENT_REVIEW => 'Handmatige review',
+            self::SETTLEMENT_ELIGIBLE => 'Settlement-eligible',
+            self::SETTLEMENT_SETTLED => 'Settled',
+            self::SETTLEMENT_REJECTED => 'Afgewezen',
+        ];
+    }
+
+    public function getSettlementStatusLabelAttribute(): string
+    {
+        if (! $this->settlement_status) {
+            return '—';
+        }
+
+        return self::settlementStatusLabels()[$this->settlement_status] ?? $this->settlement_status;
     }
 
     public function driver(): BelongsTo
@@ -334,6 +415,9 @@ class RideRequest extends Model
         if ((int) ($this->company_id ?? 0) === $companyId) {
             return true;
         }
+        if ((int) ($this->fulfilling_company_id ?? 0) === $companyId) {
+            return true;
+        }
         if (! $this->isUnclaimedMarketplaceBooking()) {
             return false;
         }
@@ -353,6 +437,7 @@ class RideRequest extends Model
 
         return $query->where(function ($q) use ($companyId) {
             $q->where('company_id', $companyId)
+                ->orWhere('fulfilling_company_id', $companyId)
                 ->orWhere(function ($marketplace) use ($companyId) {
                     $marketplace->where(function ($source) {
                         $source->where('source', self::SOURCE_NEXA_SUITE)

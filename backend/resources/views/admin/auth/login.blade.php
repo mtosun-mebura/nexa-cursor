@@ -217,13 +217,52 @@ Author: Keenthemes
                     </button>
 
                     <button type="button" class="text-sm link text-primary w-full text-center" id="toggle-first-login">
-                        Eerste keer inloggen?
+                        Inloggen met e-mailcode
+                    </button>
+                    <button type="button" class="text-sm link text-primary w-full text-center" id="toggle-marketplace-register">
+                        Taxibedrijf aanmelden (Marketplace)
                     </button>
                 </form>
 
+                <div id="marketplace_register_step" class="flex flex-col gap-4" hidden>
+                    <p class="text-sm text-muted-foreground mb-0">
+                        Geen abonnement — alleen fee over Nexa Suite-ritten. Vul je gegevens in; we sturen een code naar je e-mail.
+                    </p>
+                    <div id="marketplace-register-status" class="hidden flex items-start gap-2.5 p-3 rounded-lg border text-sm leading-snug" role="status">
+                        <i class="ki-filled ki-information-5 text-base text-primary shrink-0 mt-0.5" data-status-icon aria-hidden="true"></i>
+                        <span data-status-text></span>
+                    </div>
+                    <div class="flex flex-col gap-2.5">
+                        <label class="kt-form-label font-normal text-mono" for="marketplace_company_name">Bedrijfsnaam</label>
+                        <input class="kt-input" id="marketplace_company_name" type="text" autocomplete="organization" placeholder="Taxi Amsterdam">
+                    </div>
+                    <div class="flex flex-col gap-2.5">
+                        <label class="kt-form-label font-normal text-mono" for="marketplace_email">E-mail</label>
+                        <input class="kt-input" id="marketplace_email" type="email" autocomplete="email" placeholder="beheer@taxibedrijf.nl">
+                    </div>
+                    <div class="flex flex-col gap-2.5">
+                        <label class="kt-form-label font-normal text-mono" for="marketplace_phone">Telefoon <span class="text-muted-foreground font-normal">(optioneel)</span></label>
+                        <input class="kt-input" id="marketplace_phone" type="tel" autocomplete="tel" placeholder="06…">
+                    </div>
+                    <div class="flex flex-col gap-2.5">
+                        <label class="kt-form-label font-normal text-mono" for="marketplace_city">Plaats <span class="text-muted-foreground font-normal">(optioneel)</span></label>
+                        <input class="kt-input" id="marketplace_city" type="text" autocomplete="address-level2" placeholder="Amsterdam">
+                    </div>
+                    <button type="button" class="kt-btn kt-btn-primary first-login-btn flex justify-center grow items-center gap-2" id="marketplace-register-submit">
+                        <svg class="first-login-spinner" data-loader viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
+                            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                        </svg>
+                        <span data-label>Aanmelden en code ontvangen</span>
+                    </button>
+                    <button type="button" class="text-sm link text-primary w-full text-center" data-back-to-login>
+                        Terug naar inloggen
+                    </button>
+                </div>
+
                 <div id="first_login_request_step" class="flex flex-col gap-4" @if(! $openFirstLogin) hidden @endif>
                     <p class="text-sm text-muted-foreground mb-0">
-                        Vraag hieronder een eenmalige code aan, die via de e-mail wordt verstuurd. Met deze code kun je zelf een wachtwoord aanmaken.
+                        Vraag een eenmalige code aan via e-mail. Daarna kun je inloggen met alleen die code, of optioneel een wachtwoord aanmaken.
                     </p>
                     <div id="first-login-request-status" class="flex items-start gap-2.5 p-3 rounded-lg border text-sm leading-snug {{ $firstLoginNotice ? 'border-red-500 bg-primary/5 text-secondary-foreground' : 'hidden' }}" role="status">
                         <i class="ki-filled ki-information-5 text-base text-primary shrink-0 mt-0.5" data-status-icon aria-hidden="true"></i>
@@ -247,7 +286,7 @@ Author: Keenthemes
 
                 <div id="first_login_verify_step" class="flex flex-col gap-4" hidden>
                     <p class="text-sm text-muted-foreground mb-0" id="first-login-verify-note">
-                        We hebben een eenmalige code naar je e-mail gestuurd. Vul die hieronder in en kies een wachtwoord.
+                        We hebben een eenmalige code naar je e-mail gestuurd. Vul die in om in te loggen. Een wachtwoord is optioneel.
                     </p>
                     <div id="first-login-verify-status" class="hidden flex items-start gap-2.5 p-3 rounded-lg border text-sm leading-snug" role="status">
                         <i class="ki-filled ki-information-5 text-base text-primary shrink-0 mt-0.5" data-status-icon aria-hidden="true"></i>
@@ -257,48 +296,60 @@ Author: Keenthemes
                         <label class="kt-form-label font-normal text-mono" for="first_login_code">Code uit e-mail</label>
                         <input class="kt-input tracking-widest text-center" id="first_login_code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000">
                     </div>
-                    <div class="flex flex-col gap-2.5">
-                        <label class="kt-form-label font-normal text-mono" for="first_login_password">Nieuw wachtwoord</label>
-                        <div>
-                            <div class="kt-input" data-kt-toggle-password="true">
-                                <input id="first_login_password" name="password" type="password" autocomplete="new-password" placeholder="Min. 8 tekens" required>
-                                <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true" type="button">
-                                    <span class="kt-toggle-password-active:hidden">
-                                        <i class="ki-filled ki-eye text-muted-foreground"></i>
-                                    </span>
-                                    <span class="hidden kt-toggle-password-active:block">
-                                        <i class="ki-filled ki-eye-slash text-muted-foreground"></i>
-                                    </span>
-                                </button>
-                            </div>
-                            <div class="field-feedback text-xs text-red-600 text-destructive mt-1 hidden" data-field="password" id="first-login-password-feedback"></div>
-                            <p id="first-login-password-hint" class="text-xs text-muted-foreground mt-1 mb-0">Minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-2.5">
-                        <label class="kt-form-label font-normal text-mono" for="first_login_password_confirmation">Bevestig wachtwoord</label>
-                        <div>
-                            <div class="kt-input" data-kt-toggle-password="true">
-                                <input id="first_login_password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" placeholder="Herhaal wachtwoord" required>
-                                <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true" type="button">
-                                    <span class="kt-toggle-password-active:hidden">
-                                        <i class="ki-filled ki-eye text-muted-foreground"></i>
-                                    </span>
-                                    <span class="hidden kt-toggle-password-active:block">
-                                        <i class="ki-filled ki-eye-slash text-muted-foreground"></i>
-                                    </span>
-                                </button>
-                            </div>
-                            <div class="field-feedback text-xs text-red-600 text-destructive mt-1 hidden" data-field="password_confirmation" id="first-login-password-match"></div>
-                        </div>
-                    </div>
-                    <button type="button" class="kt-btn kt-btn-primary first-login-btn flex justify-center grow items-center gap-2" id="first-login-verify">
+                    <button type="button" class="kt-btn kt-btn-primary first-login-btn flex justify-center grow items-center gap-2" id="first-login-verify-code">
                         <svg class="first-login-spinner" data-loader viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
                             <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
                         </svg>
-                        <span data-label>Wachtwoord instellen en inloggen</span>
+                        <span data-label>Inloggen met code</span>
                     </button>
+                    <details class="rounded-lg border border-border px-3 py-2">
+                        <summary class="text-sm cursor-pointer text-primary font-medium">Optioneel: wachtwoord aanmaken</summary>
+                        <div class="flex flex-col gap-3 pt-3 pb-1">
+                            <div class="flex flex-col gap-2.5">
+                                <label class="kt-form-label font-normal text-mono" for="first_login_password">Nieuw wachtwoord</label>
+                                <div>
+                                    <div class="kt-input" data-kt-toggle-password="true">
+                                        <input id="first_login_password" name="password" type="password" autocomplete="new-password" placeholder="Min. 8 tekens">
+                                        <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true" type="button">
+                                            <span class="kt-toggle-password-active:hidden">
+                                                <i class="ki-filled ki-eye text-muted-foreground"></i>
+                                            </span>
+                                            <span class="hidden kt-toggle-password-active:block">
+                                                <i class="ki-filled ki-eye-slash text-muted-foreground"></i>
+                                            </span>
+                                        </button>
+                                    </div>
+                                    <div class="field-feedback text-xs text-red-600 text-destructive mt-1 hidden" data-field="password" id="first-login-password-feedback"></div>
+                                    <p id="first-login-password-hint" class="text-xs text-muted-foreground mt-1 mb-0">Minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2.5">
+                                <label class="kt-form-label font-normal text-mono" for="first_login_password_confirmation">Bevestig wachtwoord</label>
+                                <div>
+                                    <div class="kt-input" data-kt-toggle-password="true">
+                                        <input id="first_login_password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" placeholder="Herhaal wachtwoord">
+                                        <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true" type="button">
+                                            <span class="kt-toggle-password-active:hidden">
+                                                <i class="ki-filled ki-eye text-muted-foreground"></i>
+                                            </span>
+                                            <span class="hidden kt-toggle-password-active:block">
+                                                <i class="ki-filled ki-eye-slash text-muted-foreground"></i>
+                                            </span>
+                                        </button>
+                                    </div>
+                                    <div class="field-feedback text-xs text-red-600 text-destructive mt-1 hidden" data-field="password_confirmation" id="first-login-password-match"></div>
+                                </div>
+                            </div>
+                            <button type="button" class="kt-btn kt-btn-outline first-login-btn flex justify-center grow items-center gap-2" id="first-login-verify">
+                                <svg class="first-login-spinner" data-loader viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
+                                    <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                                </svg>
+                                <span data-label>Wachtwoord opslaan en inloggen</span>
+                            </button>
+                        </div>
+                    </details>
                     <button type="button" class="first-login-resend text-sm link text-primary w-full text-center inline-flex items-center justify-center gap-2" id="first-login-resend">
                         <svg class="first-login-spinner" data-loader viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
@@ -322,14 +373,18 @@ Author: Keenthemes
             const loginForm = document.getElementById('sign_in_form');
             const requestStep = document.getElementById('first_login_request_step');
             const verifyStep = document.getElementById('first_login_verify_step');
+            const marketplaceStep = document.getElementById('marketplace_register_step');
             const titleEl = document.getElementById('login-title');
             const emailEl = document.getElementById('first_login_email');
             const loginEmail = document.querySelector('#sign_in_form input[name="email"]');
             const requestStatus = document.getElementById('first-login-request-status');
             const verifyStatus = document.getElementById('first-login-verify-status');
+            const marketplaceStatus = document.getElementById('marketplace-register-status');
             const verifyNote = document.getElementById('first-login-verify-note');
             const requestBtn = document.getElementById('first-login-request');
             const verifyBtn = document.getElementById('first-login-verify');
+            const verifyCodeBtn = document.getElementById('first-login-verify-code');
+            const marketplaceSubmitBtn = document.getElementById('marketplace-register-submit');
             const csrfMeta = document.querySelector('meta[name="csrf-token"]');
             const csrfInput = document.querySelector('#sign_in_form input[name="_token"]');
 
@@ -376,14 +431,16 @@ Author: Keenthemes
             let lastRequestedEmail = (emailEl?.value || '').trim();
             const titles = {
                 login: 'Inloggen',
-                request: 'Eerste keer inloggen',
-                verify: 'Wachtwoord instellen',
+                request: 'Inloggen met code',
+                verify: 'Code bevestigen',
+                marketplace: 'Taxibedrijf aanmelden',
             };
 
             function showScreen(name) {
                 loginForm?.toggleAttribute('hidden', name !== 'login');
                 requestStep?.toggleAttribute('hidden', name !== 'request');
                 verifyStep?.toggleAttribute('hidden', name !== 'verify');
+                marketplaceStep?.toggleAttribute('hidden', name !== 'marketplace');
                 if (titleEl) {
                     titleEl.textContent = titles[name] || titles.login;
                 }
@@ -392,6 +449,9 @@ Author: Keenthemes
                 }
                 if (name === 'verify') {
                     document.getElementById('first_login_code')?.focus();
+                }
+                if (name === 'marketplace') {
+                    document.getElementById('marketplace_company_name')?.focus();
                 }
             }
 
@@ -514,10 +574,16 @@ Author: Keenthemes
                 showScreen('request');
             });
 
+            document.getElementById('toggle-marketplace-register')?.addEventListener('click', function () {
+                hideStatus(marketplaceStatus);
+                showScreen('marketplace');
+            });
+
             document.querySelectorAll('[data-back-to-login]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     hideStatus(requestStatus);
                     hideStatus(verifyStatus);
+                    hideStatus(marketplaceStatus);
                     showScreen('login');
                     loginEmail?.focus();
                 });
@@ -605,15 +671,58 @@ Author: Keenthemes
                 showStatus(requestStatus, message, 'info');
             }
 
-            verifyBtn?.addEventListener('click', async function () {
+            marketplaceSubmitBtn?.addEventListener('click', async function () {
+                const payload = {
+                    company_name: (document.getElementById('marketplace_company_name')?.value || '').trim(),
+                    email: (document.getElementById('marketplace_email')?.value || '').trim(),
+                    phone: (document.getElementById('marketplace_phone')?.value || '').trim(),
+                    city: (document.getElementById('marketplace_city')?.value || '').trim(),
+                };
+                if (!payload.company_name) {
+                    showStatus(marketplaceStatus, 'Vul de bedrijfsnaam in.', false);
+                    return;
+                }
+                if (!payload.email) {
+                    showStatus(marketplaceStatus, 'Vul een e-mailadres in.', false);
+                    return;
+                }
+                setLoading(marketplaceSubmitBtn, true);
+                try {
+                    const result = await postFirstLogin(@json(route('admin.login.marketplace-register')), payload);
+                    const data = result.data;
+                    if (result.response.ok || result.response.status === 201) {
+                        lastRequestedEmail = payload.email;
+                        if (emailEl) emailEl.value = payload.email;
+                        if (verifyNote) {
+                            verifyNote.textContent = data.message || 'Bedrijf aangemaakt. Vul de code uit je e-mail in.';
+                        }
+                        hideStatus(verifyStatus);
+                        showScreen('verify');
+                        return;
+                    }
+                    const firstError = data.errors
+                        ? (Object.values(data.errors)[0]?.[0] || null)
+                        : null;
+                    showStatus(marketplaceStatus, firstError || jsonMessage(data, 'Aanmelden is niet gelukt.'), false);
+                } catch (e) {
+                    showStatus(marketplaceStatus, 'Aanmelden is niet gelukt. Probeer het opnieuw.', false);
+                } finally {
+                    setLoading(marketplaceSubmitBtn, false);
+                }
+            });
+
+            async function submitCodeLogin(btn, withPassword) {
                 const payload = {
                     email: rememberedEmail(),
                     code: (document.getElementById('first_login_code')?.value || '').trim(),
-                    password: document.getElementById('first_login_password')?.value || '',
-                    password_confirmation: document.getElementById('first_login_password_confirmation')?.value || '',
+                    skip_password: !withPassword,
                 };
-                if (!passwordIsValid(true)) {
-                    return;
+                if (withPassword) {
+                    payload.password = document.getElementById('first_login_password')?.value || '';
+                    payload.password_confirmation = document.getElementById('first_login_password_confirmation')?.value || '';
+                    if (!passwordIsValid(true)) {
+                        return;
+                    }
                 }
                 if (payload.code.length !== 6) {
                     showStatus(verifyStatus, 'Vul de 6-cijferige code uit je e-mail in.', false);
@@ -623,7 +732,7 @@ Author: Keenthemes
                     goToRequestWithMessage('Vul je e-mailadres in en vraag een nieuwe code aan.');
                     return;
                 }
-                setLoading(verifyBtn, true);
+                setLoading(btn, true);
                 try {
                     const result = await postFirstLogin(@json(route('admin.login.first-verify')), payload);
                     const data = result.data;
@@ -635,13 +744,25 @@ Author: Keenthemes
                         goToRequestWithMessage(jsonMessage(data, 'Je inlogcode is verlopen. Vraag een nieuwe code aan.'));
                         return;
                     }
-                    showStatus(verifyStatus, jsonMessage(data, 'Activeren is niet gelukt.'), false);
+                    showStatus(verifyStatus, jsonMessage(data, 'Inloggen is niet gelukt.'), false);
                 } catch (e) {
-                    showStatus(verifyStatus, 'Activeren is niet gelukt. Probeer het opnieuw.', false);
+                    showStatus(verifyStatus, 'Inloggen is niet gelukt. Probeer het opnieuw.', false);
                 } finally {
-                    setLoading(verifyBtn, false);
+                    setLoading(btn, false);
                 }
+            }
+
+            verifyCodeBtn?.addEventListener('click', function () {
+                submitCodeLogin(verifyCodeBtn, false);
             });
+
+            verifyBtn?.addEventListener('click', function () {
+                submitCodeLogin(verifyBtn, true);
+            });
+
+            if (new URLSearchParams(window.location.search).get('marketplace') === '1') {
+                showScreen('marketplace');
+            }
         })();
     </script>
     <!-- End of Scripts -->

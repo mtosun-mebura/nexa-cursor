@@ -135,6 +135,68 @@ final class TaxiDispatchSchema
         self::$ready[$key] = true;
     }
 
+    public static function ensureFulfillingCompanyColumn(string $connection): void
+    {
+        $key = $connection.':fulfilling_company';
+        if (! empty(self::$ready[$key])) {
+            return;
+        }
+
+        $schema = Schema::connection($connection);
+        if (! $schema->hasTable('ride_requests')) {
+            return;
+        }
+
+        if (! $schema->hasColumn('ride_requests', 'fulfilling_company_id')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->unsignedBigInteger('fulfilling_company_id')->nullable()->index();
+            });
+        }
+
+        self::$ready[$key] = true;
+    }
+
+    public static function ensureSettlementColumns(string $connection): void
+    {
+        $key = $connection.':settlement';
+        if (! empty(self::$ready[$key])) {
+            return;
+        }
+
+        $schema = Schema::connection($connection);
+        if (! $schema->hasTable('ride_requests')) {
+            return;
+        }
+
+        if (! $schema->hasColumn('ride_requests', 'settlement_status')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->string('settlement_status', 32)->nullable()->index();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'settlement_hold_until')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->timestamp('settlement_hold_until')->nullable()->index();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'settlement_risk_flags')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->json('settlement_risk_flags')->nullable();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'settlement_evaluated_at')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->timestamp('settlement_evaluated_at')->nullable();
+            });
+        }
+        if (! $schema->hasColumn('ride_requests', 'settlement_eligible_at')) {
+            $schema->table('ride_requests', function ($table) {
+                $table->timestamp('settlement_eligible_at')->nullable()->index();
+            });
+        }
+
+        self::$ready[$key] = true;
+    }
+
     public static function resetCache(): void
     {
         self::$ready = [];

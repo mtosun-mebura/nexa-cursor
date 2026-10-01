@@ -3,7 +3,7 @@
 @section('content')
 <div class="badge">Verkoop</div>
 <h1>Prijzen: instap laag, groeien met extra’s</h1>
-<p class="lead">Publieke pagina: <a href="{{ url('/prijzen') }}"><code>/prijzen</code></a>. Maandabonnement vanaf €&nbsp;49. Website live zetten vanaf €&nbsp;750 eenmalig. Prijzen excl.&nbsp;btw, standaard 12 maanden.</p>
+<p class="lead">Publieke pagina: <a href="{{ url('/prijzen') }}"><code>/prijzen</code></a>. Maandabonnement vanaf €&nbsp;49. Website live zetten vanaf €&nbsp;750 eenmalig. Prijzen excl.&nbsp;btw, maandelijks opzegbaar.</p>
 
 <h2>Maandpakketten</h2>
 <div class="grid">

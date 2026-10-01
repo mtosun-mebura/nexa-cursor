@@ -24,9 +24,10 @@ class NearbyAvailableTaxiFleetService
     ) {}
 
     /**
-     * Online taxi's van NEXA Suite-tenants die géén actieve rit hebben.
+     * Online taxi's van NEXA Suite-tenants binnen de straal (laatste bekende positie).
+     * Chauffeurs met een recente actieve rit krijgen busy=true maar blijven zichtbaar.
      *
-     * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float}>
+     * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float, busy: bool}>
      */
     public function vehicles(?float $lat, ?float $lng, ?float $radiusKm = null): array
     {
@@ -60,11 +61,11 @@ class NearbyAvailableTaxiFleetService
             ->whereNotNull('lat')
             ->whereNotNull('lng')
             ->where(function ($query) use ($cutoff) {
-                $query->where('location_updated_at', '>=', $cutoff)
-                    ->orWhere(function ($inner) use ($cutoff) {
-                        $inner->whereNull('location_updated_at')
-                            ->where('last_seen_at', '>=', $cutoff);
-                    });
+                // Presence = last_seen (dispatch/heartbeat). GPS mag stil staan: dan blijft
+                // location_updated_at oud terwijl last_seen wél ververst — die chauffeurs
+                // moeten wél op de boekingskaart blijven staan op hun laatste bekende positie.
+                $query->where('last_seen_at', '>=', $cutoff)
+                    ->orWhere('location_updated_at', '>=', $cutoff);
             })
             ->get();
         if ($rows->isEmpty()) {
@@ -88,7 +89,7 @@ class NearbyAvailableTaxiFleetService
         $out = [];
         foreach ($rows as $row) {
             $driverId = (int) $row->driver_id;
-            if ($driverId <= 0 || isset($busyDriverIds[$driverId])) {
+            if ($driverId <= 0) {
                 continue;
             }
             $taxiLat = (float) $row->lat;
@@ -111,6 +112,7 @@ class NearbyAvailableTaxiFleetService
                 'lng' => $taxiLng,
                 'car_style' => TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle?->type ?? null),
                 'distance_km' => $distanceKm,
+                'busy' => isset($busyDriverIds[$driverId]),
             ];
         }
 
@@ -143,14 +145,23 @@ class NearbyAvailableTaxiFleetService
             return [];
         }
 
+        // Alleen recente/actieve ritten — oude vastzittende offered/accepted mogen de
+        // live-kaart niet leegtrekken. Openstaande offers tellen niet als "bezet".
+        $activeSince = now()->subHours(12);
         $ids = RideRequest::on($connection)
             ->whereIn('company_id', $companyIds)
             ->whereNotNull('driver_id')
             ->whereIn('status', [
-                RideRequest::STATUS_OFFERED,
                 RideRequest::STATUS_ACCEPTED,
                 RideRequest::STATUS_ASSIGNED,
             ])
+            ->where(function ($query) use ($activeSince) {
+                $query->where('pickup_at', '>=', $activeSince)
+                    ->orWhere(function ($inner) use ($activeSince) {
+                        $inner->whereNull('pickup_at')
+                            ->where('updated_at', '>=', $activeSince);
+                    });
+            })
             ->pluck('driver_id')
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)

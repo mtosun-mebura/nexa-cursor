@@ -25,7 +25,7 @@ class TenantWelcomeEmailTemplateServiceTest extends TestCase
         $this->assertStringContainsString('{{ START_VIDEO_URL }}', (string) $template->html_content);
         $this->assertStringContainsString('<span style="color: #ffffff;">Bekijk de startvideo</span>', (string) $template->html_content);
         $this->assertStringContainsString('#ea580c', (string) $template->html_content);
-        $this->assertStringContainsString('Powered by NEXA Suite.', (string) $template->html_content);
+        $this->assertStringContainsString('https://nexasuite.nl', (string) $template->html_content);
         $this->assertContains('NEXA_LOGO', array_keys(TenantWelcomeEmailTemplateService::variableLabels()));
         $this->assertContains('START_VIDEO_URL', array_keys(TenantWelcomeEmailTemplateService::variableLabels()));
     }

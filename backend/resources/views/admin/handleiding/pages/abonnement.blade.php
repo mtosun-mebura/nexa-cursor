@@ -2,7 +2,7 @@
     Onder <strong>Abonnementen</strong> ziet u uw huidige pakket, de prijs, de aanvullende modules
     (GPS-trackers, extra contractklanten, Vloot) en of u kunt upgraden, later downgraden of opzeggen.
     Alleen de bedrijfsbeheerder (company-admin) ziet dit menu. Andere rollen binnen het bedrijf niet.
-    De eerste contracttermijn is twaalf maanden. Een aanvullende module opzeggen kan tijdens de
+    Standaard is het een maandabonnement dat maandelijks opzegbaar is. Een aanvullende module opzeggen kan tijdens de
     proefperiode kosteloos; daarna per de 1e van volgende maand.
 </p>
 
@@ -11,7 +11,7 @@
         <div class="rounded-lg border border-border p-3 text-[11px] space-y-2">
             <div class="flex justify-between"><span>Huidig pakket</span><span class="font-semibold">Start</span></div>
             <div class="flex justify-between"><span>Prijs</span><span>€ 49 per maand</span></div>
-            <div class="flex justify-between"><span>Contract tot</span><span>15-03-2027</span></div>
+            <div class="flex justify-between"><span>Opzegbaar</span><span>Maandelijks</span></div>
             <div class="flex gap-2 pt-1">
                 <span class="rounded-md bg-primary/90 text-primary-foreground px-2 py-1">Upgraden</span>
                 <span class="rounded-md border border-border px-2 py-1">Opzeggen</span>
@@ -26,5 +26,5 @@
 </div>
 <div class="handleiding-step">
     <span class="handleiding-step-num">2</span>
-    <div>Upgrade gaat meteen in. Een downgrade of opzegging volgt de contractdatum.</div>
+    <div>Upgrade gaat meteen in. Een downgrade of opzegging gaat standaard per einde van de lopende maand.</div>
 </div>

@@ -23,6 +23,19 @@
     $title = trim((string) ($sectionData['title'] ?? ''));
     $subtitle = trim((string) ($sectionData['subtitle'] ?? ''));
     $note = trim((string) ($sectionData['vat_note'] ?? ''));
+    $packagesIntroTitle = trim((string) ($sectionData['packages_intro_title'] ?? 'Wat zit erin'));
+    $packagesIntroSubtitle = trim((string) preg_replace(
+        '/<br\s*\/?>/i',
+        "\n",
+        (string) ($sectionData['packages_intro_subtitle'] ?? 'excl. btw · maandelijks opzegbaar')
+    ));
+    $packagesIntroSubtitle = trim(str_replace(["\r\n", "\r"], "\n", $packagesIntroSubtitle));
+    $packagesIntroCaption = implode(' · ', array_values(array_filter([
+        $packagesIntroTitle,
+        $packagesIntroSubtitle !== ''
+            ? trim((string) preg_replace('/\s*\n\s*/', ' · ', $packagesIntroSubtitle))
+            : '',
+    ], static fn (string $part): bool => $part !== '')));
 
     $packages = isset($sectionData['packages']) && is_array($sectionData['packages'])
         ? array_values($sectionData['packages'])
@@ -629,7 +642,9 @@
 
         @if($packages !== [])
         <div class="nexa-pricing-cards nexa-pricing-block nexa-pricing-block--packages nexa-pricing-reveal nexa-pricing-reveal--block" data-scroll-reveal style="--nexa-pricing-fs: {{ $packagesFontPx }}px;">
-            <p class="nexa-pricing-cards__caption">Wat zit erin · excl. btw · 12 maanden</p>
+            @if($packagesIntroCaption !== '')
+            <p class="nexa-pricing-cards__caption">{{ $packagesIntroCaption }}</p>
+            @endif
             @foreach($packages as $index => $package)
                 @php
                     $highlighted = filter_var($package['highlighted'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -705,8 +720,12 @@
             <table class="kt-table table-fixed border-separate border-spacing-0 w-full min-w-0 rounded-xl">
                 <tr class="*:border-border">
                     <td class="nexa-plan-intro border-b-0 align-bottom p-5! pt-7.5!" rowspan="3">
-                        <div class="text-mono text-sm leading-none font-medium pb-2">Wat zit erin</div>
-                        <div class="text-secondary-foreground text-sm">excl. btw · 12 maanden</div>
+                        @if($packagesIntroTitle !== '')
+                        <div class="text-mono text-sm leading-none font-medium pb-2">{{ $packagesIntroTitle }}</div>
+                        @endif
+                        @if($packagesIntroSubtitle !== '')
+                        <div class="text-secondary-foreground text-sm">{!! nl2br(e($packagesIntroSubtitle)) !!}</div>
+                        @endif
                     </td>
                     @foreach($packages as $index => $package)
                         @php

@@ -13,6 +13,36 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverRidePaymentController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideStopController;
 use Illuminate\Support\Facades\Route;
 
+Route::prefix('v1/customer')
+    ->middleware(['taxi.customer'])
+    ->group(function () {
+        Route::post('logout', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'logout']);
+        Route::get('me', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'me']);
+        Route::put('profile', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'updateProfile'])
+            ->middleware('throttle:60,1');
+        Route::put('accent', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'updateAccent'])
+            ->middleware('throttle:60,1');
+        Route::get('rides', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'index'])
+            ->middleware('throttle:60,1');
+        Route::get('rides/{ride}', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'show'])
+            ->middleware('throttle:60,1')
+            ->whereNumber('ride');
+        Route::post('rides/{ride}/cancel', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'cancel'])
+            ->middleware('throttle:20,1')
+            ->whereNumber('ride');
+        Route::post('rides/{ride}/wait', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'wait'])
+            ->middleware('throttle:20,1')
+            ->whereNumber('ride');
+        Route::post('rides/{ride}/pay', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'pay'])
+            ->middleware('throttle:20,1')
+            ->whereNumber('ride');
+        Route::get('rides/{ride}/invoice', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'invoice'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('ride');
+        Route::post('book', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'book'])
+            ->middleware('throttle:30,1');
+    });
+
 Route::prefix('v1/contract')
     ->middleware(['taxi.contract'])
     ->group(function () {
@@ -96,6 +126,10 @@ Route::prefix('v1/driver')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/release', [DriverDispatchController::class, 'release'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('ride');
+
+        Route::post('dispatch/rides/{ride}/hand-over-network', [DriverDispatchController::class, 'handOverToNetwork'])
             ->middleware('throttle:30,1')
             ->whereNumber('ride');
 

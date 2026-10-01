@@ -92,7 +92,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.modules.config.store', $moduleName) }}" method="POST" class="module-config-form">
+    <form action="{{ route('admin.modules.config.store', $moduleName) }}" method="POST" enctype="multipart/form-data" class="module-config-form">
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -124,6 +124,75 @@
                             ? 'Toon de knop in de header die naar het taxi-portaal (Mijn Taxi) gaat.'
                             : 'Toon de knop in de header die naar het Skillmatching-dashboard gaat.';
                     @endphp
+                    @if($moduleKey === 'taxi')
+                        @php
+                            $taxiLightPreview = $taxiAppLogoPreviews['light'] ?? null;
+                            $taxiDarkPreview = $taxiAppLogoPreviews['dark'] ?? null;
+                            $taxiDefaultLight = $taxiAppLogoDefaults['light'] ?? asset('images/nexa-taxi-logo.png');
+                            $taxiDefaultDark = $taxiAppLogoDefaults['dark'] ?? asset('images/nexa-taxi-logo-dark.png');
+                        @endphp
+                        <div class="mb-6">
+                            <p class="kt-form-label mb-2">App-logo’s (chauffeur &amp; contract)</p>
+                            <p class="text-xs text-muted-foreground mb-4 max-w-2xl">
+                                Tenants met een abonnement en eigen bedrijfslogo tonen in de apps hun eigen merk (zoals nu).
+                                Bij marketplace en network zonder eigen merk wordt NEXA | TAXI getoond. Upload hier optioneel light/dark; zonder upload gelden de standaardlogo’s.
+                            </p>
+                            <div class="grid gap-5 sm:grid-cols-2 max-w-3xl">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">Light mode</p>
+                                    <input type="hidden" name="app_logo_light_remove" id="app_logo_light_remove" value="0">
+                                    @include('admin.partials.image-upload-dropzone-inline', [
+                                        'name' => 'app_logo_light',
+                                        'inputId' => 'app-logo-light-input',
+                                        'previewId' => 'app-logo-light-preview',
+                                        'areaId' => 'app-logo-light-upload-area',
+                                        'linkId' => 'app-logo-light-upload-link',
+                                        'removeBtnId' => 'app-logo-light-remove',
+                                        'existingUrl' => $taxiLightPreview,
+                                        'dropzoneKey' => 'taxi-app-light',
+                                        'clientMsgId' => 'app-logo-light-client-msg',
+                                        'hintLine' => 'PNG, JPG, SVG, WebP (max. 5MB)',
+                                        'maxFileBytes' => 5 * 1024 * 1024,
+                                        'removeFlagId' => 'app_logo_light_remove',
+                                    ])
+                                    <div id="app-logo-light-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
+                                    @if(! $taxiLightPreview)
+                                        <p class="text-xs text-muted-foreground mt-2 mb-1">Standaard (NEXA | TAXI):</p>
+                                        <img src="{{ $taxiDefaultLight }}" alt="NEXA Taxi light" class="h-8 w-auto max-w-[180px] object-contain">
+                                    @endif
+                                    @error('app_logo_light')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
+                                    <input type="hidden" name="app_logo_dark_remove" id="app_logo_dark_remove" value="0">
+                                    @include('admin.partials.image-upload-dropzone-inline', [
+                                        'name' => 'app_logo_dark',
+                                        'inputId' => 'app-logo-dark-input',
+                                        'previewId' => 'app-logo-dark-preview',
+                                        'areaId' => 'app-logo-dark-upload-area',
+                                        'linkId' => 'app-logo-dark-upload-link',
+                                        'removeBtnId' => 'app-logo-dark-remove',
+                                        'existingUrl' => $taxiDarkPreview,
+                                        'dropzoneKey' => 'taxi-app-dark',
+                                        'clientMsgId' => 'app-logo-dark-client-msg',
+                                        'hintLine' => 'PNG, JPG, SVG, WebP (max. 5MB)',
+                                        'maxFileBytes' => 5 * 1024 * 1024,
+                                        'removeFlagId' => 'app_logo_dark_remove',
+                                    ])
+                                    <div id="app-logo-dark-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
+                                    @if(! $taxiDarkPreview)
+                                        <p class="text-xs text-muted-foreground mt-2 mb-1">Standaard (NEXA | TAXI):</p>
+                                        <img src="{{ $taxiDefaultDark }}" alt="NEXA Taxi dark" class="h-8 w-auto max-w-[180px] object-contain bg-[#0b0f19] rounded px-2 py-1">
+                                    @endif
+                                    @error('app_logo_dark')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     @if($isPortalModule)
                     <div class="mb-6 flex flex-wrap items-center gap-3">
                         <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
@@ -224,13 +293,15 @@
     var form = document.querySelector('form.module-config-form');
     var cb = document.getElementById('dashboard_link_visible');
     var hidden = document.getElementById('dashboard_link_visible_hidden');
-    if (!form || !cb || !hidden) return;
-    function syncDashboardHidden() {
-        hidden.value = cb.checked ? '1' : '0';
+    if (form && cb && hidden) {
+        function syncDashboardHidden() {
+            hidden.value = cb.checked ? '1' : '0';
+        }
+        cb.addEventListener('change', syncDashboardHidden);
+        form.addEventListener('submit', syncDashboardHidden);
     }
-    cb.addEventListener('change', syncDashboardHidden);
-    form.addEventListener('submit', syncDashboardHidden);
 })();
+@include('admin.partials.logo-dropzone-init-inner')
 </script>
 
 @endsection

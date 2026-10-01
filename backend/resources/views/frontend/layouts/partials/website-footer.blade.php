@@ -193,7 +193,7 @@
                 @if(!empty($homeSections['copyright']))
                     <div class="border-t border-gray-300 dark:border-gray-600 py-4 container-custom">
                         <p class="text-gray-700 dark:text-gray-200 text-sm">
-                            {{ str_replace('{year}', date('Y'), $homeSections['copyright']) }}
+                            {!! \App\Models\WebsitePage::renderCopyrightHtml($homeSections['copyright']) !!}
                         </p>
                     </div>
                 @endif
