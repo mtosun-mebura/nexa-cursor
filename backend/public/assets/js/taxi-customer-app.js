@@ -1467,7 +1467,7 @@
             ];
             drawRoutePath(fallbackPath);
             state.routeMetricsCache = null;
-            revealBookRouteOnMap();
+            pulseMapRouteReveal();
             return null;
         }
         drawRoutePath(route.path);
@@ -1475,17 +1475,16 @@
             distance_meters: route.distance_meters,
             duration_seconds: route.duration_seconds,
         };
-        revealBookRouteOnMap();
+        pulseMapRouteReveal();
         return state.routeMetricsCache;
     }
 
-    /** Toon de geladen route: toetsenbord weg, scroll naar kaart, korte highlight. */
-    function revealBookRouteOnMap() {
+    /** Direct naar de kaart scrollen (bij adresklik), keyboard dicht. */
+    function scrollBookToMap() {
         const screen = el('screen-book');
         if (!screen || screen.hidden) return;
         const content = screen.querySelector('.content');
         const mapWrap = screen.querySelector('.map-wrap');
-        if (!mapWrap) return;
 
         const ae = document.activeElement;
         if (ae && typeof ae.blur === 'function' && screen.contains(ae)) {
@@ -1493,32 +1492,60 @@
         }
         syncTabbarKeyboardVisibility();
 
-        const scrollTop = Math.max(0, mapWrap.offsetTop - 10);
-        if (content && typeof content.scrollTo === 'function') {
-            content.scrollTo({ top: scrollTop, behavior: 'smooth' });
-        } else if (content) {
-            content.scrollTop = scrollTop;
-        } else if (typeof mapWrap.scrollIntoView === 'function') {
-            mapWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        function jumpToMap() {
+            // Kaart staat bovenaan in .content — dat is de scrollcontainer.
+            if (!content) return;
+            try {
+                content.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (e) {
+                content.scrollTop = 0;
+            }
         }
+
+        jumpToMap();
+        clearTimeout(scrollBookToMap._t1);
+        clearTimeout(scrollBookToMap._t2);
+        // Na keyboard-dicht / layout-shift: opnieuw, forceer als smooth niet greep.
+        scrollBookToMap._t1 = setTimeout(function () {
+            jumpToMap();
+            if (content && content.scrollTop > 16) content.scrollTop = 0;
+        }, 100);
+        scrollBookToMap._t2 = setTimeout(function () {
+            if (content && content.scrollTop > 16) content.scrollTop = 0;
+            if (state.map && window.google && google.maps) {
+                try { google.maps.event.trigger(state.map, 'resize'); } catch (e) {}
+            }
+        }, 350);
+    }
+
+    /** Korte highlight + map refit nadat de route is getekend. */
+    function pulseMapRouteReveal() {
+        const screen = el('screen-book');
+        if (!screen || screen.hidden) return;
+        const mapWrap = screen.querySelector('.map-wrap');
+        if (!mapWrap) return;
 
         mapWrap.classList.remove('map-wrap--route-reveal');
         void mapWrap.offsetWidth;
         mapWrap.classList.add('map-wrap--route-reveal');
-        clearTimeout(revealBookRouteOnMap._timer);
-        revealBookRouteOnMap._timer = setTimeout(function () {
+        clearTimeout(pulseMapRouteReveal._timer);
+        pulseMapRouteReveal._timer = setTimeout(function () {
             mapWrap.classList.remove('map-wrap--route-reveal');
         }, 1400);
 
-        // Na scroll/keyboard: map opnieuw tekenen zodat de volledige route zichtbaar is.
-        clearTimeout(revealBookRouteOnMap._refitTimer);
-        revealBookRouteOnMap._refitTimer = setTimeout(function () {
+        clearTimeout(pulseMapRouteReveal._refitTimer);
+        pulseMapRouteReveal._refitTimer = setTimeout(function () {
             if (!state.map || !window.google || !google.maps) return;
             try {
                 google.maps.event.trigger(state.map, 'resize');
             } catch (e) {}
             refitBookRouteBounds();
         }, 380);
+    }
+
+    function revealBookRouteOnMap() {
+        scrollBookToMap();
+        pulseMapRouteReveal();
     }
 
     function refitBookRouteBounds() {
@@ -1985,6 +2012,15 @@
             const address = String((item && (item.address || item.label)) || '').trim();
             if (!address) return;
             input.value = address;
+
+            // Direct omhoog bij klik — niet wachten op geocode/route.
+            const willShowRoute = (inputId === 'dropoff' && state.pickup)
+                || (inputId === 'pickup' && state.dropoff)
+                || inputId === 'dropoff';
+            if (willShowRoute) {
+                scrollBookToMap();
+            }
+
             const coords = await resolveSuggestionCoordinates(item);
             if (!coords || !isFinite(coords.lat) || !isFinite(coords.lng)) {
                 toast('Adres gevonden, maar locatie kon niet worden bepaald. Probeer een ander adres.');
