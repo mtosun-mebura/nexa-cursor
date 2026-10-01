@@ -767,7 +767,7 @@ class NexaTaxiBookingController extends Controller
         $lat = round($lat, 6);
         $lon = round($lon, 6);
 
-        $cacheKey = 'nominatim_reverse:v2:'.$lat.':'.$lon;
+        $cacheKey = 'nominatim_reverse:v3:'.$lat.':'.$lon;
         $data = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($lat, $lon) {
             $url = 'https://nominatim.openstreetmap.org/reverse?'.http_build_query([
                 'format' => 'jsonv2',
@@ -793,7 +793,108 @@ class NexaTaxiBookingController extends Controller
             return response()->json(['display_name' => null], 404);
         }
 
-        return response()->json($data);
+        return response()->json($this->formatReverseGeocodePayload($data));
+    }
+
+    /**
+     * Nominatim geeft vaak "155, Deurningerstraat, …"; NL-weergave is "Deurningerstraat 155, …".
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function formatReverseGeocodePayload(array $data): array
+    {
+        $label = $this->formatNominatimAddressLabel($data);
+        if ($label !== '') {
+            $data['display_name'] = $label;
+            $data['name'] = $label;
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function formatNominatimAddressLabel(array $row): string
+    {
+        $displayName = trim((string) ($row['display_name'] ?? ''));
+        $poiName = trim((string) ($row['name'] ?? ''));
+        $address = $row['address'] ?? null;
+        if (! is_array($address)) {
+            return $this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName);
+        }
+
+        $street = (string) (
+            $address['road']
+            ?? $address['pedestrian']
+            ?? $address['footway']
+            ?? $address['cycleway']
+            ?? $address['path']
+            ?? $address['railway']
+            ?? ''
+        );
+        $number = trim((string) ($address['house_number'] ?? ''));
+        $city = (string) (
+            $address['city']
+            ?? $address['town']
+            ?? $address['village']
+            ?? $address['hamlet']
+            ?? $address['city_district']
+            ?? $address['suburb']
+            ?? $address['municipality']
+            ?? ''
+        );
+        $postcode = trim((string) ($address['postcode'] ?? ''));
+        $addressType = strtolower((string) ($row['addresstype'] ?? ''));
+        $category = strtolower((string) ($row['category'] ?? $row['class'] ?? ''));
+        $placeType = strtolower((string) ($row['type'] ?? ''));
+        $isStreetAddress = $number !== ''
+            || in_array($addressType, ['road', 'house', 'house_number'], true)
+            || in_array($category, ['highway', 'place'], true);
+        $streetPart = trim(implode(' ', array_filter([$street, $number], fn ($v) => trim((string) $v) !== '')));
+
+        if ($category === 'railway' || in_array($placeType, ['station', 'halt'], true)) {
+            if ($poiName !== '') {
+                $lead = preg_match('/^station\b/i', $poiName) ? $poiName : ('Station '.$poiName);
+            } else {
+                $lead = $streetPart !== '' ? $streetPart : $displayName;
+            }
+        } elseif ($poiName !== '' && ! $isStreetAddress && strcasecmp($poiName, $street) !== 0) {
+            $lead = $poiName;
+        } else {
+            $lead = $streetPart;
+        }
+
+        $second = trim(implode(' ', array_filter([$postcode, $city], fn ($v) => trim((string) $v) !== '')));
+        $value = trim(implode(', ', array_filter([$lead, $second], fn ($v) => trim((string) $v) !== '')));
+
+        return $value !== '' ? $value : $this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName);
+    }
+
+    private function normalizeNlAddressLabel(string $raw): string
+    {
+        $text = trim($raw);
+        if ($text === '') {
+            return '';
+        }
+
+        $parts = array_values(array_filter(array_map('trim', explode(',', $text)), fn ($p) => $p !== ''));
+        if ($parts === []) {
+            return $text;
+        }
+
+        $first = $parts[0] ?? '';
+        $second = $parts[1] ?? '';
+        if (preg_match('/^\d+[a-zA-Z\-]*$/', $first) && $second !== '' && ! preg_match('/^\d/', $second)) {
+            $parts[0] = $second.' '.$first;
+            array_splice($parts, 1, 1);
+        } elseif ($second !== '' && preg_match('/^\d+[a-zA-Z\-]*$/', $second) && $first !== '' && ! preg_match('/\d/', $first)) {
+            $parts[0] = $first.' '.$second;
+            array_splice($parts, 1, 1);
+        }
+
+        return implode(', ', $parts);
     }
 
     /**

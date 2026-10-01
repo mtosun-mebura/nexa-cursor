@@ -145,6 +145,47 @@
             tab.classList.toggle('active', tab.dataset.tab === activeTab);
         });
         refreshActiveRideUi();
+        syncTabbarKeyboardVisibility();
+    }
+
+    function isEditableFocusTarget(node) {
+        if (!node || node.nodeType !== 1) return false;
+        if (node.isContentEditable) return true;
+        const tag = String(node.tagName || '').toUpperCase();
+        if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        if (tag !== 'INPUT') return false;
+        const type = String(node.type || 'text').toLowerCase();
+        return !(['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'hidden', 'range', 'color'].indexOf(type) >= 0);
+    }
+
+    /** Verberg vaste footer terwijl het mobiele toetsenbord open is (voorkomt half meescrollen). */
+    function syncTabbarKeyboardVisibility() {
+        const bar = el('app-tabbar');
+        if (!bar) return;
+        const vv = window.visualViewport;
+        const layoutH = window.innerHeight || 0;
+        const viewportH = vv && isFinite(vv.height) ? vv.height : layoutH;
+        const shrink = Math.max(0, layoutH - viewportH);
+        const typing = isEditableFocusTarget(document.activeElement);
+        const narrow = !(window.matchMedia) || window.matchMedia('(max-width: 48rem)').matches;
+        // Mobiel + tekstveld in focus ≈ toetsenbord open. visualViewport-shrink als extra signaal.
+        const keyboardOpen = (narrow && typing) || shrink > 120;
+        bar.classList.toggle('is-keyboard-hidden', !!keyboardOpen && !bar.hidden);
+    }
+
+    function bindKeyboardTabbarVisibility() {
+        const sync = function () { syncTabbarKeyboardVisibility(); };
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', sync);
+            window.visualViewport.addEventListener('scroll', sync);
+        }
+        window.addEventListener('resize', sync);
+        document.addEventListener('focusin', sync);
+        document.addEventListener('focusout', function () {
+            // iOS sluit het toetsenbord met een korte delay na blur.
+            setTimeout(sync, 150);
+        });
+        sync();
     }
 
     function toast(msg) {
@@ -1426,6 +1467,7 @@
             ];
             drawRoutePath(fallbackPath);
             state.routeMetricsCache = null;
+            revealBookRouteOnMap();
             return null;
         }
         drawRoutePath(route.path);
@@ -1433,7 +1475,61 @@
             distance_meters: route.distance_meters,
             duration_seconds: route.duration_seconds,
         };
+        revealBookRouteOnMap();
         return state.routeMetricsCache;
+    }
+
+    /** Toon de geladen route: toetsenbord weg, scroll naar kaart, korte highlight. */
+    function revealBookRouteOnMap() {
+        const screen = el('screen-book');
+        if (!screen || screen.hidden) return;
+        const content = screen.querySelector('.content');
+        const mapWrap = screen.querySelector('.map-wrap');
+        if (!mapWrap) return;
+
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === 'function' && screen.contains(ae)) {
+            ae.blur();
+        }
+        syncTabbarKeyboardVisibility();
+
+        const scrollTop = Math.max(0, mapWrap.offsetTop - 10);
+        if (content && typeof content.scrollTo === 'function') {
+            content.scrollTo({ top: scrollTop, behavior: 'smooth' });
+        } else if (content) {
+            content.scrollTop = scrollTop;
+        } else if (typeof mapWrap.scrollIntoView === 'function') {
+            mapWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        mapWrap.classList.remove('map-wrap--route-reveal');
+        void mapWrap.offsetWidth;
+        mapWrap.classList.add('map-wrap--route-reveal');
+        clearTimeout(revealBookRouteOnMap._timer);
+        revealBookRouteOnMap._timer = setTimeout(function () {
+            mapWrap.classList.remove('map-wrap--route-reveal');
+        }, 1400);
+
+        // Na scroll/keyboard: map opnieuw tekenen zodat de volledige route zichtbaar is.
+        clearTimeout(revealBookRouteOnMap._refitTimer);
+        revealBookRouteOnMap._refitTimer = setTimeout(function () {
+            if (!state.map || !window.google || !google.maps) return;
+            try {
+                google.maps.event.trigger(state.map, 'resize');
+            } catch (e) {}
+            refitBookRouteBounds();
+        }, 380);
+    }
+
+    function refitBookRouteBounds() {
+        if (!state.map || !state.routeLine || !window.google || !google.maps) return;
+        const path = state.routeLine.getPath();
+        if (!path || typeof path.getLength !== 'function' || path.getLength() < 2) return;
+        const bounds = new google.maps.LatLngBounds();
+        path.forEach(function (ll) { bounds.extend(ll); });
+        if (state.pickup) bounds.extend({ lat: state.pickup.lat, lng: state.pickup.lng });
+        if (state.dropoff) bounds.extend({ lat: state.dropoff.lat, lng: state.dropoff.lng });
+        state.map.fitBounds(bounds, 56);
     }
 
     function updateMapMarkers() {
@@ -1515,7 +1611,7 @@
                 );
                 if (res.ok) {
                     const data = await res.json();
-                    address = (data && (data.display_name || data.name)) || '';
+                    address = formatNominatimRowAddress(data);
                 }
             } catch (e) {}
             if (!address) {
@@ -1593,26 +1689,11 @@
 
     function formatNominatimPredictionItem(row) {
         if (!row) return null;
-        const displayName = String(row.display_name || '').trim();
-        const poiName = String(row.name || '').trim();
+        const label = formatNominatimRowAddress(row);
+        if (!label) return null;
         const category = String(row.category || row.class || '').toLowerCase();
         const placeType = String(row.type || '').toLowerCase();
         const isStation = category === 'railway' || placeType === 'station' || placeType === 'halt';
-        const a = row.address && typeof row.address === 'object' ? row.address : null;
-        const city = a
-            ? (a.city || a.town || a.village || a.municipality || a.suburb || '')
-            : '';
-        const postcode = a ? (a.postcode || '') : '';
-        let lead;
-        if (isStation) {
-            lead = ensureStationLabel(poiName || (displayName.split(',')[0] || displayName));
-        } else {
-            lead = poiName || displayName;
-        }
-        const second = [postcode, city].filter(Boolean).join(' ').trim();
-        let label = second ? (lead + ', ' + second) : lead;
-        if (!label) label = displayName;
-        if (!label) return null;
         const lat = row.lat != null ? parseFloat(row.lat) : NaN;
         const lng = row.lon != null ? parseFloat(row.lon) : NaN;
         return {
@@ -1624,6 +1705,82 @@
             lat: isFinite(lat) ? lat : null,
             lng: isFinite(lng) ? lng : null,
         };
+    }
+
+    /**
+     * Nominatim zet huisnummer vaak vooraan ("155, Deurningerstraat, …").
+     * NL-weergave: straat + huisnummer ("Deurningerstraat 155, …").
+     */
+    function formatNominatimRowAddress(row) {
+        if (!row || typeof row !== 'object') return '';
+        const displayName = String(row.display_name || '').trim();
+        const poiName = String(row.name || '').trim();
+        const a = row.address && typeof row.address === 'object' ? row.address : null;
+        if (a) {
+            const street = a.road || a.pedestrian || a.footway || a.cycleway || a.path || a.railway || '';
+            const number = a.house_number || '';
+            const city = a.city || a.town || a.village || a.hamlet || a.city_district || a.suburb || a.county || a.municipality || '';
+            const postcode = a.postcode || '';
+            const addressType = String(row.addresstype || '').toLowerCase();
+            const category = String(row.category || row.class || '').toLowerCase();
+            const placeType = String(row.type || '').toLowerCase();
+            const isStreetAddress = !!number || addressType === 'road' || addressType === 'house'
+                || addressType === 'house_number' || category === 'highway' || category === 'place';
+            const streetPart = [street, number].filter(Boolean).join(' ').trim();
+            let lead;
+            if (category === 'railway' || placeType === 'station' || placeType === 'halt') {
+                lead = poiName
+                    ? (/^station\b/i.test(poiName) ? poiName : ('Station ' + poiName))
+                    : (streetPart || displayName);
+            } else if (poiName && !isStreetAddress && poiName.toLowerCase() !== String(street).toLowerCase()) {
+                lead = poiName;
+            } else {
+                lead = streetPart;
+            }
+            const second = [postcode, city].filter(Boolean).join(' ').trim();
+            const value = [lead, second].filter(Boolean).join(', ').trim();
+            if (value) return value;
+        }
+        return normalizeNlAddressLabel(poiName || displayName);
+    }
+
+    /** Zet "155, Straatnaam, …" om naar "Straatnaam 155, …". */
+    function normalizeNlAddressLabel(raw) {
+        const text = String(raw || '').trim();
+        if (!text) return '';
+        const parts = text.split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+        if (!parts.length) return text;
+        let first = parts[0] || '';
+        const second = parts[1] || '';
+        if (/^\d+[a-zA-Z\-]*$/.test(first) && second && !/^\d/.test(second)) {
+            first = second + ' ' + first;
+            parts[0] = first;
+            parts.splice(1, 1);
+        } else if (second && /^\d+[a-zA-Z\-]*$/.test(second) && first && !/\d/.test(first)) {
+            first = first + ' ' + second;
+            parts[0] = first;
+            parts.splice(1, 1);
+        }
+        return parts.join(', ');
+    }
+
+    function formatGoogleGeocodeAddress(result) {
+        if (!result) return '';
+        const components = result.address_components || [];
+        const byType = {};
+        components.forEach(function (c) {
+            (c.types || []).forEach(function (t) {
+                if (!byType[t]) byType[t] = c.long_name;
+            });
+        });
+        const street = byType.route || byType.pedestrian || '';
+        const number = byType.street_number || '';
+        const streetPart = [street, number].filter(Boolean).join(' ').trim();
+        const postcode = byType.postal_code || '';
+        const city = byType.locality || byType.postal_town || byType.administrative_area_level_2 || '';
+        const second = [postcode, city].filter(Boolean).join(' ').trim();
+        const value = [streetPart, second].filter(Boolean).join(', ').trim();
+        return value || normalizeNlAddressLabel(result.formatted_address || '');
     }
 
     function mergeAddressSuggestions(googleItems, nominatimItems, query) {
@@ -1669,7 +1826,7 @@
                         resolve('');
                         return;
                     }
-                    resolve(String(results[0].formatted_address || '').trim());
+                    resolve(formatGoogleGeocodeAddress(results[0]));
                 });
             });
         }).catch(function () { return ''; });
@@ -2728,7 +2885,8 @@
     function shortAddress(value) {
         const raw = String(value || '').trim();
         if (!raw) return 'Onbekend';
-        return raw.split(',')[0].trim() || raw;
+        const normalized = normalizeNlAddressLabel(raw);
+        return normalized.split(',')[0].trim() || normalized || raw;
     }
 
     function formatRideWhen(at) {
@@ -3407,6 +3565,7 @@
     bindAddressSearch();
     bindPickupDateTimePicker();
     bindBaggageSteppers();
+    bindKeyboardTabbarVisibility();
     setPickupAtValue(defaultPickupAt(), { silent: true });
     // Prefetch Maps SDK early.
     loadGoogleMapsSdk().catch(function () {});
