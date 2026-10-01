@@ -49,14 +49,21 @@
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         [hidden] { display: none !important; }
-        html, body { height: 100%; margin: 0; }
+        html, body { height: 100%; margin: 0; overflow: hidden; }
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg); color: var(--text);
             overscroll-behavior: none;
         }
-        #app { min-height: 100%; display: flex; flex-direction: column; }
-        .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+        #app {
+            height: 100%;
+            min-height: 100%;
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
 
         /* Header: logo veilig onder camera (zelfde aanpak als chauffeur), daaronder navrij */
         .app-chrome {
@@ -247,7 +254,13 @@
             margin-top: 4px;
         }
 
-        .content { flex: 1; overflow-y: auto; padding: 16px 16px calc(96px + var(--safe-bottom)); }
+        .content {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px 16px calc(96px + var(--safe-bottom));
+        }
         .screen-welcome .content { padding-top: 8px; }
         .map-wrap {
             height: 280px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line);
