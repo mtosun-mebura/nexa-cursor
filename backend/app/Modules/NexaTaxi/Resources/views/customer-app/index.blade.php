@@ -253,6 +253,17 @@
             height: 280px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line);
             background: var(--map-empty); margin-bottom: 14px; position: relative;
         }
+        .map-wrap.map-wrap--route-reveal {
+            animation: map-route-reveal 1.25s ease;
+        }
+        @keyframes map-route-reveal {
+            0% { transform: scale(0.985); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+            35% { transform: scale(1.015); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .map-wrap.map-wrap--route-reveal { animation: none; }
+        }
         #map, #live-map { width: 100%; height: 100%; }
         .map-status {
             position: absolute; left: 10px; bottom: 10px; z-index: 2;
@@ -532,7 +543,8 @@
             background: var(--chrome); border-top: 1px solid var(--line);
             backdrop-filter: blur(12px); z-index: 30;
         }
-        .tabs[hidden] { display: none !important; }
+        .tabs[hidden],
+        .tabs.is-keyboard-hidden { display: none !important; }
         .tab {
             background: none; border: 0; color: var(--muted);
             padding: 8px 4px 6px;

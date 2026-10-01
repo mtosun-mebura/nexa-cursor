@@ -51,4 +51,40 @@ class NexaTaxiBookingAddressSearchStationTest extends TestCase
         $this->assertSame('Centraal Station', $data[0]['name'] ?? null);
         $this->assertSame('52.2217028', (string) ($data[0]['lat'] ?? ''));
     }
+
+    #[Test]
+    public function reverse_geocode_puts_house_number_after_street_name(): void
+    {
+        Http::fake([
+            'nominatim.openstreetmap.org/reverse*' => Http::response([
+                'lat' => '52.2215',
+                'lon' => '6.8935',
+                'name' => '155',
+                'display_name' => '155, Deurningerstraat, Walhof, Enschede, Overijssel, Nederland',
+                'addresstype' => 'house',
+                'category' => 'place',
+                'type' => 'house',
+                'address' => [
+                    'house_number' => '155',
+                    'road' => 'Deurningerstraat',
+                    'suburb' => 'Walhof',
+                    'city' => 'Enschede',
+                    'state' => 'Overijssel',
+                    'postcode' => '7514AD',
+                    'country' => 'Nederland',
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/nexa-taxi/booking/address-search?'.http_build_query([
+            'lat' => '52.2215',
+            'lon' => '6.8935',
+        ]));
+
+        $response->assertOk();
+        $display = (string) ($response->json('display_name') ?? '');
+        $this->assertStringContainsString('Deurningerstraat 155', $display);
+        $this->assertDoesNotMatchRegularExpression('/^155,\s*Deurningerstraat/', $display);
+        $this->assertStringContainsString('Enschede', $display);
+    }
 }
