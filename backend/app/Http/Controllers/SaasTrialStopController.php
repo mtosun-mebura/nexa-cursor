@@ -53,7 +53,7 @@ class SaasTrialStopController extends Controller
         if (
             $user
             && (int) $user->company_id === (int) $company->id
-            && $user->hasRole('company-admin')
+            && $user->isTenantAdmin()
             && ! $user->hasRole('super-admin')
         ) {
             return redirect()->route('admin.subscriptions.show')

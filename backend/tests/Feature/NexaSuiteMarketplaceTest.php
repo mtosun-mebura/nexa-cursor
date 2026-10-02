@@ -110,6 +110,7 @@ class NexaSuiteMarketplaceTest extends TestCase
     public function central_booking_is_offered_to_nearby_tenants_without_claiming_one(): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
+        $this->seedOnlineDriversAtCompanyOffices();
         $page = WebsitePage::query()->create([
             'slug' => 'boek',
             'title' => 'Taxi boeken',
@@ -171,6 +172,7 @@ class NexaSuiteMarketplaceTest extends TestCase
     public function algemene_booking_module_assigns_nearest_tenant_even_on_a_tenant_page(): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
+        $this->seedOnlineDriversAtCompanyOffices();
         $far = Company::query()->where('name', 'Taxi Maastricht')->first();
         $page = WebsitePage::query()->create([
             'slug' => 'home',
@@ -197,6 +199,7 @@ class NexaSuiteMarketplaceTest extends TestCase
     public function algemene_booking_is_offered_to_multiple_nearby_tenants(): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
+        $this->seedOnlineDriversAtCompanyOffices();
         $taxi = Module::query()->where('name', 'taxi')->first();
         $alsoNear = Company::query()->create([
             'name' => 'Taxi Amstelveen',
@@ -213,6 +216,15 @@ class NexaSuiteMarketplaceTest extends TestCase
             'name' => 'Sedan West',
             'person_range' => '1-4',
             'active' => true,
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 9010,
+            'company_id' => $alsoNear->id,
+            'is_online' => true,
+            'lat' => 52.3089,
+            'lng' => 4.8503,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
         ]);
 
         $page = WebsitePage::query()->create([
@@ -243,6 +255,7 @@ class NexaSuiteMarketplaceTest extends TestCase
     public function algemene_booking_respects_configured_marketplace_radius(): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
+        $this->seedOnlineDriversAtCompanyOffices();
         $taxi = Module::query()->where('name', 'taxi')->first();
         $outsideRadius = Company::query()->create([
             'name' => 'Taxi Haarlem',
@@ -259,6 +272,15 @@ class NexaSuiteMarketplaceTest extends TestCase
             'name' => 'Sedan Haarlem',
             'person_range' => '1-4',
             'active' => true,
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 9020,
+            'company_id' => $outsideRadius->id,
+            'is_online' => true,
+            'lat' => 52.3874,
+            'lng' => 4.6462,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
         ]);
 
         $page = WebsitePage::query()->create([
@@ -577,6 +599,44 @@ class NexaSuiteMarketplaceTest extends TestCase
         ]);
 
         return [$near, $vehicle];
+    }
+
+    /**
+     * Online chauffeurs bij vestigingscoördinaten — marketplace matcht op GPS, niet op kantoor.
+     */
+    private function seedOnlineDriversAtCompanyOffices(): void
+    {
+        $near = Company::query()->where('name', 'Taxi Amsterdam')->first();
+        $far = Company::query()->where('name', 'Taxi Maastricht')->first();
+        if (! $near || ! $far) {
+            return;
+        }
+
+        $nearVehicle = Vehicle::on('module_taxi')->where('company_id', $near->id)->first();
+
+        DriverAvailability::on('module_taxi')->updateOrCreate(
+            ['driver_id' => 9001],
+            [
+                'company_id' => $near->id,
+                'vehicle_id' => $nearVehicle?->id,
+                'is_online' => true,
+                'lat' => (float) $near->latitude,
+                'lng' => (float) $near->longitude,
+                'location_updated_at' => now(),
+                'last_seen_at' => now(),
+            ]
+        );
+        DriverAvailability::on('module_taxi')->updateOrCreate(
+            ['driver_id' => 9002],
+            [
+                'company_id' => $far->id,
+                'is_online' => true,
+                'lat' => (float) $far->latitude,
+                'lng' => (float) $far->longitude,
+                'location_updated_at' => now(),
+                'last_seen_at' => now(),
+            ]
+        );
     }
 
     /**

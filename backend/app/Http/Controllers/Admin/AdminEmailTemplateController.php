@@ -12,6 +12,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppLoginCodeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
+use App\Services\AdminBankAccountChangeCodeEmailTemplateService;
 use App\Services\AdminFirstLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
 use App\Services\InformatieaanvraagEmailHtmlNormalizer;
@@ -81,6 +82,7 @@ class AdminEmailTemplateController extends Controller
             'welcome' => null,
             'tenant_welcome' => null,
             AdminFirstLoginCodeEmailTemplateService::TYPE => null,
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => null,
             TenantConfigAccessGrantedEmailTemplateService::TYPE => null,
             'saas_trial_ending' => null,
             'saas_billing_start' => null,
@@ -122,6 +124,7 @@ class AdminEmailTemplateController extends Controller
             'welcome' => 'Welkom',
             'tenant_welcome' => 'Welkomstmail tenant (company-admin)',
             AdminFirstLoginCodeEmailTemplateService::TYPE => 'Eenmalige inlogcode admin (eerste login)',
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => 'Bevestigingscode bankrekening wijzigen',
             TenantConfigAccessGrantedEmailTemplateService::TYPE => 'Configuratie-toegang (bericht in NEXA Suite)',
             'saas_trial_ending' => 'Proeftijd bijna voorbij (NEXA Suite)',
             'saas_billing_start' => 'Eerste betaling NEXA-abonnement',
@@ -201,6 +204,7 @@ class AdminEmailTemplateController extends Controller
             TaxiCustomerAcceptEmailTemplateService::TYPE => TaxiCustomerAcceptEmailTemplateService::variableLabels(),
             TenantWelcomeEmailTemplateService::TYPE => TenantWelcomeEmailTemplateService::variableLabels(),
             AdminFirstLoginCodeEmailTemplateService::TYPE => AdminFirstLoginCodeEmailTemplateService::variableLabels(),
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => AdminBankAccountChangeCodeEmailTemplateService::variableLabels(),
             TenantConfigAccessGrantedEmailTemplateService::TYPE => TenantConfigAccessGrantedEmailTemplateService::variableLabels(),
             SaasTrialEndingEmailTemplateService::TYPE => SaasTrialEndingEmailTemplateService::variableLabels(),
             SaasBillingStartEmailTemplateService::TYPE => SaasBillingStartEmailTemplateService::variableLabels(),
@@ -324,6 +328,7 @@ class AdminEmailTemplateController extends Controller
         $this->provisionTaxiEmailTemplatesIfNeeded($menuService);
         app(TenantWelcomeEmailTemplateService::class)->ensureExists();
         app(AdminFirstLoginCodeEmailTemplateService::class)->ensureExists();
+        app(AdminBankAccountChangeCodeEmailTemplateService::class)->ensureExists();
         app(TenantConfigAccessGrantedEmailTemplateService::class)->ensureExists();
         app(SaasTrialEndingEmailTemplateService::class)->ensureExists();
         app(SaasBillingStartEmailTemplateService::class)->ensureExists();
@@ -688,6 +693,12 @@ class AdminEmailTemplateController extends Controller
             $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
             $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
         }
+        if ($emailTemplate->type === AdminBankAccountChangeCodeEmailTemplateService::TYPE) {
+            $previewVars = app(AdminBankAccountChangeCodeEmailTemplateService::class)->previewVariables();
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
         if ($emailTemplate->type === TenantConfigAccessGrantedEmailTemplateService::TYPE) {
             $previewCompany = $emailTemplate->company
                 ?? ($tenantId ? Company::find((int) $tenantId) : null);
@@ -1010,6 +1021,9 @@ class AdminEmailTemplateController extends Controller
         }
         if ($emailTemplate->type === AdminFirstLoginCodeEmailTemplateService::TYPE) {
             $variables = array_merge(app(AdminFirstLoginCodeEmailTemplateService::class)->previewVariables(), $variables);
+        }
+        if ($emailTemplate->type === AdminBankAccountChangeCodeEmailTemplateService::TYPE) {
+            $variables = array_merge(app(AdminBankAccountChangeCodeEmailTemplateService::class)->previewVariables(), $variables);
         }
         if ($emailTemplate->type === TenantConfigAccessGrantedEmailTemplateService::TYPE) {
             $previewCompany = $emailTemplate->company

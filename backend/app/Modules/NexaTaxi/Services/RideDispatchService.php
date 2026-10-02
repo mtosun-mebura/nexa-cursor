@@ -19,7 +19,8 @@ class RideDispatchService
     ) {}
 
     /**
-     * @param  bool  $enforceNetworkRadius  true = alleen chauffeurs binnen owner's max. network-radius
+     * @param  bool  $enforcePickupRadius  true = alleen chauffeurs binnen radius van ophaallocatie (GPS)
+     * @param  string  $radiusMode  network = owner network-radius; marketplace = booking marketplace radius
      */
     public function startDispatch(
         string $conn,
@@ -27,7 +28,8 @@ class RideDispatchService
         int $companyId,
         array $excludeDriverIds = [],
         bool $assignCompany = true,
-        bool $enforceNetworkRadius = false,
+        bool $enforcePickupRadius = false,
+        string $radiusMode = 'network',
     ): void {
         if ($companyId <= 0) {
             return;
@@ -49,12 +51,15 @@ class RideDispatchService
         $pickupLat = null;
         $pickupLng = null;
         $maxKm = null;
-        if ($enforceNetworkRadius) {
-            $radius = $this->networkRadiusFilter($ride);
+        if ($enforcePickupRadius) {
+            $radius = $radiusMode === 'marketplace'
+                ? $this->marketplaceRadiusFilter($ride)
+                : $this->networkRadiusFilter($ride);
             if ($radius === null) {
-                Log::info('Network dispatch overgeslagen: geen bruikbare pickup-coördinaten of radius.', [
+                Log::info('Dispatch overgeslagen: geen bruikbare pickup-coördinaten of radius.', [
                     'ride_request_id' => $ride->id,
                     'company_id' => $companyId,
+                    'radius_mode' => $radiusMode,
                 ]);
 
                 return;
@@ -75,13 +80,14 @@ class RideDispatchService
         ));
 
         if ($driverIds === []) {
-            if ($enforceNetworkRadius) {
-                Log::info('Network dispatch: geen partner-chauffeurs binnen radius.', [
+            if ($enforcePickupRadius) {
+                Log::info('Dispatch: geen chauffeurs binnen radius.', [
                     'ride_request_id' => $ride->id,
                     'company_id' => $companyId,
                     'max_radius_km' => $maxKm,
                     'pickup_lat' => $pickupLat,
                     'pickup_lng' => $pickupLng,
+                    'radius_mode' => $radiusMode,
                 ]);
             }
 
@@ -151,7 +157,8 @@ class RideDispatchService
             if ($current->driver_id) {
                 return;
             }
-            $this->startDispatch($conn, $current, $companyId, [], $assignCompany);
+            // Marketplace: alleen chauffeurs binnen de ingestelde straal van de ophaallocatie.
+            $this->startDispatch($conn, $current, $companyId, [], $assignCompany, true, 'marketplace');
         }
     }
 
@@ -189,7 +196,7 @@ class RideDispatchService
                 return;
             }
             // Never let partner dispatch claim ownership; enforce network radius.
-            $this->startDispatch($conn, $current, $companyId, [], false, true);
+            $this->startDispatch($conn, $current, $companyId, [], false, true, 'network');
         }
     }
 
@@ -285,6 +292,11 @@ class RideDispatchService
         $driverIdsToNotify = [];
         $partnerLookup = array_fill_keys($partnerCompanyIds, true);
         $partnerRadius = $partnerCompanyIds !== [] ? $this->networkRadiusFilter($ride) : null;
+        $marketplaceRadius = $ride->isUnclaimedMarketplaceBooking() || (
+            $ride->isNexaSuiteBooking() && (int) ($ride->company_id ?? 0) <= 0
+        )
+            ? $this->marketplaceRadiusFilter($ride)
+            : null;
 
         foreach ($companyIds as $companyId) {
             $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
@@ -293,13 +305,23 @@ class RideDispatchService
             if ($isPartner && $partnerRadius === null) {
                 continue;
             }
+
+            $pickupLat = null;
+            $pickupLng = null;
+            $maxKm = null;
+            if ($isPartner) {
+                [$pickupLat, $pickupLng, $maxKm] = $partnerRadius;
+            } elseif ($marketplaceRadius !== null) {
+                [$pickupLat, $pickupLng, $maxKm] = $marketplaceRadius;
+            }
+
             $driverIds = $this->drivers->onlineDriverIdsForCompany(
                 $conn,
                 $companyId,
                 $batch,
-                $isPartner ? $partnerRadius[0] : null,
-                $isPartner ? $partnerRadius[1] : null,
-                $isPartner ? $partnerRadius[2] : null,
+                $pickupLat,
+                $pickupLng,
+                $maxKm,
             );
             $expires = $now->copy()->addSeconds($ttl);
 
@@ -369,6 +391,16 @@ class RideDispatchService
         foreach ($rides as $ride) {
             if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
                 continue;
+            }
+
+            // Marketplace: alleen chauffeurs binnen de ingestelde straal rond de pickup.
+            if ($ride->isUnclaimedMarketplaceBooking() || (
+                $ride->isNexaSuiteBooking() && (int) ($ride->company_id ?? 0) <= 0
+            )) {
+                $radius = $this->marketplaceRadiusFilter($ride);
+                if ($radius === null || ! $this->driverWithinPickupRadius($conn, $driverId, $radius)) {
+                    continue;
+                }
             }
 
             $hasActive = RideDispatchOffer::on($conn)
@@ -523,6 +555,62 @@ class RideDispatchService
         }
 
         return [$lat, $lng, $this->dispatchSettings->networkMaxRadiusKm($ownerId)];
+    }
+
+    /**
+     * Marketplace-boeking: straal uit booking_payload (of standaard), rond ophaallocatie.
+     *
+     * @return array{0: float, 1: float, 2: int}|null
+     */
+    protected function marketplaceRadiusFilter(RideRequest $ride): ?array
+    {
+        $lat = $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null;
+        $lng = $ride->pickup_lng !== null ? (float) $ride->pickup_lng : null;
+        if ($lat === null || $lng === null) {
+            Log::info('Marketplace radius: rit zonder pickup-coördinaten — geen offers.', [
+                'ride_request_id' => $ride->id,
+            ]);
+
+            return null;
+        }
+
+        $payload = $ride->booking_payload;
+        $rawRadius = is_array($payload)
+            ? ($payload['marketplace']['radius_km'] ?? null)
+            : null;
+        $radiusKm = \App\Services\NearestTaxiTenantResolver::normalizeRadiusKm($rawRadius);
+
+        return [$lat, $lng, (int) max(1, (int) ceil($radiusKm))];
+    }
+
+    /**
+     * @param  array{0: float, 1: float, 2: int}  $radius
+     */
+    protected function driverWithinPickupRadius(string $conn, int $driverId, array $radius): bool
+    {
+        if ($driverId <= 0 || ! TaxiDispatchSchema::driverAvailabilityExists($conn)) {
+            return false;
+        }
+
+        [$pickupLat, $pickupLng, $maxKm] = $radius;
+        $row = \App\Modules\NexaTaxi\Models\DriverAvailability::on($conn)
+            ->where('driver_id', $driverId)
+            ->where('is_online', true)
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
+            ->first(['lat', 'lng']);
+        if (! $row) {
+            return false;
+        }
+
+        $km = $this->drivers->haversineKm(
+            $pickupLat,
+            $pickupLng,
+            (float) $row->lat,
+            (float) $row->lng
+        );
+
+        return $km <= (float) $maxKm;
     }
 
     /**

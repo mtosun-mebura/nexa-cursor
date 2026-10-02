@@ -17,6 +17,7 @@ class TaxiDriverEligibilityService
         'taxi_chauffeur',
         'taxichauffeur',
         'chauffeur-inkomsten',
+        'marketplace',
     ];
 
     public function chauffeurRoleNames(): array

@@ -78,7 +78,7 @@ class TaxiAppFirstLoginTest extends TestCase
     }
 
     #[Test]
-    public function activated_account_must_use_password(): void
+    public function activated_account_can_request_code_login(): void
     {
         $company = Company::query()->create(['name' => 'Taxi Login', 'is_active' => true]);
         $user = User::factory()->create([
@@ -93,9 +93,43 @@ class TaxiAppFirstLoginTest extends TestCase
 
         $this->postJson('/api/taxi/v1/driver/login-code/request', [
             'email' => $user->email,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('customer_login_codes', [
+            'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_DRIVER,
+        ]);
+    }
+
+    #[Test]
+    public function activated_account_can_login_with_code_without_password(): void
+    {
+        $company = Company::query()->create(['name' => 'Taxi Code Login', 'is_active' => true]);
+        $user = User::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'code.login@example.com',
+            'password' => app(TaxiAppFirstLoginService::class)->unusablePasswordHash(),
+            'must_change_password' => false,
+            'password_must_be_set' => false,
+            'email_verified_at' => now(),
+            'is_active' => true,
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['chauffeur']);
+
+        CustomerLoginCode::query()->create([
+            'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_DRIVER,
+            'code_hash' => Hash::make('654321'),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $this->postJson('/api/taxi/v1/driver/login-code/verify', [
+            'email' => $user->email,
+            'code' => '654321',
+            'skip_password' => true,
         ])
-            ->assertStatus(422)
-            ->assertJsonFragment(['message' => 'Dit account is al geactiveerd. Log in met je wachtwoord.']);
+            ->assertOk()
+            ->assertJsonStructure(['token', 'user']);
     }
 
     #[Test]

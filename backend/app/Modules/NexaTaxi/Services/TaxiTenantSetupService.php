@@ -9,7 +9,9 @@ use App\Models\User;
 use App\Modules\NexaTaxi\Models\DefaultRate;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\NexaTaxiSchema;
+use App\Services\MarketplaceCompanyRegistrationService;
 use App\Services\ModuleDatabaseService;
+use App\Services\Payout\PayoutIdentityService;
 use App\Services\TenantConfigAccessService;
 use App\Support\TenantConfigCapability;
 use Throwable;
@@ -35,6 +37,7 @@ class TaxiTenantSetupService
     public function __construct(
         private readonly ModuleDatabaseService $moduleDb,
         private readonly TenantConfigAccessService $configAccess,
+        private readonly PayoutIdentityService $payouts,
     ) {}
 
     public function appliesTo(?Company $company): bool
@@ -69,7 +72,9 @@ class TaxiTenantSetupService
 
         $hasVehicles = $this->hasVehicles($company);
         $hasRates = $this->hasRates($company);
-        $hasMail = $this->hasOwnMailServer($company);
+        $hasOwnMail = $this->hasOwnMailServer($company);
+        $isMarketplace = strcasecmp((string) ($company->package_key ?? ''), MarketplaceCompanyRegistrationService::PACKAGE_KEY) === 0;
+        $hasBankAccount = $isMarketplace ? $this->hasPayoutBankAccount($company) : true;
 
         $steps = [
             $this->step(
@@ -93,18 +98,34 @@ class TaxiTenantSetupService
             $this->step(
                 key: 'mail',
                 title: 'Mailserver',
-                description: $hasMail
+                description: $hasOwnMail
                     ? 'Eigen mailserver is ingesteld. Klantmails gaan uit namens jouw bedrijf.'
-                    : 'Nog geen eigen mailserver. Uitgaande mail gaat nu via NEXA Suite; klanten zien die afzender.',
-                done: $hasMail,
+                    : 'De mailserver van NEXA Suite is ingesteld. Mails worden verstuurd vanuit '.$this->platformMailFromAddress().', maar wel met jouw bedrijfsnaam. Om vanuit je eigen emailadres te versturen, pas de instellingen aan.',
+                // NEXA Suite-mail telt als ingericht; eigen SMTP is optioneel.
+                done: true,
                 required: false,
                 url: $this->mailSetupUrl($company, $user),
-                button: $hasMail
-                    ? ($this->mailSetupUrl($company, $user) ? 'Mailserver bekijken' : null)
-                    : ($this->mailSetupUrl($company, $user) ? 'Mailserver instellen' : null),
-                warning: ! $hasMail,
+                button: $this->mailSetupUrl($company, $user)
+                    ? ($hasOwnMail ? 'Mailserver bekijken' : 'Mailinstellingen openen')
+                    : null,
+                warning: false,
             ),
         ];
+
+        if ($isMarketplace) {
+            $steps[] = $this->step(
+                key: 'bank_account',
+                title: 'Bankrekening',
+                description: $hasBankAccount
+                    ? 'Uitbetalingsrekening is ingesteld. Rittenuitbetalingen (na fee) gaan naar dit rekeningnummer.'
+                    : 'Vul je IBAN in. Dit is verplicht voor uitbetaling van Nexa Suite-ritten na aftrek van de marketplace-fee.',
+                done: $hasBankAccount,
+                required: true,
+                url: $this->safeRoute('admin.settings.bank-account'),
+                button: $hasBankAccount ? 'Bankrekening bekijken' : 'Bankrekening invullen',
+                warning: ! $hasBankAccount,
+            );
+        }
 
         $incompleteRequired = collect($steps)->where('required', true)->where('done', false)->count();
         $incompleteAny = collect($steps)->where('done', false)->count();
@@ -170,9 +191,44 @@ class TaxiTenantSetupService
 
     public function hasOwnMailServer(Company $company): bool
     {
-        $host = trim((string) GeneralSetting::get('MAIL_HOST', '', (int) $company->id));
+        return GeneralSetting::companyHasOwnMailDelivery((int) $company->id);
+    }
 
-        return $host !== '';
+    public function hasPayoutBankAccount(Company $company): bool
+    {
+        try {
+            $identity = $this->payouts->forCompany($company);
+            if (! $identity) {
+                return false;
+            }
+
+            return filled($identity->masked_destination);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Platform From-adres (MAIL_FROM_ADDRESS met company_id null), zoals in admin mailinstellingen.
+     */
+    private function platformMailFromAddress(): string
+    {
+        try {
+            $from = trim((string) GeneralSetting::query()
+                ->whereNull('company_id')
+                ->where('key', 'MAIL_FROM_ADDRESS')
+                ->orderByDesc('id')
+                ->value('value'));
+            if ($from !== '') {
+                return $from;
+            }
+        } catch (Throwable) {
+            // fallback hieronder
+        }
+
+        $from = trim((string) config('mail.from.address', ''));
+
+        return $from !== '' ? $from : 'info@nexasuite.nl';
     }
 
     public function isBookingModuleAllowed(Company $company): bool

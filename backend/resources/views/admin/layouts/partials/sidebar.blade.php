@@ -889,7 +889,7 @@
                     </a>
                 </div>
                 @endif
-                @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
+                @if(auth()->user()?->isTenantAdmin() && ! auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payments.overzichten*') || request()->routeIs('admin.payout-identities.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" tabindex="0">
@@ -919,6 +919,7 @@
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Overzichten</span>
                             </a>
                         </div>
+                        @if(! (auth()->user()?->hasRole('marketplace') || strcasecmp((string) (auth()->user()?->company?->package_key ?? ''), 'marketplace') === 0))
                         <div class="kt-menu-item {{ request()->routeIs('admin.payout-identities.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                href="{{ route('admin.payout-identities.index') }}" tabindex="0">
@@ -926,11 +927,12 @@
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Payout onboarding</span>
                             </a>
                         </div>
+                        @endif
                     </div>
                 </div>
                 @endif
 
-                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->hasRole('company-admin'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->isTenantAdmin())
                 <div class="kt-menu-item {{ request()->routeIs('admin.customer-emails.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" href="{{ route('admin.customer-emails.index') }}">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
@@ -947,9 +949,12 @@
                 @php
                     $isSuperAdminSettings = auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin');
                     $canViewMailSettings = auth()->user()?->canViewMailSettings();
+                    $marketplacePackage = strcasecmp((string) (auth()->user()?->company?->package_key ?? ''), 'marketplace') === 0
+                        || (auth()->user()?->hasRole('marketplace') ?? false);
+                    $canViewBankAccount = $marketplacePackage && (auth()->user()?->isTenantAdmin() || $isSuperAdminSettings);
                 @endphp
-                @if($isSuperAdminSettings || $canViewMailSettings)
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
+                @if($isSuperAdminSettings || $canViewMailSettings || $canViewBankAccount)
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.bank-account*') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -988,6 +993,7 @@
                             </a>
                         </div>
                         @endif
+                        @if($canViewMailSettings || $isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.index') }}" tabindex="0">
@@ -1000,6 +1006,21 @@
                                 </span>
                             </a>
                         </div>
+                        @endif
+                        @if($canViewBankAccount)
+                        <div class="kt-menu-item {{ request()->routeIs('admin.settings.bank-account*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.settings.bank-account') }}" tabindex="0">
+                                <span
+                                    class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
+                                </span>
+                                <span
+                                    class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Bankrekening
+                                </span>
+                            </a>
+                        </div>
+                        @endif
                         @if($isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.upgrade.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"

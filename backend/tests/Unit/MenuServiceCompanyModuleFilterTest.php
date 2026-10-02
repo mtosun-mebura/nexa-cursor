@@ -73,8 +73,9 @@ class MenuServiceCompanyModuleFilterTest extends TestCase
         $start = Company::query()->create(['name' => 'Start Menu', 'is_active' => true, 'package_key' => 'start']);
         $pro = Company::query()->create(['name' => 'Pro Menu', 'is_active' => true, 'package_key' => 'pro']);
         $business = Company::query()->create(['name' => 'Business Menu', 'is_active' => true, 'package_key' => 'business']);
+        $marketplace = Company::query()->create(['name' => 'Marketplace Menu', 'is_active' => true, 'package_key' => 'marketplace']);
         $legacy = Company::query()->create(['name' => 'Legacy Menu', 'is_active' => true, 'package_key' => null]);
-        foreach ([$start, $pro, $business, $legacy] as $company) {
+        foreach ([$start, $pro, $business, $marketplace, $legacy] as $company) {
             $company->modules()->attach($taxi->id);
         }
 
@@ -103,6 +104,10 @@ class MenuServiceCompanyModuleFilterTest extends TestCase
         $this->assertContains('transport_customers', $businessKeys);
         $this->assertContains('dispatch_settings', $businessKeys);
         $this->assertNotContains('gps_tracking', $businessKeys);
+
+        session(['selected_tenant' => $marketplace->id]);
+        $marketplaceKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');
+        $this->assertContains('dispatch_settings', $marketplaceKeys);
 
         session(['selected_tenant' => $legacy->id]);
         $legacyKeys = array_column(app(MenuService::class)->getModuleMenuItems(), 'key');

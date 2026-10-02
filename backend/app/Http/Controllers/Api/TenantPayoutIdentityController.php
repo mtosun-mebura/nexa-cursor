@@ -32,6 +32,7 @@ class TenantPayoutIdentityController extends Controller
         $data = $request->validate([
             'iban' => ['required', 'string', 'max:42'],
             'password' => ['nullable', 'string'],
+            'confirmation_code' => ['nullable', 'string', 'max:12'],
         ]);
 
         try {
@@ -48,7 +49,7 @@ class TenantPayoutIdentityController extends Controller
 
         return response()->json([
             'message' => $identity->hasPendingDestinationChange()
-                ? 'Rekeningwijziging aangevraagd. Cooling-off actief; app toont alleen *** + laatste 4 cijfers.'
+                ? 'Wijziging aangevraagd. Het nieuwe rekeningnummer wordt pas over '.(int) config('nexa_payout.destination_change_cooling_off_hours', 48).' uur gebruikt. App toont alleen *** + laatste 4 cijfers.'
                 : 'Bankrekening geregistreerd. App toont alleen *** + laatste 4 cijfers.',
             'data' => $this->appPayload($identity),
         ]);
@@ -61,8 +62,8 @@ class TenantPayoutIdentityController extends Controller
             abort(403, 'Geen tenant gekoppeld.');
         }
 
-        if (! $user->hasRole('company-admin') && ! $user->hasRole('super-admin')) {
-            abort(403, 'Alleen company-admin mag payout-gegevens beheren.');
+        if (! $user->isTenantAdmin() && ! $user->hasRole('super-admin')) {
+            abort(403, 'Alleen company-admin of marketplace mag payout-gegevens beheren.');
         }
 
         $company = Company::query()->find($user->company_id);

@@ -238,4 +238,48 @@ class PayoutIdentityPhase2Test extends TestCase
         $this->assertSame('***4300', $identity->masked_destination);
         $this->assertSame('***4567', $identity->pending_masked_destination);
     }
+
+    #[Test]
+    public function bank_account_change_accepts_email_confirmation_code_instead_of_password(): void
+    {
+        Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'api']);
+
+        $company = Company::query()->create(['name' => 'Code Bank Taxi', 'is_active' => true]);
+        $admin = User::factory()->create([
+            'company_id' => $company->id,
+            'password' => bcrypt('UnknownToUser1'),
+        ]);
+
+        $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+        $registrar->setPermissionsTeamId($company->id);
+        $admin->assignRole('company-admin');
+
+        $this->payouts->setCompanyBankAccount($company, $admin, 'NL91ABNA0417164300', null, null);
+
+        $plainCode = '654321';
+        \App\Models\CustomerLoginCode::query()->create([
+            'user_id' => $admin->id,
+            'purpose' => \App\Models\CustomerLoginCode::PURPOSE_ADMIN_STEP_UP,
+            'code_hash' => bcrypt($plainCode),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $request = \Illuminate\Http\Request::create('/api/tenant/payout-identity/bank-account', 'PUT', [
+            'iban' => 'NL20INGB0001234567',
+            'confirmation_code' => $plainCode,
+        ]);
+        $request->setUserResolver(static fn () => $admin);
+
+        $identity = $this->payouts->setCompanyBankAccount(
+            $company,
+            $admin,
+            'NL20INGB0001234567',
+            null,
+            $request
+        );
+
+        $this->assertSame('***4300', $identity->masked_destination);
+        $this->assertSame('***4567', $identity->pending_masked_destination);
+        $this->assertTrue($identity->hasPendingDestinationChange());
+    }
 }

@@ -234,6 +234,12 @@
                             <p class="mb-0">Verstuurd wanneer een nieuwe company-admin op het inlogscherm een code aanvraagt. Belangrijkste variabelen: {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }} (6 cijfers), {{ '{' }}{{ '{' }} CODE_EXPIRES_MINUTES {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} ADMIN_LOGIN_URL {{ '}' }}{{ '}' }}. Zet de code niet in de welkomstmail.</p>
                         </div>
                         @endif
+                        @if($emailTemplate->type === 'admin_bank_account_change_code')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-2 text-foreground font-medium">Bevestigingscode bankrekening</p>
+                            <p class="mb-0">Verstuurd bij wijziging van het uitbetalingsrekeningnummer. Belangrijkste variabelen: {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} WAIT_HOURS {{ '}' }}{{ '}' }} (wachttijd voordat het nieuwe nummer actief wordt), {{ '{' }}{{ '{' }} BANK_ACCOUNT_URL {{ '}' }}{{ '}' }}.</p>
+                        </div>
+                        @endif
                         @if($emailTemplate->type === 'invoice')
                         <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
                             <p class="mb-2 text-foreground font-medium">Factuur: <code>{{ '{' }}{{ '{' }} INVOICE_AMOUNTS_HTML {{ '}' }}{{ '}' }}</code></p>

@@ -191,13 +191,32 @@ class AdminSettingsController extends Controller
         $mailDeliveryHint = $this->envService->mailDeliveryHint($settingsCompanyId);
         $mailSettingsIsPlatform = $settingsCompanyId === null;
         $mailUsingPlatformFallback = false;
+        $settingsCompany = null;
         if ($settingsCompanyId !== null) {
-            $mailUsingPlatformFallback = ! \App\Models\GeneralSetting::query()
-                ->where('company_id', $settingsCompanyId)
-                ->whereIn('key', \App\Models\GeneralSetting::MAIL_DELIVERY_SETTING_KEYS)
-                ->whereNotNull('value')
-                ->where('value', '!=', '')
-                ->exists();
+            $settingsCompany = Company::query()->find($settingsCompanyId);
+            $mailUsingPlatformFallback = ! GeneralSetting::companyHasOwnMailDelivery($settingsCompanyId);
+            if ($mailUsingPlatformFallback) {
+                $platformFromAddress = (string) $this->envService->get(
+                    'MAIL_FROM_ADDRESS',
+                    'info@nexasuite.nl',
+                    null
+                );
+                $mailSettings['MAIL_FROM_ADDRESS'] = $platformFromAddress !== ''
+                    ? $platformFromAddress
+                    : 'info@nexasuite.nl';
+
+                $tenantFromName = GeneralSetting::query()
+                    ->where('company_id', $settingsCompanyId)
+                    ->where('key', 'MAIL_FROM_NAME')
+                    ->whereNotNull('value')
+                    ->where('value', '!=', '')
+                    ->value('value');
+                if (is_string($tenantFromName) && trim($tenantFromName) !== '') {
+                    $mailSettings['MAIL_FROM_NAME'] = trim($tenantFromName);
+                } elseif ($settingsCompany) {
+                    $mailSettings['MAIL_FROM_NAME'] = (string) $settingsCompany->name;
+                }
+            }
         }
 
         // Get current SEO settings (tenant + platform fallback via GeneralSetting)
@@ -275,6 +294,7 @@ class AdminSettingsController extends Controller
             'mailDeliveryHint',
             'mailSettingsIsPlatform',
             'mailUsingPlatformFallback',
+            'settingsCompany',
             'seoSettings',
             'whatsappSettings',
             'whatsappPlatformConfigured',
@@ -945,6 +965,16 @@ class AdminSettingsController extends Controller
         }
 
         try {
+            // Tenant zonder eigen SMTP: alleen From-naam opslaan; From-adres blijft NEXA Suite.
+            if ($companyId !== null
+                && ! GeneralSetting::companyHasOwnMailDelivery($companyId)
+                && trim((string) $request->input('MAIL_HOST', '')) === '') {
+                GeneralSetting::set('MAIL_FROM_NAME', (string) $request->input('MAIL_FROM_NAME'), $companyId);
+
+                return redirect()->route('admin.settings.index')
+                    ->with('success', 'Afzendernaam opgeslagen. Mails blijven via de NEXA Suite-mailserver gaan met het vaste From-adres.');
+            }
+
             $mailSettings = [
                 'MAIL_MAILER' => $request->input('MAIL_MAILER'),
                 'MAIL_HOST' => $request->input('MAIL_HOST', ''),

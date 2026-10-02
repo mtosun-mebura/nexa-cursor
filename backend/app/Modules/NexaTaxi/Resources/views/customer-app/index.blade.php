@@ -348,8 +348,103 @@
             background: var(--card2); color: var(--text); padding: 12px 14px;
             font: inherit; outline: none;
         }
+        .field-suggest-input-wrap {
+            position: relative;
+            display: block;
+        }
+        .field-suggest-input-wrap input {
+            padding-right: 42px;
+        }
+        .field-clear {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .field-clear svg {
+            width: 1.15rem;
+            height: 1.15rem;
+            display: block;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .field-clear:hover,
+        .field-clear:focus-visible {
+            color: var(--text);
+            background: rgba(148, 163, 184, 0.18);
+            outline: none;
+        }
+        .field-suggest-input-wrap.has-value .field-clear {
+            display: inline-flex;
+        }
         .field input:focus, .field textarea:focus { border-color: rgba(37,99,235,.6); }
         .field .hint { margin: 6px 0 0; font-size: .8rem; color: var(--muted); }
+        .location-notice {
+            margin-top: 8px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--text);
+        }
+        html[data-theme="light"] .location-notice {
+            border-color: rgba(217, 119, 6, 0.35);
+            background: rgba(251, 191, 36, 0.16);
+        }
+        .location-notice[hidden] { display: none !important; }
+        .location-notice__text {
+            margin: 0;
+            font-size: .85rem;
+            line-height: 1.4;
+        }
+        .location-notice__actions {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .location-notice__retry {
+            width: auto;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(37, 99, 235, 0.45);
+            background: var(--blue);
+            color: #fff;
+            font: inherit;
+            font-size: .82rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .location-notice__retry:active { opacity: .85; }
+        .location-notice__help {
+            margin: 8px 0 0;
+            font-size: .78rem;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .location-notice__help a {
+            color: var(--blue);
+            text-decoration: underline;
+            font-weight: 600;
+        }
         .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
         .row2 .field select,
         .row2 .field .pickup-at-btn {
@@ -1136,13 +1231,38 @@
             <div class="card">
                 <div class="field field-suggest">
                     <label for="pickup">Van</label>
-                    <input id="pickup" type="text" readonly placeholder="Locatie bepalen…" autocomplete="off">
+                    <div class="field-suggest-input-wrap" data-clear-for="pickup">
+                        <input id="pickup" type="text" readonly placeholder="Locatie bepalen…" autocomplete="off">
+                        <button type="button" class="field-clear" id="pickup-clear" aria-label="Ophaaladres wissen" tabindex="-1">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <path d="M9 9l6 6"></path>
+                                <path d="M15 9l-6 6"></path>
+                            </svg>
+                        </button>
+                    </div>
                     <ul class="suggestions" id="pickup-suggestions" hidden></ul>
                     <p class="hint" id="pickup-hint">We gebruiken je huidige locatie</p>
+                    <div class="location-notice" id="pickup-location-notice" hidden>
+                        <p class="location-notice__text" id="pickup-location-notice-text"></p>
+                        <div class="location-notice__actions">
+                            <button type="button" class="location-notice__retry" id="pickup-location-retry">Locatie toestaan</button>
+                        </div>
+                        <p class="location-notice__help" id="pickup-location-notice-help" hidden></p>
+                    </div>
                 </div>
                 <div class="field field-suggest">
                     <label for="dropoff">Naar</label>
-                    <input id="dropoff" type="text" placeholder="Bestemming invoeren" autocomplete="off">
+                    <div class="field-suggest-input-wrap" data-clear-for="dropoff">
+                        <input id="dropoff" type="text" placeholder="Bestemming invoeren" autocomplete="off">
+                        <button type="button" class="field-clear" id="dropoff-clear" aria-label="Bestemming wissen" tabindex="-1">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <path d="M9 9l6 6"></path>
+                                <path d="M15 9l-6 6"></path>
+                            </svg>
+                        </button>
+                    </div>
                     <ul class="suggestions" id="dropoff-suggestions" hidden></ul>
                 </div>
                 <div class="row2">
@@ -1500,6 +1620,6 @@
     window.addEventListener('nexa-customer-screen', mountTheme);
 })();
 </script>
-<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=38" defer></script>
+<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=42" defer></script>
 </body>
 </html>

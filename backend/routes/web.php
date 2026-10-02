@@ -46,6 +46,7 @@ use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
 use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminSettingsController;
+use App\Http\Controllers\Admin\AdminSettingsBankAccountController;
 use App\Http\Controllers\Admin\AdminSystemUpgradeController;
 use App\Http\Controllers\Admin\AdminTenantCustomerEmailController;
 use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
@@ -423,9 +424,8 @@ Route::get('/vacatures', function () {
 })->name('vacatures.index');
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
-// Frontend meld: sessie verlopen (toegankelijk zonder login)
+// Frontend meld: sessie verlopen → direct naar login (geen tussenpagina)
 Route::get('/meld/sessie-verlopen', function (Request $request) {
-    // Bewaar de bedoelde URL voor na inloggen (alleen frontend-pagina's, geen /admin)
     $intended = $request->query('intended');
     if ($intended && is_string($intended)) {
         $path = parse_url($intended, PHP_URL_PATH) ?? '';
@@ -434,12 +434,15 @@ Route::get('/meld/sessie-verlopen', function (Request $request) {
         }
     }
 
-    return view('meld.redirect', [
-        'title' => 'Sessie verlopen',
-        'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
-        'redirectUrl' => route('login'),
-        'redirectLabel' => 'Naar inlogpagina',
-    ]);
+    $loginQuery = [];
+    if ($intended && is_string($intended)) {
+        $path = parse_url($intended, PHP_URL_PATH) ?? '';
+        if ($path !== '' && ! Str::startsWith($path, '/admin')) {
+            $loginQuery['intended'] = $intended;
+        }
+    }
+
+    return redirect()->to('/login'.($loginQuery !== [] ? '?'.http_build_query($loginQuery) : ''));
 })->name('meld.sessie-verlopen');
 
 // Frontend vacancy details (company slug + vacancy id; no model binding to avoid type confusion)
@@ -454,6 +457,7 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name(
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login')->name('admin.login.post');
 Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-code');
 Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-verify');
+Route::post('/admin/login/marketplace-code', [AdminAuthController::class, 'requestMarketplaceLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.marketplace-code');
 Route::post('/admin/login/marketplace-register', [AdminAuthController::class, 'registerMarketplaceCompany'])->middleware('throttle:admin-first-login')->name('admin.login.marketplace-register');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 Route::get('/admin/manifest.webmanifest', AdminWebManifestController::class)->name('admin.manifest');
@@ -469,21 +473,14 @@ Route::middleware(['web', 'auth:web'])->prefix('admin')->name('admin.')->group(f
     })->name('api.session-check');
 });
 
-// Admin meld: sessie verlopen (toegankelijk zonder login)
+// Admin meld: sessie verlopen → direct naar login (geen tussenpagina)
 Route::get('/admin/meld/sessie-verlopen', function (Request $request) {
-    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's, nooit login/meld zelf)
     $intended = AdminReturnUrl::resolveIntended($request->query('intended'));
     if ($intended !== null) {
         session(['url.intended' => $intended]);
     }
-    $redirectUrl = AdminReturnUrl::loginUrlWithIntended($intended);
 
-    return view('admin.meld.redirect', [
-        'title' => 'Sessie verlopen',
-        'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
-        'redirectUrl' => $redirectUrl,
-        'redirectLabel' => 'Naar inlogpagina',
-    ]);
+    return redirect()->to(AdminReturnUrl::loginUrlWithIntended($intended));
 })->name('admin.meld.sessie-verlopen');
 
 // Password Reset Routes
@@ -554,6 +551,9 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::post('email-communicatie/{customerEmail}/opnieuw-versturen', [AdminTenantCustomerEmailController::class, 'resend'])->name('customer-emails.resend');
 
     Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
+    Route::get('settings/bank-account', [AdminSettingsBankAccountController::class, 'edit'])->name('settings.bank-account');
+    Route::post('settings/bank-account', [AdminSettingsBankAccountController::class, 'update'])->name('settings.bank-account.update');
+    Route::post('settings/bank-account/send-code', [AdminSettingsBankAccountController::class, 'sendConfirmationCode'])->name('settings.bank-account.send-code');
     Route::post('settings/mail', [AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
     Route::post('settings/mail/test', [AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
 

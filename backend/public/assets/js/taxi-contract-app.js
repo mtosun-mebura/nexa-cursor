@@ -789,18 +789,25 @@
     }
 
     async function verifyLoginCode(email, code, password) {
+        const body = { email: email, code: code };
+        const trimmed = (password || '').trim();
+        if (trimmed === '') {
+            body.skip_password = true;
+        } else {
+            body.password = trimmed;
+        }
         const res = await fetch(cfg.loginCodeVerifyUrl, {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email: email, code: code, password: password }),
+            body: JSON.stringify(body),
             credentials: 'same-origin',
         });
         const data = await res.json().catch(function () { return {}; });
         if (!res.ok) {
-            throw new Error((data && data.message) || 'Activeren mislukt.');
+            throw new Error((data && data.message) || 'Inloggen mislukt.');
         }
         token = data.token;
         persistToken(token, data.expires_at);
@@ -2585,7 +2592,7 @@
                 await verifyLoginCode(email, code, password);
                 await bootAuthenticated();
             } catch (e) {
-                showLoginError(e.message || 'Activeren mislukt.');
+                showLoginError(e.message || 'Inloggen mislukt.');
             } finally {
                 verifyLoginCodeBtn.disabled = false;
             }

@@ -75,6 +75,31 @@ Author: Keenthemes
             caret-color: var(--foreground);
         }
 
+        .kt-card .kt-input.border-destructive,
+        .kt-card input.kt-input.border-destructive {
+            border-color: var(--destructive) !important;
+        }
+        .kt-card label.kt-input:focus-within,
+        .kt-card div.kt-input:focus-within {
+            border-color: var(--ring);
+            --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+            box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+            --tw-ring-color: color-mix(in oklab, var(--ring) 30%, transparent);
+            outline: none;
+        }
+        .kt-card label.kt-input.border-destructive:focus-within,
+        .kt-card div.kt-input.border-destructive:focus-within {
+            border-color: var(--destructive) !important;
+            --tw-ring-color: color-mix(in oklab, var(--destructive) 30%, transparent);
+        }
+        .kt-card label.kt-input input:focus,
+        .kt-card label.kt-input input:focus-visible,
+        .kt-card div.kt-input input:focus,
+        .kt-card div.kt-input input:focus-visible {
+            outline: none;
+            box-shadow: none;
+        }
+
         .auth-status-danger {
             display: flex;
             align-items: flex-start;
@@ -101,7 +126,7 @@ Author: Keenthemes
     
     <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
         <div class="kt-card max-w-[370px] w-full">
-            <form action="{{ route('admin.password.update') }}" class="kt-card-content flex flex-col gap-5 p-10" id="reset_password_change_password_form" method="POST">
+            <form action="{{ route('admin.password.update') }}" class="kt-card-content flex flex-col gap-5 p-10" id="reset_password_change_password_form" method="POST" novalidate>
                 @csrf
                 <input type="hidden" name="token" value="{{ $token }}">
                 
@@ -127,22 +152,16 @@ Author: Keenthemes
                     </div>
                 @enderror
 
-                @error('password')
-                    <div class="auth-status-danger" role="alert">
-                        <i class="ki-filled ki-information-5 text-xl" aria-hidden="true"></i>
-                        <div class="text-sm font-medium">{{ $message }}</div>
-                    </div>
-                @enderror
-
                 <div class="flex flex-col gap-1">
-                    <label class="kt-form-label text-mono">
+                    <label class="kt-form-label text-mono" for="reset_password">
                         Nieuw Wachtwoord
                     </label>
-                    <label class="kt-input" data-kt-toggle-password="true">
-                        <input name="password" 
-                               placeholder="Nieuw wachtwoord" 
-                               type="password" 
-                               required/>
+                    <label class="kt-input @error('password') border-destructive @enderror" data-kt-toggle-password="true" data-kt-toggle-password-permanent="true" data-field-control="reset_password">
+                        <input id="reset_password"
+                               name="password"
+                               placeholder="Nieuw wachtwoord"
+                               type="password"
+                               autocomplete="new-password"/>
                         <div class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true">
                             <span class="kt-toggle-password-active:hidden">
                                 <i class="ki-filled ki-eye text-muted-foreground"></i>
@@ -152,17 +171,21 @@ Author: Keenthemes
                             </span>
                         </div>
                     </label>
+                    <div class="text-xs text-destructive mt-1 @error('password') @else hidden @enderror" data-field-error="reset_password">
+                        @error('password'){{ $message }}@enderror
+                    </div>
                 </div>
 
                 <div class="flex flex-col gap-1">
-                    <label class="kt-form-label font-normal text-mono">
+                    <label class="kt-form-label font-normal text-mono" for="reset_password_confirmation">
                         Bevestig Nieuw Wachtwoord
                     </label>
-                    <label class="kt-input" data-kt-toggle-password="true">
-                        <input name="password_confirmation" 
-                               placeholder="Herhaal wachtwoord" 
-                               type="password" 
-                               required/>
+                    <label class="kt-input" data-kt-toggle-password="true" data-kt-toggle-password-permanent="true" data-field-control="reset_password_confirmation">
+                        <input id="reset_password_confirmation"
+                               name="password_confirmation"
+                               placeholder="Herhaal wachtwoord"
+                               type="password"
+                               autocomplete="new-password"/>
                         <div class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" data-kt-toggle-password-trigger="true">
                             <span class="kt-toggle-password-active:hidden">
                                 <i class="ki-filled ki-eye text-muted-foreground"></i>
@@ -172,6 +195,7 @@ Author: Keenthemes
                             </span>
                         </div>
                     </label>
+                    <div class="text-xs text-destructive mt-1 hidden" data-field-error="reset_password_confirmation"></div>
                 </div>
 
                 <input type="hidden" name="email" value="{{ old('email', $email) }}">
@@ -186,6 +210,73 @@ Author: Keenthemes
     
     <!-- Scripts -->
     <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}" defer></script>
+    <script>
+        (function () {
+            const form = document.getElementById('reset_password_change_password_form');
+            const passwordInput = document.getElementById('reset_password');
+            const confirmInput = document.getElementById('reset_password_confirmation');
+            if (!form || !passwordInput || !confirmInput) return;
+
+            function controlFor(id) {
+                return document.querySelector('[data-field-control="' + id + '"]') || document.getElementById(id);
+            }
+
+            function clearError(id) {
+                const input = document.getElementById(id);
+                const control = controlFor(id);
+                const errorEl = document.querySelector('[data-field-error="' + id + '"]');
+                control?.classList.remove('border-destructive');
+                input?.removeAttribute('aria-invalid');
+                if (errorEl) {
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                }
+            }
+
+            function setError(id, message) {
+                const input = document.getElementById(id);
+                const control = controlFor(id);
+                const errorEl = document.querySelector('[data-field-error="' + id + '"]');
+                control?.classList.add('border-destructive');
+                input?.setAttribute('aria-invalid', 'true');
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.classList.remove('hidden');
+                }
+            }
+
+            passwordInput.addEventListener('input', function () { clearError('reset_password'); });
+            confirmInput.addEventListener('input', function () { clearError('reset_password_confirmation'); });
+
+            form.addEventListener('submit', function (event) {
+                clearError('reset_password');
+                clearError('reset_password_confirmation');
+                const password = passwordInput.value || '';
+                const confirmation = confirmInput.value || '';
+                let firstInvalid = null;
+
+                if (!password) {
+                    setError('reset_password', 'Vul een nieuw wachtwoord in.');
+                    firstInvalid = firstInvalid || 'reset_password';
+                } else if (password.length < 8) {
+                    setError('reset_password', 'Wachtwoord moet minimaal 8 karakters lang zijn.');
+                    firstInvalid = firstInvalid || 'reset_password';
+                }
+                if (!confirmation) {
+                    setError('reset_password_confirmation', 'Bevestig je wachtwoord.');
+                    firstInvalid = firstInvalid || 'reset_password_confirmation';
+                } else if (password && password !== confirmation) {
+                    setError('reset_password_confirmation', 'De wachtwoorden komen niet overeen.');
+                    firstInvalid = firstInvalid || 'reset_password_confirmation';
+                }
+
+                if (firstInvalid) {
+                    event.preventDefault();
+                    document.getElementById(firstInvalid)?.focus();
+                }
+            });
+        })();
+    </script>
     <!-- End of Scripts -->
 </body>
 </html>

@@ -76,21 +76,31 @@ class ContractPortalAuthController extends Controller
         $data = $request->validate([
             'email' => 'required|email',
             'code' => 'required|string',
-            'password' => 'required|string|min:8|max:255',
+            'password' => 'nullable|string|min:8|max:255',
+            'skip_password' => 'nullable|boolean',
         ], [
             'email.required' => 'Vul je e-mailadres in.',
             'code.required' => 'Vul de code uit je e-mail in.',
-            'password.required' => 'Kies een wachtwoord.',
             'password.min' => 'Kies een wachtwoord van minimaal 8 tekens.',
         ]);
 
-        $result = $firstLogin->verifyAndSetPassword(
-            $data['email'],
-            $data['code'],
-            $data['password'],
-            TaxiAppFirstLoginService::CHANNEL_CONTRACT,
-            (string) $request->ip()
-        );
+        $skipPassword = $request->boolean('skip_password')
+            || trim((string) ($data['password'] ?? '')) === '';
+
+        $result = $skipPassword
+            ? $firstLogin->verifyAndLoginWithCode(
+                $data['email'],
+                $data['code'],
+                TaxiAppFirstLoginService::CHANNEL_CONTRACT,
+                (string) $request->ip()
+            )
+            : $firstLogin->verifyAndSetPassword(
+                $data['email'],
+                $data['code'],
+                (string) $data['password'],
+                TaxiAppFirstLoginService::CHANNEL_CONTRACT,
+                (string) $request->ip()
+            );
 
         if (! $result['ok'] || ! ($result['user'] ?? null) instanceof User) {
             return $this->firstLoginJson($result);

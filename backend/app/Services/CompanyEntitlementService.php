@@ -245,7 +245,7 @@ class CompanyEntitlementService
     public function assertCanAssignCompanyAdminRoles(Company $company, array $roleNames, ?User $existingUser = null): void
     {
         $normalized = array_map(static fn ($name) => strtolower(trim((string) $name)), $roleNames);
-        if (! in_array('company-admin', $normalized, true)) {
+        if (! in_array('company-admin', $normalized, true) && ! in_array('marketplace', $normalized, true)) {
             return;
         }
         if ($this->allows($company, TenantPackageCapability::MULTIPLE_ADMINS)) {
@@ -265,7 +265,7 @@ class CompanyEntitlementService
 
     public function companyAdminCount(Company $company): int
     {
-        return $this->usersWithRoleCount((int) $company->id, ['company-admin']);
+        return $this->usersWithRoleCount((int) $company->id, ['company-admin', 'marketplace']);
     }
 
     public function assertAllows(?Company $company, string $capability, string $field = 'package'): void
@@ -393,7 +393,7 @@ class CompanyEntitlementService
 
     private function userHasCompanyAdminRole(User $user, int $companyId): bool
     {
-        return $this->usersWithRoleCount($companyId, ['company-admin']) > 0
+        return $this->usersWithRoleCount($companyId, ['company-admin', 'marketplace']) > 0
             && User::query()
                 ->whereKey($user->id)
                 ->where('company_id', $companyId)
@@ -409,7 +409,10 @@ class CompanyEntitlementService
                             $q->where($pivot.'.'.$teamKey, $companyId)
                                 ->orWhereNull($pivot.'.'.$teamKey);
                         })
-                        ->whereRaw('LOWER(TRIM('.$rolesTable.'.name)) = ?', ['company-admin']);
+                        ->where(function ($q) use ($rolesTable) {
+                            $q->whereRaw('LOWER(TRIM('.$rolesTable.'.name)) = ?', ['company-admin'])
+                                ->orWhereRaw('LOWER(TRIM('.$rolesTable.'.name)) = ?', ['marketplace']);
+                        });
                 })
                 ->exists();
     }

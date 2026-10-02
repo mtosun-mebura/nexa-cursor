@@ -1617,6 +1617,42 @@ html.dark #content [data-kt-select-options]::-webkit-scrollbar-thumb,
     max-width: 100%;
 }
 
+/* Validatiefout: altijd rode rand (Metronic + class + aria-invalid) */
+#content .kt-input.border-destructive,
+#content input.kt-input.border-destructive,
+#content textarea.kt-input.border-destructive,
+#content select.kt-input.border-destructive,
+#content .kt-input[aria-invalid="true"],
+#content input.kt-input[aria-invalid="true"],
+#content textarea.kt-input[aria-invalid="true"],
+#content select.kt-input[aria-invalid="true"] {
+    border-color: var(--destructive, #ef4444) !important;
+}
+
+#content .kt-input.border-destructive:focus-visible,
+#content input.kt-input.border-destructive:focus-visible,
+#content .kt-input[aria-invalid="true"]:focus-visible,
+#content input.kt-input[aria-invalid="true"]:focus-visible {
+    border-color: var(--destructive, #ef4444) !important;
+    --tw-ring-color: color-mix(in oklab, var(--destructive, #ef4444) 20%, transparent);
+}
+
+/* Validatiefoutmelding: altijd rood, direct onder het veld */
+#content .field-feedback,
+#content .laravel-inline-error,
+#content [data-laravel-field] {
+    color: var(--destructive, #ef4444);
+}
+
+html.dark #content .field-feedback,
+html.dark #content .laravel-inline-error,
+html.dark #content [data-laravel-field],
+body.dark #content .field-feedback,
+body.dark #content .laravel-inline-error,
+body.dark #content [data-laravel-field] {
+    color: #f87171;
+}
+
 html.admin-kt-select-open main#content,
 html.admin-kt-select-open #content .kt-card,
 html.admin-kt-select-open #content .kt-card-header,

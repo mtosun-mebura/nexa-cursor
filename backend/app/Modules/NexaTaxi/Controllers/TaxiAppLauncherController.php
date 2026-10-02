@@ -24,6 +24,9 @@ class TaxiAppLauncherController extends Controller
             'customerUrl' => SameOriginPath::namedRoute('taxi.klant.index', '/taxi/klant'),
             'driverUrl' => SameOriginPath::namedRoute('taxi.chauffeur.index', '/taxi/chauffeur'),
             'contractUrl' => SameOriginPath::namedRoute('taxi.contract.index', '/taxi/contract'),
+            'appLoginUrl' => url('/api/taxi/v1/app/login'),
+            'appCodeRequestUrl' => url('/api/taxi/v1/app/login-code/request'),
+            'appCodeVerifyUrl' => url('/api/taxi/v1/app/login-code/verify'),
         ]);
     }
 }

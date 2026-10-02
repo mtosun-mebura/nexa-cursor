@@ -314,7 +314,9 @@ class TenantSubscriptionService
             'contract_end_date' => $hasCommitment ? $anniversary : null,
             'past_first_year' => $pastFirstYear,
             'change_effective_on' => $changeDate,
-            'cancel_allowed' => $pendingType !== CompanySubscriptionChange::TYPE_CANCEL,
+            'cancel_allowed' => $this->isPaidMonthlySubscription($currentKey)
+                && $pendingType !== CompanySubscriptionChange::TYPE_CANCEL,
+            'has_paid_subscription' => $this->isPaidMonthlySubscription($currentKey),
             'pending_type' => $pendingType !== '' ? $pendingType : null,
             'pending_package_key' => $profile->pending_package_key,
             'pending_package_name' => $pendingPackage['name'] ?? $profile->pending_package_key,
@@ -482,9 +484,11 @@ class TenantSubscriptionService
     public function catalogFor(Company $company): array
     {
         $currentKey = trim((string) ($company->package_key ?? ''));
-        $currentRank = $this->pricing->packageRank($currentKey);
+        $currentAmount = $currentKey !== ''
+            ? (float) ($this->pricing->monthlyAmountForKey($currentKey) ?? 0)
+            : null;
         $out = [];
-        foreach (array_values($this->pricing->get()['packages'] ?? []) as $index => $package) {
+        foreach (array_values($this->pricing->get()['packages'] ?? []) as $package) {
             if (! is_array($package)) {
                 continue;
             }
@@ -493,15 +497,17 @@ class TenantSubscriptionService
                 continue;
             }
             $amount = $this->pricing->monthlyAmountForKey($key) ?? 0.0;
+            $isCurrent = strcasecmp($key, $currentKey) === 0;
+            // Vergelijk op maandprijs (niet op lijstpositie): marketplace (€0) → Start/Pro/Business is upgrade.
             $out[] = [
                 'key' => $key,
                 'name' => (string) ($package['name'] ?? $key),
                 'audience' => (string) ($package['audience'] ?? ''),
                 'amount' => $amount,
                 'amount_label' => $this->pricing->displayAmount((string) ($package['price'] ?? '')),
-                'is_current' => strcasecmp($key, $currentKey) === 0,
-                'is_upgrade' => $currentRank !== null && $index > $currentRank,
-                'is_downgrade' => $currentRank !== null && $index < $currentRank,
+                'is_current' => $isCurrent,
+                'is_upgrade' => $currentAmount !== null && ! $isCurrent && $amount > $currentAmount,
+                'is_downgrade' => $currentAmount !== null && ! $isCurrent && $amount < $currentAmount,
                 'features' => is_array($package['features'] ?? null) ? $package['features'] : [],
             ];
         }
@@ -640,8 +646,11 @@ class TenantSubscriptionService
         $asOf = Carbon::parse($asOf ?? now())->startOfDay();
         $profile = $this->ensureProfile($company);
         $this->assertChangeable($profile, $asOf);
-        $effectiveOn = $this->nextAllowedChangeDate($profile, $asOf);
         $currentKey = trim((string) ($company->package_key ?? ''));
+        if (! $this->isPaidMonthlySubscription($currentKey)) {
+            throw new RuntimeException('Opzeggen geldt alleen voor een Start-, Pro- of Business-abonnement.');
+        }
+        $effectiveOn = $this->nextAllowedChangeDate($profile, $asOf);
         $fromAmount = $profile->resolveMonthlyAmount();
 
         $this->clearPendingChange($profile, false);
@@ -1146,20 +1155,40 @@ class TenantSubscriptionService
 
     private function assertDirection(string $currentKey, string $targetKey, string $direction): void
     {
-        $currentRank = $this->pricing->packageRank($currentKey);
-        $targetRank = $this->pricing->packageRank($targetKey);
-        if ($currentRank === null || $targetRank === null) {
+        if ($this->pricing->packageByKey($currentKey) === null || $this->pricing->packageByKey($targetKey) === null) {
             throw new RuntimeException('Dit pakket kan niet worden gewijzigd.');
         }
-        if ($currentRank === $targetRank) {
+        if (strcasecmp($currentKey, $targetKey) === 0) {
             throw new RuntimeException('Dit is al je huidige pakket.');
         }
-        if ($direction === 'upgrade' && $targetRank <= $currentRank) {
+
+        $currentAmount = (float) ($this->pricing->monthlyAmountForKey($currentKey) ?? 0);
+        $targetAmount = (float) ($this->pricing->monthlyAmountForKey($targetKey) ?? 0);
+
+        // Richting op maandprijs: marketplace (€0) → Start/Pro/Business telt als upgrade, niet als downgrade.
+        if ($direction === 'upgrade' && $targetAmount <= $currentAmount) {
             throw new RuntimeException('Kies een hoger pakket om te upgraden.');
         }
-        if ($direction === 'downgrade' && $targetRank >= $currentRank) {
+        if ($direction === 'downgrade' && $targetAmount >= $currentAmount) {
             throw new RuntimeException('Kies een lager pakket om te downgraden.');
         }
+    }
+
+    /**
+     * Maandelijks abonnement (Start/Pro/Business): opzeggen/SEPA geldt niet voor Marketplace (€0).
+     */
+    public function isPaidMonthlySubscription(string $packageKey): bool
+    {
+        $key = strtolower(trim($packageKey));
+        if ($key === '') {
+            return false;
+        }
+        if (in_array($key, ['start', 'pro', 'business'], true)) {
+            return true;
+        }
+
+        // Toekomstige betaalde pakketten: maandprijs > 0 (Marketplace blijft €0).
+        return (float) ($this->pricing->monthlyAmountForKey($key) ?? 0) > 0;
     }
 
     private function assertChangeable(CompanyBillingProfile $profile, Carbon $asOf): void

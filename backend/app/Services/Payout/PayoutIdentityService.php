@@ -118,8 +118,15 @@ class PayoutIdentityService
             ]);
         }
 
-        // Change: step-up password + cooling-off (reuse destination-change hold fields).
-        $this->assertStepUpPassword($actor, (string) ($password ?? ''), $request);
+        // Change: step-up (wachtwoord of e-mailcode) + cooling-off.
+        $this->assertStepUp(
+            $actor,
+            (string) ($password ?? ''),
+            $request,
+            is_string($request?->input('confirmation_code'))
+                ? (string) $request->input('confirmation_code')
+                : null
+        );
 
         $hours = max(1, (int) config('nexa_payout.destination_change_cooling_off_hours', 48));
         $eligibleAt = now()->addHours($hours);
@@ -280,7 +287,12 @@ class PayoutIdentityService
     public function requestDestinationChange(PayoutIdentity $identity, User $actor, array $input, ?Request $request = null): PayoutIdentity
     {
         $this->rejectSecretFields($input);
-        $this->assertStepUpPassword($actor, (string) ($input['password'] ?? ''), $request);
+        $this->assertStepUp(
+            $actor,
+            (string) ($input['password'] ?? ''),
+            $request,
+            isset($input['confirmation_code']) ? (string) $input['confirmation_code'] : null
+        );
 
         $newAccountId = trim((string) ($input['provider_account_id'] ?? ''));
         if ($newAccountId === '') {
@@ -356,9 +368,9 @@ class PayoutIdentityService
         return $this->syncFromProvider($identity->fresh(), $actor, $request);
     }
 
-    public function disable(PayoutIdentity $identity, User $actor, string $password, ?Request $request = null): PayoutIdentity
+    public function disable(PayoutIdentity $identity, User $actor, string $password, ?Request $request = null, ?string $confirmationCode = null): PayoutIdentity
     {
-        $this->assertStepUpPassword($actor, $password, $request);
+        $this->assertStepUp($actor, $password, $request, $confirmationCode);
 
         $identity->forceFill([
             'capability_status' => PayoutIdentity::STATUS_DISABLED,
@@ -419,11 +431,34 @@ class PayoutIdentityService
         }
     }
 
-    private function assertStepUpPassword(User $actor, string $password, ?Request $request): void
-    {
-        if ($password === '' || ! Hash::check($password, (string) $actor->password)) {
+    /**
+     * Step-up: wachtwoord óf eenmalige e-mailcode (voor wie met code inlogt zonder wachtwoord).
+     */
+    private function assertStepUp(
+        User $actor,
+        string $password,
+        ?Request $request,
+        ?string $confirmationCode = null
+    ): void {
+        $password = trim($password);
+        $code = preg_replace('/\s+/', '', (string) ($confirmationCode ?? '')) ?? '';
+
+        $passwordOk = $password !== '' && Hash::check($password, (string) $actor->password);
+        if ($passwordOk) {
+            // ok
+        } elseif ($code !== '') {
+            if (! app(\App\Services\AdminFirstLoginService::class)->consumeStepUpCode($actor, $code)) {
+                throw ValidationException::withMessages([
+                    'confirmation_code' => ['Deze bevestigingscode is onjuist of verlopen. Vraag een nieuwe code aan.'],
+                ]);
+            }
+            $passwordOk = true;
+        }
+
+        if (! $passwordOk) {
             throw ValidationException::withMessages([
-                'password' => ['Bevestig met je huidige wachtwoord om door te gaan.'],
+                'password' => ['Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.'],
+                'confirmation_code' => ['Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.'],
             ]);
         }
 

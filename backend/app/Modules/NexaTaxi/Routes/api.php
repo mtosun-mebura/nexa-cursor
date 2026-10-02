@@ -13,6 +13,13 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverRidePaymentController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideStopController;
 use Illuminate\Support\Facades\Route;
 
+Route::prefix('v1/app')
+    ->middleware(['auth:sanctum'])
+    ->group(function () {
+        Route::get('capabilities', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'capabilities'])
+            ->middleware('throttle:60,1');
+    });
+
 Route::prefix('v1/customer')
     ->middleware(['taxi.customer'])
     ->group(function () {
