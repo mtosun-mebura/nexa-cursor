@@ -83,22 +83,28 @@ class TaxiNetworkPartnershipServiceTest extends TestCase
     }
 
     #[Test]
-    public function manual_super_admin_ids_merge_with_invites(): void
+    public function marketplace_companies_can_partner_with_each_other(): void
     {
-        $owner = Company::query()->create(['name' => 'Owner A', 'is_active' => true]);
-        $partner = Company::query()->create(['name' => 'Partner B', 'is_active' => true]);
-        $manual = Company::query()->create(['name' => 'Manual C', 'is_active' => true]);
-
-        $settings = app(TaxiDispatchSettingsService::class);
-        $settings->setNetworkManualPartnerCompanyIds([(int) $manual->id], (int) $owner->id);
+        $owner = Company::query()->create([
+            'name' => 'Marketplace A',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
+        $partner = Company::query()->create([
+            'name' => 'Marketplace B',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
 
         $service = app(TaxiNetworkPartnershipService::class);
         $service->setAutoAccept((int) $partner->id, true);
         $invite = $service->ensureActiveInviteCode((int) $partner->id);
-        $service->redeemInviteCode((int) $owner->id, $invite->code);
 
-        $ids = $settings->networkPartnerCompanyIds((int) $owner->id);
-        sort($ids);
-        $this->assertSame([(int) $partner->id, (int) $manual->id], $ids);
+        $result = $service->redeemInviteCode((int) $owner->id, $invite->code);
+        $this->assertTrue($result['auto_accepted']);
+        $this->assertTrue($result['partnership']->isAccepted());
+
+        $settings = app(TaxiDispatchSettingsService::class);
+        $this->assertSame([(int) $partner->id], $settings->networkPartnerCompanyIds((int) $owner->id));
     }
 }

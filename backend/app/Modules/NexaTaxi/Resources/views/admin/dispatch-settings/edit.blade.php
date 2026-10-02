@@ -9,10 +9,12 @@
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div class="min-w-0 flex-1">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Chauffeur dispatch
+                {{ !empty($marketplaceNetworkOnly) ? 'NEXA Network' : 'Chauffeur dispatch' }}
             </h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
-                @if(!empty($noTenantSelected))
+                @if(!empty($marketplaceNetworkOnly))
+                    Koppel partner-taxi’s via NEXA Network. Andere dispatch-instellingen worden door NEXA Suite beheerd.
+                @elseif(!empty($noTenantSelected))
                     Platformstandaard voor <strong>Nexa Suite</strong> (marktplaats &amp; network).
                     Tenants zonder eigen waarde gebruiken deze instellingen; met een tenant geselecteerd bewerk je alleen dat bedrijf.
                 @else
@@ -53,6 +55,7 @@
 
         <div class="kt-card w-full min-w-0">
         <div id="dispatch-settings-collapsible-root">
+        @unless(!empty($marketplaceNetworkOnly))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-accept-timer">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Acceptatietimer'])
             <div class="settings-collapsible-body">
@@ -492,8 +495,9 @@
             </div>
             </div>
         </div>
+        @endunless
 
-        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-nexa-network">
+        <div class="settings-collapsible-section {{ !empty($marketplaceNetworkOnly) ? '' : 'settings-collapsible-card--collapsed' }}" id="dispatch-nexa-network">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'NEXA Network'])
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">

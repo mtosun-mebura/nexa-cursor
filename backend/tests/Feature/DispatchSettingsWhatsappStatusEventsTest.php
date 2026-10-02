@@ -3,13 +3,16 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\GeneralSetting;
 use App\Models\User;
 use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
 use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class DispatchSettingsWhatsappStatusEventsTest extends TestCase
@@ -58,5 +61,41 @@ class DispatchSettingsWhatsappStatusEventsTest extends TestCase
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_ACCEPTED, $data['customerWhatsappStatusEvents']);
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_STARTED, $data['customerWhatsappStatusEvents']);
         $this->assertNotContains(WhatsAppBookingMessageComposer::EVENT_COMPLETED, $data['customerWhatsappStatusEvents']);
+    }
+
+    #[Test]
+    public function marketplace_company_admin_can_open_dispatch_settings(): void
+    {
+        Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'rides.view', 'guard_name' => 'web']);
+
+        $company = Company::query()->create([
+            'name' => 'Marketplace Dispatch Co',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
+        $admin = User::factory()->create(['company_id' => $company->id]);
+        $admin->assignRole('company-admin');
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId((int) $company->id);
+        try {
+            $admin->givePermissionTo('rides.view');
+
+            GeneralSetting::clearRequestCache();
+            app()->instance('resolved_tenant_id', $company->id);
+
+            $this->actingAs($admin, 'web');
+            $view = app(DispatchSettingsController::class)->edit();
+            $data = $view->getData();
+
+            $this->assertSame('taxi::admin.dispatch-settings.edit', $view->name());
+            $this->assertFalse($data['noTenantSelected']);
+            $this->assertTrue($data['marketplaceNetworkOnly']);
+            $this->assertNotNull($data['networkInviteCode']);
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+        }
     }
 }

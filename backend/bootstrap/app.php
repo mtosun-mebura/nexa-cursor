@@ -77,9 +77,14 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\EnforceTenantBillingRestriction::class,
         ]);
 
-        // Ongeauthenticeerde frontend-gebruikers naar meld-pagina (sessie verlopen) i.p.v. direct naar login, met intended voor redirect na inloggen
+        // Ongeauthenticeerde frontend-gebruikers direct naar login, met intended voor redirect na inloggen.
         // Relatief pad i.p.v. route(): voorkomt absolute https://-URL’s op :8000 zonder TLS (ERR_CONNECTION_CLOSED).
-        $middleware->redirectGuestsTo(fn (Request $request) => '/meld/sessie-verlopen?'.http_build_query(['intended' => $request->url()]));
+        $middleware->redirectGuestsTo(function (Request $request) {
+            $intended = $request->url();
+            $query = http_build_query(['intended' => $intended]);
+
+            return '/login'.($query !== '' ? '?'.$query : '');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
@@ -165,7 +170,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $isAdmin = $request->is('admin') || $request->is('admin/*');
             $isFirstLoginJson = ($request->expectsJson() || $request->ajax() || $request->wantsJson())
-                && $request->is('admin/login/first-code', 'admin/login/first-verify');
+                && $request->is(
+                    'admin/login/first-code',
+                    'admin/login/first-verify',
+                    'admin/login/marketplace-code',
+                    'admin/login/marketplace-register'
+                );
             $intended = AdminReturnUrl::resolveIntended($request->input('intended'))
                 ?? AdminReturnUrl::resolveIntended($request->query('intended'))
                 ?? AdminReturnUrl::resolveIntended(session('url.intended'));
@@ -181,9 +191,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
             }
             $loginUrl = AdminReturnUrl::loginUrlWithIntended($intended);
-            $meldUrl = '/admin/meld/sessie-verlopen?'.http_build_query(array_filter([
-                'intended' => $intended,
-            ]));
             $message = 'Uw sessie is verlopen. Log opnieuw in.';
 
             if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
@@ -207,22 +214,19 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => $message,
                     'code' => 'csrf_mismatch',
                     'csrf_token' => $csrfToken,
-                    'redirect' => $request->is('admin/login') ? $loginUrl : $meldUrl,
+                    'redirect' => $loginUrl,
                 ], 419);
             }
 
             if ($isAdmin) {
-                if ($request->is('admin/login')) {
-                    return redirect()->to($loginUrl)->with('error', $message);
-                }
-
-                return redirect()->to($meldUrl);
+                return redirect()->to($loginUrl)->with('error', $message);
             }
 
-            $frontendMeld = '/meld/sessie-verlopen?'.http_build_query(array_filter([
-                'intended' => AdminReturnUrl::resolveIntended($request->fullUrl()) ?? $request->fullUrl(),
+            $frontendIntended = AdminReturnUrl::resolveIntended($request->fullUrl()) ?? $request->fullUrl();
+            $frontendLogin = '/login?'.http_build_query(array_filter([
+                'intended' => $frontendIntended,
             ]));
 
-            return redirect()->to($frontendMeld);
+            return redirect()->to($frontendLogin)->with('error', $message);
         });
     })->create();

@@ -111,7 +111,7 @@ class AdminFinancialOverviewController extends Controller
     private function ensureAccess(): void
     {
         $user = auth()->user();
-        if (! $user || (! $user->hasRole('super-admin') && ! $user->hasRole('company-admin'))) {
+        if (! $user || (! $user->hasRole('super-admin') && ! $user->isTenantAdmin())) {
             abort(403, 'Geen toegang tot financiële overzichten.');
         }
     }

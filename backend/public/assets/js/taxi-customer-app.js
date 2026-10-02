@@ -379,6 +379,35 @@
             || phase === 'awaiting_payment' || phase === 'other';
     }
 
+    /** Tab-badge: alleen actieve rit of wachten op chauffeur-acceptatie. */
+    function isRidesTabBadgePhase(phase) {
+        return phase === 'searching' || phase === 'accepted';
+    }
+
+    function countRidesTabBadge() {
+        const seen = Object.create(null);
+        let count = 0;
+
+        function add(key, phase) {
+            if (!isRidesTabBadgePhase(phase)) return;
+            const k = String(key || '');
+            if (!k || seen[k]) return;
+            seen[k] = true;
+            count += 1;
+        }
+
+        (state.ridesCache || []).forEach(function (ride) {
+            if (!ride) return;
+            add(ride.token ? ('t:' + ride.token) : ('i:' + String(ride.id || '')), ride.phase);
+        });
+        guestRides().forEach(function (ride) {
+            if (!ride || !ride.token) return;
+            add('t:' + ride.token, ride.phase || 'searching');
+        });
+
+        return count;
+    }
+
     function selectedPaymentMethod() {
         return 'booking';
     }
@@ -412,8 +441,10 @@
         const active = activeGuestRide();
         const badge = el('tab-rides-badge');
         if (badge) {
-            badge.classList.toggle('is-on', !!active && isActiveRidePhase(active.phase));
-            badge.textContent = '1';
+            const badgeCount = countRidesTabBadge();
+            badge.classList.toggle('is-on', badgeCount > 0);
+            badge.textContent = badgeCount > 0 ? String(badgeCount) : '';
+            badge.setAttribute('aria-hidden', badgeCount > 0 ? 'false' : 'true');
         }
         const banner = el('active-ride-banner');
         if (!banner) return;
@@ -1575,6 +1606,8 @@
             }
             state.pickupMarker.setPosition(p);
             state.pickupMarker.setMap(state.map);
+        } else if (state.pickupMarker) {
+            state.pickupMarker.setMap(null);
         }
         if (state.dropoff) {
             const d = { lat: state.dropoff.lat, lng: state.dropoff.lng };
@@ -1607,12 +1640,19 @@
     }
 
     async function detectLocation() {
+        hidePickupLocationNotice();
         el('pickup').value = 'Locatie bepalen…';
         el('pickup-hint').textContent = 'Even geduld…';
+        syncAddressClearButton('pickup');
         if (!navigator.geolocation) {
             el('pickup').value = '';
-            el('pickup-hint').textContent = 'Locatie niet beschikbaar. Vul handmatig in.';
             el('pickup').readOnly = false;
+            syncAddressClearButton('pickup');
+            showPickupLocationNotice({
+                code: 0,
+                message: 'Je browser ondersteunt geen locatiebepaling. Vul je ophaaladres handmatig in.',
+                canRetry: false,
+            });
             return;
         }
         try {
@@ -1651,14 +1691,108 @@
             el('pickup').value = address;
             el('pickup-hint').textContent = 'Automatisch gedetecteerd · tik om te wijzigen';
             el('pickup').readOnly = false;
+            syncAddressClearButton('pickup');
+            hidePickupLocationNotice();
             maybeQuote();
         } catch (e) {
             el('pickup').value = '';
             el('pickup').readOnly = false;
-            el('pickup-hint').textContent = 'Kon locatie niet bepalen. Vul je ophaaladres in.';
-            toast('Locatie toegang nodig om automatisch te detecteren.');
+            syncAddressClearButton('pickup');
+            const code = Number(e && e.code) || 0;
+            showPickupLocationNotice({
+                code: code,
+                message: e && e.message ? String(e.message) : '',
+                canRetry: true,
+            });
             fetchNearbyTaxis();
         }
+    }
+
+    function browserLocationHelp() {
+        return 'Zet de locatievoorzieningen aan voor je browser, zodat we je ophaallocatie automatisch kunnen uitlezen. '
+            + 'Daarna kun je opnieuw proberen, of vul je ophaaladres handmatig in.';
+    }
+
+    async function queryGeolocationPermissionState() {
+        try {
+            if (!navigator.permissions || !navigator.permissions.query) return null;
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            return status && status.state ? String(status.state) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function hidePickupLocationNotice() {
+        const notice = el('pickup-location-notice');
+        const help = el('pickup-location-notice-help');
+        const hint = el('pickup-hint');
+        if (notice) notice.hidden = true;
+        if (help) {
+            help.hidden = true;
+            help.textContent = '';
+            help.innerHTML = '';
+        }
+        if (hint && hint.hidden) hint.hidden = false;
+    }
+
+    async function showPickupLocationNotice(options) {
+        const opts = options || {};
+        const code = Number(opts.code) || 0;
+        const notice = el('pickup-location-notice');
+        const textEl = el('pickup-location-notice-text');
+        const helpEl = el('pickup-location-notice-help');
+        const retryBtn = el('pickup-location-retry');
+        const hint = el('pickup-hint');
+        if (!notice || !textEl) return;
+
+        const perm = await queryGeolocationPermissionState();
+        const denied = code === 1 || perm === 'denied';
+        const unavailable = code === 2;
+        const timeout = code === 3;
+
+        let title = 'Kon je locatie niet bepalen. Vul je ophaaladres handmatig in, of zet locatievoorzieningen aan voor je browser.';
+        if (!navigator.geolocation || code === 0 && !opts.canRetry) {
+            title = 'Locatiebepaling is niet beschikbaar in deze browser. Vul je ophaaladres handmatig in.';
+        } else if (denied) {
+            title = 'Locatievoorzieningen staan uit of zijn geblokkeerd voor deze browser. Zet ze aan om je ophaallocatie automatisch uit te lezen.';
+        } else if (timeout) {
+            title = 'Locatie bepalen duurde te lang. Probeer opnieuw, of vul je ophaaladres handmatig in.';
+        } else if (unavailable) {
+            title = 'Je locatie kon niet worden uitgelezen. Zet locatievoorzieningen aan voor je browser.';
+        }
+
+        textEl.textContent = title;
+        if (hint) {
+            hint.textContent = denied
+                ? 'Locatievoorzieningen uit · vul handmatig in of zet aan voor je browser'
+                : 'Kon locatie niet bepalen. Vul je ophaaladres in.';
+            hint.hidden = true;
+        }
+
+        if (retryBtn) {
+            retryBtn.hidden = opts.canRetry === false;
+            retryBtn.textContent = denied ? 'Opnieuw toestaan' : 'Opnieuw proberen';
+        }
+
+        if (helpEl) {
+            helpEl.textContent = browserLocationHelp();
+            helpEl.hidden = false;
+        }
+
+        notice.hidden = false;
+        toast(denied
+            ? 'Zet locatievoorzieningen aan voor je browser.'
+            : 'Kon locatie niet bepalen. Vul je ophaaladres in.');
+    }
+
+    function bindPickupLocationNotice() {
+        const retryBtn = el('pickup-location-retry');
+        if (!retryBtn || retryBtn.dataset.bound === '1') return;
+        retryBtn.dataset.bound = '1';
+        retryBtn.addEventListener('click', function () {
+            detectLocation();
+        });
     }
 
     function normalizeAddressQuery(query) {
@@ -1973,6 +2107,78 @@
         });
     }
 
+    function syncAddressClearButton(inputId) {
+        const input = el(inputId);
+        if (!input) return;
+        const wrap = input.closest('.field-suggest-input-wrap');
+        if (!wrap) return;
+        const hasValue = String(input.value || '').trim() !== '';
+        wrap.classList.toggle('has-value', hasValue);
+    }
+
+    function clearAddressField(inputId) {
+        const input = el(inputId);
+        const list = el(inputId + '-suggestions');
+        if (!input) return;
+
+        input.value = '';
+        input.readOnly = false;
+        if (list) {
+            list.hidden = true;
+            list.innerHTML = '';
+        }
+
+        if (inputId === 'pickup') {
+            state.pickup = null;
+            state.fleetDidFit = false;
+            const hint = el('pickup-hint');
+            if (hint) {
+                hint.hidden = false;
+                hint.textContent = 'Vul je ophaaladres in';
+            }
+            hidePickupLocationNotice();
+        } else if (inputId === 'dropoff') {
+            state.dropoff = null;
+        }
+
+        syncAddressClearButton(inputId);
+        clearRouteLine();
+        Promise.resolve(updateMapMarkers()).then(function () {
+            if (inputId === 'pickup') {
+                updateFleetRadiusCircle();
+                fetchNearbyTaxis();
+            }
+            maybeQuote();
+        });
+        input.focus();
+    }
+
+    function bindAddressClearButtons() {
+        ['pickup', 'dropoff'].forEach(function (inputId) {
+            const input = el(inputId);
+            const clearBtn = el(inputId + '-clear');
+            if (!input || !clearBtn) return;
+
+            syncAddressClearButton(inputId);
+
+            clearBtn.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+            });
+            clearBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                clearAddressField(inputId);
+            });
+
+            input.addEventListener('input', function () {
+                syncAddressClearButton(inputId);
+            });
+            input.addEventListener('change', function () {
+                syncAddressClearButton(inputId);
+            });
+        });
+    }
+
     function bindAddressField(inputId, listId, onPicked) {
         const input = el(inputId);
         const list = el(listId);
@@ -2012,6 +2218,7 @@
             const address = String((item && (item.address || item.label)) || '').trim();
             if (!address) return;
             input.value = address;
+            syncAddressClearButton(inputId);
 
             // Direct omhoog bij klik — niet wachten op geocode/route.
             const willShowRoute = (inputId === 'dropoff' && state.pickup)
@@ -2102,7 +2309,13 @@
         bindAddressField('pickup', 'pickup-suggestions', function (point) {
             state.pickup = point;
             state.fleetDidFit = false;
-            el('pickup-hint').textContent = 'Handmatig gekozen · tik om te wijzigen';
+            hidePickupLocationNotice();
+            const hint = el('pickup-hint');
+            if (hint) {
+                hint.hidden = false;
+                hint.textContent = 'Handmatig gekozen · tik om te wijzigen';
+            }
+            syncAddressClearButton('pickup');
             Promise.resolve(updateMapMarkers()).then(function () {
                 updateFleetRadiusCircle();
                 fetchNearbyTaxis();
@@ -2111,6 +2324,7 @@
         });
         bindAddressField('dropoff', 'dropoff-suggestions', function (point) {
             state.dropoff = point;
+            syncAddressClearButton('dropoff');
             Promise.resolve(updateMapMarkers()).then(function () {
                 maybeQuote();
             });
@@ -3598,6 +3812,8 @@
         }
     });
 
+    bindPickupLocationNotice();
+    bindAddressClearButtons();
     bindAddressSearch();
     bindPickupDateTimePicker();
     bindBaggageSteppers();

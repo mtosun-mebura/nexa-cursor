@@ -143,6 +143,7 @@ class AdminAuthController extends Controller
 
         // Mark that user has logged in before
         $request->session()->put('has_logged_in_before', true);
+        $request->session()->forget('admin_auth_via_code');
         $this->maybePromptTaxiSetup($user);
 
         $path = $intendedUrl ? (AdminReturnUrl::pathFrom($intendedUrl) ?? '') : '';
@@ -259,6 +260,11 @@ class AdminAuthController extends Controller
         Auth::guard('web')->login($user, true);
         $request->session()->regenerate();
         $request->session()->put('has_logged_in_before', true);
+        if ($skipPassword) {
+            $request->session()->put('admin_auth_via_code', true);
+        } else {
+            $request->session()->forget('admin_auth_via_code');
+        }
         $this->maybePromptTaxiSetup($user);
 
         $redirect = $user->welcome_handleiding_pending
@@ -271,6 +277,56 @@ class AdminAuthController extends Controller
         ]);
     }
 
+    public function requestMarketplaceLoginCode(Request $request, AdminFirstLoginService $firstLogin): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Vul een e-mailadres in.',
+            'email.email' => 'Vul een geldig e-mailadres in.',
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if (! $user) {
+            return response()->json([
+                'message' => 'Dit e-mailadres is niet bekend. Registreer eerst als marketplace-taxibedrijf.',
+                'register' => true,
+            ], 422);
+        }
+
+        $company = $user->company_id
+            ? Company::query()->find((int) $user->company_id)
+            : null;
+
+        if (! $company || ($company->package_key ?? '') !== \App\Services\MarketplaceCompanyRegistrationService::PACKAGE_KEY) {
+            return response()->json([
+                'message' => 'Dit e-mailadres hoort niet bij een marketplace-taxibedrijf. Gebruik de normale inlog of registreer eerst.',
+                'register' => true,
+            ], 422);
+        }
+
+        // Bestaande marketplace-admins: één rol marketplace (admin + chauffeur).
+        \Spatie\Permission\Models\Role::findOrCreate(\App\Services\MarketplaceCompanyRegistrationService::ROLE, 'web');
+        \Spatie\Permission\Models\Role::findOrCreate(\App\Services\MarketplaceCompanyRegistrationService::ROLE, 'api');
+        app(\App\Services\UserRoleAssignmentService::class)->syncWebRoles(
+            $user,
+            [\App\Services\MarketplaceCompanyRegistrationService::ROLE]
+        );
+
+        $result = $firstLogin->requestCode($validated['email'], (string) $request->ip());
+
+        $payload = array_filter([
+            'message' => $result['message'],
+            'code' => $result['code'] ?? null,
+            'retry_after' => $result['retry_after'] ?? null,
+            'register' => (! $result['ok'] && (int) $result['status'] === 422) ? true : null,
+        ], static fn ($value) => $value !== null);
+
+        return response()->json($payload, $result['status']);
+    }
+
     public function registerMarketplaceCompany(
         Request $request,
         \App\Services\MarketplaceCompanyRegistrationService $registration
@@ -278,14 +334,18 @@ class AdminAuthController extends Controller
         $validated = $request->validate([
             'company_name' => 'required|string|max:180',
             'email' => 'required|email|max:180',
-            'phone' => 'nullable|string|max:40',
-            'city' => 'nullable|string|max:120',
+            'phone' => 'required|string|min:8|max:40',
+            'city' => 'required|string|min:2|max:120',
             'contact_first_name' => 'nullable|string|max:80',
             'contact_last_name' => 'nullable|string|max:80',
         ], [
             'company_name.required' => 'Vul de bedrijfsnaam in.',
             'email.required' => 'Vul een e-mailadres in.',
             'email.email' => 'Vul een geldig e-mailadres in.',
+            'phone.required' => 'Vul een telefoonnummer in.',
+            'phone.min' => 'Vul een geldig telefoonnummer in.',
+            'city.required' => 'Vul de plaats in waar het bedrijf zich bevindt.',
+            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
         ]);
 
         try {

@@ -80,6 +80,12 @@ class User extends Authenticatable
         return \App\Support\AdminPanelRoles::canAccessPanel($this);
     }
 
+    /** Company-admin of marketplace (tenant-beheerder). */
+    public function isTenantAdmin(): bool
+    {
+        return \App\Support\AdminPanelRoles::isTenantAdmin($this);
+    }
+
     public function canViewMailSettings(): bool
     {
         return $this->isSuperAdmin()
@@ -96,7 +102,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Alleen de bedrijfsbeheerder (company-admin) mag het SaaS-abonnement en de modules beheren.
+     * Alleen de bedrijfsbeheerder (company-admin of marketplace) mag het SaaS-abonnement en de modules beheren.
      * Super-admin, staff en demo binnen hetzelfde bedrijf niet.
      */
     public function canManageCompanySubscription(): bool
@@ -105,10 +111,10 @@ class User extends Authenticatable
             return false;
         }
 
-        $roles = $this->webRoleNames();
-        if (! in_array('company-admin', $roles, true)) {
+        if (! $this->isTenantAdmin()) {
             return false;
         }
+        $roles = $this->webRoleNames();
         if (in_array('staff', $roles, true) || in_array('demo', $roles, true)) {
             return false;
         }

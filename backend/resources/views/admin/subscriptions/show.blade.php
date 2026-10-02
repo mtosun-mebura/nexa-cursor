@@ -317,7 +317,7 @@
                 </div>
             </div>
 
-            @if(! empty($in_trial) && empty($trial_declined))
+            @if(! empty($has_paid_subscription) && ! empty($in_trial) && empty($trial_declined))
                 <div class="kt-card min-w-full">
                     <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                         <h3 class="kt-card-title mb-0">Proefperiode stoppen</h3>
@@ -334,7 +334,7 @@
                         </form>
                     </div>
                 </div>
-            @elseif(empty($in_trial) && $cancel_allowed)
+            @elseif(! empty($has_paid_subscription) && empty($in_trial) && $cancel_allowed)
                 <div class="kt-card min-w-full">
                     <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                         <h3 class="kt-card-title mb-0">Opzeggen</h3>
@@ -438,7 +438,7 @@
 </div>
 </div>
 
-@if(empty($in_trial) && $cancel_allowed)
+@if(! empty($has_paid_subscription) && empty($in_trial) && $cancel_allowed)
 <div id="subscription-cancel-modal"
      class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
      role="dialog"
@@ -478,7 +478,7 @@
 </div>
 @endif
 
-@if(! empty($in_trial) && empty($trial_declined))
+@if(! empty($has_paid_subscription) && ! empty($in_trial) && empty($trial_declined))
 <div id="subscription-end-trial-modal"
      class="hidden fixed inset-0 z-[100000] items-center justify-center p-4"
      role="dialog"

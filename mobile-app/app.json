@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "Nexa Taxi",
+    "slug": "nexa-taxi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "nexataxi",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B1220"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "nl.nexasuite.taxi",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Nexa Taxi gebruikt je locatie voor ritten in de buurt en ophaaladressen.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Kies Altijd zodat marketplace-klanten je taxi ook vinden als de app op de achtergrond staat.",
+        "NSLocationAlwaysUsageDescription": "Doorlopende locatie is nodig voor marketplace-matching en chauffeur-tracking.",
+        "UIBackgroundModes": ["location", "fetch", "processing"],
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).SceneDelegate"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "android": {
+      "package": "nl.nexasuite.taxi",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1220",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Nexa Taxi heeft doorlopende locatie nodig zodat marketplace-klanten de dichtstbijzijnde taxi kunnen vinden.",
+          "locationAlwaysPermission": "Nexa Taxi heeft doorlopende locatie nodig voor marketplace-matching op de achtergrond.",
+          "locationWhenInUsePermission": "Nexa Taxi gebruikt je locatie voor ritten en ophaaladressen.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://nexasuite.online"
+    }
+  }
+}

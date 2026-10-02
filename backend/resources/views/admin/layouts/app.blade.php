@@ -1761,16 +1761,20 @@
     <!-- Session Expiry Handler -->
     <script>
     (function() {
-        // Alleen op beveiligde adminpagina's (niet op login of meld)
+        // Alleen op beveiligde adminpagina's (niet op login)
         var path = window.location.pathname || '';
-        if (path.includes('/admin/login') || path.includes('/admin/meld/sessie-verlopen')) {
+        if (path.includes('/admin/login')) {
             return;
         }
         if (!path.startsWith('/admin')) {
             return;
         }
 
-        // Sessiecheck bij paginaload: als geen geldige sessie, redirect naar meld met intended
+        function sessionLoginUrl() {
+            return '{{ route("admin.login") }}?intended=' + encodeURIComponent(window.location.href);
+        }
+
+        // Sessiecheck bij paginaload: als geen geldige sessie, direct naar login met intended
         var sessionCheckUrl = '{{ url("/admin/api/session-check") }}';
         fetch(sessionCheckUrl, {
             method: 'GET',
@@ -1778,8 +1782,7 @@
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         }).then(function(response) {
             if (response.status === 401 || response.status === 419) {
-                var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
-                window.location.href = meldUrl;
+                window.location.href = sessionLoginUrl();
             }
         }).catch(function() { /* negeer netwerkfouten, AJAX-handler vangt later 401 */ });
 
@@ -1818,10 +1821,9 @@
 
             // Check for 401 (Unauthorized), 403 (Forbidden), or 419 (CSRF token mismatch) responses
             if (xhr.status === 401 || xhr.status === 419) {
-                // Redirect naar meld-pagina met huidige URL zodat na inloggen teruggegaan wordt
+                // Direct naar login met huidige URL zodat na inloggen teruggegaan wordt
                 if (!window.location.pathname.includes('/admin/login')) {
-                    var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
-                    window.location.href = meldUrl;
+                    window.location.href = sessionLoginUrl();
                 }
                 return false;
             } else if (xhr.status === 403) {
@@ -1871,8 +1873,7 @@
                     // Check for 401, 403, or 419 status
                     if (response.status === 401 || response.status === 419) {
                         if (!window.location.pathname.includes('/admin/login')) {
-                            var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
-                            window.location.href = meldUrl;
+                            window.location.href = sessionLoginUrl();
                         }
                         return Promise.reject(new Error('Session expired'));
                     } else if (response.status === 403) {

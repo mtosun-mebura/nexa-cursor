@@ -94,7 +94,7 @@ class AdminPayoutIdentityController extends Controller
         }
 
         $msg = $identity->hasPendingDestinationChange()
-            ? 'Rekeningwijziging aangevraagd (cooling-off). Alleen *** + laatste 4 cijfers worden bewaard.'
+            ? 'Wijziging aangevraagd. Het nieuwe rekeningnummer wordt pas over '.(int) config('nexa_payout.destination_change_cooling_off_hours', 48).' uur gebruikt voor uitbetalingen. We bewaren alleen *** + laatste 4 cijfers.'
             : 'Bankrekening opgeslagen. Alleen *** + laatste 4 cijfers worden bewaard.';
 
         return redirect()
@@ -198,7 +198,7 @@ class AdminPayoutIdentityController extends Controller
         $user = auth()->user();
         if (
             $user->hasRole('super-admin')
-            || $user->hasRole('company-admin')
+            || $user->isTenantAdmin()
             || $user->can('view-payment-providers')
         ) {
             return;
@@ -212,7 +212,7 @@ class AdminPayoutIdentityController extends Controller
         $user = auth()->user();
         if (
             $user->hasRole('super-admin')
-            || $user->hasRole('company-admin')
+            || $user->isTenantAdmin()
             || $user->can('edit-payment-providers')
         ) {
             return;

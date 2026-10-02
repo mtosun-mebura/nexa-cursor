@@ -94,6 +94,31 @@
         house_number: {
             minLength: 1,
         },
+        /** IBAN (ISO 13616 mod-97), zelfde regel als PHP is_valid_iban(). */
+        iban: {
+            message: 'Voer een geldig IBAN in.',
+            successMessage: 'IBAN is geldig',
+            validate: function(value) {
+                const iban = String(value || '').replace(/\s+/g, '').toUpperCase();
+                if (iban.length < 15 || iban.length > 34) {
+                    return false;
+                }
+                if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(iban)) {
+                    return false;
+                }
+                const rearranged = iban.slice(4) + iban.slice(0, 4);
+                let checksum = 0;
+                for (const char of rearranged) {
+                    const digits = /[A-Z]/.test(char)
+                        ? String(char.charCodeAt(0) - 55)
+                        : char;
+                    for (const digit of digits) {
+                        checksum = (checksum * 10 + Number(digit)) % 97;
+                    }
+                }
+                return checksum === 1;
+            },
+        },
     };
 
     /**
@@ -134,6 +159,7 @@
                 const laravelFeedback = this.findLaravelFeedbackForInput(input);
                 if (laravelFeedback && this.laravelFeedbackMessage(laravelFeedback)) {
                     input.classList.add('border-destructive');
+                    input.setAttribute('aria-invalid', 'true');
                     laravelFeedback.classList.remove('hidden');
                     laravelFeedback.style.display = 'block';
                     return;
@@ -508,6 +534,15 @@
                     const formatted = validationRules[fieldType].format(value);
                     if (formatted !== value) {
                         input.value = formatted;
+                        patternValue = formatted;
+                    }
+                }
+
+                if (typeof validationRules[fieldType]?.validate === 'function') {
+                    if (!validationRules[fieldType].validate(patternValue)) {
+                        const message = validationRules[fieldType]?.message || 'Deze invoer is ongeldig.';
+                        this.setInvalid(input, feedbackElement, message, forceShow);
+                        return false;
                     }
                 }
             }
@@ -675,6 +710,7 @@
             if (type === 'tel' || name.includes('phone') || name.includes('telefoon')) return 'phone';
             if (name.includes('postal_code') || name.includes('postcode')) return 'postal_code';
             if (name.includes('kvk_number') || name.includes('kvk')) return 'kvk_number';
+            if (name === 'iban' || name.includes('iban') || name.endsWith('[iban]')) return 'iban';
             if (type === 'password' || name.includes('password') || name.includes('wachtwoord')) return 'password';
             if (!skipUrlValidation && (type === 'url' || name.includes('website') || name.includes('url'))) return 'url';
             
@@ -772,6 +808,7 @@
             // Alleen feedback tonen als gebruiker heeft geïnteracteerd of geforceerd
             if (userInteracted) {
                 input.classList.add('border-destructive');
+                input.setAttribute('aria-invalid', 'true');
                 // Show red cross icon (same styling as green checkmark)
                 if (iconWrapper) {
                     iconWrapper.innerHTML = '<i class="ki-filled ki-cross-circle text-red-500" style="font-size: 1.25rem; line-height: 1;"></i>';
@@ -799,6 +836,7 @@
                 }
             } else {
                 // Hide everything if user hasn't interacted
+                input.setAttribute('aria-invalid', 'false');
                 if (iconWrapper) {
                     iconWrapper.classList.add('hidden');
                     iconWrapper.style.display = 'none';
@@ -844,6 +882,7 @@
             
             // Remove all validation borders
             input.classList.remove('border-red-500', 'border-destructive', 'border-green-500', 'border-green-600');
+            input.setAttribute('aria-invalid', 'false');
             
             // Get or create validation icon wrapper
             let iconWrapper = input.parentElement?.querySelector('.validation-icon-wrapper');
@@ -903,6 +942,7 @@
             
             // Remove all validation classes
             input.classList.remove('border-red-500', 'border-green-500', 'border-destructive', 'border-green-600');
+            input.setAttribute('aria-invalid', 'false');
             
             // Hide validation icon
             const iconWrapper = input.parentElement?.querySelector('.validation-icon-wrapper') || 

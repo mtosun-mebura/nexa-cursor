@@ -92,6 +92,7 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'web']);
+        $marketplace = Role::firstOrCreate(['name' => 'marketplace', 'guard_name' => 'web']);
 
         // Create roles for api guard (if they don't exist)
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'api']);
@@ -104,6 +105,7 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'api']);
+        $apiMarketplace = Role::firstOrCreate(['name' => 'marketplace', 'guard_name' => 'api']);
 
         // Create permissions
         $permissions = [
@@ -250,6 +252,10 @@ class RoleSeeder extends Seeder
             ->whereNotIn('name', $excludeForCompanyAdmin)
             ->get();
         $apiCompanyAdmin->syncPermissions($companyAdminApiPerms);
+
+        // Marketplace:zelfde tenant-rechten als company-admin (+ chauffeur via rolnaam).
+        $marketplace->syncPermissions($companyAdminWebPerms);
+        $apiMarketplace->syncPermissions($companyAdminApiPerms);
 
         // Assign limited permissions to staff (web)
         $staff->givePermissionTo([

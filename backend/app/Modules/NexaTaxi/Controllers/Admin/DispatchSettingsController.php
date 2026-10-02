@@ -48,8 +48,11 @@ class DispatchSettingsController extends Controller
             $acceptedPartners = $this->networkPartnerships->acceptedAsOwner($companyId);
         }
 
+        $marketplaceNetworkOnly = $this->isMarketplacePackageCompany($companyId);
+
         return view('taxi::admin.dispatch-settings.edit', [
             'noTenantSelected' => $companyId === null,
+            'marketplaceNetworkOnly' => $marketplaceNetworkOnly,
             'offerTtlSeconds' => $ttlSeconds,
             'offerTtlMinutes' => (int) round($ttlSeconds / 60),
             'envDefaultSeconds' => $envDefault,
@@ -164,6 +167,15 @@ class DispatchSettingsController extends Controller
     {
         $this->authorizeOrPermissionAny(['rides.update']);
 
+        $companyId = GeneralSetting::resolveScopeCompanyId();
+        if ($companyId === null && ! auth()->user()?->hasRole('super-admin')) {
+            return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
+        }
+
+        if ($this->isMarketplacePackageCompany($companyId)) {
+            return $this->updateMarketplaceNetworkOnly($request, $companyId);
+        }
+
         $minMinutes = (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60);
         $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
         $minLoginCodeMinutes = TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES;
@@ -221,11 +233,6 @@ class DispatchSettingsController extends Controller
             'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
         ]);
 
-        $companyId = GeneralSetting::resolveScopeCompanyId();
-        if ($companyId === null && ! auth()->user()?->hasRole('super-admin')) {
-            return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
-        }
-
         $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
         $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
         $this->dispatchSettings->setPastPickupGraceMinutes(
@@ -263,6 +270,43 @@ class DispatchSettingsController extends Controller
             $companyId
         );
 
+        $this->persistNetworkSettings($request, $validated, $companyId, $isSuperAdmin);
+
+        $success = $companyId === null
+            ? 'Nexa Suite dispatch-instellingen (marktplaats & network) zijn opgeslagen.'
+            : 'Chauffeur dispatch is opgeslagen.';
+
+        return redirect()
+            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
+            ->with('success', $success);
+    }
+
+    private function updateMarketplaceNetworkOnly(Request $request, ?int $companyId): RedirectResponse
+    {
+        $isSuperAdmin = auth()->user()->hasRole('super-admin');
+        $rules = [
+            'network_enabled' => ['nullable', 'in:0,1'],
+            'network_mode' => ['nullable', 'string', 'in:off,manual,auto'],
+            'network_fallback_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
+            'network_max_radius_km' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ];
+        if ($isSuperAdmin) {
+            $rules['network_manual_partner_company_ids'] = ['nullable', 'string', 'max:500'];
+        }
+
+        $validated = $request->validate($rules);
+        $this->persistNetworkSettings($request, $validated, $companyId, $isSuperAdmin);
+
+        return redirect()
+            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
+            ->with('success', 'NEXA Network-instellingen zijn opgeslagen.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function persistNetworkSettings(Request $request, array $validated, ?int $companyId, bool $isSuperAdmin): void
+    {
         $networkEnabled = $request->boolean('network_enabled');
         $networkMode = (string) ($validated['network_mode'] ?? TaxiDispatchSettingsService::NETWORK_MODE_OFF);
         if (! $networkEnabled) {
@@ -287,14 +331,18 @@ class DispatchSettingsController extends Controller
             }
             $this->networkPartnerships->syncOwnerPartnerIds($companyId);
         }
+    }
 
-        $success = $companyId === null
-            ? 'Nexa Suite dispatch-instellingen (marktplaats & network) zijn opgeslagen.'
-            : 'Chauffeur dispatch is opgeslagen.';
+    private function isMarketplacePackageCompany(?int $companyId): bool
+    {
+        if (! $companyId) {
+            return false;
+        }
 
-        return redirect()
-            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', $success);
+        $company = Company::query()->find($companyId);
+
+        return $company !== null
+            && strcasecmp((string) ($company->package_key ?? ''), 'marketplace') === 0;
     }
 
     public function rotateNetworkInvite(Request $request): RedirectResponse

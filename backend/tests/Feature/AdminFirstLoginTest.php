@@ -7,6 +7,7 @@ use App\Models\CustomerLoginCode;
 use App\Models\User;
 use App\Services\AdminFirstLoginCodeEmailTemplateService;
 use App\Services\AdminFirstLoginService;
+use App\Services\MarketplaceCompanyRegistrationService;
 use App\Services\UserRoleAssignmentService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class AdminFirstLoginTest extends TestCase
@@ -36,7 +38,9 @@ class AdminFirstLoginTest extends TestCase
             ->assertSee('Inloggen met e-mailcode', false)
             ->assertSee('Inlogcode aanvragen', false)
             ->assertSee('Terug naar inloggen', false)
-            ->assertSee('Taxibedrijf aanmelden (Marketplace)', false)
+            ->assertSee('Taxibedrijf inloggen of registreren', false)
+            ->assertSee('(Marketplace)', false)
+            ->assertSee('Taxibedrijf registreren', false)
             ->assertSee('eenmalige code aan', false);
     }
 
@@ -218,6 +222,93 @@ class AdminFirstLoginTest extends TestCase
             'user_id' => $created->id,
             'purpose' => CustomerLoginCode::PURPOSE_ADMIN,
         ]);
+    }
+
+    #[Test]
+    public function marketplace_registration_assigns_marketplace_role(): void
+    {
+        Role::firstOrCreate(['name' => MarketplaceCompanyRegistrationService::ROLE, 'guard_name' => 'web']);
+        RateLimiter::clear('admin-first-login-email:markt@taxi.test');
+
+        $result = app(MarketplaceCompanyRegistrationService::class)->register([
+            'company_name' => 'Taxi Markt BV',
+            'email' => 'markt@taxi.test',
+            'phone' => '0612345678',
+            'city' => 'Amsterdam',
+        ], '127.0.0.1');
+
+        $user = $result['user']->fresh();
+        $this->assertSame(MarketplaceCompanyRegistrationService::PACKAGE_KEY, $result['company']->package_key);
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeam = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId((int) $user->company_id);
+        try {
+            $this->assertTrue($user->hasRole(MarketplaceCompanyRegistrationService::ROLE));
+            $this->assertFalse($user->hasRole('company-admin'));
+            $this->assertFalse($user->hasRole('chauffeur'));
+            $this->assertTrue(app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)
+                ->rolesIncludeChauffeur($user->webRoleNames()));
+            $this->assertTrue($user->isTenantAdmin());
+            $this->assertTrue($user->canAccessAdminPanel());
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeam);
+        }
+    }
+
+    #[Test]
+    public function marketplace_login_code_rejects_unknown_email_with_register_flag(): void
+    {
+        $this->postJson(route('admin.login.marketplace-code'), [
+            'email' => 'onbekend-markt@example.com',
+        ])
+            ->assertStatus(422)
+            ->assertJsonFragment([
+                'register' => true,
+            ])
+            ->assertJsonFragment([
+                'message' => 'Dit e-mailadres is niet bekend. Registreer eerst als marketplace-taxibedrijf.',
+            ]);
+    }
+
+    #[Test]
+    public function marketplace_login_code_ensures_marketplace_role_for_existing_admin(): void
+    {
+        Role::firstOrCreate(['name' => MarketplaceCompanyRegistrationService::ROLE, 'guard_name' => 'web']);
+        $email = 'bestaand-markt@taxi.test';
+        $company = Company::query()->create([
+            'name' => 'Bestaand Markt BV',
+            'email' => $email,
+            'is_active' => true,
+            'package_key' => MarketplaceCompanyRegistrationService::PACKAGE_KEY,
+        ]);
+        $firstLogin = app(AdminFirstLoginService::class);
+        $user = User::factory()->create(array_merge([
+            'email' => $email,
+            'company_id' => $company->id,
+            'password' => $firstLogin->unusablePasswordHash(),
+            'welcome_handleiding_pending' => false,
+            'email_verified_at' => now(),
+        ], $firstLogin->provisionFlags()));
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['company-admin']);
+        RateLimiter::clear('admin-first-login-email:'.$email);
+
+        $this->postJson(route('admin.login.marketplace-code'), [
+            'email' => $email,
+        ])->assertOk();
+
+        $user = $user->fresh();
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeam = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId((int) $user->company_id);
+        try {
+            $this->assertTrue($user->hasRole(MarketplaceCompanyRegistrationService::ROLE));
+            $this->assertFalse($user->hasRole('company-admin'));
+            $this->assertTrue(app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)
+                ->rolesIncludeChauffeur($user->webRoleNames()));
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeam);
+        }
     }
 
     private function makePendingAdmin(string $email): User

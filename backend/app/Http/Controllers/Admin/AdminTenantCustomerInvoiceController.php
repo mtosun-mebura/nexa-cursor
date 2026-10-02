@@ -138,7 +138,7 @@ class AdminTenantCustomerInvoiceController extends Controller
         if (! $user) {
             abort(403);
         }
-        if ($user->hasRole('super-admin') || $user->hasRole('company-admin')) {
+        if ($user->hasRole('super-admin') || $user->isTenantAdmin()) {
             return;
         }
         abort(403, 'Geen toegang tot klantfacturen.');

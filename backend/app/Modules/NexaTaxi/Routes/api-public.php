@@ -5,6 +5,15 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverAuthController;
 use App\Modules\NexaTaxi\Controllers\Api\TaxiMollieWebhookController;
 use Illuminate\Support\Facades\Route;
 
+Route::prefix('v1/app')->group(function () {
+    Route::post('login', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'login'])
+        ->middleware('throttle:taxi-app-login-code');
+    Route::post('login-code/request', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'requestLoginCode'])
+        ->middleware('throttle:taxi-app-login-code');
+    Route::post('login-code/verify', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'verifyLoginCode'])
+        ->middleware('throttle:taxi-app-login-code');
+});
+
 Route::prefix('v1/driver')->group(function () {
     Route::post('login', [DriverAuthController::class, 'login'])
         ->middleware('throttle:taxi-driver-login');
