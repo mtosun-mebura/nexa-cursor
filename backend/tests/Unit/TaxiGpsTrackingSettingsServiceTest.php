@@ -27,8 +27,8 @@ class TaxiGpsTrackingSettingsServiceTest extends TestCase
         $this->assertSame('#ea580c', $appearance['type_colors']['bus']);
         $this->assertArrayNotHasKey('hatchback', $appearance['type_colors']);
         $this->assertSame([], $appearance['vehicle_colors']);
-        $this->assertSame('#f7e125', $appearance['plate_background']);
-        $this->assertSame('#111827', $appearance['plate_text_color']);
+        $this->assertSame('#003399', $appearance['plate_background']);
+        $this->assertSame('#ffffff', $appearance['plate_text_color']);
         $this->assertSame(30, $appearance['refresh_seconds']);
     }
 

@@ -1,12 +1,12 @@
 import { apiRequest } from './client';
-
-export type LatLng = { lat: number; lng: number; address: string };
+import { API_BASE_URL } from '../config';
 
 export type QuoteOffer = {
   id: string;
   price?: number;
   price_label?: string;
   label?: string;
+  title?: string;
 };
 
 export type QuoteResponse = {
@@ -15,11 +15,28 @@ export type QuoteResponse = {
   marketplace?: {
     radius_km?: number;
     candidate_count?: number;
+    taxi_available?: boolean;
+    unavailable_message?: string | null;
+    candidates?: Array<{ company_id: number; company_name: string; distance_km: number }>;
   };
   payment?: {
     booking?: boolean;
     mollie_configured?: boolean;
+    deferred_until_taxi?: boolean;
   };
+  route?: {
+    distance_meters?: number;
+    duration_seconds?: number;
+  };
+};
+
+export type NearbyTaxi = {
+  id: string;
+  lat: number;
+  lng: number;
+  car_style?: string;
+  distance_km?: number | null;
+  busy?: boolean;
 };
 
 export type LiveRide = {
@@ -80,7 +97,12 @@ export type BookPayload = {
   selected_offer_id?: string | null;
   payment_method?: 'booking' | null;
   return_url?: string;
+  marketplace_radius_km?: number;
+  baggage?: Record<string, number>;
+  special_baggage?: Record<string, number>;
 };
+
+const MARKETPLACE_SECTION = 'component:taxi.algemene_boekingsmodule';
 
 export function fetchQuote(body: {
   distance_meters: number;
@@ -89,11 +111,43 @@ export function fetchQuote(body: {
   pickup_lat: number;
   pickup_lng: number;
   pickup_at?: string | null;
+  marketplace_radius_km?: number;
+  baggage?: Record<string, number>;
+  special_baggage?: Record<string, number>;
 }) {
   return apiRequest<QuoteResponse>('/api/taxi/v1/customer/quote', {
     method: 'POST',
     body,
   });
+}
+
+export async function fetchNearbyTaxis(input: {
+  lat: number;
+  lng: number;
+  radiusKm?: number;
+}): Promise<NearbyTaxi[]> {
+  const params = new URLSearchParams({
+    lat: String(input.lat),
+    lng: String(input.lng),
+    radius_km: String(input.radiusKm ?? 50),
+    section_key: MARKETPLACE_SECTION,
+  });
+  const res = await fetch(`${API_BASE_URL}/nexa-taxi/booking/nearby-taxis?${params}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const list = Array.isArray(data?.vehicles) ? data.vehicles : [];
+  return list
+    .map((v: NearbyTaxi) => ({
+      id: String(v.id),
+      lat: Number(v.lat),
+      lng: Number(v.lng),
+      car_style: v.car_style,
+      distance_km: v.distance_km == null ? null : Number(v.distance_km),
+      busy: !!v.busy,
+    }))
+    .filter((v: NearbyTaxi) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
 }
 
 export function bookGuest(body: BookPayload) {

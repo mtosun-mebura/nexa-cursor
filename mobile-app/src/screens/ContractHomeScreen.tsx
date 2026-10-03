@@ -2,10 +2,11 @@ import React from 'react';
 import { Text } from 'react-native';
 import { useAuth } from '../auth/AuthContext';
 import { Card, GhostButton, Screen, Subtitle, Title } from '../ui/components';
-import { COLORS } from '../config';
+import { useThemeColors } from '../theme/ThemeContext';
 
 export function ContractHomeScreen() {
   const { session, logout, setActiveScreen, capabilities } = useAuth();
+  const colors = useThemeColors();
   const multi = (capabilities?.screens?.length || 0) > 1;
 
   return (
@@ -15,7 +16,7 @@ export function ContractHomeScreen() {
         Welkom {session?.user?.name}. Planning en afwezigheid openen hier native (zonder browser).
       </Subtitle>
       <Card>
-        <Text style={{ color: COLORS.muted, lineHeight: 20 }}>
+        <Text style={{ color: colors.muted, lineHeight: 20 }}>
           Contract-schermen (vandaag / week / afwezigheid) worden hier verder uitgebouwd. Je bent
           al correct doorgestuurd op basis van je contract-rol.
         </Text>

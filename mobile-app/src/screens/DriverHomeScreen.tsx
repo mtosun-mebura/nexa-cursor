@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -20,9 +20,12 @@ import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { startBackgroundLocation, stopBackgroundLocation } from '../location/background';
 import { Card, ErrorText, GhostButton, Screen, Subtitle, Title } from '../ui/components';
-import { COLORS } from '../config';
+import { ColorPalette } from '../config';
+import { useThemeColors } from '../theme/ThemeContext';
 
 export function DriverHomeScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { driverToken, logout, capabilities, setActiveScreen } = useAuth();
   const [online, setOnline] = useState(false);
   const [name, setName] = useState('');
@@ -124,7 +127,7 @@ export function DriverHomeScreen() {
           <Switch
             value={online}
             onValueChange={toggleOnline}
-            trackColor={{ false: '#334155', true: COLORS.success }}
+            trackColor={{ false: colors.border, true: colors.success }}
           />
         </View>
       </View>
@@ -150,7 +153,7 @@ export function DriverHomeScreen() {
             setRefreshing(true);
             await refresh();
             setRefreshing(false);
-          }} tintColor={COLORS.text} />
+          }} tintColor={colors.text} />
         }
         ListEmptyComponent={
           <Card>
@@ -212,32 +215,34 @@ export function DriverHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  onlineBox: { alignItems: 'center', paddingTop: 8 },
-  onlineLabel: { color: COLORS.muted, fontSize: 12, marginBottom: 4, fontWeight: '600' },
-  hint: { color: COLORS.muted, fontSize: 14, lineHeight: 20 },
-  offerBadge: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  offerTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  row: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  action: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  accept: { backgroundColor: COLORS.success },
-  decline: { backgroundColor: '#334155' },
-  actionText: { color: '#fff', fontWeight: '700' },
-});
+function makeStyles(colors: ColorPalette) {
+  return StyleSheet.create({
+    header: {
+      paddingHorizontal: 20,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    onlineBox: { alignItems: 'center', paddingTop: 8 },
+    onlineLabel: { color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: '600' },
+    hint: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+    offerBadge: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    },
+    offerTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 },
+    row: { flexDirection: 'row', gap: 8, marginTop: 12 },
+    action: {
+      flex: 1,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    accept: { backgroundColor: colors.success },
+    decline: { backgroundColor: colors.muted },
+    actionText: { color: '#fff', fontWeight: '700' },
+  });
+}
