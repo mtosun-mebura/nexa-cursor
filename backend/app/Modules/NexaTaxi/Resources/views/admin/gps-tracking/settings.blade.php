@@ -372,9 +372,9 @@ window.NexaGpsFleet = @json($fleet ?? []);
                 van: typeColor('van'),
                 bus: typeColor('bus')
             },
-            plate_background: val('plate_background') || '#f7e125',
-            plate_text_color: val('plate_text_color') || '#111827',
-            plate_border_color: val('plate_border_color') || '#111827'
+            plate_background: val('plate_background') || '#003399',
+            plate_text_color: val('plate_text_color') || '#ffffff',
+            plate_border_color: val('plate_border_color') || '#001a66'
         };
     }
     function previewCars() {

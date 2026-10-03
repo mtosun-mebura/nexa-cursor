@@ -3388,6 +3388,15 @@
         } catch (e) {}
     }
 
+    function focusRequestsTabForNewOffer() {
+        if (!isOnline || !accountActive || currentActiveRide) {
+            return;
+        }
+        showScreen('dispatch');
+        setMainTab('requests');
+        setInboxView('offers');
+    }
+
     function notifyRideWaitingAttention(offer) {
         if (!offer || !offer.id || !isOnline || !accountActive || currentActiveRide) {
             return;
@@ -3406,6 +3415,7 @@
         vibrate([200, 100, 200, 100, 200]);
         showNewRideAlert(true, true);
         showRideOfferPhoneNotification(offer, { waiting: true });
+        focusRequestsTabForNewOffer();
     }
 
     function notifyNewRideOffer(offer) {
@@ -3419,6 +3429,7 @@
         playNewRideSound();
         vibrate([120, 60, 120, 60, 200]);
         showRideOfferPhoneNotification(offer);
+        focusRequestsTabForNewOffer();
     }
 
     function onOfferEnteredWaitingState(offer) {

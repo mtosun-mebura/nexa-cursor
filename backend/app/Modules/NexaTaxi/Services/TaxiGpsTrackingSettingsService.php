@@ -206,9 +206,9 @@ class TaxiGpsTrackingSettingsService
             'car_color' => $typeColors[self::CAR_STYLE_SEDAN],
             'type_colors' => $typeColors,
             'vehicle_colors' => $this->normalizeVehicleColors($input['vehicle_colors'] ?? []),
-            'plate_background' => $this->normalizeHex($input['plate_background'] ?? null, '#f7e125'),
-            'plate_text_color' => $this->normalizeHex($input['plate_text_color'] ?? null, '#111827'),
-            'plate_border_color' => $this->normalizeHex($input['plate_border_color'] ?? null, '#111827'),
+            'plate_background' => $this->normalizeHex($input['plate_background'] ?? null, '#003399'),
+            'plate_text_color' => $this->normalizeHex($input['plate_text_color'] ?? null, '#ffffff'),
+            'plate_border_color' => $this->normalizeHex($input['plate_border_color'] ?? null, '#001a66'),
             'refresh_seconds' => max(self::MIN_REFRESH_SECONDS, min(self::MAX_REFRESH_SECONDS, (int) ($input['refresh_seconds'] ?? 1))),
         ];
     }

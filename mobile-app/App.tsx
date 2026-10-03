@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, StatusBar, View } from 'react-native';
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Linking, StatusBar, View } from 'react-native';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
-import { COLORS } from './src/config';
+import { parseAppDeepLink } from './src/linking';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RoleSelectScreen } from './src/screens/RoleSelectScreen';
@@ -21,28 +23,71 @@ export type RootStackParamList = {
   Contract: undefined;
 };
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const GUEST_ROUTE_KEY = 'nexa_taxi_guest_route';
+type GuestRoute = 'welcome' | 'login' | 'customer';
 
-const navTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: COLORS.bg,
-    card: COLORS.card,
-    text: COLORS.text,
-    border: COLORS.border,
-    primary: COLORS.primary,
-  },
-};
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function RootNavigator() {
   const { ready, session, activeScreen, capabilities } = useAuth();
-  const [guestCustomer, setGuestCustomer] = useState(false);
+  const { colors, colorScheme } = useTheme();
+  const [guestRoute, setGuestRoute] = useState<GuestRoute | null>(null);
 
-  if (!ready) {
+  const persistGuestRoute = (route: GuestRoute) => {
+    setGuestRoute(route);
+    AsyncStorage.setItem(GUEST_ROUTE_KEY, route).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (!cancelled && parseAppDeepLink(initialUrl)?.host === 'customer') {
+          setGuestRoute('customer');
+          AsyncStorage.setItem(GUEST_ROUTE_KEY, 'customer').catch(() => undefined);
+          return;
+        }
+        const saved = await AsyncStorage.getItem(GUEST_ROUTE_KEY);
+        if (!cancelled) {
+          setGuestRoute(saved === 'customer' || saved === 'login' ? saved : 'welcome');
+        }
+      } catch {
+        if (!cancelled) setGuestRoute('welcome');
+      }
+    })();
+
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      if (parseAppDeepLink(url)?.host === 'customer') {
+        persistGuestRoute('customer');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
+  const navTheme = useMemo(() => {
+    const base = colorScheme === 'light' ? DefaultTheme : DarkTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        background: colors.bg,
+        card: colors.card,
+        text: colors.text,
+        border: colors.border,
+        primary: colors.primary,
+      },
+    };
+  }, [colorScheme, colors]);
+
+  if (!ready || guestRoute === null) {
     return (
-      <View style={{ flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={COLORS.text} size="large" />
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.text} size="large" />
       </View>
     );
   }
@@ -52,31 +97,58 @@ function RootNavigator() {
   const showDriver = !!session && activeScreen === 'driver' && !!session.tokens?.driver;
   const showContract = !!session && activeScreen === 'contract' && !!session.tokens?.contract;
 
+  const initialRouteName: keyof RootStackParamList = showDriver
+    ? 'Driver'
+    : showContract
+      ? 'Contract'
+      : needsRolePick
+        ? 'RoleSelect'
+        : guestRoute === 'customer'
+          ? 'Customer'
+          : guestRoute === 'login'
+            ? 'Login'
+            : 'Welcome';
+
   return (
     <NavigationContainer theme={navTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack.Navigator
+        key={initialRouteName}
+        initialRouteName={initialRouteName}
+        screenOptions={{ headerShown: false, animation: 'fade' }}
+      >
         {showDriver ? (
           <Stack.Screen name="Driver" component={DriverHomeScreen} />
         ) : showContract ? (
           <Stack.Screen name="Contract" component={ContractHomeScreen} />
         ) : needsRolePick ? (
           <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
-        ) : guestCustomer ? (
+        ) : guestRoute === 'customer' ? (
           <Stack.Screen name="Customer">
-            {() => <CustomerHomeScreen onBack={() => setGuestCustomer(false)} />}
+            {() => <CustomerHomeScreen onBack={() => persistGuestRoute('welcome')} />}
           </Stack.Screen>
         ) : (
           <>
             <Stack.Screen name="Welcome">
               {({ navigation }) => (
                 <WelcomeScreen
-                  onLogin={() => navigation.navigate('Login')}
-                  onCustomer={() => setGuestCustomer(true)}
+                  onLogin={() => {
+                    persistGuestRoute('login');
+                    navigation.navigate('Login');
+                  }}
+                  onCustomer={() => persistGuestRoute('customer')}
                 />
               )}
             </Stack.Screen>
             <Stack.Screen name="Login">
-              {({ navigation }) => <LoginScreen onBack={() => navigation.goBack()} />}
+              {({ navigation }) => (
+                <LoginScreen
+                  onBack={() => {
+                    persistGuestRoute('welcome');
+                    if (navigation.canGoBack()) navigation.goBack();
+                    else navigation.navigate('Welcome');
+                  }}
+                />
+              )}
             </Stack.Screen>
           </>
         )}
@@ -85,15 +157,26 @@ function RootNavigator() {
   );
 }
 
-export default function App() {
+function AppShell() {
+  const { colors, colorScheme } = useTheme();
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle="light-content" />
+    <>
+      <StatusBar barStyle={colorScheme === 'light' ? 'dark-content' : 'light-content'} />
       <AuthProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
           <RootNavigator />
         </SafeAreaView>
       </AuthProvider>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppShell />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

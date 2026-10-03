@@ -759,7 +759,16 @@ class NexaTaxiBookingController extends Controller
             $data = [];
         }
 
-        return response()->json($this->rankAddressSearchResults($q, $data));
+        $ranked = $this->rankAddressSearchResults($q, $data);
+        $formatted = [];
+        foreach ($ranked as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $formatted[] = $this->formatReverseGeocodePayload($row);
+        }
+
+        return response()->json($formatted);
     }
 
     private function reverseAddressSearch(float $lat, float $lon): JsonResponse
@@ -845,7 +854,6 @@ class NexaTaxiBookingController extends Controller
             ?? $address['municipality']
             ?? ''
         );
-        $postcode = trim((string) ($address['postcode'] ?? ''));
         $addressType = strtolower((string) ($row['addresstype'] ?? ''));
         $category = strtolower((string) ($row['category'] ?? $row['class'] ?? ''));
         $placeType = strtolower((string) ($row['type'] ?? ''));
@@ -866,7 +874,7 @@ class NexaTaxiBookingController extends Controller
             $lead = $streetPart;
         }
 
-        $second = trim(implode(' ', array_filter([$postcode, $city], fn ($v) => trim((string) $v) !== '')));
+        $second = trim((string) $city);
         $value = trim(implode(', ', array_filter([$lead, $second], fn ($v) => trim((string) $v) !== '')));
 
         return $value !== '' ? $value : $this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName);
