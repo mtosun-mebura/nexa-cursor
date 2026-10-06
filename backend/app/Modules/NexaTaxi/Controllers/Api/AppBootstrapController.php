@@ -8,10 +8,12 @@ use App\Modules\NexaTaxi\Services\TaxiAppCapabilitiesService;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Services\MarketplaceCompanyRegistrationService;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Geïntegreerde app-bootstrap: login → rollen/modi → juiste schermen.
@@ -57,6 +59,57 @@ class AppBootstrapController extends Controller
         }
 
         return $this->sessionPayload($user, $capabilities, $drivers, $contractAccess, $moduleDb);
+    }
+
+    public function registerMarketplace(
+        Request $request,
+        MarketplaceCompanyRegistrationService $registration,
+        TaxiAppFirstLoginService $firstLogin,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'company_name' => 'required|string|max:180',
+            'email' => 'required|email|max:180',
+            'phone' => 'required|string|min:8|max:40',
+            'city' => 'required|string|min:2|max:120',
+            'contact_first_name' => 'nullable|string|max:80',
+            'contact_last_name' => 'nullable|string|max:80',
+        ], [
+            'company_name.required' => 'Vul de bedrijfsnaam in.',
+            'email.required' => 'Vul een e-mailadres in.',
+            'email.email' => 'Vul een geldig e-mailadres in.',
+            'phone.required' => 'Vul een telefoonnummer in.',
+            'phone.min' => 'Vul een geldig telefoonnummer in.',
+            'city.required' => 'Vul de plaats in waar het bedrijf zich bevindt.',
+            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
+        ]);
+
+        $ip = (string) $request->ip();
+
+        try {
+            // Geen admin-webcode: app stuurt zelf een chauffeur-app-code.
+            $registration->register($validated, $ip, false);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Registratie mislukt. Probeer het later opnieuw.',
+            ], 500);
+        }
+
+        $email = strtolower(trim($validated['email']));
+        $code = $firstLogin->requestCode($email, TaxiAppFirstLoginService::CHANNEL_DRIVER, $ip);
+
+        return response()->json([
+            'message' => ($code['ok'] ?? false)
+                ? ('Bedrijf aangemaakt. '.$code['message'])
+                : ('Bedrijf aangemaakt, maar de code kon niet worden verstuurd: '.($code['message'] ?? '')),
+            'email' => $email,
+            'channel' => TaxiAppFirstLoginService::CHANNEL_DRIVER,
+            'next' => 'verify_code',
+            'retry_after' => $code['retry_after'] ?? null,
+        ], ($code['ok'] ?? false) ? 201 : 422);
     }
 
     public function requestLoginCode(Request $request, TaxiAppFirstLoginService $firstLogin): JsonResponse

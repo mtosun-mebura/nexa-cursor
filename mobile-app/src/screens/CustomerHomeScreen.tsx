@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   Animated,
   Easing,
   Image,
@@ -120,6 +121,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [showArchivedRides, setShowArchivedRides] = useState(false);
   const [expandedRideKey, setExpandedRideKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -174,6 +176,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const dropoffInputRef = useRef<TextInputType | null>(null);
   const profileSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapSectionY = useRef(0);
+  const [bookMountKey, setBookMountKey] = useState(0);
 
   const offer: QuoteOffer | null = quote?.offers?.[0] || null;
   const freeTaxis = nearbyTaxis.filter((t) => !t.busy);
@@ -326,7 +329,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const loadPickup = useCallback(
     async (opts?: { focusDropoff?: boolean }) => {
       setPickupLoading(true);
-      setError(null);
+      setLocationError(null);
       try {
         const point = await resolveCurrentPickup();
         setPickup(point);
@@ -336,7 +339,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           focusDropoffField();
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Locatie ophalen mislukt.');
+        setLocationError(e instanceof Error ? e.message : 'Locatie ophalen mislukt.');
       } finally {
         setPickupLoading(false);
       }
@@ -666,6 +669,26 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }, 280);
   }
 
+  function scrollBookToTop() {
+    Keyboard.dismiss();
+    const go = () => bookScrollRef.current?.scrollTo({ y: 0, animated: false });
+    go();
+    requestAnimationFrame(go);
+    setTimeout(go, 50);
+    setTimeout(go, 200);
+    setTimeout(go, 450);
+  }
+
+  function goToBookTab() {
+    Keyboard.dismiss();
+    setBookMountKey((k) => k + 1);
+    setTab('book');
+    AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
+    setError(null);
+    setProfileSaved(false);
+    setShowArchivedRides(false);
+  }
+
   function scrollToMap() {
     Keyboard.dismiss();
     // Iets hoger dan de map-top, zodat de hele kaart onder de header zichtbaar blijft.
@@ -677,6 +700,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     setTimeout(go, 120);
     setTimeout(go, 320);
   }
+
+  useEffect(() => {
+    if (tab !== 'book') return;
+    scrollBookToTop();
+  }, [tab, bookMountKey]);
 
   function applySuggestion(item: AddressSuggestion, kind: 'pickup' | 'dropoff') {
     const point = { lat: item.lat, lng: item.lng, address: item.label };
@@ -884,8 +912,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     persistTrack(null);
     setError(null);
     setExpandedRideKey(null);
-    setTab('book');
-    AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
+    goToBookTab();
   }
 
   function openRideFollow(ride: GuestRide) {
@@ -1001,7 +1028,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}
       </MapView>
-      <View style={styles.zoomControls} pointerEvents="box-none">
+      <View style={[styles.zoomControls, { pointerEvents: 'box-none' }]}>
         <Pressable
           onPress={() => zoomMap(1)}
           style={styles.zoomBtn}
@@ -1151,9 +1178,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               accessibilityLabel="Bepaal mijn locatie"
             >
               {pickupLoading ? (
-                <Text style={styles.locIcon}>…</Text>
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={styles.locIcon}>📍</Text>
+                <Ionicons name="location" size={22} color={colors.primary} />
               )}
             </Pressable>
           }
@@ -1338,6 +1365,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         </Text>
       </Card>
 
+      {locationError ? <ErrorText>{locationError}</ErrorText> : null}
       {error ? <ErrorText>{error}</ErrorText> : null}
       {fieldErrors.dispatch ? (
         <Text style={styles.fieldErrorText}>{fieldErrors.dispatch}</Text>
@@ -1385,50 +1413,50 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           {cancelled && live?.cancellation_message ? (
             <Text style={styles.cancelReasonNotice}>{live.cancellation_message}</Text>
           ) : null}
-          <View style={styles.rideCardTop}>
-            <Pressable
-              onPress={() => setExpandedRideKey(expanded ? null : key)}
-              style={{ flex: 1, minWidth: 0 }}
-              accessibilityRole="button"
-              accessibilityState={{ expanded }}
-            >
-              {!cancelled ? <PhasePill phase={phase} /> : null}
-            </Pressable>
-            <View style={styles.rideCardTopRight}>
-              {price != null ? (
-                <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
-              ) : null}
-              {canArchive ? (
+
+          {!cancelled ? (
+            <View style={styles.rideCardTop}>
+              <Pressable
+                onPress={() => setExpandedRideKey(expanded ? null : key)}
+                style={{ flex: 1, minWidth: 0 }}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+              >
+                <PhasePill phase={phase} />
+              </Pressable>
+              <View style={styles.rideCardTopRight}>
+                {canArchive ? (
+                  <Pressable
+                    onPress={() =>
+                      toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
+                    }
+                    hitSlop={8}
+                    style={styles.archiveIconBtn}
+                    accessibilityLabel={
+                      showArchivedRides ? 'Terugzetten uit archief' : 'Archiveren'
+                    }
+                  >
+                    <Ionicons
+                      name={showArchivedRides ? 'arrow-up-circle-outline' : 'archive-outline'}
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                ) : null}
                 <Pressable
-                  onPress={() =>
-                    toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
-                  }
+                  onPress={() => setExpandedRideKey(expanded ? null : key)}
                   hitSlop={8}
-                  style={styles.archiveIconBtn}
-                  accessibilityLabel={
-                    showArchivedRides ? 'Terugzetten uit archief' : 'Archiveren'
-                  }
+                  accessibilityLabel={expanded ? 'Inklappen' : 'Uitklappen'}
                 >
                   <Ionicons
-                    name={showArchivedRides ? 'arrow-up-circle-outline' : 'archive-outline'}
-                    size={20}
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
                     color={colors.muted}
                   />
                 </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => setExpandedRideKey(expanded ? null : key)}
-                hitSlop={8}
-                accessibilityLabel={expanded ? 'Inklappen' : 'Uitklappen'}
-              >
-                <Ionicons
-                  name={expanded ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={colors.muted}
-                />
-              </Pressable>
+              </View>
             </View>
-          </View>
+          ) : null}
 
           <Pressable
             onPress={() => setExpandedRideKey(expanded ? null : key)}
@@ -1449,12 +1477,44 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               )
             ) : null}
 
-            <Text style={styles.rideRouteLine} numberOfLines={expanded ? 4 : 2}>
-              {shortAddress(from)} → {shortAddress(to)}
-            </Text>
-            <View style={styles.rideCardFoot}>
+            <View style={styles.rideRouteRow}>
+              <Text
+                style={[styles.rideRouteLine, { flex: 1, minWidth: 0, marginBottom: 0 }]}
+                numberOfLines={expanded ? 4 : 2}
+              >
+                {shortAddress(from)} → {shortAddress(to)}
+              </Text>
+              {cancelled ? (
+                <View style={styles.rideCardTopRight}>
+                  {canArchive ? (
+                    <Pressable
+                      onPress={() =>
+                        toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
+                      }
+                      hitSlop={8}
+                      style={styles.archiveIconBtn}
+                      accessibilityLabel={
+                        showArchivedRides ? 'Terugzetten uit archief' : 'Archiveren'
+                      }
+                    >
+                      <Ionicons
+                        name={showArchivedRides ? 'arrow-up-circle-outline' : 'archive-outline'}
+                        size={20}
+                        color={colors.muted}
+                      />
+                    </Pressable>
+                  ) : null}
+                  <Ionicons
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.muted}
+                  />
+                </View>
+              ) : null}
+            </View>
+            <View style={[styles.rideCardFoot, { marginTop: 4 }]}>
               <Text style={styles.meta}>{formatRideWhen(ride.at) || '—'}</Text>
-              {!expanded && price != null ? (
+              {price != null ? (
                 <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
               ) : null}
             </View>
@@ -1533,8 +1593,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   const ridesContent = (
     <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-      <ErrorText>{error}</ErrorText>
-
       {showArchivedRides ? (
         archivedPast.length === 0 ? (
           <Card>
@@ -1556,7 +1614,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <Text style={styles.meta}>
             Nog geen ritten. Boek een taxi via Boeken; openstaande en eerdere ritten zie je hier.
           </Text>
-          <PrimaryButton title="Taxi boeken" onPress={() => setTab('book')} />
+          <PrimaryButton title="Taxi boeken" onPress={goToBookTab} />
         </Card>
       ) : (
         <>
@@ -1646,6 +1704,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         })}
       </Card>
 
+      <PrimaryButton title="Rit boeken" onPress={goToBookTab} />
       <GhostButton title="Terug naar start" onPress={onBack} />
     </ScrollView>
   );
@@ -1662,6 +1721,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             ? profileContent
             : (
               <ScrollView
+                key={`book-${bookMountKey}`}
                 ref={bookScrollRef}
                 style={styles.formScroll}
                 contentContainerStyle={styles.scroll}
@@ -1678,6 +1738,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       <CustomerTabBar
         active={tab}
         onChange={(key) => {
+          if (key === 'book') {
+            goToBookTab();
+            return;
+          }
           setTab(key);
           AsyncStorage.setItem(TAB_KEY, key).catch(() => undefined);
           setError(null);
@@ -1783,8 +1847,7 @@ function ActiveRideBanner({
     >
       {isSearching ? (
         <Animated.View
-          pointerEvents="none"
-          style={[styles.activeBannerWash, { opacity: washOpacity }]}
+          style={[styles.activeBannerWash, { opacity: washOpacity, pointerEvents: 'none' }]}
         />
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -1978,6 +2041,8 @@ function makeStyles(colors: ColorPalette) {
       minHeight: 0,
     },
     scroll: {
+      flexGrow: 1,
+      justifyContent: 'flex-start',
       paddingHorizontal: 20,
       paddingTop: 4,
       paddingBottom: 24,
@@ -2124,6 +2189,12 @@ function makeStyles(colors: ColorPalette) {
     },
     archiveIconBtn: {
       padding: 2,
+    },
+    rideRouteRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginBottom: 4,
     },
     rideRouteLine: {
       color: colors.text,
@@ -2576,9 +2647,6 @@ function makeStyles(colors: ColorPalette) {
       borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    locIcon: {
-      fontSize: 18,
     },
   });
 }

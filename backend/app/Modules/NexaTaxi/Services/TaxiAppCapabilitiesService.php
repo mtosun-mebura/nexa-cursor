@@ -58,14 +58,14 @@ class TaxiAppCapabilitiesService
             $badge = 'Chauffeur';
             $description = 'Ritten ontvangen, accepteren en navigeren.';
             if ($marketplaceMode && $networkEnabled) {
-                $badge = 'Marketplace + Network';
-                $description = 'Marketplace-ritten én NEXA Network-ritten. Locatie blijft aan op de achtergrond.';
+                $badge = 'Marktplaats + Netwerk';
+                $description = 'Marktplaats-ritten én NEXA Netwerk-ritten. Locatie blijft aan op de achtergrond.';
             } elseif ($marketplaceMode) {
-                $badge = 'Marketplace';
+                $badge = 'Marktplaats';
                 $description = 'Nexa Suite-ritten in jouw straal. Locatie blijft aan op de achtergrond.';
             } elseif ($networkEnabled) {
-                $badge = 'Network';
-                $description = 'Eigen ritten én NEXA Network-partnerritten.';
+                $badge = 'Netwerk';
+                $description = 'Eigen ritten én NEXA Netwerk-partnerritten.';
             }
 
             $screens[] = [

@@ -40,7 +40,7 @@ class MarketplaceCompanyRegistrationService
      * }  $data
      * @return array{company: Company, user: User, created_user: bool, code_result: array{ok: bool, status: int, message: string, retry_after?: int}}
      */
-    public function register(array $data, string $ip): array
+    public function register(array $data, string $ip, bool $sendLoginCode = true): array
     {
         $package = $this->pricing->packageByKey(self::PACKAGE_KEY);
         if ($package === null) {
@@ -86,7 +86,7 @@ class MarketplaceCompanyRegistrationService
             ]);
         }
 
-        return DB::transaction(function () use ($data, $email, $companyName, $city, $phone, $ip) {
+        return DB::transaction(function () use ($data, $email, $companyName, $city, $phone, $ip, $sendLoginCode) {
             $company = Company::query()->create([
                 'name' => $companyName,
                 'email' => $email,
@@ -120,7 +120,9 @@ class MarketplaceCompanyRegistrationService
             Role::findOrCreate(self::ROLE, 'api');
             app(UserRoleAssignmentService::class)->syncWebRoles($user, [self::ROLE]);
 
-            $codeResult = $this->firstLogin->requestCode($email, $ip);
+            $codeResult = $sendLoginCode
+                ? $this->firstLogin->requestCode($email, $ip)
+                : ['ok' => true, 'status' => 200, 'message' => ''];
 
             return [
                 'company' => $company->fresh(),

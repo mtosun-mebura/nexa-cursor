@@ -62,3 +62,23 @@ export function verifyLoginCode(input: {
     body: input,
   });
 }
+
+export function registerMarketplaceCompany(input: {
+  company_name: string;
+  email: string;
+  phone: string;
+  city: string;
+  contact_first_name?: string;
+  contact_last_name?: string;
+}) {
+  return apiRequest<{
+    message: string;
+    email: string;
+    channel?: string;
+    next: string;
+    retry_after?: number | null;
+  }>('/api/taxi/v1/app/marketplace/register', {
+    method: 'POST',
+    body: input,
+  });
+}

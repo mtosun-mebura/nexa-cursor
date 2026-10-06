@@ -30,9 +30,16 @@ import {
   inboxDataFromResponse,
   mergeCompletedRides,
   isMarketplaceRide,
+  proposePickup,
+  releaseAcceptedRide,
   setDriverOnline,
   startRide,
   completeRide,
+  fetchRideInvoice,
+  isContractRide,
+  isRidePaid,
+  isRideInvoiceSent,
+  rideRequiresPaymentBeforeComplete,
   updateDriverAccent,
   updateDriverRideAlertTone,
   vehicleDisplayLabel,
@@ -48,6 +55,7 @@ import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { API_BASE_URL, ColorPalette } from '../config';
 import { startBackgroundLocation, stopBackgroundLocation } from '../location/background';
+import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
   addDriverOfferNotificationResponseListener,
   ensureDriverNotificationPermission,
@@ -61,6 +69,8 @@ import { DriverPlanningPanel } from '../ui/DriverPlanningPanel';
 import { DriverEarningsPanel } from '../ui/DriverEarningsPanel';
 import { DriverTabBar, DriverTabKey } from '../ui/DriverTabBar';
 import { DriverTripCard } from '../ui/DriverTripCard';
+import { PickupAtField } from '../ui/PickupAtPicker';
+import { DriverSettleRideModal } from '../ui/DriverSettleRideModal';
 import { ThemePreference, useTheme, useThemeColors } from '../theme/ThemeContext';
 import {
   DRIVER_ACCENT_OPTIONS,
@@ -74,7 +84,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const DRIVER_TAB_KEY = 'nexa.driver.tab';
 const DRIVER_ARCHIVE_KEY = 'nexa.driver.archive';
 const DRIVER_ARCHIVED_RIDES_KEY = 'nexa.driver.archived_completed';
+const DRIVER_ARCHIVE_SEEN_KEY = 'nexa.driver.archive.seen';
 const DRIVER_ACCENT_KEY = 'nexa.driver.accent';
+const DRIVER_RIDE_KIND_KEY = 'nexa.driver.ride_kind';
 const DRIVER_TABS: DriverTabKey[] = [
   'trips',
   'requests',
@@ -83,8 +95,33 @@ const DRIVER_TABS: DriverTabKey[] = [
   'profile',
 ];
 
+type RideKindFilter = 'all' | 'taxi' | 'contract';
+const RIDE_KIND_OPTIONS: { key: RideKindFilter; label: string }[] = [
+  { key: 'all', label: 'Alles' },
+  { key: 'taxi', label: 'Taxi' },
+  { key: 'contract', label: 'Contract' },
+];
+
 function isDriverTab(value: string | null): value is DriverTabKey {
   return !!value && (DRIVER_TABS as string[]).includes(value);
+}
+
+function isRideKindFilter(value: string | null): value is RideKindFilter {
+  return value === 'all' || value === 'taxi' || value === 'contract';
+}
+
+function rideMatchesKindFilter(
+  ride: DriverActiveRide | null | undefined,
+  kind: RideKindFilter
+): boolean {
+  if (!ride || kind === 'all') return true;
+  const contract = isContractRide(ride);
+  if (kind === 'contract') return contract;
+  return !contract;
+}
+
+function persistRideKindFilter(kind: RideKindFilter) {
+  AsyncStorage.setItem(DRIVER_RIDE_KIND_KEY, kind).catch(() => undefined);
 }
 
 function persistDriverTab(key: DriverTabKey) {
@@ -101,6 +138,10 @@ function persistDriverAccent(key: string) {
 
 function persistArchivedCompletedIds(ids: number[]) {
   AsyncStorage.setItem(DRIVER_ARCHIVED_RIDES_KEY, JSON.stringify(ids)).catch(() => undefined);
+}
+
+function persistArchiveSeenKeys(keys: string[]) {
+  AsyncStorage.setItem(DRIVER_ARCHIVE_SEEN_KEY, JSON.stringify(keys)).catch(() => undefined);
 }
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
@@ -139,15 +180,22 @@ function addDaysIso(iso: string, days: number): string {
   return toIsoDate(x);
 }
 
-function openMapsForRide(ride: DriverActiveRide, dest: 'pickup' | 'dropoff' = 'pickup') {
-  const address = String(
+function googleMapsDirUrl(address: string) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+}
+
+function mapsAddress(ride: DriverActiveRide, dest: 'pickup' | 'dropoff') {
+  return String(
     dest === 'dropoff'
       ? ride.dropoff_address || ride.pickup_address
       : ride.pickup_address || ride.dropoff_address || ''
   ).trim();
+}
+
+function openMapsForRide(ride: DriverActiveRide, dest: 'pickup' | 'dropoff' = 'pickup') {
+  const address = mapsAddress(ride, dest);
   if (!address) return;
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
-  Linking.openURL(url).catch(() => undefined);
+  Linking.openURL(googleMapsDirUrl(address)).catch(() => undefined);
 }
 
 function resolveMediaUrl(url?: string | null): string | null {
@@ -166,6 +214,7 @@ export function DriverHomeScreen() {
   const [tab, setTab] = useState<DriverTabKey>('trips');
   const [showArchived, setShowArchived] = useState(false);
   const [focusRideId, setFocusRideId] = useState<number | null>(null);
+  const [focusOfferId, setFocusOfferId] = useState<number | null>(null);
   const tripsScrollRef = useRef<ScrollView | null>(null);
   const rideOffsets = useRef<Record<number, number>>({});
   const [online, setOnline] = useState(false);
@@ -178,6 +227,8 @@ export function DriverHomeScreen() {
   const [company, setCompany] = useState('');
   const [logoLight, setLogoLight] = useState<string | null>(null);
   const [logoDark, setLogoDark] = useState<string | null>(null);
+  const [canFilterContractRides, setCanFilterContractRides] = useState(false);
+  const [rideKindFilter, setRideKindFilter] = useState<RideKindFilter>('all');
   const [showEarnings, setShowEarnings] = useState(false);
   const [canViewMonthEarnings, setCanViewMonthEarnings] = useState(false);
   const [offers, setOffers] = useState<DispatchOffer[]>([]);
@@ -189,10 +240,15 @@ export function DriverHomeScreen() {
   const [overdueScheduledRides, setOverdueScheduledRides] = useState<DriverActiveRide[]>([]);
   const [completedRides, setCompletedRides] = useState<DriverActiveRide[]>([]);
   const [archivedCompletedIds, setArchivedCompletedIds] = useState<number[]>([]);
+  const [archiveSeenKeys, setArchiveSeenKeys] = useState<string[]>([]);
   const [cancelReasons, setCancelReasons] = useState<DriverCancelReason[]>([]);
   const [cancelRideId, setCancelRideId] = useState<number | null>(null);
   const [selectedCancelReason, setSelectedCancelReason] = useState<string | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [proposeRideId, setProposeRideId] = useState<number | null>(null);
+  const [proposePickupAt, setProposePickupAt] = useState(() => defaultPickupDate(10));
+  const [proposeBusy, setProposeBusy] = useState(false);
+  const [settleRideId, setSettleRideId] = useState<number | null>(null);
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
   const [vehicles, setVehicles] = useState<DriverVehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
@@ -210,16 +266,25 @@ export function DriverHomeScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [savedTab, savedArchive, savedAccent, savedArchivedRides] = await Promise.all([
+        const [
+          savedTab,
+          savedArchive,
+          savedAccent,
+          savedArchivedRides,
+          savedArchiveSeen,
+          savedRideKind,
+        ] = await Promise.all([
           AsyncStorage.getItem(DRIVER_TAB_KEY),
           AsyncStorage.getItem(DRIVER_ARCHIVE_KEY),
           AsyncStorage.getItem(DRIVER_ACCENT_KEY),
           AsyncStorage.getItem(DRIVER_ARCHIVED_RIDES_KEY),
+          AsyncStorage.getItem(DRIVER_ARCHIVE_SEEN_KEY),
+          AsyncStorage.getItem(DRIVER_RIDE_KIND_KEY),
         ]);
-        if (savedTab === 'navigation') persistDriverTab('trips');
-        else if (isDriverTab(savedTab)) setTab(savedTab);
+        if (isDriverTab(savedTab)) setTab(savedTab);
         if (savedArchive === '1') setShowArchived(true);
         if (savedAccent) setAccent(normalizeDriverAccent(savedAccent));
+        if (isRideKindFilter(savedRideKind)) setRideKindFilter(savedRideKind);
         if (savedArchivedRides) {
           try {
             const parsed = JSON.parse(savedArchivedRides);
@@ -227,6 +292,16 @@ export function DriverHomeScreen() {
               setArchivedCompletedIds(
                 parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
               );
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        if (savedArchiveSeen) {
+          try {
+            const parsed = JSON.parse(savedArchiveSeen);
+            if (Array.isArray(parsed)) {
+              setArchiveSeenKeys(parsed.filter((key) => typeof key === 'string'));
             }
           } catch {
             /* ignore */
@@ -263,6 +338,12 @@ export function DriverHomeScreen() {
 
     fresh.forEach((o) => seenOfferIds.current.add(Number(o.id)));
     const priority = fresh[0];
+    const offerId = Number(priority.id);
+    setShowArchived(false);
+    persistDriverArchive(false);
+    setTab('requests');
+    persistDriverTab('requests');
+    if (offerId > 0) setFocusOfferId(offerId);
     const foreground = AppState.currentState === 'active';
     if (foreground) {
       await playRideAlertTone(rideAlertToneRef.current);
@@ -299,6 +380,7 @@ export function DriverHomeScreen() {
       setCompany(me.user.company_name || '');
       setLogoLight(me.user.company_logo_url || null);
       setLogoDark(me.user.company_logo_dark_url || null);
+      setCanFilterContractRides(!!me.user.can_handle_contract_rides);
       const canSeeEarnings = !!me.permissions?.earnings_view;
       setShowEarnings(canSeeEarnings);
       setCanViewMonthEarnings(!!me.permissions?.earnings_view_month);
@@ -382,7 +464,10 @@ export function DriverHomeScreen() {
   }, [refresh]);
 
   useEffect(() => {
-    return addDriverOfferNotificationResponseListener(() => goToTab('requests'));
+    return addDriverOfferNotificationResponseListener(() => {
+      goToArchive(false);
+      goToTab('requests');
+    });
   }, []);
 
   async function selectVehicle(id: number) {
@@ -427,6 +512,19 @@ export function DriverHomeScreen() {
     }
   }
 
+  function markArchiveSeen() {
+    const keys = [
+      ...declinedOffers.map((o) => `declined-${o.id}`),
+      ...archivedOffers.map((o) => `offer-${o.id}`),
+      ...archivedCompletedRides.map((r) => `done-${r.id}`),
+      ...overdueScheduledRides
+        .filter((r) => !isMarketplaceRide(r) && isContractRide(r))
+        .map((r) => `overdue-contract-${r.id}`),
+    ];
+    setArchiveSeenKeys(keys);
+    persistArchiveSeenKeys(keys);
+  }
+
   function goToTab(key: DriverTabKey) {
     setTab(key);
     persistDriverTab(key);
@@ -435,6 +533,9 @@ export function DriverHomeScreen() {
   function goToArchive(open: boolean) {
     setShowArchived(open);
     persistDriverArchive(open);
+    if (open) {
+      markArchiveSeen();
+    }
   }
 
   async function onAccept(id: number) {
@@ -464,8 +565,41 @@ export function DriverHomeScreen() {
     }
   }
 
+  function goToRide(rideId: number) {
+    goToArchive(false);
+    setFocusRideId(rideId);
+    goToTab('trips');
+  }
+
+  function blockingAssignedRide(exceptId?: number): DriverActiveRide | null {
+    const pool = [activeRide, ...parkedRides].filter((ride): ride is DriverActiveRide => !!ride);
+    return (
+      pool.find(
+        (ride) =>
+          String(ride.status || '') === 'assigned' &&
+          (exceptId == null || ride.id !== exceptId)
+      ) || null
+    );
+  }
+
+  function warnRideAlreadyActive(current: DriverActiveRide) {
+    Alert.alert(
+      'Er is al een rit actief',
+      'Rond eerst de lopende rit af voordat je een andere start.',
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        { text: 'Naar actieve rit', onPress: () => goToRide(current.id) },
+      ]
+    );
+  }
+
   async function onStartRide(rideId: number) {
     if (!driverToken) return;
+    const blocking = blockingAssignedRide(rideId);
+    if (blocking) {
+      warnRideAlreadyActive(blocking);
+      return;
+    }
     setBusyRideId(rideId);
     setError(null);
     try {
@@ -473,20 +607,94 @@ export function DriverHomeScreen() {
       await refresh();
       goToTab('trips');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Rit starten mislukt.');
+      const msg = e instanceof ApiError ? e.message : 'Rit starten mislukt.';
+      const blockingNow = blockingAssignedRide(rideId);
+      if (blockingNow && /al een (lopende )?rit/i.test(msg)) {
+        warnRideAlreadyActive(blockingNow);
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusyRideId(null);
     }
   }
 
-  function requestCompleteRide(rideId: number) {
-    Alert.alert('Rit afronden?', 'Weet je zeker dat je deze rit wilt afronden?', [
-      { text: 'Terug', style: 'cancel' },
-      { text: 'Afronden', onPress: () => onCompleteRide(rideId) },
-    ]);
+  function openProposePickup(ride: DriverActiveRide) {
+    setProposePickupAt(defaultPickupDate(10));
+    setProposeRideId(ride.id);
   }
 
-  async function onCompleteRide(rideId: number) {
+  async function confirmProposePickup() {
+    if (!driverToken || !proposeRideId) return;
+    setProposeBusy(true);
+    setError(null);
+    try {
+      await proposePickup(driverToken, proposeRideId, formatPickupAtPayload(proposePickupAt));
+      setProposeRideId(null);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Voorstel versturen mislukt.');
+    } finally {
+      setProposeBusy(false);
+    }
+  }
+
+  function requestReleaseRide(rideId: number) {
+    Alert.alert(
+      'Rit vrijgeven?',
+      'Andere chauffeurs kunnen deze rit daarna overnemen.',
+      [
+        { text: 'Terug', style: 'cancel' },
+        { text: 'Vrijgeven', style: 'destructive', onPress: () => onReleaseRide(rideId) },
+      ]
+    );
+  }
+
+  async function onReleaseRide(rideId: number) {
+    if (!driverToken) return;
+    setBusyRideId(rideId);
+    setError(null);
+    try {
+      await releaseAcceptedRide(driverToken, rideId);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Vrijgeven mislukt.');
+    } finally {
+      setBusyRideId(null);
+    }
+  }
+
+  async function requestCompleteRide(ride: DriverActiveRide) {
+    if (!driverToken) return;
+    if (rideRequiresPaymentBeforeComplete(ride)) {
+      setSettleRideId(ride.id);
+      return;
+    }
+    if (isContractRide(ride)) {
+      await completeRideNow(ride.id);
+      return;
+    }
+    if (isRidePaid(ride) && isRideInvoiceSent(ride)) {
+      await completeRideNow(ride.id);
+      return;
+    }
+    if (isRidePaid(ride)) {
+      setBusyRideId(ride.id);
+      try {
+        const inv = await fetchRideInvoice(driverToken, ride.id);
+        if (inv.data?.invoice_sent === true) {
+          await completeRideNow(ride.id);
+          return;
+        }
+      } catch {
+        /* bij twijfel factuur-popup */
+      }
+      setBusyRideId(null);
+    }
+    setSettleRideId(ride.id);
+  }
+
+  async function completeRideNow(rideId: number) {
     if (!driverToken) return;
     setBusyRideId(rideId);
     setError(null);
@@ -499,6 +707,18 @@ export function DriverHomeScreen() {
       setBusyRideId(null);
     }
   }
+
+  function patchTripRide(next: DriverActiveRide) {
+    if (activeRide?.id === next.id) setActiveRide(next);
+    setParkedRides((list) => list.map((ride) => (ride.id === next.id ? next : ride)));
+  }
+
+  const settleRide =
+    settleRideId == null
+      ? null
+      : activeRide?.id === settleRideId
+        ? activeRide
+        : parkedRides.find((ride) => ride.id === settleRideId) ?? null;
 
   async function confirmCancelRide() {
     if (!driverToken || !cancelRideId || !selectedCancelReason) return;
@@ -530,21 +750,64 @@ export function DriverHomeScreen() {
 
   // Marketplace-ritten: nooit in "verlopen ophaalmoment" (geen overdue-UI).
   const ownOverdueScheduledRides = overdueScheduledRides.filter((r) => !isMarketplaceRide(r));
+  const overdueContractRides = ownOverdueScheduledRides.filter((r) => isContractRide(r));
+  const overdueNonContractRidesAll = ownOverdueScheduledRides.filter((r) => !isContractRide(r));
   const marketplaceOverdueAsScheduled = overdueScheduledRides.filter((r) => isMarketplaceRide(r));
-  const plannedRides = [...scheduledRides, ...marketplaceOverdueAsScheduled];
+  const plannedRidesAll = [...scheduledRides, ...marketplaceOverdueAsScheduled];
   const archivedCompletedSet = useMemo(
     () => new Set(archivedCompletedIds),
     [archivedCompletedIds]
   );
-  const visibleCompletedRides = completedRides.filter((r) => !archivedCompletedSet.has(r.id));
+  const visibleCompletedRidesAll = completedRides.filter((r) => !archivedCompletedSet.has(r.id));
   const archivedCompletedRides = completedRides.filter((r) => archivedCompletedSet.has(r.id));
 
-  const hasTrips =
+  const hasAnyContractInTrips =
+    (!!activeRide && isContractRide(activeRide)) ||
+    parkedRides.some((r) => isContractRide(r)) ||
+    plannedRidesAll.some((r) => isContractRide(r)) ||
+    overdueNonContractRidesAll.some((r) => isContractRide(r)) ||
+    visibleCompletedRidesAll.some((r) => isContractRide(r)) ||
+    overdueContractRides.length > 0;
+  const showRideKindFilter = canFilterContractRides || hasAnyContractInTrips;
+  const effectiveRideKind: RideKindFilter = showRideKindFilter ? rideKindFilter : 'all';
+
+  const activeRideFiltered =
+    activeRide && rideMatchesKindFilter(activeRide, effectiveRideKind) ? activeRide : null;
+  const parkedRidesFiltered = parkedRides.filter((r) =>
+    rideMatchesKindFilter(r, effectiveRideKind)
+  );
+  const plannedRides = plannedRidesAll.filter((r) => rideMatchesKindFilter(r, effectiveRideKind));
+  const overdueNonContractRides = overdueNonContractRidesAll.filter((r) =>
+    rideMatchesKindFilter(r, effectiveRideKind)
+  );
+  const visibleCompletedRides = visibleCompletedRidesAll.filter((r) =>
+    rideMatchesKindFilter(r, effectiveRideKind)
+  );
+
+  const requestOffers = useMemo(() => {
+    if (!focusOfferId) return offers;
+    const index = offers.findIndex((o) => Number(o.id) === focusOfferId);
+    if (index <= 0) return offers;
+    return [offers[index], ...offers.filter((o) => Number(o.id) !== focusOfferId)];
+  }, [offers, focusOfferId]);
+
+  const hasTripsUnfiltered =
     !!activeRide ||
     parkedRides.length > 0 ||
+    plannedRidesAll.length > 0 ||
+    overdueNonContractRidesAll.length > 0 ||
+    visibleCompletedRidesAll.length > 0;
+  const hasTrips =
+    !!activeRideFiltered ||
+    parkedRidesFiltered.length > 0 ||
     plannedRides.length > 0 ||
-    ownOverdueScheduledRides.length > 0 ||
+    overdueNonContractRides.length > 0 ||
     visibleCompletedRides.length > 0;
+
+  function chooseRideKind(kind: RideKindFilter) {
+    setRideKindFilter(kind);
+    persistRideKindFilter(kind);
+  }
 
   function toggleCompletedArchive(rideId: number) {
     setArchivedCompletedIds((prev) => {
@@ -552,11 +815,6 @@ export function DriverHomeScreen() {
       persistArchivedCompletedIds(next);
       return next;
     });
-  }
-
-  function openRideFromPlanning(rideId: number) {
-    setFocusRideId(rideId);
-    goToTab('trips');
   }
 
   useEffect(() => {
@@ -620,7 +878,7 @@ export function DriverHomeScreen() {
                   highlighted={focusRideId === activeRide.id}
                   onHighlightEnd={() => setFocusRideId(null)}
                   onOpenMaps={() => openMapsForRide(activeRide, 'dropoff')}
-                  onComplete={() => requestCompleteRide(activeRide.id)}
+                  onComplete={() => requestCompleteRide(activeRide)}
                   onCancel={
                     activeRide.can_cancel_with_reason
                       ? () => {
@@ -642,7 +900,7 @@ export function DriverHomeScreen() {
                 highlighted={focusRideId === ride.id}
                 onHighlightEnd={() => setFocusRideId(null)}
                 onOpenMaps={() => openMapsForRide(ride, 'dropoff')}
-                onComplete={() => requestCompleteRide(ride.id)}
+                onComplete={() => requestCompleteRide(ride)}
               />
             </View>
           ))}
@@ -672,10 +930,10 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
-          {ownOverdueScheduledRides.length > 0 ? (
+          {overdueNonContractRides.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>Verlopen ophaalmoment</Text>
-              {ownOverdueScheduledRides.map((ride) => (
+              {overdueNonContractRides.map((ride) => (
                 <View key={`overdue-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
                   <DriverTripCard
                     ride={ride}
@@ -685,6 +943,8 @@ export function DriverHomeScreen() {
                     onHighlightEnd={() => setFocusRideId(null)}
                     onStart={() => onStartRide(ride.id)}
                     onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onProposePickup={() => openProposePickup(ride)}
+                    onRelease={() => requestReleaseRide(ride.id)}
                     onCancel={
                       ride.can_cancel_with_reason
                         ? () => {
@@ -723,7 +983,6 @@ export function DriverHomeScreen() {
     <DriverPlanningPanel
       token={driverToken}
       vehicleId={selectedVehicleId}
-      onOpenRide={openRideFromPlanning}
     />
   ) : (
     <ScrollView contentContainerStyle={styles.scroll}>
@@ -733,7 +992,8 @@ export function DriverHomeScreen() {
 
   const requestsPanel = (
     <FlatList
-      data={offers}
+      data={requestOffers}
+      extraData={focusOfferId}
       keyExtractor={(item) => String(item.id)}
       contentContainerStyle={styles.scroll}
       refreshControl={
@@ -755,7 +1015,7 @@ export function DriverHomeScreen() {
             <Card>
               <Text style={styles.hint}>
                 Zet jezelf online. Locatie blijft actief op de achtergrond (belangrijk voor
-                marketplace-matching).
+                marktplaats-matching).
               </Text>
             </Card>
           ) : null}
@@ -772,6 +1032,7 @@ export function DriverHomeScreen() {
         <DriverOfferCard
           offer={item}
           busy={busyId === item.id}
+          highlighted={focusOfferId === item.id}
           fallbackVehicleLabel={vehicleDisplayLabel(selectedVehicle) || null}
           fallbackVehicleName={vehicleDisplayName(selectedVehicle) || null}
           onAccept={() => onAccept(item.id)}
@@ -935,12 +1196,23 @@ export function DriverHomeScreen() {
     (activeRide && String(activeRide.status || '') === 'assigned' ? activeRide : null) ||
     parkedRides[0] ||
     plannedRides[0] ||
-    ownOverdueScheduledRides[0] ||
+    overdueNonContractRides[0] ||
     activeRide ||
     null;
   const showActiveRideBar = !!jumpRideTarget && (showArchived || tab !== 'trips');
-  const archiveBadgeCount =
-    archivedOffers.length + declinedOffers.length + archivedCompletedRides.length;
+  const archiveKeys = [
+    ...declinedOffers.map((o) => `declined-${o.id}`),
+    ...archivedOffers.map((o) => `offer-${o.id}`),
+    ...archivedCompletedRides.map((r) => `done-${r.id}`),
+    ...overdueContractRides.map((r) => `overdue-contract-${r.id}`),
+  ];
+  const archiveHasItems =
+    declinedOffers.length > 0 ||
+    archivedOffers.length > 0 ||
+    archivedCompletedRides.length > 0 ||
+    overdueContractRides.length > 0;
+  const archiveSeenSet = useMemo(() => new Set(archiveSeenKeys), [archiveSeenKeys]);
+  const archiveBadgeCount = archiveKeys.filter((key) => !archiveSeenSet.has(key)).length;
 
   const archivePanel = (
     <ScrollView
@@ -961,15 +1233,17 @@ export function DriverHomeScreen() {
       <ErrorText>{error}</ErrorText>
       <View style={styles.archiveHead}>
         <Text style={styles.panelTitle}>Archief</Text>
-        <Pressable onPress={() => goToArchive(false)} hitSlop={8}>
+        <Pressable
+          onPress={() => goToArchive(false)}
+          hitSlop={8}
+          style={styles.archiveBackBtn}
+          accessibilityLabel="Terug"
+        >
+          <Ionicons name="chevron-back" size={20} color={colors.primary} />
           <Text style={styles.archiveBack}>Terug</Text>
         </Pressable>
       </View>
-      {archiveBadgeCount === 0 ? (
-        <Card>
-          <Text style={styles.hint}>Geen gearchiveerde of afgewezen ritten.</Text>
-        </Card>
-      ) : (
+      {archiveHasItems ? (
         <>
           {declinedOffers.length > 0 ? (
             <>
@@ -982,6 +1256,32 @@ export function DriverHomeScreen() {
                   onAccept={() => onAccept(offer.id)}
                   onDecline={() => onDecline(offer.id)}
                 />
+              ))}
+            </>
+          ) : null}
+          {overdueContractRides.length > 0 ? (
+            <>
+              <Text style={styles.sectionLabel}>Verlopen contractritten</Text>
+              {overdueContractRides.map((ride) => (
+                <View key={`archived-overdue-contract-${ride.id}`}>
+                  <DriverTripCard
+                    ride={ride}
+                    variant="overdue"
+                    busy={busyRideId === ride.id}
+                    onStart={() => onStartRide(ride.id)}
+                    onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onProposePickup={() => openProposePickup(ride)}
+                    onRelease={() => requestReleaseRide(ride.id)}
+                    onCancel={
+                      ride.can_cancel_with_reason
+                        ? () => {
+                            setSelectedCancelReason(null);
+                            setCancelRideId(ride.id);
+                          }
+                        : undefined
+                    }
+                  />
+                </View>
               ))}
             </>
           ) : null}
@@ -1019,7 +1319,7 @@ export function DriverHomeScreen() {
                           })
                         : 'Gearchiveerd'}
                     </Text>
-                    <Text style={styles.offerTitle}>
+                    <Text style={styles.hint}>
                       {pickup} → {dropoff}
                     </Text>
                     {ride?.customer_name ? (
@@ -1031,6 +1331,10 @@ export function DriverHomeScreen() {
             </>
           ) : null}
         </>
+      ) : (
+        <Card>
+          <Text style={styles.hint}>Geen gearchiveerde of afgewezen ritten.</Text>
+        </Card>
       )}
     </ScrollView>
   );
@@ -1041,7 +1345,11 @@ export function DriverHomeScreen() {
   else if (tab === 'planning') body = planningPanel;
   else if (tab === 'earnings') {
     body = driverToken ? (
-      <DriverEarningsPanel token={driverToken} canViewMonth={canViewMonthEarnings} />
+      <DriverEarningsPanel
+        token={driverToken}
+        canViewMonth={canViewMonthEarnings}
+        completedRides={completedRides}
+      />
     ) : (
       renderPlaceholder('Inkomsten', 'Niet ingelogd.')
     );
@@ -1061,7 +1369,7 @@ export function DriverHomeScreen() {
           />
         </View>
 
-        <View style={styles.logoCenter} pointerEvents="none">
+        <View style={[styles.logoCenter, { pointerEvents: 'none' }]}>
           {logoUri ? (
             <Image
               source={{ uri: logoUri }}
@@ -1138,11 +1446,7 @@ export function DriverHomeScreen() {
       {showActiveRideBar && jumpRideTarget ? (
         <ActiveRideBar
           ride={jumpRideTarget}
-          onPress={() => {
-            goToArchive(false);
-            setFocusRideId(jumpRideTarget.id);
-            goToTab('trips');
-          }}
+          onPress={() => goToRide(jumpRideTarget.id)}
         />
       ) : null}
 
@@ -1278,6 +1582,61 @@ export function DriverHomeScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={proposeRideId != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!proposeBusy) setProposeRideId(null);
+        }}
+      >
+        <View style={styles.pickerOverlay}>
+          <Pressable
+            style={styles.pickerBackdrop}
+            disabled={proposeBusy}
+            onPress={() => setProposeRideId(null)}
+          />
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Nieuw ophaalmoment</Text>
+            <Text style={styles.hint}>
+              De klant krijgt dit tijdstip via WhatsApp ter goedkeuring.
+            </Text>
+            <PickupAtField value={proposePickupAt} onChange={setProposePickupAt} />
+            <View style={styles.cancelActions}>
+              <Pressable
+                style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+                disabled={proposeBusy}
+                onPress={() => setProposeRideId(null)}
+              >
+                <Text style={styles.cancelActionGhostText}>Terug</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
+                disabled={proposeBusy}
+                onPress={() => confirmProposePickup()}
+              >
+                <Text style={styles.cancelActionPrimaryText}>
+                  {proposeBusy ? 'Versturen…' : 'Voorstellen'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {driverToken && settleRide ? (
+        <DriverSettleRideModal
+          visible
+          ride={settleRide}
+          token={driverToken}
+          onClose={() => setSettleRideId(null)}
+          onCompleted={async () => {
+            setSettleRideId(null);
+            await refresh();
+          }}
+          onRideUpdated={patchTripRide}
+        />
+      ) : null}
     </Screen>
     </DriverAccentProvider>
   );
@@ -1362,6 +1721,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 4,
+    },
+    archiveBackBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
     },
     archiveBack: {
       color: colors.primary,

@@ -1,8 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DispatchOffer, DispatchOfferRide, DriverActiveRide } from '../api/driver';
-import { isMarketplaceOffer, isMarketplaceRide } from '../api/driver';
+import {
+  driverPriceDisplay,
+  driverShareFromFee,
+  isMarketplaceOffer,
+  isMarketplaceRide,
+  isRidePaid,
+  rideChannelKind,
+  rideChannelLabel,
+  rideRequiresPaymentBeforeComplete,
+} from '../api/driver';
 import { ColorPalette } from '../config';
 import { formatEuroNl } from '../geo/route';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
@@ -136,6 +145,8 @@ type OfferModeProps = {
   onOpenMaps?: never;
   onCancel?: never;
   onArchive?: never;
+  onProposePickup?: never;
+  onRelease?: never;
 };
 
 type TripModeProps = {
@@ -155,6 +166,8 @@ type TripModeProps = {
   onCancel?: () => void;
   onArchive?: () => void;
   archived?: boolean;
+  onProposePickup?: () => void;
+  onRelease?: () => void;
 };
 
 export type DriverOfferCardProps = OfferModeProps | TripModeProps;
@@ -208,6 +221,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     }
     setHighlightActive(true);
     highlightOpacity.setValue(0);
+    cardExpandedByKey.set(expandKey, true);
+    setExpanded(true);
     const flash = (to: number) =>
       Animated.timing(highlightOpacity, {
         toValue: to,
@@ -229,7 +244,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     return () => {
       anim.stop();
     };
-  }, [highlighted, highlightOpacity]);
+  }, [highlighted, highlightOpacity, expandKey]);
 
   const marketplace = isTrip
     ? isMarketplaceRide(props.ride)
@@ -237,7 +252,6 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       !!ride?.fee_breakdown?.is_marketplace ||
       !!ride?.is_nexa_suite;
   const network = !!ride?.is_network_ride || !!ride?.fee_breakdown?.is_network;
-  const ownCustomer = !marketplace && !network;
 
   const pickupOverdue = isTrip
     ? tripVariant === 'overdue'
@@ -247,23 +261,36 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
         offer?.is_waiting ||
         ride?.is_scheduled_overdue
       );
-  // Marketplace: nooit overdue-chrome. Eigen klant wel.
-  const showOverdueUi = pickupOverdue && ownCustomer;
+  // Eigen tenant + network: overdue-acties. Marktplaats niet.
+  const showOverdueUi = pickupOverdue && !marketplace;
 
   const pickup = splitAddress(ride?.pickup_address);
   const dropoff = splitAddress(ride?.dropoff_address);
   const pickupCompact = compactAddress(ride?.pickup_address);
   const dropoffCompact = compactAddress(ride?.dropoff_address);
-  const price =
-    ride?.quoted_price != null && Number.isFinite(Number(ride.quoted_price))
-      ? formatEuroNl(Number(ride.quoted_price))
-      : null;
   const distance = formatDistanceKm(ride?.distance_km);
   const duration = formatDurationMins(ride);
   const passengers = Number(ride?.passengers || 0);
   const passengersLabel = passengers > 0 ? String(passengers) : null;
   const phone = String(ride?.customer_phone || '').trim();
-  const kindLabel = network ? 'Network' : marketplace ? 'NEXA Suite' : 'Taxi';
+  const kind = rideChannelKind(ride);
+  const kindLabel = rideChannelLabel(ride);
+  const kindBadgeStyle =
+    kind === 'network'
+      ? styles.badgeNetwork
+      : kind === 'contract'
+        ? styles.badgeContract
+        : kind === 'marketplace'
+          ? styles.badgeMarketplace
+          : styles.badgeTaxi;
+  const kindTextStyle =
+    kind === 'network'
+      ? styles.badgeNetworkText
+      : kind === 'contract'
+        ? styles.badgeContractText
+        : kind === 'marketplace'
+          ? styles.badgeMarketplaceText
+          : styles.badgeTaxiText;
 
   const isAccepted =
     isTrip &&
@@ -284,14 +311,21 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           : 'Gepland'
     : null;
 
-  const primaryLabel = showOverdueUi && !isTrip ? 'Nieuw tijdstip voorstellen' : 'Accepteren';
-  const secondaryLabel = showOverdueUi && !isTrip ? 'Vrijgeven' : 'Weigeren';
+  const primaryLabel = 'Accepteren';
+  const secondaryLabel = 'Weigeren';
   const baggage = baggageLines(ride);
   const showBaggage = baggage.length > 0 && !(baggage.length === 1 && baggage[0] === 'Geen');
   const showMetrics = !!(distance || duration || passengersLabel);
   const showStats = showMetrics || showBaggage;
   const showOfferSecondary = !isTrip && !marketplace;
-  const canStart = isTrip && ride?.status === 'accepted' && !!props.onStart;
+  const proposalStatus = String(ride?.pickup_proposal?.status || '');
+  const canProposePickup = isTrip && showOverdueUi && !!props.onProposePickup && !isCompletedTrip;
+  const canRelease = isTrip && showOverdueUi && !!props.onRelease && !isCompletedTrip;
+  const canStart =
+    isTrip &&
+    ride?.status === 'accepted' &&
+    !!props.onStart &&
+    (!showOverdueUi || proposalStatus === 'accepted');
   const canComplete = isTrip && tripVariant === 'active' && !canStart && !!props.onComplete;
   const canCancel = isTrip && !!ride?.can_cancel_with_reason && !!props.onCancel && !isCompletedTrip;
   const canArchive = isCompletedTrip && !!props.onArchive;
@@ -302,12 +336,10 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       !!fee.owner_name ||
       !!fee.executor_name ||
       fee.nexa_fee != null);
-  const driverShare =
-    fee?.driver_share != null
-      ? Number(fee.driver_share)
-      : fee?.customer_pays != null && fee?.nexa_fee != null
-        ? Math.max(0, Number(fee.customer_pays) - Number(fee.nexa_fee))
-        : null;
+  const driverShare = driverShareFromFee(fee);
+  const prices = driverPriceDisplay({ quotedPrice: ride?.quoted_price, fee });
+  const primaryPrice = prices.primary != null ? formatEuroNl(prices.primary) : null;
+  const customerPrice = prices.customerPays != null ? formatEuroNl(prices.customerPays) : null;
   const cardBorder = accent.border;
 
   return (
@@ -321,8 +353,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     >
       {highlightActive ? (
         <Animated.View
-          pointerEvents="none"
-          style={[styles.highlightRing, { opacity: highlightOpacity }]}
+          style={[styles.highlightRing, { opacity: highlightOpacity, pointerEvents: 'none' }]}
         />
       ) : null}
       <View
@@ -352,11 +383,16 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <Text style={styles.badgeDangerText}>Ophaalmoment verlopen</Text>
               </View>
             ) : null}
-            <View style={[styles.badge, network ? styles.badgeNetwork : styles.badgeTaxi]}>
-              <Text style={network ? styles.badgeNetworkText : styles.badgeTaxiText}>
+            <View style={[styles.badge, kindBadgeStyle, { maxWidth: '78%' }]}>
+              <Text style={kindTextStyle} numberOfLines={1}>
                 {kindLabel}
               </Text>
             </View>
+            {isTrip && isRidePaid(ride) && kind !== 'contract' ? (
+              <View style={[styles.badge, styles.badgeSuccess]}>
+                <Text style={styles.badgeSuccessText}>Betaald</Text>
+              </View>
+            ) : null}
             {statusBadgeLabel ? (
               <View
                 style={[
@@ -415,7 +451,14 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           ) : null}
         </View>
         <View style={styles.headerRight}>
-          {!expanded && price ? <Text style={styles.collapsedPrice}>{price}</Text> : null}
+          {!expanded && primaryPrice ? (
+            <View style={styles.collapsedPriceCol}>
+              <Text style={styles.collapsedPrice}>{primaryPrice}</Text>
+              {customerPrice ? (
+                <Text style={styles.collapsedCustomerPays}>{customerPrice}</Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.chevron}>
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -472,10 +515,13 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 </Pressable>
               ) : null}
             </View>
-            {price && !showFee ? (
+            {primaryPrice ? (
               <View style={styles.priceBlock}>
-                <Text style={styles.priceLabel}>Prijs</Text>
-                <Text style={styles.price}>{price}</Text>
+                <Text style={styles.priceLabel}>{customerPrice ? 'Jij ontvangt' : 'Prijs'}</Text>
+                <Text style={styles.price}>{primaryPrice}</Text>
+                {customerPrice ? (
+                  <Text style={styles.priceCustomerPays}>{customerPrice}</Text>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -576,6 +622,17 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 </View>
               </View>
             ) : null}
+            {showOverdueUi && proposalStatus === 'pending' ? (
+              <View style={styles.activeBanner} accessibilityRole="text">
+                <View style={styles.activeBannerDot} />
+                <View style={styles.activeBannerCopy}>
+                  <Text style={styles.activeBannerTitle}>Wacht op klant</Text>
+                  <Text style={styles.activeBannerText}>
+                    Nieuw ophaalmoment is voorgesteld. De klant moet dit nog goedkeuren.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
             {canComplete ? (
               <View style={styles.activeBanner} accessibilityRole="text">
                 <View style={styles.activeBannerDot} />
@@ -594,6 +651,26 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 onPress={props.onCancel}
               >
                 <Text style={styles.btnGhostText}>Annuleren</Text>
+              </Pressable>
+            ) : null}
+            {canProposePickup ? (
+              <Pressable
+                style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onProposePickup}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  {proposalStatus === 'pending' ? 'Opnieuw voorstellen' : 'Nieuw tijdstip voorstellen'}
+                </Text>
+              </Pressable>
+            ) : null}
+            {canRelease ? (
+              <Pressable
+                style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onRelease}
+              >
+                <Text style={styles.btnGhostText}>Vrijgeven</Text>
               </Pressable>
             ) : null}
             {props.onOpenMaps && !isCompletedTrip ? (
@@ -616,7 +693,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             ) : null}
             {canStart ? (
               <Pressable
-                style={[styles.btn, styles.btnPrimary, busy && styles.btnDisabled]}
+                style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
                 disabled={busy}
                 onPress={props.onStart}
               >
@@ -629,7 +706,9 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 disabled={busy}
                 onPress={props.onComplete}
               >
-                <Text style={styles.btnPrimaryText}>Rit afronden</Text>
+                <Text style={styles.btnPrimaryText}>
+                  {rideRequiresPaymentBeforeComplete(ride) ? 'Betalen' : 'Rit afronden'}
+                </Text>
               </Pressable>
             ) : null}
             {canArchive ? (
@@ -730,6 +809,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       marginTop: 2,
       marginLeft: 4,
     },
+    collapsedPriceCol: {
+      alignItems: 'flex-end',
+      gap: 1,
+    },
     collapsedPrice: {
       color: colors.text,
       fontSize: 18,
@@ -737,6 +820,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       letterSpacing: -0.3,
       textAlign: 'right',
       marginTop: 4,
+    },
+    collapsedCustomerPays: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'right',
     },
     badge: {
       alignSelf: 'flex-start',
@@ -797,6 +886,30 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     badgeTaxiText: {
       color: accentHex,
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    badgeContract: {
+      backgroundColor: 'rgba(168,85,247,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(168,85,247,0.42)',
+    },
+    badgeContractText: {
+      color: '#D8B4FE',
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    badgeMarketplace: {
+      backgroundColor: 'rgba(245,158,11,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(245,158,11,0.45)',
+    },
+    badgeMarketplaceText: {
+      color: '#FBBF24',
       fontSize: 10,
       fontWeight: '800',
       textTransform: 'uppercase',
@@ -982,6 +1095,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '800',
       letterSpacing: -0.4,
     },
+    priceCustomerPays: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginTop: 1,
+    },
     feeBox: {
       borderRadius: 14,
       borderWidth: StyleSheet.hairlineWidth,
@@ -1151,18 +1270,20 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '800',
     },
     btn: {
-      flex: 1,
-      minWidth: '40%',
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: '46%',
       minHeight: 48,
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 12,
     },
     btnFull: {
-      minWidth: '100%',
       flexBasis: '100%',
+      flexGrow: 1,
+      minWidth: '100%',
     },
     btnInner: {
       flexDirection: 'row',
@@ -1196,6 +1317,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       textTransform: 'uppercase',
       letterSpacing: 0.2,
       textAlign: 'center',
+      flexShrink: 1,
     },
   });
 }

@@ -9,6 +9,7 @@ import { parseAppDeepLink } from './src/linking';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { MarketplaceRegisterScreen } from './src/screens/MarketplaceRegisterScreen';
 import { RoleSelectScreen } from './src/screens/RoleSelectScreen';
 import { DriverHomeScreen } from './src/screens/DriverHomeScreen';
 import { ContractHomeScreen } from './src/screens/ContractHomeScreen';
@@ -17,6 +18,7 @@ import { CustomerHomeScreen } from './src/screens/CustomerHomeScreen';
 export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
+  MarketplaceRegister: undefined;
   Customer: undefined;
   RoleSelect: undefined;
   Driver: undefined;
@@ -24,7 +26,7 @@ export type RootStackParamList = {
 };
 
 const GUEST_ROUTE_KEY = 'nexa_taxi_guest_route';
-type GuestRoute = 'welcome' | 'login' | 'customer';
+type GuestRoute = 'welcome' | 'login' | 'customer' | 'marketplace';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -32,6 +34,7 @@ function RootNavigator() {
   const { ready, session, activeScreen, capabilities } = useAuth();
   const { colors, colorScheme } = useTheme();
   const [guestRoute, setGuestRoute] = useState<GuestRoute | null>(null);
+  const hadSessionRef = React.useRef(false);
 
   const persistGuestRoute = (route: GuestRoute) => {
     setGuestRoute(route);
@@ -50,7 +53,9 @@ function RootNavigator() {
         }
         const saved = await AsyncStorage.getItem(GUEST_ROUTE_KEY);
         if (!cancelled) {
-          setGuestRoute(saved === 'customer' || saved === 'login' ? saved : 'welcome');
+          setGuestRoute(
+            saved === 'customer' || saved === 'login' || saved === 'marketplace' ? saved : 'welcome'
+          );
         }
       } catch {
         if (!cancelled) setGuestRoute('welcome');
@@ -68,6 +73,27 @@ function RootNavigator() {
       sub.remove();
     };
   }, []);
+
+  // Na verlopen sessie (of forceReLogin): altijd naar login, ook als guestRoute eerder welcome was.
+  useEffect(() => {
+    if (!ready) return;
+    if (session) {
+      hadSessionRef.current = true;
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const saved = await AsyncStorage.getItem(GUEST_ROUTE_KEY);
+      if (cancelled) return;
+      if (saved === 'login' || hadSessionRef.current) {
+        hadSessionRef.current = false;
+        persistGuestRoute('login');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, session]);
 
   const navTheme = useMemo(() => {
     const base = colorScheme === 'light' ? DefaultTheme : DarkTheme;
@@ -107,14 +133,21 @@ function RootNavigator() {
           ? 'Customer'
           : guestRoute === 'login'
             ? 'Login'
-            : 'Welcome';
+            : guestRoute === 'marketplace'
+              ? 'MarketplaceRegister'
+              : 'Welcome';
 
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
         key={initialRouteName}
         initialRouteName={initialRouteName}
-        screenOptions={{ headerShown: false, animation: 'fade' }}
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          freezeOnBlur: true,
+          contentStyle: { flex: 1, backgroundColor: colors.bg },
+        }}
       >
         {showDriver ? (
           <Stack.Screen name="Driver" component={DriverHomeScreen} />
@@ -136,12 +169,27 @@ function RootNavigator() {
                     navigation.navigate('Login');
                   }}
                   onCustomer={() => persistGuestRoute('customer')}
+                  onMarketplaceRegister={() => {
+                    persistGuestRoute('marketplace');
+                    navigation.navigate('MarketplaceRegister');
+                  }}
                 />
               )}
             </Stack.Screen>
             <Stack.Screen name="Login">
               {({ navigation }) => (
                 <LoginScreen
+                  onBack={() => {
+                    persistGuestRoute('welcome');
+                    if (navigation.canGoBack()) navigation.goBack();
+                    else navigation.navigate('Welcome');
+                  }}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="MarketplaceRegister">
+              {({ navigation }) => (
+                <MarketplaceRegisterScreen
                   onBack={() => {
                     persistGuestRoute('welcome');
                     if (navigation.canGoBack()) navigation.goBack();

@@ -210,6 +210,7 @@ class TaxiDriverEarningsService
             'pickup_address' => (string) ($ride->pickup_address ?: '—'),
             'dropoff_address' => (string) ($ride->dropoff_address ?: '—'),
             'amount' => $amount,
+            'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'currency' => 'EUR',
             'payment_method' => $ride->payment_method,
             'payment_status' => $ride->payment_status,

@@ -48,6 +48,8 @@ export function Field({
   keyboardType,
   autoCapitalize,
   placeholder,
+  autoComplete,
+  textContentType,
   multiline,
   rightAccessory,
   confirmed,
@@ -63,6 +65,8 @@ export function Field({
   keyboardType?: 'default' | 'email-address' | 'number-pad' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words';
   placeholder?: string;
+  autoComplete?: 'off' | 'email' | 'password' | 'username' | 'tel' | 'name';
+  textContentType?: 'none' | 'emailAddress' | 'password' | 'username' | 'telephoneNumber' | 'name';
   multiline?: boolean;
   rightAccessory?: React.ReactNode;
   confirmed?: boolean;
@@ -104,6 +108,7 @@ export function Field({
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <View
+        collapsable={false}
         style={[
           styles.inputWrap,
           confirmed && !showError && styles.inputWrapConfirmed,
@@ -123,24 +128,37 @@ export function Field({
             if (showError) setHideError(true);
             onChangeText(v);
           }}
+          editable
+          showSoftInputOnFocus
           secureTextEntry={!!secureTextEntry && !passwordVisible}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
           autoCorrect={false}
-          autoComplete="off"
-          textContentType="none"
-          blurOnSubmit={false}
+          autoComplete={
+            secureTextEntry ? 'password' : keyboardType === 'email-address' ? 'email' : autoComplete
+          }
+          textContentType={
+            textContentType
+              || (secureTextEntry
+                ? 'password'
+                : keyboardType === 'email-address'
+                  ? 'emailAddress'
+                  : undefined)
+          }
+          blurOnSubmit={!multiline}
           returnKeyType={returnKeyType}
           onSubmitEditing={onSubmitEditing}
           multiline={multiline}
           textAlignVertical={multiline ? 'top' : 'center'}
           aria-invalid={showError}
         />
-        {confirmed && !showError ? <Text style={styles.checkMark} pointerEvents="none">✓</Text> : null}
+        {confirmed && !showError ? (
+          <Text style={[styles.checkMark, { pointerEvents: 'none' }]}>✓</Text>
+        ) : null}
         {accessory ? (
-          <View style={styles.accessory} pointerEvents="box-none">
+          <View style={[styles.accessory, { pointerEvents: 'box-none' }]}>
             {accessory}
           </View>
         ) : null}
@@ -243,9 +261,11 @@ function makeStyles(colors: ColorPalette) {
     field: { marginBottom: 14 },
     label: {
       color: colors.muted,
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: '700',
       marginBottom: 6,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
     },
     input: {
       borderWidth: 1,
@@ -281,6 +301,7 @@ function makeStyles(colors: ColorPalette) {
     inputInWrap: {
       flex: 1,
       minWidth: 0,
+      minHeight: 48,
       borderWidth: 0,
       backgroundColor: 'transparent',
       marginBottom: 0,

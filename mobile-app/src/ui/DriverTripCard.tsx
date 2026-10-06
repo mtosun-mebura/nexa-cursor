@@ -15,6 +15,8 @@ export function DriverTripCard({
   onOpenMaps,
   onArchive,
   archived,
+  onProposePickup,
+  onRelease,
 }: {
   ride: DriverActiveRide;
   variant: 'active' | 'scheduled' | 'overdue' | 'completed';
@@ -27,6 +29,8 @@ export function DriverTripCard({
   onOpenMaps?: () => void;
   onArchive?: () => void;
   archived?: boolean;
+  onProposePickup?: () => void;
+  onRelease?: () => void;
 }) {
   return (
     <DriverOfferCard
@@ -41,6 +45,8 @@ export function DriverTripCard({
       onOpenMaps={onOpenMaps}
       onArchive={onArchive}
       archived={archived}
+      onProposePickup={onProposePickup}
+      onRelease={onRelease}
     />
   );
 }

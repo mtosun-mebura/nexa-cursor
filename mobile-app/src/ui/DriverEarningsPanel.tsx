@@ -10,7 +10,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  DriverActiveRide,
   DriverEarningsPayload,
+  DriverEarningsRide,
+  driverPriceDisplay,
   fetchDriverEarnings,
 } from '../api/driver';
 import { ApiError } from '../api/client';
@@ -40,6 +43,36 @@ function addDaysIso(iso: string, days: number): string {
   return toIsoDate(d);
 }
 
+function mondayIso(iso: string): string {
+  const d = parseIsoDate(iso);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return toIsoDate(d);
+}
+
+function periodBounds(period: Period, date: string, today: string): { from: string; to: string } {
+  if (period === 'week') {
+    const from = mondayIso(date);
+    const weekEnd = addDaysIso(from, 6);
+    return { from, to: weekEnd > today ? today : weekEnd };
+  }
+  if (period === 'month') {
+    const d = parseIsoDate(date);
+    const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const last = toIsoDate(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+    return { from, to: last > today ? today : last };
+  }
+  return { from: date, to: date };
+}
+
+function dayInBounds(day: string | null, from: string, to: string): boolean {
+  const start = isoDay(from) || from.slice(0, 10);
+  const end = isoDay(to) || to.slice(0, 10);
+  if (!day) return true;
+  return day >= start && day <= end;
+}
+
 function shortAddress(address?: string | null): string {
   const text = String(address || '').trim();
   if (!text) return '—';
@@ -47,12 +80,70 @@ function shortAddress(address?: string | null): string {
   return comma > 0 ? text.slice(0, comma).trim() : text;
 }
 
+function isoDay(value?: string | null): string | null {
+  if (!value) return null;
+  const m = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${day}`;
+}
+
+function asEarningsPayload(raw: unknown): DriverEarningsPayload | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  const inner =
+    obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)
+      ? (obj.data as Record<string, unknown>)
+      : obj;
+  if (
+    Array.isArray(inner.rides) ||
+    inner.period_total != null ||
+    inner.day_total != null ||
+    typeof inner.period === 'string'
+  ) {
+    return inner as DriverEarningsPayload;
+  }
+  return null;
+}
+
+function rideAmountLines(
+  ride: DriverEarningsRide,
+  fallback?: DriverActiveRide | null
+): { primary: number | null; customerPays: number | null } {
+  const quoted =
+    ride.quoted_price ?? fallback?.quoted_price ?? null;
+  const fee = fallback?.fee_breakdown;
+  const fromFee = driverPriceDisplay({ quotedPrice: quoted, fee });
+  const apiAmt = Number(ride.amount);
+  const hasApi = Number.isFinite(apiAmt) && apiAmt > 0;
+  if (fromFee.primary != null) {
+    return fromFee;
+  }
+  if (hasApi) {
+    return {
+      primary: apiAmt,
+      customerPays:
+        quoted != null && Number(quoted) !== apiAmt ? Number(quoted) : null,
+    };
+  }
+  if (quoted != null && Number.isFinite(Number(quoted))) {
+    return { primary: Number(quoted), customerPays: null };
+  }
+  return { primary: null, customerPays: null };
+}
+
 export function DriverEarningsPanel({
   token,
   canViewMonth,
+  completedRides = [],
 }: {
   token: string;
   canViewMonth?: boolean;
+  completedRides?: DriverActiveRide[];
 }) {
   const colors = useThemeColors();
   const accent = useDriverAccent();
@@ -70,8 +161,9 @@ export function DriverEarningsPanel({
       setError(null);
       try {
         const res = await fetchDriverEarnings(token, date, period);
-        setPayload(res?.data || null);
-        if (res?.data?.date) setDate(res.data.date);
+        const next = asEarningsPayload(res);
+        setPayload(next);
+        if (next?.date) setDate(next.date);
       } catch (e) {
         setError(e instanceof ApiError ? e.message : 'Inkomsten laden mislukt.');
       } finally {
@@ -86,9 +178,94 @@ export function DriverEarningsPanel({
     load();
   }, [load]);
 
-  const total = Number(payload?.period_total ?? payload?.day_total ?? 0);
-  const rides = payload?.rides || [];
-  const count = Number(payload?.ride_count ?? rides.length);
+  const todayIso = toIsoDate(new Date());
+  const bounds = periodBounds(period, date, todayIso);
+  const fallbackById = useMemo(() => {
+    const map = new Map<number, DriverActiveRide>();
+    for (const ride of completedRides) {
+      map.set(Number(ride.id), ride);
+    }
+    return map;
+  }, [completedRides]);
+
+  const displayRides = useMemo(() => {
+    type Row = {
+      id: number;
+      time: string | null;
+      pickup?: string | null;
+      dropoff?: string | null;
+      primary: number | null;
+      customerPays: number | null;
+    };
+    const byId = new Map<number, Row>();
+
+    const put = (row: Row) => {
+      const prev = byId.get(row.id);
+      if (!prev) {
+        byId.set(row.id, row);
+        return;
+      }
+      byId.set(row.id, {
+        ...prev,
+        ...row,
+        primary: row.primary ?? prev.primary,
+        customerPays: row.customerPays ?? prev.customerPays,
+        time: row.time || prev.time,
+        pickup: row.pickup || prev.pickup,
+        dropoff: row.dropoff || prev.dropoff,
+      });
+    };
+
+    for (const ride of payload?.rides || []) {
+      const id = Number(ride.id);
+      if (!id) continue;
+      const fallback = fallbackById.get(id) || null;
+      const amounts = rideAmountLines(ride, fallback);
+      put({
+        id,
+        time: ride.completed_time || null,
+        pickup: ride.pickup_address || fallback?.pickup_address,
+        dropoff: ride.dropoff_address || fallback?.dropoff_address,
+        primary: amounts.primary,
+        customerPays: amounts.customerPays,
+      });
+    }
+
+    for (const ride of completedRides) {
+      const id = Number(ride.id);
+      if (!id) continue;
+      const day = isoDay(ride.pickup_at);
+      if (!dayInBounds(day, bounds.from, bounds.to)) continue;
+      const amounts = rideAmountLines(
+        { id, quoted_price: ride.quoted_price, amount: undefined },
+        ride
+      );
+      const time = ride.pickup_at
+        ? new Date(ride.pickup_at).toLocaleTimeString('nl-NL', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : null;
+      put({
+        id,
+        time,
+        pickup: ride.pickup_address,
+        dropoff: ride.dropoff_address,
+        primary: amounts.primary,
+        customerPays: amounts.customerPays,
+      });
+    }
+
+    return [...byId.values()].sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+  }, [payload, completedRides, fallbackById, bounds.from, bounds.to]);
+
+  const totalFromRides = displayRides.reduce(
+    (sum, ride) => sum + (ride.primary != null ? ride.primary : 0),
+    0
+  );
+  const apiTotal = Number(payload?.period_total ?? payload?.day_total ?? 0);
+  const total = totalFromRides > 0 ? totalFromRides : apiTotal;
+  const count = displayRides.length || Number(payload?.ride_count ?? 0);
 
   function step(delta: number) {
     if (period === 'week') setDate(addDaysIso(date, delta * 7));
@@ -164,22 +341,31 @@ export function DriverEarningsPanel({
             </Text>
           </View>
 
-          {rides.length === 0 ? (
+          {displayRides.length === 0 ? (
             <Text style={styles.empty}>
               {payload?.empty_message || 'Geen afgeronde ritten in deze periode.'}
             </Text>
           ) : (
             <View style={styles.list}>
-              {rides.map((ride) => (
+              {displayRides.map((ride) => (
                 <View key={ride.id} style={styles.ride}>
                   <View style={styles.rideTop}>
-                    <Text style={styles.rideTime}>{ride.completed_time || '—'}</Text>
-                    <Text style={styles.rideAmount}>{formatEuroNl(Number(ride.amount || 0))}</Text>
+                    <Text style={styles.rideTime}>{ride.time || '—'}</Text>
+                    <View style={styles.rideAmountCol}>
+                      <Text style={styles.rideAmount}>
+                        {ride.primary != null ? formatEuroNl(ride.primary) : '—'}
+                      </Text>
+                      {ride.customerPays != null ? (
+                        <Text style={styles.rideCustomerPays}>
+                          klant {formatEuroNl(ride.customerPays)}
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
                   <Text style={styles.rideRoute}>
-                    {shortAddress(ride.pickup_address)}
+                    {shortAddress(ride.pickup)}
                     <Text style={styles.rideArrow}> → </Text>
-                    {shortAddress(ride.dropoff_address)}
+                    {shortAddress(ride.dropoff)}
                   </Text>
                 </View>
               ))}
@@ -244,9 +430,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingVertical: 12,
       gap: 4,
     },
-    rideTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    rideTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     rideTime: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+    rideAmountCol: { alignItems: 'flex-end', gap: 1 },
     rideAmount: { color: colors.text, fontSize: 16, fontWeight: '800' },
+    rideCustomerPays: { color: colors.muted, fontSize: 12, fontWeight: '600' },
     rideRoute: { color: colors.text, fontSize: 14, fontWeight: '700' },
     rideArrow: { color: accentHex, fontWeight: '800' },
     empty: { color: colors.muted, fontSize: 14, textAlign: 'center', marginTop: 12 },

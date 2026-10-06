@@ -19,8 +19,8 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Nexa Taxi gebruikt je locatie voor ritten in de buurt en ophaaladressen.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Kies Altijd zodat marketplace-klanten je taxi ook vinden als de app op de achtergrond staat.",
-        "NSLocationAlwaysUsageDescription": "Doorlopende locatie is nodig voor marketplace-matching en chauffeur-tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Kies Altijd zodat marktplaats-klanten je taxi ook vinden als de app op de achtergrond staat.",
+        "NSLocationAlwaysUsageDescription": "Doorlopende locatie is nodig voor marktplaats-matching en chauffeur-tracking.",
         "UIBackgroundModes": ["location", "fetch", "processing"],
         "ITSAppUsesNonExemptEncryption": false,
         "UIApplicationSceneManifest": {
@@ -67,8 +67,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Nexa Taxi heeft doorlopende locatie nodig zodat marketplace-klanten de dichtstbijzijnde taxi kunnen vinden.",
-          "locationAlwaysPermission": "Nexa Taxi heeft doorlopende locatie nodig voor marketplace-matching op de achtergrond.",
+          "locationAlwaysAndWhenInUsePermission": "Nexa Taxi heeft doorlopende locatie nodig zodat marktplaats-klanten de dichtstbijzijnde taxi kunnen vinden.",
+          "locationAlwaysPermission": "Nexa Taxi heeft doorlopende locatie nodig voor marktplaats-matching op de achtergrond.",
           "locationWhenInUsePermission": "Nexa Taxi gebruikt je locatie voor ritten en ophaaladressen.",
           "isAndroidBackgroundLocationEnabled": true,
           "isIosBackgroundLocationEnabled": true
