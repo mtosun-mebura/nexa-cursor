@@ -8,7 +8,6 @@ export type DriverTabKey =
   | 'trips'
   | 'requests'
   | 'planning'
-  | 'navigation'
   | 'earnings'
   | 'profile';
 
@@ -20,7 +19,6 @@ const ALL_TABS: {
   { key: 'trips', label: 'Ritten', icon: 'calendar-outline' },
   { key: 'requests', label: 'Aanvragen', icon: 'car-outline' },
   { key: 'planning', label: 'Planning', icon: 'calendar-number-outline' },
-  { key: 'navigation', label: 'Navigatie', icon: 'navigate-outline' },
   { key: 'earnings', label: 'Inkomsten', icon: 'cash-outline' },
   { key: 'profile', label: 'Profiel', icon: 'person-outline' },
 ];

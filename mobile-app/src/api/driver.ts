@@ -69,6 +69,11 @@ export type DispatchOfferRide = {
     is_marketplace?: boolean;
     is_network?: boolean;
     owner_name?: string;
+    executor_name?: string;
+    customer_pays?: number;
+    nexa_fee?: number;
+    nexa_fee_percent?: number;
+    driver_share?: number;
   } | null;
 };
 
@@ -103,6 +108,7 @@ export type DriverInboxData = {
   parkedAssignedRides: DriverActiveRide[];
   scheduledRides: DriverActiveRide[];
   overdueScheduledRides: DriverActiveRide[];
+  completedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
 };
 
@@ -190,6 +196,7 @@ export function fetchDriverInbox(token: string) {
       parked_assigned_rides?: DriverActiveRide[];
       scheduled_rides?: DriverActiveRide[];
       overdue_scheduled_rides?: DriverActiveRide[];
+      completed_rides?: DriverActiveRide[];
     };
     offers?: DispatchOffer[];
     meta?: {
@@ -216,6 +223,7 @@ export function inboxDataFromResponse(inbox: {
     parked_assigned_rides?: DriverActiveRide[];
     scheduled_rides?: DriverActiveRide[];
     overdue_scheduled_rides?: DriverActiveRide[];
+    completed_rides?: DriverActiveRide[];
   };
   offers?: DispatchOffer[];
   meta?: { driver_cancel_reasons?: DriverCancelReason[] };
@@ -230,6 +238,7 @@ export function inboxDataFromResponse(inbox: {
     parkedAssignedRides: asRideList(inbox?.data?.parked_assigned_rides),
     scheduledRides: asRideList(inbox?.data?.scheduled_rides),
     overdueScheduledRides: asRideList(inbox?.data?.overdue_scheduled_rides),
+    completedRides: asRideList(inbox?.data?.completed_rides),
     cancelReasons: Array.isArray(inbox?.meta?.driver_cancel_reasons)
       ? inbox.meta.driver_cancel_reasons
       : [],
@@ -264,6 +273,13 @@ export function declineOffer(token: string, offerId: number) {
 
 export function startRide(token: string, rideId: number) {
   return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/start`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function completeRide(token: string, rideId: number) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/complete`, {
     method: 'POST',
     token,
   });
@@ -319,6 +335,11 @@ export type PlanningRide = {
     is_marketplace?: boolean;
     is_network?: boolean;
     owner_name?: string;
+    executor_name?: string;
+    customer_pays?: number;
+    nexa_fee?: number;
+    nexa_fee_percent?: number;
+    driver_share?: number;
   } | null;
 };
 
@@ -354,6 +375,70 @@ export function fetchDriverPlanningWeek(
   const qs = params.toString();
   return apiRequest<{ data?: DriverPlanningWeek }>(
     `/api/taxi/v1/driver/planning${qs ? `?${qs}` : ''}`,
+    { token }
+  );
+}
+
+export function mergeCompletedRides(
+  ...lists: Array<Array<PlanningRide | DriverActiveRide | null | undefined>>
+): DriverActiveRide[] {
+  const byId = new Map<number, DriverActiveRide>();
+  for (const list of lists) {
+    for (const item of list) {
+      if (!item || String(item.status || '') !== 'completed') continue;
+      const id = Number(item.id);
+      if (!id) continue;
+      byId.set(id, { ...item, id });
+    }
+  }
+  return [...byId.values()].sort((a, b) => {
+    const ta = Date.parse(String(a.pickup_at || '')) || 0;
+    const tb = Date.parse(String(b.pickup_at || '')) || 0;
+    return tb - ta;
+  });
+}
+
+export type DriverEarningsRide = {
+  id: number;
+  completed_at?: string | null;
+  completed_time?: string | null;
+  pickup_address?: string;
+  dropoff_address?: string;
+  amount?: number;
+  currency?: string;
+  customer_name?: string | null;
+};
+
+export type DriverEarningsPayload = {
+  period?: string;
+  date?: string;
+  from?: string;
+  to?: string;
+  label?: string;
+  sub_label?: string;
+  total_label?: string;
+  empty_message?: string;
+  is_today?: boolean;
+  is_current?: boolean;
+  currency?: string;
+  day_total?: number;
+  period_total?: number;
+  ride_count?: number;
+  rides?: DriverEarningsRide[];
+  month?: { label?: string; total?: number; ride_count?: number } | null;
+};
+
+export function fetchDriverEarnings(
+  token: string,
+  date?: string | null,
+  period?: 'day' | 'week' | 'month'
+) {
+  const params = new URLSearchParams();
+  if (date) params.set('date', date);
+  if (period) params.set('period', period);
+  const qs = params.toString();
+  return apiRequest<{ data?: DriverEarningsPayload }>(
+    `/api/taxi/v1/driver/earnings${qs ? `?${qs}` : ''}`,
     { token }
   );
 }

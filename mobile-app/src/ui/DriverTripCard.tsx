@@ -10,17 +10,23 @@ export function DriverTripCard({
   highlighted,
   onHighlightEnd,
   onStart,
+  onComplete,
   onCancel,
   onOpenMaps,
+  onArchive,
+  archived,
 }: {
   ride: DriverActiveRide;
-  variant: 'active' | 'scheduled' | 'overdue';
+  variant: 'active' | 'scheduled' | 'overdue' | 'completed';
   busy?: boolean;
   highlighted?: boolean;
   onHighlightEnd?: () => void;
   onStart?: () => void;
+  onComplete?: () => void;
   onCancel?: () => void;
   onOpenMaps?: () => void;
+  onArchive?: () => void;
+  archived?: boolean;
 }) {
   return (
     <DriverOfferCard
@@ -30,8 +36,11 @@ export function DriverTripCard({
       highlighted={highlighted}
       onHighlightEnd={onHighlightEnd}
       onStart={onStart}
+      onComplete={onComplete}
       onCancel={onCancel}
       onOpenMaps={onOpenMaps}
+      onArchive={onArchive}
+      archived={archived}
     />
   );
 }

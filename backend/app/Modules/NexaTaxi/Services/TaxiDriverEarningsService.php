@@ -145,11 +145,10 @@ class TaxiDriverEarningsService
             })
             ->where('status', RideRequest::STATUS_COMPLETED)
             ->where(function ($q) {
-                // Phase 4 gate: hold/review/rejected are not payable earnings yet.
-                $q->whereIn('settlement_status', [
-                    RideRequest::SETTLEMENT_ELIGIBLE,
-                    RideRequest::SETTLEMENT_SETTLED,
-                ])->orWhereNull('settlement_status');
+                $q->whereNull('settlement_status')
+                    ->orWhereNotIn('settlement_status', [
+                        RideRequest::SETTLEMENT_REJECTED,
+                    ]);
             })
             ->where(function ($q) use ($driverId) {
                 $q->where('driver_id', $driverId)

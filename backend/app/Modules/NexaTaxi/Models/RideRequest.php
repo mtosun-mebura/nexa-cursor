@@ -818,14 +818,27 @@ class RideRequest extends Model
         }
 
         if ((int) $this->driver_id === $driverId) {
-            return round($full, 2);
+            return $this->netEarningsFromGross($full);
         }
 
         if ((int) $this->outbound_driver_id === $driverId && $this->isReturnTrip()) {
-            return round($this->splitReturnTripLegAmounts()['outbound'], 2);
+            return $this->netEarningsFromGross($this->splitReturnTripLegAmounts()['outbound']);
         }
 
         return null;
+    }
+
+    private function netEarningsFromGross(float $gross): float
+    {
+        $gross = round(max(0, $gross), 2);
+        if (! $this->isNexaSuiteBooking() && ! $this->isNetworkFulfilled()) {
+            return $gross;
+        }
+
+        $percent = \App\Support\NexaMarketplaceFeeCopy::percent();
+        $fee = round($gross * ($percent / 100), 2);
+
+        return round(max(0, $gross - $fee), 2);
     }
 
     public function requiresPerLegDriverPayment(): bool

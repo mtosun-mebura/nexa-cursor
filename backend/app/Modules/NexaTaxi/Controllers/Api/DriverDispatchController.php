@@ -175,6 +175,17 @@ class DriverDispatchController extends Controller
             ->sortByDesc(fn (RideRequest $ride) => $ride->pickup_at?->getTimestamp() ?? 0)
             ->values();
 
+        $completedRides = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id, $vehicleId)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->where(function ($q) {
+                $q->where('updated_at', '>=', now()->subDays(14))
+                    ->orWhere('pickup_at', '>=', now()->subDays(14));
+            })
+            ->orderByDesc('updated_at')
+            ->limit(40)
+            ->get();
+
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
         $pickupProposalAlert = Cache::pull('taxi_driver_pickup_proposal_alert:'.(int) $user->id);
 
@@ -216,6 +227,9 @@ class DriverDispatchController extends Controller
                         ->values(),
                     'overdue_scheduled_rides' => $overdueScheduledRides
                         ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
+                        ->values(),
+                    'completed_rides' => $completedRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
                         ->values(),
                     'overdue_released_offers' => $overdueReleasedOffers
                         ->map(fn (RideDispatchOffer $offer) => TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true))

@@ -332,6 +332,7 @@ class TaxiDispatchOfferResource
      *   executor_name: string,
      *   nexa_fee: float,
      *   nexa_fee_percent: int,
+     *   driver_share: float,
      *   is_marketplace: bool,
      *   is_network: bool
      * }|null
@@ -371,12 +372,15 @@ class TaxiDispatchOfferResource
             $executorName = $ownerName;
         }
 
+        $grossRounded = round(max(0, $gross), 2);
+
         return [
-            'customer_pays' => round(max(0, $gross), 2),
+            'customer_pays' => $grossRounded,
             'owner_name' => $ownerName,
             'executor_name' => $executorName,
             'nexa_fee' => $fee,
             'nexa_fee_percent' => $percent,
+            'driver_share' => round(max(0, $grossRounded - $fee), 2),
             'is_marketplace' => $isMarketplace,
             'is_network' => $isNetwork,
         ];

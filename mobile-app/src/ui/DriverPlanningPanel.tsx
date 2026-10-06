@@ -95,7 +95,7 @@ function rideMeta(ride: PlanningRide): string {
 }
 
 function canOpenRide(ride: PlanningRide): boolean {
-  return ride.status === 'accepted' || ride.status === 'assigned';
+  return ride.status === 'accepted' || ride.status === 'assigned' || ride.status === 'completed';
 }
 
 export function DriverPlanningPanel({
@@ -371,7 +371,7 @@ function DayRides({
               >
                 {formatTime(ride.pickup_at)}
               </Text>
-              <Text style={styles.rideStatus}>
+              <Text style={[styles.rideStatus, isCompleted && styles.rideStatusCompleted]}>
                 {(ride.status_label || ride.status || '').toUpperCase()}
               </Text>
             </View>
@@ -381,6 +381,11 @@ function DayRides({
               {shortAddress(ride.dropoff_address)}
             </Text>
             {rideMeta(ride) ? <Text style={styles.rideMeta}>{rideMeta(ride)}</Text> : null}
+            {isCompleted ? (
+              <View style={styles.doneBanner}>
+                <Text style={styles.doneBannerText}>Rit is afgerond</Text>
+              </View>
+            ) : null}
           </Pressable>
         );
       })}
@@ -603,8 +608,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderTopColor: '#22C55E',
     },
     rideCardCompleted: {
-      opacity: 0.72,
+      opacity: 1,
+      borderColor: 'rgba(148,163,184,0.45)',
       borderTopColor: colors.muted,
+      backgroundColor: colors.card,
     },
     rideCardDisabled: {
       opacity: 0.7,
@@ -640,6 +647,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingHorizontal: 9,
       paddingVertical: 4,
     },
+    rideStatusCompleted: {
+      color: colors.muted,
+      backgroundColor: 'rgba(148,163,184,0.16)',
+    },
     rideRoute: {
       color: colors.text,
       fontSize: 15,
@@ -655,6 +666,20 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 12,
       fontWeight: '500',
       marginTop: 2,
+    },
+    doneBanner: {
+      marginTop: 6,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(148,163,184,0.4)',
+      backgroundColor: 'rgba(148,163,184,0.12)',
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    doneBannerText: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '800',
     },
   });
 }
