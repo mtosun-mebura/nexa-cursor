@@ -13,6 +13,7 @@ use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiNetworkPartnershipService;
 use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
+use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
@@ -235,6 +236,7 @@ class DriverDispatchController extends Controller
                         'unclaimed_rides' => $unclaimedRides,
                         'network' => $networkMeta,
                         'requires_vehicle_to_accept' => true,
+                        'driver_cancel_reasons' => TaxiRideCancellationService::driverCancelReasons(),
                     ],
                     $dispatchSettings->paymentOptionsForTenant($companyId)
                 ),
@@ -329,6 +331,42 @@ class DriverDispatchController extends Controller
 
         return response()->json([
             'message' => 'Rit vrijgegeven. Andere chauffeurs kunnen deze nu overnemen.',
+        ]);
+    }
+
+    public function cancel(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        TaxiRideCancellationService $cancellation
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $allowed = array_column(TaxiRideCancellationService::driverCancelReasons(), 'code');
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'in:'.implode(',', $allowed)],
+        ]);
+
+        try {
+            $result = $cancellation->cancelAcceptedByDriver(
+                $conn,
+                $request->user(),
+                $ride,
+                (string) $validated['reason_code']
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet annuleren.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Rit geannuleerd. De klant ziet de gekozen reden.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($result['ride']),
+                'cancellation_message' => $result['message'],
+                'refunded' => $result['refunded'],
+            ],
         ]);
     }
 

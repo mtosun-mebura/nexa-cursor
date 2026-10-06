@@ -54,6 +54,8 @@ export type LiveRide = {
   payment_error?: string | null;
   can_retry_payment?: boolean;
   checkout_url?: string | null;
+  cancellation_message?: string | null;
+  cancellation_reason?: string | null;
   pickup_address?: string;
   dropoff_address?: string;
   pickup_at_label?: string | null;
@@ -65,6 +67,7 @@ export type LiveRide = {
   eta_minutes?: number | null;
   eta_label?: string | null;
   poll_interval_ms?: number;
+  refund_business_days?: number | null;
 };
 
 export type BookResponse = {

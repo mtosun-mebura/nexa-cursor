@@ -136,6 +136,10 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
+        Route::post('dispatch/rides/{ride}/cancel', [DriverDispatchController::class, 'cancel'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+
         Route::post('dispatch/rides/{ride}/hand-over-network', [DriverDispatchController::class, 'handOverToNetwork'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');

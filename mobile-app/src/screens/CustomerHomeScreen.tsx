@@ -2,9 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
   Image,
   Keyboard,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -45,6 +48,20 @@ import {
   searchAddresses,
 } from '../geo/route';
 import {
+  formatRideWhen,
+  GuestRide,
+  isActiveRidePhase,
+  isRidesTabBadgePhase,
+  loadArchivedKeys,
+  loadGuestRides,
+  phaseLabel,
+  rideArchiveKey,
+  saveGuestRide,
+  setRideArchived,
+  shortAddress,
+  updateGuestRide,
+} from '../customer/guestRides';
+import {
   CUSTOMER_PAYMENT_RETURN_URL,
   isCustomerPaymentReturn,
   parseAppDeepLink,
@@ -68,8 +85,6 @@ const TAB_KEY = 'nexa_taxi_customer_tab';
 const logoDark = require('../../assets/nexa-taxi-logo-dark.png');
 const logoLight = require('../../assets/nexa-taxi-logo.png');
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
-
-type Step = 'book' | 'live';
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
   { key: 'system', label: 'Systeem', hint: 'Volgt de telefooninstelling' },
@@ -98,12 +113,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const logoSource = colorScheme === 'light' ? logoLight : logoDark;
   const [tab, setTab] = useState<CustomerTabKey>('book');
-  const [step, setStep] = useState<Step>('book');
   const [trackToken, setTrackToken] = useState<string | null>(null);
   const [live, setLive] = useState<LiveRide | null>(null);
+  const [guestRides, setGuestRides] = useState<GuestRide[]>([]);
+  const [archivedKeys, setArchivedKeys] = useState<string[]>([]);
+  const [showArchivedRides, setShowArchivedRides] = useState(false);
+  const [expandedRideKey, setExpandedRideKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  const hasActiveRide = !!(live && trackToken && isActiveRidePhase(live.phase));
 
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [pickupQuery, setPickupQuery] = useState('');
@@ -250,7 +271,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           const data = await fetchLive(token);
           if (data.ride) {
             setLive(data.ride);
-            setStep('live');
+            const next = await saveGuestRide(data.ride.id, token, {
+              from: data.ride.pickup_address || '',
+              to: data.ride.dropoff_address || '',
+              phase: data.ride.phase,
+              status_label: data.ride.status_label,
+              quoted_price: data.ride.quoted_price,
+            });
+            setGuestRides(next);
+            setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token }));
           }
         } catch {
           /* live sync may still be catching up after Mollie */
@@ -332,6 +361,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     loadPickup();
     (async () => {
       try {
+        const [rides, archived] = await Promise.all([loadGuestRides(), loadArchivedKeys()]);
+        setGuestRides(rides);
+        setArchivedKeys(archived);
+      } catch {
+        /* ignore */
+      }
+      try {
         const raw = await AsyncStorage.getItem(PROFILE_KEY);
         if (raw) {
           const p = JSON.parse(raw) as {
@@ -352,10 +388,23 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       if (!saved) return;
       try {
         const data = await fetchLive(saved);
-        if (data.ride && !['cancelled', 'completed'].includes(data.ride.phase)) {
+        if (data.ride) {
           setTrackToken(saved);
           setLive(data.ride);
-          setStep('live');
+          const next = await saveGuestRide(data.ride.id, saved, {
+            from: data.ride.pickup_address || '',
+            to: data.ride.dropoff_address || '',
+            phase: data.ride.phase,
+            status_label: data.ride.status_label,
+            quoted_price: data.ride.quoted_price,
+          });
+          setGuestRides(next);
+          if (!isActiveRidePhase(data.ride.phase)) {
+            await AsyncStorage.removeItem(TRACK_KEY);
+            if (data.ride.phase === 'cancelled' || data.ride.phase === 'completed') {
+              setTrackToken(null);
+            }
+          }
         } else {
           await AsyncStorage.removeItem(TRACK_KEY);
         }
@@ -560,7 +609,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt, refreshQuote]);
 
   useEffect(() => {
-    if (step !== 'live' || !trackToken) return;
+    if (!trackToken) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -569,8 +618,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         const data = await fetchLive(trackToken);
         if (cancelled) return;
         setLive(data.ride);
-        if (['cancelled', 'completed'].includes(data.ride.phase)) {
+        const next = await updateGuestRide(trackToken, {
+          id: data.ride.id,
+          from: data.ride.pickup_address || undefined,
+          to: data.ride.dropoff_address || undefined,
+          phase: data.ride.phase,
+          status_label: data.ride.status_label,
+          quoted_price: data.ride.quoted_price,
+        });
+        setGuestRides(next);
+        if (!isActiveRidePhase(data.ride.phase)) {
           await persistTrack(null);
+          return;
         }
         const ms = data.ride.poll_interval_ms || 3000;
         timer = setTimeout(tick, ms);
@@ -583,7 +642,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [step, trackToken, persistTrack]);
+  }, [trackToken, persistTrack]);
 
   function scheduleSuggestions(query: string, kind: 'pickup' | 'dropoff') {
     const timerRef = kind === 'pickup' ? pickupSuggestTimer : dropoffSuggestTimer;
@@ -725,13 +784,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       setTrackToken(data.track_token);
       await persistTrack(data.track_token);
       if (data.live) setLive(data.live);
-      setStep('live');
+      const next = await saveGuestRide(data.ride_request_id, data.track_token, {
+        from: pickup.address,
+        to: dropoff.address,
+        phase: data.live?.phase || 'awaiting_payment',
+        status_label: data.live?.status_label || 'Betaling',
+        quoted_price: data.live?.quoted_price ?? offer.price ?? null,
+      });
+      setGuestRides(next);
+      setExpandedRideKey(rideArchiveKey({ id: data.ride_request_id, token: data.track_token }));
 
       const checkout = data.checkout_url || data.live?.checkout_url;
       if (checkout) {
         await Linking.openURL(checkout);
       } else if (data.payment_required) {
-        setError('Betalingslink kon niet worden geopend. Open betalen via Live rit.');
+        setError('Betalingslink kon niet worden geopend. Tik op Volgen en probeer opnieuw te betalen.');
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Boeken mislukt.');
@@ -741,14 +808,33 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
-  async function onCancel() {
+  function requestCancel() {
+    if (!trackToken || busy) return;
+    setCancelConfirmOpen(true);
+  }
+
+  async function confirmCancel() {
     if (!trackToken) return;
+    setCancelConfirmOpen(false);
     setBusy(true);
     setError(null);
     try {
       const data = await cancelLive(trackToken);
-      if (data.ride) setLive(data.ride);
+      if (data.ride) {
+        setLive(data.ride);
+        const next = await updateGuestRide(trackToken, {
+          phase: data.ride.phase,
+          status_label: data.ride.status_label,
+          from: data.ride.pickup_address || undefined,
+          to: data.ride.dropoff_address || undefined,
+          quoted_price: data.ride.quoted_price,
+        });
+        setGuestRides(next);
+        setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token: trackToken }));
+      }
       await persistTrack(null);
+      setTab('rides');
+      AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Annuleren mislukt.');
     } finally {
@@ -793,11 +879,42 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }
 
   function startNewRide() {
-    setStep('book');
     setTrackToken(null);
     setLive(null);
     persistTrack(null);
     setError(null);
+    setExpandedRideKey(null);
+    setTab('book');
+    AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
+  }
+
+  function openRideFollow(ride: GuestRide) {
+    setTrackToken(ride.token);
+    persistTrack(isActiveRidePhase(ride.phase) ? ride.token : null);
+    setExpandedRideKey(rideArchiveKey(ride));
+    setShowArchivedRides(false);
+    setTab('rides');
+    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+    setError(null);
+    fetchLive(ride.token)
+      .then((data) => {
+        if (!data.ride) return;
+        setLive(data.ride);
+        return updateGuestRide(ride.token, {
+          id: data.ride.id,
+          from: data.ride.pickup_address || undefined,
+          to: data.ride.dropoff_address || undefined,
+          phase: data.ride.phase,
+          status_label: data.ride.status_label,
+          quoted_price: data.ride.quoted_price,
+        }).then(setGuestRides);
+      })
+      .catch(() => undefined);
+  }
+
+  async function toggleArchiveRide(ride: GuestRide, archived: boolean) {
+    const keys = await setRideArchived(ride, archived);
+    setArchivedKeys(keys);
   }
 
   const routeSummary = useMemo(() => {
@@ -919,7 +1036,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   );
 
   const headerTitle =
-    tab === 'rides' ? 'Ritten' : tab === 'profile' ? 'Profiel' : step === 'live' ? 'Live rit' : 'Boeken';
+    tab === 'rides'
+      ? showArchivedRides
+        ? 'Archief'
+        : 'Ritten'
+      : tab === 'profile'
+        ? 'Profiel'
+        : 'Boeken';
 
   const appHeader = (
     <View style={styles.header}>
@@ -931,22 +1054,49 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           accessibilityLabel="NEXA | taxi"
         />
       </View>
-      <Text style={styles.headerTitle} numberOfLines={1}>
-        {headerTitle}
-      </Text>
+      <View style={styles.headerTitleRow}>
+        {tab === 'rides' && showArchivedRides ? (
+          <Pressable
+            onPress={() => setShowArchivedRides(false)}
+            hitSlop={8}
+            style={styles.headerBackBtn}
+            accessibilityLabel="Terug naar ritten"
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.text} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerBackBtn} />
+        )}
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {headerTitle}
+        </Text>
+        <View style={styles.headerBackBtn} />
+      </View>
     </View>
   );
 
-  const priceBlock = (
+  const activeBannerRide =
+    (live && trackToken && isActiveRidePhase(live.phase)
+      ? {
+          token: trackToken,
+          id: live.id,
+          from: live.pickup_address || pickup?.address || '',
+          to: live.dropoff_address || dropoff?.address || '',
+          phase: live.phase,
+          status_label: live.status_label,
+          at: Date.now(),
+          quoted_price: live.quoted_price,
+        }
+      : guestRides.find((r) => isActiveRidePhase(r.phase))) || null;
+
+  const priceBlock = displayPrice ? (
     <Card>
       <Text style={styles.section}>Rit & prijs</Text>
       <Text style={styles.routeSummary}>{routeSummary}</Text>
-      {quoteBusy && !displayPrice ? (
+      {quoteBusy ? (
         <Text style={styles.meta}>Bezig met berekenen…</Text>
-      ) : displayPrice ? (
-        <Text style={styles.price}>{displayPrice}</Text>
       ) : (
-        <Text style={styles.meta}>Vul ophalen + bestemming in voor een prijs.</Text>
+        <Text style={styles.price}>{displayPrice}</Text>
       )}
       <Text style={styles.meta}>
         {freeNearby > 0
@@ -965,87 +1115,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         <Text style={styles.fieldErrorText}>{fieldErrors.dispatch}</Text>
       ) : null}
     </Card>
-  );
-
-  const liveContent = (
-    <>
-      <View
-        onLayout={(e) => {
-          mapSectionY.current = e.nativeEvent.layout.y;
-        }}
-      >
-        {mapBlock}
-      </View>
-      <ErrorText>{error}</ErrorText>
-
-      <Card>
-        <PhasePill phase={live?.phase} />
-        <Text style={styles.liveTitle}>
-          {live?.phase === 'searching'
-            ? 'We zoeken een taxi in de buurt…'
-            : live?.phase === 'accepted'
-              ? 'Taxi onderweg'
-              : live?.phase === 'awaiting_payment'
-                ? 'Wacht op betaling'
-                : live?.status_label || 'Status'}
-        </Text>
-        {live?.eta_label ? <Text style={styles.meta}>ETA: {live.eta_label}</Text> : null}
-        {live?.driver?.name ? <Text style={styles.meta}>Chauffeur: {live.driver.name}</Text> : null}
-        {live?.vehicle?.label || live?.vehicle?.license_plate ? (
-          <Text style={styles.meta}>
-            Voertuig: {live.vehicle.label || live.vehicle.license_plate}
-          </Text>
-        ) : null}
-        {live?.company?.name ? <Text style={styles.meta}>Centrale: {live.company.name}</Text> : null}
-        {live?.payment_error ? (
-          <Text style={[styles.meta, { color: colors.danger }]}>{live.payment_error}</Text>
-        ) : null}
-      </Card>
-
-      <Card>
-        <Text style={styles.rowLabel}>Van</Text>
-        <Text style={styles.rowValue}>{live?.pickup_address || pickup?.address || '—'}</Text>
-        <Text style={[styles.rowLabel, { marginTop: 12 }]}>Naar</Text>
-        <Text style={styles.rowValue}>{live?.dropoff_address || dropoff?.address || '—'}</Text>
-        {live?.quoted_price != null ? (
-          <>
-            <Text style={[styles.rowLabel, { marginTop: 12 }]}>Prijs</Text>
-            <Text style={styles.rowValue}>
-              € {Number(live.quoted_price).toFixed(2).replace('.', ',')}
-            </Text>
-          </>
-        ) : null}
-      </Card>
-
-      {live?.needs_unaccepted_decision ? (
-        <Card>
-          <Text style={styles.liveTitle}>Nog geen taxi gevonden</Text>
-          <Text style={styles.meta}>
-            Wil je blijven wachten
-            {live.decision_minutes ? ` (tot ca. ${live.decision_deadline_label || '—'})` : ''} of
-            annuleren?
-          </Text>
-          <PrimaryButton title="Blijven wachten" onPress={onWait} loading={busy} />
-          <GhostButton title="Annuleren" onPress={onCancel} />
-        </Card>
-      ) : null}
-
-      {live?.can_retry_payment ? (
-        <PrimaryButton title="Nu betalen" onPress={onPay} loading={busy} />
-      ) : null}
-
-      {live?.can_cancel && !live?.needs_unaccepted_decision ? (
-        <GhostButton title="Rit annuleren" onPress={onCancel} />
-      ) : null}
-
-      {live?.phase === 'cancelled' || live?.phase === 'completed' ? (
-        <PrimaryButton title="Nieuwe rit" onPress={startNewRide} />
-      ) : null}
-    </>
-  );
+  ) : null;
 
   const bookContent = (
     <>
+      {activeBannerRide ? (
+        <ActiveRideBanner
+          ride={activeBannerRide as GuestRide}
+          onPress={() => openRideFollow(activeBannerRide as GuestRide)}
+        />
+      ) : null}
+
       <Card>
         <Field
           label="Ophaaladres"
@@ -1252,6 +1332,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           placeholder="Bijv. bakfiets, hulp bij instappen…"
           multiline
         />
+        <Text style={styles.profileHint}>
+          Deze gegevens kun je ook in je profiel invullen, waarna ze hier automatisch worden
+          ingevuld.
+        </Text>
       </Card>
 
       {error ? <ErrorText>{error}</ErrorText> : null}
@@ -1262,25 +1346,251 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     </>
   );
 
+  const archivedSet = new Set(archivedKeys);
+  const activeRides = guestRides.filter((r) => isActiveRidePhase(r.phase));
+  const pastRides = guestRides.filter((r) => !isActiveRidePhase(r.phase));
+  const visiblePast = pastRides.filter((r) => !archivedSet.has(rideArchiveKey(r)));
+  const archivedPast = pastRides.filter((r) => archivedSet.has(rideArchiveKey(r)));
+
+  function renderRideCard(ride: GuestRide) {
+    const key = rideArchiveKey(ride);
+    const expanded = expandedRideKey === key;
+    const isLiveMatch = !!(live && trackToken === ride.token);
+    const phase = isLiveMatch ? live!.phase : ride.phase;
+    const from = isLiveMatch ? live!.pickup_address || ride.from : ride.from;
+    const to = isLiveMatch ? live!.dropoff_address || ride.to : ride.to;
+    const price =
+      isLiveMatch && live!.quoted_price != null ? live!.quoted_price : ride.quoted_price;
+    const cancelled = phase === 'cancelled';
+    const completed = phase === 'completed';
+    const active = isActiveRidePhase(phase);
+    const canArchive = !active;
+
+    return (
+      <View
+        key={key || ride.token}
+        style={[
+          styles.rideCard,
+          cancelled && styles.rideCardCancelled,
+          phase === 'accepted' && styles.rideCardAccepted,
+        ]}
+      >
+        {cancelled ? (
+          <View style={styles.rideCardStatusBar}>
+            <Text style={styles.rideCardStatusBarText}>Geannuleerd</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.rideCardBody}>
+          {cancelled && live?.cancellation_message ? (
+            <Text style={styles.cancelReasonNotice}>{live.cancellation_message}</Text>
+          ) : null}
+          <View style={styles.rideCardTop}>
+            <Pressable
+              onPress={() => setExpandedRideKey(expanded ? null : key)}
+              style={{ flex: 1, minWidth: 0 }}
+              accessibilityRole="button"
+              accessibilityState={{ expanded }}
+            >
+              {!cancelled ? <PhasePill phase={phase} /> : null}
+            </Pressable>
+            <View style={styles.rideCardTopRight}>
+              {price != null ? (
+                <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
+              ) : null}
+              {canArchive ? (
+                <Pressable
+                  onPress={() =>
+                    toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
+                  }
+                  hitSlop={8}
+                  style={styles.archiveIconBtn}
+                  accessibilityLabel={
+                    showArchivedRides ? 'Terugzetten uit archief' : 'Archiveren'
+                  }
+                >
+                  <Ionicons
+                    name={showArchivedRides ? 'arrow-up-circle-outline' : 'archive-outline'}
+                    size={20}
+                    color={colors.muted}
+                  />
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => setExpandedRideKey(expanded ? null : key)}
+                hitSlop={8}
+                accessibilityLabel={expanded ? 'Inklappen' : 'Uitklappen'}
+              >
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.muted}
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={() => setExpandedRideKey(expanded ? null : key)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+          >
+            {!cancelled ? (
+              phase === 'searching' ? (
+                <SearchingTaxiTitle />
+              ) : (
+                <Text style={styles.liveTitle}>
+                  {phase === 'accepted'
+                    ? 'Taxi onderweg'
+                    : phase === 'awaiting_payment'
+                      ? 'Wacht op betaling'
+                      : phaseLabel(phase, ride.status_label)}
+                </Text>
+              )
+            ) : null}
+
+            <Text style={styles.rideRouteLine} numberOfLines={expanded ? 4 : 2}>
+              {shortAddress(from)} → {shortAddress(to)}
+            </Text>
+            <View style={styles.rideCardFoot}>
+              <Text style={styles.meta}>{formatRideWhen(ride.at) || '—'}</Text>
+              {!expanded && price != null ? (
+                <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
+              ) : null}
+            </View>
+          </Pressable>
+        </View>
+
+        {expanded ? (
+          <View style={styles.rideCardExpanded}>
+            <Text style={styles.rowLabel}>Van</Text>
+            <Text style={styles.rowValue}>{from || '—'}</Text>
+            <Text style={[styles.rowLabel, { marginTop: 10 }]}>Naar</Text>
+            <Text style={styles.rowValue}>{to || '—'}</Text>
+            {price != null ? (
+              <>
+                <Text style={[styles.rowLabel, { marginTop: 10 }]}>Prijs</Text>
+                <Text style={styles.rowValue}>{formatEuroNl(Number(price))}</Text>
+              </>
+            ) : null}
+
+            {isLiveMatch && live ? (
+              <>
+                {live.eta_label ? <Text style={styles.meta}>ETA: {live.eta_label}</Text> : null}
+                {live.driver?.name ? (
+                  <Text style={styles.meta}>Chauffeur: {live.driver.name}</Text>
+                ) : null}
+                {live.vehicle?.label || live.vehicle?.license_plate ? (
+                  <Text style={styles.meta}>
+                    Voertuig: {live.vehicle.label || live.vehicle.license_plate}
+                  </Text>
+                ) : null}
+                {live.company?.name ? (
+                  <Text style={styles.meta}>Centrale: {live.company.name}</Text>
+                ) : null}
+                {live.payment_error ? (
+                  <Text style={[styles.meta, { color: colors.danger }]}>{live.payment_error}</Text>
+                ) : null}
+
+                {live.needs_unaccepted_decision ? (
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    <Text style={styles.meta}>
+                      Wil je blijven wachten
+                      {live.decision_minutes
+                        ? ` (tot ca. ${live.decision_deadline_label || '—'})`
+                        : ''}{' '}
+                      of annuleren?
+                    </Text>
+                    <PrimaryButton title="Blijven wachten" onPress={onWait} loading={busy} />
+                    <GhostButton title="Annuleren" onPress={requestCancel} danger />
+                  </View>
+                ) : null}
+
+                {live.can_retry_payment ? (
+                  <View style={{ marginTop: 12 }}>
+                    <PrimaryButton title="Nu betalen" onPress={onPay} loading={busy} />
+                  </View>
+                ) : null}
+
+                {live.can_cancel && !live.needs_unaccepted_decision ? (
+                  <View style={{ marginTop: 8 }}>
+                    <GhostButton title="Rit annuleren" onPress={requestCancel} danger />
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+
+            {(cancelled || completed) && (
+              <View style={{ marginTop: 12 }}>
+                <PrimaryButton title="Nieuwe rit" onPress={startNewRide} />
+              </View>
+            )}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   const ridesContent = (
     <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
       <ErrorText>{error}</ErrorText>
-      {live && step === 'live' ? (
-        <Card>
-          <PhasePill phase={live.phase} />
-          <Text style={styles.liveTitle}>{live.status_label || 'Actieve rit'}</Text>
-          <Text style={styles.meta}>{live.pickup_address || pickup?.address || '—'}</Text>
-          <Text style={styles.meta}>→ {live.dropoff_address || dropoff?.address || '—'}</Text>
-          <PrimaryButton title="Open live rit" onPress={() => setTab('book')} />
-        </Card>
-      ) : (
+
+      {showArchivedRides ? (
+        archivedPast.length === 0 ? (
+          <Card>
+            <Text style={styles.meta}>
+              Gearchiveerde ritten verschijnen hier. Tik op het archieficoon bij een eerdere rit om
+              die te bewaren.
+            </Text>
+          </Card>
+        ) : (
+          <>
+            <Text style={styles.ridesSection}>Gearchiveerde ritten</Text>
+            {archivedPast.map(renderRideCard)}
+          </>
+        )
+      ) : activeRides.length === 0 &&
+        visiblePast.length === 0 &&
+        archivedPast.length === 0 ? (
         <Card>
           <Text style={styles.meta}>
-            Geen actieve rit. Boek een taxi via het tabblad Boeken. Eerdere ritten zie je na
-            inloggen.
+            Nog geen ritten. Boek een taxi via Boeken; openstaande en eerdere ritten zie je hier.
           </Text>
           <PrimaryButton title="Taxi boeken" onPress={() => setTab('book')} />
         </Card>
+      ) : (
+        <>
+          {activeRides.length > 0 ? (
+            <>
+              <Text style={styles.ridesSection}>Openstaand</Text>
+              {activeRides.map(renderRideCard)}
+            </>
+          ) : null}
+          {visiblePast.length > 0 ? (
+            <>
+              <Text style={styles.ridesSection}>
+                {activeRides.length ? 'Eerdere ritten' : 'Alle ritten'}
+              </Text>
+              {visiblePast.map(renderRideCard)}
+            </>
+          ) : null}
+          {archivedPast.length > 0 ? (
+            <Pressable
+              style={styles.archiveLink}
+              onPress={() => setShowArchivedRides(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Archief, ${archivedPast.length} ${
+                archivedPast.length === 1 ? 'rit' : 'ritten'
+              }. Bekijken`}
+            >
+              <Text style={styles.archiveLinkMeta}>
+                Archief • {archivedPast.length}{' '}
+                {archivedPast.length === 1 ? 'rit' : 'ritten'}
+              </Text>
+              <Text style={styles.archiveLinkCta}>Bekijken →</Text>
+            </Pressable>
+          ) : null}
+        </>
       )}
     </ScrollView>
   );
@@ -1340,6 +1650,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     </ScrollView>
   );
 
+  const refundDays = Math.max(1, Number(live?.refund_business_days) || 10);
+
   return (
     <Screen style={styles.shell}>
       {appHeader}
@@ -1359,7 +1671,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 nestedScrollEnabled
                 removeClippedSubviews={false}
               >
-                {step === 'live' ? liveContent : bookContent}
+                {bookContent}
               </ScrollView>
             )}
       </View>
@@ -1370,17 +1682,232 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           AsyncStorage.setItem(TAB_KEY, key).catch(() => undefined);
           setError(null);
           setProfileSaved(false);
+          setShowArchivedRides(false);
           Keyboard.dismiss();
+          if (key === 'rides' && activeBannerRide) {
+            setExpandedRideKey(rideArchiveKey(activeBannerRide));
+          }
         }}
-        ridesBadge={live && step === 'live' ? 1 : 0}
+        ridesBadge={
+          guestRides.filter((r) => isRidesTabBadgePhase(r.phase)).length ||
+          (hasActiveRide && isRidesTabBadgePhase(live?.phase) ? 1 : 0)
+        }
       />
+
+      <Modal
+        visible={cancelConfirmOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelConfirmOpen(false)}
+      >
+        <View style={styles.confirmOverlay}>
+          {/* Neutrale slate-sluier zoals admin (bg-slate-900/45). Geen BlurView: die kleurt rood mee
+              van knoppen/foutbalken eronder. */}
+          <Pressable
+            style={styles.confirmBackdrop}
+            onPress={() => setCancelConfirmOpen(false)}
+            accessibilityLabel="Sluiten"
+          />
+          <View style={styles.confirmBanner}>
+            <Text style={styles.confirmTitle}>Rit annuleren?</Text>
+            <Text style={styles.confirmText}>
+              Weet je zeker dat je deze rit wilt annuleren? Als je vooraf hebt betaald, wordt het
+              bedrag teruggestort (doorgaans binnen {refundDays} werkdagen).
+            </Text>
+            <View style={styles.confirmActions}>
+              <Pressable
+                onPress={() => setCancelConfirmOpen(false)}
+                style={styles.confirmSecondaryBtn}
+              >
+                <Text style={styles.confirmSecondaryText}>Nee, behouden</Text>
+              </Pressable>
+              <Pressable onPress={confirmCancel} style={styles.confirmDangerBtn}>
+                <Text style={styles.confirmDangerText}>Ja, annuleren</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
+  );
+}
+
+function ActiveRideBanner({
+  ride,
+  onPress,
+}: {
+  ride: GuestRide;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const shimmer = useRef(new Animated.Value(0)).current;
+  const isSearching = ride.phase === 'searching' || ride.phase === 'awaiting_payment';
+
+  useEffect(() => {
+    if (!isSearching) {
+      shimmer.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 2200,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 2200,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isSearching, shimmer]);
+
+  const washOpacity = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.08, 0.22],
+  });
+
+  return (
+    <Pressable
+      style={[styles.activeBanner, ride.phase === 'accepted' && styles.activeBannerAccepted]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Openstaande rit volgen"
+    >
+      {isSearching ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.activeBannerWash, { opacity: washOpacity }]}
+        />
+      ) : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.activeBannerTitle}>
+          {ride.phase === 'accepted' ? 'Taxi onderweg' : 'Openstaande rit'}
+        </Text>
+        <Text style={styles.activeBannerMeta} numberOfLines={1}>
+          {shortAddress(ride.from)} → {shortAddress(ride.to)}
+        </Text>
+      </View>
+      <Text style={styles.activeBannerCta}>Volgen</Text>
+    </Pressable>
+  );
+}
+
+const SEARCHING_MESSAGES = [
+  'We zoeken een taxi',
+  'Wacht op bevestiging',
+] as const;
+
+/** AI-zoekknop: blauw → turkoois → groen → terug */
+const AI_SEARCH_COLORS = ['#2563EB', '#06B6D4', '#14B8A6', '#22C55E', '#14B8A6', '#06B6D4', '#2563EB'] as const;
+
+function StatusDot({ color }: { color: string }) {
+  return (
+    <View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        backgroundColor: color,
+        marginRight: 8,
+      }}
+      accessibilityElementsHidden
+    />
+  );
+}
+
+function SearchingTaxiTitle() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [typed, setTyped] = useState('');
+  const [dots, setDots] = useState(0);
+  const [holding, setHolding] = useState(false);
+
+  useEffect(() => {
+    const full = SEARCHING_MESSAGES[messageIndex];
+    setTyped('');
+    setDots(0);
+    setHolding(false);
+
+    let i = 0;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let dotsTimer: ReturnType<typeof setInterval> | null = null;
+    const typeTimer = setInterval(() => {
+      i += 1;
+      setTyped(full.slice(0, i));
+      if (i >= full.length) {
+        clearInterval(typeTimer);
+        setHolding(true);
+        setDots(1);
+        dotsTimer = setInterval(() => {
+          setDots((n) => (n >= 3 ? 1 : n + 1));
+        }, 420);
+        holdTimer = setTimeout(() => {
+          if (dotsTimer) clearInterval(dotsTimer);
+          setHolding(false);
+          setDots(0);
+          setMessageIndex((n) => (n + 1) % SEARCHING_MESSAGES.length);
+        }, 3000);
+      }
+    }, 38);
+
+    return () => {
+      clearInterval(typeTimer);
+      if (dotsTimer) clearInterval(dotsTimer);
+      if (holdTimer) clearTimeout(holdTimer);
+    };
+  }, [messageIndex]);
+
+  return (
+    <View style={styles.searchingTitleRow}>
+      <StatusDot color={colors.amber} />
+      <Text
+        style={styles.searchingTitle}
+        accessibilityLabel={`${SEARCHING_MESSAGES[0]}. ${SEARCHING_MESSAGES[1]}.`}
+      >
+        {typed}
+        {holding ? (
+          <Text style={styles.searchingDots}>
+            {'.'.repeat(dots)}
+            {'\u00A0'.repeat(Math.max(0, 3 - dots))}
+          </Text>
+        ) : null}
+      </Text>
+    </View>
   );
 }
 
 function PhasePill({ phase }: { phase?: string }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const hue = useRef(new Animated.Value(0)).current;
+  const searching = phase === 'searching';
+
+  useEffect(() => {
+    if (!searching) {
+      hue.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.timing(hue, {
+        toValue: 1,
+        duration: 3600,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [searching, hue]);
+
   const label =
     phase === 'searching'
       ? 'Zoeken'
@@ -1401,10 +1928,32 @@ function PhasePill({ phase }: { phase?: string }) {
         : phase === 'awaiting_payment'
           ? colors.amber
           : colors.primary;
+
+  if (!searching) {
+    return (
+      <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
+        <Text style={[styles.pillText, { color }]}>{label}</Text>
+      </View>
+    );
+  }
+
+  const aiColor = hue.interpolate({
+    inputRange: [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6, 1],
+    outputRange: [...AI_SEARCH_COLORS],
+  });
+
   return (
-    <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
-      <Text style={[styles.pillText, { color }]}>{label}</Text>
-    </View>
+    <Animated.View
+      style={[
+        styles.pill,
+        {
+          borderColor: aiColor,
+          backgroundColor: 'rgba(37, 99, 235, 0.12)',
+        },
+      ]}
+    >
+      <Animated.Text style={[styles.pillText, { color: aiColor }]}>{label}</Animated.Text>
+    </Animated.View>
   );
 }
 
@@ -1446,14 +1995,180 @@ function makeStyles(colors: ColorPalette) {
       width: 160,
       height: 40,
     },
+    headerTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingTop: 4,
+      paddingBottom: 6,
+    },
+    headerBackBtn: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     headerTitle: {
+      flex: 1,
       textAlign: 'center',
       color: colors.text,
       fontSize: 18,
       fontWeight: '700',
-      paddingHorizontal: 20,
-      paddingTop: 4,
-      paddingBottom: 6,
+    },
+    activeBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: 'rgba(34,197,94,0.14)',
+      borderWidth: 1,
+      borderColor: 'rgba(34,197,94,0.45)',
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      marginBottom: 12,
+      overflow: 'hidden',
+    },
+    activeBannerAccepted: {
+      backgroundColor: 'rgba(34,197,94,0.2)',
+    },
+    activeBannerWash: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: 'rgba(74,222,128,0.55)',
+    },
+    activeBannerTitle: {
+      color: colors.success,
+      fontSize: 15,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    activeBannerMeta: {
+      color: colors.muted,
+      fontSize: 13,
+    },
+    activeBannerCta: {
+      color: colors.success,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    ridesSection: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      marginTop: 8,
+      marginBottom: 8,
+    },
+    rideCard: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 16,
+      backgroundColor: colors.card,
+      marginBottom: 12,
+      overflow: 'hidden',
+    },
+    rideCardCancelled: {
+      borderColor: 'rgba(248,113,113,0.45)',
+    },
+    rideCardAccepted: {
+      borderColor: 'rgba(34,197,94,0.4)',
+    },
+    rideCardStatusBar: {
+      backgroundColor: colors.danger,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    rideCardStatusBarText: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    cancelReasonNotice: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+      lineHeight: 20,
+      marginBottom: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: 'rgba(248,113,113,0.12)',
+      overflow: 'hidden',
+    },
+    rideCardBody: {
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 12,
+    },
+    rideCardTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 8,
+    },
+    rideCardTopRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginLeft: 'auto',
+    },
+    rideCardAmount: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    archiveIconBtn: {
+      padding: 2,
+    },
+    rideRouteLine: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    rideCardFoot: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    rideCardExpanded: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 14,
+    },
+    archiveLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      marginTop: 6,
+      marginBottom: 4,
+      backgroundColor: 'transparent',
+    },
+    archiveLinkMeta: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '700',
+      flexShrink: 1,
+    },
+    archiveLinkCta: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
     },
     mapWrap: {
       height: 240,
@@ -1644,6 +2359,12 @@ function makeStyles(colors: ColorPalette) {
       lineHeight: 20,
       marginTop: 6,
     },
+    profileHint: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 10,
+    },
     price: {
       color: colors.text,
       fontSize: 28,
@@ -1709,9 +2430,95 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 18,
       fontWeight: '700',
       marginTop: 10,
+      marginBottom: 8,
+    },
+    searchingTitle: {
+      color: colors.amber,
+      fontSize: 15,
+      fontWeight: '700',
+      flexShrink: 1,
+    },
+    searchingDots: {
+      color: colors.amber,
+      fontSize: 15,
+      fontWeight: '700',
+      letterSpacing: 1,
+    },
+    confirmOverlay: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+    },
+    confirmBackdrop: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      // Bijna dekkend slate — achtergrond weg, popup valt op
+      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    },
+    confirmBanner: {
+      width: '100%',
+      maxWidth: 400,
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 18,
+      paddingTop: 18,
+      paddingBottom: 16,
+    },
+    confirmTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 8,
+    },
+    confirmText: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 21,
+      marginBottom: 16,
+    },
+    confirmActions: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    confirmSecondaryBtn: {
+      flex: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 12,
+      alignItems: 'center',
+      backgroundColor: 'transparent',
+    },
+    confirmSecondaryText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    confirmDangerBtn: {
+      flex: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      paddingVertical: 12,
+      alignItems: 'center',
+      backgroundColor: 'transparent',
+    },
+    confirmDangerText: {
+      color: colors.danger,
+      fontSize: 14,
+      fontWeight: '700',
     },
     pill: {
       alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
       borderWidth: 1,
       borderRadius: 999,
       paddingHorizontal: 10,
@@ -1720,6 +2527,12 @@ function makeStyles(colors: ColorPalette) {
     pillText: {
       fontSize: 12,
       fontWeight: '700',
+    },
+    searchingTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 10,
+      marginBottom: 12,
     },
     payToggle: {
       flexDirection: 'row',

@@ -58,6 +58,13 @@
       "expo-secure-store",
       "react-native-maps",
       [
+        "expo-notifications",
+        {
+          "color": "#EF4444",
+          "defaultChannel": "driver-offers"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Nexa Taxi heeft doorlopende locatie nodig zodat marketplace-klanten de dichtstbijzijnde taxi kunnen vinden.",
@@ -65,6 +72,13 @@
           "locationWhenInUsePermission": "Nexa Taxi gebruikt je locatie voor ritten en ophaaladressen.",
           "isAndroidBackgroundLocationEnabled": true,
           "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ]
     ],

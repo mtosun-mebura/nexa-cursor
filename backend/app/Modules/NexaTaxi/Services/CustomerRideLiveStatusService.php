@@ -243,6 +243,12 @@ class CustomerRideLiveStatusService
             'payment_failure_status' => $paymentFailureStatus,
             'payment_error' => $paymentError,
             'checkout_url' => $checkoutUrl,
+            'cancellation_message' => $status === RideRequest::STATUS_CANCELLED
+                ? $cancellation->cancellationMessageForCustomer($ride)
+                : null,
+            'cancellation_reason' => $status === RideRequest::STATUS_CANCELLED
+                ? (($cancellation->cancellationPayload($ride)['reason'] ?? null) ?: null)
+                : null,
             'pickup_address' => (string) ($ride->pickup_address ?? ''),
             'dropoff_address' => (string) ($ride->dropoff_address ?? ''),
             'pickup_lat' => $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null,
