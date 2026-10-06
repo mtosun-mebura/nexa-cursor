@@ -11,6 +11,30 @@ export class ApiError extends Error {
   }
 }
 
+type UnauthorizedHandler = () => void | Promise<void>;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+let unauthorizedNotified = false;
+
+/** Wordt aangeroepen bij 401 op een request met Bearer-token (sessie verlopen). */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  unauthorizedHandler = handler;
+  if (handler) {
+    unauthorizedNotified = false;
+  }
+}
+
+function notifyUnauthorized() {
+  if (unauthorizedNotified || !unauthorizedHandler) return;
+  unauthorizedNotified = true;
+  Promise.resolve(unauthorizedHandler()).finally(() => {
+    // Na logout mag een volgende login weer 401's melden.
+    setTimeout(() => {
+      unauthorizedNotified = false;
+    }, 1500);
+  });
+}
+
 export async function apiRequest<T>(
   path: string,
   options: {
@@ -36,6 +60,9 @@ export async function apiRequest<T>(
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 401 && options.token) {
+      notifyUnauthorized();
+    }
     throw new ApiError(
       (data as { message?: string }).message || `HTTP ${res.status}`,
       res.status,

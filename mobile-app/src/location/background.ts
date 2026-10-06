@@ -65,7 +65,7 @@ export async function startBackgroundLocation(token: string, vehicleId?: number 
   const background = await Location.requestBackgroundPermissionsAsync();
   if (background.status !== 'granted') {
     throw new Error(
-      'Kies Locatie → Altijd. Marketplace heeft achtergrondlocatie nodig om klanten te koppelen.'
+      'Kies Locatie → Altijd. Marktplaats heeft achtergrondlocatie nodig om klanten te koppelen.'
     );
   }
 

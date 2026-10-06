@@ -3,9 +3,9 @@
 Dit is **geen website in een WebView**. React Native / Expo met eigen schermen:
 
 - Native login (e-mail + wachtwoord of code) — geen browser, geen URL-balk
-- Rollen uit de API → chauffeur / contract / marketplace / network
+- Rollen uit de API → chauffeur / contract / marktplaats / netwerk
 - Chauffeur: online-toggle, inbox, accepteren/weigeren
-- Achtergrondlocatie via iOS/Android Location services (marketplace-matching)
+- Achtergrondlocatie via iOS/Android Location services (marktplaats-matching)
 
 De oude Capacitor-WebView ligt in `../mobile-webview-archive` (niet gebruiken).
 
@@ -51,7 +51,7 @@ open ios/NexaTaxi.xcworkspace
 
 In Xcode: Team kiezen → Run op iPhone → Product → Archive → TestFlight.
 
-Locatie: kies **Altijd** bij de systeemvraag (nodig voor marketplace op de achtergrond).
+Locatie: kies **Altijd** bij de systeemvraag (nodig voor marktplaats op de achtergrond).
 
 ### Android → APK/AAB
 

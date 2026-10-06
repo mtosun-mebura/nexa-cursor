@@ -1,8 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DispatchOffer, DispatchOfferRide, DriverActiveRide } from '../api/driver';
-import { isMarketplaceOffer, isMarketplaceRide } from '../api/driver';
+import {
+  driverPriceDisplay,
+  driverShareFromFee,
+  isMarketplaceOffer,
+  isMarketplaceRide,
+  isRidePaid,
+  rideChannelKind,
+  rideChannelLabel,
+  rideRequiresPaymentBeforeComplete,
+} from '../api/driver';
 import { ColorPalette } from '../config';
 import { formatEuroNl } from '../geo/route';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
@@ -118,7 +127,7 @@ function baggageLines(ride?: DispatchOfferRide | null): string[] {
     .filter(Boolean);
 }
 
-type TripVariant = 'active' | 'scheduled' | 'overdue';
+type TripVariant = 'active' | 'scheduled' | 'overdue' | 'completed';
 
 type OfferModeProps = {
   offer: DispatchOffer;
@@ -132,8 +141,12 @@ type OfferModeProps = {
   onAccept: () => void;
   onDecline: () => void;
   onStart?: never;
+  onComplete?: never;
   onOpenMaps?: never;
   onCancel?: never;
+  onArchive?: never;
+  onProposePickup?: never;
+  onRelease?: never;
 };
 
 type TripModeProps = {
@@ -148,8 +161,13 @@ type TripModeProps = {
   onAccept?: never;
   onDecline?: never;
   onStart?: () => void;
+  onComplete?: () => void;
   onOpenMaps?: () => void;
   onCancel?: () => void;
+  onArchive?: () => void;
+  archived?: boolean;
+  onProposePickup?: () => void;
+  onRelease?: () => void;
 };
 
 export type DriverOfferCardProps = OfferModeProps | TripModeProps;
@@ -203,6 +221,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     }
     setHighlightActive(true);
     highlightOpacity.setValue(0);
+    cardExpandedByKey.set(expandKey, true);
+    setExpanded(true);
     const flash = (to: number) =>
       Animated.timing(highlightOpacity, {
         toValue: to,
@@ -224,7 +244,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     return () => {
       anim.stop();
     };
-  }, [highlighted, highlightOpacity]);
+  }, [highlighted, highlightOpacity, expandKey]);
 
   const marketplace = isTrip
     ? isMarketplaceRide(props.ride)
@@ -232,7 +252,6 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       !!ride?.fee_breakdown?.is_marketplace ||
       !!ride?.is_nexa_suite;
   const network = !!ride?.is_network_ride || !!ride?.fee_breakdown?.is_network;
-  const ownCustomer = !marketplace && !network;
 
   const pickupOverdue = isTrip
     ? tripVariant === 'overdue'
@@ -242,31 +261,48 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
         offer?.is_waiting ||
         ride?.is_scheduled_overdue
       );
-  // Marketplace: nooit overdue-chrome. Eigen klant wel.
-  const showOverdueUi = pickupOverdue && ownCustomer;
+  // Eigen tenant + network: overdue-acties. Marktplaats niet.
+  const showOverdueUi = pickupOverdue && !marketplace;
 
   const pickup = splitAddress(ride?.pickup_address);
   const dropoff = splitAddress(ride?.dropoff_address);
   const pickupCompact = compactAddress(ride?.pickup_address);
   const dropoffCompact = compactAddress(ride?.dropoff_address);
-  const price =
-    ride?.quoted_price != null && Number.isFinite(Number(ride.quoted_price))
-      ? formatEuroNl(Number(ride.quoted_price))
-      : null;
   const distance = formatDistanceKm(ride?.distance_km);
   const duration = formatDurationMins(ride);
   const passengers = Number(ride?.passengers || 0);
   const passengersLabel = passengers > 0 ? String(passengers) : null;
   const phone = String(ride?.customer_phone || '').trim();
-  const kindLabel = network ? 'Network' : marketplace ? 'NEXA Suite' : 'Taxi';
+  const kind = rideChannelKind(ride);
+  const kindLabel = rideChannelLabel(ride);
+  const kindBadgeStyle =
+    kind === 'network'
+      ? styles.badgeNetwork
+      : kind === 'contract'
+        ? styles.badgeContract
+        : kind === 'marketplace'
+          ? styles.badgeMarketplace
+          : styles.badgeTaxi;
+  const kindTextStyle =
+    kind === 'network'
+      ? styles.badgeNetworkText
+      : kind === 'contract'
+        ? styles.badgeContractText
+        : kind === 'marketplace'
+          ? styles.badgeMarketplaceText
+          : styles.badgeTaxiText;
 
   const isAccepted =
     isTrip &&
     !showOverdueUi &&
     tripVariant !== 'active' &&
+    tripVariant !== 'completed' &&
     (ride?.status === 'accepted' || tripVariant === 'scheduled');
+  const isCompletedTrip = isTrip && (tripVariant === 'completed' || ride?.status === 'completed');
   const statusBadgeLabel = isTrip
-    ? tripVariant === 'active'
+    ? isCompletedTrip
+      ? 'Afgerond'
+      : tripVariant === 'active'
       ? 'Onderweg'
       : showOverdueUi
         ? 'Ophaalmoment verlopen'
@@ -275,29 +311,49 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           : 'Gepland'
     : null;
 
-  const primaryLabel = showOverdueUi && !isTrip ? 'Nieuw tijdstip voorstellen' : 'Accepteren';
-  const secondaryLabel = showOverdueUi && !isTrip ? 'Vrijgeven' : 'Weigeren';
+  const primaryLabel = 'Accepteren';
+  const secondaryLabel = 'Weigeren';
   const baggage = baggageLines(ride);
   const showBaggage = baggage.length > 0 && !(baggage.length === 1 && baggage[0] === 'Geen');
   const showMetrics = !!(distance || duration || passengersLabel);
   const showStats = showMetrics || showBaggage;
   const showOfferSecondary = !isTrip && !marketplace;
-  const canStart = isTrip && ride?.status === 'accepted' && !!props.onStart;
-  const canCancel = isTrip && !!ride?.can_cancel_with_reason && !!props.onCancel;
+  const proposalStatus = String(ride?.pickup_proposal?.status || '');
+  const canProposePickup = isTrip && showOverdueUi && !!props.onProposePickup && !isCompletedTrip;
+  const canRelease = isTrip && showOverdueUi && !!props.onRelease && !isCompletedTrip;
+  const canStart =
+    isTrip &&
+    ride?.status === 'accepted' &&
+    !!props.onStart &&
+    (!showOverdueUi || proposalStatus === 'accepted');
+  const canComplete = isTrip && tripVariant === 'active' && !canStart && !!props.onComplete;
+  const canCancel = isTrip && !!ride?.can_cancel_with_reason && !!props.onCancel && !isCompletedTrip;
+  const canArchive = isCompletedTrip && !!props.onArchive;
+  const fee = ride?.fee_breakdown;
+  const showFee =
+    !!fee &&
+    (fee.customer_pays != null ||
+      !!fee.owner_name ||
+      !!fee.executor_name ||
+      fee.nexa_fee != null);
+  const driverShare = driverShareFromFee(fee);
+  const prices = driverPriceDisplay({ quotedPrice: ride?.quoted_price, fee });
+  const primaryPrice = prices.primary != null ? formatEuroNl(prices.primary) : null;
+  const customerPrice = prices.customerPays != null ? formatEuroNl(prices.customerPays) : null;
   const cardBorder = accent.border;
 
   return (
     <View
       style={[
         styles.card,
-        { borderColor: showOverdueUi ? OVERDUE_RED : cardBorder },
+        { borderColor: showOverdueUi ? OVERDUE_RED : isCompletedTrip ? colors.muted : cardBorder },
         showOverdueUi && styles.cardOverdue,
+        isCompletedTrip && styles.cardCompleted,
       ]}
     >
       {highlightActive ? (
         <Animated.View
-          pointerEvents="none"
-          style={[styles.highlightRing, { opacity: highlightOpacity }]}
+          style={[styles.highlightRing, { opacity: highlightOpacity, pointerEvents: 'none' }]}
         />
       ) : null}
       <View
@@ -327,18 +383,25 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <Text style={styles.badgeDangerText}>Ophaalmoment verlopen</Text>
               </View>
             ) : null}
-            <View style={[styles.badge, network ? styles.badgeNetwork : styles.badgeTaxi]}>
-              <Text style={network ? styles.badgeNetworkText : styles.badgeTaxiText}>
+            <View style={[styles.badge, kindBadgeStyle, { maxWidth: '78%' }]}>
+              <Text style={kindTextStyle} numberOfLines={1}>
                 {kindLabel}
               </Text>
             </View>
+            {isTrip && isRidePaid(ride) && kind !== 'contract' ? (
+              <View style={[styles.badge, styles.badgeSuccess]}>
+                <Text style={styles.badgeSuccessText}>Betaald</Text>
+              </View>
+            ) : null}
             {statusBadgeLabel ? (
               <View
                 style={[
                   styles.badge,
                   showOverdueUi
                     ? styles.badgeDanger
-                    : isAccepted
+                    : isCompletedTrip
+                      ? styles.badgeNeutral
+                      : isAccepted
                       ? styles.badgeSuccess
                       : tripVariant === 'active'
                         ? styles.badgeActive
@@ -350,7 +413,9 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                   style={
                     showOverdueUi
                       ? styles.badgeDangerText
-                      : isAccepted
+                      : isCompletedTrip
+                        ? styles.badgeNeutralText
+                        : isAccepted
                         ? styles.badgeSuccessText
                         : tripVariant === 'active'
                           ? styles.badgeActiveText
@@ -386,7 +451,14 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           ) : null}
         </View>
         <View style={styles.headerRight}>
-          {!expanded && price ? <Text style={styles.collapsedPrice}>{price}</Text> : null}
+          {!expanded && primaryPrice ? (
+            <View style={styles.collapsedPriceCol}>
+              <Text style={styles.collapsedPrice}>{primaryPrice}</Text>
+              {customerPrice ? (
+                <Text style={styles.collapsedCustomerPays}>{customerPrice}</Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.chevron}>
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -443,13 +515,50 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 </Pressable>
               ) : null}
             </View>
-            {price ? (
+            {primaryPrice ? (
               <View style={styles.priceBlock}>
-                <Text style={styles.priceLabel}>Prijs</Text>
-                <Text style={styles.price}>{price}</Text>
+                <Text style={styles.priceLabel}>{customerPrice ? 'Jij ontvangt' : 'Prijs'}</Text>
+                <Text style={styles.price}>{primaryPrice}</Text>
+                {customerPrice ? (
+                  <Text style={styles.priceCustomerPays}>{customerPrice}</Text>
+                ) : null}
               </View>
             ) : null}
           </View>
+
+          {showFee && fee ? (
+            <View style={styles.feeBox} accessibilityLabel="Fee-splitsing">
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>Klant betaalt</Text>
+                <Text style={styles.feeValue}>
+                  {fee.customer_pays != null ? formatEuroNl(Number(fee.customer_pays)) : '—'}
+                </Text>
+              </View>
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>Eigenaar</Text>
+                <Text style={styles.feeValue}>{fee.owner_name || '—'}</Text>
+              </View>
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>Uitvoerder</Text>
+                <Text style={styles.feeValue}>{fee.executor_name || '—'}</Text>
+              </View>
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>NEXA fee</Text>
+                <Text style={styles.feeValue}>
+                  {fee.nexa_fee != null ? formatEuroNl(Number(fee.nexa_fee)) : '—'}
+                  {fee.nexa_fee_percent != null ? (
+                    <Text style={styles.feePct}>{` (${fee.nexa_fee_percent}%)`}</Text>
+                  ) : null}
+                </Text>
+              </View>
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>Chauffeur</Text>
+                <Text style={styles.feeValue}>
+                  {driverShare != null ? formatEuroNl(driverShare) : '—'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {showStats ? (
             <View style={styles.stats}>
@@ -504,6 +613,37 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       <View style={[styles.actions, !expanded && styles.actionsCollapsed]}>
         {isTrip ? (
           <>
+            {isCompletedTrip ? (
+              <View style={styles.doneBanner} accessibilityRole="text">
+                <View style={styles.doneBannerDot} />
+                <View style={styles.activeBannerCopy}>
+                  <Text style={styles.doneBannerTitle}>Rit is afgerond</Text>
+                  <Text style={styles.activeBannerText}>Deze rit is voltooid.</Text>
+                </View>
+              </View>
+            ) : null}
+            {showOverdueUi && proposalStatus === 'pending' ? (
+              <View style={styles.activeBanner} accessibilityRole="text">
+                <View style={styles.activeBannerDot} />
+                <View style={styles.activeBannerCopy}>
+                  <Text style={styles.activeBannerTitle}>Wacht op klant</Text>
+                  <Text style={styles.activeBannerText}>
+                    Nieuw ophaalmoment is voorgesteld. De klant moet dit nog goedkeuren.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+            {canComplete ? (
+              <View style={styles.activeBanner} accessibilityRole="text">
+                <View style={styles.activeBannerDot} />
+                <View style={styles.activeBannerCopy}>
+                  <Text style={styles.activeBannerTitle}>Rit is actief</Text>
+                  <Text style={styles.activeBannerText}>
+                    Klant is onderweg naar de bestemming.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
             {canCancel ? (
               <Pressable
                 style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
@@ -513,7 +653,27 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <Text style={styles.btnGhostText}>Annuleren</Text>
               </Pressable>
             ) : null}
-            {props.onOpenMaps ? (
+            {canProposePickup ? (
+              <Pressable
+                style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onProposePickup}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  {proposalStatus === 'pending' ? 'Opnieuw voorstellen' : 'Nieuw tijdstip voorstellen'}
+                </Text>
+              </Pressable>
+            ) : null}
+            {canRelease ? (
+              <Pressable
+                style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onRelease}
+              >
+                <Text style={styles.btnGhostText}>Vrijgeven</Text>
+              </Pressable>
+            ) : null}
+            {props.onOpenMaps && !isCompletedTrip ? (
               <Pressable
                 style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
                 disabled={busy}
@@ -533,17 +693,34 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             ) : null}
             {canStart ? (
               <Pressable
-                style={[styles.btn, styles.btnPrimary, busy && styles.btnDisabled]}
+                style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
                 disabled={busy}
                 onPress={props.onStart}
               >
                 <Text style={styles.btnPrimaryText}>Klant opgehaald rit starten</Text>
               </Pressable>
             ) : null}
-            {tripVariant === 'active' && !canStart ? (
-              <View style={[styles.btn, styles.btnPrimary, styles.btnStatic]}>
-                <Text style={styles.btnPrimaryText}>Actieve rit</Text>
-              </View>
+            {canComplete ? (
+              <Pressable
+                style={[styles.btn, styles.btnPrimary, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onComplete}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  {rideRequiresPaymentBeforeComplete(ride) ? 'Betalen' : 'Rit afronden'}
+                </Text>
+              </Pressable>
+            ) : null}
+            {canArchive ? (
+              <Pressable
+                style={[styles.btn, styles.btnGhost, styles.btnFull, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onArchive}
+              >
+                <Text style={styles.btnGhostText}>
+                  {props.archived ? 'Terugzetten' : 'Naar archief'}
+                </Text>
+              </Pressable>
             ) : null}
           </>
         ) : (
@@ -587,6 +764,9 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     cardOverdue: {
       borderWidth: 1.5,
     },
+    cardCompleted: {
+      opacity: 0.78,
+    },
     highlightRing: {
       position: 'absolute',
       left: 0,
@@ -629,6 +809,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       marginTop: 2,
       marginLeft: 4,
     },
+    collapsedPriceCol: {
+      alignItems: 'flex-end',
+      gap: 1,
+    },
     collapsedPrice: {
       color: colors.text,
       fontSize: 18,
@@ -636,6 +820,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       letterSpacing: -0.3,
       textAlign: 'right',
       marginTop: 4,
+    },
+    collapsedCustomerPays: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'right',
     },
     badge: {
       alignSelf: 'flex-start',
@@ -696,6 +886,30 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     badgeTaxiText: {
       color: accentHex,
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    badgeContract: {
+      backgroundColor: 'rgba(168,85,247,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(168,85,247,0.42)',
+    },
+    badgeContractText: {
+      color: '#D8B4FE',
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    badgeMarketplace: {
+      backgroundColor: 'rgba(245,158,11,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(245,158,11,0.45)',
+    },
+    badgeMarketplaceText: {
+      color: '#FBBF24',
       fontSize: 10,
       fontWeight: '800',
       textTransform: 'uppercase',
@@ -881,6 +1095,42 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '800',
       letterSpacing: -0.4,
     },
+    priceCustomerPays: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginTop: 1,
+    },
+    feeBox: {
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: hexAlpha(accentHex, 0.35),
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    feeRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    feeLabel: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '500',
+      flex: 1,
+    },
+    feeValue: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      textAlign: 'right',
+    },
+    feePct: {
+      color: colors.muted,
+      fontWeight: '500',
+    },
     stats: {
       borderRadius: 14,
       borderWidth: StyleSheet.hairlineWidth,
@@ -962,15 +1212,78 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: hexAlpha(accentHex, 0.35),
     },
-    btn: {
+    activeBanner: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(34,197,94,0.4)',
+      backgroundColor: 'rgba(34,197,94,0.12)',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    activeBannerDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: GREEN,
+    },
+    activeBannerCopy: {
       flex: 1,
-      minWidth: '40%',
+      minWidth: 0,
+      gap: 1,
+    },
+    activeBannerTitle: {
+      color: GREEN,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    activeBannerText: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '500',
+      opacity: 0.85,
+    },
+    doneBanner: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(148,163,184,0.4)',
+      backgroundColor: 'rgba(148,163,184,0.12)',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    doneBannerDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.muted,
+    },
+    doneBannerTitle: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    btn: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: '46%',
       minHeight: 48,
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 12,
+    },
+    btnFull: {
+      flexBasis: '100%',
+      flexGrow: 1,
+      minWidth: '100%',
     },
     btnInner: {
       flexDirection: 'row',
@@ -1004,9 +1317,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       textTransform: 'uppercase',
       letterSpacing: 0.2,
       textAlign: 'center',
-    },
-    btnStatic: {
-      opacity: 0.9,
+      flexShrink: 1,
     },
   });
 }

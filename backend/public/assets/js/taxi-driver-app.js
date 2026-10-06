@@ -8176,6 +8176,10 @@
         if (ride.is_nexa_suite) {
             return true;
         }
+        const fb = ride.fee_breakdown;
+        if (fb && fb.is_marketplace) {
+            return true;
+        }
         return ride.source === 'nexa_suite';
     }
 
@@ -8398,7 +8402,7 @@
     }
 
     function scheduledRideActionsHtml(ride, rideId) {
-        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride)) {
+        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride) && !isNexaSuiteRide(ride)) {
             return overdueRideActionsHtml(ride, rideId);
         }
         const escapedRideId = escapeHtml(rideId);
@@ -9443,7 +9447,7 @@
                 const isOverdueAccepted = overdueOnly.some(function (item) {
                     return String(item.id) === rideId;
                 });
-                if (isOverdueAccepted) {
+                if (isOverdueAccepted && !isNexaSuiteRide(ride)) {
                     return renderOverdueAcceptedRideCard(ride);
                 }
                 const expanded = !!scheduledRideExpanded[rideId];

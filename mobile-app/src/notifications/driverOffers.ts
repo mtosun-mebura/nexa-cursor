@@ -11,7 +11,6 @@ try {
     handleNotification: async () => ({
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -60,7 +59,11 @@ export async function notifyNewDriverOffer(opts: {
     opts.count > 1 ? `${opts.count} nieuwe ritaanvragen` : 'Nieuwe ritaanvraag';
 
   try {
-    Vibration.vibrate([0, 120, 60, 120, 60, 200]);
+    if (Platform.OS === 'ios') {
+      Vibration.vibrate();
+    } else {
+      Vibration.vibrate([0, 120, 60, 120, 60, 200]);
+    }
   } catch {
     /* ignore */
   }

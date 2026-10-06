@@ -17,8 +17,8 @@ export function RoleSelectScreen() {
       <Title>Kies je scherm</Title>
       <Subtitle>
         Ingelogd als {session?.user?.name || session?.user?.email}.
-        {modes?.marketplace ? ' Marketplace actief.' : ''}
-        {modes?.network ? ' Network actief.' : ''}
+        {modes?.marketplace ? ' Marktplaats actief.' : ''}
+        {modes?.network ? ' Netwerk actief.' : ''}
       </Subtitle>
 
       {screens.map((screen) => (

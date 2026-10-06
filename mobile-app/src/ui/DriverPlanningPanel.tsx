@@ -13,10 +13,14 @@ import {
   DriverPlanningWeek,
   PlanningDay,
   PlanningRide,
+  driverPriceDisplay,
+  driverShareFromFee,
   fetchDriverPlanningWeek,
+  rideChannelLabel,
 } from '../api/driver';
 import { ApiError } from '../api/client';
 import { ColorPalette } from '../config';
+import { formatEuroNl } from '../geo/route';
 import { ErrorText } from './components';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
 import { useThemeColors } from '../theme/ThemeContext';
@@ -78,6 +82,14 @@ function shortAddress(address?: string | null): string {
   return comma > 0 ? text.slice(0, comma).trim() : text;
 }
 
+function splitAddress(address?: string | null): { main: string; sub: string } {
+  const text = String(address || '').trim();
+  if (!text) return { main: '—', sub: '' };
+  const comma = text.indexOf(',');
+  if (comma <= 0) return { main: text, sub: '' };
+  return { main: text.slice(0, comma).trim(), sub: text.slice(comma + 1).trim() };
+}
+
 function rideCountLabel(count: number): string {
   return count === 1 ? '1 rit' : `${count} ritten`;
 }
@@ -86,26 +98,18 @@ function rideMeta(ride: PlanningRide): string {
   const parts: string[] = [];
   const name = String(ride.customer_name || '').trim();
   if (name) parts.push(name);
-  if (ride.is_contract) parts.push('Contract');
-  else if (ride.is_nexa_suite) parts.push(ride.nexa_suite_label || 'NEXA Suite');
-  else parts.push('Taxi');
+  parts.push(rideChannelLabel(ride));
   const pax = Number(ride.passengers || 0);
   if (pax > 0) parts.push(pax === 1 ? '1 passagier' : `${pax} passagiers`);
   return parts.join(' · ');
 }
 
-function canOpenRide(ride: PlanningRide): boolean {
-  return ride.status === 'accepted' || ride.status === 'assigned';
-}
-
 export function DriverPlanningPanel({
   token,
   vehicleId,
-  onOpenRide,
 }: {
   token: string;
   vehicleId?: number | null;
-  onOpenRide: (rideId: number) => void;
 }) {
   const colors = useThemeColors();
   const accent = useDriverAccent();
@@ -315,12 +319,12 @@ export function DriverPlanningPanel({
                     <Text style={styles.daySectionTitle}>{formatDayLong(selected.date)}</Text>
                     <Text style={styles.daySectionCount}>{rideCountLabel(selectedCount)}</Text>
                   </View>
-                  <DayRides rides={selectedRides} styles={styles} onOpenRide={onOpenRide} />
+                  <DayRides rides={selectedRides} styles={styles} mutedColor={colors.muted} />
                 </View>
               ) : null}
             </>
           ) : (
-            <DayRides rides={selectedRides} styles={styles} onOpenRide={onOpenRide} />
+            <DayRides rides={selectedRides} styles={styles} mutedColor={colors.muted} />
           )}
         </>
       )}
@@ -331,33 +335,54 @@ export function DriverPlanningPanel({
 function DayRides({
   rides,
   styles,
-  onOpenRide,
+  mutedColor,
 }: {
   rides: PlanningRide[];
   styles: ReturnType<typeof makeStyles>;
-  onOpenRide: (rideId: number) => void;
+  mutedColor: string;
 }) {
+  const [openIds, setOpenIds] = useState<Record<number, boolean>>({});
+
   if (!rides.length) {
     return <Text style={styles.empty}>Geen ritten op deze dag.</Text>;
   }
+
+  function toggle(id: number) {
+    setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   return (
     <View style={styles.ridesList}>
       {rides.map((ride) => {
-        const openable = canOpenRide(ride);
+        const expanded = !!openIds[ride.id];
         const isAssigned = ride.status === 'assigned';
         const isCompleted = ride.status === 'completed';
         const isContract = !!ride.is_contract;
+        const prices = driverPriceDisplay({
+          quotedPrice: ride.quoted_price,
+          fee: ride.fee_breakdown,
+        });
+        const primaryPrice = prices.primary != null ? formatEuroNl(prices.primary) : null;
+        const customerPrice = prices.customerPays != null ? formatEuroNl(prices.customerPays) : null;
+        const pickup = splitAddress(ride.pickup_address);
+        const dropoff = splitAddress(ride.dropoff_address);
+        const fee = ride.fee_breakdown;
+        const driverShare = driverShareFromFee(fee);
+        const showFee =
+          !!fee &&
+          (fee.customer_pays != null ||
+            !!fee.owner_name ||
+            !!fee.executor_name ||
+            fee.nexa_fee != null);
         return (
           <Pressable
             key={ride.id}
-            disabled={!openable}
-            onPress={() => openable && onOpenRide(ride.id)}
+            onPress={() => toggle(ride.id)}
             style={[
               styles.rideCard,
               isContract ? styles.rideCardContract : styles.rideCardTaxi,
               isAssigned && styles.rideCardAssigned,
               isCompleted && styles.rideCardCompleted,
-              !openable && styles.rideCardDisabled,
             ]}
           >
             <View style={styles.rideTop}>
@@ -371,16 +396,79 @@ function DayRides({
               >
                 {formatTime(ride.pickup_at)}
               </Text>
-              <Text style={styles.rideStatus}>
-                {(ride.status_label || ride.status || '').toUpperCase()}
-              </Text>
+              <View style={styles.rideTopRight}>
+                <Text style={[styles.rideStatus, isCompleted && styles.rideStatusCompleted]}>
+                  {(ride.status_label || ride.status || '').toUpperCase()}
+                </Text>
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={mutedColor}
+                />
+              </View>
             </View>
-            <Text style={styles.rideRoute}>
-              {shortAddress(ride.pickup_address)}
-              <Text style={styles.rideArrow}> → </Text>
-              {shortAddress(ride.dropoff_address)}
-            </Text>
-            {rideMeta(ride) ? <Text style={styles.rideMeta}>{rideMeta(ride)}</Text> : null}
+            {expanded ? (
+              <View style={styles.rideExpand}>
+                <View>
+                  <Text style={styles.rideStopLabel}>Ophalen</Text>
+                  <Text style={styles.rideStopMain}>{pickup.main}</Text>
+                  {pickup.sub ? <Text style={styles.rideStopSub}>{pickup.sub}</Text> : null}
+                </View>
+                <View>
+                  <Text style={styles.rideStopLabel}>Afzetten</Text>
+                  <Text style={styles.rideStopMain}>{dropoff.main}</Text>
+                  {dropoff.sub ? <Text style={styles.rideStopSub}>{dropoff.sub}</Text> : null}
+                </View>
+                {showFee && fee ? (
+                  <View style={styles.rideFeeBox}>
+                    <View style={styles.rideFeeRow}>
+                      <Text style={styles.rideFeeLabel}>Klant betaalt</Text>
+                      <Text style={styles.rideFeeValue}>
+                        {fee.customer_pays != null ? formatEuroNl(Number(fee.customer_pays)) : '—'}
+                      </Text>
+                    </View>
+                    <View style={styles.rideFeeRow}>
+                      <Text style={styles.rideFeeLabel}>NEXA fee</Text>
+                      <Text style={styles.rideFeeValue}>
+                        {fee.nexa_fee != null ? formatEuroNl(Number(fee.nexa_fee)) : '—'}
+                        {fee.nexa_fee_percent != null ? ` (${fee.nexa_fee_percent}%)` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.rideFeeRow}>
+                      <Text style={styles.rideFeeLabel}>Chauffeur</Text>
+                      <Text style={styles.rideFeeValue}>
+                        {driverShare != null ? formatEuroNl(driverShare) : '—'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.rideRoute}>
+                {shortAddress(ride.pickup_address)}
+                <Text style={styles.rideArrow}> → </Text>
+                {shortAddress(ride.dropoff_address)}
+              </Text>
+            )}
+            <View style={styles.rideFooter}>
+              {rideMeta(ride) ? (
+                <Text style={styles.rideMeta} numberOfLines={expanded ? 4 : 2}>
+                  {rideMeta(ride)}
+                </Text>
+              ) : (
+                <View style={styles.rideFooterSpacer} />
+              )}
+              {primaryPrice ? (
+                <View style={styles.ridePriceCol}>
+                  <Text style={[styles.ridePrice, isCompleted && styles.ridePriceCompleted]}>
+                    {primaryPrice}
+                  </Text>
+                  {customerPrice ? (
+                    <Text style={styles.rideCustomerPays}>klant {customerPrice}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         );
       })}
@@ -603,8 +691,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderTopColor: '#22C55E',
     },
     rideCardCompleted: {
-      opacity: 0.72,
+      opacity: 1,
+      borderColor: 'rgba(148,163,184,0.45)',
       borderTopColor: colors.muted,
+      backgroundColor: colors.card,
     },
     rideCardDisabled: {
       opacity: 0.7,
@@ -615,10 +705,17 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       justifyContent: 'space-between',
       gap: 8,
     },
+    rideTopRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
+    },
     rideTime: {
       color: accentHex,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '800',
+      letterSpacing: -0.2,
     },
     rideTimeContract: {
       color: '#60A5FA',
@@ -640,6 +737,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingHorizontal: 9,
       paddingVertical: 4,
     },
+    rideStatusCompleted: {
+      color: colors.muted,
+      backgroundColor: 'rgba(148,163,184,0.16)',
+    },
     rideRoute: {
       color: colors.text,
       fontSize: 15,
@@ -650,11 +751,88 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: accentHex,
       fontWeight: '800',
     },
+    rideFooter: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginTop: 2,
+    },
+    rideFooterSpacer: {
+      flex: 1,
+    },
     rideMeta: {
       color: colors.muted,
       fontSize: 12,
       fontWeight: '500',
-      marginTop: 2,
+      flex: 1,
+      lineHeight: 16,
+    },
+    ridePriceCol: {
+      alignItems: 'flex-end',
+      flexShrink: 0,
+    },
+    ridePrice: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+      fontVariant: ['tabular-nums'],
+    },
+    ridePriceCompleted: {
+      color: colors.text,
+      opacity: 0.78,
+    },
+    rideCustomerPays: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 1,
+    },
+    rideExpand: {
+      gap: 10,
+    },
+    rideStopLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      marginBottom: 2,
+    },
+    rideStopMain: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    rideStopSub: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '500',
+      marginTop: 1,
+    },
+    rideFeeBox: {
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: hexAlpha(accentHex, 0.35),
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      gap: 6,
+    },
+    rideFeeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    rideFeeLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    rideFeeValue: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '700',
     },
   });
 }

@@ -388,12 +388,14 @@ export async function fetchDrivingRoute(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number }
 ): Promise<RouteResult> {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 2800) : null;
   try {
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
       `${from.lng},${from.lat};${to.lng},${to.lat}` +
-      `?overview=full&geometries=polyline&steps=false`;
-    const res = await fetch(url);
+      `?overview=simplified&geometries=polyline&steps=false`;
+    const res = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined);
     if (res.ok) {
       const data = await res.json();
       const route = data?.routes?.[0];
@@ -407,6 +409,8 @@ export async function fetchDrivingRoute(
     }
   } catch {
     /* fall through */
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   const metrics = estimateRouteMetrics(from, to);
@@ -417,6 +421,53 @@ export async function fetchDrivingRoute(
     ],
     ...metrics,
   };
+}
+
+export function metersBetween(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+export function bearingDegrees(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
+  const x =
+    Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat)) -
+    Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(toRad(to.lng - from.lng));
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+export function offsetByMeters(
+  point: { lat: number; lng: number },
+  bearingDeg: number,
+  meters: number
+): { lat: number; lng: number } {
+  const R = 6371000;
+  const br = (bearingDeg * Math.PI) / 180;
+  const lat1 = (point.lat * Math.PI) / 180;
+  const lng1 = (point.lng * Math.PI) / 180;
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(meters / R) + Math.cos(lat1) * Math.sin(meters / R) * Math.cos(br)
+  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(br) * Math.sin(meters / R) * Math.cos(lat1),
+      Math.cos(meters / R) - Math.sin(lat1) * Math.sin(lat2)
+    );
+  return { lat: (lat2 * 180) / Math.PI, lng: (lng2 * 180) / Math.PI };
 }
 
 /** Zelfde schatting als web-fallback: haversine × 1.25 @ ~30 km/u. */
@@ -446,31 +497,22 @@ export function formatEuroNl(amount: number): string {
   return `€ ${amount.toFixed(2).replace('.', ',')}`;
 }
 
-/** GPS zonder adres — voor vloot op de kaart voordat er een ophaaladres is. */
-export async function peekCurrentCoords(): Promise<{ lat: number; lng: number } | null> {
+async function ensureLocationPermission(): Promise<boolean> {
   try {
     const { status } = await Location.getForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      const asked = await Location.requestForegroundPermissionsAsync();
-      if (asked.status !== 'granted') return null;
-    }
+    if (status === 'granted') return true;
+    const asked = await Location.requestForegroundPermissionsAsync();
+    return asked.status === 'granted';
   } catch {
-    return null;
+    return false;
   }
+}
 
-  try {
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
-  } catch {
-    /* fall through */
-  }
-
+async function lastKnownCoords(): Promise<{ lat: number; lng: number } | null> {
   try {
     const last = await Location.getLastKnownPositionAsync({
-      maxAge: 1000 * 60 * 5,
-      requiredAccuracy: 1500,
+      maxAge: 1000 * 60 * 10,
+      requiredAccuracy: 2500,
     });
     if (last?.coords) {
       return { lat: last.coords.latitude, lng: last.coords.longitude };
@@ -479,6 +521,22 @@ export async function peekCurrentCoords(): Promise<{ lat: number; lng: number } 
     /* ignore */
   }
   return null;
+}
+
+/** GPS zonder adres — voor vloot op de kaart voordat er een ophaaladres is. */
+export async function peekCurrentCoords(): Promise<{ lat: number; lng: number } | null> {
+  if (!(await ensureLocationPermission())) return null;
+  const cached = await lastKnownCoords();
+  if (cached) return cached;
+
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch {
+    return null;
+  }
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
