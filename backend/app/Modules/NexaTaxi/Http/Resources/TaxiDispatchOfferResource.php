@@ -280,12 +280,18 @@ class TaxiDispatchOfferResource
             'actions' => [
                 'start' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start"),
                 'release' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release"),
+                'cancel' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/cancel"),
                 'hand_over_network' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/hand-over-network"),
                 'release_return' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release-return"),
                 'start_return' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start-return"),
                 'complete' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/complete"),
                 'stops' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/stops"),
             ],
+            // Marketplace: na acceptatie (vóór start) mag chauffeur annuleren met vaste reden.
+            'can_cancel_with_reason' => $ride->isNexaSuiteBooking()
+                && ! $ride->isContractRide()
+                && $ride->status === RideRequest::STATUS_ACCEPTED
+                && (int) ($ride->driver_id ?? 0) > 0,
         ];
     }
 

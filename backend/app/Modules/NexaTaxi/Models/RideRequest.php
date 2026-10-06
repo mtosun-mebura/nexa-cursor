@@ -383,6 +383,29 @@ class RideRequest extends Model
         return false;
     }
 
+    /** Marketplace/NEXA Suite: chauffeur mag starten zonder nieuw ophaalvoorstel. */
+    public function canStartWithoutPickupProposal(): bool
+    {
+        if ($this->isNexaSuiteBooking()) {
+            return true;
+        }
+
+        $source = strtolower(trim((string) ($this->source ?? '')));
+        if (in_array($source, [self::SOURCE_NEXA_SUITE, 'marketplace', 'nexa-suite'], true)) {
+            return true;
+        }
+
+        $payload = is_array($this->booking_payload) ? $this->booking_payload : [];
+        $channel = strtolower(trim((string) ($payload['channel'] ?? '')));
+        if (in_array($channel, [self::SOURCE_NEXA_SUITE, 'marketplace', 'nexa-suite'], true)) {
+            return true;
+        }
+
+        $marketplace = $payload['marketplace'] ?? null;
+
+        return is_array($marketplace) && $marketplace !== [];
+    }
+
     /**
      * @return list<int>
      */

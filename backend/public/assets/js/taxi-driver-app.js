@@ -8128,6 +8128,9 @@
         }
         if (btnDecline) {
             btnDecline.dataset.offerId = String(offer.id);
+            const hideDecline = isNexaSuiteRide(offer.ride);
+            btnDecline.hidden = hideDecline;
+            btnDecline.style.display = hideDecline ? 'none' : '';
         }
 
         setAddressLink($('#offer-pickup'), offer.ride.pickup_address);

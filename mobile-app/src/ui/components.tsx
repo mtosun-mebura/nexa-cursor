@@ -8,8 +8,10 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
+import { useOptionalDriverAccent } from '../theme/driverAccent';
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const colors = useThemeColors();
@@ -31,8 +33,11 @@ export function Subtitle({ children }: { children: React.ReactNode }) {
 
 export function Card({ children }: { children: React.ReactNode }) {
   const colors = useThemeColors();
+  const accent = useOptionalDriverAccent();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  return <View style={styles.card}>{children}</View>;
+  return (
+    <View style={[styles.card, accent ? { borderColor: accent.border } : null]}>{children}</View>
+  );
 }
 
 export function Field({
@@ -69,12 +74,31 @@ export function Field({
   const colors = useThemeColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [hideError, setHideError] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   useEffect(() => {
     setHideError(false);
   }, [error]);
 
   const showError = !!error && !hideError;
+  const showPasswordToggle = !!secureTextEntry;
+  const accessory = rightAccessory
+    ? rightAccessory
+    : showPasswordToggle ? (
+        <Pressable
+          onPress={() => setPasswordVisible((v) => !v)}
+          hitSlop={8}
+          style={styles.passwordToggle}
+          accessibilityRole="button"
+          accessibilityLabel={passwordVisible ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}
+        >
+          <Ionicons
+            name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+            size={22}
+            color={colors.muted}
+          />
+        </Pressable>
+      ) : null;
 
   return (
     <View style={styles.field}>
@@ -92,14 +116,14 @@ export function Field({
             styles.input,
             styles.inputInWrap,
             multiline && styles.inputMultiline,
-            !!rightAccessory && styles.inputWithAccessory,
+            !!accessory && styles.inputWithAccessory,
           ]}
           value={value}
           onChangeText={(v) => {
             if (showError) setHideError(true);
             onChangeText(v);
           }}
-          secureTextEntry={secureTextEntry}
+          secureTextEntry={!!secureTextEntry && !passwordVisible}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           placeholder={placeholder}
@@ -115,9 +139,9 @@ export function Field({
           aria-invalid={showError}
         />
         {confirmed && !showError ? <Text style={styles.checkMark} pointerEvents="none">✓</Text> : null}
-        {rightAccessory ? (
+        {accessory ? (
           <View style={styles.accessory} pointerEvents="box-none">
-            {rightAccessory}
+            {accessory}
           </View>
         ) : null}
       </View>
@@ -158,12 +182,24 @@ export function PrimaryButton({
   );
 }
 
-export function GhostButton({ title, onPress }: { title: string; onPress: () => void }) {
+export function GhostButton({
+  title,
+  onPress,
+  danger,
+}: {
+  title: string;
+  onPress: () => void;
+  danger?: boolean;
+}) {
   const colors = useThemeColors();
+  const accent = useOptionalDriverAccent();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <Pressable onPress={onPress} style={styles.ghostBtn}>
-      <Text style={styles.ghostBtnText}>{title}</Text>
+    <Pressable
+      onPress={onPress}
+      style={[styles.ghostBtn, accent && { borderColor: accent.border }, danger && styles.dangerBtn]}
+    >
+      <Text style={[styles.ghostBtnText, danger && styles.dangerBtnText]}>{title}</Text>
     </Pressable>
   );
 }
@@ -255,6 +291,12 @@ function makeStyles(colors: ColorPalette) {
     accessory: {
       marginLeft: 2,
     },
+    passwordToggle: {
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
     checkMark: {
       color: colors.success,
       fontSize: 18,
@@ -283,6 +325,14 @@ function makeStyles(colors: ColorPalette) {
       borderColor: colors.border,
     },
     ghostBtnText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
+    dangerBtn: {
+      backgroundColor: 'transparent',
+      borderColor: colors.danger,
+    },
+    dangerBtnText: {
+      color: colors.danger,
+      fontWeight: '700',
+    },
     error: { color: colors.danger, marginTop: 8, marginBottom: 4, fontSize: 14 },
   });
 }

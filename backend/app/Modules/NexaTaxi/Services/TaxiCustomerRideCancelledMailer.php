@@ -73,9 +73,16 @@ class TaxiCustomerRideCancelledMailer
             : '—';
 
         $reason = (string) ($context['reason'] ?? TaxiRideCancellationService::REASON_CUSTOMER);
-        $intro = $reason === TaxiRideCancellationService::REASON_AUTO_UNACCEPTED
-            ? 'Uw rit is automatisch geannuleerd omdat er binnen de beschikbare tijd geen chauffeur beschikbaar was.'
-            : 'Uw rit is geannuleerd zoals u heeft aangevraagd.';
+        $driverMessage = trim((string) ($context['message'] ?? ''));
+        $intro = match (true) {
+            $reason === TaxiRideCancellationService::REASON_AUTO_UNACCEPTED =>
+                'Uw rit is automatisch geannuleerd omdat er binnen de beschikbare tijd geen chauffeur beschikbaar was.',
+            $reason === TaxiRideCancellationService::REASON_DRIVER && $driverMessage !== '' =>
+                $driverMessage,
+            $reason === TaxiRideCancellationService::REASON_DRIVER =>
+                'Uw rit is geannuleerd door de chauffeur.',
+            default => 'Uw rit is geannuleerd zoals u heeft aangevraagd.',
+        };
 
         $refunded = ! empty($context['refunded']);
         $refundError = isset($context['refund_error']) ? trim((string) $context['refund_error']) : '';

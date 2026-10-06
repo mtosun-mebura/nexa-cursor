@@ -2,6 +2,7 @@
 
 namespace App\Modules\NexaTaxi\Services;
 
+use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
@@ -15,13 +16,15 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Annuleren van niet-geaccepteerde boekingen (klant of automatisch) + Mollie-terugbetaling.
+ * Annuleren van boekingen (klant, automatisch, of chauffeur marketplace) + Mollie-terugbetaling.
  */
 class TaxiRideCancellationService
 {
     public const REASON_CUSTOMER = 'customer';
 
     public const REASON_AUTO_UNACCEPTED = 'auto_unaccepted';
+
+    public const REASON_DRIVER = 'driver';
 
     public const CHOICE_WAIT = 'wait';
 
@@ -33,6 +36,82 @@ class TaxiRideCancellationService
         protected TaxiCustomerRideStatusNotificationService $statusNotifications,
         protected TaxiDriverInboxPushService $driverPush,
     ) {}
+
+    /**
+     * Voorgedefinieerde annuleringsredenen voor marketplace-ritten (na acceptatie, vóór start).
+     *
+     * @return list<array{code: string, label: string, message: string}>
+     */
+    public static function driverCancelReasons(): array
+    {
+        return [
+            [
+                'code' => 'customer_no_show',
+                'label' => 'Klant niet aanwezig',
+                'message' => 'De chauffeur heeft je niet aangetroffen op het ophaaladres.',
+            ],
+            [
+                'code' => 'customer_unreachable',
+                'label' => 'Klant niet bereikbaar',
+                'message' => 'De chauffeur kon telefonisch geen contact met je krijgen.',
+            ],
+            [
+                'code' => 'wrong_address',
+                'label' => 'Adres onjuist of onbereikbaar',
+                'message' => 'Het ophaaladres klopte niet of was niet bereikbaar voor de chauffeur.',
+            ],
+            [
+                'code' => 'vehicle_issue',
+                'label' => 'Voertuigprobleem',
+                'message' => 'Door een voertuigprobleem kan de rit helaas niet doorgaan.',
+            ],
+            [
+                'code' => 'traffic_delay',
+                'label' => 'Onverwachte vertraging',
+                'message' => 'Door onverwachte vertraging kan de chauffeur de ophaaltijd niet meer halen.',
+            ],
+            [
+                'code' => 'unsafe_situation',
+                'label' => 'Onveilige situatie',
+                'message' => 'De rit is geannuleerd vanwege een onveilige situatie.',
+            ],
+            [
+                'code' => 'capacity',
+                'label' => 'Geen passende capaciteit',
+                'message' => 'Het voertuig past niet bij het aantal personen of de bagage van deze rit.',
+            ],
+            [
+                'code' => 'other',
+                'label' => 'Overige reden',
+                'message' => 'De chauffeur heeft de rit moeten annuleren.',
+            ],
+        ];
+    }
+
+    public static function driverCancelMessage(string $reasonCode): ?string
+    {
+        foreach (self::driverCancelReasons() as $reason) {
+            if ($reason['code'] === $reasonCode) {
+                return $reason['message'];
+            }
+        }
+
+        return null;
+    }
+
+    public function canCancelAcceptedByDriver(RideRequest $ride, User $driver): bool
+    {
+        if (! $ride->isNexaSuiteBooking() || $ride->isContractRide()) {
+            return false;
+        }
+
+        if ((int) ($ride->driver_id ?? 0) !== (int) $driver->id) {
+            return false;
+        }
+
+        // Alleen vóór start: geaccepteerd, nog niet onderweg.
+        return $ride->status === RideRequest::STATUS_ACCEPTED;
+    }
 
     public function isCancellableByCustomer(RideRequest $ride): bool
     {
@@ -291,6 +370,190 @@ class TaxiRideCancellationService
         }
 
         return $stats;
+    }
+
+    /**
+     * Marketplace: chauffeur annuleert een geaccepteerde rit (vóór start) met vaste reden voor de klant.
+     *
+     * @return array{ride: RideRequest, refunded: bool, refund_error: ?string, message: string}
+     */
+    public function cancelAcceptedByDriver(
+        string $conn,
+        User $driver,
+        int $rideId,
+        string $reasonCode
+    ): array {
+        TaxiDispatchSchema::ensurePickupProposalColumns($conn);
+        TaxiDispatchSchema::ensureOfferDeclineReasonColumn($conn);
+
+        $message = self::driverCancelMessage($reasonCode);
+        if ($message === null) {
+            throw ValidationException::withMessages([
+                'reason_code' => ['Kies een geldige annuleringsreden.'],
+            ]);
+        }
+
+        $fresh = DB::connection($conn)->transaction(function () use (
+            $conn,
+            $driver,
+            $rideId,
+            $reasonCode,
+            $message
+        ) {
+            $locked = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
+            if (! $locked || ! $this->canCancelAcceptedByDriver($locked, $driver)) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Deze marketplace-rit kan nu niet worden geannuleerd.'],
+                ]);
+            }
+
+            $now = now();
+
+            RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $locked->id)
+                ->where('driver_id', $driver->id)
+                ->where('status', RideDispatchOffer::STATUS_ACCEPTED)
+                ->update([
+                    'status' => RideDispatchOffer::STATUS_DECLINED,
+                    'responded_at' => $now,
+                    'decline_reason' => $message,
+                ]);
+
+            RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $locked->id)
+                ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->update([
+                    'status' => RideDispatchOffer::STATUS_SUPERSEDED,
+                    'responded_at' => $now,
+                ]);
+
+            $payload = is_array($locked->booking_payload) ? $locked->booking_payload : [];
+            $payload['cancellation'] = [
+                'reason' => self::REASON_DRIVER,
+                'reason_code' => $reasonCode,
+                'message' => $message,
+                'cancelled_by' => 'driver',
+                'driver_id' => (int) $driver->id,
+                'cancelled_at' => $now->toIso8601String(),
+            ];
+
+            $locked->update([
+                'status' => RideRequest::STATUS_CANCELLED,
+                'booking_payload' => $payload,
+                'pickup_proposal_at' => null,
+                'pickup_proposal_status' => null,
+                'pickup_proposal_customer_remark' => null,
+                'pickup_proposal_sent_at' => null,
+                'pickup_proposal_responded_at' => null,
+                'pickup_proposal_whatsapp_wamid' => null,
+            ]);
+
+            return $locked->fresh() ?? $locked;
+        });
+
+        $refunded = false;
+        $refundError = null;
+        if (in_array($fresh->payment_status, [
+            RideRequest::PAYMENT_STATUS_PAID,
+            RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+            RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+        ], true)) {
+            $refund = $this->payments->refundPaidRidePayment($conn, $fresh);
+            $refunded = (bool) $refund['refunded'];
+            $refundError = $refund['error'];
+            $fresh = $fresh->fresh() ?? $fresh;
+            if ($refundError) {
+                Log::warning('Terugbetaling na chauffeur-annulering mislukt', [
+                    'ride_request_id' => $fresh->id,
+                    'reason_code' => $reasonCode,
+                    'error' => $refundError,
+                ]);
+            }
+        }
+
+        $extra = [$message];
+        if ($refunded) {
+            $days = app(TaxiCustomerRideCancelledMailer::class)->refundBusinessDays();
+            $extra[] = 'Het vooraf betaalde bedrag wordt teruggestort (doorgaans binnen '.$days.' werkdagen).';
+        } elseif ($refundError) {
+            $extra[] = 'De terugbetaling kon niet automatisch worden afgerond. Neem contact op met de taxi.';
+        }
+
+        try {
+            $this->statusNotifications->notify(
+                $conn,
+                $fresh,
+                WhatsAppBookingMessageComposer::EVENT_CANCELLED,
+                ['extra_lines' => $extra],
+                force: true
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Klantmelding na chauffeur-annulering mislukt', [
+                'ride_request_id' => $fresh->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            app(TaxiCustomerRideCancelledMailer::class)->send($conn, $fresh, [
+                'reason' => self::REASON_DRIVER,
+                'message' => $message,
+                'refunded' => $refunded,
+                'refund_error' => $refundError,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Annulatie-e-mail na chauffeur-annulering mislukt', [
+                'ride_request_id' => $fresh->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            $this->driverPush->notifyDriver((int) $driver->id, (int) $fresh->id);
+        } catch (\Throwable) {
+            // push is best-effort
+        }
+
+        return [
+            'ride' => $fresh,
+            'refunded' => $refunded,
+            'refund_error' => $refundError,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @return array{reason?: string, reason_code?: string, message?: string}|null
+     */
+    public function cancellationPayload(RideRequest $ride): ?array
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $cancellation = $payload['cancellation'] ?? null;
+
+        return is_array($cancellation) ? $cancellation : null;
+    }
+
+    public function cancellationMessageForCustomer(RideRequest $ride): ?string
+    {
+        $cancellation = $this->cancellationPayload($ride);
+        if (! $cancellation) {
+            return null;
+        }
+
+        $message = trim((string) ($cancellation['message'] ?? ''));
+        if ($message !== '') {
+            return $message;
+        }
+
+        $reason = (string) ($cancellation['reason'] ?? '');
+        if ($reason === self::REASON_AUTO_UNACCEPTED) {
+            return 'Er is binnen de beschikbare tijd geen chauffeur gevonden.';
+        }
+        if ($reason === self::REASON_CUSTOMER) {
+            return 'Je hebt deze rit geannuleerd.';
+        }
+
+        return null;
     }
 
     /**
