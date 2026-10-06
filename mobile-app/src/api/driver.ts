@@ -388,7 +388,11 @@ export function mergeCompletedRides(
       if (!item || String(item.status || '') !== 'completed') continue;
       const id = Number(item.id);
       if (!id) continue;
-      byId.set(id, { ...item, id });
+      byId.set(id, {
+        ...item,
+        id,
+        pickup_at: item.pickup_at ?? undefined,
+      } as DriverActiveRide);
     }
   }
   return [...byId.values()].sort((a, b) => {

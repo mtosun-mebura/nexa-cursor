@@ -113,6 +113,11 @@ function accentHex(key?: string | null): string {
   return driverAccentHex(key);
 }
 
+function accountStatusLabel(active: boolean, onlineNow: boolean): string {
+  if (!active) return 'Inactief';
+  return onlineNow ? 'Actief · online' : 'Actief · offline';
+}
+
 function toIsoDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -333,7 +338,7 @@ export function DriverHomeScreen() {
       setParkedRides(inboxData.parkedAssignedRides);
       setScheduledRides(inboxData.scheduledRides);
       setOverdueScheduledRides(inboxData.overdueScheduledRides);
-      let completedFromPlanning: DriverActiveRide[] = [];
+      let completedFromPlanning: Array<{ id: number; status?: string } > = [];
       try {
         const monday = mondayIsoFrom();
         const [thisWeek, lastWeek] = await Promise.all([
