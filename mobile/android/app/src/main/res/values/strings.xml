@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Nexa Taxi</string>
-    <string name="title_activity_main">Nexa Taxi</string>
-    <string name="package_name">nl.nexasuite.taxi</string>
-    <string name="custom_url_scheme">nl.nexasuite.taxi</string>
-</resources>

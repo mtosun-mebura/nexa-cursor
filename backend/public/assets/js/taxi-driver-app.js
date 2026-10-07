@@ -333,6 +333,7 @@
     let viewingActiveRideId = null;
     const STOP_ARRIVE_RADIUS_M = 120;
     const NATIVE_GPS_DISTANCE_FILTER_M = 10;
+    let driverAppModes = { chauffeur: true, contract: false, marketplace: false, network: false };
     const MAPS_MAX_WAYPOINTS = 9;
     const NAV_SESSION_KEY = 'nexa_taxi_nav_session';
     let navigationWatchId = null;
@@ -2780,6 +2781,71 @@
             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
 
+    function isAndroidDevice() {
+        return /Android/i.test(navigator.userAgent || '');
+    }
+
+    /**
+     * Browserlabel voor installatie-/meldingenhints (userAgent; Chrome-op-iOS = CriOS).
+     * @returns {'safari'|'chrome'|'firefox'|'edge'|'samsung'|'other'}
+     */
+    function detectBrowserFamily() {
+        const ua = navigator.userAgent || '';
+        if (/CriOS/i.test(ua) || (/Chrome/i.test(ua) && !/Edg|OPR|SamsungBrowser/i.test(ua))) {
+            return 'chrome';
+        }
+        if (/FxiOS|Firefox/i.test(ua)) {
+            return 'firefox';
+        }
+        if (/EdgiOS|Edg\//i.test(ua)) {
+            return 'edge';
+        }
+        if (/SamsungBrowser/i.test(ua)) {
+            return 'samsung';
+        }
+        if (/Safari/i.test(ua) && !/Chrome|CriOS|Android/i.test(ua)) {
+            return 'safari';
+        }
+        return 'other';
+    }
+
+    /** Instructie om de PWA op het beginscherm te zetten, afgestemd op toestel + browser. */
+    function homeScreenInstallHintText() {
+        const browser = detectBrowserFamily();
+        if (isIosDevice()) {
+            if (browser === 'safari' || browser === 'other') {
+                return 'Open de app via het icoon op je beginscherm (Safari → Deel → Zet op beginscherm). Meldingen werken niet in een Safari-tab.';
+            }
+            // Chrome / Firefox / Edge op iOS: zelfde WebKit-beperking, andere menunaam.
+            return 'Open de app via het icoon op je beginscherm (Deel → Zet op beginscherm). Meldingen werken niet in een browsertab.';
+        }
+        if (isAndroidDevice()) {
+            if (browser === 'samsung') {
+                return 'Open de app via het icoon op je startscherm (Samsung Internet → menu → Toevoegen pagina aan → Startscherm). Zo werken meldingen het beste.';
+            }
+            if (browser === 'firefox') {
+                return 'Open de app via het icoon op je startscherm (Firefox → menu → Installeren). Zo werken meldingen het beste.';
+            }
+            // Chrome / Edge / overig Android
+            return 'Open de app via het icoon op je startscherm (Chrome → menu ⋮ → App installeren of Toevoegen aan startscherm). Zo werken meldingen het beste.';
+        }
+        return 'Installeer de app op je apparaat voor betere meldingen.';
+    }
+
+    function homeScreenInstallShortFeedback() {
+        if (isIosDevice()) {
+            const browser = detectBrowserFamily();
+            if (browser === 'safari' || browser === 'other') {
+                return 'Open de app via het icoon op je beginscherm (niet via Safari).';
+            }
+            return 'Open de app via het icoon op je beginscherm (niet via de browser).';
+        }
+        if (isAndroidDevice()) {
+            return 'Open de app via het icoon op je startscherm (niet via de browser-tab).';
+        }
+        return 'Open de geïnstalleerde app, niet via een browsertab.';
+    }
+
     function isStandalonePwa() {
         if (window.navigator.standalone === true) {
             return true;
@@ -2808,6 +2874,17 @@
             return false;
         }
         return true;
+    }
+
+    /** Android (of desktop) in browsertab: installeren is sterk aangeraden als Notification ontbreekt. */
+    function needsHomeScreenForNotifications() {
+        if (isInBrowserTabOnIos()) {
+            return true;
+        }
+        if (isStandalonePwa()) {
+            return false;
+        }
+        return !notificationsApiAvailable();
     }
 
     function notificationsApiAvailable() {
@@ -2991,9 +3068,8 @@
             }
             return;
         }
-        // Op iOS staat de uitleg over Safari -> Deel -> Zet op beginscherm al in de
-        // meldingen-hint. Deze banner blijft daarom voor browsers met een eigen
-        // installatieprompt, zodat de chauffeur die tekst niet twee keer ziet.
+        // Op iOS staat de beginscherm-uitleg al in de meldingen-hint. Deze banner
+        // blijft voor browsers met beforeinstallprompt (o.a. Chrome/Android).
         hint.hidden = true;
         if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
             window.nexaPwaSyncThemeToggleTop();
@@ -3045,10 +3121,20 @@
             btn.hidden = false;
             btn.disabled = false;
         }
-        if (isInBrowserTabOnIos() || permission === 'unsupported') {
+        if (needsHomeScreenForNotifications()) {
             if (hintText) {
-                hintText.textContent =
-                    'Open de app via het icoon op je beginscherm (Safari → Deel → Zet op beginscherm). Meldingen werken niet in een Safari-tab.';
+                hintText.textContent = homeScreenInstallHintText();
+            }
+            if (btn) {
+                btn.hidden = true;
+            }
+            return;
+        }
+        if (permission === 'unsupported') {
+            if (hintText) {
+                hintText.textContent = isIosDevice()
+                    ? 'Meldingen zijn niet beschikbaar. Werk iOS bij (16.4+) en open de app via het beginscherm-icoon.'
+                    : homeScreenInstallHintText();
             }
             if (btn) {
                 btn.hidden = true;
@@ -3073,17 +3159,16 @@
                 done(result);
             }
         }
-        if (isInBrowserTabOnIos()) {
-            showNotificationsFeedback(
-                'Open de app via het icoon op je beginscherm (niet via Safari).',
-                'error'
-            );
+        if (needsHomeScreenForNotifications()) {
+            showNotificationsFeedback(homeScreenInstallShortFeedback(), 'error');
             finish('unsupported');
             return;
         }
         if (!notificationsApiAvailable()) {
             showNotificationsFeedback(
-                'Meldingen zijn niet beschikbaar. Werk iOS bij (16.4+) en open de app via het beginscherm-icoon.',
+                isIosDevice()
+                    ? 'Meldingen zijn niet beschikbaar. Werk iOS bij (16.4+) en open de app via het beginscherm-icoon.'
+                    : homeScreenInstallShortFeedback(),
                 'error'
             );
             finish('unsupported');
@@ -3140,7 +3225,9 @@
 
         if (!notificationsApiAvailable()) {
             showNotificationsFeedback(
-                'Meldingen zijn niet beschikbaar op dit toestel. Gebruik iOS 16.4 of nieuwer en open via het beginscherm-icoon.',
+                isIosDevice()
+                    ? 'Meldingen zijn niet beschikbaar op dit toestel. Gebruik iOS 16.4 of nieuwer en open via het beginscherm-icoon.'
+                    : homeScreenInstallHintText(),
                 'error'
             );
             return;
@@ -3301,6 +3388,15 @@
         } catch (e) {}
     }
 
+    function focusRequestsTabForNewOffer() {
+        if (!isOnline || !accountActive || currentActiveRide) {
+            return;
+        }
+        showScreen('dispatch');
+        setMainTab('requests');
+        setInboxView('offers');
+    }
+
     function notifyRideWaitingAttention(offer) {
         if (!offer || !offer.id || !isOnline || !accountActive || currentActiveRide) {
             return;
@@ -3319,6 +3415,7 @@
         vibrate([200, 100, 200, 100, 200]);
         showNewRideAlert(true, true);
         showRideOfferPhoneNotification(offer, { waiting: true });
+        focusRequestsTabForNewOffer();
     }
 
     function notifyNewRideOffer(offer) {
@@ -3332,6 +3429,7 @@
         playNewRideSound();
         vibrate([120, 60, 120, 60, 200]);
         showRideOfferPhoneNotification(offer);
+        focusRequestsTabForNewOffer();
     }
 
     function onOfferEnteredWaitingState(offer) {
@@ -6301,14 +6399,19 @@
             return true;
         }
         nativeGpsActive = true;
+        const marketplace = !!(driverAppModes && driverAppModes.marketplace);
         plugin
             .start(
                 {
-                    backgroundTitle: 'Nexa Chauffeur',
-                    backgroundMessage: 'Je locatie wordt gedeeld zolang je online staat.',
+                    backgroundTitle: marketplace ? 'Nexa Marketplace' : 'Nexa Chauffeur',
+                    backgroundMessage: marketplace
+                        ? 'Locatie blijft actief zodat klanten je taxi in de buurt kunnen vinden.'
+                        : 'Je locatie wordt gedeeld zolang je online staat.',
                     requestPermissions: true,
                     stale: false,
-                    distanceFilter: NATIVE_GPS_DISTANCE_FILTER_M,
+                    distanceFilter: marketplace
+                        ? Math.min(NATIVE_GPS_DISTANCE_FILTER_M, 25)
+                        : NATIVE_GPS_DISTANCE_FILTER_M,
                 },
                 function (position, error) {
                     if (error || !position) {
@@ -8025,6 +8128,9 @@
         }
         if (btnDecline) {
             btnDecline.dataset.offerId = String(offer.id);
+            const hideDecline = isNexaSuiteRide(offer.ride);
+            btnDecline.hidden = hideDecline;
+            btnDecline.style.display = hideDecline ? 'none' : '';
         }
 
         setAddressLink($('#offer-pickup'), offer.ride.pickup_address);
@@ -8068,6 +8174,10 @@
             return false;
         }
         if (ride.is_nexa_suite) {
+            return true;
+        }
+        const fb = ride.fee_breakdown;
+        if (fb && fb.is_marketplace) {
             return true;
         }
         return ride.source === 'nexa_suite';
@@ -8292,7 +8402,7 @@
     }
 
     function scheduledRideActionsHtml(ride, rideId) {
-        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride)) {
+        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride) && !isNexaSuiteRide(ride)) {
             return overdueRideActionsHtml(ride, rideId);
         }
         const escapedRideId = escapeHtml(rideId);
@@ -9337,7 +9447,7 @@
                 const isOverdueAccepted = overdueOnly.some(function (item) {
                     return String(item.id) === rideId;
                 });
-                if (isOverdueAccepted) {
+                if (isOverdueAccepted && !isNexaSuiteRide(ride)) {
                     return renderOverdueAcceptedRideCard(ride);
                 }
                 const expanded = !!scheduledRideExpanded[rideId];
@@ -10434,14 +10544,24 @@
     }
 
     async function verifyLoginCode(email, code, password) {
+        const body = { email: email, code: code };
+        const trimmed = (password || '').trim();
+        if (trimmed === '') {
+            body.skip_password = true;
+        } else {
+            body.password = trimmed;
+        }
         const res = await fetch(cfg.loginCodeVerifyUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ email, code, password }),
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
         });
         const data = await res.json().catch(function () { return {}; });
         if (!res.ok) {
-            throw new Error(data.message || 'Activeren mislukt.');
+            throw new Error((data && data.message) || 'Inloggen mislukt.');
         }
         token = data.token;
         persistToken(token, data.expires_at);
@@ -11880,6 +12000,9 @@
             const active = me.user && me.user.is_account_active !== false;
             setAccountInactive(!active);
             applyOnlineStateFromServer(me.user && me.user.is_online);
+            if (me.user && me.user.app_modes && typeof me.user.app_modes === 'object') {
+                driverAppModes = Object.assign({}, driverAppModes, me.user.app_modes);
+            }
             if (me.user && me.user.vehicle_id) {
                 persistSelectedVehicle(me.user.vehicle_id);
             }
@@ -12012,7 +12135,7 @@
                 showLoginError('De wachtwoorden komen niet overeen.');
                 return;
             }
-            setButtonLoading(verifyLoginCodeBtn, true, 'Activeren…');
+            setButtonLoading(verifyLoginCodeBtn, true, 'Inloggen…');
             try {
                 await verifyLoginCode(email, code, password);
                 unlockAudio();
@@ -12023,7 +12146,7 @@
                 syncScreenWakeLock();
                 startInboxSync();
             } catch (e) {
-                showLoginError(e.message || 'Activeren mislukt.');
+                showLoginError(e.message || 'Inloggen mislukt.');
             } finally {
                 clearButtonLoading(verifyLoginCodeBtn);
             }

@@ -52,12 +52,12 @@
 
                         @if($payload['pending_destination_change'])
                             <div class="rounded-lg border border-border px-3 py-2.5 text-sm">
-                                Rekeningwijziging in cooling-off
+                                Rekeningwijziging in afwachting
                                 @if(!empty($identity->pending_masked_destination))
                                     (nieuw: {{ $identity->pending_masked_destination }})
                                 @endif
                                 @if($payload['destination_change_eligible_at'])
-                                    tot {{ \Illuminate\Support\Carbon::parse($payload['destination_change_eligible_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i') }}.
+                                    — het nieuwe nummer wordt gebruikt vanaf {{ \Illuminate\Support\Carbon::parse($payload['destination_change_eligible_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i') }}.
                                 @endif
                             </div>
                         @endif
@@ -70,7 +70,7 @@
                             @if($payload['pending_destination_change'] && ! $payload['destination_change_cooling'])
                                 <form method="POST" action="{{ route('admin.payout-identities.destination.apply', $identity) }}">
                                     @csrf
-                                    <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">Cooling-off afronden</button>
+                                    <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">Wijziging nu activeren</button>
                                 </form>
                             @endif
                         </div>
@@ -104,7 +104,7 @@
                                     <td class="min-w-56 text-secondary-foreground font-normal">Huidig wachtwoord</td>
                                     <td class="min-w-48 w-full">
                                         <input type="password" name="password" id="bank_password" class="kt-input @error('password') border-destructive @enderror" autocomplete="current-password" required>
-                                        <p class="text-xs text-muted-foreground mt-1 mb-0">Verplicht bij wijziging + {{ $coolingOffHours }} uur cooling-off.</p>
+                                        <p class="text-xs text-muted-foreground mt-1 mb-0">Verplicht bij wijziging. Het nieuwe rekeningnummer wordt pas na {{ $coolingOffHours }} uur gebruikt voor uitbetalingen.</p>
                                         @error('password')
                                             <p class="text-sm text-destructive mt-1 mb-0">{{ $message }}</p>
                                         @enderror

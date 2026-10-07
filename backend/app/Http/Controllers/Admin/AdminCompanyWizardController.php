@@ -948,7 +948,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
-        if ($user->can('view-companies') || in_array('company-admin', $user->webRoleNames(), true)) {
+        if ($user->can('view-companies') || $user->isTenantAdmin()) {
             return;
         }
 
@@ -972,7 +972,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
-        if ($user->can('edit-companies') || in_array('company-admin', $user->webRoleNames(), true)) {
+        if ($user->can('edit-companies') || $user->isTenantAdmin()) {
             return;
         }
 

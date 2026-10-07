@@ -79,21 +79,31 @@ class DriverAuthController extends Controller
         $data = $request->validate([
             'email' => 'required|email',
             'code' => 'required|string',
-            'password' => 'required|string|min:8|max:255',
+            'password' => 'nullable|string|min:8|max:255',
+            'skip_password' => 'nullable|boolean',
         ], [
             'email.required' => 'Vul je e-mailadres in.',
             'code.required' => 'Vul de code uit je e-mail in.',
-            'password.required' => 'Kies een wachtwoord.',
             'password.min' => 'Kies een wachtwoord van minimaal 8 tekens.',
         ]);
 
-        $result = $firstLogin->verifyAndSetPassword(
-            $data['email'],
-            $data['code'],
-            $data['password'],
-            TaxiAppFirstLoginService::CHANNEL_DRIVER,
-            (string) $request->ip()
-        );
+        $skipPassword = $request->boolean('skip_password')
+            || trim((string) ($data['password'] ?? '')) === '';
+
+        $result = $skipPassword
+            ? $firstLogin->verifyAndLoginWithCode(
+                $data['email'],
+                $data['code'],
+                TaxiAppFirstLoginService::CHANNEL_DRIVER,
+                (string) $request->ip()
+            )
+            : $firstLogin->verifyAndSetPassword(
+                $data['email'],
+                $data['code'],
+                (string) $data['password'],
+                TaxiAppFirstLoginService::CHANNEL_DRIVER,
+                (string) $request->ip()
+            );
 
         if (! $result['ok'] || ! ($result['user'] ?? null) instanceof User) {
             return $this->firstLoginJson($result);
@@ -288,6 +298,7 @@ class DriverAuthController extends Controller
             'pwa_accent' => PwaAccent::fromUser($user),
             'ride_alert_tone' => RideAlertTone::fromUser($user),
             'can_handle_contract_rides' => app(TaxiDriverEligibilityService::class)->canUseContractRideFilter($user),
+            'app_modes' => app(\App\Modules\NexaTaxi\Services\TaxiAppCapabilitiesService::class)->forUser($user)['modes'],
         ];
     }
 

@@ -341,11 +341,6 @@ class CustomerMarketplaceBookingService
             NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
             $radiusKm
         );
-        if ($matches === []) {
-            throw ValidationException::withMessages([
-                'pickup_address' => ['Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.'],
-            ]);
-        }
 
         $candidates = [];
         $candidateIds = [];
@@ -376,6 +371,7 @@ class CustomerMarketplaceBookingService
         ], null);
 
         $paymentOptions = app(TaxiDispatchSettingsService::class)->paymentOptionsForMarketplace();
+        $taxiAvailable = $candidateIds !== [];
 
         return [
             'offers' => array_values($quotes['offers'] ?? []),
@@ -383,11 +379,21 @@ class CustomerMarketplaceBookingService
                 'radius_km' => $radiusKm,
                 'candidate_count' => count($candidateIds),
                 'candidates' => $candidates,
+                'taxi_available' => $taxiAvailable,
+                'unavailable_message' => $taxiAvailable
+                    ? null
+                    : 'Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie.',
             ],
             'payment' => [
-                'booking' => (bool) ($paymentOptions['booking'] ?? false),
+                // Online betalen alleen zinvol als er nu een taxi is om te dispatchen.
+                'booking' => $taxiAvailable && (bool) ($paymentOptions['booking'] ?? false),
                 'driver' => false,
                 'mollie_configured' => (bool) ($paymentOptions['mollie_configured'] ?? false),
+                'deferred_until_taxi' => ! $taxiAvailable,
+            ],
+            'route' => [
+                'distance_meters' => (int) $data['distance_meters'],
+                'duration_seconds' => (int) $data['duration_seconds'],
             ],
         ];
     }

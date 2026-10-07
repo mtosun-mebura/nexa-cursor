@@ -3928,23 +3928,23 @@
                 <p id="login-error" class="error" hidden></p>
                 <button type="submit" class="btn btn-primary" id="login-btn">Inloggen</button>
                 <p class="login-first-login" id="login-first-open-wrap">
-                    <button type="button" id="btn-open-first-login">Eerste keer inloggen? Inlogcode aanvragen</button>
+                    <button type="button" id="btn-open-first-login">Eerste keer inloggen of inloggen met code? Inlogcode aanvragen</button>
                 </p>
                 <div id="first-login-panel" hidden>
                     <input type="hidden" id="first-login-email" value="" autocomplete="off">
                     <button type="button" class="btn btn-primary" id="btn-send-login-code">Code versturen</button>
                     <p class="login-first-note"
-                        data-note-idle="We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna kies je zelf een wachtwoord."
-                        data-note-sent="We hebben een eenmalige code naar je e-mailadres gestuurd. Deze is beperkt geldig, voer deze hieronder in en stel een eigen wachtwoord in."
-                    >We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna kies je zelf een wachtwoord.</p>
+                        data-note-idle="We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna log je in met die code; een wachtwoord is optioneel."
+                        data-note-sent="We hebben een eenmalige code naar je e-mailadres gestuurd. Voer die hieronder in om in te loggen. Een wachtwoord is optioneel."
+                    >We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna log je in met die code; een wachtwoord is optioneel.</p>
                     <div id="first-login-verify" hidden>
                         <label for="login-code">Code uit e-mail</label>
                         <input id="login-code" name="login_code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">
-                        <label for="new-password">Nieuw wachtwoord</label>
+                        <label for="new-password">Nieuw wachtwoord <span class="muted">(optioneel)</span></label>
                         <input id="new-password" name="new_password" type="password" autocomplete="new-password">
                         <label for="new-password-confirm">Wachtwoord bevestigen</label>
                         <input id="new-password-confirm" name="new_password_confirm" type="password" autocomplete="new-password">
-                        <button type="button" class="btn btn-primary" id="btn-verify-login-code">Wachtwoord opslaan en inloggen</button>
+                        <button type="button" class="btn btn-primary" id="btn-verify-login-code">Inloggen</button>
                     </div>
                     <button type="button" class="btn btn-ghost" id="btn-cancel-first-login">Terug naar inloggen</button>
                 </div>
@@ -4547,7 +4547,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
-<script src="/assets/js/taxi-driver-app.js?v=184" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=188" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

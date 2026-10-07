@@ -32,7 +32,7 @@ class TaxiAppFirstLoginService
 
     public const CODE_LENGTH = 6;
 
-    public const FIRST_LOGIN_REQUIRED_MESSAGE = 'Er is nog geen wachtwoord ingesteld. Vraag een inlogcode aan om zelf een wachtwoord te kiezen.';
+    public const FIRST_LOGIN_REQUIRED_MESSAGE = 'Er is nog geen wachtwoord ingesteld. Vraag een inlogcode aan om in te loggen.';
 
     public function __construct(
         protected TaxiDriverEligibilityService $drivers,
@@ -193,14 +193,6 @@ class TaxiAppFirstLoginService
             ];
         }
 
-        if (! $this->needsFirstLogin($user)) {
-            return [
-                'ok' => false,
-                'status' => 422,
-                'message' => 'Dit account is al geactiveerd. Log in met je wachtwoord.',
-            ];
-        }
-
         $purpose = $this->purposeForChannel($channel);
         $cooldown = max(30, (int) config('taxi-dispatch.app_first_login_code_cooldown_seconds', 60));
         $recent = CustomerLoginCode::query()
@@ -256,6 +248,104 @@ class TaxiAppFirstLoginService
      */
     public function verifyAndSetPassword(string $email, string $code, string $password, string $channel, string $ip): array
     {
+        $resolved = $this->resolveValidCode($email, $code, $channel, $ip);
+        if (! ($resolved['ok'] ?? false)) {
+            return $resolved;
+        }
+
+        /** @var User $user */
+        $user = $resolved['user'];
+        /** @var CustomerLoginCode $match */
+        $match = $resolved['match'];
+        $purpose = $resolved['purpose'];
+        $attemptKey = $resolved['attempt_key'];
+
+        if (! preg_match(TenantOnboardingService::PASSWORD_REGEX, $password) || strlen($password) < 8) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Kies een wachtwoord van minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.',
+            ];
+        }
+
+        $match->update(['consumed_at' => now()]);
+        $this->invalidateOpenCodes($user, $purpose);
+
+        $payload = [
+            'password' => Hash::make($password),
+        ];
+        if (Schema::hasColumn('users', 'must_change_password')) {
+            $payload['must_change_password'] = false;
+        }
+        if (Schema::hasColumn('users', 'password_must_be_set')) {
+            $payload['password_must_be_set'] = false;
+        }
+        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
+            $payload['email_verified_at'] = now();
+        }
+
+        $user->forceFill($payload)->save();
+        RateLimiter::clear($attemptKey);
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'message' => 'Wachtwoord opgeslagen. Je bent ingelogd.',
+            'user' => $user->fresh(),
+        ];
+    }
+
+    /**
+     * Inloggen met alleen e-mailcode (geen wachtwoord verplicht).
+     *
+     * @return array{ok: bool, status: int, message: string, user?: User}
+     */
+    public function verifyAndLoginWithCode(string $email, string $code, string $channel, string $ip): array
+    {
+        $resolved = $this->resolveValidCode($email, $code, $channel, $ip);
+        if (! ($resolved['ok'] ?? false)) {
+            return $resolved;
+        }
+
+        /** @var User $user */
+        $user = $resolved['user'];
+        /** @var CustomerLoginCode $match */
+        $match = $resolved['match'];
+        $purpose = $resolved['purpose'];
+        $attemptKey = $resolved['attempt_key'];
+
+        $match->update(['consumed_at' => now()]);
+        $this->invalidateOpenCodes($user, $purpose);
+
+        $payload = [];
+        if (Schema::hasColumn('users', 'must_change_password')) {
+            $payload['must_change_password'] = false;
+        }
+        if (Schema::hasColumn('users', 'password_must_be_set')) {
+            $payload['password_must_be_set'] = false;
+        }
+        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
+            $payload['email_verified_at'] = now();
+        }
+
+        if ($payload !== []) {
+            $user->forceFill($payload)->save();
+        }
+        RateLimiter::clear($attemptKey);
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'message' => 'Je bent ingelogd.',
+            'user' => $user->fresh(),
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, status: int, message: string, user?: User, match?: CustomerLoginCode, purpose?: string, attempt_key?: string}
+     */
+    private function resolveValidCode(string $email, string $code, string $channel, string $ip): array
+    {
         $email = strtolower(trim($email));
         $channel = $this->normalizeChannel($channel);
         $code = preg_replace('/\s+/', '', $code) ?? '';
@@ -267,13 +357,21 @@ class TaxiAppFirstLoginService
         RateLimiter::hit($attemptKey, 900);
 
         $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
-        if (! $user || ! $this->userMayUseChannel($user, $channel) || ! $this->needsFirstLogin($user)) {
+        if (! $user || ! $this->userMayUseChannel($user, $channel)) {
             $this->burnDummyHash();
 
             return [
                 'ok' => false,
                 'status' => 422,
                 'message' => 'Code of e-mailadres is onjuist.',
+            ];
+        }
+
+        if (Schema::hasColumn('users', 'is_active') && $user->is_active === false) {
+            return [
+                'ok' => false,
+                'status' => 403,
+                'message' => 'Dit account is uitgeschakeld. Neem contact op met je werkgever.',
             ];
         }
 
@@ -311,38 +409,14 @@ class TaxiAppFirstLoginService
             ];
         }
 
-        if (! preg_match(TenantOnboardingService::PASSWORD_REGEX, $password) || strlen($password) < 8) {
-            return [
-                'ok' => false,
-                'status' => 422,
-                'message' => 'Kies een wachtwoord van minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.',
-            ];
-        }
-
-        $match->update(['consumed_at' => now()]);
-        $this->invalidateOpenCodes($user, $purpose);
-
-        $payload = [
-            'password' => Hash::make($password),
-        ];
-        if (Schema::hasColumn('users', 'must_change_password')) {
-            $payload['must_change_password'] = false;
-        }
-        if (Schema::hasColumn('users', 'password_must_be_set')) {
-            $payload['password_must_be_set'] = false;
-        }
-        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
-            $payload['email_verified_at'] = now();
-        }
-
-        $user->forceFill($payload)->save();
-        RateLimiter::clear($attemptKey);
-
         return [
             'ok' => true,
             'status' => 200,
-            'message' => 'Wachtwoord opgeslagen. Je bent ingelogd.',
-            'user' => $user->fresh(),
+            'message' => '',
+            'user' => $user,
+            'match' => $match,
+            'purpose' => $purpose,
+            'attempt_key' => $attemptKey,
         ];
     }
 

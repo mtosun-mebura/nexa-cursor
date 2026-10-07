@@ -143,10 +143,56 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Numeric throttle:N,1 shares one cache key per user/IP (no route prefix).
+        // Driver GPS (~1/s) would then block accept/complete after ~30 hits.
         RateLimiter::for('taxi-driver-poll', function ($request) {
+            $userId = $request->user()?->id;
+            if ($userId) {
+                return Limit::perMinute(180)->by('taxi-poll|u|'.$userId);
+            }
+
+            $token = trim((string) ($request->query('token') ?: $request->input('public_token', '')));
+            if ($token !== '') {
+                return Limit::perMinute(120)->by('taxi-poll|t|'.sha1($token));
+            }
+
+            return Limit::perMinute(90)->by('taxi-poll|ip|'.$request->ip());
+        });
+
+        RateLimiter::for('taxi-driver-location', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 
-            return Limit::perMinute(120)->by('taxi-poll|'.$key);
+            return Limit::perMinute(180)->by('taxi-loc|'.$key);
+        });
+
+        RateLimiter::for('taxi-driver-stream', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(90)->by('taxi-stream|'.$key);
+        });
+
+        RateLimiter::for('taxi-driver-action', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(90)->by('taxi-action|'.$key);
+        });
+
+        RateLimiter::for('taxi-driver-read', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(180)->by('taxi-read|'.$key);
+        });
+
+        RateLimiter::for('taxi-customer-action', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(60)->by('taxi-cust-action|'.$key);
+        });
+
+        RateLimiter::for('taxi-customer-read', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(120)->by('taxi-cust-read|'.$key);
         });
 
         RateLimiter::for('public-forms', function ($request) {

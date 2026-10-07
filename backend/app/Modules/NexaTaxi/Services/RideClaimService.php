@@ -234,7 +234,7 @@ class RideClaimService
                 ]);
             }
 
-            if (! $ride->isContractRide()) {
+            if (! $ride->isContractRide() && ! $ride->canStartWithoutPickupProposal()) {
                 TaxiDispatchSchema::ensurePickupProposalColumns($conn);
                 $ride->refresh();
                 $dispatchSettings = app(TaxiDispatchSettingsService::class);

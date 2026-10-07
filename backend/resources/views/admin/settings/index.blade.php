@@ -150,7 +150,7 @@
             @if(!empty($mailUsingPlatformFallback) && empty($mailDeliveryHint))
                 <div class="kt-alert kt-alert-primary mx-5 mt-4 mb-0" role="status">
                     <i class="ki-filled ki-information-2 me-2"></i>
-                    Deze tenant heeft geen eigen mailserver. Uitgaande mail gebruikt de NEXA Suite-mailserver.
+                    Deze tenant gebruikt de NEXA Suite-mailserver. Je mag de From-naam wijzigen (bijv. je bedrijfsnaam). Het From-adres blijft dat van NEXA Suite — anders weigert de mailserver verzending.
                 </div>
             @endif
             @if(!empty($mailDeliveryHint))
@@ -162,7 +162,7 @@
             <div class="kt-card-table kt-scrollable-x-auto pb-0">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground" id="mail-settings-table">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full" id="mail-settings-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Mailer *</td>
                             <td class="min-w-48 w-full">
@@ -330,10 +330,17 @@
                                            id="MAIL_FROM_ADDRESS"
                                            name="MAIL_FROM_ADDRESS"
                                            value="{{ old('MAIL_FROM_ADDRESS', $mailSettings['MAIL_FROM_ADDRESS']) }}"
-                                           placeholder="noreply@nexa-skillmatching.nl"
-                                           required>
+                                           placeholder="noreply@nexasuite.nl"
+                                           required
+                                           @if(!empty($mailUsingPlatformFallback)) readonly @endif>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">E-mailadres waarvan emails worden verzonden</div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    @if(!empty($mailUsingPlatformFallback))
+                                        Vast From-adres van de NEXA Suite-mailserver (niet wijzigen).
+                                    @else
+                                        E-mailadres waarvan emails worden verzonden
+                                    @endif
+                                </div>
                                 @error('MAIL_FROM_ADDRESS')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -348,10 +355,16 @@
                                            id="MAIL_FROM_NAME"
                                            name="MAIL_FROM_NAME"
                                            value="{{ old('MAIL_FROM_NAME', $mailSettings['MAIL_FROM_NAME']) }}"
-                                           placeholder="NEXA Skillmatching"
+                                           placeholder="{{ !empty($settingsCompany) ? $settingsCompany->name : 'NEXA Suite' }}"
                                            required>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Naam die wordt getoond als afzender</div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    @if(!empty($mailUsingPlatformFallback))
+                                        Naam die als afzender wordt getoond (bijv. je bedrijfsnaam).
+                                    @else
+                                        Naam die wordt getoond als afzender
+                                    @endif
+                                </div>
                                 @error('MAIL_FROM_NAME')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror

@@ -209,9 +209,9 @@ window.NexaGpsMarker = (function () {
 
         var plate = document.createElement('div');
         plate.className = 'nexa-gps-plate';
-        plate.style.background = appearance.plate_background || '#f7e125';
-        plate.style.color = appearance.plate_text_color || '#111827';
-        plate.style.borderColor = appearance.plate_border_color || '#111827';
+        plate.style.background = appearance.plate_background || '#003399';
+        plate.style.color = appearance.plate_text_color || '#ffffff';
+        plate.style.borderColor = appearance.plate_border_color || '#001a66';
         plate.textContent = item.license_plate || item.driver_name || '—';
 
         var rot = document.createElement('div');

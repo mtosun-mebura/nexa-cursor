@@ -47,9 +47,13 @@ class TaxiPickupProposalService
                 throw ValidationException::withMessages(['ride' => ['Alleen geaccepteerde ritten kunnen een nieuw tijdstip krijgen.']]);
             }
 
-            if ($ride->isContractRide()) {
-                throw ValidationException::withMessages(['ride' => ['Contractritten gebruiken geen ophaalvoorstel.']]);
-            }
+        if ($ride->isContractRide()) {
+            throw ValidationException::withMessages(['ride' => ['Contractritten gebruiken geen ophaalvoorstel.']]);
+        }
+
+        if ($ride->canStartWithoutPickupProposal()) {
+            throw ValidationException::withMessages(['ride' => ['Marktplaatsritten gebruiken geen ophaalvoorstel.']]);
+        }
 
             $instant = Carbon::parse($pickupAtIso);
             if ($instant->lte(now())) {

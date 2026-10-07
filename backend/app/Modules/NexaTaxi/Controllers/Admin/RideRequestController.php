@@ -637,7 +637,7 @@ class RideRequestController extends Controller
      */
     private function buildChauffeurQuery(?int $companyId)
     {
-        return $this->buildTenantRoleUserQuery($companyId, ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur', 'chauffeur-inkomsten']);
+        return $this->buildTenantRoleUserQuery($companyId, app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)->chauffeurRoleNames());
     }
 
     /**
@@ -741,7 +741,7 @@ class RideRequestController extends Controller
             User::class,
             (new User)->getMorphClass(),
         ])));
-        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur', 'chauffeur-inkomsten'];
+        $roleNamesLower = app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)->chauffeurRoleNames();
 
         $query->where('company_id', $companyId)
             ->whereExists(function ($sub) use ($companyId, $pivot, $roles, $teamKey, $morphTypes, $roleNamesLower) {

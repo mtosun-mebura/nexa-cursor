@@ -213,6 +213,14 @@ class MenuService
      */
     private function menuItemAllowedForPackage(array $item, CompanyEntitlementService $entitlements, ?Company $company): bool
     {
+        $hideKeys = $item['hide_for_package_keys'] ?? null;
+        if (is_array($hideKeys) && $hideKeys !== [] && $company) {
+            $packageKey = strtolower(trim((string) ($company->package_key ?? '')));
+            if ($packageKey !== '' && in_array($packageKey, array_map('strtolower', $hideKeys), true)) {
+                return false;
+            }
+        }
+
         $capability = $item['package_capability'] ?? null;
         if (! is_string($capability) || $capability === '') {
             return true;

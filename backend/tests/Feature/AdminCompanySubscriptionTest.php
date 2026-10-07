@@ -89,6 +89,64 @@ class AdminCompanySubscriptionTest extends TestCase
     }
 
     #[Test]
+    public function marketplace_can_upgrade_to_paid_packages_immediately(): void
+    {
+        [$user, $company] = $this->companyAdmin('marketplace');
+
+        $this->actingAs($user)
+            ->get(route('admin.subscriptions.show'))
+            ->assertOk()
+            ->assertSee('Marketplace', false)
+            ->assertSee('Huidig pakket', false)
+            ->assertSee('Nu upgraden', false)
+            ->assertDontSee('Downgraden per', false)
+            ->assertDontSee('Het abonnement en de SEPA-incasso', false)
+            ->assertDontSee('>Opzeggen</h3>', false);
+
+        $catalog = app(TenantSubscriptionService::class)->catalogFor($company);
+        $byKey = collect($catalog)->keyBy('key');
+        $this->assertTrue($byKey['marketplace']['is_current']);
+        $this->assertTrue($byKey['start']['is_upgrade']);
+        $this->assertTrue($byKey['pro']['is_upgrade']);
+        $this->assertTrue($byKey['business']['is_upgrade']);
+        $this->assertFalse($byKey['start']['is_downgrade']);
+        $this->assertFalse($byKey['pro']['is_downgrade']);
+        $this->assertFalse($byKey['business']['is_downgrade']);
+
+        $this->actingAs($user)
+            ->from(route('admin.subscriptions.show'))
+            ->post(route('admin.subscriptions.upgrade'), ['package_key' => 'start'])
+            ->assertRedirect(route('admin.subscriptions.show', ['saved' => 1]));
+
+        $company->refresh();
+        $this->assertSame('start', $company->package_key);
+        $this->assertDatabaseHas('company_subscription_changes', [
+            'company_id' => $company->id,
+            'change_type' => CompanySubscriptionChange::TYPE_UPGRADE,
+            'status' => CompanySubscriptionChange::STATUS_APPLIED,
+            'from_package_key' => 'marketplace',
+            'to_package_key' => 'start',
+        ]);
+    }
+
+    #[Test]
+    public function paid_package_treats_marketplace_as_downgrade_not_upgrade(): void
+    {
+        [$user, $company] = $this->companyAdmin('start');
+
+        $catalog = app(TenantSubscriptionService::class)->catalogFor($company);
+        $marketplace = collect($catalog)->firstWhere('key', 'marketplace');
+        $this->assertNotNull($marketplace);
+        $this->assertFalse($marketplace['is_upgrade']);
+        $this->assertTrue($marketplace['is_downgrade']);
+
+        $this->actingAs($user)
+            ->get(route('admin.subscriptions.show'))
+            ->assertOk()
+            ->assertSee('Downgraden per', false);
+    }
+
+    #[Test]
     public function upgrade_applies_immediately_and_prorates_the_new_price(): void
     {
         [$user, $company] = $this->companyAdmin('start');

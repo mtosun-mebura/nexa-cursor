@@ -25,6 +25,9 @@ class TaxiMolliePaymentService
             ],
             'description' => mb_substr($description, 0, 255),
             'redirectUrl' => $redirectUrl,
+            // Testmodus-statuspagina: alleen "Betaald" gaat naar redirectUrl.
+            // Mislukt / geannuleerd / verlopen gebruikt cancelUrl — die moet anders zijn.
+            'cancelUrl' => self::cancelUrlFromRedirect($redirectUrl),
             'metadata' => $metadata,
         ];
 
@@ -113,6 +116,25 @@ class TaxiMolliePaymentService
     public function checkoutUrl(array $molliePayment): ?string
     {
         return $molliePayment['_links']['checkout']['href'] ?? null;
+    }
+
+    /**
+     * Mollie eist dat cancelUrl ≠ redirectUrl. Zelfde return-pagina, extra query.
+     */
+    public static function cancelUrlFromRedirect(string $redirectUrl): string
+    {
+        $redirectUrl = trim($redirectUrl);
+        if ($redirectUrl === '') {
+            return $redirectUrl;
+        }
+        $hash = '';
+        if (str_contains($redirectUrl, '#')) {
+            [$redirectUrl, $hash] = explode('#', $redirectUrl, 2);
+            $hash = '#'.$hash;
+        }
+        $separator = str_contains($redirectUrl, '?') ? '&' : '?';
+
+        return $redirectUrl.$separator.'mollie_cancel=1'.$hash;
     }
 
     public function mapMollieStatus(string $status): string
