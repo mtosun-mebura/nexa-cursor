@@ -190,6 +190,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         $this->ensureSuperAdmin();
         $validated = $request->validate([
             'fee_percent' => 'required|integer|min:0|max:100',
+            'allow_marketplace_network_owner' => 'sometimes|boolean',
             'auto_generate' => 'sometimes|boolean',
             'auto_send' => 'sometimes|boolean',
             'billing_day' => 'required|integer|min:1|max:28',
@@ -234,11 +235,18 @@ class AdminNexaSuiteMarketplaceController extends Controller
             unset($validated['mollie_webhook_url']);
         }
 
+        if (! Schema::hasColumn('nexa_suite_marketplace_settings', 'allow_marketplace_network_owner')) {
+            unset($validated['allow_marketplace_network_owner']);
+        }
+
         $settings->fill([
             ...$validated,
             'auto_generate' => $request->boolean('auto_generate'),
             'auto_send' => $request->boolean('auto_send'),
         ]);
+        if (Schema::hasColumn('nexa_suite_marketplace_settings', 'allow_marketplace_network_owner')) {
+            $settings->allow_marketplace_network_owner = $request->boolean('allow_marketplace_network_owner');
+        }
         $settings->save();
 
         return redirect()

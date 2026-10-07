@@ -113,6 +113,37 @@
                         @enderror
                     </td>
                 </tr>
+                @if(empty($noTenantSelected))
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Verlopen rit auto-archiveren (dagen)</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="overdue_auto_archive_days"
+                            id="overdue_auto_archive_days"
+                            class="kt-input w-64 @error('overdue_auto_archive_days') border-destructive @enderror"
+                            min="{{ $minOverdueAutoArchiveDays }}"
+                            max="{{ $maxOverdueAutoArchiveDays }}"
+                            step="1"
+                            required
+                            value="{{ old('overdue_auto_archive_days', $overdueAutoArchiveDays) }}"
+                            aria-invalid="{{ $errors->has('overdue_auto_archive_days') ? 'true' : 'false' }}"
+                        >
+                        <div class="field-feedback text-sm mt-1" data-field="overdue_auto_archive_days" aria-live="polite"></div>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Geaccepteerde ritten met een verlopen ophaalmoment verdwijnen na deze dagen uit
+                            Ritten en komen in het archief van de chauffeur-app.
+                            Standaard voor iedereen: {{ $envDefaultOverdueAutoArchiveDays }} dagen; per tenant aanpasbaar.
+                            0 = nooit automatisch. Tussen {{ $minOverdueAutoArchiveDays }} en {{ $maxOverdueAutoArchiveDays }} dagen.
+                        </p>
+                        @error('overdue_auto_archive_days')
+                            <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                               data-laravel-field="overdue_auto_archive_days"
+                               data-laravel-message="{{ $message }}">{{ $message }}</p>
+                        @enderror
+                    </td>
+                </tr>
+                @endif
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Geen chauffeur: keuze aan klant (minuten)</td>
                     <td class="min-w-48 w-full pt-4">
@@ -505,10 +536,13 @@
                     @if(!empty($noTenantSelected))
                         Platformstandaard voor Nexa Suite. Tenants zonder eigen network-instelling gebruiken deze waarden.
                         Partner-invite-codes en handmatige partner-IDs stel je in per tenant.
+                    @elseif(!empty($marketplaceNetworkOnly) && empty($marketplaceCanOwnNetwork))
+                        Marketplace (fee-only): deel je invite-code zodat een tenant met betaald abonnement jou als uitvoerder koppelt.
+                        Over die ritten geldt de NEXA-fee (zichtbaar in de chauffeur-app / ritten). Zelf network uitzetten kan alleen met Start, Pro of Business, of als een super-admin marketplace↔marketplace aanzet onder Configuraties → Nexa Suite (klant-app).
                     @else
                         Standaard uit. Bij network blijft de booking-owner (<code>company_id</code>) van dit bedrijf;
                         een partner-taxi rijdt als uitvoerder (<code>fulfilling_company_id</code>).
-                        Partners koppelen via invite-code — geen zicht op andere tenants.
+                        Partners koppelen via invite-code — de partner hoeft geen abonnement (marketplace mag).
                     @endif
                 </p>
 
@@ -518,17 +552,25 @@
                 @error('invite_code')
                     <div class="kt-alert kt-alert-danger mt-3 mb-0">{{ $message }}</div>
                 @enderror
+                @error('network_enabled')
+                    <div class="kt-alert kt-alert-danger mt-3 mb-0">{{ $message }}</div>
+                @enderror
 
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">Network inschakelen</td>
                         <td class="min-w-48 w-full">
-                            <label class="inline-flex items-center gap-2">
+                            @if(!empty($marketplaceNetworkOnly) && empty($marketplaceCanOwnNetwork))
                                 <input type="hidden" name="network_enabled" value="0">
-                                <input type="checkbox" class="kt-checkbox" name="network_enabled" id="network_enabled" value="1"
-                                       {{ old('network_enabled', !empty($networkEnabled) ? '1' : '0') === '1' ? 'checked' : '' }}>
-                                <span class="text-sm text-secondary-foreground">Partner-taxi’s mogen ritten uitvoeren zonder klant-eigenaarschap over te nemen</span>
-                            </label>
+                                <p class="text-sm text-muted-foreground mb-0">Niet beschikbaar op marketplace. Upgrade naar een betaald abonnement, of vraag een super-admin marketplace↔marketplace aan te zetten bij Configuraties → Nexa Suite (klant-app).</p>
+                            @else
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="network_enabled" value="0">
+                                    <input type="checkbox" class="kt-checkbox" name="network_enabled" id="network_enabled" value="1"
+                                           {{ old('network_enabled', !empty($networkEnabled) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Partner-taxi’s mogen ritten uitvoeren zonder klant-eigenaarschap over te nemen</span>
+                                </label>
+                            @endif
                         </td>
                     </tr>
                     <tr>
@@ -703,19 +745,27 @@
                     <div class="rounded-lg border border-border p-4 min-w-0">
                         <h4 class="text-sm font-semibold text-foreground mb-1">2. Partner koppelen (hun code)</h4>
                         <p class="text-xs text-muted-foreground mb-3">
-                            Plak de invite-code van de partner. Jij blijft owner; zij mogen jouw network-ritten uitvoeren na acceptatie.
+                            Alleen met een betaald maandabonnement (Start, Pro of Business) kun je hier een partner koppelen, tenzij marketplace↔marketplace is aangezet.
+                            De partner zelf hoeft geen abonnement: marketplace/fee-only mag uitvoeren; over die ritten zie je de NEXA-fee.
+                            Jij blijft owner; zij voeren jouw network-ritten uit na acceptatie.
                         </p>
-                        <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.invite_redeem') }}" class="flex flex-wrap items-end gap-2 m-0">
-                            @csrf
-                            <div class="min-w-0">
-                                <label class="text-xs text-muted-foreground mb-1 block" for="network_invite_code_input">Invite-code</label>
-                                <input type="text" name="invite_code" id="network_invite_code_input"
-                                       class="kt-input w-48 font-mono uppercase @error('invite_code') border-destructive @enderror"
-                                       value="{{ old('invite_code') }}"
-                                       placeholder="AB12CD34" autocomplete="off" maxlength="32">
+                        @if(!empty($marketplaceNetworkOnly) && empty($marketplaceCanOwnNetwork))
+                            <div class="kt-alert kt-alert-warning mb-3 text-sm">
+                                Dit bedrijf staat op het marketplace-pakket (geen maandabonnement). Je kunt wel invites delen en inkomende verzoeken accepteren als uitvoerder, maar geen eigen partners koppelen.
                             </div>
-                            <button type="submit" class="kt-btn kt-btn-primary h-[34px] min-h-[34px] px-4 text-sm leading-none">Verzoek versturen</button>
-                        </form>
+                        @else
+                            <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.invite_redeem') }}" class="flex flex-wrap items-end gap-2 m-0">
+                                @csrf
+                                <div class="min-w-0">
+                                    <label class="text-xs text-muted-foreground mb-1 block" for="network_invite_code_input">Invite-code</label>
+                                    <input type="text" name="invite_code" id="network_invite_code_input"
+                                           class="kt-input w-48 font-mono uppercase @error('invite_code') border-destructive @enderror"
+                                           value="{{ old('invite_code') }}"
+                                           placeholder="AB12CD34" autocomplete="off" maxlength="32">
+                                </div>
+                                <button type="submit" class="kt-btn kt-btn-primary h-[34px] min-h-[34px] px-4 text-sm leading-none">Verzoek versturen</button>
+                            </form>
+                        @endif
                     </div>
 
                     @if(($networkPendingIncoming ?? collect())->isNotEmpty())

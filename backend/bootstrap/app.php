@@ -71,6 +71,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ApplyDevSimulatedTenantHost::class,
             \App\Http\Middleware\OverlayGeneralSettingConfig::class,
             \App\Http\Middleware\WebsiteAdminPreviewSession::class,
+            \App\Http\Middleware\StripSoftSeoQueryParams::class,
             \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\TenantMiddleware::class,
             \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,

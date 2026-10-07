@@ -517,6 +517,7 @@ class NexaSuiteMarketplaceTest extends TestCase
         $this->actingAs($user)
             ->put(route('admin.nexa-suite-bookings.settings.update'), [
                 'fee_percent' => 12,
+                'allow_marketplace_network_owner' => 1,
                 'auto_generate' => 1,
                 'auto_send' => 1,
                 'billing_day' => 2,
@@ -531,6 +532,7 @@ class NexaSuiteMarketplaceTest extends TestCase
             ->assertRedirect(route('admin.nexa-suite-bookings.settings'));
 
         $this->assertSame(12, (int) NexaSuiteMarketplaceSetting::current()->fee_percent);
+        $this->assertTrue((bool) NexaSuiteMarketplaceSetting::current()->allow_marketplace_network_owner);
         $this->assertSame(21, (int) NexaSuiteMarketplaceSetting::current()->tax_rate_percent);
     }
 

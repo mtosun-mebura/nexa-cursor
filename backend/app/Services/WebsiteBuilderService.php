@@ -2102,6 +2102,21 @@ class WebsiteBuilderService
     }
 
     /**
+     * Publieke canonieke URL van de about-pagina, of null als die niet bestaat.
+     */
+    public function publicAboutUrl(): ?string
+    {
+        $page = $this->getAboutPage();
+        if ($page === null) {
+            return null;
+        }
+
+        $path = $this->publicPathsForWebsitePage($page)[0] ?? '/over-ons';
+
+        return url($path);
+    }
+
+    /**
      * Contactpagina: eerst uit actieve/branding module (frontend pagina's), anders uit core.
      * Zo overruleert de contactpagina uit de module de statische Nexa Skillmatching contactpagina.
      */

@@ -125,7 +125,18 @@ class PublicSitemapBuilder
             if (! Route::has($name)) {
                 continue;
             }
-            if ($name === 'about' && ! $this->websiteBuilder->getAboutPage()) {
+            if ($name === 'about') {
+                $aboutUrl = $this->websiteBuilder->publicAboutUrl();
+                if ($aboutUrl === null) {
+                    continue;
+                }
+                $entries[] = [
+                    'loc' => $aboutUrl,
+                    'lastmod' => now()->toAtomString(),
+                    'changefreq' => $candidate['changefreq'],
+                    'priority' => $candidate['priority'],
+                ];
+
                 continue;
             }
             if ($name === 'contact' && ! $this->websiteBuilder->getContactPage()) {

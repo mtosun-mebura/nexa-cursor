@@ -27,6 +27,8 @@ class TaxiDispatchSettingsService
 
     public const KEY_PAST_PICKUP_GRACE_MINUTES = 'taxi_dispatch_past_pickup_grace_minutes';
 
+    public const KEY_OVERDUE_AUTO_ARCHIVE_DAYS = 'taxi_dispatch_overdue_auto_archive_days';
+
     public const KEY_UNACCEPTED_AUTO_CANCEL_MINUTES = 'taxi_dispatch_unaccepted_auto_cancel_minutes';
 
     public const KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 'taxi_dispatch_customer_unaccepted_decision_minutes';
@@ -105,6 +107,11 @@ class TaxiDispatchSettingsService
     public const MIN_PAST_PICKUP_GRACE_MINUTES = 0;
 
     public const MAX_PAST_PICKUP_GRACE_MINUTES = 4320; // 72 uur
+
+    /** 0 = nooit automatisch archiveren */
+    public const MIN_OVERDUE_AUTO_ARCHIVE_DAYS = 0;
+
+    public const MAX_OVERDUE_AUTO_ARCHIVE_DAYS = 90;
 
     /** 0 = automatische annulering uit */
     public const MIN_UNACCEPTED_AUTO_CANCEL_MINUTES = 0;
@@ -197,6 +204,39 @@ class TaxiDispatchSettingsService
     public function clampPastPickupGraceMinutes(int $minutes): int
     {
         return max(self::MIN_PAST_PICKUP_GRACE_MINUTES, min(self::MAX_PAST_PICKUP_GRACE_MINUTES, $minutes));
+    }
+
+    public function overdueAutoArchiveDays(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.overdue_auto_archive_days', 2);
+        // Alleen tenant-override; geen Nexa Suite-platformfallback (company_id null).
+        if ($companyId !== null && $companyId > 0) {
+            $raw = $this->companyScopedSetting(self::KEY_OVERDUE_AUTO_ARCHIVE_DAYS, $companyId);
+            if ($raw !== null && $raw !== '') {
+                return $this->clampOverdueAutoArchiveDays((int) $raw);
+            }
+        }
+
+        return $this->clampOverdueAutoArchiveDays($default);
+    }
+
+    public function setOverdueAutoArchiveDays(int $days, ?int $companyId = null): void
+    {
+        // Alleen per tenant opslaan — nooit als platformdefault voor alle tenants.
+        if ($companyId === null || $companyId <= 0) {
+            return;
+        }
+
+        GeneralSetting::set(
+            self::KEY_OVERDUE_AUTO_ARCHIVE_DAYS,
+            (string) $this->clampOverdueAutoArchiveDays($days),
+            $companyId
+        );
+    }
+
+    public function clampOverdueAutoArchiveDays(int $days): int
+    {
+        return max(self::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, min(self::MAX_OVERDUE_AUTO_ARCHIVE_DAYS, $days));
     }
 
     public function unacceptedAutoCancelMinutes(?int $companyId = null): int
@@ -462,6 +502,34 @@ class TaxiDispatchSettingsService
         }
 
         return $dueAt->copy()->addSeconds($ttl)->lte($base);
+    }
+
+    /**
+     * Verlopen geaccepteerde rit hoort in het archief: ophaalmoment + N dagen is voorbij.
+     * 0 dagen in de instelling = nooit automatisch archiveren.
+     */
+    public function scheduledRideIsAutoArchived(RideRequest $ride, ?int $companyId = null, ?CarbonInterface $now = null): bool
+    {
+        $companyId = $companyId ?? (int) ($ride->company_id ?? 0);
+        $days = $this->overdueAutoArchiveDays($companyId > 0 ? $companyId : null);
+        if ($days <= 0) {
+            return false;
+        }
+
+        if (! $this->scheduledRideIsOverdue($ride, $companyId > 0 ? $companyId : null, $now)) {
+            return false;
+        }
+
+        $dueAt = $this->effectiveDispatchDueAt($ride);
+        if (! $dueAt) {
+            return false;
+        }
+
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
+
+        return $dueAt->copy()->addDays($days)->lte($base);
     }
 
     private function scheduledRideDueAt(RideRequest $ride): ?CarbonInterface

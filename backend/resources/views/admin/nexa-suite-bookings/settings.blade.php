@@ -164,6 +164,23 @@
             </div>
 
             <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">NEXA Network</h3></div>
+                <div class="kt-card-content p-5">
+                    <input type="hidden" name="allow_marketplace_network_owner" value="0">
+                    <label class="kt-label flex items-center gap-2 mb-0" for="allow_marketplace_network_owner">
+                        <input type="checkbox" name="allow_marketplace_network_owner" id="allow_marketplace_network_owner" value="1" class="kt-switch kt-switch-sm shrink-0"
+                               @checked(old('allow_marketplace_network_owner', $settings->allow_marketplace_network_owner ?? false))>
+                        <span class="text-sm text-muted-foreground">Marketplace-pakket mag zelf network-partners koppelen (marketplace↔marketplace)</span>
+                    </label>
+                    <p class="text-xs text-muted-foreground mt-2 mb-0">
+                        Standaard uit: alleen Start/Pro/Business mag ritten via network uitzetten; marketplace mag wel als uitvoerder gekoppeld worden (met fee).
+                        Aanzetten laat fee-only marketplace-bedrijven ook eigen partners koppelen en network inschakelen.
+                    </p>
+                    @error('allow_marketplace_network_owner')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                </div>
+            </div>
+
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Automatische specificatie (PDF)</h3></div>
                 <div class="kt-card-content p-5 space-y-4">
                     <label class="kt-label flex items-center gap-2">

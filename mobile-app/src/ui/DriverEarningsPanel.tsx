@@ -291,6 +291,7 @@ export function DriverEarningsPanel({
         />
       }
     >
+      <ErrorText>{error}</ErrorText>
       <Text style={styles.title}>Inkomsten</Text>
       <View style={styles.periodRow}>
         {(['day', 'week', ...(canViewMonth ? (['month'] as const) : [])] as Period[]).map(
@@ -326,8 +327,6 @@ export function DriverEarningsPanel({
           <Ionicons name="chevron-forward" size={20} color={colors.text} />
         </Pressable>
       </View>
-
-      <ErrorText>{error}</ErrorText>
 
       {loading && !payload ? (
         <ActivityIndicator color={accent.hex} style={{ marginTop: 24 }} />
@@ -379,8 +378,8 @@ export function DriverEarningsPanel({
 
 function makeStyles(colors: ColorPalette, accentHex: string) {
   return StyleSheet.create({
-    scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 28 },
-    title: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: 14 },
+    scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
+    title: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 12 },
     periodRow: {
       flexDirection: 'row',
       borderRadius: 999,

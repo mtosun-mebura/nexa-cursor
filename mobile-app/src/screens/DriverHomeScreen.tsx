@@ -87,6 +87,7 @@ const DRIVER_ARCHIVED_RIDES_KEY = 'nexa.driver.archived_completed';
 const DRIVER_ARCHIVE_SEEN_KEY = 'nexa.driver.archive.seen';
 const DRIVER_ACCENT_KEY = 'nexa.driver.accent';
 const DRIVER_RIDE_KIND_KEY = 'nexa.driver.ride_kind';
+const DRIVER_RIDE_PERIOD_KEY = 'nexa.driver.ride_period';
 const DRIVER_TABS: DriverTabKey[] = [
   'trips',
   'requests',
@@ -98,8 +99,14 @@ const DRIVER_TABS: DriverTabKey[] = [
 type RideKindFilter = 'all' | 'taxi' | 'contract';
 const RIDE_KIND_OPTIONS: { key: RideKindFilter; label: string }[] = [
   { key: 'all', label: 'Alles' },
-  { key: 'taxi', label: 'Taxi' },
+  { key: 'taxi', label: 'Normaal' },
   { key: 'contract', label: 'Contract' },
+];
+
+type RidePeriodFilter = 'today' | 'week';
+const RIDE_PERIOD_OPTIONS: { key: RidePeriodFilter; label: string }[] = [
+  { key: 'today', label: 'Dag' },
+  { key: 'week', label: 'Week' },
 ];
 
 function isDriverTab(value: string | null): value is DriverTabKey {
@@ -108,6 +115,10 @@ function isDriverTab(value: string | null): value is DriverTabKey {
 
 function isRideKindFilter(value: string | null): value is RideKindFilter {
   return value === 'all' || value === 'taxi' || value === 'contract';
+}
+
+function isRidePeriodFilter(value: string | null): value is RidePeriodFilter {
+  return value === 'today' || value === 'week';
 }
 
 function rideMatchesKindFilter(
@@ -120,8 +131,37 @@ function rideMatchesKindFilter(
   return !contract;
 }
 
+function rideIsoDay(ride: DriverActiveRide | null | undefined): string | null {
+  if (!ride) return null;
+  const raw = String(ride.pickup_at || '').trim();
+  if (!raw) return null;
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return toIsoDate(d);
+}
+
+function rideMatchesPeriodFilter(
+  ride: DriverActiveRide | null | undefined,
+  period: RidePeriodFilter,
+  today: string,
+  weekFrom: string,
+  weekTo: string
+): boolean {
+  if (!ride) return true;
+  const day = rideIsoDay(ride);
+  if (!day) return true;
+  if (period === 'today') return day === today;
+  return day >= weekFrom && day <= weekTo;
+}
+
 function persistRideKindFilter(kind: RideKindFilter) {
   AsyncStorage.setItem(DRIVER_RIDE_KIND_KEY, kind).catch(() => undefined);
+}
+
+function persistRidePeriodFilter(period: RidePeriodFilter) {
+  AsyncStorage.setItem(DRIVER_RIDE_PERIOD_KEY, period).catch(() => undefined);
 }
 
 function persistDriverTab(key: DriverTabKey) {
@@ -228,7 +268,8 @@ export function DriverHomeScreen() {
   const [logoLight, setLogoLight] = useState<string | null>(null);
   const [logoDark, setLogoDark] = useState<string | null>(null);
   const [canFilterContractRides, setCanFilterContractRides] = useState(false);
-  const [rideKindFilter, setRideKindFilter] = useState<RideKindFilter>('all');
+  const [rideKindFilter, setRideKindFilter] = useState<RideKindFilter>('taxi');
+  const [ridePeriodFilter, setRidePeriodFilter] = useState<RidePeriodFilter>('today');
   const [showEarnings, setShowEarnings] = useState(false);
   const [canViewMonthEarnings, setCanViewMonthEarnings] = useState(false);
   const [offers, setOffers] = useState<DispatchOffer[]>([]);
@@ -238,6 +279,9 @@ export function DriverHomeScreen() {
   const [parkedRides, setParkedRides] = useState<DriverActiveRide[]>([]);
   const [scheduledRides, setScheduledRides] = useState<DriverActiveRide[]>([]);
   const [overdueScheduledRides, setOverdueScheduledRides] = useState<DriverActiveRide[]>([]);
+  const [archivedOverdueScheduledRides, setArchivedOverdueScheduledRides] = useState<
+    DriverActiveRide[]
+  >([]);
   const [completedRides, setCompletedRides] = useState<DriverActiveRide[]>([]);
   const [archivedCompletedIds, setArchivedCompletedIds] = useState<number[]>([]);
   const [archiveSeenKeys, setArchiveSeenKeys] = useState<string[]>([]);
@@ -273,6 +317,7 @@ export function DriverHomeScreen() {
           savedArchivedRides,
           savedArchiveSeen,
           savedRideKind,
+          savedRidePeriod,
         ] = await Promise.all([
           AsyncStorage.getItem(DRIVER_TAB_KEY),
           AsyncStorage.getItem(DRIVER_ARCHIVE_KEY),
@@ -280,11 +325,13 @@ export function DriverHomeScreen() {
           AsyncStorage.getItem(DRIVER_ARCHIVED_RIDES_KEY),
           AsyncStorage.getItem(DRIVER_ARCHIVE_SEEN_KEY),
           AsyncStorage.getItem(DRIVER_RIDE_KIND_KEY),
+          AsyncStorage.getItem(DRIVER_RIDE_PERIOD_KEY),
         ]);
         if (isDriverTab(savedTab)) setTab(savedTab);
         if (savedArchive === '1') setShowArchived(true);
         if (savedAccent) setAccent(normalizeDriverAccent(savedAccent));
         if (isRideKindFilter(savedRideKind)) setRideKindFilter(savedRideKind);
+        if (isRidePeriodFilter(savedRidePeriod)) setRidePeriodFilter(savedRidePeriod);
         if (savedArchivedRides) {
           try {
             const parsed = JSON.parse(savedArchivedRides);
@@ -420,6 +467,7 @@ export function DriverHomeScreen() {
       setParkedRides(inboxData.parkedAssignedRides);
       setScheduledRides(inboxData.scheduledRides);
       setOverdueScheduledRides(inboxData.overdueScheduledRides);
+      setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
       let completedFromPlanning: Array<{ id: number; status?: string } > = [];
       try {
         const monday = mondayIsoFrom();
@@ -448,9 +496,11 @@ export function DriverHomeScreen() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    refresh().catch(() => undefined);
     const intervalMs = online ? 2500 : 5000;
-    const t = setInterval(refresh, intervalMs);
+    const t = setInterval(() => {
+      refresh().catch(() => undefined);
+    }, intervalMs);
     return () => clearInterval(t);
   }, [refresh, online]);
 
@@ -520,6 +570,9 @@ export function DriverHomeScreen() {
       ...overdueScheduledRides
         .filter((r) => !isMarketplaceRide(r) && isContractRide(r))
         .map((r) => `overdue-contract-${r.id}`),
+      ...archivedOverdueScheduledRides
+        .filter((r) => !isMarketplaceRide(r))
+        .map((r) => `overdue-auto-${r.id}`),
     ];
     setArchiveSeenKeys(keys);
     persistArchiveSeenKeys(keys);
@@ -753,6 +806,7 @@ export function DriverHomeScreen() {
   const overdueContractRides = ownOverdueScheduledRides.filter((r) => isContractRide(r));
   const overdueNonContractRidesAll = ownOverdueScheduledRides.filter((r) => !isContractRide(r));
   const marketplaceOverdueAsScheduled = overdueScheduledRides.filter((r) => isMarketplaceRide(r));
+  const ownArchivedOverdueRides = archivedOverdueScheduledRides.filter((r) => !isMarketplaceRide(r));
   const plannedRidesAll = [...scheduledRides, ...marketplaceOverdueAsScheduled];
   const archivedCompletedSet = useMemo(
     () => new Set(archivedCompletedIds),
@@ -767,22 +821,32 @@ export function DriverHomeScreen() {
     plannedRidesAll.some((r) => isContractRide(r)) ||
     overdueNonContractRidesAll.some((r) => isContractRide(r)) ||
     visibleCompletedRidesAll.some((r) => isContractRide(r)) ||
-    overdueContractRides.length > 0;
+    overdueContractRides.length > 0 ||
+    ownArchivedOverdueRides.some((r) => isContractRide(r));
   const showRideKindFilter = canFilterContractRides || hasAnyContractInTrips;
   const effectiveRideKind: RideKindFilter = showRideKindFilter ? rideKindFilter : 'all';
+  const todayIso = toIsoDate(new Date());
+  const weekFromIso = mondayIsoFrom();
+  const weekToIso = addDaysIso(weekFromIso, 6);
 
+  function matchesTripFilters(ride: DriverActiveRide | null | undefined): boolean {
+    return (
+      rideMatchesKindFilter(ride, effectiveRideKind) &&
+      rideMatchesPeriodFilter(ride, ridePeriodFilter, todayIso, weekFromIso, weekToIso)
+    );
+  }
+
+  // Actieve/geparkeerde ritten altijd tonen (lopend werk), wel soortfilter toepassen.
   const activeRideFiltered =
     activeRide && rideMatchesKindFilter(activeRide, effectiveRideKind) ? activeRide : null;
   const parkedRidesFiltered = parkedRides.filter((r) =>
     rideMatchesKindFilter(r, effectiveRideKind)
   );
-  const plannedRides = plannedRidesAll.filter((r) => rideMatchesKindFilter(r, effectiveRideKind));
+  const plannedRides = plannedRidesAll.filter((r) => matchesTripFilters(r));
   const overdueNonContractRides = overdueNonContractRidesAll.filter((r) =>
     rideMatchesKindFilter(r, effectiveRideKind)
   );
-  const visibleCompletedRides = visibleCompletedRidesAll.filter((r) =>
-    rideMatchesKindFilter(r, effectiveRideKind)
-  );
+  const visibleCompletedRides = visibleCompletedRidesAll.filter((r) => matchesTripFilters(r));
 
   const requestOffers = useMemo(() => {
     if (!focusOfferId) return offers;
@@ -807,6 +871,11 @@ export function DriverHomeScreen() {
   function chooseRideKind(kind: RideKindFilter) {
     setRideKindFilter(kind);
     persistRideKindFilter(kind);
+  }
+
+  function chooseRidePeriod(period: RidePeriodFilter) {
+    setRidePeriodFilter(period);
+    persistRidePeriodFilter(period);
   }
 
   function toggleCompletedArchive(rideId: number) {
@@ -857,33 +926,75 @@ export function DriverHomeScreen() {
       }
     >
       <ErrorText>{error}</ErrorText>
-      <Text style={styles.panelTitle}>Ritten</Text>
+      <View style={styles.tripsHeaderRow}>
+        <Text style={styles.tripsHeaderTitle}>Ritten</Text>
+        <View style={styles.periodToggle}>
+          {RIDE_PERIOD_OPTIONS.map((opt) => {
+            const active = ridePeriodFilter === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                style={[styles.periodBtn, active && styles.periodBtnActive]}
+                onPress={() => chooseRidePeriod(opt.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.periodBtnText, active && styles.periodBtnTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      {showRideKindFilter ? (
+        <View style={styles.rideKindRow}>
+          {RIDE_KIND_OPTIONS.map((opt) => {
+            const active = rideKindFilter === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                style={[styles.rideKindBtn, active && styles.rideKindBtnActive]}
+                onPress={() => chooseRideKind(opt.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       {!hasTrips ? (
         <Card>
-          <Text style={styles.emptyTitle}>Geen actieve of geplande ritten.</Text>
+          <Text style={styles.emptyTitle}>
+            {ridePeriodFilter === 'week' ? 'Geen ritten deze week.' : 'Geen ritten voor vandaag.'}
+          </Text>
           <Text style={styles.hint}>
             Geaccepteerde ritten verschijnen hier. Afgeronde ritten blijven zichtbaar tot je ze archiveert.
           </Text>
         </Card>
       ) : (
         <>
-          {activeRide ? (
+          {activeRideFiltered ? (
             <>
               <Text style={styles.sectionLabel}>Actief</Text>
-              <View onLayout={bindRideOffset(activeRide.id)}>
+              <View onLayout={bindRideOffset(activeRideFiltered.id)}>
                 <DriverTripCard
-                  ride={activeRide}
+                  ride={activeRideFiltered}
                   variant="active"
-                  busy={busyRideId === activeRide.id}
-                  highlighted={focusRideId === activeRide.id}
+                  busy={busyRideId === activeRideFiltered.id}
+                  highlighted={focusRideId === activeRideFiltered.id}
                   onHighlightEnd={() => setFocusRideId(null)}
-                  onOpenMaps={() => openMapsForRide(activeRide, 'dropoff')}
-                  onComplete={() => requestCompleteRide(activeRide)}
+                  onOpenMaps={() => openMapsForRide(activeRideFiltered, 'dropoff')}
+                  onComplete={() => requestCompleteRide(activeRideFiltered)}
                   onCancel={
-                    activeRide.can_cancel_with_reason
+                    activeRideFiltered.can_cancel_with_reason
                       ? () => {
                           setSelectedCancelReason(null);
-                          setCancelRideId(activeRide.id);
+                          setCancelRideId(activeRideFiltered.id);
                         }
                       : undefined
                   }
@@ -891,7 +1002,7 @@ export function DriverHomeScreen() {
               </View>
             </>
           ) : null}
-          {parkedRides.map((ride) => (
+          {parkedRidesFiltered.map((ride) => (
             <View key={`parked-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
               <DriverTripCard
                 ride={ride}
@@ -1192,25 +1303,23 @@ export function DriverHomeScreen() {
     </ScrollView>
   );
 
+  // Alleen een lopende (gestarte) rit bovenaan — geen geplande/verlopen ritten.
   const jumpRideTarget =
-    (activeRide && String(activeRide.status || '') === 'assigned' ? activeRide : null) ||
-    parkedRides[0] ||
-    plannedRides[0] ||
-    overdueNonContractRides[0] ||
-    activeRide ||
-    null;
+    activeRide && String(activeRide.status || '') === 'assigned' ? activeRide : null;
   const showActiveRideBar = !!jumpRideTarget && (showArchived || tab !== 'trips');
   const archiveKeys = [
     ...declinedOffers.map((o) => `declined-${o.id}`),
     ...archivedOffers.map((o) => `offer-${o.id}`),
     ...archivedCompletedRides.map((r) => `done-${r.id}`),
     ...overdueContractRides.map((r) => `overdue-contract-${r.id}`),
+    ...ownArchivedOverdueRides.map((r) => `overdue-auto-${r.id}`),
   ];
   const archiveHasItems =
     declinedOffers.length > 0 ||
     archivedOffers.length > 0 ||
     archivedCompletedRides.length > 0 ||
-    overdueContractRides.length > 0;
+    overdueContractRides.length > 0 ||
+    ownArchivedOverdueRides.length > 0;
   const archiveSeenSet = useMemo(() => new Set(archiveSeenKeys), [archiveSeenKeys]);
   const archiveBadgeCount = archiveKeys.filter((key) => !archiveSeenSet.has(key)).length;
 
@@ -1231,18 +1340,16 @@ export function DriverHomeScreen() {
       }
     >
       <ErrorText>{error}</ErrorText>
-      <View style={styles.archiveHead}>
-        <Text style={styles.panelTitle}>Archief</Text>
-        <Pressable
-          onPress={() => goToArchive(false)}
-          hitSlop={8}
-          style={styles.archiveBackBtn}
-          accessibilityLabel="Terug"
-        >
-          <Ionicons name="chevron-back" size={20} color={colors.primary} />
-          <Text style={styles.archiveBack}>Terug</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        onPress={() => goToArchive(false)}
+        style={styles.archiveNav}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Terug naar ritten"
+      >
+        <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <Text style={styles.archiveNavTitle}>Archief</Text>
+      </Pressable>
       {archiveHasItems ? (
         <>
           {declinedOffers.length > 0 ? (
@@ -1264,6 +1371,32 @@ export function DriverHomeScreen() {
               <Text style={styles.sectionLabel}>Verlopen contractritten</Text>
               {overdueContractRides.map((ride) => (
                 <View key={`archived-overdue-contract-${ride.id}`}>
+                  <DriverTripCard
+                    ride={ride}
+                    variant="overdue"
+                    busy={busyRideId === ride.id}
+                    onStart={() => onStartRide(ride.id)}
+                    onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onProposePickup={() => openProposePickup(ride)}
+                    onRelease={() => requestReleaseRide(ride.id)}
+                    onCancel={
+                      ride.can_cancel_with_reason
+                        ? () => {
+                            setSelectedCancelReason(null);
+                            setCancelRideId(ride.id);
+                          }
+                        : undefined
+                    }
+                  />
+                </View>
+              ))}
+            </>
+          ) : null}
+          {ownArchivedOverdueRides.length > 0 ? (
+            <>
+              <Text style={styles.sectionLabel}>Verlopen ritten</Text>
+              {ownArchivedOverdueRides.map((ride) => (
+                <View key={`archived-overdue-auto-${ride.id}`}>
                   <DriverTripCard
                     ride={ride}
                     variant="overdue"
@@ -1422,8 +1555,8 @@ export function DriverHomeScreen() {
         <Ionicons name="car-outline" size={20} color={colors.muted} />
         <Text style={styles.vehicleLine} numberOfLines={1}>
           {selectedVehicle ? (
-            <>
-              <Text style={styles.vehiclePlate}>{vehicleDisplayLabel(selectedVehicle)}</Text>
+            <Text style={styles.vehiclePlate}>
+              {vehicleDisplayLabel(selectedVehicle)}
               {vehicleDisplayName(selectedVehicle) ? (
                 <Text style={styles.vehicleBrand}>
                   {'  '}
@@ -1433,7 +1566,7 @@ export function DriverHomeScreen() {
               {vehicleLocked && assignedUntil ? (
                 <Text style={styles.vehicleBrand}>{`  · tot ${assignedUntil}`}</Text>
               ) : null}
-            </>
+            </Text>
           ) : (
             <Text style={styles.vehicleBrand}>Kies een voertuig…</Text>
           )}
@@ -1470,12 +1603,31 @@ export function DriverHomeScreen() {
         animationType="fade"
         onRequestClose={() => setVehiclePickerOpen(false)}
       >
-        <View style={styles.pickerOverlay}>
-          <Pressable style={styles.pickerBackdrop} onPress={() => setVehiclePickerOpen(false)} />
-          <View style={styles.pickerSheet}>
+        <View style={styles.vehicleModalOverlay}>
+          <Pressable
+            style={styles.vehicleModalBackdrop}
+            onPress={() => setVehiclePickerOpen(false)}
+            accessibilityLabel="Sluiten"
+          />
+          <View style={styles.vehicleModalCard}>
             <Text style={styles.pickerTitle}>Voertuig kiezen</Text>
             {vehicles.length === 0 ? (
-              <Text style={styles.hint}>Geen beschikbare voertuigen.</Text>
+              <>
+                <Text style={styles.hint}>
+                  Geen beschikbare voertuigen. Voeg eerst een voertuig toe in het adminpaneel.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    const url = `${API_BASE_URL}/admin/taxi/vehicles`;
+                    Linking.openURL(url).catch(() => undefined);
+                  }}
+                  style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Adminpaneel openen"
+                >
+                  <Text style={styles.vehicleModalAdminText}>Adminpaneel</Text>
+                </Pressable>
+              </>
             ) : (
               vehicles.map((v) => {
                 const active = v.id === selectedVehicleId;
@@ -1504,6 +1656,14 @@ export function DriverHomeScreen() {
                 );
               })
             )}
+            <Pressable
+              onPress={() => setVehiclePickerOpen(false)}
+              style={styles.vehicleModalCloseBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Sluiten"
+            >
+              <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -1646,11 +1806,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
   return StyleSheet.create({
     topBar: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-end',
       paddingHorizontal: 16,
-      paddingTop: 2,
+      paddingTop: 4,
       paddingBottom: 6,
-      minHeight: 48,
+      minHeight: 62,
     },
     onlineBox: {
       width: 72,
@@ -1669,26 +1829,27 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     logoCenter: {
       position: 'absolute',
-      left: 0,
-      right: 0,
+      left: 72,
+      right: 72,
       top: 0,
-      bottom: 0,
+      bottom: 6,
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-end',
       zIndex: 1,
     },
     headerIcons: {
       marginLeft: 'auto',
       minWidth: 72,
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-end',
       justifyContent: 'flex-end',
       gap: 2,
       zIndex: 3,
+      paddingBottom: 1,
     },
     headerIconBtn: {
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 10,
@@ -1716,20 +1877,17 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '800',
       color: '#FFFFFF',
     },
-    archiveHead: {
+    archiveNav: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 4,
-    },
-    archiveBackBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      alignSelf: 'flex-start',
       gap: 2,
+      marginBottom: 12,
+      marginLeft: -6,
     },
-    archiveBack: {
-      color: colors.primary,
-      fontSize: 14,
+    archiveNavTitle: {
+      color: colors.text,
+      fontSize: 20,
       fontWeight: '700',
     },
     archivedMeta: {
@@ -1739,21 +1897,34 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       marginBottom: 4,
     },
     logo: {
-      width: 156,
-      height: 42,
+      width: 220,
+      height: 60,
     },
+    rideKindRow: {
+      flexDirection: 'row',
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: hexAlpha(accentHex, 0.45),
+      overflow: 'hidden',
+      marginBottom: 12,
+      backgroundColor: colors.card,
+    },
+    rideKindBtn: { flex: 1, paddingVertical: 8, alignItems: 'center' },
+    rideKindBtnActive: { backgroundColor: accentHex },
+    rideKindText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+    rideKindTextActive: { color: '#fff' },
     logoFallback: {
       color: colors.text,
       fontSize: 20,
       fontWeight: '700',
-      maxWidth: 168,
+      maxWidth: 200,
       textAlign: 'center',
     },
     vehicleRow: {
       marginHorizontal: 20,
       marginBottom: 8,
       borderWidth: 1,
-      borderColor: hexAlpha(accentHex, 0.45),
+      borderColor: colors.border,
       borderRadius: 12,
       paddingHorizontal: 12,
       paddingVertical: 10,
@@ -1764,6 +1935,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     vehicleRowNeeded: {
       borderColor: accentHex,
+      borderWidth: 1.5,
     },
     vehicleLine: {
       flex: 1,
@@ -1793,6 +1965,45 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 20,
       fontWeight: '700',
       marginBottom: 12,
+    },
+    tripsHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      gap: 12,
+    },
+    tripsHeaderTitle: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '700',
+      lineHeight: 24,
+      marginBottom: 0,
+    },
+    periodToggle: {
+      flexDirection: 'row',
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: hexAlpha(accentHex, 0.45),
+      overflow: 'hidden',
+      backgroundColor: colors.card,
+    },
+    periodBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      minWidth: 64,
+      alignItems: 'center',
+    },
+    periodBtnActive: {
+      backgroundColor: accentHex,
+    },
+    periodBtnText: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    periodBtnTextActive: {
+      color: '#fff',
     },
     sectionLabel: {
       color: colors.muted,
@@ -1824,11 +2035,67 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderTopLeftRadius: 18,
       borderTopRightRadius: 18,
       borderWidth: 1,
-      borderColor: hexAlpha(accentHex, 0.45),
+      borderColor: colors.border,
       paddingHorizontal: 16,
       paddingTop: 16,
       paddingBottom: 28,
       maxHeight: '70%',
+    },
+    vehicleModalOverlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    vehicleModalBackdrop: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: 'rgba(2, 6, 23, 0.78)',
+    },
+    vehicleModalCard: {
+      width: '100%',
+      maxWidth: 400,
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 16,
+      paddingTop: 18,
+      paddingBottom: 16,
+      maxHeight: '70%',
+      zIndex: 2,
+      elevation: 16,
+      shadowColor: '#000',
+      shadowOpacity: 0.5,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 12 },
+    },
+    vehicleModalAdminBtn: {
+      marginTop: 14,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    vehicleModalAdminText: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    vehicleModalCloseBtn: {
+      marginTop: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    vehicleModalCloseText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
     },
     pickerTitle: {
       color: colors.text,
@@ -1927,8 +2194,8 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     profileName: {
       color: colors.text,
-      fontSize: 22,
-      fontWeight: '800',
+      fontSize: 18,
+      fontWeight: '700',
       marginBottom: 16,
     },
     profileRow: {

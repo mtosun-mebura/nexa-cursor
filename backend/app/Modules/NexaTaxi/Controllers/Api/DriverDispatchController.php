@@ -170,9 +170,17 @@ class DriverDispatchController extends Controller
             ->filter(fn (RideRequest $ride) => ! $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
             ->values();
 
-        $overdueScheduledRides = $acceptedRides
+        $overdueAll = $acceptedRides
             ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
             ->sortByDesc(fn (RideRequest $ride) => $ride->pickup_at?->getTimestamp() ?? 0)
+            ->values();
+
+        $archivedOverdueScheduledRides = $overdueAll
+            ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsAutoArchived($ride, $companyId))
+            ->values();
+
+        $overdueScheduledRides = $overdueAll
+            ->reject(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsAutoArchived($ride, $companyId))
             ->values();
 
         $completedRides = RideRequest::on($conn)
@@ -228,6 +236,9 @@ class DriverDispatchController extends Controller
                     'overdue_scheduled_rides' => $overdueScheduledRides
                         ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
                         ->values(),
+                    'archived_overdue_scheduled_rides' => $archivedOverdueScheduledRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
+                        ->values(),
                     'completed_rides' => $completedRides
                         ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
                         ->values(),
@@ -247,6 +258,7 @@ class DriverDispatchController extends Controller
                         'offer_ttl_seconds' => $dispatchSettings->offerTtlSeconds($companyId),
                         'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
                         'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
+                        'overdue_auto_archive_days' => $dispatchSettings->overdueAutoArchiveDays($companyId),
                         'unclaimed_rides' => $unclaimedRides,
                         'network' => $networkMeta,
                         'requires_vehicle_to_accept' => true,

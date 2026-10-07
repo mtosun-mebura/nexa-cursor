@@ -74,7 +74,7 @@ function RootNavigator() {
     };
   }, []);
 
-  // Na verlopen sessie (of forceReLogin): altijd naar login, ook als guestRoute eerder welcome was.
+  // Na sessie-einde: verlopen/forceReLogin → login; bewust uitloggen → startpagina.
   useEffect(() => {
     if (!ready) return;
     if (session) {
@@ -85,9 +85,14 @@ function RootNavigator() {
     (async () => {
       const saved = await AsyncStorage.getItem(GUEST_ROUTE_KEY);
       if (cancelled) return;
-      if (saved === 'login' || hadSessionRef.current) {
+      if (saved === 'login') {
         hadSessionRef.current = false;
         persistGuestRoute('login');
+        return;
+      }
+      if (hadSessionRef.current) {
+        hadSessionRef.current = false;
+        persistGuestRoute('welcome');
       }
     })();
     return () => {

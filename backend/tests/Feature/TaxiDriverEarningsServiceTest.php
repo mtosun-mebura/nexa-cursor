@@ -125,7 +125,9 @@ class TaxiDriverEarningsServiceTest extends TestCase
         $forOwner = $service->forDriverPeriod(10, 7, '2026-09-17', TaxiDriverEarningsService::PERIOD_DAY, false);
 
         $this->assertSame(1, $forFulfiller['ride_count']);
-        $this->assertSame(45.0, $forFulfiller['period_total']);
+        // Network-ritten: chauffeur ziet netto (gross − NEXA fee), niet de bruto ritprijs.
+        $expectedNet = round(45.0 - (45.0 * (\App\Support\NexaMarketplaceFeeCopy::percent() / 100)), 2);
+        $this->assertSame($expectedNet, $forFulfiller['period_total']);
         $this->assertSame(0, $forOwner['ride_count']);
     }
 

@@ -26,6 +26,15 @@ return [
     ),
 
     /**
+     * Dagen na een verlopen ophaalmoment waarna een geaccepteerde rit automatisch
+     * naar het archief van de chauffeur-app gaat. 0 = nooit automatisch.
+     * Standaard voor iedereen; alleen per-tenant overschrijfbaar (geen Nexa Suite-
+     * platformfallback). Admin → NexaTaxi → Chauffeur dispatch
+     * (`taxi_dispatch_overdue_auto_archive_days`).
+     */
+    'overdue_auto_archive_days' => (int) env('TAXI_DISPATCH_OVERDUE_AUTO_ARCHIVE_DAYS', 2),
+
+    /**
      * Minuten na het (actuele) ophaalmoment waarna de klant mag kiezen: wachten of annuleren.
      * 0 = geen keuze-prompt / geen auto-annulering.
      * Per tenant: Admin → NexaTaxi → Chauffeur dispatch

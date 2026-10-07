@@ -3,9 +3,11 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\Company;
+use App\Models\NexaSuiteMarketplaceSetting;
 use App\Models\TaxiNetworkInviteCode;
 use App\Models\TaxiNetworkPartnership;
 use App\Models\User;
+use App\Services\MarketplaceCompanyRegistrationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,9 +17,53 @@ use Throwable;
 
 class TaxiNetworkPartnershipService
 {
+    /** Maandpakketten die als network-owner (ritten uitzetten) mogen koppelen. */
+    public const PAID_OWNER_PACKAGE_KEYS = ['start', 'pro', 'business'];
+
     public function __construct(
         protected TaxiDispatchSettingsService $dispatchSettings
     ) {}
+
+    /**
+     * Owner (eigen ritten via network uitzetten) vereist een betaald maandabonnement.
+     * Fee-only marketplace mag wél partner zijn (invite delen / accepteren), niet zelf partners koppelen.
+     */
+    public function companyCanInitiateNetworkPartnerships(Company|int|null $company): bool
+    {
+        if ($company === null) {
+            return false;
+        }
+        if (! $company instanceof Company) {
+            $company = Company::query()->find((int) $company);
+        }
+        if (! $company || ! $company->is_active) {
+            return false;
+        }
+
+        $key = strtolower(trim((string) ($company->package_key ?? '')));
+        // Fee-only marketplace: alleen als super-admin “marketplace mag network-owner zijn” aanzet.
+        if ($key === strtolower(MarketplaceCompanyRegistrationService::PACKAGE_KEY)) {
+            return NexaSuiteMarketplaceSetting::marketplaceMayOwnNetwork();
+        }
+        // Geen pakket gekoppeld: legacy tenants blijven werken tot er een pakket is.
+        if ($key === '') {
+            return true;
+        }
+
+        return in_array($key, self::PAID_OWNER_PACKAGE_KEYS, true);
+    }
+
+    public function assertCompanyCanInitiateNetworkPartnerships(Company|int $company): void
+    {
+        if ($this->companyCanInitiateNetworkPartnerships($company)) {
+            return;
+        }
+
+        throw new InvalidArgumentException(
+            'Alleen tenants met een betaald maandabonnement (Start, Pro of Business) mogen network-partners koppelen. '
+            .'Marketplace (alleen fee) kan wel als uitvoerder gekoppeld worden; over die ritten geldt de NEXA-fee.'
+        );
+    }
 
     /**
      * Active invite code for a company (creates one if missing/expired).
@@ -91,9 +137,14 @@ class TaxiNetworkPartnershipService
             throw new InvalidArgumentException('Je kunt je eigen invite-code niet gebruiken.');
         }
 
+        $this->assertCompanyCanInitiateNetworkPartnerships($ownerCompanyId);
+
         if (! Company::query()->whereKey($partnerCompanyId)->where('is_active', true)->exists()) {
             throw new InvalidArgumentException('Dit partnerbedrijf is niet beschikbaar.');
         }
+
+        // Marketplace↔marketplace of marketplace-as-owner is al geblokkeerd via assert hierboven.
+        // Partner mag marketplace (fee-only) of elk ander actief bedrijf zijn.
 
         return DB::transaction(function () use ($ownerCompanyId, $partnerCompanyId, $invite, $actor) {
             $existing = TaxiNetworkPartnership::query()

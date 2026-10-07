@@ -216,6 +216,7 @@ export function DriverPlanningPanel({
         />
       }
     >
+      <ErrorText>{error}</ErrorText>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Planning</Text>
         <View style={styles.viewToggle}>
@@ -235,8 +236,6 @@ export function DriverPlanningPanel({
           </Pressable>
         </View>
       </View>
-
-      <ErrorText>{error}</ErrorText>
 
       <View style={styles.navRow}>
         <Pressable style={styles.navBtn} onPress={goPrev} accessibilityLabel="Vorige">
@@ -479,21 +478,23 @@ function DayRides({
 function makeStyles(colors: ColorPalette, accentHex: string) {
   return StyleSheet.create({
     scroll: {
-      paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 28,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 24,
     },
     headerRow: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
-      marginBottom: 14,
+      marginBottom: 12,
       gap: 12,
     },
     title: {
       color: colors.text,
-      fontSize: 22,
-      fontWeight: '800',
+      fontSize: 20,
+      fontWeight: '700',
+      lineHeight: 24,
+      marginBottom: 0,
     },
     viewToggle: {
       flexDirection: 'row',
@@ -502,6 +503,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderColor: hexAlpha(accentHex, 0.45),
       overflow: 'hidden',
       backgroundColor: colors.card,
+      marginTop: 0,
     },
     viewBtn: {
       paddingHorizontal: 14,
