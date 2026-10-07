@@ -489,8 +489,16 @@ export function ContractHomeScreen() {
       }
       setPassengers(passengersRes.data?.passengers || []);
       setAbsences(absencesRes.data?.absences || []);
-      await handleNewContractRides(todayData);
+      try {
+        await handleNewContractRides(todayData);
+      } catch {
+        /* push mag refresh niet breken */
+      }
     } catch (e) {
+      // 429 tijdens snelle poll: stille retry i.p.v. rode foutbanner
+      if (e instanceof ApiError && e.status === 429) {
+        return;
+      }
       setError(e instanceof ApiError ? e.message : 'Kon contractgegevens niet laden.');
     } finally {
       refreshBusyRef.current = false;
@@ -1991,11 +1999,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     rideCardHeader: {
       flexDirection: 'row',
       alignItems: 'flex-start',
+      justifyContent: 'space-between',
       gap: 8,
     },
     rideExpandIcon: {
       marginTop: 2,
-      marginLeft: 'auto',
     },
     badgeRow: {
       flex: 1,
