@@ -29,6 +29,8 @@ class TransportRouteStop extends Model
 
     public const STOP_TYPE_PICKUP = 'pickup';
 
+    public const STOP_TYPE_DROPOFF = 'dropoff';
+
     public const STOP_TYPE_DESTINATION = 'destination';
 
     public function template()

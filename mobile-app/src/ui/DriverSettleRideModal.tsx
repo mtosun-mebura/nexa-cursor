@@ -3,9 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +29,7 @@ import { ApiError } from '../api/client';
 import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
+import { AppModal } from './AppModal';
 
 function formatEuro(amount: number) {
   return new Intl.NumberFormat('nl-NL', {
@@ -305,39 +303,26 @@ export function DriverSettleRideModal({
   }
 
   return (
-    <Modal
+    <AppModal
       visible={visible}
-      transparent
-      animationType="fade"
       onRequestClose={() => {
         if (!busy) {
           stopPoll();
           onClose();
         }
       }}
+      dismissDisabled={busy}
+      panelStyle={styles.sheet}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <Pressable
-          style={styles.backdrop}
-          disabled={busy}
-          onPress={() => {
-            stopPoll();
-            onClose();
-          }}
-        />
-        <View style={styles.sheet}>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
-            <Text style={styles.title}>{title}</Text>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
+        <Text style={styles.title}>{title}</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            {contract ? (
-              <Text style={styles.hint}>
-                Contractrit: geen betaling in de app. Je kunt deze rit afronden.
-              </Text>
-            ) : needsPay ? (
+        {contract ? (
+          <Text style={styles.hint}>
+            Contractrit: geen betaling in de app. Je kunt deze rit afronden.
+          </Text>
+        ) : needsPay ? (
               <>
                 <Text style={styles.hint}>
                   Afronden kan pas na betaling. Laat de klant via QR betalen of registreer contant.
@@ -453,52 +438,45 @@ export function DriverSettleRideModal({
               </>
             )}
 
-            <View style={styles.footer}>
-              <Pressable
-                style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
-                disabled={busy}
-                onPress={() => {
-                  stopPoll();
-                  onClose();
-                }}
-              >
-                <Text style={styles.btnGhostText}>Sluiten</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.btn,
-                  styles.btnPrimary,
-                  (busy || needsPay) && styles.btnDisabled,
-                ]}
-                disabled={busy || needsPay}
-                onPress={onComplete}
-              >
-                <Text style={styles.btnPrimaryText}>
-                  {busy && paid ? 'Bezig…' : 'Rit afronden'}
-                </Text>
-              </Pressable>
-            </View>
-          </ScrollView>
+        <View style={styles.footer}>
+          <Pressable
+            style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => {
+              stopPoll();
+              onClose();
+            }}
+          >
+            <Text style={styles.btnGhostText}>Sluiten</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.btn,
+              styles.btnPrimary,
+              (busy || needsPay) && styles.btnDisabled,
+            ]}
+            disabled={busy || needsPay}
+            onPress={onComplete}
+          >
+            <Text style={styles.btnPrimaryText}>
+              {busy && paid ? 'Bezig…' : 'Rit afronden'}
+            </Text>
+          </Pressable>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      </ScrollView>
+    </AppModal>
   );
 }
 
 function makeStyles(colors: ColorPalette, accentHex: string) {
   return StyleSheet.create({
-    overlay: { flex: 1, justifyContent: 'flex-end' },
-    backdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: 'rgba(15, 23, 42, 0.72)',
-    },
     sheet: {
-      backgroundColor: colors.card,
-      borderTopLeftRadius: 18,
-      borderTopRightRadius: 18,
-      borderWidth: 1,
-      borderColor: hexAlpha(accentHex, 0.45),
+      maxWidth: 440,
       maxHeight: '88%',
+      borderColor: hexAlpha(accentHex, 0.45),
+      paddingHorizontal: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
     },
     scroll: {
       paddingHorizontal: 16,

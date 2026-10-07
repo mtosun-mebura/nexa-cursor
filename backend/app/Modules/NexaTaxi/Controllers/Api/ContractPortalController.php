@@ -7,8 +7,10 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideStop;
 use App\Modules\NexaTaxi\Models\TransportAnnouncement;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
+use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerAbsence;
+use App\Modules\NexaTaxi\Services\ContractPortalRideLifecycleService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TransportPassengerAbsenceService;
@@ -72,7 +74,7 @@ class ContractPortalController extends Controller
         $day = now($tz)->startOfDay();
         $customer = TransportCustomer::on($conn)->find($context['transport_customer_id']);
 
-        $items = $this->buildDayItems($conn, $passengers, $day);
+        $items = $this->buildDayItems($conn, $passengers, $day, null, $access->isContractant($context));
 
         return response()->json([
             'data' => [
@@ -131,7 +133,13 @@ class ContractPortalController extends Controller
         for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
             $dateString = $d->toDateString();
             $dayAbsences = ($absenceRows->get($dateString) ?? collect())->keyBy('transport_passenger_id');
-            $dayItems = $this->buildDayItems($conn, $passengers, $d->copy()->startOfDay(), $dayAbsences);
+            $dayItems = $this->buildDayItems(
+                $conn,
+                $passengers,
+                $d->copy()->startOfDay(),
+                $dayAbsences,
+                $access->isContractant($context)
+            );
 
             $mappedItems = $dayItems->map(function (array $item) use (
                 $conn,
@@ -334,6 +342,60 @@ class ContractPortalController extends Controller
         return response()->json(['message' => 'Afmelding ingetrokken.']);
     }
 
+    public function startRide(
+        Request $request,
+        int $rideStop,
+        ContractPortalRideLifecycleService $lifecycle
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        try {
+            $ride = $lifecycle->startFromStop($conn, $request->user(), $context, $rideStop);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Rit gestart.',
+            'data' => [
+                'ride_request_id' => (int) $ride->id,
+                'status' => $ride->status,
+            ],
+        ]);
+    }
+
+    public function completeRide(
+        Request $request,
+        int $rideStop,
+        ContractPortalRideLifecycleService $lifecycle
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        try {
+            $ride = $lifecycle->completeFromStop($conn, $request->user(), $context, $rideStop);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet afronden.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => $ride->status === RideRequest::STATUS_COMPLETED
+                ? 'Rit afgerond.'
+                : 'Passagier afgehandeld.',
+            'data' => [
+                'ride_request_id' => (int) $ride->id,
+                'status' => $ride->status,
+            ],
+        ]);
+    }
+
     public function absences(Request $request, TaxiContractPortalAccessService $access): JsonResponse
     {
         $conn = $request->attributes->get('taxi_contract_conn');
@@ -378,7 +440,8 @@ class ContractPortalController extends Controller
         string $conn,
         Collection $passengers,
         Carbon $dayStart,
-        ?Collection $absenceMap = null
+        ?Collection $absenceMap = null,
+        bool $canOperateRides = false
     ): Collection {
         $passengerIds = $passengers->pluck('id')->all();
         $tz = $dayStart->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
@@ -419,6 +482,7 @@ class ContractPortalController extends Controller
 
         $rideIds = $pickupStops->pluck('ride_request_id')->filter()->unique()->values()->all();
         $destinationsByRideId = collect();
+        $directionByRideId = collect();
         if ($rideIds !== []) {
             $destinationsByRideId = RideStop::on($conn)
                 ->whereIn('ride_request_id', $rideIds)
@@ -426,11 +490,31 @@ class ContractPortalController extends Controller
                 ->orderBy('sequence')
                 ->get()
                 ->groupBy('ride_request_id');
+
+            $directionByRideId = TransportOccurrence::on($conn)
+                ->whereIn('ride_request_id', $rideIds)
+                ->with('routeTemplate')
+                ->get()
+                ->mapWithKeys(function (TransportOccurrence $occurrence) {
+                    $rideId = (int) ($occurrence->ride_request_id ?? 0);
+                    if ($rideId <= 0) {
+                        return [];
+                    }
+
+                    return [$rideId => $occurrence->routeTemplate?->direction];
+                });
         }
 
         $stopsByPassenger = $pickupStops->groupBy('transport_passenger_id');
 
-        return $passengers->map(function (TransportPassenger $p) use ($stopsByPassenger, $destinationsByRideId, $absenceMap, $tz) {
+        return $passengers->map(function (TransportPassenger $p) use (
+            $stopsByPassenger,
+            $destinationsByRideId,
+            $directionByRideId,
+            $absenceMap,
+            $tz,
+            $canOperateRides
+        ) {
             $absence = $absenceMap->get($p->id);
             $stops = ($stopsByPassenger->get($p->id) ?? collect())
                 ->filter(function (RideStop $stop) {
@@ -442,7 +526,14 @@ class ContractPortalController extends Controller
                     return $ride->status !== RideRequest::STATUS_CANCELLED;
                 })
                 ->values();
-            $legs = $stops->map(function (RideStop $stop) use ($destinationsByRideId, $absence, $tz, $p) {
+            $legs = $stops->map(function (RideStop $stop) use (
+                $destinationsByRideId,
+                $directionByRideId,
+                $absence,
+                $tz,
+                $p,
+                $canOperateRides
+            ) {
                 $ride = $stop->ride;
                 $destination = null;
                 if ($stop->ride_request_id) {
@@ -456,10 +547,21 @@ class ContractPortalController extends Controller
                     $stop->planned_at ?? $ride?->pickup_at
                 );
                 $destinationAt = ContractTransportTimezone::asAmsterdamWall($destination?->planned_at);
-                [$legKey, $legLabel] = ContractPortalLegLabel::forPlannedAt($plannedAt, $tz);
+                $direction = $stop->ride_request_id
+                    ? $directionByRideId->get((int) $stop->ride_request_id)
+                    : null;
+                [$legKey, $legLabel] = ContractPortalLegLabel::forDirectionOrPlannedAt(
+                    is_string($direction) ? $direction : null,
+                    $plannedAt,
+                    $tz
+                );
+                $absent = $absence !== null;
+                $terminal = in_array($statusKey, ['completed', 'absent'], true);
 
                 return [
                     'ride_stop_id' => (int) $stop->id,
+                    'ride_request_id' => $stop->ride_request_id ? (int) $stop->ride_request_id : null,
+                    'ride_status' => $ride?->status,
                     'leg_key' => $legKey,
                     'leg_label' => $legLabel,
                     'pickup_address' => $stop->address ?: $p->pickup_address,
@@ -475,7 +577,27 @@ class ContractPortalController extends Controller
                     'destination_reached' => $statusKey === 'completed',
                     'planned_at' => ContractTransportTimezone::toDriverIso8601($plannedAt),
                     'destination_at' => ContractTransportTimezone::toDriverIso8601($destinationAt),
-                    'can_cancel' => $this->canCancelStop($stop, $absence !== null),
+                    'can_cancel' => $this->canCancelStop($stop, $absent),
+                    // Contractant: starten vóór assigned; afronden vanaf accepted/assigned.
+                    'can_start' => $canOperateRides
+                        && ! $absent
+                        && ! $terminal
+                        && $ride
+                        && in_array($ride->status, [
+                            RideRequest::STATUS_ACCEPTED,
+                            RideRequest::STATUS_OFFERED,
+                            RideRequest::STATUS_PENDING_DISPATCH,
+                        ], true),
+                    'can_complete' => $canOperateRides
+                        && ! $absent
+                        && ! $terminal
+                        && $ride
+                        && in_array($ride->status, [
+                            RideRequest::STATUS_ACCEPTED,
+                            RideRequest::STATUS_ASSIGNED,
+                            RideRequest::STATUS_OFFERED,
+                            RideRequest::STATUS_PENDING_DISPATCH,
+                        ], true),
                 ];
             })->values()->all();
 

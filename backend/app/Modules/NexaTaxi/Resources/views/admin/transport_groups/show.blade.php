@@ -59,8 +59,22 @@
                             <td>{{ $group->destination_address }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-medium">Aankomsttijd</td>
+                            <td class="text-secondary-foreground font-medium">Aankomsttijd heenweg</td>
                             <td>{{ substr($group->destination_arrival_time, 0, 5) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-medium">Terugweg</td>
+                            <td>
+                                @if($group->has_return_trip)
+                                    <span class="kt-badge kt-badge-success kt-badge-sm">Aan</span>
+                                    @if($group->return_pickup_time)
+                                        <span class="ms-2">ophalen {{ substr($group->return_pickup_time, 0, 5) }}</span>
+                                    @endif
+                                    <span class="text-muted-foreground ms-1">(+{{ (int) ($group->return_boarding_delay_minutes ?? 15) }} min instaptijd)</span>
+                                @else
+                                    <span class="text-muted-foreground">Uit</span>
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-medium">Status</td>

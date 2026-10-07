@@ -19,6 +19,7 @@ import {
   PrimaryButton,
   Screen,
   Subtitle,
+  SuccessText,
 } from '../ui/components';
 
 const logoLight = require('../../assets/nexa-taxi-logo.png');
@@ -339,7 +340,13 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
           </>
         )}
 
-        {hint ? <Subtitle>{hint}</Subtitle> : null}
+        {hint ? (
+          /code gestuurd/i.test(hint) ? (
+            <SuccessText>{hint}</SuccessText>
+          ) : (
+            <Subtitle>{hint}</Subtitle>
+          )
+        ) : null}
         <ErrorText>{error}</ErrorText>
 
         {step === 'form' ? (

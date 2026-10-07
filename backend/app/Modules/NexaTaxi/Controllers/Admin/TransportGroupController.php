@@ -9,6 +9,7 @@ use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportGroupMember;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
+use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Services\TransportRoutePlannerService;
@@ -98,9 +99,13 @@ class TransportGroupController extends Controller
             'company_id' => $contract->company_id,
             'transport_contract_id' => $contract->id,
             'active' => $request->boolean('active', true),
+            'has_return_trip' => $request->boolean('has_return_trip'),
         ]));
 
         $this->routeSync->syncDepartureFromGroup($conn, $group);
+        if ($group->has_return_trip) {
+            $this->routeSync->syncReturnRoute($conn, $group);
+        }
 
         $showUrl = route('admin.taxi.transport_groups.show', [$customerId, $contractId, $group->id]);
         $backUrl = transport_admin_back_url(
@@ -134,10 +139,24 @@ class TransportGroupController extends Controller
         $routeTemplate = TransportRouteTemplate::on($conn)
             ->where('transport_group_id', $group->id)
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
             ->with(['stops.passenger', 'assignment.driver', 'assignment.vehicle'])
             ->first();
 
-        $routeContext = $this->loadRouteContext($routeTemplate);
+        $returnRouteTemplate = TransportRouteTemplate::on($conn)
+            ->where('transport_group_id', $group->id)
+            ->where('active', true)
+            ->where('direction', TransportRouteTemplate::DIRECTION_RETURN)
+            ->with(['stops.passenger'])
+            ->first();
+
+        $routeContext = array_merge(
+            $this->loadRouteContext($routeTemplate),
+            $this->loadReturnRouteContext($returnRouteTemplate)
+        );
         extract($routeContext);
 
         return view('taxi::admin.transport_groups.show', compact(
@@ -149,6 +168,8 @@ class TransportGroupController extends Controller
             'hasContractPassengers',
             'backUrl',
             'routeTemplate',
+            'returnRouteTemplate',
+            'returnRouteStops',
             'routePickupStops',
             'routeDestinationStop',
             'routeDepartureTime',
@@ -182,10 +203,11 @@ class TransportGroupController extends Controller
 
         $group->update(array_merge($data, [
             'active' => $request->boolean('active'),
+            'has_return_trip' => $request->boolean('has_return_trip'),
         ]));
 
         $conn = $group->getConnectionName();
-        $routeFieldsChanged = $group->wasChanged([
+        $outboundFieldsChanged = $group->wasChanged([
             'departure_address',
             'departure_lat',
             'departure_lng',
@@ -194,10 +216,19 @@ class TransportGroupController extends Controller
             'destination_lng',
             'destination_arrival_time',
         ]);
+        $returnFieldsChanged = $group->wasChanged([
+            'has_return_trip',
+            'return_pickup_time',
+            'return_boarding_delay_minutes',
+        ]);
         $group = $group->fresh();
 
-        if ($routeFieldsChanged) {
+        if ($outboundFieldsChanged) {
             $routeResult = $this->routeSync->syncDepartureAndRecalculate($conn, $group);
+            $routeMessage = $this->formatRouteSyncMessage($routeResult);
+        } elseif ($returnFieldsChanged) {
+            $this->routeSync->syncDepartureFromGroup($conn, $group);
+            $routeResult = $this->routeSync->syncReturnRoute($conn, $group);
             $routeMessage = $this->formatRouteSyncMessage($routeResult);
         } else {
             $this->routeSync->syncDepartureFromGroup($conn, $group);
@@ -384,6 +415,7 @@ class TransportGroupController extends Controller
     private function resolveContract(int $customerId, int $contractId): array
     {
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTransportGroupReturnTripColumns($conn);
         $customer = TransportCustomer::on($conn)->findOrFail($customerId);
         $contract = TransportContract::on($conn)
             ->where('transport_customer_id', $customerId)
@@ -422,7 +454,7 @@ class TransportGroupController extends Controller
     /** @return array<string, mixed> */
     private function validateGroup(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:200'],
             'departure_address' => ['nullable', 'string', 'max:500'],
             'departure_lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -431,8 +463,34 @@ class TransportGroupController extends Controller
             'destination_arrival_time' => ['required', 'date_format:H:i'],
             'destination_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'destination_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'has_return_trip' => ['sometimes', 'boolean'],
+            'return_pickup_time' => ['nullable', 'date_format:H:i'],
+            'return_boarding_delay_minutes' => ['nullable', 'integer', 'min:0', 'max:120'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        if ($request->boolean('has_return_trip') && empty($data['return_pickup_time'])) {
+            throw ValidationException::withMessages([
+                'return_pickup_time' => 'Vul de ophaaltijd voor de terugweg in.',
+            ]);
+        }
+
+        if (! $request->boolean('has_return_trip')) {
+            $data['return_pickup_time'] = null;
+        } elseif (! empty($data['return_pickup_time']) && strlen((string) $data['return_pickup_time']) === 5) {
+            $data['return_pickup_time'] .= ':00';
+        }
+
+        if (! empty($data['destination_arrival_time']) && strlen((string) $data['destination_arrival_time']) === 5) {
+            $data['destination_arrival_time'] .= ':00';
+        }
+
+        $data['return_boarding_delay_minutes'] = max(
+            0,
+            min(120, (int) ($data['return_boarding_delay_minutes'] ?? TransportGroup::DEFAULT_RETURN_BOARDING_DELAY_MINUTES))
+        );
+
+        return $data;
     }
 
     private function activeMembersQuery(string $conn, int $groupId)
@@ -559,6 +617,22 @@ class TransportGroupController extends Controller
         );
     }
 
+    /**
+     * @return array{
+     *   returnRouteTemplate: TransportRouteTemplate|null,
+     *   returnRouteStops: \Illuminate\Support\Collection
+     * }
+     */
+    private function loadReturnRouteContext(?TransportRouteTemplate $returnRouteTemplate): array
+    {
+        $returnRouteStops = collect();
+        if ($returnRouteTemplate) {
+            $returnRouteStops = $returnRouteTemplate->stops->sortBy('sequence')->values();
+        }
+
+        return compact('returnRouteTemplate', 'returnRouteStops');
+    }
+
     /** @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse */
     private function memberChangeResponse(
         Request $request,
@@ -577,9 +651,22 @@ class TransportGroupController extends Controller
         $routeTemplate = TransportRouteTemplate::on($conn)
             ->where('transport_group_id', $group->id)
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
             ->with(['stops.passenger', 'assignment.driver', 'assignment.vehicle'])
             ->first();
-        $routeContext = $this->loadRouteContext($routeTemplate);
+        $returnRouteTemplate = TransportRouteTemplate::on($conn)
+            ->where('transport_group_id', $group->id)
+            ->where('active', true)
+            ->where('direction', TransportRouteTemplate::DIRECTION_RETURN)
+            ->with(['stops.passenger'])
+            ->first();
+        $routeContext = array_merge(
+            $this->loadRouteContext($routeTemplate),
+            $this->loadReturnRouteContext($returnRouteTemplate)
+        );
         $modalData = $this->memberModalViewData($conn, $contract, $group);
 
         return response()->json([

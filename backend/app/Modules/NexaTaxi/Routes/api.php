@@ -73,6 +73,12 @@ Route::prefix('v1/contract')
         Route::delete('absences/{absence}', [ContractPortalController::class, 'destroyAbsence'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('absence');
+        Route::post('stops/{rideStop}/start', [ContractPortalController::class, 'startRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
+        Route::post('stops/{rideStop}/complete', [ContractPortalController::class, 'completeRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
     });
 
 Route::prefix('v1/driver')

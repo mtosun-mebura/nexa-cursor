@@ -12,7 +12,9 @@ use App\Modules\NexaTaxi\Models\TransportRouteStop;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Services\TransportRoutePlannerService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
@@ -28,6 +30,7 @@ class TransportGroupRouteController extends Controller
         private readonly TransportRoutePlannerService $routePlanner,
         private readonly TaxiDriverEligibilityService $driverEligibility,
         private readonly ContractOccurrenceGeneratorService $occurrenceGenerator,
+        private readonly TransportGroupRouteSyncService $routeSync,
     ) {}
 
     public function edit(Request $request, int $customerId, int $contractId, int $groupId)
@@ -95,6 +98,7 @@ class TransportGroupRouteController extends Controller
         }
 
         $stats = $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $template->id);
+        $this->routeSync->syncReturnRoute($conn, $context['group']->fresh());
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
@@ -135,10 +139,11 @@ class TransportGroupRouteController extends Controller
         $this->persistStops($conn, $template, $result['stops']);
         $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
         $stats = $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $template->id);
+        $returnResult = $this->routeSync->syncReturnRoute($conn, $group->fresh());
 
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Route berekend en opgeslagen.'.$this->occurrenceSyncSuffix($stats));
+            ->with('success', trim('Route berekend en opgeslagen.'.$this->occurrenceSyncSuffix($stats).' '.($returnResult['message'] ?? '')));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -197,12 +202,13 @@ class TransportGroupRouteController extends Controller
         $result = $this->routePlanner->recalculateTimesForOrder($group, $template, $orderedPickups);
         $this->persistStops($conn, $template, $result['stops']);
         $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
+        $returnResult = $this->routeSync->syncReturnRoute($conn, $group->fresh());
 
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', $template->route_locked
+            ->with('success', trim(($template->route_locked
                 ? 'Tijden herberekend.'
-                : 'Volgorde opgeslagen en tijden herberekend.');
+                : 'Volgorde opgeslagen en tijden herberekend.').' '.($returnResult['message'] ?? '')));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -353,6 +359,7 @@ class TransportGroupRouteController extends Controller
     private function resolveRouteContext(int $customerId, int $contractId, int $groupId): array
     {
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTransportGroupReturnTripColumns($conn);
         $customer = TransportCustomer::on($conn)->findOrFail($customerId);
         $contract = TransportContract::on($conn)
             ->where('transport_customer_id', $customerId)
@@ -364,6 +371,10 @@ class TransportGroupRouteController extends Controller
         $template = TransportRouteTemplate::on($conn)
             ->where('transport_group_id', $group->id)
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
             ->with(['stops.passenger', 'assignment'])
             ->first();
 
@@ -373,6 +384,7 @@ class TransportGroupRouteController extends Controller
                 'company_id' => $group->company_id,
                 'transport_group_id' => $group->id,
                 'label' => $group->name.' route',
+                'direction' => TransportRouteTemplate::DIRECTION_OUTBOUND,
                 'recurrence_days' => TransportRouteTemplate::defaultRecurrenceDays(),
                 'driver_start_mode' => $departureAddress !== ''
                     ? TransportRouteTemplate::DRIVER_START_DEPOT

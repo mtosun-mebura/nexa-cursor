@@ -20,6 +20,7 @@ import { ApiError } from '../api/client';
 import { ColorPalette } from '../config';
 import { formatEuroNl } from '../geo/route';
 import { ErrorText } from './components';
+import { ScreenHeader } from './ScreenHeader';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
 import { useThemeColors } from '../theme/ThemeContext';
 
@@ -292,7 +293,7 @@ export function DriverEarningsPanel({
       }
     >
       <ErrorText>{error}</ErrorText>
-      <Text style={styles.title}>Inkomsten</Text>
+      <ScreenHeader title="Inkomsten" />
       <View style={styles.periodRow}>
         {(['day', 'week', ...(canViewMonth ? (['month'] as const) : [])] as Period[]).map(
           (key) => {
@@ -379,7 +380,6 @@ export function DriverEarningsPanel({
 function makeStyles(colors: ColorPalette, accentHex: string) {
   return StyleSheet.create({
     scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
-    title: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 12 },
     periodRow: {
       flexDirection: 'row',
       borderRadius: 999,

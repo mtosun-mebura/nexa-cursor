@@ -12,6 +12,7 @@ class TransportRouteTemplate extends Model
         'company_id',
         'transport_group_id',
         'label',
+        'direction',
         'recurrence_days',
         'driver_start_mode',
         'driver_start_address',
@@ -35,7 +36,16 @@ class TransportRouteTemplate extends Model
 
     public const DRIVER_START_FIRST_STOP = 'first_stop';
 
+    public const DIRECTION_OUTBOUND = 'outbound';
+
+    public const DIRECTION_RETURN = 'return';
+
     public const ASSIGNABLE_TYPE = 'route_template';
+
+    public function isReturnDirection(): bool
+    {
+        return $this->direction === self::DIRECTION_RETURN;
+    }
 
     public function group()
     {

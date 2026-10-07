@@ -1,0 +1,33 @@
+---
+description: Mobile app paginatitels overal gelijk (hoogte + tekstgrootte)
+globs: mobile-app/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Mobile app: paginatitels
+
+Alle tab-/paginatitels (Ritten, Planning, Navigatie, Afmeldingen, Profiel, Aanvragen, Inkomsten, Boeken, …) gebruiken **dezelfde** component en typografie. Niet opnieuw per scherm een eigen `panelTitle` / `headerTitle` verzinnen.
+
+## Verplicht
+
+```tsx
+import { ScreenHeader } from '../ui/ScreenHeader';
+
+<ScreenHeader title="Planning" />
+<ScreenHeader title="Ritten" right={<Text>…</Text>} />
+```
+
+- Font: **20 / bold / lineHeight 24** (`SCREEN_TITLE_FONT_SIZE` / `SCREEN_TITLE_LINE_HEIGHT`).
+- Header-rij: `alignItems: 'flex-start'` — nooit `center` (anders zakt de titel t.o.v. Dag/Week-toggle).
+- Marges via `ScreenHeader` (`marginBottom: 12`); geen losse `marginBottom` op de titeltekst.
+- Right-slot (datum, periode-toggle): `lineHeight: 24` of top-aligned, niet verticaal centreren met de titel.
+
+## Niet
+
+- Geen lokale `panelTitle` / `tripsHeaderTitle` / `styles.title` van 18 of 22 px voor paginatitels.
+- Geen `alignItems: 'center'` op de titel+toggle-rij.
+- Login/marketing-hero (`pageTitle` ~28) mag groter blijven — dat is geen tab-paginatitel.
+
+## Referentie
+
+`mobile-app/src/ui/ScreenHeader.tsx`

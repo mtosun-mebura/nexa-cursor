@@ -2,8 +2,10 @@
 
 namespace App\Modules\NexaTaxi\Services;
 
+use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportGroupMember;
+use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Models\TransportRouteStop;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use Illuminate\Support\Facades\DB;
@@ -22,9 +24,15 @@ class TransportGroupRouteSyncService
      */
     public function recalculateForGroup(string $conn, TransportGroup $group, bool $forceFullPlan = false): array
     {
+        app(TaxiContractvervoerSchemaService::class)->ensureTransportGroupReturnTripColumns($conn);
+
         $template = TransportRouteTemplate::on($conn)
             ->where('transport_group_id', $group->id)
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
             ->with(['stops.passenger'])
             ->first();
 
@@ -46,11 +54,15 @@ class TransportGroupRouteSyncService
             });
             $template->unsetRelation('stops');
             $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
+            $return = $this->syncReturnRoute($conn, $group);
 
             return [
                 'recalculated' => true,
-                'warnings' => ['Geen actieve leden meer; route-stops zijn geleegd.'],
-                'message' => 'Route geleegd (geen leden meer).',
+                'warnings' => array_values(array_unique(array_merge(
+                    ['Geen actieve leden meer; route-stops zijn geleegd.'],
+                    $return['warnings']
+                ))),
+                'message' => trim('Route geleegd (geen leden meer). '.($return['message'] ?? '')),
             ];
         }
 
@@ -112,12 +124,17 @@ class TransportGroupRouteSyncService
         $this->persistStops($conn, $template, $result['stops']);
         $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
 
+        $return = $this->syncReturnRoute($conn, $group);
+        $warnings = array_values(array_unique(array_merge($result['warnings'], $return['warnings'])));
+        $outboundMessage = ($forceFullPlan || $hadStops || $result['stops'] !== [])
+            ? 'Route automatisch herberekend.'
+            : null;
+        $messages = array_values(array_filter([$outboundMessage, $return['message']]));
+
         return [
             'recalculated' => true,
-            'warnings' => $result['warnings'],
-            'message' => ($forceFullPlan || $hadStops || $result['stops'] !== [])
-                ? 'Route automatisch herberekend.'
-                : null,
+            'warnings' => $warnings,
+            'message' => $messages !== [] ? implode(' ', $messages) : null,
         ];
     }
 
@@ -127,8 +144,110 @@ class TransportGroupRouteSyncService
     public function syncDepartureAndRecalculate(string $conn, TransportGroup $group): array
     {
         $this->syncDepartureFromGroup($conn, $group);
+        $outbound = $this->recalculateForGroup($conn, $group, forceFullPlan: true);
+        $return = $this->syncReturnRoute($conn, $group);
 
-        return $this->recalculateForGroup($conn, $group, forceFullPlan: true);
+        $warnings = array_values(array_unique(array_merge($outbound['warnings'], $return['warnings'])));
+        $messages = array_values(array_filter([$outbound['message'], $return['message']]));
+
+        return [
+            'recalculated' => $outbound['recalculated'] || $return['recalculated'],
+            'warnings' => $warnings,
+            'message' => $messages !== [] ? implode(' ', $messages) : null,
+        ];
+    }
+
+    /**
+     * Maak/werk de retourroute bij of deactiveer die wanneer terugweg uitstaat.
+     *
+     * @return array{recalculated: bool, warnings: list<string>, message: string|null}
+     */
+    public function syncReturnRoute(string $conn, TransportGroup $group): array
+    {
+        $outbound = TransportRouteTemplate::on($conn)
+            ->where('transport_group_id', $group->id)
+            ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
+            ->with(['stops'])
+            ->latest('id')
+            ->first();
+
+        $returnTemplate = TransportRouteTemplate::on($conn)
+            ->where('transport_group_id', $group->id)
+            ->where('direction', TransportRouteTemplate::DIRECTION_RETURN)
+            ->latest('id')
+            ->first();
+
+        if (! $group->has_return_trip) {
+            if ($returnTemplate && $returnTemplate->active) {
+                $returnTemplate->update(['active' => false]);
+                TransportRouteStop::on($conn)
+                    ->where('transport_route_template_id', $returnTemplate->id)
+                    ->delete();
+                $this->cancelFutureOccurrencesForTemplate($conn, (int) $returnTemplate->id);
+
+                return [
+                    'recalculated' => true,
+                    'warnings' => [],
+                    'message' => 'Terugweg uitgeschakeld.',
+                ];
+            }
+
+            return [
+                'recalculated' => false,
+                'warnings' => [],
+                'message' => null,
+            ];
+        }
+
+        $pickupTime = trim((string) ($group->return_pickup_time ?? ''));
+        if ($pickupTime === '') {
+            return [
+                'recalculated' => false,
+                'warnings' => ['Terugweg aan, maar geen ophaaltijd ingesteld.'],
+                'message' => null,
+            ];
+        }
+
+        if (! $returnTemplate) {
+            $returnTemplate = TransportRouteTemplate::on($conn)->create([
+                'company_id' => $group->company_id,
+                'transport_group_id' => $group->id,
+                'label' => $group->name.' terugweg',
+                'direction' => TransportRouteTemplate::DIRECTION_RETURN,
+                'recurrence_days' => $outbound?->recurrence_days ?: TransportRouteTemplate::defaultRecurrenceDays(),
+                'driver_start_mode' => TransportRouteTemplate::DRIVER_START_FIRST_STOP,
+                'buffer_seconds' => $outbound?->buffer_seconds ?? 120,
+                'route_locked' => false,
+                'active' => true,
+            ]);
+        } else {
+            $returnTemplate->update([
+                'active' => true,
+                'label' => $group->name.' terugweg',
+                'direction' => TransportRouteTemplate::DIRECTION_RETURN,
+                'recurrence_days' => $outbound?->recurrence_days ?: ($returnTemplate->recurrence_days ?: TransportRouteTemplate::defaultRecurrenceDays()),
+                'buffer_seconds' => $outbound?->buffer_seconds ?? $returnTemplate->buffer_seconds ?? 120,
+                'driver_start_mode' => TransportRouteTemplate::DRIVER_START_FIRST_STOP,
+                'driver_start_address' => null,
+                'driver_start_lat' => null,
+                'driver_start_lng' => null,
+            ]);
+        }
+
+        $activeMembers = $this->activeMembers($conn, (int) $group->id);
+        $result = $this->routePlanner->planReturnRoute($group, $returnTemplate, $activeMembers, $outbound);
+        $this->persistStops($conn, $returnTemplate, $result['stops']);
+        $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $returnTemplate->id);
+
+        return [
+            'recalculated' => true,
+            'warnings' => $result['warnings'],
+            'message' => $result['stops'] !== [] ? 'Terugweg automatisch berekend.' : 'Terugweg kon niet worden berekend (geen leden).',
+        ];
     }
 
     public function syncDepartureFromGroup(string $conn, TransportGroup $group): void
@@ -136,6 +255,10 @@ class TransportGroupRouteSyncService
         $template = TransportRouteTemplate::on($conn)
             ->where('transport_group_id', $group->id)
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
             ->first();
 
         if (! $template) {
@@ -143,6 +266,7 @@ class TransportGroupRouteSyncService
                 'company_id' => $group->company_id,
                 'transport_group_id' => $group->id,
                 'label' => $group->name.' route',
+                'direction' => TransportRouteTemplate::DIRECTION_OUTBOUND,
                 'recurrence_days' => TransportRouteTemplate::defaultRecurrenceDays(),
                 'driver_start_mode' => TransportRouteTemplate::DRIVER_START_FIRST_STOP,
                 'buffer_seconds' => 120,
@@ -216,5 +340,29 @@ class TransportGroupRouteSyncService
             ->orderBy('sort_hint')
             ->orderBy('id')
             ->get();
+    }
+
+    private function cancelFutureOccurrencesForTemplate(string $conn, int $templateId): void
+    {
+        $occurrences = TransportOccurrence::on($conn)
+            ->where('transport_route_template_id', $templateId)
+            ->whereDate('scheduled_date', '>=', now()->toDateString())
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        foreach ($occurrences as $occurrence) {
+            if ($occurrence->ride_request_id) {
+                $ride = RideRequest::on($conn)->find($occurrence->ride_request_id);
+                if ($ride && ! in_array($ride->status, [
+                    RideRequest::STATUS_COMPLETED,
+                    RideRequest::STATUS_ASSIGNED,
+                ], true) && $ride->status !== RideRequest::STATUS_CANCELLED) {
+                    $ride->update(['status' => RideRequest::STATUS_CANCELLED]);
+                }
+            }
+            if ($occurrence->status !== 'cancelled') {
+                $occurrence->update(['status' => 'cancelled']);
+            }
+        }
     }
 }

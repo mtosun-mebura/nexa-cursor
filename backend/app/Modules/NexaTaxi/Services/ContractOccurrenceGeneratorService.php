@@ -772,6 +772,9 @@ class ContractOccurrenceGeneratorService
 
         $customer = TransportCustomer::on($conn)->find($contract->transport_customer_id);
         $assignment = $template->assignment;
+        $passengerCount = $template->isReturnDirection()
+            ? $pickupStops->pluck('transport_passenger_id')->filter()->unique()->count()
+            : $pickupStops->count();
 
         $occurrence = TransportOccurrence::on($conn)->create([
             'company_id' => $template->company_id,
@@ -798,7 +801,7 @@ class ContractOccurrenceGeneratorService
             'pickup_lng' => $firstPickup->lng,
             'dropoff_lat' => $destinationStop->lat,
             'dropoff_lng' => $destinationStop->lng,
-            'passengers' => $pickupStops->count(),
+            'passengers' => max(1, $passengerCount),
             'pickup_at' => $scheduledAt,
             'payment_method' => RideRequest::PAYMENT_METHOD_CONTRACT,
             'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,

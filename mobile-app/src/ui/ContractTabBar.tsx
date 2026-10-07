@@ -4,15 +4,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeContext';
 
-export type ContractTabKey = 'today' | 'week' | 'navigation' | 'absences' | 'profile';
+export type ContractTabKey = 'trips' | 'planning' | 'navigation' | 'absences' | 'profile';
 
 const TABS: {
   key: ContractTabKey;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'today', label: 'Vandaag', icon: 'calendar-outline' },
-  { key: 'week', label: 'Planning', icon: 'list-outline' },
+  { key: 'trips', label: 'Ritten', icon: 'calendar-outline' },
+  { key: 'planning', label: 'Planning', icon: 'calendar-number-outline' },
   { key: 'navigation', label: 'Navigatie', icon: 'navigate-outline' },
   { key: 'absences', label: 'Afmeldingen', icon: 'close-circle-outline' },
   { key: 'profile', label: 'Profiel', icon: 'person-outline' },
@@ -21,9 +21,13 @@ const TABS: {
 export function ContractTabBar({
   active,
   onChange,
+  tripsBadge,
+  accent,
 }: {
   active: ContractTabKey;
   onChange: (key: ContractTabKey) => void;
+  tripsBadge?: number;
+  accent?: string;
 }) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -33,7 +37,7 @@ export function ContractTabBar({
       style={[
         styles.bar,
         {
-          paddingBottom: Math.max(2, insets.bottom > 0 ? insets.bottom - 10 : 2),
+          paddingBottom: Math.max(4, insets.bottom > 0 ? insets.bottom - 8 : 4),
           borderTopColor: colors.border,
           backgroundColor: colors.tabBar,
         },
@@ -41,17 +45,28 @@ export function ContractTabBar({
     >
       {TABS.map((tab) => {
         const isActive = active === tab.key;
-        const tint = isActive ? colors.amber : colors.muted;
+        const tint = isActive ? accent || colors.amber : colors.muted;
         return (
           <Pressable
             key={tab.key}
             onPress={() => onChange(tab.key)}
-            style={[styles.tab, isActive && { backgroundColor: colors.amber + '24' }]}
+            style={[styles.tab, isActive && { backgroundColor: `${accent || colors.amber}24` }]}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={tab.label}
+            accessibilityLabel={
+              tab.key === 'trips' && tripsBadge && tripsBadge > 0
+                ? `Ritten (${tripsBadge})`
+                : tab.label
+            }
           >
-            <Ionicons name={tab.icon} size={18} color={tint} style={styles.icon} />
+            {tab.key === 'trips' && tripsBadge && tripsBadge > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {tripsBadge > 9 ? '9+' : String(tripsBadge)}
+                </Text>
+              </View>
+            ) : null}
+            <Ionicons name={tab.icon} size={22} color={tint} style={styles.icon} />
             <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
               {tab.label}
             </Text>
@@ -66,7 +81,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    paddingTop: 2,
+    paddingTop: 4,
     paddingHorizontal: 2,
     gap: 1,
   },
@@ -74,15 +89,34 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 3,
+    paddingVertical: 5,
     borderRadius: 10,
-    minHeight: 42,
+    minHeight: 48,
+    position: 'relative',
   },
   icon: {
-    marginBottom: 1,
+    marginBottom: 2,
   },
   label: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: '16%',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    zIndex: 2,
+    backgroundColor: '#EF4444',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });
