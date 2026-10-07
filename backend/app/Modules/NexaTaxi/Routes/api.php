@@ -58,15 +58,15 @@ Route::prefix('v1/contract')
         Route::put('accent', [ContractPortalAuthController::class, 'updateAccent'])
             ->middleware('throttle:taxi-driver-read');
         Route::get('passengers', [ContractPortalController::class, 'passengers'])
-            ->middleware('throttle:taxi-driver-read');
+            ->middleware('throttle:taxi-driver-poll');
         Route::get('today', [ContractPortalController::class, 'today'])
-            ->middleware('throttle:taxi-driver-read');
+            ->middleware('throttle:taxi-driver-poll');
         Route::get('week', [ContractPortalController::class, 'week'])
-            ->middleware('throttle:taxi-driver-read');
+            ->middleware('throttle:taxi-driver-poll');
         Route::get('announcements', [ContractPortalController::class, 'announcements'])
             ->middleware('throttle:taxi-driver-read');
         Route::get('absences', [ContractPortalController::class, 'absences'])
-            ->middleware('throttle:taxi-driver-read');
+            ->middleware('throttle:taxi-driver-poll');
         Route::post('passengers/{passenger}/absences', [ContractPortalController::class, 'storeAbsence'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('passenger');

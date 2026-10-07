@@ -512,49 +512,43 @@ class ContractPortalController extends Controller
             return;
         }
 
-        $tz = $from->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
-        $wallStart = $from->copy()->timezone($tz)->startOfDay();
-        $wallEnd = $to->copy()->timezone($tz)->endOfDay();
-        $start = ContractTransportTimezone::naiveUtcForWallClockQuery($wallStart);
-        $end = ContractTransportTimezone::naiveUtcForWallClockQuery($wallEnd);
-
-        $bookings = TransportIndividualBooking::on($conn)
-            ->whereIn('transport_passenger_id', $passengerIds)
-            ->where('status', TransportIndividualBooking::STATUS_PLANNED)
-            ->whereBetween('pickup_at', [$start, $end])
-            ->get();
-
         try {
-            $generator = app(ContractOccurrenceGeneratorService::class);
-
-            // Booking → ride + stops (ook als de rit eerder zonder stops is aangemaakt).
-            foreach ($bookings as $booking) {
-                $generator->syncIndividualBookingOccurrenceAndRide($conn, $booking);
+            $schema = \Illuminate\Support\Facades\Schema::connection($conn);
+            if (! $schema->hasTable('ride_requests') || ! $schema->hasTable('ride_stops')) {
+                return;
             }
 
-            $rideIds = RideRequest::on($conn)
+            $tz = $from->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
+            $wallStart = $from->copy()->timezone($tz)->startOfDay();
+            $wallEnd = $to->copy()->timezone($tz)->endOfDay();
+            $start = ContractTransportTimezone::naiveUtcForWallClockQuery($wallStart);
+            $end = ContractTransportTimezone::naiveUtcForWallClockQuery($wallEnd);
+
+            $generator = app(ContractOccurrenceGeneratorService::class);
+
+            // Alleen bookings zonder ride één keer syncen — geen zware sync op elke poll.
+            if ($schema->hasTable('transport_individual_bookings')) {
+                $bookings = TransportIndividualBooking::on($conn)
+                    ->whereIn('transport_passenger_id', $passengerIds)
+                    ->where('status', TransportIndividualBooking::STATUS_PLANNED)
+                    ->whereBetween('pickup_at', [$start, $end])
+                    ->whereDoesntHave('occurrence', fn ($q) => $q->whereNotNull('ride_request_id'))
+                    ->limit(20)
+                    ->get();
+
+                foreach ($bookings as $booking) {
+                    $generator->syncIndividualBookingOccurrenceAndRide($conn, $booking);
+                }
+            }
+
+            // Stops bijzetten voor individuele ritten die die nog missen (lichtgewicht).
+            $rides = RideRequest::on($conn)
                 ->where('ride_type', RideRequest::RIDE_TYPE_CONTRACT_INDIVIDUAL)
                 ->whereIn('transport_passenger_id', $passengerIds)
                 ->whereBetween('pickup_at', [$start, $end])
                 ->whereNotIn('status', [RideRequest::STATUS_CANCELLED])
-                ->pluck('id')
-                ->merge(
-                    TransportOccurrence::on($conn)
-                        ->whereIn('transport_individual_booking_id', $bookings->pluck('id'))
-                        ->whereNotNull('ride_request_id')
-                        ->pluck('ride_request_id')
-                )
-                ->filter()
-                ->unique()
-                ->values();
-
-            if ($rideIds->isEmpty()) {
-                return;
-            }
-
-            $rides = RideRequest::on($conn)
-                ->whereIn('id', $rideIds)
-                ->whereNotIn('status', [RideRequest::STATUS_CANCELLED])
+                ->whereDoesntHave('rideStops')
+                ->limit(50)
                 ->get();
 
             foreach ($rides as $ride) {
