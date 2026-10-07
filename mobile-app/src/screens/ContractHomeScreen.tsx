@@ -21,6 +21,7 @@ import {
   ContractPassenger,
   ContractToday,
   ContractWeek,
+  boardContractPassenger,
   completeContractRide,
   destroyContractAbsence,
   fetchContractAbsences,
@@ -28,6 +29,7 @@ import {
   fetchContractPassengers,
   fetchContractToday,
   fetchContractWeek,
+  skipContractPassenger,
   startContractRide,
   storeContractAbsence,
   updateContractAccent,
@@ -49,6 +51,10 @@ import {
   normalizeDriverAccent,
 } from '../theme/driverAccent';
 import { ThemePreference, useTheme, useThemeColors } from '../theme/ThemeContext';
+import {
+  notifyNewContractRide,
+  setupContractNotificationChannel,
+} from '../notifications/contractRides';
 
 function resolveMediaUrl(url?: string | null): string | null {
   const raw = String(url || '').trim();
@@ -244,17 +250,60 @@ function itemLegs(item: ContractDayItem): ContractLeg[] {
   ];
 }
 
-function legIsExpired(leg: ContractLeg, item: ContractDayItem): boolean {
-  return (
-    isExpiredStatus(leg.status, leg.status_key) ||
-    isExpiredStatus(item.status, item.status_key) ||
-    isExpiredStatus(item.day_status_label, item.day_status)
-  );
+function legIsExpired(leg: ContractLeg, _item?: ContractDayItem): boolean {
+  // Alleen de leg zelf — day_status van een andere (verlopen) rit mag deze niet verbergen.
+  return isExpiredStatus(leg.status, leg.status_key);
 }
 
 function legIsTerminal(leg: ContractLeg, item: ContractDayItem): boolean {
   const key = String(leg.status_key || item.status_key || item.day_status || '').toLowerCase();
-  return key === 'completed' || key === 'absent';
+  return key === 'completed' || key === 'absent' || key === 'not_taken';
+}
+
+function legStatusKey(leg: ContractLeg, item: ContractDayItem): string {
+  return String(leg.status_key || item.status_key || item.day_status || '').toLowerCase();
+}
+
+/** Banner voor ouders/contractant — gebruikt API-tekst of lokale fallback. */
+function legStatusBanner(leg: ContractLeg, item: ContractDayItem): string {
+  const api = String(leg.status_banner || '').trim();
+  if (api) return api;
+  const key = legStatusKey(leg, item);
+  if (key === 'absent') return 'Afgemeld';
+  if (key === 'not_taken') return 'Niet meegenomen';
+  if (key === 'picked_up') return 'Opgehaald · onderweg';
+  if (key === 'completed') return 'Gearriveerd';
+  if (key === 'arrived') return 'Chauffeur ter plaatse';
+  if (key === 'en_route') return 'Chauffeur onderweg';
+  if (key === 'expired') return 'Ophaalmoment verlopen';
+  if (key === 'planned') return 'Nog niet opgehaald';
+  return String(leg.status || item.status || 'Gepland');
+}
+
+function bannerTone(
+  key: string
+): 'neutral' | 'info' | 'success' | 'warn' | 'danger' | 'muted' {
+  if (key === 'completed' || key === 'picked_up') return 'success';
+  if (key === 'en_route' || key === 'arrived') return 'info';
+  if (key === 'expired') return 'warn';
+  if (key === 'absent' || key === 'not_taken') return 'muted';
+  return 'neutral';
+}
+
+function legCanBoard(leg: ContractLeg, item: ContractDayItem, canOperate: boolean): boolean {
+  if (!canOperate || !leg.ride_stop_id || legIsTerminal(leg, item)) return false;
+  if (leg.can_board === true) return true;
+  const key = legStatusKey(leg, item);
+  if (key === 'picked_up' || key === 'completed' || key === 'not_taken') return false;
+  const rideStatus = String(leg.ride_status || '').toLowerCase();
+  if (rideStatus === 'completed' || rideStatus === 'cancelled') return false;
+  return (
+    rideStatus === '' ||
+    rideStatus === 'assigned' ||
+    rideStatus === 'accepted' ||
+    rideStatus === 'offered' ||
+    rideStatus === 'pending_dispatch'
+  );
 }
 
 function legMatchesStatusFilter(
@@ -353,6 +402,7 @@ export function ContractHomeScreen() {
   const [absenceReason, setAbsenceReason] = useState('');
   const [absenceBusy, setAbsenceBusy] = useState(false);
   const [rideActionStopId, setRideActionStopId] = useState<number | null>(null);
+  const [expandedRideKeys, setExpandedRideKeys] = useState<Record<string, true>>({});
   const multi = (capabilities?.screens?.length || 0) > 1;
   const canOperateRides = isContractant || isContractantRole(portalRole);
   const accentHex = driverAccentHex(accent);
@@ -364,6 +414,49 @@ export function ContractHomeScreen() {
   const refreshBusyRef = useRef(false);
   const weekFromRef = useRef(weekFrom);
   weekFromRef.current = weekFrom;
+  const seenRideIds = useRef<Set<number>>(new Set());
+  const ridesBootstrapped = useRef(false);
+
+  const handleNewContractRides = useCallback(async (todayData: ContractToday | null) => {
+    const openLegs: ContractLeg[] = [];
+    for (const item of todayData?.items || []) {
+      for (const leg of itemLegs(item)) {
+        if (legIsTerminal(leg, item)) continue;
+        openLegs.push(leg);
+      }
+    }
+    const ids = openLegs
+      .map((leg) => Number(leg.ride_request_id || leg.ride_stop_id || 0))
+      .filter((id) => id > 0);
+
+    if (!ridesBootstrapped.current) {
+      ids.forEach((id) => seenRideIds.current.add(id));
+      ridesBootstrapped.current = true;
+      return;
+    }
+
+    const fresh = openLegs.filter((leg) => {
+      const id = Number(leg.ride_request_id || leg.ride_stop_id || 0);
+      return id > 0 && !seenRideIds.current.has(id);
+    });
+    if (!fresh.length) return;
+
+    fresh.forEach((leg) => {
+      const id = Number(leg.ride_request_id || leg.ride_stop_id || 0);
+      if (id > 0) seenRideIds.current.add(id);
+    });
+
+    setTab('trips');
+    persistContractTab('trips');
+    const priority = fresh[0];
+    const foreground = AppState.currentState === 'active';
+    await notifyNewContractRide({
+      count: fresh.length,
+      pickup: priority.pickup_address,
+      dropoff: priority.destination_address,
+      playSound: !foreground,
+    });
+  }, []);
 
   const refresh = useCallback(async (fromOverride?: string) => {
     if (!contractToken || refreshBusyRef.current) return;
@@ -388,19 +481,21 @@ export function ContractHomeScreen() {
         isContractantRole(me.user?.portal_role, me.user?.is_contractant)
       );
       if (me.user?.pwa_accent) setAccent(normalizeDriverAccent(me.user.pwa_accent));
-      setToday(todayRes.data || null);
+      const todayData = todayRes.data || null;
+      setToday(todayData);
       setWeek(weekRes.data || null);
       if (weekRes.data?.from && weekRes.data.from !== weekFromRef.current) {
         setWeekFrom(weekRes.data.from);
       }
       setPassengers(passengersRes.data?.passengers || []);
       setAbsences(absencesRes.data?.absences || []);
+      await handleNewContractRides(todayData);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Kon contractgegevens niet laden.');
     } finally {
       refreshBusyRef.current = false;
     }
-  }, [contractToken, session?.user?.name]);
+  }, [contractToken, session?.user?.name, handleNewContractRides]);
 
   useEffect(() => {
     let cancelled = false;
@@ -430,6 +525,15 @@ export function ContractHomeScreen() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    setupContractNotificationChannel().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    seenRideIds.current.clear();
+    ridesBootstrapped.current = false;
+  }, [contractToken]);
 
   // Direct actueel houden: poll elke 2,5s + meteen bij terug naar voorgrond.
   useEffect(() => {
@@ -521,24 +625,108 @@ export function ContractHomeScreen() {
     }
   }
 
-  async function onCompleteLeg(rideStopId?: number) {
+  async function runRideAction(
+    rideStopId: number,
+    action: () => Promise<unknown>,
+    failMessage: string
+  ) {
+    setRideActionStopId(rideStopId);
+    setError(null);
+    try {
+      await action();
+      await refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : failMessage);
+    } finally {
+      setRideActionStopId(null);
+    }
+  }
+
+  async function onBoardLeg(rideStopId?: number) {
     if (!contractToken || !rideStopId) return;
-    Alert.alert('Rit afronden', 'Weet je zeker dat je deze rit wilt afronden?', [
+    await runRideAction(
+      rideStopId,
+      () => boardContractPassenger(contractToken, rideStopId),
+      'Ophalen bevestigen mislukt.'
+    );
+  }
+
+  function onSkipLeg(rideStopId?: number, passengerName?: string) {
+    if (!contractToken || !rideStopId) return;
+    Alert.alert(
+      'Niet meegenomen',
+      `${passengerName || 'Deze passagier'} is niet meegenomen. Doorgaan?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Bevestigen',
+          style: 'destructive',
+          onPress: () => {
+            void runRideAction(
+              rideStopId,
+              () => skipContractPassenger(contractToken, rideStopId),
+              'Overslaan mislukt.'
+            );
+          },
+        },
+      ]
+    );
+  }
+
+  function onCompleteLeg(rideStopId?: number, leg?: ContractLeg, item?: ContractDayItem) {
+    if (!contractToken || !rideStopId) return;
+    const needsBoard =
+      !!leg &&
+      !!item &&
+      legCanBoard(leg, item, canOperateRides) &&
+      !['picked_up', 'completed', 'not_taken'].includes(legStatusKey(leg, item));
+
+    if (needsBoard) {
+      Alert.alert(
+        'Bevestig ophalen',
+        `${item?.name || 'Passagier'} is nog niet gemarkeerd. Is deze persoon opgehaald?`,
+        [
+          { text: 'Annuleren', style: 'cancel' },
+          {
+            text: 'Niet meegenomen',
+            style: 'destructive',
+            onPress: () => onSkipLeg(rideStopId, item?.name),
+          },
+          {
+            text: 'Opgehaald → afronden',
+            style: 'default',
+            onPress: () => {
+              void (async () => {
+                setRideActionStopId(rideStopId);
+                setError(null);
+                try {
+                  await boardContractPassenger(contractToken, rideStopId);
+                  await completeContractRide(contractToken, rideStopId);
+                  await refresh();
+                } catch (e) {
+                  setError(e instanceof ApiError ? e.message : 'Afronden mislukt.');
+                } finally {
+                  setRideActionStopId(null);
+                }
+              })();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert('Bestemming bereikt', 'Bevestig dat de passagier is afgezet.', [
       { text: 'Nee', style: 'cancel' },
       {
         text: 'Afronden',
         style: 'default',
-        onPress: async () => {
-          setRideActionStopId(rideStopId);
-          setError(null);
-          try {
-            await completeContractRide(contractToken, rideStopId);
-            await refresh();
-          } catch (e) {
-            setError(e instanceof ApiError ? e.message : 'Rit afronden mislukt.');
-          } finally {
-            setRideActionStopId(null);
-          }
+        onPress: () => {
+          void runRideAction(
+            rideStopId,
+            () => completeContractRide(contractToken, rideStopId),
+            'Rit afronden mislukt.'
+          );
         },
       },
     ]);
@@ -618,6 +806,42 @@ export function ContractHomeScreen() {
     return rows;
   }, [todayItems, tripStatusFilter]);
 
+  /** Alleen bestemming van open/actieve legs — nooit tonen als er geen openstaande rit is. */
+  const openDestinationSummary = useMemo(() => {
+    const closed = new Set([
+      'completed',
+      'absent',
+      'skipped',
+      'not_taken',
+      'none',
+      'expired',
+    ]);
+    const active = new Set(['en_route', 'arrived', 'picked_up']);
+    const openLegs: ContractLeg[] = [];
+    for (const item of todayItems) {
+      for (const leg of itemLegs(item)) {
+        const key = String(leg.status_key || '').toLowerCase();
+        if (closed.has(key) || legIsExpired(leg) || legIsTerminal(leg, item)) continue;
+        openLegs.push(leg);
+      }
+    }
+    if (openLegs.length === 0) return null;
+    const activeLegs = openLegs.filter((leg) =>
+      active.has(String(leg.status_key || '').toLowerCase())
+    );
+    const use = activeLegs.length > 0 ? activeLegs : openLegs;
+    const addresses = [
+      ...new Set(
+        use
+          .map((leg) => String(leg.destination_address || '').trim())
+          .filter(Boolean)
+      ),
+    ];
+    if (addresses.length === 1) return addresses[0];
+    if (addresses.length > 1) return 'Meerdere bestemmingen';
+    return null;
+  }, [todayItems]);
+
   const selectedWeekDay = useMemo(() => {
     const days = week?.days || [];
     return days.find((d) => d.date === selectedDate) || days.find((d) => d.is_today) || days[0] || null;
@@ -647,6 +871,26 @@ export function ContractHomeScreen() {
     return actionableTripKeys.filter((key) => !seen.has(key)).length;
   }, [tab, tripsSeenKeys, actionableTripKeys]);
 
+  function rideExpandKey(
+    item: ContractDayItem,
+    leg: ContractLeg,
+    index: number,
+    dateLabel?: string
+  ): string {
+    return `${dateLabel || 'd'}:${item.passenger_id}:${leg.ride_stop_id ?? leg.leg_key ?? index}`;
+  }
+
+  function toggleRideExpanded(key: string) {
+    setExpandedRideKeys((prev) => {
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: true };
+    });
+  }
+
   function renderRideCard(item: ContractDayItem, dateLabel?: string) {
     const legs = itemLegs(item);
 
@@ -657,31 +901,59 @@ export function ContractHomeScreen() {
           const dropoffRaw = leg.destination_address || item.destination_address;
           const pickup = splitAddress(pickupRaw);
           const dropoff = splitAddress(dropoffRaw);
+          const statusKey = legStatusKey(leg, item);
           const absent =
             isAbsentStatus(leg.status, leg.status_key) ||
             isAbsentStatus(item.status, item.status_key) ||
             isAbsentStatus(item.day_status_label, item.day_status) ||
-            !!item.absence_id;
+            !!item.absence_id ||
+            statusKey === 'absent';
+          const notTaken = statusKey === 'not_taken';
           const expired =
             !absent &&
+            !notTaken &&
             (isExpiredStatus(leg.status, leg.status_key) ||
               isExpiredStatus(item.status, item.status_key) ||
-              isExpiredStatus(item.day_status_label, item.day_status));
-          const statusText = absent
-            ? 'Afgemeld'
-            : expired
-              ? 'Verlopen'
-              : leg.status || item.day_status_label || item.status || 'Gepland';
+              isExpiredStatus(item.day_status_label, item.day_status) ||
+              statusKey === 'expired');
+          const bannerText = legStatusBanner(leg, item);
+          const tone = bannerTone(absent ? 'absent' : notTaken ? 'not_taken' : statusKey);
           const time = formatTime(leg.planned_at || item.planned_at);
           const label = legDisplayLabel(leg);
-          const showStart = !absent && legCanStart(leg, item, canOperateRides);
-          const showComplete = !absent && legCanComplete(leg, item, canOperateRides);
-          const cardBorder = absent
+          const expandKey = rideExpandKey(item, leg, index, dateLabel);
+          const expanded = !!expandedRideKeys[expandKey];
+          const showStart = !absent && !notTaken && legCanStart(leg, item, canOperateRides);
+          const showBoard = !absent && !notTaken && legCanBoard(leg, item, canOperateRides);
+          const showComplete =
+            !absent &&
+            !notTaken &&
+            legCanComplete(leg, item, canOperateRides) &&
+            (statusKey === 'picked_up' || !showBoard);
+          const isPickedUp =
+            statusKey === 'picked_up' || statusKey === 'completed';
+          const isAtDestination = statusKey === 'completed';
+          // Grijs tot relevant; groen = opgehaald; rood = chauffeur was er, niet opgehaald.
+          const chauffeurHasBeen =
+            statusKey === 'arrived' ||
+            statusKey === 'expired' ||
+            statusKey === 'not_taken';
+          const boardedColor = isPickedUp
+            ? DEST_GREEN
+            : chauffeurHasBeen
+              ? OVERDUE_RED
+              : colors.muted;
+          const destinationColor = isAtDestination
+            ? DEST_GREEN
+            : absent
+              ? ABSENT_GREY
+              : colors.muted;
+          const destinationLabel = canOperateRides ? 'Bestemming' : 'Op bestemming';
+          const cardBorder = absent || notTaken
             ? hexAlpha(ABSENT_GREY, 0.55)
             : expired
               ? OVERDUE_RED
               : hexAlpha(accentHex, 0.55);
-          const cardAccent = absent ? ABSENT_GREY : expired ? OVERDUE_RED : accentHex;
+          const cardAccent = absent || notTaken ? ABSENT_GREY : expired ? OVERDUE_RED : accentHex;
 
           return (
             <View
@@ -691,6 +963,7 @@ export function ContractHomeScreen() {
                 { borderColor: cardBorder },
                 expired && styles.rideCardOverdue,
                 absent && styles.rideCardAbsent,
+                !expanded && styles.rideCardCollapsed,
               ]}
             >
               <View
@@ -699,49 +972,123 @@ export function ContractHomeScreen() {
                   { backgroundColor: cardAccent },
                 ]}
               />
-              <View style={styles.badgeRow}>
-                <View
+              <Pressable
+                onPress={() => toggleRideExpanded(expandKey)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                accessibilityLabel={
+                  expanded ? `Rit van ${item.name} inklappen` : `Rit van ${item.name} uitklappen`
+                }
+              >
+                <View style={styles.rideCardHeader}>
+                  <View style={styles.badgeRow}>
+                    <View
+                      style={[
+                        styles.badge,
+                        {
+                          backgroundColor: absent
+                            ? hexAlpha(ABSENT_GREY, 0.2)
+                            : hexAlpha(accentHex, 0.2),
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          { color: absent ? ABSENT_GREY : accentHex },
+                        ]}
+                      >
+                        Contract
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, styles.badgeLeg]}>
+                      <Text style={styles.badgeLegText}>{label}</Text>
+                    </View>
+                    {absent ? (
+                      <View style={[styles.badge, styles.badgeAbsent]}>
+                        <Text style={styles.badgeAbsentText}>Afgemeld</Text>
+                      </View>
+                    ) : notTaken ? (
+                      <View style={[styles.badge, styles.badgeAbsent]}>
+                        <Text style={styles.badgeAbsentText}>Niet meegenomen</Text>
+                      </View>
+                    ) : expired ? (
+                      <View style={[styles.badge, styles.badgeDanger]}>
+                        <Text style={styles.badgeDangerText}>Ophaalmoment verlopen</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Ionicons
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={colors.muted}
+                    style={styles.rideExpandIcon}
+                  />
+                </View>
+
+                <Text style={styles.rideName}>{item.name}</Text>
+                <Text style={[styles.rideMeta, !expanded && styles.rideMetaCollapsed]}>
+                  {time}
+                  {dateLabel ? ` · ${formatDayLong(dateLabel)}` : ''}
+                </Text>
+
+                {!expanded ? (
+                  <View style={styles.rideCollapsedSummary}>
+                    <Text
+                      style={[
+                        styles.rideCollapsedStatus,
+                        tone === 'success' && styles.statusBannerTextSuccess,
+                        tone === 'info' && styles.statusBannerTextInfo,
+                        tone === 'warn' && styles.statusBannerTextWarn,
+                        tone === 'muted' && styles.statusBannerTextMuted,
+                        tone === 'neutral' && { color: accentHex },
+                        tone === 'danger' && styles.statusBannerTextWarn,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {bannerText}
+                    </Text>
+                    <Text style={styles.rideCollapsedRoute} numberOfLines={1}>
+                      {pickup.main}
+                      {dropoff.main ? ` → ${dropoff.main}` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+
+              {expanded ? (
+                <>
+              <View
+                style={[
+                  styles.statusBanner,
+                  tone === 'success' && styles.statusBannerSuccess,
+                  tone === 'info' && styles.statusBannerInfo,
+                  tone === 'warn' && styles.statusBannerWarn,
+                  tone === 'danger' && styles.statusBannerDanger,
+                  tone === 'muted' && styles.statusBannerMuted,
+                ]}
+              >
+                <Text
                   style={[
-                    styles.badge,
-                    {
-                      backgroundColor: absent
-                        ? hexAlpha(ABSENT_GREY, 0.2)
-                        : hexAlpha(accentHex, 0.2),
-                    },
+                    styles.statusBannerText,
+                    tone === 'success' && styles.statusBannerTextSuccess,
+                    tone === 'info' && styles.statusBannerTextInfo,
+                    tone === 'warn' && styles.statusBannerTextWarn,
+                    tone === 'muted' && styles.statusBannerTextMuted,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      { color: absent ? ABSENT_GREY : accentHex },
-                    ]}
-                  >
-                    Contract
+                  {bannerText}
+                </Text>
+                {canOperateRides && showBoard ? (
+                  <Text style={styles.statusBannerHint}>
+                    Markeer Opgehaald of Overslaan. Zonder keuze: automatisch opgehaald
+                    {typeof today?.auto_board_grace_minutes === 'number'
+                      ? ` ${today.auto_board_grace_minutes} min`
+                      : ' enkele minuten'}{' '}
+                    na aankomst bestemming (of bij afronden door de chauffeur).
                   </Text>
-                </View>
-                <View style={[styles.badge, styles.badgeLeg]}>
-                  <Text style={styles.badgeLegText}>{label}</Text>
-                </View>
-                {absent ? (
-                  <View style={[styles.badge, styles.badgeAbsent]}>
-                    <Text style={styles.badgeAbsentText}>Afgemeld</Text>
-                  </View>
-                ) : expired ? (
-                  <View style={[styles.badge, styles.badgeDanger]}>
-                    <Text style={styles.badgeDangerText}>Ophaalmoment verlopen</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.badge, styles.badgeNeutral]}>
-                    <Text style={styles.badgeNeutralText}>{statusText}</Text>
-                  </View>
-                )}
+                ) : null}
               </View>
-
-              <Text style={styles.rideName}>{item.name}</Text>
-              <Text style={styles.rideMeta}>
-                {time}
-                {dateLabel ? ` · ${formatDayLong(dateLabel)}` : ''}
-              </Text>
 
               <View style={styles.route}>
                 <View style={styles.routeRail} />
@@ -773,27 +1120,52 @@ export function ContractHomeScreen() {
 
               <View style={styles.rideIconBar}>
                 <Pressable
-                  style={styles.rideIconTab}
-                  onPress={() => openMapsAddress(pickupRaw)}
+                  style={[
+                    styles.rideIconTab,
+                    rideActionStopId === leg.ride_stop_id && showBoard && { opacity: 0.55 },
+                  ]}
+                  disabled={!showBoard || rideActionStopId != null}
+                  onPress={() => {
+                    if (showBoard) void onBoardLeg(leg.ride_stop_id);
+                  }}
                   accessibilityRole="button"
-                  accessibilityLabel="Ophalen"
+                  accessibilityLabel={isPickedUp ? 'Opgehaald' : 'Nog niet opgehaald'}
+                  accessibilityState={{ disabled: !showBoard }}
                 >
-                  <Ionicons name="navigate-outline" size={22} color={colors.muted} />
-                  <Text style={styles.rideIconLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                    Ophalen
+                  <Ionicons
+                    name="navigate-outline"
+                    size={22}
+                    color={absent ? ABSENT_GREY : boardedColor}
+                  />
+                  <Text
+                    style={[
+                      styles.rideIconLabel,
+                      { color: absent ? ABSENT_GREY : boardedColor },
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    Opgehaald
                   </Text>
                 </Pressable>
-                <Pressable
+                <View
                   style={styles.rideIconTab}
-                  onPress={() => openMapsAddress(dropoffRaw)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Bestemming"
+                  accessibilityRole="text"
+                  accessibilityLabel={
+                    isAtDestination ? `${destinationLabel}: ja` : `${destinationLabel}: nog niet`
+                  }
                 >
-                  <Ionicons name="flag-outline" size={22} color={colors.muted} />
-                  <Text style={styles.rideIconLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                    Bestemming
+                  <Ionicons name="flag-outline" size={22} color={destinationColor} />
+                  <Text
+                    style={[styles.rideIconLabel, { color: destinationColor }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {destinationLabel}
                   </Text>
-                </Pressable>
+                </View>
                 {showStart ? (
                   <Pressable
                     style={[
@@ -806,8 +1178,35 @@ export function ContractHomeScreen() {
                     accessibilityLabel="Rit starten"
                   >
                     <Ionicons name="play-outline" size={22} color={colors.muted} />
-                    <Text style={styles.rideIconLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    <Text
+                      style={styles.rideIconLabel}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
                       {rideActionStopId === leg.ride_stop_id ? 'Bezig…' : 'Starten'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {showBoard ? (
+                  <Pressable
+                    style={[
+                      styles.rideIconTab,
+                      rideActionStopId === leg.ride_stop_id && { opacity: 0.55 },
+                    ]}
+                    disabled={rideActionStopId != null}
+                    onPress={() => onSkipLeg(leg.ride_stop_id, item.name)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Niet meegenomen"
+                  >
+                    <Ionicons name="person-remove-outline" size={22} color={colors.muted} />
+                    <Text
+                      style={styles.rideIconLabel}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
+                      Overslaan
                     </Text>
                   </Pressable>
                 ) : null}
@@ -818,16 +1217,23 @@ export function ContractHomeScreen() {
                       rideActionStopId === leg.ride_stop_id && { opacity: 0.55 },
                     ]}
                     disabled={rideActionStopId != null}
-                    onPress={() => void onCompleteLeg(leg.ride_stop_id)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Afronden"
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={22} color={colors.muted} />
-                    <Text style={styles.rideIconLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                      {rideActionStopId === leg.ride_stop_id && !showStart ? 'Bezig…' : 'Afronden'}
-                    </Text>
-                  </Pressable>
-                ) : null}
+                      onPress={() => onCompleteLeg(leg.ride_stop_id, leg, item)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Afronden"
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={22} color={colors.muted} />
+                      <Text
+                        style={styles.rideIconLabel}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        {rideActionStopId === leg.ride_stop_id && !showStart && !showBoard
+                          ? 'Bezig…'
+                          : 'Afronden'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 {item.can_cancel && !item.absence_id ? (
                   <Pressable
                     style={styles.rideIconTab}
@@ -836,7 +1242,12 @@ export function ContractHomeScreen() {
                     accessibilityLabel="Afmelden"
                   >
                     <Ionicons name="close-circle-outline" size={22} color={colors.muted} />
-                    <Text style={styles.rideIconLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    <Text
+                      style={styles.rideIconLabel}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
                       Afmelden
                     </Text>
                   </Pressable>
@@ -849,12 +1260,19 @@ export function ContractHomeScreen() {
                     accessibilityLabel="Afmelding intrekken"
                   >
                     <Ionicons name="arrow-undo-outline" size={22} color={colors.muted} />
-                    <Text style={styles.rideIconLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    <Text
+                      style={styles.rideIconLabel}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
                       Intrekken
                     </Text>
                   </Pressable>
                 ) : null}
               </View>
+                </>
+              ) : null}
             </View>
           );
         })}
@@ -895,10 +1313,10 @@ export function ContractHomeScreen() {
           );
         })}
       </View>
-      {today?.destination_summary ? (
+      {openDestinationSummary ? (
         <View style={styles.destBanner}>
           <Text style={styles.destLabel}>Bestemming</Text>
-          <Text style={styles.destValue}>{today.destination_summary}</Text>
+          <Text style={styles.destValue}>{openDestinationSummary}</Text>
         </View>
       ) : null}
       {filteredTodayItems.length === 0 ? (
@@ -1233,6 +1651,8 @@ export function ContractHomeScreen() {
         style={styles.logoutBtn}
         onPress={() => {
           resetContractTabToTrips();
+          seenRideIds.current.clear();
+          ridesBootstrapped.current = false;
           setTab('trips');
           void logout();
         }}
@@ -1551,6 +1971,9 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       overflow: 'hidden',
       position: 'relative',
     },
+    rideCardCollapsed: {
+      paddingBottom: 12,
+    },
     rideCardOverdue: {
       borderWidth: 1.5,
     },
@@ -1565,12 +1988,39 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       bottom: 0,
       width: 3,
     },
+    rideCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    },
+    rideExpandIcon: {
+      marginTop: 2,
+      marginLeft: 'auto',
+    },
     badgeRow: {
+      flex: 1,
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6,
       marginBottom: 8,
       paddingLeft: 4,
+    },
+    rideMetaCollapsed: {
+      marginBottom: 6,
+    },
+    rideCollapsedSummary: {
+      paddingLeft: 4,
+      gap: 4,
+    },
+    rideCollapsedStatus: {
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    rideCollapsedRoute: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 18,
     },
     badge: {
       alignSelf: 'flex-start',
@@ -1711,6 +2161,54 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     dotDropoff: {
       backgroundColor: accentHex,
+    },
+    statusBanner: {
+      marginTop: 10,
+      marginBottom: 4,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: hexAlpha(accentHex, 0.35),
+      backgroundColor: hexAlpha(accentHex, 0.1),
+    },
+    statusBannerSuccess: {
+      borderColor: hexAlpha(DEST_GREEN, 0.45),
+      backgroundColor: hexAlpha(DEST_GREEN, 0.14),
+    },
+    statusBannerInfo: {
+      borderColor: hexAlpha('#3B82F6', 0.45),
+      backgroundColor: hexAlpha('#3B82F6', 0.14),
+    },
+    statusBannerWarn: {
+      borderColor: hexAlpha(OVERDUE_RED, 0.45),
+      backgroundColor: hexAlpha(OVERDUE_RED, 0.12),
+    },
+    statusBannerDanger: {
+      borderColor: hexAlpha(OVERDUE_RED, 0.5),
+      backgroundColor: hexAlpha(OVERDUE_RED, 0.16),
+    },
+    statusBannerMuted: {
+      borderColor: hexAlpha(ABSENT_GREY, 0.45),
+      backgroundColor: hexAlpha(ABSENT_GREY, 0.14),
+    },
+    statusBannerText: {
+      color: accentHex,
+      fontSize: 13,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    statusBannerTextSuccess: { color: DEST_GREEN },
+    statusBannerTextInfo: { color: '#60A5FA' },
+    statusBannerTextWarn: { color: OVERDUE_RED },
+    statusBannerTextMuted: { color: ABSENT_GREY },
+    statusBannerHint: {
+      marginTop: 6,
+      color: colors.muted,
+      fontSize: 11,
+      lineHeight: 15,
+      fontWeight: '500',
+      textAlign: 'center',
     },
     rideIconBar: {
       flexDirection: 'row',

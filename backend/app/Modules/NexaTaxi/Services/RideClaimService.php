@@ -711,6 +711,10 @@ class RideClaimService
             if ($allowOverdueContractComplete && $ride->isContractRide()) {
                 $this->contractStops->resolvePendingStopsForForcedComplete($conn, $ride);
             } else {
+                // Contract: openstaande pickups auto-opgehaald bij afronden (niet-meegenomen blijft skipped).
+                if ($ride->isContractRide()) {
+                    app(ContractPortalAutoBoardService::class)->applyForRide($conn, $ride, true);
+                }
                 $this->contractStops->assertGroupRideCanComplete($ride);
             }
 

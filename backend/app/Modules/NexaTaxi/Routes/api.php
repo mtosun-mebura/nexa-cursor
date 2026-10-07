@@ -76,6 +76,12 @@ Route::prefix('v1/contract')
         Route::post('stops/{rideStop}/start', [ContractPortalController::class, 'startRide'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('rideStop');
+        Route::post('stops/{rideStop}/board', [ContractPortalController::class, 'boardPassenger'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
+        Route::post('stops/{rideStop}/skip', [ContractPortalController::class, 'skipPassenger'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
         Route::post('stops/{rideStop}/complete', [ContractPortalController::class, 'completeRide'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('rideStop');

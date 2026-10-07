@@ -84,6 +84,80 @@ class ContractPortalRideLifecycleService
         return $ride;
     }
 
+    /**
+     * Markeer passagier als opgehaald (in de bus), zonder de hele rit af te ronden.
+     */
+    public function boardFromStop(string $conn, User $user, array $context, int $rideStopId): RideStop
+    {
+        $this->assertContractant($context);
+
+        $stop = $this->resolvePickupStop($conn, $context, $rideStopId);
+        $ride = $stop->ride;
+        if (! $ride || ! $ride->isContractRide()) {
+            throw ValidationException::withMessages([
+                'ride' => ['Rit niet gevonden.'],
+            ]);
+        }
+
+        if (! in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
+            throw ValidationException::withMessages([
+                'stop' => ['Deze passagier is al afgehandeld.'],
+            ]);
+        }
+
+        // Rit moet onderweg zijn of mogen starten — boarden na start of vanaf accepted.
+        if ($ride->status === RideRequest::STATUS_COMPLETED || $ride->status === RideRequest::STATUS_CANCELLED) {
+            throw ValidationException::withMessages([
+                'ride' => ['Deze rit is al afgerond.'],
+            ]);
+        }
+
+        if (in_array($ride->status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_OFFERED,
+            RideRequest::STATUS_PENDING_DISPATCH,
+        ], true)) {
+            $this->startFromStop($conn, $user, $context, $rideStopId);
+            $stop = $stop->fresh() ?? $stop;
+        }
+
+        $stop->update([
+            'status' => RideStop::STATUS_PICKED_UP,
+            'completed_at' => now(),
+        ]);
+
+        return $stop->fresh() ?? $stop;
+    }
+
+    /**
+     * Markeer passagier als niet meegenomen (overslaan), zonder de hele rit af te ronden.
+     */
+    public function skipFromStop(string $conn, User $user, array $context, int $rideStopId): RideStop
+    {
+        $this->assertContractant($context);
+
+        $stop = $this->resolvePickupStop($conn, $context, $rideStopId);
+        $ride = $stop->ride;
+        if (! $ride || ! $ride->isContractRide()) {
+            throw ValidationException::withMessages([
+                'ride' => ['Rit niet gevonden.'],
+            ]);
+        }
+
+        if (! in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
+            throw ValidationException::withMessages([
+                'stop' => ['Deze passagier is al afgehandeld.'],
+            ]);
+        }
+
+        $stop->update([
+            'status' => RideStop::STATUS_SKIPPED,
+            'completed_at' => now(),
+        ]);
+
+        return $stop->fresh() ?? $stop;
+    }
+
     public function completeFromStop(string $conn, User $user, array $context, int $rideStopId): RideRequest
     {
         $this->assertContractant($context);
@@ -149,12 +223,35 @@ class ContractPortalRideLifecycleService
                 ]);
             }
 
+            // Grace verstreken na bestemming? Dan alsnog auto-opgehaald (skipped blijft).
+            app(ContractPortalAutoBoardService::class)->applyForRide($conn, $locked, false);
+
             $freshStop = RideStop::on($conn)->whereKey($stop->id)->lockForUpdate()->first();
             if ($freshStop && in_array($freshStop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
-                $freshStop->update([
-                    'status' => RideStop::STATUS_PICKED_UP,
-                    'completed_at' => now(),
+                throw ValidationException::withMessages([
+                    'stop' => ['Bevestig eerst of deze passagier is opgehaald of niet meegenomen.'],
                 ]);
+            }
+
+            if ($freshStop && $freshStop->status === RideStop::STATUS_SKIPPED) {
+                // Niet meegenomen: geen bestemming afronden voor deze passagier.
+                $progress = $this->contractStops->groupRideProgress($conn, (int) $locked->id);
+                if ($locked->ride_type === RideRequest::RIDE_TYPE_CONTRACT_GROUP
+                    && ! ($progress['all_pickups_done'] ?? false)) {
+                    return $locked->fresh() ?? $locked;
+                }
+                if ($progress['all_pickups_done'] ?? true) {
+                    $this->contractStops->completeDestinationStops($conn, $locked);
+                    $locked->update(['status' => RideRequest::STATUS_COMPLETED]);
+                    $locked = $locked->fresh() ?? $locked;
+                    try {
+                        $this->rideTrack->finalizeRide($conn, $locked, []);
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
+
+                return $locked->fresh() ?? $locked;
             }
 
             RideStop::on($conn)
