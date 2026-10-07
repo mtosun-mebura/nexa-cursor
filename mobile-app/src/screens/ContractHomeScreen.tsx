@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   Image,
   Linking,
   Pressable,
@@ -360,10 +361,14 @@ export function ContractHomeScreen() {
     resolveMediaUrl(colorScheme === 'light' ? logoLight || logoDark : logoDark || logoLight) ||
     null;
 
+  const refreshBusyRef = useRef(false);
+  const weekFromRef = useRef(weekFrom);
+  weekFromRef.current = weekFrom;
+
   const refresh = useCallback(async (fromOverride?: string) => {
-    if (!contractToken) return;
-    setError(null);
-    const from = fromOverride || weekFrom;
+    if (!contractToken || refreshBusyRef.current) return;
+    refreshBusyRef.current = true;
+    const from = fromOverride || weekFromRef.current;
     try {
       const [me, todayRes, weekRes, passengersRes, absencesRes] = await Promise.all([
         fetchContractMe(contractToken),
@@ -372,6 +377,7 @@ export function ContractHomeScreen() {
         fetchContractPassengers(contractToken),
         fetchContractAbsences(contractToken),
       ]);
+      setError(null);
       setName(me.user?.name || session?.user?.name || '');
       setEmail(me.user?.email || session?.user?.email || '');
       setCustomerName(me.user?.company_name || todayRes.data?.customer_name || '');
@@ -384,13 +390,17 @@ export function ContractHomeScreen() {
       if (me.user?.pwa_accent) setAccent(normalizeDriverAccent(me.user.pwa_accent));
       setToday(todayRes.data || null);
       setWeek(weekRes.data || null);
-      if (weekRes.data?.from) setWeekFrom(weekRes.data.from);
+      if (weekRes.data?.from && weekRes.data.from !== weekFromRef.current) {
+        setWeekFrom(weekRes.data.from);
+      }
       setPassengers(passengersRes.data?.passengers || []);
       setAbsences(absencesRes.data?.absences || []);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Kon contractgegevens niet laden.');
+    } finally {
+      refreshBusyRef.current = false;
     }
-  }, [contractToken, session?.user?.name, weekFrom]);
+  }, [contractToken, session?.user?.name]);
 
   useEffect(() => {
     let cancelled = false;
@@ -421,11 +431,23 @@ export function ContractHomeScreen() {
     };
   }, []);
 
+  // Direct actueel houden: poll elke 2,5s + meteen bij terug naar voorgrond.
   useEffect(() => {
+    if (!contractToken) return;
     void refresh();
-    // Alleen bij login/token; weeknavigatie via loadWeek.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractToken]);
+    const t = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
+      void refresh();
+    }, 2500);
+    return () => clearInterval(t);
+  }, [contractToken, refresh]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refresh();
+    });
+    return () => sub.remove();
+  }, [refresh]);
 
   async function loadWeek(from: string) {
     setWeekFrom(from);
