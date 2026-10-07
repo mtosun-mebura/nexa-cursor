@@ -5,7 +5,6 @@ import {
   FlatList,
   Image,
   Linking,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -63,10 +62,12 @@ import {
   setupDriverNotificationChannel,
 } from '../notifications/driverOffers';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
+import { AppModal } from '../ui/AppModal';
 import { Card, ErrorText, GhostButton, Screen } from '../ui/components';
 import { DriverOfferCard } from '../ui/DriverOfferCard';
 import { DriverPlanningPanel } from '../ui/DriverPlanningPanel';
 import { DriverEarningsPanel } from '../ui/DriverEarningsPanel';
+import { ScreenHeader } from '../ui/ScreenHeader';
 import { DriverTabBar, DriverTabKey } from '../ui/DriverTabBar';
 import { DriverTripCard } from '../ui/DriverTripCard';
 import { PickupAtField } from '../ui/PickupAtPicker';
@@ -122,10 +123,11 @@ function isRidePeriodFilter(value: string | null): value is RidePeriodFilter {
 }
 
 function rideMatchesKindFilter(
-  ride: DriverActiveRide | null | undefined,
+  ride: DriverActiveRide | DispatchOffer['ride'] | null | undefined,
   kind: RideKindFilter
 ): boolean {
-  if (!ride || kind === 'all') return true;
+  if (kind === 'all') return true;
+  if (!ride) return kind === 'taxi';
   const contract = isContractRide(ride);
   if (kind === 'contract') return contract;
   return !contract;
@@ -791,9 +793,14 @@ export function DriverHomeScreen() {
 
   function renderPlaceholder(title: string, text: string) {
     return (
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         <ErrorText>{error}</ErrorText>
-        <Text style={styles.panelTitle}>{title}</Text>
+        <ScreenHeader title={title} />
         <Card>
           <Text style={styles.hint}>{text}</Text>
         </Card>
@@ -911,8 +918,10 @@ export function DriverHomeScreen() {
   const tripsPanel = (
     <ScrollView
       ref={tripsScrollRef}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.scroll}
       keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -926,27 +935,29 @@ export function DriverHomeScreen() {
       }
     >
       <ErrorText>{error}</ErrorText>
-      <View style={styles.tripsHeaderRow}>
-        <Text style={styles.tripsHeaderTitle}>Ritten</Text>
-        <View style={styles.periodToggle}>
-          {RIDE_PERIOD_OPTIONS.map((opt) => {
-            const active = ridePeriodFilter === opt.key;
-            return (
-              <Pressable
-                key={opt.key}
-                style={[styles.periodBtn, active && styles.periodBtnActive]}
-                onPress={() => chooseRidePeriod(opt.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.periodBtnText, active && styles.periodBtnTextActive]}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <ScreenHeader
+        title="Ritten"
+        right={
+          <View style={styles.periodToggle}>
+            {RIDE_PERIOD_OPTIONS.map((opt) => {
+              const active = ridePeriodFilter === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  style={[styles.periodBtn, active && styles.periodBtnActive]}
+                  onPress={() => chooseRidePeriod(opt.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.periodBtnText, active && styles.periodBtnTextActive]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        }
+      />
       {showRideKindFilter ? (
         <View style={styles.rideKindRow}>
           {RIDE_KIND_OPTIONS.map((opt) => {
@@ -1121,7 +1132,7 @@ export function DriverHomeScreen() {
       ListHeaderComponent={
         <>
           <ErrorText>{error}</ErrorText>
-          <Text style={styles.panelTitle}>Aanvragen</Text>
+          <ScreenHeader title="Aanvragen" />
           {!online ? (
             <Card>
               <Text style={styles.hint}>
@@ -1183,9 +1194,14 @@ export function DriverHomeScreen() {
   };
 
   const profilePanel = (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+    >
       <ErrorText>{error}</ErrorText>
-      <Text style={styles.panelTitle}>Profiel</Text>
+      <ScreenHeader title="Profiel" />
       <Card>
         <Text style={styles.profileName}>{name || 'Chauffeur'}</Text>
         <View style={styles.profileRow}>
@@ -1307,6 +1323,21 @@ export function DriverHomeScreen() {
   const jumpRideTarget =
     activeRide && String(activeRide.status || '') === 'assigned' ? activeRide : null;
   const showActiveRideBar = !!jumpRideTarget && (showArchived || tab !== 'trips');
+  const declinedOffersFiltered = declinedOffers.filter((o) =>
+    rideMatchesKindFilter(o.ride, rideKindFilter)
+  );
+  const archivedOffersFiltered = archivedOffers.filter((o) =>
+    rideMatchesKindFilter(o.ride, rideKindFilter)
+  );
+  const archivedCompletedRidesFiltered = archivedCompletedRides.filter((r) =>
+    rideMatchesKindFilter(r, rideKindFilter)
+  );
+  const overdueContractRidesFiltered = overdueContractRides.filter((r) =>
+    rideMatchesKindFilter(r, rideKindFilter)
+  );
+  const ownArchivedOverdueRidesFiltered = ownArchivedOverdueRides.filter((r) =>
+    rideMatchesKindFilter(r, rideKindFilter)
+  );
   const archiveKeys = [
     ...declinedOffers.map((o) => `declined-${o.id}`),
     ...archivedOffers.map((o) => `offer-${o.id}`),
@@ -1315,18 +1346,20 @@ export function DriverHomeScreen() {
     ...ownArchivedOverdueRides.map((r) => `overdue-auto-${r.id}`),
   ];
   const archiveHasItems =
-    declinedOffers.length > 0 ||
-    archivedOffers.length > 0 ||
-    archivedCompletedRides.length > 0 ||
-    overdueContractRides.length > 0 ||
-    ownArchivedOverdueRides.length > 0;
+    declinedOffersFiltered.length > 0 ||
+    archivedOffersFiltered.length > 0 ||
+    archivedCompletedRidesFiltered.length > 0 ||
+    overdueContractRidesFiltered.length > 0 ||
+    ownArchivedOverdueRidesFiltered.length > 0;
   const archiveSeenSet = useMemo(() => new Set(archiveSeenKeys), [archiveSeenKeys]);
   const archiveBadgeCount = archiveKeys.filter((key) => !archiveSeenSet.has(key)).length;
 
   const archivePanel = (
     <ScrollView
+      style={{ flex: 1 }}
       contentContainerStyle={styles.scroll}
       keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -1350,12 +1383,30 @@ export function DriverHomeScreen() {
         <Ionicons name="chevron-back" size={22} color={colors.text} />
         <Text style={styles.archiveNavTitle}>Archief</Text>
       </Pressable>
+      <View style={styles.rideKindRow}>
+        {RIDE_KIND_OPTIONS.map((opt) => {
+          const active = rideKindFilter === opt.key;
+          return (
+            <Pressable
+              key={opt.key}
+              style={[styles.rideKindBtn, active && styles.rideKindBtnActive]}
+              onPress={() => chooseRideKind(opt.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
       {archiveHasItems ? (
         <>
-          {declinedOffers.length > 0 ? (
+          {declinedOffersFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>Afgewezen / geannuleerd</Text>
-              {declinedOffers.map((offer) => (
+              {declinedOffersFiltered.map((offer) => (
                 <DriverOfferCard
                   key={`declined-${offer.id}`}
                   offer={offer}
@@ -1366,10 +1417,10 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
-          {overdueContractRides.length > 0 ? (
+          {overdueContractRidesFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>Verlopen contractritten</Text>
-              {overdueContractRides.map((ride) => (
+              {overdueContractRidesFiltered.map((ride) => (
                 <View key={`archived-overdue-contract-${ride.id}`}>
                   <DriverTripCard
                     ride={ride}
@@ -1392,10 +1443,10 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
-          {ownArchivedOverdueRides.length > 0 ? (
+          {ownArchivedOverdueRidesFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>Verlopen ritten</Text>
-              {ownArchivedOverdueRides.map((ride) => (
+              {ownArchivedOverdueRidesFiltered.map((ride) => (
                 <View key={`archived-overdue-auto-${ride.id}`}>
                   <DriverTripCard
                     ride={ride}
@@ -1418,10 +1469,10 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
-          {archivedCompletedRides.length > 0 ? (
+          {archivedCompletedRidesFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>Afgeronde ritten</Text>
-              {archivedCompletedRides.map((ride) => (
+              {archivedCompletedRidesFiltered.map((ride) => (
                 <DriverTripCard
                   key={`archived-done-${ride.id}`}
                   ride={ride}
@@ -1432,10 +1483,10 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
-          {archivedOffers.length > 0 ? (
+          {archivedOffersFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>Archief</Text>
-              {archivedOffers.map((offer) => {
+              {archivedOffersFiltered.map((offer) => {
                 const ride = offer.ride;
                 const pickup = String(ride?.pickup_address || '').split(',')[0] || '—';
                 const dropoff = String(ride?.dropoff_address || '').split(',')[0] || '—';
@@ -1597,193 +1648,162 @@ export function DriverHomeScreen() {
         accent={accentHex(accent)}
       />
 
-      <Modal
+      <AppModal
         visible={vehiclePickerOpen}
-        transparent
-        animationType="fade"
         onRequestClose={() => setVehiclePickerOpen(false)}
+        panelStyle={styles.vehicleModalCard}
       >
-        <View style={styles.vehicleModalOverlay}>
-          <Pressable
-            style={styles.vehicleModalBackdrop}
-            onPress={() => setVehiclePickerOpen(false)}
-            accessibilityLabel="Sluiten"
-          />
-          <View style={styles.vehicleModalCard}>
-            <Text style={styles.pickerTitle}>Voertuig kiezen</Text>
-            {vehicles.length === 0 ? (
-              <>
-                <Text style={styles.hint}>
-                  Geen beschikbare voertuigen. Voeg eerst een voertuig toe in het adminpaneel.
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    const url = `${API_BASE_URL}/admin/taxi/vehicles`;
-                    Linking.openURL(url).catch(() => undefined);
-                  }}
-                  style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Adminpaneel openen"
-                >
-                  <Text style={styles.vehicleModalAdminText}>Adminpaneel</Text>
-                </Pressable>
-              </>
-            ) : (
-              vehicles.map((v) => {
-                const active = v.id === selectedVehicleId;
-                return (
-                  <Pressable
-                    key={v.id}
-                    onPress={() => selectVehicle(v.id)}
-                    style={[styles.pickerItem, active && styles.pickerItemActive]}
-                  >
-                    <Ionicons name="car-outline" size={18} color={colors.muted} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.vehiclePlate} numberOfLines={1}>
-                        {vehicleDisplayLabel(v)}
-                        {vehicleDisplayName(v) ? (
-                          <Text style={styles.vehicleBrand}>
-                            {'  '}
-                            {vehicleDisplayName(v)}
-                          </Text>
-                        ) : null}
-                      </Text>
-                    </View>
-                    {active ? (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                    ) : null}
-                  </Pressable>
-                );
-              })
-            )}
+        <Text style={styles.pickerTitle}>Voertuig kiezen</Text>
+        {vehicles.length === 0 ? (
+          <>
+            <Text style={styles.hint}>
+              Geen beschikbare voertuigen. Voeg eerst een voertuig toe in het adminpaneel.
+            </Text>
             <Pressable
-              onPress={() => setVehiclePickerOpen(false)}
-              style={styles.vehicleModalCloseBtn}
+              onPress={() => {
+                const url = `${API_BASE_URL}/admin/taxi/vehicles`;
+                Linking.openURL(url).catch(() => undefined);
+              }}
+              style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }]}
               accessibilityRole="button"
-              accessibilityLabel="Sluiten"
+              accessibilityLabel="Adminpaneel openen"
             >
-              <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+              <Text style={styles.vehicleModalAdminText}>Adminpaneel</Text>
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+          </>
+        ) : (
+          vehicles.map((v) => {
+            const active = v.id === selectedVehicleId;
+            return (
+              <Pressable
+                key={v.id}
+                onPress={() => selectVehicle(v.id)}
+                style={[styles.pickerItem, active && styles.pickerItemActive]}
+              >
+                <Ionicons name="car-outline" size={18} color={colors.muted} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.vehiclePlate} numberOfLines={1}>
+                    {vehicleDisplayLabel(v)}
+                    {vehicleDisplayName(v) ? (
+                      <Text style={styles.vehicleBrand}>
+                        {'  '}
+                        {vehicleDisplayName(v)}
+                      </Text>
+                    ) : null}
+                  </Text>
+                </View>
+                {active ? (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                ) : null}
+              </Pressable>
+            );
+          })
+        )}
+        <Pressable
+          onPress={() => setVehiclePickerOpen(false)}
+          style={styles.vehicleModalCloseBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Sluiten"
+        >
+          <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+        </Pressable>
+      </AppModal>
 
-      <Modal
+      <AppModal
         visible={cancelRideId != null}
-        transparent
-        animationType="fade"
         onRequestClose={() => {
           if (!cancelBusy) {
             setCancelRideId(null);
             setSelectedCancelReason(null);
           }
         }}
+        dismissDisabled={cancelBusy}
+        panelStyle={styles.centeredSheet}
       >
-        <View style={styles.pickerOverlay}>
+        <Text style={styles.pickerTitle}>Rit annuleren</Text>
+        <Text style={styles.hint}>
+          Kies een reden. Deze melding wordt getoond bij de klant.
+        </Text>
+        <ScrollView style={styles.cancelReasonList} keyboardShouldPersistTaps="handled">
+          {cancelReasons.map((reason) => {
+            const active = selectedCancelReason === reason.code;
+            return (
+              <Pressable
+                key={reason.code}
+                onPress={() => setSelectedCancelReason(reason.code)}
+                style={[styles.cancelReasonItem, active && styles.cancelReasonItemActive]}
+                disabled={cancelBusy}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.cancelReasonLabel}>{reason.label}</Text>
+                  <Text style={styles.cancelReasonMessage}>{reason.message}</Text>
+                </View>
+                {active ? (
+                  <Ionicons name="checkmark-circle" size={20} color={accentHex(accent)} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={styles.cancelActions}>
           <Pressable
-            style={styles.pickerBackdrop}
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
             disabled={cancelBusy}
             onPress={() => {
               setCancelRideId(null);
               setSelectedCancelReason(null);
             }}
-          />
-          <View style={styles.pickerSheet}>
-            <Text style={styles.pickerTitle}>Rit annuleren</Text>
-            <Text style={styles.hint}>
-              Kies een reden. Deze melding wordt getoond bij de klant.
+          >
+            <Text style={styles.cancelActionGhostText}>Terug</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.cancelActionBtn,
+              styles.cancelActionPrimary,
+              !selectedCancelReason && styles.cancelActionDisabled,
+            ]}
+            disabled={cancelBusy || !selectedCancelReason}
+            onPress={() => confirmCancelRide()}
+          >
+            <Text style={styles.cancelActionPrimaryText}>
+              {cancelBusy ? 'Bezig…' : 'Bevestigen'}
             </Text>
-            <ScrollView style={styles.cancelReasonList} keyboardShouldPersistTaps="handled">
-              {cancelReasons.map((reason) => {
-                const active = selectedCancelReason === reason.code;
-                return (
-                  <Pressable
-                    key={reason.code}
-                    onPress={() => setSelectedCancelReason(reason.code)}
-                    style={[styles.cancelReasonItem, active && styles.cancelReasonItemActive]}
-                    disabled={cancelBusy}
-                  >
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.cancelReasonLabel}>{reason.label}</Text>
-                      <Text style={styles.cancelReasonMessage}>{reason.message}</Text>
-                    </View>
-                    {active ? (
-                      <Ionicons name="checkmark-circle" size={20} color={accentHex(accent)} />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <View style={styles.cancelActions}>
-              <Pressable
-                style={[styles.cancelActionBtn, styles.cancelActionGhost]}
-                disabled={cancelBusy}
-                onPress={() => {
-                  setCancelRideId(null);
-                  setSelectedCancelReason(null);
-                }}
-              >
-                <Text style={styles.cancelActionGhostText}>Terug</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.cancelActionBtn,
-                  styles.cancelActionPrimary,
-                  !selectedCancelReason && styles.cancelActionDisabled,
-                ]}
-                disabled={cancelBusy || !selectedCancelReason}
-                onPress={() => confirmCancelRide()}
-              >
-                <Text style={styles.cancelActionPrimaryText}>
-                  {cancelBusy ? 'Bezig…' : 'Bevestigen'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+          </Pressable>
         </View>
-      </Modal>
+      </AppModal>
 
-      <Modal
+      <AppModal
         visible={proposeRideId != null}
-        transparent
-        animationType="fade"
         onRequestClose={() => {
           if (!proposeBusy) setProposeRideId(null);
         }}
+        dismissDisabled={proposeBusy}
+        panelStyle={styles.centeredSheet}
       >
-        <View style={styles.pickerOverlay}>
+        <Text style={styles.pickerTitle}>Nieuw ophaalmoment</Text>
+        <Text style={styles.hint}>
+          De klant krijgt dit tijdstip via WhatsApp ter goedkeuring.
+        </Text>
+        <PickupAtField value={proposePickupAt} onChange={setProposePickupAt} />
+        <View style={styles.cancelActions}>
           <Pressable
-            style={styles.pickerBackdrop}
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
             disabled={proposeBusy}
             onPress={() => setProposeRideId(null)}
-          />
-          <View style={styles.pickerSheet}>
-            <Text style={styles.pickerTitle}>Nieuw ophaalmoment</Text>
-            <Text style={styles.hint}>
-              De klant krijgt dit tijdstip via WhatsApp ter goedkeuring.
+          >
+            <Text style={styles.cancelActionGhostText}>Terug</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
+            disabled={proposeBusy}
+            onPress={() => confirmProposePickup()}
+          >
+            <Text style={styles.cancelActionPrimaryText}>
+              {proposeBusy ? 'Versturen…' : 'Voorstellen'}
             </Text>
-            <PickupAtField value={proposePickupAt} onChange={setProposePickupAt} />
-            <View style={styles.cancelActions}>
-              <Pressable
-                style={[styles.cancelActionBtn, styles.cancelActionGhost]}
-                disabled={proposeBusy}
-                onPress={() => setProposeRideId(null)}
-              >
-                <Text style={styles.cancelActionGhostText}>Terug</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
-                disabled={proposeBusy}
-                onPress={() => confirmProposePickup()}
-              >
-                <Text style={styles.cancelActionPrimaryText}>
-                  {proposeBusy ? 'Versturen…' : 'Voorstellen'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+          </Pressable>
         </View>
-      </Modal>
+      </AppModal>
       {driverToken && settleRide ? (
         <DriverSettleRideModal
           visible
@@ -1957,28 +1977,8 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     scroll: {
       paddingHorizontal: 20,
-      paddingBottom: 24,
+      paddingBottom: 32,
       paddingTop: 4,
-    },
-    panelTitle: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '700',
-      marginBottom: 12,
-    },
-    tripsHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-      gap: 12,
-    },
-    tripsHeaderTitle: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '700',
-      lineHeight: 24,
-      marginBottom: 0,
     },
     periodToggle: {
       flexDirection: 'row',
@@ -2041,37 +2041,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingBottom: 28,
       maxHeight: '70%',
     },
-    vehicleModalOverlay: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-    },
-    vehicleModalBackdrop: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      backgroundColor: 'rgba(2, 6, 23, 0.78)',
-    },
     vehicleModalCard: {
-      width: '100%',
-      maxWidth: 400,
-      backgroundColor: colors.card,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 16,
-      paddingTop: 18,
-      paddingBottom: 16,
       maxHeight: '70%',
-      zIndex: 2,
-      elevation: 16,
-      shadowColor: '#000',
-      shadowOpacity: 0.5,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 12 },
+    },
+    centeredSheet: {
+      maxHeight: '80%',
     },
     vehicleModalAdminBtn: {
       marginTop: 14,

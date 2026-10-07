@@ -1,0 +1,28 @@
+---
+description: Mobiele app-modals: blur-achtergrond en gecentreerd paneel
+globs: mobile-app/**/*.{tsx,ts}
+alwaysApply: true
+---
+
+# Mobile app: modal overlay en paneel
+
+Elke **popup / modal / dialog** in de Expo-app (`mobile-app`) heeft een **geblurde achtergrond** en een **paneel in het midden van het scherm** (tenzij het een bewuste bottom-sheet is, zie hieronder).
+
+## Gebruik
+
+- Gebruik altijd het gedeelde component `mobile-app/src/ui/AppModal.tsx`.
+- Geen losse `Modal` + alleen donkere `Pressable` zonder blur.
+- Overlay: **BlurView** + lichte slate-sluier (`rgba(15, 23, 42, 0.45)`), zelfde idee als admin (`bg-slate-900/45 backdrop-blur-md`).
+- Paneel: gecentreerd (`justifyContent: 'center'`, `alignItems: 'center'`), `maxWidth` ~400, thema-kleuren voor card (niet pechzwart).
+- Alleen de overlay blurt; het paneel zelf niet.
+
+## Bottom-sheets
+
+Alleen voor lange pickers / settle-flows mag `placement="sheet"` (onderaan). De **blur-overlay blijft verplicht**. Nieuwe bevestigings- of formulierpopups (Afmelden, annuleren, voertuigkeuze, enz.) zijn altijd **`placement="center"`**.
+
+## Niet doen
+
+- Geen overlay met alleen een donkere kleur zonder blur.
+- Geen dialog-popup die bovenaan of onderaan plakt zonder centrering.
+- Geen `BlurView` als content van het paneel (alleen op de backdrop).
+- Geen zwaardere sluier dan ~0.45–0.55 opacity (geen pechzwart).

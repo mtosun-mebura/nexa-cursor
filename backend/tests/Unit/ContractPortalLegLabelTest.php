@@ -16,7 +16,7 @@ class ContractPortalLegLabelTest extends TestCase
         );
 
         $this->assertSame('heen', $key);
-        $this->assertSame('Heen', $label);
+        $this->assertSame('Heenweg', $label);
     }
 
     public function test_afternoon_planned_at_is_retour(): void
@@ -27,7 +27,19 @@ class ContractPortalLegLabelTest extends TestCase
         );
 
         $this->assertSame('retour', $key);
-        $this->assertSame('Retour', $label);
+        $this->assertSame('Terugweg', $label);
+    }
+
+    public function test_return_direction_wins_over_morning_clock(): void
+    {
+        [$key, $label] = ContractPortalLegLabel::forDirectionOrPlannedAt(
+            'return',
+            Carbon::parse('2026-08-12 08:30:00', 'Europe/Amsterdam'),
+            'Europe/Amsterdam'
+        );
+
+        $this->assertSame('retour', $key);
+        $this->assertSame('Terugweg', $label);
     }
 
     public function test_noon_boundary_is_retour(): void
@@ -45,6 +57,6 @@ class ContractPortalLegLabelTest extends TestCase
         [$key, $label] = ContractPortalLegLabel::forPlannedAt(null);
 
         $this->assertSame('heen', $key);
-        $this->assertSame('Heen', $label);
+        $this->assertSame('Heenweg', $label);
     }
 }

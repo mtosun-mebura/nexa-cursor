@@ -469,6 +469,164 @@ class TransportRoutePlannerService
         return array_reverse($timedReversed);
     }
 
+    /**
+     * Terugweg: ophalen op school (return_pickup_time), rit start na boardingvertraging, daarna afzetten thuis.
+     *
+     * @return array{
+     *   stops: list<array{
+     *     stop_type: string,
+     *     transport_passenger_id: int|null,
+     *     passenger_name: string|null,
+     *     address: string,
+     *     lat: float|null,
+     *     lng: float|null,
+     *     planned_at_time: string,
+     *     sequence: int
+     *   }>,
+     *   warnings: list<string>,
+     *   departure_time: string|null
+     * }
+     */
+    public function planReturnRoute(
+        TransportGroup $group,
+        TransportRouteTemplate $template,
+        Collection $activeMembers,
+        ?TransportRouteTemplate $outboundTemplate = null,
+    ): array {
+        $homes = $this->buildPickupStops($activeMembers);
+        $warnings = [];
+
+        if ($homes === []) {
+            return ['stops' => [], 'warnings' => ['Geen actieve leden met ophaaladres in deze groep.'], 'departure_time' => null];
+        }
+
+        $school = $this->buildDestinationStop($group);
+        if ($school['lat'] === null || $school['lng'] === null) {
+            $warnings[] = 'Schooladres heeft geen coördinaten; rijtijden zijn een schatting.';
+        }
+
+        $pickupTime = $this->normalizeTime($group->return_pickup_time ?? '15:00');
+        $boardingDelayMinutes = max(0, min(120, (int) ($group->return_boarding_delay_minutes ?? TransportGroup::DEFAULT_RETURN_BOARDING_DELAY_MINUTES)));
+        $departSchoolTime = $this->addSecondsToTime($pickupTime, $boardingDelayMinutes * 60);
+        $bufferSeconds = max(0, (int) ($template->buffer_seconds ?? 120));
+
+        $orderedHomes = $this->orderReturnDropoffs($homes, $school, $outboundTemplate);
+
+        $sequence = 1;
+        $stops = [];
+        foreach ($orderedHomes as $home) {
+            $stops[] = array_merge($home, [
+                'stop_type' => TransportRouteStop::STOP_TYPE_PICKUP,
+                'address' => $school['address'],
+                'lat' => $school['lat'],
+                'lng' => $school['lng'],
+                'planned_at_time' => $pickupTime,
+                'sequence' => $sequence++,
+            ]);
+        }
+
+        $currentTime = $departSchoolTime;
+        $fromLat = $school['lat'];
+        $fromLng = $school['lng'];
+        $homeCount = count($orderedHomes);
+
+        foreach ($orderedHomes as $index => $home) {
+            $travelSeconds = $this->estimateTravelSeconds(
+                $fromLat,
+                $fromLng,
+                $home['lat'],
+                $home['lng']
+            );
+            $currentTime = $this->addSecondsToTime($currentTime, $travelSeconds + ($index === 0 ? 0 : $bufferSeconds));
+            $isLast = $index === $homeCount - 1;
+            $stops[] = array_merge($home, [
+                'stop_type' => $isLast
+                    ? TransportRouteStop::STOP_TYPE_DESTINATION
+                    : TransportRouteStop::STOP_TYPE_DROPOFF,
+                'planned_at_time' => $currentTime,
+                'sequence' => $sequence++,
+            ]);
+            $fromLat = $home['lat'];
+            $fromLng = $home['lng'];
+        }
+
+        if ($boardingDelayMinutes > 0) {
+            $warnings[] = 'Rit vertrekt '.substr($departSchoolTime, 0, 5)
+                .' (ophaal '.substr($pickupTime, 0, 5).' + '.$boardingDelayMinutes.' min instaptijd).';
+        }
+
+        return [
+            'stops' => $stops,
+            'warnings' => $warnings,
+            'departure_time' => $pickupTime,
+        ];
+    }
+
+    /**
+     * @param  list<array{lat: float|null, lng: float|null, transport_passenger_id?: int|null, ...}>  $homes
+     * @param  array{lat: float|null, lng: float|null, ...}  $school
+     * @return list<array{lat: float|null, lng: float|null, ...}>
+     */
+    private function orderReturnDropoffs(
+        array $homes,
+        array $school,
+        ?TransportRouteTemplate $outboundTemplate,
+    ): array {
+        if (count($homes) <= 1) {
+            return $homes;
+        }
+
+        if ($outboundTemplate) {
+            $outboundOrder = $outboundTemplate->stops
+                ->where('stop_type', TransportRouteStop::STOP_TYPE_PICKUP)
+                ->sortBy('sequence')
+                ->pluck('transport_passenger_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->values()
+                ->all();
+
+            if ($outboundOrder !== []) {
+                $byId = [];
+                foreach ($homes as $home) {
+                    $byId[(int) ($home['transport_passenger_id'] ?? 0)] = $home;
+                }
+                $ordered = [];
+                foreach (array_reverse($outboundOrder) as $passengerId) {
+                    if (isset($byId[$passengerId])) {
+                        $ordered[] = $byId[$passengerId];
+                        unset($byId[$passengerId]);
+                    }
+                }
+                foreach ($byId as $home) {
+                    $ordered[] = $home;
+                }
+                if ($ordered !== []) {
+                    return $ordered;
+                }
+            }
+        }
+
+        // Nearest-neighbour vanaf school.
+        $remaining = $homes;
+        $ordered = [];
+        $lat = $school['lat'];
+        $lng = $school['lng'];
+        while ($remaining !== []) {
+            $nearestIndex = $this->indexOfNearestStop($remaining, $lat, $lng);
+            $next = $remaining[$nearestIndex];
+            unset($remaining[$nearestIndex]);
+            $remaining = array_values($remaining);
+            $ordered[] = $next;
+            if ($next['lat'] !== null && $next['lng'] !== null) {
+                $lat = $next['lat'];
+                $lng = $next['lng'];
+            }
+        }
+
+        return $ordered;
+    }
+
     public function estimateTravelSecondsBetween(?float $fromLat, ?float $fromLng, ?float $toLat, ?float $toLng): int
     {
         return $this->estimateTravelSeconds($fromLat, $fromLng, $toLat, $toLng);
@@ -509,6 +667,13 @@ class TransportRoutePlannerService
         $parsed = Carbon::createFromFormat('H:i:s', $this->normalizeTime($time));
 
         return $parsed->subSeconds($seconds)->format('H:i:s');
+    }
+
+    private function addSecondsToTime(string $time, int $seconds): string
+    {
+        $parsed = Carbon::createFromFormat('H:i:s', $this->normalizeTime($time));
+
+        return $parsed->addSeconds($seconds)->format('H:i:s');
     }
 
     /**

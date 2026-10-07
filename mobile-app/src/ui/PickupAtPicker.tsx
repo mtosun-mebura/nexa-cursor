@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
 import { ColorPalette } from '../config';
 import { formatPickupAtLabel } from '../geo/route';
 import { useTheme } from '../theme/ThemeContext';
+import { AppModal } from './AppModal';
 
 const TIME_ITEM_H = 44;
 
@@ -36,8 +36,8 @@ export function PickupAtField({
   value: Date;
   onChange: (next: Date) => void;
 }) {
-  const { colors, colorScheme } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, colorScheme), [colors, colorScheme]);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const hourScrollRef = useRef<ScrollView>(null);
@@ -109,11 +109,12 @@ export function PickupAtField({
         <Text style={styles.chevron}>▼</Text>
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.overlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Ophaalmoment</Text>
+      <AppModal
+        visible={open}
+        onRequestClose={() => setOpen(false)}
+        panelStyle={styles.sheet}
+      >
+        <Text style={styles.sheetTitle}>Ophaalmoment</Text>
 
             <ScrollView
               ref={dayScrollRef}
@@ -214,18 +215,16 @@ export function PickupAtField({
               </ScrollView>
             </View>
 
-            <Text style={styles.preview}>{formatPickupAtLabel(draft)}</Text>
-            <Pressable onPress={confirm} style={styles.confirmBtn}>
-              <Text style={styles.confirmText}>Bevestigen</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        <Text style={styles.preview}>{formatPickupAtLabel(draft)}</Text>
+        <Pressable onPress={confirm} style={styles.confirmBtn}>
+          <Text style={styles.confirmText}>Bevestigen</Text>
+        </Pressable>
+      </AppModal>
     </>
   );
 }
 
-function makeStyles(colors: ColorPalette, colorScheme: 'light' | 'dark') {
+function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
     fieldLabel: {
       color: colors.muted,
@@ -255,19 +254,11 @@ function makeStyles(colors: ColorPalette, colorScheme: 'light' | 'dark') {
       color: colors.muted,
       fontSize: 12,
     },
-    overlay: {
-      flex: 1,
-      backgroundColor: colorScheme === 'light' ? 'rgba(15,23,42,0.35)' : 'rgba(2,6,23,0.65)',
-      justifyContent: 'flex-end',
-      padding: 16,
-    },
     sheet: {
-      backgroundColor: colors.card,
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
       maxHeight: '78%',
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 16,
     },
     sheetTitle: {
       color: colors.text,

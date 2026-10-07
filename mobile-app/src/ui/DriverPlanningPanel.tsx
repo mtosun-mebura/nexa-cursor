@@ -22,6 +22,7 @@ import { ApiError } from '../api/client';
 import { ColorPalette } from '../config';
 import { formatEuroNl } from '../geo/route';
 import { ErrorText } from './components';
+import { ScreenHeader } from './ScreenHeader';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
 import { useThemeColors } from '../theme/ThemeContext';
 
@@ -217,25 +218,29 @@ export function DriverPlanningPanel({
       }
     >
       <ErrorText>{error}</ErrorText>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Planning</Text>
-        <View style={styles.viewToggle}>
-          <Pressable
-            style={[styles.viewBtn, view === 'day' && styles.viewBtnActive]}
-            onPress={() => setView('day')}
-          >
-            <Text style={[styles.viewBtnText, view === 'day' && styles.viewBtnTextActive]}>Dag</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.viewBtn, view === 'week' && styles.viewBtnActive]}
-            onPress={() => setView('week')}
-          >
-            <Text style={[styles.viewBtnText, view === 'week' && styles.viewBtnTextActive]}>
-              Week
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Planning"
+        right={
+          <View style={styles.viewToggle}>
+            <Pressable
+              style={[styles.viewBtn, view === 'day' && styles.viewBtnActive]}
+              onPress={() => setView('day')}
+            >
+              <Text style={[styles.viewBtnText, view === 'day' && styles.viewBtnTextActive]}>
+                Dag
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.viewBtn, view === 'week' && styles.viewBtnActive]}
+              onPress={() => setView('week')}
+            >
+              <Text style={[styles.viewBtnText, view === 'week' && styles.viewBtnTextActive]}>
+                Week
+              </Text>
+            </Pressable>
+          </View>
+        }
+      />
 
       <View style={styles.navRow}>
         <Pressable style={styles.navBtn} onPress={goPrev} accessibilityLabel="Vorige">
@@ -481,20 +486,6 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingHorizontal: 20,
       paddingTop: 4,
       paddingBottom: 24,
-    },
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-      gap: 12,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '700',
-      lineHeight: 24,
-      marginBottom: 0,
     },
     viewToggle: {
       flexDirection: 'row',

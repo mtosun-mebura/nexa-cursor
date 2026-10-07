@@ -18,6 +18,7 @@ import {
   PrimaryButton,
   Screen,
   Subtitle,
+  SuccessText,
 } from '../ui/components';
 
 const logoLight = require('../../assets/nexa-taxi-logo.png');
@@ -130,13 +131,25 @@ export function LoginScreen({ onBack }: { onBack: () => void }) {
           <Field
             label="Code uit e-mail"
             value={code}
-            onChangeText={setCode}
+            onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 8))}
             keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="off"
             placeholder="000000"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (!loading) void onSubmit();
+            }}
           />
         )}
 
-        {hint ? <Subtitle>{hint}</Subtitle> : null}
+        {hint ? (
+          /code gestuurd/i.test(hint) ? (
+            <SuccessText>{hint}</SuccessText>
+          ) : (
+            <Subtitle>{hint}</Subtitle>
+          )
+        ) : null}
         <ErrorText>{error}</ErrorText>
 
         <PrimaryButton title="Inloggen" onPress={onSubmit} loading={loading} />

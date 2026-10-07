@@ -226,6 +226,42 @@ final class TaxiContractvervoerSchemaService
         $this->ensureCustomerArchiveKeepPastRidesColumn($connection);
         $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
+        $this->ensureTransportGroupReturnTripColumns($connection);
+    }
+
+    public function ensureTransportGroupReturnTripColumns(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+
+        if ($schema->hasTable('transport_groups')) {
+            $cols = $schema->getColumnListing('transport_groups');
+            if (! in_array('has_return_trip', $cols, true)) {
+                $schema->table('transport_groups', function (Blueprint $table) {
+                    $table->boolean('has_return_trip')->default(false);
+                });
+            }
+            $cols = $schema->getColumnListing('transport_groups');
+            if (! in_array('return_pickup_time', $cols, true)) {
+                $schema->table('transport_groups', function (Blueprint $table) {
+                    $table->time('return_pickup_time')->nullable();
+                });
+            }
+            $cols = $schema->getColumnListing('transport_groups');
+            if (! in_array('return_boarding_delay_minutes', $cols, true)) {
+                $schema->table('transport_groups', function (Blueprint $table) {
+                    $table->unsignedSmallInteger('return_boarding_delay_minutes')->default(15);
+                });
+            }
+        }
+
+        if ($schema->hasTable('transport_route_templates')) {
+            $cols = $schema->getColumnListing('transport_route_templates');
+            if (! in_array('direction', $cols, true)) {
+                $schema->table('transport_route_templates', function (Blueprint $table) {
+                    $table->string('direction', 16)->default('outbound')->index();
+                });
+            }
+        }
     }
 
     public function ensureCustomerArchivedAtColumn(?string $connection = null): void

@@ -20,8 +20,8 @@ class ContractPortalMultiLegContractTest extends TestCase
         $morning = ContractPortalLegLabel::forPlannedAt(Carbon::parse('2026-08-12 07:45:00', 'Europe/Amsterdam'));
         $afternoon = ContractPortalLegLabel::forPlannedAt(Carbon::parse('2026-08-12 15:30:00', 'Europe/Amsterdam'));
 
-        $this->assertSame(['heen', 'Heen'], $morning);
-        $this->assertSame(['retour', 'Retour'], $afternoon);
+        $this->assertSame(['heen', 'Heenweg'], $morning);
+        $this->assertSame(['retour', 'Terugweg'], $afternoon);
     }
 
     #[DataProvider('stopStatusProvider')]

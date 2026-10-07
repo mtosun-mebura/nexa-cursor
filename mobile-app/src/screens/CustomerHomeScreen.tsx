@@ -8,7 +8,6 @@ import {
   Image,
   Keyboard,
   Linking,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -75,6 +74,7 @@ import {
   PrimaryButton,
   Screen,
 } from '../ui/components';
+import { AppModal } from '../ui/AppModal';
 import { CustomerTabBar, CustomerTabKey } from '../ui/CustomerTabBar';
 import { PickupAtField } from '../ui/PickupAtPicker';
 import { ColorPalette } from '../config';
@@ -1592,7 +1592,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }
 
   const ridesContent = (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.formScroll}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+    >
       {showArchivedRides ? (
         archivedPast.length === 0 ? (
           <Card>
@@ -1654,7 +1659,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   );
 
   const profileContent = (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.formScroll}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+    >
       <ErrorText>{error}</ErrorText>
       <Card>
         <Field label="Voornaam" value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
@@ -1758,40 +1768,28 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         }
       />
 
-      <Modal
+      <AppModal
         visible={cancelConfirmOpen}
-        transparent
-        animationType="fade"
         onRequestClose={() => setCancelConfirmOpen(false)}
+        panelStyle={styles.confirmBanner}
       >
-        <View style={styles.confirmOverlay}>
-          {/* Neutrale slate-sluier zoals admin (bg-slate-900/45). Geen BlurView: die kleurt rood mee
-              van knoppen/foutbalken eronder. */}
+        <Text style={styles.confirmTitle}>Rit annuleren?</Text>
+        <Text style={styles.confirmText}>
+          Weet je zeker dat je deze rit wilt annuleren? Als je vooraf hebt betaald, wordt het
+          bedrag teruggestort (doorgaans binnen {refundDays} werkdagen).
+        </Text>
+        <View style={styles.confirmActions}>
           <Pressable
-            style={styles.confirmBackdrop}
             onPress={() => setCancelConfirmOpen(false)}
-            accessibilityLabel="Sluiten"
-          />
-          <View style={styles.confirmBanner}>
-            <Text style={styles.confirmTitle}>Rit annuleren?</Text>
-            <Text style={styles.confirmText}>
-              Weet je zeker dat je deze rit wilt annuleren? Als je vooraf hebt betaald, wordt het
-              bedrag teruggestort (doorgaans binnen {refundDays} werkdagen).
-            </Text>
-            <View style={styles.confirmActions}>
-              <Pressable
-                onPress={() => setCancelConfirmOpen(false)}
-                style={styles.confirmSecondaryBtn}
-              >
-                <Text style={styles.confirmSecondaryText}>Nee, behouden</Text>
-              </Pressable>
-              <Pressable onPress={confirmCancel} style={styles.confirmDangerBtn}>
-                <Text style={styles.confirmDangerText}>Ja, annuleren</Text>
-              </Pressable>
-            </View>
-          </View>
+            style={styles.confirmSecondaryBtn}
+          >
+            <Text style={styles.confirmSecondaryText}>Nee, behouden</Text>
+          </Pressable>
+          <Pressable onPress={confirmCancel} style={styles.confirmDangerBtn}>
+            <Text style={styles.confirmDangerText}>Ja, annuleren</Text>
+          </Pressable>
         </View>
-      </Modal>
+      </AppModal>
     </Screen>
   );
 }
@@ -2041,7 +2039,6 @@ function makeStyles(colors: ColorPalette) {
       minHeight: 0,
     },
     scroll: {
-      flexGrow: 1,
       justifyContent: 'flex-start',
       paddingHorizontal: 20,
       paddingTop: 4,
@@ -2077,7 +2074,8 @@ function makeStyles(colors: ColorPalette) {
       flex: 1,
       textAlign: 'center',
       color: colors.text,
-      fontSize: 18,
+      fontSize: 20,
+      lineHeight: 24,
       fontWeight: '700',
     },
     activeBanner: {
@@ -2515,31 +2513,9 @@ function makeStyles(colors: ColorPalette) {
       fontWeight: '700',
       letterSpacing: 1,
     },
-    confirmOverlay: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
-    confirmBackdrop: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      // Bijna dekkend slate — achtergrond weg, popup valt op
-      backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    },
     confirmBanner: {
-      width: '100%',
-      maxWidth: 400,
-      backgroundColor: colors.card,
       borderRadius: 18,
-      borderWidth: 1,
-      borderColor: colors.border,
       paddingHorizontal: 18,
-      paddingTop: 18,
-      paddingBottom: 16,
     },
     confirmTitle: {
       color: colors.text,

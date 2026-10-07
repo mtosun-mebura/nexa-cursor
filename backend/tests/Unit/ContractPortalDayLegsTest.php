@@ -30,10 +30,13 @@ class ContractPortalDayLegsTest extends TestCase
             ],
         ]);
 
-        $this->assertCount(1, $legs);
+        // Zonder planned_at worden meerdere stops heen+retour; openstaande wint van completed.
+        $this->assertCount(2, $legs);
         $this->assertSame('heen', $legs[0]['leg_key']);
-        $this->assertSame('completed', $legs[0]['status_key']);
-        $this->assertSame(53, $legs[0]['ride_stop_id']);
+        $this->assertSame('expired', $legs[0]['status_key']);
+        $this->assertSame('retour', $legs[1]['leg_key']);
+        $this->assertSame('planned', $legs[1]['status_key']);
+        $this->assertSame(70, $legs[1]['ride_stop_id']);
     }
 
     public function test_heen_and_retour_stay_separate(): void
@@ -53,5 +56,6 @@ class ContractPortalDayLegsTest extends TestCase
 
         $this->assertCount(2, $legs);
         $this->assertSame(['heen', 'retour'], array_column($legs, 'leg_key'));
+        $this->assertSame(['Heenweg', 'Terugweg'], array_column($legs, 'leg_label'));
     }
 }

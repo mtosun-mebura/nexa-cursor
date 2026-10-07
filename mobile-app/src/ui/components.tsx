@@ -64,7 +64,14 @@ export function Field({
   autoCapitalize?: 'none' | 'sentences' | 'words';
   placeholder?: string;
   autoComplete?: 'off' | 'email' | 'password' | 'username' | 'tel' | 'name';
-  textContentType?: 'none' | 'emailAddress' | 'password' | 'username' | 'telephoneNumber' | 'name';
+  textContentType?:
+    | 'none'
+    | 'emailAddress'
+    | 'password'
+    | 'username'
+    | 'telephoneNumber'
+    | 'name'
+    | 'oneTimeCode';
   multiline?: boolean;
   rightAccessory?: React.ReactNode;
   confirmed?: boolean;
@@ -252,10 +259,18 @@ export function ErrorText({ children }: { children?: string | null }) {
   return <Text style={styles.error}>{children}</Text>;
 }
 
+export function SuccessText({ children }: { children?: string | null }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  if (!children) return null;
+  return <Text style={styles.success}>{children}</Text>;
+}
+
 function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
     screen: {
       flex: 1,
+      minHeight: 0,
       backgroundColor: colors.bg,
       paddingHorizontal: 20,
       paddingTop: 24,
@@ -381,5 +396,13 @@ function makeStyles(colors: ColorPalette) {
       fontWeight: '700',
     },
     error: { color: colors.danger, marginTop: 8, marginBottom: 4, fontSize: 14 },
+    success: {
+      color: colors.success,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '700',
+      marginTop: 4,
+      marginBottom: 12,
+    },
   });
 }
