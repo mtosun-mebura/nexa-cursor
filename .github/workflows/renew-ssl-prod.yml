@@ -1,16 +1,11 @@
 # Vernieuw SSL op PROD (Hostinger) via self-hosted runner.
-# Nodig omdat wildcard-certificaten (Let's Encrypt) na 90 dagen verlopen.
-#
-# Trigger: workflow_dispatch
-# Secrets: HOSTINGER_HOST, HOSTINGER_USER, HOSTINGER_SSH_KEY (+ optioneel HOSTINGER_SSH_PORT)
-
 name: Renew SSL PROD
 
 on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Forceer vernieuwing (ook als cert nog geldig lijkt)'
+        description: 'Forceer vernieuwing'
         required: false
         type: boolean
         default: true
@@ -43,20 +38,9 @@ jobs:
           [[ -z "$port" ]] && port="${{ secrets.AWS_SSH_PORT }}"
           [[ -z "$port" ]] && port="${{ secrets.DEPLOY_PORT }}"
           port="${port:-22}"
-
-          if [[ -z "$host" || -z "$user" ]]; then
-            echo "ERROR: HOSTINGER_HOST/USER (of legacy AWS_*) ontbreekt." >&2
-            exit 1
-          fi
-          if [[ -z "${{ secrets.HOSTINGER_SSH_KEY }}" && -z "${{ secrets.AWS_SSH_KEY }}" && -z "${{ secrets.DEPLOY_KEY }}" ]]; then
-            echo "ERROR: Geen SSH-key secret." >&2
-            exit 1
-          fi
-
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
-          echo "SSH → ${user}@${host}:${port}"
 
       - name: Preflight SSH
         env:
@@ -65,14 +49,12 @@ jobs:
         run: |
           set -euo pipefail
           port="${SSH_PORT:-22}"
-          if ! timeout 25 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
-            echo "ERROR: Geen TCP naar ${SSH_HOST}:${port}" >&2
-            exit 1
-          fi
-          echo "OK: poort ${port} bereikbaar"
+          timeout 25 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}"
 
       - name: Renew Let's Encrypt + reload nginx
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_DIR: ${{ vars.APP_DIR }}
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
@@ -81,99 +63,68 @@ jobs:
           timeout: 60s
           command_timeout: 25m
           script_stop: true
+          envs: APP_DIR
           script: |
             set -euo pipefail
             echo "=== Diagnose ==="
             whoami; id
             sudo -n true 2>/dev/null && echo "sudo -n: OK" || echo "sudo -n: FAIL"
             docker info >/dev/null 2>&1 && echo "docker: OK" || echo "docker: FAIL"
-            ls -la /etc/letsencrypt/live 2>/dev/null || echo "geen toegang tot /etc/letsencrypt/live"
             echo | openssl s_client -connect nexasuite.online:443 -servername nexasuite.online 2>/dev/null \
               | openssl x509 -noout -dates -subject || true
-
-            run_root() {
-              if sudo -n true 2>/dev/null; then
-                sudo -n "$@"
-              elif docker info >/dev/null 2>&1; then
-                # Alleen voor certbot-image commando's; nginx reload apart.
-                return 1
-              else
-                return 1
-              fi
-            }
 
             FORCE_FLAG=""
             if [ "${{ inputs.force }}" = "true" ]; then
               FORCE_FLAG="--force-renewal"
             fi
 
-            renew_ok=0
-            if sudo -n true 2>/dev/null; then
-              set +e
-              sudo -n certbot renew $FORCE_FLAG --no-random-sleep-on-renew
-              renew_rc=$?
-              set -e
-              if [ "$renew_rc" -eq 0 ]; then renew_ok=1; fi
-
-              if [ "$renew_ok" -ne 1 ]; then
-                echo "=== Fallback HTTP-01 (sudo) ==="
-                sudo -n mkdir -p /var/www/certbot/.well-known/acme-challenge
-                set +e
-                sudo -n certbot certonly --webroot -w /var/www/certbot \
-                  -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
-                  --agree-tos --non-interactive --expand $FORCE_FLAG \
-                  --cert-name nexasuite.online
-                http_rc=$?
-                set -e
-                if [ "$http_rc" -ne 0 ]; then
-                  sudo -n certbot certonly --nginx \
-                    -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
-                    --agree-tos --non-interactive --expand $FORCE_FLAG \
-                    --cert-name nexasuite.online
-                fi
+            # Zoek een public webroot die via HTTPS bereikbaar is (Laravel public).
+            CANDIDATES=()
+            if [ -n "${APP_DIR:-}" ]; then
+              CANDIDATES+=("${APP_DIR}/backend/public" "${APP_DIR}/public" "${APP_DIR}")
+            fi
+            CANDIDATES+=(
+              /home/ubuntu/nexasuite/backend/public
+              /home/ubuntu/nexa-cursor/backend/public
+              /var/www/html/public
+              /var/www/certbot
+            )
+            WEBROOT=""
+            for d in "${CANDIDATES[@]}"; do
+              if [ -d "$d" ]; then
+                WEBROOT="$d"
+                break
               fi
+            done
+            if [ -z "$WEBROOT" ]; then
+              # Docker kan als root alsnog /var/www/certbot aanmaken
+              WEBROOT=/var/www/certbot
+            fi
+            echo "WEBROOT=$WEBROOT"
+
+            echo "=== docker certbot HTTP-01 ==="
+            docker run --rm \
+              -v /etc/letsencrypt:/etc/letsencrypt \
+              -v /var/log/letsencrypt:/var/log/letsencrypt \
+              -v "${WEBROOT}:/webroot" \
+              certbot/certbot certonly --webroot -w /webroot \
+              -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
+              --agree-tos --non-interactive --expand ${FORCE_FLAG} \
+              --cert-name nexasuite.online \
+              -m admin@nexasuite.online
+
+            # Reload nginx: sudo -n of nginx-container
+            if sudo -n true 2>/dev/null; then
               sudo -n nginx -t
               sudo -n systemctl reload nginx
-              renew_ok=1
-            elif docker info >/dev/null 2>&1; then
-              echo "=== Fallback: docker certbot (HTTP-01 webroot) ==="
-              mkdir -p /tmp/certbot-www/.well-known/acme-challenge || true
-              # Publieke challenge via bestaande nginx webroot als die writable is
-              WEBROOT=/var/www/certbot
-              if [ ! -d "$WEBROOT" ] || [ ! -w "$WEBROOT" ]; then
-                WEBROOT=/tmp/certbot-www
-                echo "Webroot niet schrijfbaar — docker-only path $WEBROOT (kan falen zonder nginx mapping)"
-              fi
-              set +e
-              docker run --rm \
-                -v /etc/letsencrypt:/etc/letsencrypt \
-                -v "$WEBROOT:/var/www/certbot" \
-                certbot/certbot certonly --webroot -w /var/www/certbot \
-                -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
-                --agree-tos --non-interactive --expand $FORCE_FLAG \
-                --cert-name nexasuite.online \
-                -m admin@nexasuite.online
-              docker_rc=$?
-              set -e
-              if [ "$docker_rc" -ne 0 ]; then
-                echo "ERROR: docker certbot mislukt. Geen passwordless sudo op deze user." >&2
-                echo "Handmatig op de VPS:" >&2
-                echo "  sudo certbot certonly --nginx -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online --force-renewal --cert-name nexasuite.online" >&2
-                echo "  sudo systemctl reload nginx" >&2
-                exit 1
-              fi
-              # nginx reload zonder sudo lukt meestal niet; probeer docker-proxy/nginx container
-              if sudo -n true 2>/dev/null; then
-                sudo -n nginx -t && sudo -n systemctl reload nginx
-              elif docker ps --format '{{.Names}}' | grep -qi nginx; then
-                docker ps --format '{{.Names}}' | grep -i nginx | head -1 | xargs -I{} docker exec {} nginx -s reload || true
-              else
-                echo "WARN: cert vernieuwd, maar nginx reload vereist handmatig: sudo systemctl reload nginx"
-              fi
-              renew_ok=1
+            elif docker ps --format '{{.Names}}' | grep -qiE 'nginx|coolify-proxy|traefik'; then
+              name=$(docker ps --format '{{.Names}}' | grep -iE 'nginx|coolify-proxy|traefik' | head -1)
+              echo "Reload container: $name"
+              docker exec "$name" nginx -s reload 2>/dev/null \
+                || docker kill -s HUP "$name" 2>/dev/null \
+                || true
             else
-              echo "ERROR: geen sudo -n en geen docker — kan SSL niet vernieuwen." >&2
-              exit 1
+              echo "WARN: cert OK, reload nginx handmatig: sudo systemctl reload nginx"
             fi
 
             echo "=== Na renew ==="
