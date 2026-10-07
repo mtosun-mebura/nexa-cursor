@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +24,17 @@ import {
 const logoLight = require('../../assets/nexa-taxi-logo.png');
 const logoDark = require('../../assets/nexa-taxi-logo-dark.png');
 
+const VERIFY_PENDING_KEY = 'nexa_taxi_marketplace_verify_pending';
+
+type PendingVerify = {
+  email: string;
+  channel?: string;
+  company_name?: string;
+  phone?: string;
+  city?: string;
+  hint?: string;
+};
+
 function firstValidationMessage(body: unknown): string | null {
   if (!body || typeof body !== 'object') return null;
   const errors = (body as { errors?: Record<string, string[]> }).errors;
@@ -33,6 +43,14 @@ function firstValidationMessage(body: unknown): string | null {
     if (Array.isArray(msgs) && msgs[0]) return msgs[0];
   }
   return null;
+}
+
+async function savePendingVerify(pending: PendingVerify) {
+  await AsyncStorage.setItem(VERIFY_PENDING_KEY, JSON.stringify(pending));
+}
+
+async function clearPendingVerify() {
+  await AsyncStorage.removeItem(VERIFY_PENDING_KEY);
 }
 
 export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
@@ -49,9 +67,71 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   const [password, setPassword] = useState('');
   const [channel, setChannel] = useState<string | undefined>('driver');
   const [step, setStep] = useState<'form' | 'verify'>('form');
+  const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(VERIFY_PENDING_KEY);
+        if (!raw || cancelled) return;
+        const pending = JSON.parse(raw) as PendingVerify;
+        if (!pending?.email) return;
+        setEmail(String(pending.email));
+        if (pending.company_name) setCompanyName(String(pending.company_name));
+        if (pending.phone) setPhone(String(pending.phone));
+        if (pending.city) setCity(String(pending.city));
+        if (pending.channel) setChannel(String(pending.channel));
+        if (pending.hint) setHint(String(pending.hint));
+        setStep('verify');
+      } catch {
+        /* ignore corrupt storage */
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function goToVerify(next: {
+    email: string;
+    channel?: string;
+    hint?: string | null;
+  }) {
+    const trimmed = next.email.trim().toLowerCase();
+    setEmail(trimmed);
+    setChannel(next.channel || 'driver');
+    if (next.hint) setHint(next.hint);
+    setStep('verify');
+    setError(null);
+    await savePendingVerify({
+      email: trimmed,
+      channel: next.channel || 'driver',
+      company_name: companyName.trim() || undefined,
+      phone: phone.trim() || undefined,
+      city: city.trim() || undefined,
+      hint: next.hint || undefined,
+    });
+  }
+
+  function openCodeStep() {
+    setError(null);
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes('@')) {
+      setError('Vul eerst je e-mailadres in om de code te bevestigen.');
+      return;
+    }
+    void goToVerify({
+      email: trimmed,
+      channel: channel || 'driver',
+      hint: 'Vul de code uit je e-mail in. Geen code ontvangen? Stuur hem opnieuw.',
+    });
+  }
 
   async function onRegister() {
     setError(null);
@@ -63,24 +143,36 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
         phone: phone.trim(),
         city: city.trim(),
       });
-      setChannel(res.channel || 'driver');
-      setHint(res.message);
-      setStep('verify');
+      await goToVerify({
+        email: res.email || email,
+        channel: res.channel || 'driver',
+        hint: res.message,
+      });
     } catch (e) {
       if (e instanceof ApiError) {
         const body = e.body as {
           next?: string;
           message?: string;
           channel?: string;
+          email?: string;
           errors?: Record<string, string[]>;
         };
+        // Al geregistreerd / code opnieuw → naar verify
         if (e.status === 422 && body?.next === 'verify_code') {
-          setChannel(body.channel || 'driver');
-          setHint(body.message || 'Bedrijf aangemaakt. Vraag de code opnieuw aan.');
-          setStep('verify');
+          await goToVerify({
+            email: body.email || email,
+            channel: body.channel || 'driver',
+            hint: body.message || 'Bedrijf aangemaakt. Vraag de code opnieuw aan.',
+          });
           return;
         }
-        setError(firstValidationMessage(e.body) || e.message || 'Registreren mislukt.');
+        const msg = firstValidationMessage(e.body) || e.message || 'Registreren mislukt.';
+        // Bestaand e-mailadres: bied code-stap aan
+        if (/al in gebruik|bestaat al|log in/i.test(msg)) {
+          setError(`${msg} Of open “Ik heb al een code” hieronder.`);
+        } else {
+          setError(msg);
+        }
       } else {
         setError('Registreren mislukt.');
       }
@@ -96,8 +188,22 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
       const res = await requestLoginCode(email.trim());
       setChannel(res.channel || 'driver');
       setHint(res.message);
+      await savePendingVerify({
+        email: email.trim().toLowerCase(),
+        channel: res.channel || 'driver',
+        company_name: companyName.trim() || undefined,
+        phone: phone.trim() || undefined,
+        city: city.trim() || undefined,
+        hint: res.message,
+      });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Code versturen mislukt.');
+      if (e instanceof ApiError) {
+        setError(e.message || 'Code versturen mislukt.');
+      } else {
+        setError(
+          'Geen verbinding met de server. Controleer je netwerk of probeer het zo opnieuw.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -114,6 +220,7 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
         password: password || undefined,
         channel,
       });
+      await clearPendingVerify();
       await setSession(session);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Code bevestigen mislukt.');
@@ -122,129 +229,141 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  if (!ready) {
+    return <Screen>{null}</Screen>;
+  }
+
   return (
     <Screen>
-      <View style={styles.logoBar}>
-        <Image
-          source={logoSource}
-          style={styles.logo}
-          resizeMode="contain"
-          accessibilityLabel="NEXA | taxi"
-        />
-      </View>
-      <KeyboardAvoidingView
+      <ScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
-        >
-          <Text style={styles.pageTitle}>
-            {step === 'form' ? 'Taxibedrijf aanmelden' : 'Bevestig e-mail'}
-          </Text>
-          <Subtitle>
-            {step === 'form'
-              ? 'Maak je marktplaats-account aan. Daarna ontvang je een code per e-mail.'
-              : 'Vul de code uit je e-mail in om je account te activeren.'}
-          </Subtitle>
+        <View style={styles.logoBar}>
+          <Image
+            source={logoSource}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="NEXA | taxi"
+          />
+        </View>
+        <Text style={styles.pageTitle}>
+          {step === 'form' ? 'Taxibedrijf aanmelden' : 'Bevestig e-mail'}
+        </Text>
+        <Subtitle>
+          {step === 'form'
+            ? 'Maak je marktplaats-account aan. Daarna ontvang je een code per e-mail.'
+            : 'Vul de code uit je e-mail in om je account te activeren.'}
+        </Subtitle>
 
-          {step === 'form' ? (
-            <>
-              <Field
-                label="Bedrijfsnaam"
-                value={companyName}
-                onChangeText={setCompanyName}
-                autoCapitalize="words"
-                placeholder="Taxi Amsterdam"
-                returnKeyType="next"
-              />
-              <Field
-                label="E-mailadres"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
-                placeholder="beheer@taxibedrijf.nl"
-                returnKeyType="next"
-              />
-              <Field
-                label="Telefoon"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                autoComplete="tel"
-                textContentType="telephoneNumber"
-                placeholder="06…"
-                returnKeyType="next"
-              />
-              <Field
-                label="Plaats"
-                value={city}
-                onChangeText={setCity}
-                autoCapitalize="words"
-                placeholder="Amsterdam"
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  if (!loading) void onRegister();
-                }}
-              />
-            </>
-          ) : (
-            <>
-              <Subtitle>{email}</Subtitle>
-              <Field
-                label="Code uit e-mail"
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                placeholder="000000"
-                returnKeyType="next"
-              />
-              <Field
-                label="Wachtwoord (optioneel)"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoComplete="password"
-                textContentType="password"
-                placeholder="Min. 8 tekens"
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  if (!loading) void onVerify();
-                }}
-              />
-            </>
-          )}
+        {step === 'form' ? (
+          <>
+            <Field
+              label="Bedrijfsnaam"
+              value={companyName}
+              onChangeText={setCompanyName}
+              autoCapitalize="words"
+              placeholder="Taxi Amsterdam"
+              returnKeyType="next"
+            />
+            <Field
+              label="E-mailadres"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              textContentType="emailAddress"
+              placeholder="beheer@taxibedrijf.nl"
+              returnKeyType="next"
+            />
+            <Field
+              label="Telefoon"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              placeholder="06…"
+              returnKeyType="next"
+            />
+            <Field
+              label="Plaats"
+              value={city}
+              onChangeText={setCity}
+              autoCapitalize="words"
+              placeholder="Amsterdam"
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (!loading) void onRegister();
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Field
+              label="E-mailadres"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              textContentType="emailAddress"
+              placeholder="beheer@taxibedrijf.nl"
+              returnKeyType="next"
+            />
+            <Field
+              label="Code uit e-mail"
+              value={code}
+              onChangeText={setCode}
+              keyboardType="number-pad"
+              placeholder="000000"
+              returnKeyType="next"
+            />
+            <Field
+              label="Wachtwoord (optioneel)"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="password"
+              textContentType="password"
+              placeholder="Min. 8 tekens"
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (!loading) void onVerify();
+              }}
+            />
+          </>
+        )}
 
-          {hint ? <Subtitle>{hint}</Subtitle> : null}
-          <ErrorText>{error}</ErrorText>
+        {hint ? <Subtitle>{hint}</Subtitle> : null}
+        <ErrorText>{error}</ErrorText>
 
-          {step === 'form' ? (
-            <>
-              <PrimaryButton title="Aanmelden" onPress={onRegister} loading={loading} />
-              <GhostButton title="Terug" onPress={onBack} />
-            </>
-          ) : (
-            <>
-              <PrimaryButton title="Account activeren" onPress={onVerify} loading={loading} />
-              <GhostButton title="Code opnieuw sturen" onPress={onResendCode} />
-              <GhostButton
-                title="Terug"
-                onPress={() => {
-                  setStep('form');
-                  setCode('');
-                  setError(null);
-                  setHint(null);
-                }}
-              />
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {step === 'form' ? (
+          <>
+            <PrimaryButton title="Aanmelden" onPress={onRegister} loading={loading} />
+            <GhostButton title="Ik heb al een code" onPress={openCodeStep} />
+            <GhostButton title="Terug" onPress={onBack} />
+          </>
+        ) : (
+          <>
+            <PrimaryButton title="Account activeren" onPress={onVerify} loading={loading} />
+            <GhostButton title="Code opnieuw sturen" onPress={onResendCode} />
+            <GhostButton
+              title="Terug naar aanmelden"
+              onPress={() => {
+                setStep('form');
+                setCode('');
+                setPassword('');
+                setError(null);
+              }}
+            />
+          </>
+        )}
+      </ScrollView>
     </Screen>
   );
 }
@@ -263,7 +382,7 @@ function makeStyles(colors: ColorPalette) {
     },
     pageTitle: {
       color: colors.text,
-      fontSize: 28,
+      fontSize: 22,
       fontWeight: '700',
       marginBottom: 8,
       textAlign: 'center',
