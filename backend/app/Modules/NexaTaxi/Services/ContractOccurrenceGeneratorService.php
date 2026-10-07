@@ -380,11 +380,13 @@ class ContractOccurrenceGeneratorService
                 'customer_phone' => $payload['customer_phone'],
                 'customer_email' => $payload['customer_email'],
             ]);
+            $this->ensureIndividualRideStops($conn, $ride->fresh() ?? $ride, $booking);
 
             return true;
         }
 
         $ride->update($payload);
+        $this->ensureIndividualRideStops($conn, $ride->fresh() ?? $ride, $booking);
 
         return true;
     }
@@ -717,8 +719,126 @@ class ContractOccurrenceGeneratorService
         ));
 
         $occurrence->update(['ride_request_id' => $ride->id, 'status' => 'generated']);
+        $this->ensureIndividualRideStops($conn, $ride->fresh() ?? $ride, $booking);
 
         return $ride;
+    }
+
+    /**
+     * Individuele contractritten moeten pickup+destination stops hebben,
+     * anders verschijnen ze niet in het contractportaal (dat op RideStop filtert).
+     */
+    public function ensureIndividualRideStops(
+        string $conn,
+        RideRequest $ride,
+        ?TransportIndividualBooking $booking = null
+    ): void {
+        if ($ride->ride_type !== RideRequest::RIDE_TYPE_CONTRACT_INDIVIDUAL) {
+            return;
+        }
+
+        $existing = RideStop::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->count();
+        if ($existing > 0) {
+            // Werk adressen/tijden bij als de booking is gewijzigd.
+            if ($booking) {
+                $this->syncIndividualRideStopDetails($conn, $ride, $booking);
+            }
+
+            return;
+        }
+
+        if (! $booking) {
+            $occurrence = TransportOccurrence::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->first();
+            if ($occurrence?->transport_individual_booking_id) {
+                $booking = TransportIndividualBooking::on($conn)
+                    ->with('passenger')
+                    ->find($occurrence->transport_individual_booking_id);
+            }
+        } else {
+            $booking->loadMissing('passenger');
+        }
+
+        $passengerId = (int) ($booking?->transport_passenger_id ?? $ride->transport_passenger_id ?? 0);
+        $passengerName = $booking?->passenger?->full_name
+            ?? $ride->customer_name
+            ?? null;
+        $plannedAt = $booking?->pickup_at ?? $ride->pickup_at;
+        $pickupAddress = trim((string) ($booking?->pickup_address ?? $ride->pickup_address ?? ''));
+        $dropoffAddress = trim((string) ($booking?->dropoff_address ?? $ride->dropoff_address ?? ''));
+
+        if ($pickupAddress === '' && $dropoffAddress === '') {
+            return;
+        }
+
+        if ($passengerId > 0 && (int) ($ride->transport_passenger_id ?? 0) !== $passengerId) {
+            $ride->update(['transport_passenger_id' => $passengerId]);
+        }
+
+        RideStop::on($conn)->create([
+            'ride_request_id' => $ride->id,
+            'sequence' => 1,
+            'stop_type' => RideStop::STOP_TYPE_PICKUP,
+            'transport_passenger_id' => $passengerId > 0 ? $passengerId : null,
+            'passenger_name' => $passengerName,
+            'address' => $pickupAddress !== '' ? $pickupAddress : 'Ophaalpunt',
+            'lat' => $booking?->pickup_lat ?? $ride->pickup_lat,
+            'lng' => $booking?->pickup_lng ?? $ride->pickup_lng,
+            'planned_at' => $plannedAt,
+            'status' => RideStop::STATUS_PLANNED,
+        ]);
+
+        RideStop::on($conn)->create([
+            'ride_request_id' => $ride->id,
+            'sequence' => 2,
+            'stop_type' => RideStop::STOP_TYPE_DESTINATION,
+            'transport_passenger_id' => $passengerId > 0 ? $passengerId : null,
+            'passenger_name' => $passengerName,
+            'address' => $dropoffAddress !== '' ? $dropoffAddress : 'Bestemming',
+            'lat' => $booking?->dropoff_lat ?? $ride->dropoff_lat,
+            'lng' => $booking?->dropoff_lng ?? $ride->dropoff_lng,
+            'planned_at' => $plannedAt,
+            'status' => RideStop::STATUS_PLANNED,
+        ]);
+    }
+
+    private function syncIndividualRideStopDetails(
+        string $conn,
+        RideRequest $ride,
+        TransportIndividualBooking $booking
+    ): void {
+        $plannedAt = $booking->pickup_at ?? $ride->pickup_at;
+        $passengerId = (int) ($booking->transport_passenger_id ?? 0);
+        $passengerName = $booking->passenger?->full_name ?? $ride->customer_name;
+
+        RideStop::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
+            ->whereIn('status', [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED])
+            ->update([
+                'transport_passenger_id' => $passengerId > 0 ? $passengerId : null,
+                'passenger_name' => $passengerName,
+                'address' => $booking->pickup_address ?: $ride->pickup_address,
+                'lat' => $booking->pickup_lat ?? $ride->pickup_lat,
+                'lng' => $booking->pickup_lng ?? $ride->pickup_lng,
+                'planned_at' => $plannedAt,
+            ]);
+
+        RideStop::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->where('stop_type', RideStop::STOP_TYPE_DESTINATION)
+            ->whereNotIn('status', [RideStop::STATUS_COMPLETED])
+            ->update([
+                'transport_passenger_id' => $passengerId > 0 ? $passengerId : null,
+                'passenger_name' => $passengerName,
+                'address' => $booking->dropoff_address ?: $ride->dropoff_address,
+                'lat' => $booking->dropoff_lat ?? $ride->dropoff_lat,
+                'lng' => $booking->dropoff_lng ?? $ride->dropoff_lng,
+                'planned_at' => $plannedAt,
+            ]);
     }
 
     /**

@@ -38,6 +38,9 @@ export type ContractLeg = {
   can_cancel?: boolean;
   can_start?: boolean;
   can_complete?: boolean;
+  can_board?: boolean;
+  can_skip?: boolean;
+  status_banner?: string | null;
 };
 
 export type ContractDayItem = {
@@ -76,6 +79,8 @@ export type ContractToday = {
   date: string;
   customer_name?: string | null;
   destination_summary?: string | null;
+  /** Minuten na bestemming voordat openstaande pickups auto-opgehaald worden. */
+  auto_board_grace_minutes?: number | null;
   navigation?: {
     leg_key?: string | null;
     leg_label?: string | null;
@@ -180,6 +185,20 @@ export function startContractRide(token: string, rideStopId: number) {
 export function completeContractRide(token: string, rideStopId: number) {
   return apiRequest<{ message?: string; data?: { ride_request_id?: number; status?: string } }>(
     `/api/taxi/v1/contract/stops/${rideStopId}/complete`,
+    { method: 'POST', token }
+  );
+}
+
+export function boardContractPassenger(token: string, rideStopId: number) {
+  return apiRequest<{ message?: string; data?: { ride_stop_id?: number; status?: string } }>(
+    `/api/taxi/v1/contract/stops/${rideStopId}/board`,
+    { method: 'POST', token }
+  );
+}
+
+export function skipContractPassenger(token: string, rideStopId: number) {
+  return apiRequest<{ message?: string; data?: { ride_stop_id?: number; status?: string } }>(
+    `/api/taxi/v1/contract/stops/${rideStopId}/skip`,
     { method: 'POST', token }
   );
 }

@@ -41,6 +41,29 @@ class ContractPortalRideStatusTest extends TestCase
         );
     }
 
+    public function test_planned_ride_stays_open_within_grace_after_pickup(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-07 21:50:00', 'Europe/Amsterdam'));
+
+        $this->assertSame(
+            'planned',
+            ContractPortalRideStatus::applyExpiry(
+                'planned',
+                Carbon::parse('2026-10-07 21:45:00', 'Europe/Amsterdam')
+            )
+        );
+
+        Carbon::setTestNow(Carbon::parse('2026-10-07 23:20:00', 'Europe/Amsterdam'));
+
+        $this->assertSame(
+            'expired',
+            ContractPortalRideStatus::applyExpiry(
+                'planned',
+                Carbon::parse('2026-10-07 21:45:00', 'Europe/Amsterdam')
+            )
+        );
+    }
+
     public function test_active_or_finished_rides_are_not_expired(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-29 22:10:00', 'Europe/Amsterdam'));

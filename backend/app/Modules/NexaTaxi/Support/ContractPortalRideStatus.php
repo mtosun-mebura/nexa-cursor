@@ -6,8 +6,11 @@ use Carbon\CarbonInterface;
 
 final class ContractPortalRideStatus
 {
+    /** Minuten na ophaalmoment waarin een nog niet gestarte rit open blijft. */
+    public const EXPIRY_GRACE_MINUTES = 90;
+
     /**
-     * Geplande rit waarvan het ophaalmoment voorbij is, zonder dat de rit is gestart.
+     * Geplande rit waarvan het ophaalmoment + grace voorbij is, zonder dat de rit is gestart.
      */
     public static function applyExpiry(string $statusKey, ?CarbonInterface $plannedAt): string
     {
@@ -20,7 +23,7 @@ final class ContractPortalRideStatus
             return $statusKey;
         }
 
-        if ($wall->lt(now(ContractTransportTimezone::TIMEZONE))) {
+        if ($wall->copy()->addMinutes(self::EXPIRY_GRACE_MINUTES)->lt(now(ContractTransportTimezone::TIMEZONE))) {
             return 'expired';
         }
 
@@ -31,13 +34,32 @@ final class ContractPortalRideStatus
     {
         return match ($statusKey) {
             'absent' => 'Afwezig / afgemeld',
+            'not_taken' => 'Niet meegenomen',
             'picked_up' => 'Opgehaald',
-            'completed' => 'Bestemming bereikt',
+            'completed' => 'Gearriveerd',
             'arrived' => 'Chauffeur ter plaatse',
-            'en_route' => 'Chauffeur onderweg',
+            'en_route' => 'Onderweg',
             'planned' => 'Gepland',
             'expired' => 'Verlopen',
             default => 'Geen rit vandaag',
+        };
+    }
+
+    /**
+     * Korte bannertekst voor ouders (contractouder) en contractant.
+     */
+    public static function bannerLabel(string $statusKey): string
+    {
+        return match ($statusKey) {
+            'absent' => 'Afgemeld',
+            'not_taken' => 'Niet meegenomen',
+            'picked_up' => 'Opgehaald · onderweg',
+            'completed' => 'Gearriveerd',
+            'arrived' => 'Chauffeur ter plaatse',
+            'en_route' => 'Chauffeur onderweg',
+            'planned' => 'Nog niet opgehaald',
+            'expired' => 'Ophaalmoment verlopen',
+            default => self::label($statusKey),
         };
     }
 

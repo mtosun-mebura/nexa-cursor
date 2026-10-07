@@ -133,13 +133,18 @@ final class ContractPortalDayLegs
         }
         $winner['can_start'] = (bool) ($winner['can_start'] ?? false) || (bool) ($other['can_start'] ?? false);
         $winner['can_complete'] = (bool) ($winner['can_complete'] ?? false) || (bool) ($other['can_complete'] ?? false);
+        $winner['can_board'] = (bool) ($winner['can_board'] ?? false) || (bool) ($other['can_board'] ?? false);
+        $winner['can_skip'] = (bool) ($winner['can_skip'] ?? false) || (bool) ($other['can_skip'] ?? false);
+        if (empty($winner['status_banner']) && ! empty($other['status_banner'])) {
+            $winner['status_banner'] = $other['status_banner'];
+        }
 
         return $winner;
     }
 
     private static function isTerminalStatus(string $statusKey): bool
     {
-        return in_array($statusKey, ['completed', 'absent'], true);
+        return in_array($statusKey, ['completed', 'absent', 'not_taken'], true);
     }
 
     private static function statusRank(string $statusKey): int
@@ -151,6 +156,7 @@ final class ContractPortalDayLegs
             'en_route' => 40,
             'planned' => 30,
             'expired' => 20,
+            'not_taken' => 15,
             'absent' => 10,
             default => 0,
         };
