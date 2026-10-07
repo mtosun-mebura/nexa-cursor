@@ -1,0 +1,142 @@
+# Vernieuw SSL op PROD (Hostinger) via self-hosted runner.
+# Nodig omdat wildcard-certificaten (Let's Encrypt) na 90 dagen verlopen.
+#
+# Trigger: workflow_dispatch
+# Secrets: HOSTINGER_HOST, HOSTINGER_USER, HOSTINGER_SSH_KEY (+ optioneel HOSTINGER_SSH_PORT)
+
+name: Renew SSL PROD
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forceer vernieuwing (ook als cert nog geldig lijkt)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renew-ssl-production
+  cancel-in-progress: false
+
+jobs:
+  renew-ssl:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Resolve PROD SSH credentials
+        id: ssh
+        run: |
+          set -euo pipefail
+          host="${{ secrets.HOSTINGER_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.AWS_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.DEPLOY_HOST }}"
+          user="${{ secrets.HOSTINGER_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.AWS_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.DEPLOY_USER }}"
+          port="${{ secrets.HOSTINGER_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.AWS_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.DEPLOY_PORT }}"
+          port="${port:-22}"
+
+          if [[ -z "$host" || -z "$user" ]]; then
+            echo "ERROR: HOSTINGER_HOST/USER (of legacy AWS_*) ontbreekt." >&2
+            exit 1
+          fi
+          if [[ -z "${{ secrets.HOSTINGER_SSH_KEY }}" && -z "${{ secrets.AWS_SSH_KEY }}" && -z "${{ secrets.DEPLOY_KEY }}" ]]; then
+            echo "ERROR: Geen SSH-key secret." >&2
+            exit 1
+          fi
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "SSH → ${user}@${host}:${port}"
+
+      - name: Preflight SSH
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          port="${SSH_PORT:-22}"
+          if ! timeout 25 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}" 2>/dev/null; then
+            echo "ERROR: Geen TCP naar ${SSH_HOST}:${port}" >&2
+            exit 1
+          fi
+          echo "OK: poort ${port} bereikbaar"
+
+      - name: Renew Let's Encrypt + reload nginx
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
+          port: ${{ steps.ssh.outputs.port }}
+          timeout: 60s
+          command_timeout: 25m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            echo "=== Voor renew ==="
+            sudo certbot certificates || true
+            echo | openssl s_client -connect 127.0.0.1:443 -servername nexasuite.online 2>/dev/null \
+              | openssl x509 -noout -dates -subject || true
+
+            FORCE_FLAG=""
+            if [ "${{ inputs.force }}" = "true" ]; then
+              FORCE_FLAG="--force-renewal"
+            fi
+
+            # 1) Probeer bestaande certs te vernieuwen (wildcard via opgeslagen renew-config).
+            set +e
+            sudo certbot renew $FORCE_FLAG --no-random-sleep-on-renew
+            renew_rc=$?
+            set -e
+
+            # 2) Fallback: HTTP-01 voor apex (+ www + app) als renew faalt of cert nog expired is.
+            needs_http=0
+            if [ "$renew_rc" -ne 0 ]; then
+              needs_http=1
+            fi
+            end=$(echo | openssl s_client -connect 127.0.0.1:443 -servername nexasuite.online 2>/dev/null \
+              | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)
+            if [ -n "$end" ]; then
+              end_epoch=$(date -d "$end" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$end" +%s 2>/dev/null || echo 0)
+              now_epoch=$(date +%s)
+              if [ "$end_epoch" -le "$now_epoch" ]; then
+                needs_http=1
+              fi
+            fi
+
+            if [ "$needs_http" -eq 1 ]; then
+              echo "=== Fallback: webroot cert voor nexasuite.online ==="
+              sudo mkdir -p /var/www/certbot/.well-known/acme-challenge
+              set +e
+              sudo certbot certonly --webroot -w /var/www/certbot \
+                -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
+                --agree-tos --non-interactive --expand $FORCE_FLAG \
+                --cert-name nexasuite.online
+              http_rc=$?
+              set -e
+              if [ "$http_rc" -ne 0 ]; then
+                echo "Webroot mislukt — probeer nginx-plugin…"
+                sudo certbot certonly --nginx \
+                  -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
+                  --agree-tos --non-interactive --expand $FORCE_FLAG \
+                  --cert-name nexasuite.online
+              fi
+            fi
+
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "=== Na renew ==="
+            sudo certbot certificates || true
+            echo | openssl s_client -connect 127.0.0.1:443 -servername nexasuite.online 2>/dev/null \
+              | openssl x509 -noout -dates -subject
