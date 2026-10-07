@@ -3,29 +3,27 @@
 @section('title', 'Passagiers')
 
 @section('content')
+@php
+    $contractWorkspaceTab = 'passagiers';
+    $contractWorkspaceCounts = ['passengers' => $passengers->total()];
+    $workspaceTitle = 'Passagiers';
+    $workspaceSubtitle = 'Personen die meereizen op dit abonnement';
+@endphp
+@can('rides.create')
+    @php
+        $workspaceHeaderActions = view('taxi::admin.transport_customers.partials.contract-workspace-action-btn', [
+            'url' => transport_admin_url_with_return(route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]), url()->current()),
+            'label' => 'Nieuwe passagier',
+            'primary' => true,
+        ])->render();
+    @endphp
+@endcan
 <div class="kt-container-fixed min-w-0">
-    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <div>
-            <h1 class="text-xl font-medium leading-none text-mono">Passagiers</h1>
-            <p class="text-sm text-muted-foreground pt-2">{{ $contract->name }} · {{ $customer->name }}</p>
-            <div class="pt-3">
-                <a href="{{ $backUrl }}" class="kt-btn kt-btn-outline">
-                    <i class="ki-filled ki-arrow-left me-2"></i>
-                    Terug
-                </a>
-            </div>
-        </div>
-        @can('rides.create')
-        <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]), url()->current()) }}" class="kt-btn kt-btn-primary shrink-0">
-            <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-            </svg>
-            Nieuwe passagier
-        </a>
-        @endcan
-    </div>
+    @include('taxi::admin.transport_customers.partials.contract-workspace-header')
+    @include('taxi::admin.transport_customers.partials.contract-workspace-styles')
+    <div class="pt-5 grid gap-5 lg:gap-7.5">
 
-    <div class="kt-card w-full min-w-0 mb-5">
+    <div class="kt-card w-full min-w-0">
         <div class="kt-card-content">
             <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
@@ -41,7 +39,6 @@
         </div>
     </div>
 
-    <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 @php

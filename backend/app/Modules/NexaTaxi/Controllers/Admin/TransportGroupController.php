@@ -235,10 +235,20 @@ class TransportGroupController extends Controller
             $routeMessage = null;
         }
 
-        $showUrl = route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId]);
+        $showUrl = route('admin.taxi.transport_groups.show', [
+            $customerId,
+            $contractId,
+            $groupId,
+            'tab' => 'gegevens',
+        ]);
         $backUrl = transport_admin_back_url(
             $request,
-            route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
+            route('admin.taxi.transport_groups.show', [
+                $customerId,
+                $contractId,
+                $groupId,
+                'tab' => 'gegevens',
+            ])
         );
         if ($request->filled('return')) {
             $showUrl = transport_admin_url_with_return($showUrl, $backUrl);
@@ -643,8 +653,12 @@ class TransportGroupController extends Controller
         string $successMessage,
     ) {
         if (! $request->expectsJson()) {
-            return redirect()->route('admin.taxi.transport_groups.show', [$customer->id, $contract->id, $group->id])
-                ->with('success', $successMessage);
+            return redirect()->route('admin.taxi.transport_groups.show', [
+                $customer->id,
+                $contract->id,
+                $group->id,
+                'tab' => 'leden',
+            ])->with('success', $successMessage);
         }
 
         $activeMembers = $this->activeMembersQuery($conn, $group->id)->get();

@@ -3,25 +3,26 @@
 @section('title', 'Individuele contractritten')
 
 @section('content')
+@php
+    $contractWorkspaceTab = 'ritten';
+    $contractWorkspaceCounts = ['bookings' => $bookings->total()];
+    $workspaceTitle = 'Individuele ritten';
+    $workspaceSubtitle = 'Eenmalige of losse contractritten';
+@endphp
+@can('rides.create')
+    @php
+        $workspaceHeaderActions = view('taxi::admin.transport_customers.partials.contract-workspace-action-btn', [
+            'url' => transport_admin_url_with_return(route('admin.taxi.transport_individual_bookings.create', [$customer->id, $contract->id]), url()->current()),
+            'label' => 'Nieuwe rit',
+            'primary' => true,
+        ])->render();
+    @endphp
+@endcan
 <div class="kt-container-fixed min-w-0">
-    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <div>
-            <h1 class="text-xl font-medium leading-none text-mono">Individuele contractritten</h1>
-            <p class="text-sm text-muted-foreground pt-2">{{ $contract->name }} · {{ $customer->name }}</p>
-            <div class="pt-3">
-                <a href="{{ $backUrl }}" class="kt-btn kt-btn-outline">
-                    <i class="ki-filled ki-arrow-left me-2"></i>
-                    Terug
-                </a>
-            </div>
-        </div>
-        @can('rides.create')
-        <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_individual_bookings.create', [$customer->id, $contract->id]), url()->current()) }}" class="kt-btn kt-btn-primary shrink-0">
-            Nieuwe rit
-        </a>
-        @endcan
-    </div>
+    @include('taxi::admin.transport_customers.partials.contract-workspace-header')
+    @include('taxi::admin.transport_customers.partials.contract-workspace-styles')
 
+    <div class="pt-5">
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header py-5 flex-wrap gap-2">
             <form method="GET" class="flex flex-wrap gap-2 w-full sm:w-auto sm:ms-auto">
@@ -106,6 +107,7 @@
             </div>
             @endif
         </div>
+    </div>
     </div>
 </div>
 @endsection

@@ -8,9 +8,9 @@
     $contractCount = ($contracts ?? collect())->count();
     $announcementCount = ($announcements ?? collect())->count();
     $passengerCount = ($passengers ?? collect())->count();
-    $customerSection = old('section', request('section', 'portaal'));
-    if (! in_array($customerSection, ['portaal', 'abonnementen', 'meldingen'], true)) {
-        $customerSection = 'portaal';
+    $customerSection = old('section', request('section', 'abonnementen'));
+    if (! in_array($customerSection, ['gegevens', 'abonnementen', 'portaal', 'meldingen'], true)) {
+        $customerSection = 'abonnementen';
     }
     $customerSectionUrl = fn (string $section) => request()->fullUrlWithQuery(['section' => $section]);
     $nameParts = preg_split('/\s+/', trim((string) $customer->name)) ?: [];
@@ -96,68 +96,17 @@
 
     <div class="grid gap-5 lg:gap-7.5">
 
-        {{-- Klantdetails --}}
-        <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title mb-0">Klantdetails</h3>
-            </div>
-            <div class="kt-card-content p-0">
-                <div class="px-3 sm:px-5 pb-3 min-w-0">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table customer-detail-table w-full">
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Status</td>
-                            <td class="min-w-0">
-                                @if($customer->active)
-                                    <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
-                                @else
-                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Type organisatie</td>
-                            <td class="min-w-0">{{ $customer->organizationTypeLabel() }}</td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Contactpersoon</td>
-                            <td class="min-w-0">{{ $customer->contact_name ?: '—' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">E-mail</td>
-                            <td class="min-w-0">{{ $customer->contact_email ?: '—' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Telefoon</td>
-                            <td class="min-w-0">{{ $customer->contact_phone ?: '—' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Debiteurnummer</td>
-                            <td class="min-w-0">{{ $customer->debtor_number ?: '—' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Factuuradres</td>
-                            <td class="min-w-0">
-                                @if($customer->billing_address)
-                                    {{ $customer->billing_address }}<br>
-                                    {{ $customer->billing_postal_code }} {{ $customer->billing_city }}<br>
-                                    {{ $customer->billing_country }}
-                                @else
-                                    —
-                                @endif
-                            </td>
-                        </tr>
-                        @if($customer->notes)
-                        <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Notities</td>
-                            <td class="min-w-0 whitespace-pre-wrap">{{ $customer->notes }}</td>
-                        </tr>
-                        @endif
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <nav class="customer-section-nav grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4 w-full min-w-0" aria-label="Klantonderdelen" data-customer-sections>
+        <nav class="customer-section-nav grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4 w-full min-w-0" aria-label="Klantonderdelen" data-customer-sections>
+            <a
+                href="{{ $customerSectionUrl('abonnementen') }}"
+                class="customer-section-tile{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}"
+                data-customer-section="abonnementen"
+                @if($customerSection === 'abonnementen') aria-current="page" @endif
+            >
+                <span class="customer-section-tile__label">Abonnementen</span>
+                <span class="customer-section-tile__value">{{ $contractCount }}</span>
+                <span class="customer-section-tile__meta">Open een abonnement voor passagiers, groepen en facturen</span>
+            </a>
             <a
                 href="{{ $customerSectionUrl('portaal') }}"
                 class="customer-section-tile{{ $customerSection === 'portaal' ? ' is-active' : '' }}"
@@ -166,17 +115,7 @@
             >
                 <span class="customer-section-tile__label">Contractportaal</span>
                 <span class="customer-section-tile__value">{{ $portalCount }}</span>
-                <span class="customer-section-tile__meta">{{ $portalCount === 1 ? 'gebruiker' : 'gebruikers' }} · contract-app</span>
-            </a>
-            <a
-                href="{{ $customerSectionUrl('abonnementen') }}"
-                class="customer-section-tile{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}"
-                data-customer-section="abonnementen"
-                @if($customerSection === 'abonnementen') aria-current="page" @endif
-            >
-                <span class="customer-section-tile__label">Abonnementen &amp; passagiers</span>
-                <span class="customer-section-tile__value">{{ $contractCount }}</span>
-                <span class="customer-section-tile__meta">{{ $passengerCount }} {{ $passengerCount === 1 ? 'passagier' : 'passagiers' }} inregelen · planning &amp; facturatie</span>
+                <span class="customer-section-tile__meta">{{ $portalCount === 1 ? 'gebruiker' : 'gebruikers' }} · toegang tot de contract-app</span>
             </a>
             <a
                 href="{{ $customerSectionUrl('meldingen') }}"
@@ -184,11 +123,99 @@
                 data-customer-section="meldingen"
                 @if($customerSection === 'meldingen') aria-current="page" @endif
             >
-                <span class="customer-section-tile__label">Verstoringen &amp; meldingen</span>
+                <span class="customer-section-tile__label">Meldingen</span>
                 <span class="customer-section-tile__value">{{ $announcementCount }}</span>
-                <span class="customer-section-tile__meta">{{ $announcementCount === 1 ? 'melding' : 'meldingen' }} · banner in de app</span>
+                <span class="customer-section-tile__meta">Verstoringenbanners in de app</span>
+            </a>
+            <a
+                href="{{ $customerSectionUrl('gegevens') }}"
+                class="customer-section-tile{{ $customerSection === 'gegevens' ? ' is-active' : '' }}"
+                data-customer-section="gegevens"
+                @if($customerSection === 'gegevens') aria-current="page" @endif
+            >
+                <span class="customer-section-tile__label">Klantgegevens</span>
+                <span class="customer-section-tile__value">···</span>
+                <span class="customer-section-tile__meta">Contact, adres en notities</span>
             </a>
         </nav>
+
+        {{-- Abonnementen (default) --}}
+        <div class="customer-section-panel{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}" data-customer-section-panel="abonnementen" id="customer-section-abonnementen">
+        <div class="kt-card kt-card-grid w-full min-w-0">
+            <div class="kt-card-header px-5 py-5">
+                <div class="min-w-0">
+                    <h3 class="kt-card-title mb-0">Abonnementen</h3>
+                    <p class="text-sm text-muted-foreground mt-1.5 mb-0">
+                        Kies een abonnement om passagiers, groepen, individuele ritten of facturen te beheren.
+                    </p>
+                </div>
+            </div>
+            <div class="kt-card-content p-0 min-w-0">
+                <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                    <table id="transport-customer-contracts-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                        <thead>
+                            <tr>
+                                <th data-label="Naam">Naam</th>
+                                <th data-label="Facturatiemodel">Facturatie</th>
+                                <th data-label="Periode">Periode</th>
+                                <th data-label="Status">Status</th>
+                                <th class="transport-customers-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($contracts as $contract)
+                            <tr
+                                data-row-href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}"
+                                class="cursor-pointer hover:bg-muted/40"
+                                tabindex="0"
+                                role="link"
+                                aria-label="Bekijk abonnement {{ $contract->name }}"
+                            >
+                                <td>
+                                    <span class="font-medium text-foreground">{{ $contract->name }}</span>
+                                </td>
+                                <td class="text-muted-foreground">
+                                    @if($contract->billing_model === 'fixed_monthly')
+                                        Vast maandbedrag
+                                    @elseif($contract->billing_model === 'per_ride')
+                                        Per rit
+                                    @else
+                                        Hybride
+                                    @endif
+                                </td>
+                                <td class="text-muted-foreground">
+                                    {{ $contract->start_date ? \Carbon\Carbon::parse($contract->start_date)->format('d-m-Y') : '—' }}
+                                    &rarr;
+                                    {{ $contract->end_date ? \Carbon\Carbon::parse($contract->end_date)->format('d-m-Y') : 'doorlopend' }}
+                                </td>
+                                <td>
+                                    @if($contract->status === 'active')
+                                        <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                    @elseif($contract->status === 'paused')
+                                        <span class="kt-badge kt-badge-warning kt-badge-sm">Gepauzeerd</span>
+                                    @else
+                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">Beëindigd</span>
+                                    @endif
+                                </td>
+                                <td class="transport-customers-table__actions-col" data-no-row-link onclick="event.stopPropagation();">
+                                    <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken" aria-label="Bekijken">
+                                        <i class="ki-filled ki-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="text-center text-muted-foreground py-8">
+                                    Nog geen abonnementen. <a href="{{ route('admin.taxi.transport_customers.contract_create', $customer->id) }}" class="text-primary hover:underline">Nieuw abonnement aanmaken</a>.
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        </div>
 
         {{-- Contractportaal --}}
         @php
@@ -489,78 +516,63 @@
         @endcan
         </div>
 
-        {{-- Abonnementen --}}
-        <div class="customer-section-panel{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}" data-customer-section-panel="abonnementen" id="customer-section-abonnementen">
-        <div class="kt-card kt-card-grid w-full min-w-0">
+        {{-- Klantgegevens --}}
+        <div class="customer-section-panel{{ $customerSection === 'gegevens' ? ' is-active' : '' }}" data-customer-section-panel="gegevens" id="customer-section-gegevens">
+        <div class="kt-card w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
-                <div class="min-w-0">
-                    <h3 class="kt-card-title mb-0">Abonnementen</h3>
-                    <p class="text-sm text-muted-foreground mt-1.5 mb-0">
-                        Open een abonnement om passagiers toe te voegen en de planning in te richten.
-                    </p>
-                </div>
+                <h3 class="kt-card-title mb-0">Klantgegevens</h3>
             </div>
-            <div class="kt-card-content p-0 min-w-0">
-                <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
-                    <table id="transport-customer-contracts-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
-                        <thead>
-                            <tr>
-                                <th data-label="Naam">Naam</th>
-                                <th data-label="Facturatiemodel">Facturatie</th>
-                                <th data-label="Periode">Periode</th>
-                                <th data-label="Status">Status</th>
-                                <th class="transport-customers-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($contracts as $contract)
-                            <tr
-                                data-row-href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}"
-                                class="cursor-pointer hover:bg-muted/40"
-                                tabindex="0"
-                                role="link"
-                                aria-label="Bekijk abonnement {{ $contract->name }}"
-                            >
-                                <td>
-                                    <span class="font-medium text-foreground">{{ $contract->name }}</span>
-                                </td>
-                                <td class="text-muted-foreground">
-                                    @if($contract->billing_model === 'fixed_monthly')
-                                        Vast maandbedrag
-                                    @elseif($contract->billing_model === 'per_ride')
-                                        Per rit
-                                    @else
-                                        Hybride
-                                    @endif
-                                </td>
-                                <td class="text-muted-foreground">
-                                    {{ $contract->start_date ? \Carbon\Carbon::parse($contract->start_date)->format('d-m-Y') : '—' }}
-                                    &rarr;
-                                    {{ $contract->end_date ? \Carbon\Carbon::parse($contract->end_date)->format('d-m-Y') : 'doorlopend' }}
-                                </td>
-                                <td>
-                                    @if($contract->status === 'active')
-                                        <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
-                                    @elseif($contract->status === 'paused')
-                                        <span class="kt-badge kt-badge-warning kt-badge-sm">Gepauzeerd</span>
-                                    @else
-                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">Beëindigd</span>
-                                    @endif
-                                </td>
-                                <td class="transport-customers-table__actions-col" data-no-row-link onclick="event.stopPropagation();">
-                                    <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken" aria-label="Bekijken">
-                                        <i class="ki-filled ki-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="5" class="text-center text-muted-foreground py-8">
-                                    Nog geen abonnementen. <a href="{{ route('admin.taxi.transport_customers.contract_create', $customer->id) }}" class="text-primary hover:underline">Nieuw abonnement aanmaken</a>.
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
+            <div class="kt-card-content p-0">
+                <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table customer-detail-table w-full">
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Status</td>
+                            <td class="min-w-0">
+                                @if($customer->active)
+                                    <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                @else
+                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Type organisatie</td>
+                            <td class="min-w-0">{{ $customer->organizationTypeLabel() }}</td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Contactpersoon</td>
+                            <td class="min-w-0">{{ $customer->contact_name ?: '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">E-mail</td>
+                            <td class="min-w-0">{{ $customer->contact_email ?: '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Telefoon</td>
+                            <td class="min-w-0">{{ $customer->contact_phone ?: '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Debiteurnummer</td>
+                            <td class="min-w-0">{{ $customer->debtor_number ?: '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Factuuradres</td>
+                            <td class="min-w-0">
+                                @if($customer->billing_address)
+                                    {{ $customer->billing_address }}<br>
+                                    {{ $customer->billing_postal_code }} {{ $customer->billing_city }}<br>
+                                    {{ $customer->billing_country }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        </tr>
+                        @if($customer->notes)
+                        <tr>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Notities</td>
+                            <td class="min-w-0 whitespace-pre-wrap">{{ $customer->notes }}</td>
+                        </tr>
+                        @endif
                     </table>
                 </div>
             </div>

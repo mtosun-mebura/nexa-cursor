@@ -5,7 +5,10 @@
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Contractklanten</h1>
+        <div class="min-w-0">
+            <h1 class="text-xl font-medium leading-none text-mono">Klanten &amp; abonnementen</h1>
+            <p class="text-sm text-muted-foreground pt-2 mb-0">Opdrachtgevers, abonnementen, passagiers en groepsritten.</p>
+        </div>
         @if(empty($packageDeniedMessage))
             @can('rides.create')
             <a href="{{ route('admin.taxi.transport_customers.create') }}" class="kt-btn kt-btn-primary shrink-0">
