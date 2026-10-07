@@ -83,60 +83,99 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            echo "=== Voor renew ==="
-            sudo certbot certificates || true
-            echo | openssl s_client -connect 127.0.0.1:443 -servername nexasuite.online 2>/dev/null \
+            echo "=== Diagnose ==="
+            whoami; id
+            sudo -n true 2>/dev/null && echo "sudo -n: OK" || echo "sudo -n: FAIL"
+            docker info >/dev/null 2>&1 && echo "docker: OK" || echo "docker: FAIL"
+            ls -la /etc/letsencrypt/live 2>/dev/null || echo "geen toegang tot /etc/letsencrypt/live"
+            echo | openssl s_client -connect nexasuite.online:443 -servername nexasuite.online 2>/dev/null \
               | openssl x509 -noout -dates -subject || true
+
+            run_root() {
+              if sudo -n true 2>/dev/null; then
+                sudo -n "$@"
+              elif docker info >/dev/null 2>&1; then
+                # Alleen voor certbot-image commando's; nginx reload apart.
+                return 1
+              else
+                return 1
+              fi
+            }
 
             FORCE_FLAG=""
             if [ "${{ inputs.force }}" = "true" ]; then
               FORCE_FLAG="--force-renewal"
             fi
 
-            # 1) Probeer bestaande certs te vernieuwen (wildcard via opgeslagen renew-config).
-            set +e
-            sudo certbot renew $FORCE_FLAG --no-random-sleep-on-renew
-            renew_rc=$?
-            set -e
-
-            # 2) Fallback: HTTP-01 voor apex (+ www + app) als renew faalt of cert nog expired is.
-            needs_http=0
-            if [ "$renew_rc" -ne 0 ]; then
-              needs_http=1
-            fi
-            end=$(echo | openssl s_client -connect 127.0.0.1:443 -servername nexasuite.online 2>/dev/null \
-              | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)
-            if [ -n "$end" ]; then
-              end_epoch=$(date -d "$end" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$end" +%s 2>/dev/null || echo 0)
-              now_epoch=$(date +%s)
-              if [ "$end_epoch" -le "$now_epoch" ]; then
-                needs_http=1
-              fi
-            fi
-
-            if [ "$needs_http" -eq 1 ]; then
-              echo "=== Fallback: webroot cert voor nexasuite.online ==="
-              sudo mkdir -p /var/www/certbot/.well-known/acme-challenge
+            renew_ok=0
+            if sudo -n true 2>/dev/null; then
               set +e
-              sudo certbot certonly --webroot -w /var/www/certbot \
-                -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
-                --agree-tos --non-interactive --expand $FORCE_FLAG \
-                --cert-name nexasuite.online
-              http_rc=$?
+              sudo -n certbot renew $FORCE_FLAG --no-random-sleep-on-renew
+              renew_rc=$?
               set -e
-              if [ "$http_rc" -ne 0 ]; then
-                echo "Webroot mislukt — probeer nginx-plugin…"
-                sudo certbot certonly --nginx \
+              if [ "$renew_rc" -eq 0 ]; then renew_ok=1; fi
+
+              if [ "$renew_ok" -ne 1 ]; then
+                echo "=== Fallback HTTP-01 (sudo) ==="
+                sudo -n mkdir -p /var/www/certbot/.well-known/acme-challenge
+                set +e
+                sudo -n certbot certonly --webroot -w /var/www/certbot \
                   -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
                   --agree-tos --non-interactive --expand $FORCE_FLAG \
                   --cert-name nexasuite.online
+                http_rc=$?
+                set -e
+                if [ "$http_rc" -ne 0 ]; then
+                  sudo -n certbot certonly --nginx \
+                    -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
+                    --agree-tos --non-interactive --expand $FORCE_FLAG \
+                    --cert-name nexasuite.online
+                fi
               fi
+              sudo -n nginx -t
+              sudo -n systemctl reload nginx
+              renew_ok=1
+            elif docker info >/dev/null 2>&1; then
+              echo "=== Fallback: docker certbot (HTTP-01 webroot) ==="
+              mkdir -p /tmp/certbot-www/.well-known/acme-challenge || true
+              # Publieke challenge via bestaande nginx webroot als die writable is
+              WEBROOT=/var/www/certbot
+              if [ ! -d "$WEBROOT" ] || [ ! -w "$WEBROOT" ]; then
+                WEBROOT=/tmp/certbot-www
+                echo "Webroot niet schrijfbaar — docker-only path $WEBROOT (kan falen zonder nginx mapping)"
+              fi
+              set +e
+              docker run --rm \
+                -v /etc/letsencrypt:/etc/letsencrypt \
+                -v "$WEBROOT:/var/www/certbot" \
+                certbot/certbot certonly --webroot -w /var/www/certbot \
+                -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
+                --agree-tos --non-interactive --expand $FORCE_FLAG \
+                --cert-name nexasuite.online \
+                -m admin@nexasuite.online
+              docker_rc=$?
+              set -e
+              if [ "$docker_rc" -ne 0 ]; then
+                echo "ERROR: docker certbot mislukt. Geen passwordless sudo op deze user." >&2
+                echo "Handmatig op de VPS:" >&2
+                echo "  sudo certbot certonly --nginx -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online --force-renewal --cert-name nexasuite.online" >&2
+                echo "  sudo systemctl reload nginx" >&2
+                exit 1
+              fi
+              # nginx reload zonder sudo lukt meestal niet; probeer docker-proxy/nginx container
+              if sudo -n true 2>/dev/null; then
+                sudo -n nginx -t && sudo -n systemctl reload nginx
+              elif docker ps --format '{{.Names}}' | grep -qi nginx; then
+                docker ps --format '{{.Names}}' | grep -i nginx | head -1 | xargs -I{} docker exec {} nginx -s reload || true
+              else
+                echo "WARN: cert vernieuwd, maar nginx reload vereist handmatig: sudo systemctl reload nginx"
+              fi
+              renew_ok=1
+            else
+              echo "ERROR: geen sudo -n en geen docker — kan SSL niet vernieuwen." >&2
+              exit 1
             fi
 
-            sudo nginx -t
-            sudo systemctl reload nginx
-
             echo "=== Na renew ==="
-            sudo certbot certificates || true
-            echo | openssl s_client -connect 127.0.0.1:443 -servername nexasuite.online 2>/dev/null \
-              | openssl x509 -noout -dates -subject
+            echo | openssl s_client -connect nexasuite.online:443 -servername nexasuite.online 2>/dev/null \
+              | openssl x509 -noout -dates -subject || true
