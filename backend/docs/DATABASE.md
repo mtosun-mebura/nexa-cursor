@@ -50,6 +50,8 @@ DB_PASSWORD=<sterk wachtwoord>
 
 **Deploy:** `.github/workflows/deploy.yml` en `deploy/deploy-tenant.sh` wachten op `pg_isready` vóór migraties. Gebruik **geen** `docker system prune --volumes` op servers met data in `nexa_postgres_data`.
 
+**Volume-naam is vast `nexa_postgres_data`** (niet `${COMPOSE_PROJECT_NAME}_…`). Zo blijft de database behouden als Coolify/compose de projectnaam wisselt. Een wisselend volume leek alsof “wachtwoorden gereset” waren: nieuwe lege DB + bootstrap-default. Bootstrap/seed overschrijft bestaande user-wachtwoorden nooit (`DurableUserCredentials`). Houd `APP_KEY` vast in Coolify secrets.
+
 Migratie van een **externe** Postgres: dump/restore naar de nieuwe container (eenmalig), daarna `DB_HOST=db` in `.env`.
 
 ---

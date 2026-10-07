@@ -160,6 +160,7 @@ export type DriverInboxData = {
   parkedAssignedRides: DriverActiveRide[];
   scheduledRides: DriverActiveRide[];
   overdueScheduledRides: DriverActiveRide[];
+  archivedOverdueScheduledRides: DriverActiveRide[];
   completedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
 };
@@ -248,11 +249,13 @@ export function fetchDriverInbox(token: string) {
       parked_assigned_rides?: DriverActiveRide[];
       scheduled_rides?: DriverActiveRide[];
       overdue_scheduled_rides?: DriverActiveRide[];
+      archived_overdue_scheduled_rides?: DriverActiveRide[];
       completed_rides?: DriverActiveRide[];
     };
     offers?: DispatchOffer[];
     meta?: {
       driver_cancel_reasons?: DriverCancelReason[];
+      overdue_auto_archive_days?: number;
     };
   }>('/api/taxi/v1/driver/dispatch/inbox', { token });
 }
@@ -275,6 +278,7 @@ export function inboxDataFromResponse(inbox: {
     parked_assigned_rides?: DriverActiveRide[];
     scheduled_rides?: DriverActiveRide[];
     overdue_scheduled_rides?: DriverActiveRide[];
+    archived_overdue_scheduled_rides?: DriverActiveRide[];
     completed_rides?: DriverActiveRide[];
   };
   offers?: DispatchOffer[];
@@ -290,6 +294,7 @@ export function inboxDataFromResponse(inbox: {
     parkedAssignedRides: asRideList(inbox?.data?.parked_assigned_rides),
     scheduledRides: asRideList(inbox?.data?.scheduled_rides),
     overdueScheduledRides: asRideList(inbox?.data?.overdue_scheduled_rides),
+    archivedOverdueScheduledRides: asRideList(inbox?.data?.archived_overdue_scheduled_rides),
     completedRides: asRideList(inbox?.data?.completed_rides),
     cancelReasons: Array.isArray(inbox?.meta?.driver_cancel_reasons)
       ? inbox.meta.driver_cancel_reasons

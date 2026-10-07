@@ -24,4 +24,5 @@ services:
 
 volumes:
   nexa_postgres_data:
-    name: ${COMPOSE_PROJECT_NAME:-nexa}_postgres_data
+    # Vaste naam — onafhankelijk van COMPOSE_PROJECT_NAME (voorkomt lege DB na herdeploy).
+    name: nexa_postgres_data

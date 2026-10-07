@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -87,67 +85,64 @@ export function LoginScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <Screen>
-      <View style={styles.logoBar}>
-        <Image
-          source={logoSource}
-          style={styles.logo}
-          resizeMode="contain"
-          accessibilityLabel="NEXA | taxi"
-        />
-      </View>
-      <KeyboardAvoidingView
+      <ScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
-        >
-          <Text style={styles.pageTitle}>Inloggen</Text>
-
-          <Field
-            label="E-mailadres"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            textContentType="emailAddress"
-            placeholder="jij@bedrijf.nl"
-            returnKeyType="next"
+        <View style={styles.logoBar}>
+          <Image
+            source={logoSource}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="NEXA | taxi"
           />
+        </View>
+        <Text style={styles.pageTitle}>Inloggen</Text>
+
+        <Field
+          label="E-mailadres"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          placeholder="jij@bedrijf.nl"
+          returnKeyType="next"
+        />
+        <Field
+          label="Wachtwoord (als je er een hebt)"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoComplete="password"
+          textContentType="password"
+          placeholder="••••••••"
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (!loading) void onSubmit();
+          }}
+        />
+        {(codeSent || !!code) && (
           <Field
-            label="Wachtwoord (als je er een hebt)"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-            textContentType="password"
-            placeholder="••••••••"
-            returnKeyType="done"
-            onSubmitEditing={() => {
-              if (!loading) void onSubmit();
-            }}
+            label="Code uit e-mail"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            placeholder="000000"
           />
-          {(codeSent || !!code) && (
-            <Field
-              label="Code uit e-mail"
-              value={code}
-              onChangeText={setCode}
-              keyboardType="number-pad"
-              placeholder="000000"
-            />
-          )}
+        )}
 
-          {hint ? <Subtitle>{hint}</Subtitle> : null}
-          <ErrorText>{error}</ErrorText>
+        {hint ? <Subtitle>{hint}</Subtitle> : null}
+        <ErrorText>{error}</ErrorText>
 
-          <PrimaryButton title="Inloggen" onPress={onSubmit} loading={loading} />
-          <GhostButton title="Code sturen" onPress={onRequestCode} />
-          <GhostButton title="Terug" onPress={onBack} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <PrimaryButton title="Inloggen" onPress={onSubmit} loading={loading} />
+        <GhostButton title="Code sturen" onPress={onRequestCode} />
+        <GhostButton title="Terug" onPress={onBack} />
+      </ScrollView>
     </Screen>
   );
 }
@@ -165,7 +160,7 @@ function makeStyles(colors: ColorPalette) {
     },
     pageTitle: {
       color: colors.text,
-      fontSize: 28,
+      fontSize: 22,
       fontWeight: '700',
       marginBottom: 8,
       textAlign: 'center',

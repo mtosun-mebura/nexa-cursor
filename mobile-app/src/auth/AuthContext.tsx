@@ -81,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
+    // Altijd terug naar de startpagina (niet login/marktplaats).
+    await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'welcome').catch(() => undefined);
     await setSession(null);
   }, [setSession]);
 

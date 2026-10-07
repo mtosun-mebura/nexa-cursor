@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Services\DurableUserCredentials;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\ModuleSchemaService;
@@ -312,16 +313,15 @@ class RoleSeeder extends Seeder
      */
     protected function ensureSuperAdminUser(?string $connection = null): User
     {
-        $query = $connection ? User::on($connection) : User::query();
-
-        return $query->firstOrCreate(
-            ['email' => ModuleSchemaService::SUPERADMIN_EMAIL],
+        return app(DurableUserCredentials::class)->ensureByEmail(
+            ModuleSchemaService::SUPERADMIN_EMAIL,
             [
                 'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
                 'first_name' => 'Mehmet',
                 'last_name' => 'Tosun',
                 'email_verified_at' => now(),
-            ]
+            ],
+            $connection
         );
     }
 }

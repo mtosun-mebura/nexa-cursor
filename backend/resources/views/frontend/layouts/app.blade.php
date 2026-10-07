@@ -49,18 +49,19 @@
                 && ! \App\Support\Tenancy\CentralDomains::isCentral((string) request()->getHost());
     @endphp
     <meta name="robots" content="{{ $layoutSeoNoindex ? 'noindex, nofollow' : 'index, follow' }}">
-    <link rel="canonical" href="{{ url()->current() }}">
+    @php $layoutSeoCanonical = \App\Support\WebsiteSeoMeta::canonicalUrl(); @endphp
+    <link rel="canonical" href="{{ $layoutSeoCanonical }}">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ $layoutSeoCanonical }}">
     <meta property="og:title" content="@yield('title', $layoutSiteName)">
     <meta property="og:description" content="@yield('description', $layoutSiteDescription !== '' ? $layoutSiteDescription : 'Log in op je account.')">
     <meta property="og:image" content="{{ asset('images/og-image.jpg') }}">
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="{{ url()->current() }}">
+    <meta property="twitter:url" content="{{ $layoutSeoCanonical }}">
     <meta property="twitter:title" content="@yield('title', $layoutSiteName)">
     <meta property="twitter:description" content="@yield('description', $layoutSiteDescription !== '' ? $layoutSiteDescription : 'Log in op je account.')">
     <meta property="twitter:image" content="{{ asset('images/og-image.jpg') }}">

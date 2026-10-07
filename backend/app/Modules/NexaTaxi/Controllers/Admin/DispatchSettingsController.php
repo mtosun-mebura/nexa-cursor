@@ -49,10 +49,12 @@ class DispatchSettingsController extends Controller
         }
 
         $marketplaceNetworkOnly = $this->isMarketplacePackageCompany($companyId);
+        $marketplaceCanOwnNetwork = $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId);
 
         return view('taxi::admin.dispatch-settings.edit', [
             'noTenantSelected' => $companyId === null,
             'marketplaceNetworkOnly' => $marketplaceNetworkOnly,
+            'marketplaceCanOwnNetwork' => $marketplaceCanOwnNetwork,
             'offerTtlSeconds' => $ttlSeconds,
             'offerTtlMinutes' => (int) round($ttlSeconds / 60),
             'envDefaultSeconds' => $envDefault,
@@ -62,6 +64,10 @@ class DispatchSettingsController extends Controller
             'envDefaultPastPickupGraceMinutes' => (int) config('taxi-dispatch.past_pickup_grace_minutes', 60),
             'minPastPickupGraceMinutes' => TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES,
             'maxPastPickupGraceMinutes' => TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES,
+            'overdueAutoArchiveDays' => $this->dispatchSettings->overdueAutoArchiveDays($companyId),
+            'envDefaultOverdueAutoArchiveDays' => (int) config('taxi-dispatch.overdue_auto_archive_days', 2),
+            'minOverdueAutoArchiveDays' => TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS,
+            'maxOverdueAutoArchiveDays' => TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS,
             'unacceptedAutoCancelMinutes' => $this->dispatchSettings->unacceptedAutoCancelMinutes($companyId),
             'envDefaultUnacceptedAutoCancelMinutes' => (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30),
             'minUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
@@ -182,6 +188,8 @@ class DispatchSettingsController extends Controller
         $maxLoginCodeMinutes = TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES;
         $minGraceMinutes = TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES;
         $maxGraceMinutes = TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES;
+        $minOverdueArchiveDays = TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS;
+        $maxOverdueArchiveDays = TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS;
         $minAutoCancelMinutes = TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES;
         $maxAutoCancelMinutes = TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES;
         $minDecisionMinutes = TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES;
@@ -210,6 +218,14 @@ class DispatchSettingsController extends Controller
             'network_fallback_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
             'network_max_radius_km' => ['nullable', 'integer', 'min:1', 'max:200'],
         ];
+        if ($companyId !== null) {
+            $rules['overdue_auto_archive_days'] = [
+                'required',
+                'integer',
+                'min:'.$minOverdueArchiveDays,
+                'max:'.$maxOverdueArchiveDays,
+            ];
+        }
         if ($isSuperAdmin) {
             $rules['network_manual_partner_company_ids'] = ['nullable', 'string', 'max:500'];
         }
@@ -222,6 +238,9 @@ class DispatchSettingsController extends Controller
             'past_pickup_grace_minutes.required' => 'Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.',
             'past_pickup_grace_minutes.min' => 'Grace-interval moet minimaal '.$minGraceMinutes.' minuten zijn.',
             'past_pickup_grace_minutes.max' => 'Grace-interval mag maximaal '.$maxGraceMinutes.' minuten zijn.',
+            'overdue_auto_archive_days.required' => 'Vul in na hoeveel verlopen dagen de rit automatisch gearchiveerd wordt.',
+            'overdue_auto_archive_days.min' => 'Auto-archief moet minimaal '.$minOverdueArchiveDays.' dagen zijn (0 = uit).',
+            'overdue_auto_archive_days.max' => 'Auto-archief mag maximaal '.$maxOverdueArchiveDays.' dagen zijn.',
             'unaccepted_auto_cancel_minutes.required' => 'Vul in na hoeveel minuten de klant mag kiezen om te wachten of te annuleren.',
             'unaccepted_auto_cancel_minutes.min' => 'Deze tijd moet minimaal '.$minAutoCancelMinutes.' minuten zijn (0 = uit).',
             'unaccepted_auto_cancel_minutes.max' => 'Deze tijd mag maximaal '.$maxAutoCancelMinutes.' minuten zijn.',
@@ -239,6 +258,12 @@ class DispatchSettingsController extends Controller
             (int) $validated['past_pickup_grace_minutes'],
             $companyId
         );
+        if ($companyId !== null && array_key_exists('overdue_auto_archive_days', $validated)) {
+            $this->dispatchSettings->setOverdueAutoArchiveDays(
+                (int) $validated['overdue_auto_archive_days'],
+                $companyId
+            );
+        }
         $this->dispatchSettings->setUnacceptedAutoCancelMinutes(
             (int) $validated['unaccepted_auto_cancel_minutes'],
             $companyId
@@ -295,11 +320,26 @@ class DispatchSettingsController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        $mayOwn = $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId);
+        if (! $mayOwn && $request->boolean('network_enabled')) {
+            return redirect()
+                ->route('admin.taxi.dispatch_settings.edit')
+                ->withErrors([
+                    'network_enabled' => 'Marketplace heeft geen betaald maandabonnement. Schakel network niet in als owner; deel je invite-code zodat betaalde tenants jou als uitvoerder kunnen koppelen (NEXA-fee op die ritten). Een super-admin kan marketplace↔marketplace later aanzetten bij Configuraties → Nexa Suite (klant-app).',
+                ])
+                ->withFragment('dispatch-nexa-network');
+        }
+
+        if (! $mayOwn) {
+            $validated['network_mode'] = TaxiDispatchSettingsService::NETWORK_MODE_OFF;
+            $request->merge(['network_enabled' => '0']);
+        }
         $this->persistNetworkSettings($request, $validated, $companyId, $isSuperAdmin);
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'NEXA Network-instellingen zijn opgeslagen.');
+            ->with('success', 'NEXA Network-partnerinstellingen zijn opgeslagen.');
     }
 
     /**
@@ -383,6 +423,16 @@ class DispatchSettingsController extends Controller
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
+        }
+
+        if (! $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId)) {
+            return redirect()
+                ->route('admin.taxi.dispatch_settings.edit')
+                ->withErrors([
+                    'invite_code' => 'Alleen met een betaald maandabonnement (Start, Pro of Business) kun je partners koppelen om network te gebruiken. Marketplace mag wel als uitvoerder gekoppeld worden (met NEXA-fee op die ritten).',
+                ])
+                ->withInput()
+                ->withFragment('dispatch-nexa-network');
         }
 
         $validated = $request->validate([

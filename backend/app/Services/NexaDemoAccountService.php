@@ -134,6 +134,7 @@ class NexaDemoAccountService
 
         $user = User::query()->firstOrNew(['email' => $email]);
         $created = ! $user->exists;
+        // Bestaand demo-wachtwoord nooit overschrijven bij ensure/deploy — alleen reset() doet dat bewust.
         if ($created) {
             $userAttrs['password'] = Hash::make($password);
         }

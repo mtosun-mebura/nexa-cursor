@@ -15,7 +15,7 @@ class NexaEnsureBootstrapCommand extends Command
 {
     protected $signature = 'nexa:ensure-bootstrap';
 
-    protected $description = 'Zorg dat super-admin, rollen en centrale marketingpagina\'s aanwezig zijn (geen dataverlies, wachtwoorden blijven ongewijzigd).';
+    protected $description = 'Zorg dat super-admin, rollen en centrale marketingpagina\'s aanwezig zijn (geen dataverlies; bestaande wachtwoorden worden nooit gewijzigd).';
 
     public function handle(CentralWelcomePageService $central): int
     {

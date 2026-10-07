@@ -12,7 +12,8 @@ fi
 # Forceer production flags via env (app leest dit boven .env als docker envs zijn gezet)
 # APP_ENV / APP_DEBUG / APP_URL komen uit docker-compose 'environment'
 
-# APP_KEY uit env of .env (geen schrijf acties op .env)
+# APP_KEY uit env of .env — NOOIT hier key:generate aanroepen.
+# Een nieuwe APP_KEY breekt sessies; op Coolify moet APP_KEY een vaste secret zijn.
 current_key="$(grep -E '^APP_KEY=' .env 2>/dev/null | cut -d= -f2- || true)"
 
 if [ -n "${APP_KEY:-}" ]; then
@@ -20,7 +21,13 @@ if [ -n "${APP_KEY:-}" ]; then
 elif [ -n "$current_key" ]; then
   export APP_KEY="$current_key"
 else
-  echo "❌ APP_KEY ontbreekt. Voeg APP_KEY toe aan root .env of stel APP_KEY env variabele in."
+  echo "❌ APP_KEY ontbreekt. Zet een vaste APP_KEY in Coolify secrets / root .env."
+  echo "   Nooit opnieuw genereren op een bestaande database — sessies/cookies breken dan."
+  exit 1
+fi
+
+if [[ ! "$APP_KEY" =~ ^base64: ]] || [[ ${#APP_KEY} -lt 20 ]]; then
+  echo "❌ APP_KEY ziet er ongeldig uit. Gebruik een vaste Laravel-key (base64:…)."
   exit 1
 fi
 
@@ -79,7 +86,7 @@ fi
 if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan migrate --force || true
   # Idempotent: veilig bij elke container-start. Maakt super-admin/rollen alleen aan als ze ontbreken;
-  # een bestaand wachtwoord wordt nooit overschreven.
+  # een bestaand wachtwoord wordt NOOIT overschreven (DurableUserCredentials / firstOrCreate).
   php artisan nexa:ensure-bootstrap || true
 fi
 

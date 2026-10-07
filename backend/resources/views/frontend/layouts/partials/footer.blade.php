@@ -43,7 +43,10 @@
                             @if($showSkillmatchingAppLinks ?? false)
                             <li><a href="{{ route('jobs.index') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Vacatures</a></li>
                             @endif
-                            <li><a href="{{ route('about') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Over Ons</a></li>
+                            @php $footerAboutUrl = app(\App\Services\WebsiteBuilderService::class)->publicAboutUrl(); @endphp
+                            @if($footerAboutUrl)
+                            <li><a href="{{ $footerAboutUrl }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Over Ons</a></li>
+                            @endif
                             <li><a href="{{ route('contact') }}" class="text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Contact</a></li>
                         </ul>
                     </div>

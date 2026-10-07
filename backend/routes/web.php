@@ -1310,13 +1310,20 @@ Route::post('/language/switch', function () {
     return response()->json(['success' => true, 'language' => $language]);
 })->name('language.switch');
 
-// About/contact: website builder wanneer geconfigureerd, anders doorverwijzen naar home (legacy).
+// About: canonieke slug (meestal /over-ons). Geen soft-redirect naar home — dat gaf GSC "pagina met omleiding".
 Route::get('/about', function () {
-    if (app(WebsiteBuilderService::class)->getAboutPage()) {
-        return app(WebsitePageController::class)->showAbout();
+    $builder = app(WebsiteBuilderService::class);
+    $page = $builder->getAboutPage();
+    if ($page === null) {
+        abort(404);
     }
 
-    return redirect()->route('home');
+    $canonicalPath = $builder->publicPathsForWebsitePage($page)[0] ?? '/over-ons';
+    if ($canonicalPath !== '/about') {
+        return redirect()->to($canonicalPath, 301);
+    }
+
+    return app(WebsitePageController::class)->showAbout();
 })->name('about');
 
 Route::get('/help', function () {

@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Company;
+use App\Models\NexaSuiteMarketplaceSetting;
 use App\Models\TaxiNetworkPartnership;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiNetworkPartnershipService;
@@ -83,7 +84,7 @@ class TaxiNetworkPartnershipServiceTest extends TestCase
     }
 
     #[Test]
-    public function marketplace_companies_can_partner_with_each_other(): void
+    public function marketplace_companies_cannot_partner_with_each_other_as_owner(): void
     {
         $owner = Company::query()->create([
             'name' => 'Marketplace A',
@@ -100,11 +101,84 @@ class TaxiNetworkPartnershipServiceTest extends TestCase
         $service->setAutoAccept((int) $partner->id, true);
         $invite = $service->ensureActiveInviteCode((int) $partner->id);
 
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('betaald maandabonnement');
+        $service->redeemInviteCode((int) $owner->id, $invite->code);
+    }
+
+    #[Test]
+    public function paid_owner_can_partner_with_marketplace_company_without_subscription(): void
+    {
+        $owner = Company::query()->create([
+            'name' => 'Pro Taxi',
+            'is_active' => true,
+            'package_key' => 'pro',
+        ]);
+        $partner = Company::query()->create([
+            'name' => 'Marketplace Partner',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
+
+        $service = app(TaxiNetworkPartnershipService::class);
+        $service->setAutoAccept((int) $partner->id, true);
+        $invite = $service->ensureActiveInviteCode((int) $partner->id);
+
         $result = $service->redeemInviteCode((int) $owner->id, $invite->code);
         $this->assertTrue($result['auto_accepted']);
         $this->assertTrue($result['partnership']->isAccepted());
 
         $settings = app(TaxiDispatchSettingsService::class);
         $this->assertSame([(int) $partner->id], $settings->networkPartnerCompanyIds((int) $owner->id));
+    }
+
+    #[Test]
+    public function start_owner_can_initiate_network_partnership(): void
+    {
+        $owner = Company::query()->create([
+            'name' => 'Start Taxi',
+            'is_active' => true,
+            'package_key' => 'start',
+        ]);
+        $partner = Company::query()->create([
+            'name' => 'Partner',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
+
+        $service = app(TaxiNetworkPartnershipService::class);
+        $this->assertTrue($service->companyCanInitiateNetworkPartnerships($owner));
+        $this->assertFalse($service->companyCanInitiateNetworkPartnerships($partner));
+
+        $service->setAutoAccept((int) $partner->id, true);
+        $invite = $service->ensureActiveInviteCode((int) $partner->id);
+        $result = $service->redeemInviteCode((int) $owner->id, $invite->code);
+        $this->assertTrue($result['partnership']->isAccepted());
+    }
+
+    #[Test]
+    public function marketplace_companies_can_partner_when_setting_enabled(): void
+    {
+        NexaSuiteMarketplaceSetting::current()->update(['allow_marketplace_network_owner' => true]);
+
+        $owner = Company::query()->create([
+            'name' => 'Marketplace A',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
+        $partner = Company::query()->create([
+            'name' => 'Marketplace B',
+            'is_active' => true,
+            'package_key' => 'marketplace',
+        ]);
+
+        $service = app(TaxiNetworkPartnershipService::class);
+        $this->assertTrue($service->companyCanInitiateNetworkPartnerships($owner));
+        $service->setAutoAccept((int) $partner->id, true);
+        $invite = $service->ensureActiveInviteCode((int) $partner->id);
+
+        $result = $service->redeemInviteCode((int) $owner->id, $invite->code);
+        $this->assertTrue($result['auto_accepted']);
+        $this->assertTrue($result['partnership']->isAccepted());
     }
 }

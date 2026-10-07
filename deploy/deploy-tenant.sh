@@ -619,6 +619,7 @@ echo "==> Wachten tot Laravel service beschikbaar is"
 sleep 3
 
 echo "==> Laravel migrations + basis seed + module-schema/DB's"
+echo "    (ApplicationBootstrapSeeder overschrijft NOOIT bestaande wachtwoorden)"
 _compose exec -T "$LARAVEL_SERVICE" php artisan migrate --force
 _compose exec -T "$LARAVEL_SERVICE" php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force
 _compose exec -T "$LARAVEL_SERVICE" php artisan modules:ensure-databases || true
@@ -633,3 +634,5 @@ echo ""
 echo "TIP: Geen 'php artisan' op de host in ${BACKEND_DIR} (geen vendor daar)."
 echo "    Voorbeeld: cd $(printf %q "$TENANT_DIR") && docker-compose -f ${COMPOSE_FILE} exec -T ${LARAVEL_SERVICE} php artisan config:clear"
 echo "    (zonder -T voor een TTY: laat -T weg)"
+echo "BELANGRIJK: Postgres-volume heet vast 'nexa_postgres_data' (niet gekoppeld aan COMPOSE_PROJECT_NAME)."
+echo "    APP_KEY moet een vaste Coolify-/env-secret blijven — nooit opnieuw genereren op bestaande data."

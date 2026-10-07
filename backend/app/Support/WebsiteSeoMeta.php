@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 /**
@@ -9,6 +10,79 @@ use Illuminate\Support\Str;
  */
 final class WebsiteSeoMeta
 {
+    public const SOFT_QUERY_SESSION_KEY = 'seo_soft_query';
+
+    /**
+     * Queryparams die geen unieke indexeerbare pagina maken (prefill + tracking).
+     */
+    public static function isSoftQueryParam(string $key): bool
+    {
+        $key = strtolower(trim($key));
+        if ($key === '') {
+            return false;
+        }
+
+        if (in_array($key, [
+            'pakket',
+            'gclid',
+            'gbraid',
+            'wbraid',
+            'fbclid',
+            'msclkid',
+            'srsltid',
+            '_ga',
+            '_gl',
+            'mc_cid',
+            'mc_eid',
+        ], true)) {
+            return true;
+        }
+
+        return str_starts_with($key, 'utm_');
+    }
+
+    /**
+     * Absolute canonieke URL zonder querystring (zelfde host/scheme als het request).
+     */
+    public static function canonicalUrl(?Request $request = null): string
+    {
+        $request ??= request();
+        $path = '/'.ltrim($request->path(), '/');
+        if ($path === '//') {
+            $path = '/';
+        }
+        if ($request->path() === '/' || $path === '/') {
+            $path = '/';
+        } else {
+            $path = '/'.trim($request->path(), '/');
+        }
+
+        $root = rtrim($request->root(), '/');
+        if ($request->secure() && str_starts_with($root, 'http://')) {
+            $root = 'https://'.substr($root, 7);
+        }
+
+        return $path === '/' ? $root.'/' : $root.$path;
+    }
+
+    /**
+     * Prefill-waarde uit query of (na soft-query 301) uit session flash.
+     */
+    public static function softQueryValue(string $key, mixed $default = null): mixed
+    {
+        $fromRequest = request()->query($key);
+        if ($fromRequest !== null && $fromRequest !== '') {
+            return $fromRequest;
+        }
+
+        $bag = session(self::SOFT_QUERY_SESSION_KEY, []);
+        if (is_array($bag) && array_key_exists($key, $bag) && $bag[$key] !== null && $bag[$key] !== '') {
+            return $bag[$key];
+        }
+
+        return $default;
+    }
+
     public static function isUsableDescription(?string $text): bool
     {
         $text = trim((string) $text);

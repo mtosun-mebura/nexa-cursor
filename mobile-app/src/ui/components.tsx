@@ -33,11 +33,9 @@ export function Subtitle({ children }: { children: React.ReactNode }) {
 
 export function Card({ children }: { children: React.ReactNode }) {
   const colors = useThemeColors();
-  const accent = useOptionalDriverAccent();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  return (
-    <View style={[styles.card, accent ? { borderColor: accent.border } : null]}>{children}</View>
-  );
+  // Neutrale rand — themakleur alleen op rittenkaarten en tabknoppen, niet op profiel/kaarten.
+  return <View style={styles.card}>{children}</View>;
 }
 
 export function Field({
@@ -104,65 +102,90 @@ export function Field({
         </Pressable>
       ) : null;
 
+  // `textContentType="none"` blocks the iOS keyboard; never pass it through.
+  const resolvedTextContentType =
+    textContentType === 'none'
+      ? undefined
+      : textContentType
+        || (secureTextEntry
+          ? 'password'
+          : keyboardType === 'email-address'
+            ? 'emailAddress'
+            : keyboardType === 'phone-pad'
+              ? 'telephoneNumber'
+              : undefined);
+
+  const inputProps = {
+    ref: inputRef,
+    value,
+    onChangeText: (v: string) => {
+      if (showError) setHideError(true);
+      onChangeText(v);
+    },
+    editable: true as const,
+    showSoftInputOnFocus: true as const,
+    secureTextEntry: !!secureTextEntry && !passwordVisible,
+    keyboardType,
+    autoCapitalize,
+    placeholder,
+    placeholderTextColor: colors.muted,
+    autoCorrect: false as const,
+    spellCheck: false as const,
+    autoComplete: secureTextEntry
+      ? ('password' as const)
+      : keyboardType === 'email-address'
+        ? ('email' as const)
+        : autoComplete,
+    textContentType: resolvedTextContentType,
+    blurOnSubmit: !multiline,
+    returnKeyType,
+    onSubmitEditing,
+    multiline,
+    textAlignVertical: (multiline ? 'top' : 'center') as 'top' | 'center',
+  };
+
+  const useWrap = !!accessory || (!!confirmed && !showError);
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <View
-        collapsable={false}
-        style={[
-          styles.inputWrap,
-          confirmed && !showError && styles.inputWrapConfirmed,
-          showError && styles.inputWrapError,
-        ]}
-      >
+      {useWrap ? (
+        <View
+          collapsable={false}
+          style={[
+            styles.inputWrap,
+            confirmed && !showError && styles.inputWrapConfirmed,
+            showError && styles.inputWrapError,
+          ]}
+        >
+          <TextInput
+            {...inputProps}
+            style={[
+              styles.input,
+              styles.inputInWrap,
+              multiline && styles.inputMultiline,
+              !!accessory && styles.inputWithAccessory,
+            ]}
+          />
+          {confirmed && !showError ? (
+            <Text style={[styles.checkMark, { pointerEvents: 'none' }]}>✓</Text>
+          ) : null}
+          {accessory ? (
+            <View style={[styles.accessory, { pointerEvents: 'box-none' }]}>
+              {accessory}
+            </View>
+          ) : null}
+        </View>
+      ) : (
         <TextInput
-          ref={inputRef}
+          {...inputProps}
           style={[
             styles.input,
-            styles.inputInWrap,
             multiline && styles.inputMultiline,
-            !!accessory && styles.inputWithAccessory,
+            showError && styles.inputError,
           ]}
-          value={value}
-          onChangeText={(v) => {
-            if (showError) setHideError(true);
-            onChangeText(v);
-          }}
-          editable
-          showSoftInputOnFocus
-          secureTextEntry={!!secureTextEntry && !passwordVisible}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
-          placeholder={placeholder}
-          placeholderTextColor={colors.muted}
-          autoCorrect={false}
-          autoComplete={
-            secureTextEntry ? 'password' : keyboardType === 'email-address' ? 'email' : autoComplete
-          }
-          textContentType={
-            textContentType
-              || (secureTextEntry
-                ? 'password'
-                : keyboardType === 'email-address'
-                  ? 'emailAddress'
-                  : undefined)
-          }
-          blurOnSubmit={!multiline}
-          returnKeyType={returnKeyType}
-          onSubmitEditing={onSubmitEditing}
-          multiline={multiline}
-          textAlignVertical={multiline ? 'top' : 'center'}
-          aria-invalid={showError}
         />
-        {confirmed && !showError ? (
-          <Text style={[styles.checkMark, { pointerEvents: 'none' }]}>✓</Text>
-        ) : null}
-        {accessory ? (
-          <View style={[styles.accessory, { pointerEvents: 'box-none' }]}>
-            {accessory}
-          </View>
-        ) : null}
-      </View>
+      )}
       {showError ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
@@ -276,6 +299,9 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 16,
       backgroundColor: colors.inputBg,
+    },
+    inputError: {
+      borderColor: colors.danger,
     },
     inputWrap: {
       flexDirection: 'row',

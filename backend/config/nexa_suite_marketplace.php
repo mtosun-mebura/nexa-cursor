@@ -2,6 +2,8 @@
 
 return [
     'fee_percent' => 10,
+    /** Marketplace-pakket mag zelf NEXA Network-partners koppelen (marketplace↔marketplace). Standaard uit. */
+    'allow_marketplace_network_owner' => false,
     'auto_generate' => true,
     'auto_send' => true,
     'billing_day' => 1,
