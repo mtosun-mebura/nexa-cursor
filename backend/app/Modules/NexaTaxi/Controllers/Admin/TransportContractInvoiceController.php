@@ -41,7 +41,11 @@ class TransportContractInvoiceController extends Controller
         }
 
         return redirect()
-            ->route('admin.taxi.transport_customers.contract_show', [$customerId, $contractId])
+            ->route('admin.taxi.transport_customers.contract_show', [
+                $customerId,
+                $contractId,
+                'tab' => 'facturen',
+            ])
             ->with('success', 'Factuur '.$invoice->invoice_number.' aangemaakt.');
     }
 

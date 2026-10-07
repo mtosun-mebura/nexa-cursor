@@ -14,6 +14,8 @@
         ? substr((string) $routePickupStops->first()->planned_at_time, 0, 5)
         : null;
     $departureTime = $routeDepartureTime ? substr($routeDepartureTime, 0, 5) : null;
+    $outboundStopCount = $routePickupStops->count() + ($routeDestinationStop ? 1 : 0);
+    $outboundCollapseId = 'route-stops-outbound-'.$routeTemplate->id;
 @endphp
 
 <div class="px-3 sm:px-5 pb-3 min-w-0">
@@ -82,37 +84,52 @@
 </div>
 
 @if($routePickupStops->isNotEmpty())
-<div class="kt-scrollable-x-auto admin-table-scroll-wrap border-t border-input">
-    <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
-        <thead>
-            <tr>
-                <th class="w-12">#</th>
-                <th>Type</th>
-                <th>Passagier</th>
-                <th>Adres</th>
-                <th>Tijd</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($routePickupStops as $index => $stop)
-            <tr>
-                <td class="text-muted-foreground">{{ $index + 1 }}</td>
-                <td><span class="kt-badge kt-badge-light kt-badge-sm">Ophalen</span></td>
-                <td class="font-medium">{{ $stop->passenger?->full_name ?? '—' }}</td>
-                <td class="text-muted-foreground">{{ Str::limit($stop->address, 55) }}</td>
-                <td class="font-medium">{{ substr($stop->planned_at_time, 0, 5) }}</td>
-            </tr>
-            @endforeach
-            @if($routeDestinationStop)
-            <tr class="route-stop-destination-row">
-                <td class="text-muted-foreground">{{ $routePickupStops->count() + 1 }}</td>
-                <td><span class="kt-badge kt-badge-success kt-badge-sm">Bestemming</span></td>
-                <td class="text-muted-foreground">—</td>
-                <td class="text-muted-foreground">{{ Str::limit($routeDestinationStop->address, 55) }}</td>
-                <td class="font-medium">{{ substr($routeDestinationStop->planned_at_time, 0, 5) }}</td>
-            </tr>
-            @endif
-        </tbody>
-    </table>
+<div class="route-stops-collapse border-t border-input" data-route-stops-collapse data-leg="heen">
+    <button type="button"
+            class="route-stops-collapse__toggle"
+            data-route-stops-toggle
+            aria-expanded="false"
+            aria-controls="{{ $outboundCollapseId }}">
+        <span class="route-stops-collapse__labels">
+            <span data-route-stops-label-closed>Stops tonen ({{ $outboundStopCount }})</span>
+            <span data-route-stops-label-open class="hidden">Stops verbergen</span>
+        </span>
+        <i class="ki-filled ki-down route-stops-collapse__chevron" aria-hidden="true"></i>
+    </button>
+    <div id="{{ $outboundCollapseId }}" class="route-stops-collapse__panel hidden" data-route-stops-panel hidden>
+        <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+            <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                <thead>
+                    <tr>
+                        <th class="w-12">#</th>
+                        <th>Type</th>
+                        <th>Passagier</th>
+                        <th>Adres</th>
+                        <th>Tijd</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($routePickupStops as $index => $stop)
+                    <tr>
+                        <td class="text-muted-foreground">{{ $index + 1 }}</td>
+                        <td><span class="kt-badge kt-badge-light kt-badge-sm">Ophalen</span></td>
+                        <td class="font-medium">{{ $stop->passenger?->full_name ?? '—' }}</td>
+                        <td class="text-muted-foreground">{{ Str::limit($stop->address, 55) }}</td>
+                        <td class="font-medium">{{ substr($stop->planned_at_time, 0, 5) }}</td>
+                    </tr>
+                    @endforeach
+                    @if($routeDestinationStop)
+                    <tr class="route-stop-destination-row">
+                        <td class="text-muted-foreground">{{ $routePickupStops->count() + 1 }}</td>
+                        <td><span class="kt-badge kt-badge-success kt-badge-sm">Bestemming</span></td>
+                        <td class="text-muted-foreground">—</td>
+                        <td class="text-muted-foreground">{{ Str::limit($routeDestinationStop->address, 55) }}</td>
+                        <td class="font-medium">{{ substr($routeDestinationStop->planned_at_time, 0, 5) }}</td>
+                    </tr>
+                    @endif
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 @endif

@@ -40,7 +40,12 @@ class TransportGroupRouteController extends Controller
         $context = $this->resolveRouteContext($customerId, $contractId, $groupId);
         $backUrl = transport_admin_back_url(
             $request,
-            route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
+            route('admin.taxi.transport_groups.show', [
+                $customerId,
+                $contractId,
+                $groupId,
+                'tab' => 'route',
+            ])
         );
 
         return view('taxi::admin.transport_groups.route', array_merge($context, compact('backUrl')));

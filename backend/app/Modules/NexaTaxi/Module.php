@@ -88,22 +88,22 @@ class Module extends BaseModule
             [
                 'key' => 'transport_customers',
                 'title' => 'Contractvervoer',
-                'route' => 'admin.taxi.transport_rides.index',
+                'route' => 'admin.taxi.transport_customers.index',
                 'icon' => 'ki-filled ki-people',
                 'permission' => 'rides.view',
                 'package_capability' => TenantPackageCapability::CONTRACT_TRANSPORT,
                 'order' => 23,
                 'children' => [
                     [
-                        'title' => 'Ritten',
-                        'route' => 'admin.taxi.transport_rides.index',
-                    ],
-                    [
-                        'title' => 'Contractklanten',
+                        'title' => 'Klanten & abonnementen',
                         'route' => 'admin.taxi.transport_customers.index',
                     ],
                     [
-                        'title' => 'Planning',
+                        'title' => 'Uitgevoerde ritten',
+                        'route' => 'admin.taxi.transport_rides.index',
+                    ],
+                    [
+                        'title' => 'Weekplanning',
                         'route' => 'admin.taxi.transport_planning.index',
                     ],
                     [

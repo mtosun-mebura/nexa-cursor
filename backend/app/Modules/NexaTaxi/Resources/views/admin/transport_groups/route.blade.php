@@ -9,36 +9,24 @@
     $weekdayLabels = \App\Modules\NexaTaxi\Models\TransportRouteTemplate::weekdayLabels();
     $selectedDays = old('recurrence_days', $template->recurrence_days ?: [1, 2, 3, 4, 5]);
     $routeWarnings = (array) session('route_warnings', []);
+    $groupWorkspaceTab = 'route';
+    $groupWorkspaceMemberCount = isset($activeMembers) ? $activeMembers->count() : null;
+    $workspaceTitle = 'Routeplanner';
+    $workspaceSubtitle = $group->name.' · stops, weekdagen en toewijzing';
+    $workspaceHeaderActions = '';
+    if ($template->route_locked) {
+        $workspaceHeaderActions .= '<span class="kt-badge kt-badge-warning kt-badge-sm">Route vastgezet</span>';
+    } else {
+        $workspaceHeaderActions .= '<span class="kt-badge kt-badge-secondary kt-badge-sm">Route bewerkbaar</span>';
+    }
 @endphp
 <div class="kt-container-fixed min-w-0">
-    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <div>
-            <h1 class="text-xl font-medium leading-none text-mono">Routeplanner</h1>
-            <p class="text-sm text-muted-foreground pt-2">{{ $group->name }} · {{ $contract->name }} · {{ $customer->name }}</p>
-            <div class="pt-3 flex flex-wrap gap-2">
-                <a href="{{ $backUrl }}" class="kt-btn kt-btn-outline">
-                    <i class="ki-filled ki-arrow-left me-2"></i>
-                    Terug naar groep
-                </a>
-            </div>
-        </div>
-        <div class="flex flex-wrap gap-2 shrink-0">
-            @if($template->route_locked)
-                <span class="kt-badge kt-badge-warning kt-badge-sm">Route vastgezet</span>
-            @else
-                <span class="kt-badge kt-badge-secondary kt-badge-sm">Route bewerkbaar</span>
-            @endif
-            @if($group->active)
-                <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
-            @else
-                <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
-            @endif
-        </div>
-    </div>
+    @include('taxi::admin.transport_groups.partials.group-workspace-header')
+    @include('taxi::admin.transport_customers.partials.contract-workspace-styles')
 
     @if($routeWarnings !== [])
-        <div class="kt-alert kt-alert-warning mb-5" role="alert">
-            <ul class="list-disc list-inside text-sm">
+        <div class="kt-alert kt-alert-warning mb-5 mt-5" role="alert">
+            <ul class="list-disc list-inside text-sm mb-0">
                 @foreach($routeWarnings as $warning)
                     <li>{{ $warning }}</li>
                 @endforeach
@@ -47,8 +35,8 @@
     @endif
 
     @if($errors->any())
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <ul class="list-disc list-inside">
+        <div class="kt-alert kt-alert-danger mb-5 mt-5" role="alert">
+            <ul class="list-disc list-inside mb-0">
                 @foreach($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
@@ -56,7 +44,7 @@
         </div>
     @endif
 
-    <div class="grid gap-5 lg:gap-7.5">
+    <div class="grid gap-5 lg:gap-7.5 pt-5">
 
         {{-- Instellingen --}}
         @can('rides.update')
