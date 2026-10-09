@@ -54,19 +54,20 @@ Route::prefix('v1/contract')
     ->middleware(['taxi.contract'])
     ->group(function () {
         Route::post('logout', [ContractPortalAuthController::class, 'logout']);
-        Route::get('me', [ContractPortalAuthController::class, 'me']);
+        Route::get('me', [ContractPortalAuthController::class, 'me'])
+            ->middleware('throttle:taxi-contract-poll');
         Route::put('accent', [ContractPortalAuthController::class, 'updateAccent'])
             ->middleware('throttle:taxi-driver-read');
         Route::get('passengers', [ContractPortalController::class, 'passengers'])
-            ->middleware('throttle:taxi-driver-poll');
+            ->middleware('throttle:taxi-contract-poll');
         Route::get('today', [ContractPortalController::class, 'today'])
-            ->middleware('throttle:taxi-driver-poll');
+            ->middleware('throttle:taxi-contract-poll');
         Route::get('week', [ContractPortalController::class, 'week'])
-            ->middleware('throttle:taxi-driver-poll');
+            ->middleware('throttle:taxi-contract-poll');
         Route::get('announcements', [ContractPortalController::class, 'announcements'])
             ->middleware('throttle:taxi-driver-read');
         Route::get('absences', [ContractPortalController::class, 'absences'])
-            ->middleware('throttle:taxi-driver-poll');
+            ->middleware('throttle:taxi-contract-poll');
         Route::post('passengers/{passenger}/absences', [ContractPortalController::class, 'storeAbsence'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('passenger');

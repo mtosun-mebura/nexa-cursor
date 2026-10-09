@@ -139,7 +139,7 @@ class ContractPortalController extends Controller
             ->get()
             ->groupBy(fn (TransportPassengerAbsence $a) => $a->absence_date->toDateString());
 
-        $this->backfillIndividualRideStops($conn, $passengers, $from, $to);
+        // Geen backfill op week-poll: today() dekt ontbrekende stops; week blijft lezen-only.
 
         $days = [];
         for ($d = $from->copy(); $d->lte($to); $d->addDay()) {

@@ -159,6 +159,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(90)->by('taxi-poll|ip|'.$request->ip());
         });
 
+        // Contract-app pollt today/week/passengers apart van chauffeur-GPS.
+        RateLimiter::for('taxi-contract-poll', function ($request) {
+            $userId = $request->user()?->id;
+
+            return Limit::perMinute(300)->by('taxi-contract-poll|'.($userId ?: $request->ip()));
+        });
+
         RateLimiter::for('taxi-driver-location', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 
