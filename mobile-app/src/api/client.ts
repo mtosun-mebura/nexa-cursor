@@ -6,9 +6,31 @@ export class ApiError extends Error {
 
   constructor(message: string, status: number, body?: unknown) {
     super(message);
+    this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    // Hermes/Metro: behoud prototype zodat instanceof werkt.
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
+}
+
+/** Robuuste statuscheck — instanceof faalt soms na bundling. */
+export function apiErrorStatus(error: unknown): number | null {
+  if (error instanceof ApiError) return error.status;
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = Number((error as { status?: unknown }).status);
+    return Number.isFinite(status) ? status : null;
+  }
+  return null;
+}
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && error.message) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    if (message) return message;
+  }
+  return fallback;
 }
 
 type UnauthorizedHandler = () => void | Promise<void>;

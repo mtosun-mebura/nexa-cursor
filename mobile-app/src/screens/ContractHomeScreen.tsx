@@ -35,7 +35,7 @@ import {
   updateContractAccent,
 } from '../api/contract';
 import { buildActiveNavigation } from '../api/contractNavigation';
-import { ApiError } from '../api/client';
+import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { API_BASE_URL, ColorPalette } from '../config';
 import { AppModal } from '../ui/AppModal';
@@ -412,10 +412,12 @@ export function ContractHomeScreen() {
     null;
 
   const refreshBusyRef = useRef(false);
+  const todayPollBusyRef = useRef(false);
   const weekFromRef = useRef(weekFrom);
   weekFromRef.current = weekFrom;
   const seenRideIds = useRef<Set<number>>(new Set());
   const ridesBootstrapped = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
 
   const handleNewContractRides = useCallback(async (todayData: ContractToday | null) => {
     const openLegs: ContractLeg[] = [];
@@ -458,52 +460,125 @@ export function ContractHomeScreen() {
     });
   }, []);
 
-  const refresh = useCallback(async (fromOverride?: string) => {
-    if (!contractToken || refreshBusyRef.current) return;
-    refreshBusyRef.current = true;
-    const from = fromOverride || weekFromRef.current;
-    try {
-      const [me, todayRes, weekRes, passengersRes, absencesRes] = await Promise.all([
-        fetchContractMe(contractToken),
-        fetchContractToday(contractToken),
-        fetchContractWeek(contractToken, from),
-        fetchContractPassengers(contractToken),
-        fetchContractAbsences(contractToken),
-      ]);
-      setError(null);
-      setName(me.user?.name || session?.user?.name || '');
-      setEmail(me.user?.email || session?.user?.email || '');
-      setCustomerName(me.user?.company_name || todayRes.data?.customer_name || '');
-      setLogoLight(me.user?.company_logo_url || null);
-      setLogoDark(me.user?.company_logo_dark_url || null);
-      setPortalRole(me.user?.portal_role || null);
-      setIsContractant(
-        isContractantRole(me.user?.portal_role, me.user?.is_contractant)
-      );
-      if (me.user?.pwa_accent) setAccent(normalizeDriverAccent(me.user.pwa_accent));
-      const todayData = todayRes.data || null;
+  const applyTodayData = useCallback(
+    async (todayData: ContractToday | null) => {
       setToday(todayData);
-      setWeek(weekRes.data || null);
-      if (weekRes.data?.from && weekRes.data.from !== weekFromRef.current) {
-        setWeekFrom(weekRes.data.from);
-      }
-      setPassengers(passengersRes.data?.passengers || []);
-      setAbsences(absencesRes.data?.absences || []);
       try {
         await handleNewContractRides(todayData);
       } catch {
         /* push mag refresh niet breken */
       }
+    },
+    [handleNewContractRides]
+  );
+
+  /** Achtergrondpoll: alleen today — stil bij netwerk/429. */
+  const pollToday = useCallback(async () => {
+    if (!contractToken || todayPollBusyRef.current || refreshBusyRef.current) return;
+    todayPollBusyRef.current = true;
+    try {
+      const todayRes = await fetchContractToday(contractToken);
+      await applyTodayData(todayRes.data || null);
+      if (hasLoadedOnceRef.current) setError(null);
     } catch (e) {
-      // 429 tijdens snelle poll: stille retry i.p.v. rode foutbanner
-      if (e instanceof ApiError && e.status === 429) {
-        return;
-      }
-      setError(e instanceof ApiError ? e.message : 'Kon contractgegevens niet laden.');
+      const status = apiErrorStatus(e);
+      if (status === 429 || status === 401) return;
+      // Geen rode banner tijdens achtergrondpoll — pull-to-refresh toont wél fouten.
     } finally {
-      refreshBusyRef.current = false;
+      todayPollBusyRef.current = false;
     }
-  }, [contractToken, session?.user?.name, handleNewContractRides]);
+  }, [contractToken, applyTodayData]);
+
+  const refresh = useCallback(
+    async (fromOverride?: string, opts?: { silent?: boolean }) => {
+      if (!contractToken || refreshBusyRef.current) return;
+      refreshBusyRef.current = true;
+      const silent = opts?.silent === true;
+      const from = fromOverride || weekFromRef.current;
+      try {
+        const results = await Promise.allSettled([
+          fetchContractMe(contractToken),
+          fetchContractToday(contractToken),
+          fetchContractWeek(contractToken, from),
+          fetchContractPassengers(contractToken),
+          fetchContractAbsences(contractToken),
+        ]);
+
+        const [meR, todayR, weekR, passengersR, absencesR] = results;
+        const rejected = results.find((r) => r.status === 'rejected') as
+          | PromiseRejectedResult
+          | undefined;
+        const softFail =
+          rejected &&
+          (apiErrorStatus(rejected.reason) === 429 || apiErrorStatus(rejected.reason) === 401);
+
+        const me = meR.status === 'fulfilled' ? meR.value : null;
+        const todayData =
+          todayR.status === 'fulfilled' ? todayR.value.data || null : null;
+
+        if (me) {
+          setName(me.user?.name || session?.user?.name || '');
+          setEmail(me.user?.email || session?.user?.email || '');
+          setLogoLight(me.user?.company_logo_url || null);
+          setLogoDark(me.user?.company_logo_dark_url || null);
+          setPortalRole(me.user?.portal_role || null);
+          setIsContractant(
+            isContractantRole(me.user?.portal_role, me.user?.is_contractant)
+          );
+          if (me.user?.pwa_accent) setAccent(normalizeDriverAccent(me.user.pwa_accent));
+        }
+
+        if (me || todayData) {
+          setCustomerName(
+            me?.user?.company_name || todayData?.customer_name || ''
+          );
+        }
+
+        if (todayR.status === 'fulfilled') {
+          await applyTodayData(todayData);
+        }
+
+        if (weekR.status === 'fulfilled') {
+          setWeek(weekR.value.data || null);
+          if (weekR.value.data?.from && weekR.value.data.from !== weekFromRef.current) {
+            setWeekFrom(weekR.value.data.from);
+          }
+        }
+
+        if (passengersR.status === 'fulfilled') {
+          setPassengers(passengersR.value.data?.passengers || []);
+        }
+        if (absencesR.status === 'fulfilled') {
+          setAbsences(absencesR.value.data?.absences || []);
+        }
+
+        const anyOk = results.some((r) => r.status === 'fulfilled');
+        if (anyOk) {
+          hasLoadedOnceRef.current = true;
+          setError(null);
+        }
+
+        if (rejected && !softFail && !silent && !anyOk) {
+          setError(
+            apiErrorMessage(rejected.reason, 'Kon contractgegevens niet laden.')
+          );
+        } else if (rejected && !softFail && !silent && !hasLoadedOnceRef.current) {
+          setError(
+            apiErrorMessage(rejected.reason, 'Kon contractgegevens niet laden.')
+          );
+        }
+      } catch (e) {
+        const status = apiErrorStatus(e);
+        if (status === 429 || status === 401 || silent) return;
+        if (!hasLoadedOnceRef.current) {
+          setError(apiErrorMessage(e, 'Kon contractgegevens niet laden.'));
+        }
+      } finally {
+        refreshBusyRef.current = false;
+      }
+    },
+    [contractToken, session?.user?.name, session?.user?.email, applyTodayData]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -541,34 +616,42 @@ export function ContractHomeScreen() {
   useEffect(() => {
     seenRideIds.current.clear();
     ridesBootstrapped.current = false;
+    hasLoadedOnceRef.current = false;
   }, [contractToken]);
 
-  // Direct actueel houden: poll elke 2,5s + meteen bij terug naar voorgrond.
+  // Today snel; rest minder vaak — voorkomt rode fouten door concurrente poll-fails.
   useEffect(() => {
     if (!contractToken) return;
-    void refresh();
-    const t = setInterval(() => {
+    void refresh(undefined, { silent: false });
+    const todayTimer = setInterval(() => {
       if (AppState.currentState !== 'active') return;
-      void refresh();
+      void pollToday();
     }, 2500);
-    return () => clearInterval(t);
-  }, [contractToken, refresh]);
+    const fullTimer = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
+      void refresh(undefined, { silent: true });
+    }, 20000);
+    return () => {
+      clearInterval(todayTimer);
+      clearInterval(fullTimer);
+    };
+  }, [contractToken, refresh, pollToday]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refresh();
+      if (state === 'active') void refresh(undefined, { silent: true });
     });
     return () => sub.remove();
   }, [refresh]);
 
   async function loadWeek(from: string) {
     setWeekFrom(from);
-    await refresh(from);
+    await refresh(from, { silent: false });
   }
 
   async function onRefresh() {
     setRefreshing(true);
-    await refresh();
+    await refresh(undefined, { silent: false });
     setRefreshing(false);
   }
 
@@ -594,7 +677,7 @@ export function ContractHomeScreen() {
       setAbsenceOpen(false);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Afmelden mislukt.');
+      setError(apiErrorMessage(e, 'Afmelden mislukt.'));
     } finally {
       setAbsenceBusy(false);
     }
@@ -612,7 +695,7 @@ export function ContractHomeScreen() {
             await destroyContractAbsence(contractToken, id);
             await refresh();
           } catch (e) {
-            setError(e instanceof ApiError ? e.message : 'Intrekken mislukt.');
+            setError(apiErrorMessage(e, 'Intrekken mislukt.'));
           }
         },
       },
@@ -627,7 +710,7 @@ export function ContractHomeScreen() {
       await startContractRide(contractToken, rideStopId);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Rit starten mislukt.');
+      setError(apiErrorMessage(e, 'Rit starten mislukt.'));
     } finally {
       setRideActionStopId(null);
     }
@@ -644,7 +727,7 @@ export function ContractHomeScreen() {
       await action();
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : failMessage);
+      setError(apiErrorMessage(e, failMessage));
     } finally {
       setRideActionStopId(null);
     }
@@ -712,7 +795,7 @@ export function ContractHomeScreen() {
                   await completeContractRide(contractToken, rideStopId);
                   await refresh();
                 } catch (e) {
-                  setError(e instanceof ApiError ? e.message : 'Afronden mislukt.');
+                  setError(apiErrorMessage(e, 'Afronden mislukt.'));
                 } finally {
                   setRideActionStopId(null);
                 }
