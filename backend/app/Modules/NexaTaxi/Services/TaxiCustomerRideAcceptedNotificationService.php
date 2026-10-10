@@ -110,6 +110,7 @@ class TaxiCustomerRideAcceptedNotificationService
         $companyNameHtml = EmailCardHtml::companyNameHtml($companyName !== '' ? $companyName : 'ons', $companyWebsiteUrl);
 
         $vehicleLabel = '';
+        $licensePlate = '';
         $vehicleId = (int) ($ride->vehicle_id ?? 0);
         if ($vehicleId > 0) {
             try {
@@ -117,8 +118,10 @@ class TaxiCustomerRideAcceptedNotificationService
                     ? $ride->vehicle
                     : \App\Modules\NexaTaxi\Models\Vehicle::on($ride->getConnectionName())->find($vehicleId);
                 $vehicleLabel = $vehicle ? $vehicle->fleetLabel() : '';
+                $licensePlate = $vehicle ? trim((string) ($vehicle->license_plate ?? '')) : '';
             } catch (\Throwable) {
                 $vehicleLabel = '';
+                $licensePlate = '';
             }
         }
 
@@ -129,7 +132,7 @@ class TaxiCustomerRideAcceptedNotificationService
             'DRIVER_NAME' => $driverName,
             'DRIVER_PHONE' => (string) ($driver->phone ?? ''),
             'VEHICLE_LABEL' => $vehicleLabel,
-            'LICENSE_PLATE' => $vehicleLabel,
+            'LICENSE_PLATE' => $licensePlate,
             'PICKUP_AT' => $pickupAt,
             'PICKUP_ADDRESS' => (string) ($ride->pickup_address ?: '—'),
             'DROPOFF_ADDRESS' => (string) ($ride->dropoff_address ?: '—'),
@@ -191,7 +194,7 @@ class TaxiCustomerRideAcceptedNotificationService
     /**
      * Zelfde tekst als Meta-statussjabloon (rit_status_update), voor WA-fallback zonder template.
      *
-     * @param  array{driver_name?: string|null, driver_phone?: string|null, extra_lines?: list<string>}  $context
+     * @param  array{driver_name?: string|null, driver_phone?: string|null, license_plate?: string|null, extra_lines?: list<string>}  $context
      * @param  array<string, string>  $variables
      */
     protected function composeStatusPlainText(
@@ -415,6 +418,7 @@ class TaxiCustomerRideAcceptedNotificationService
                 [
                     'driver_name' => $variables['DRIVER_NAME'] ?? null,
                     'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+                    'license_plate' => $variables['LICENSE_PLATE'] ?? null,
                 ],
                 force: $force || $hadDeclineNotice
             );
@@ -436,6 +440,7 @@ class TaxiCustomerRideAcceptedNotificationService
         $statusContext = [
             'driver_name' => $variables['DRIVER_NAME'] ?? null,
             'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+            'license_plate' => $variables['LICENSE_PLATE'] ?? null,
         ];
         $body = $this->composeStatusPlainText(
             $ride,
@@ -512,6 +517,7 @@ class TaxiCustomerRideAcceptedNotificationService
             [
                 'driver_name' => $variables['DRIVER_NAME'] ?? null,
                 'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+                'license_plate' => $variables['LICENSE_PLATE'] ?? null,
                 'extra_lines' => $extraLines,
             ],
             force: true

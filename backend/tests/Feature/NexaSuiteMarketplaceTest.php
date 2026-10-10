@@ -397,6 +397,11 @@ class NexaSuiteMarketplaceTest extends TestCase
         $this->assertContains(true, $busyFlags);
         $this->assertContains(false, $busyFlags);
         $this->assertEqualsWithDelta(52.37, (float) $vehicles[0]['lat'], 0.002);
+        $this->assertTrue((bool) $response->json('marketplace.dispatch_ready'));
+        $this->assertGreaterThanOrEqual(1, (int) $response->json('marketplace.candidate_count'));
+        $this->assertSame(3, (int) $response->json('marketplace.check_seconds'));
+        $this->assertSame('#ea580c', $response->json('fleet_car_color'));
+        $this->assertSame('#ea580c', $response->json('vehicles.0.color'));
     }
 
     #[Test]

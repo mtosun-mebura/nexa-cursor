@@ -131,3 +131,6 @@ backend/storage/app/onboarding-video/audio/
 backend/storage/app/onboarding-video/clips/
 backend/storage/app/onboarding-video/frames/
 backend/storage/app/onboarding-video/concat.txt
+
+# AI knowledge graph (local artefact; rebuild with graphify)
+graphify-out/

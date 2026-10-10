@@ -53,7 +53,11 @@ import {
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { API_BASE_URL, ColorPalette } from '../config';
-import { startBackgroundLocation, stopBackgroundLocation } from '../location/background';
+import {
+  clampGpsRefreshSeconds,
+  startDriverLocationTracking,
+  stopDriverLocationTracking,
+} from '../location/tracking';
 import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
   addDriverOfferNotificationResponseListener,
@@ -260,6 +264,7 @@ export function DriverHomeScreen() {
   const tripsScrollRef = useRef<ScrollView | null>(null);
   const rideOffsets = useRef<Record<number, number>>({});
   const [online, setOnline] = useState(false);
+  const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -416,6 +421,7 @@ export function DriverHomeScreen() {
       ]);
       const isOnlineNow = !!me.user.is_online;
       setOnline(isOnlineNow);
+      setGpsRefreshSeconds(clampGpsRefreshSeconds(me.meta?.gps_refresh_seconds));
       setName(me.user.name);
       setEmail(me.user.email || '');
       setPhone(me.user.phone || '');
@@ -522,13 +528,31 @@ export function DriverHomeScreen() {
     });
   }, []);
 
+  // Houd GPS-posts gelijk met admin refresh_seconds zolang de chauffeur online is
+  // (ook na heropenen van de app terwijl status al online was).
+  useEffect(() => {
+    if (!driverToken || !online) {
+      void stopDriverLocationTracking();
+      return;
+    }
+    void startDriverLocationTracking({
+      token: driverToken,
+      vehicleId: selectedVehicleId,
+      refreshSeconds: gpsRefreshSeconds,
+    }).catch(() => undefined);
+  }, [driverToken, online, selectedVehicleId, gpsRefreshSeconds]);
+
   async function selectVehicle(id: number) {
     setSelectedVehicleId(id);
     setVehiclePickerOpen(false);
     if (!driverToken || !online) return;
     try {
       await setDriverOnline(driverToken, true, id);
-      await startBackgroundLocation(driverToken, id);
+      await startDriverLocationTracking({
+        token: driverToken,
+        vehicleId: id,
+        refreshSeconds: gpsRefreshSeconds,
+      });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Voertuig opslaan mislukt.');
     }
@@ -545,11 +569,15 @@ export function DriverHomeScreen() {
     try {
       if (next) {
         await ensureDriverNotificationPermission();
-        await startBackgroundLocation(driverToken, selectedVehicleId);
+        await startDriverLocationTracking({
+          token: driverToken,
+          vehicleId: selectedVehicleId,
+          refreshSeconds: gpsRefreshSeconds,
+        });
         await setDriverOnline(driverToken, true, selectedVehicleId);
       } else {
         await setDriverOnline(driverToken, false, selectedVehicleId);
-        await stopBackgroundLocation();
+        await stopDriverLocationTracking();
       }
       setOnline(next);
       await refresh();
@@ -557,7 +585,7 @@ export function DriverHomeScreen() {
       setOnline(false);
       setError(e instanceof Error ? e.message : 'Online zetten mislukt.');
       try {
-        await stopBackgroundLocation();
+        await stopDriverLocationTracking();
       } catch {
         /* ignore */
       }
@@ -1308,7 +1336,7 @@ export function DriverHomeScreen() {
         <Pressable
           style={styles.logoutBtn}
           onPress={async () => {
-            await stopBackgroundLocation();
+            await stopDriverLocationTracking();
             await logout();
           }}
         >

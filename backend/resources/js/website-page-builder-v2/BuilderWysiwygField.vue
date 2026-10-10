@@ -167,7 +167,15 @@ watch(
   () => props.modelValue,
   (value) => {
     const editor = wrapperEl?._flowbiteEditor
-    if (!editor || editor.isFocused) {
+    if (!editor) {
+      return
+    }
+    // Niet overschrijven terwijl de gebruiker typt of de toolbar (select/kleur) bedient.
+    const active = document.activeElement
+    const editingUi =
+      editor.isFocused ||
+      !!(wrapperEl && active && wrapperEl.contains(active))
+    if (editingUi) {
       return
     }
     const current = editor.getHTML()
@@ -200,7 +208,7 @@ watch(
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-toolbar) {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-toolbar > div) {
@@ -231,5 +239,33 @@ watch(
 
 .builder-wysiwyg-host :deep(.flowbite-wysiwyg-content) {
   max-width: 100%;
+}
+
+.builder-wysiwyg-host :deep(.ProseMirror.format h1) {
+  font-size: 1.75rem !important;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0.35em 0 0.5em;
+}
+
+.builder-wysiwyg-host :deep(.ProseMirror.format h2) {
+  font-size: 1.375rem !important;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0.35em 0 0.45em;
+}
+
+.builder-wysiwyg-host :deep(.ProseMirror.format h3) {
+  font-size: 1.125rem !important;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0.3em 0 0.4em;
+}
+
+.builder-wysiwyg-host :deep(.ProseMirror.format h4) {
+  font-size: 1rem !important;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0.25em 0 0.35em;
 }
 </style>

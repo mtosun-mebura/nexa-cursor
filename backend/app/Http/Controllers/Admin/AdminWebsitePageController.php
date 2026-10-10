@@ -1416,7 +1416,7 @@ class AdminWebsitePageController extends Controller
     private function sampleGoogleReviewsForBlockPreview(): array
     {
         return [
-            'place_name' => 'NEXA Taxi Demo',
+            'place_name' => 'NEXA Taxi',
             'rating' => 4.8,
             'user_rating_count' => 126,
             'section_title' => 'Wat anderen zeggen',

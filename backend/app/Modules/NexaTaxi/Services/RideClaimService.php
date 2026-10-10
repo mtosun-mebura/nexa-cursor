@@ -773,6 +773,24 @@ class RideClaimService
             }
         }
 
+        if (! array_key_exists('license_plate', $context) || trim((string) ($context['license_plate'] ?? '')) === '') {
+            try {
+                $vehicleId = (int) ($ride->vehicle_id ?? 0);
+                if ($vehicleId > 0) {
+                    $plate = trim((string) (
+                        \App\Modules\NexaTaxi\Models\Vehicle::on($conn)
+                            ->whereKey($vehicleId)
+                            ->value('license_plate') ?? ''
+                    ));
+                    if ($plate !== '') {
+                        $context['license_plate'] = $plate;
+                    }
+                }
+            } catch (\Throwable) {
+                // composeStatus valt terug op rit/voertuig of "—"
+            }
+        }
+
         try {
             app(TaxiCustomerRideStatusNotificationService::class)->notify($conn, $ride, $event, $context);
         } catch (\Throwable $e) {

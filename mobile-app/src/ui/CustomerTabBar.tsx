@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeContext';
+import { tabBarBottomPadding } from './tabBarSafeArea';
 
 export type CustomerTabKey = 'book' | 'rides' | 'profile';
 
@@ -33,7 +34,7 @@ export function CustomerTabBar({
       style={[
         styles.bar,
         {
-          paddingBottom: Math.max(6, insets.bottom),
+          paddingBottom: tabBarBottomPadding(insets.bottom),
           borderTopColor: colors.border,
           backgroundColor: colors.tabBar,
         },

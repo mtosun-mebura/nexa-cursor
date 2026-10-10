@@ -1320,7 +1320,45 @@
     font-size: 0.875rem;
     line-height: 1.625;
   }
-
+  /* Koppen + inline lettergrootte/-type/-kleur zichtbaar in de editor (niet platgeslagen door text-sm) */
+  .flowbite-wysiwyg-content .ProseMirror.format h1 {
+    font-size: 1.75rem !important;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #111827;
+    margin: 0.35em 0 0.5em;
+  }
+  .flowbite-wysiwyg-content .ProseMirror.format h2 {
+    font-size: 1.375rem !important;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #111827;
+    margin: 0.35em 0 0.45em;
+  }
+  .flowbite-wysiwyg-content .ProseMirror.format h3 {
+    font-size: 1.125rem !important;
+    font-weight: 700;
+    line-height: 1.4;
+    color: #111827;
+    margin: 0.3em 0 0.4em;
+  }
+  .flowbite-wysiwyg-content .ProseMirror.format h4 {
+    font-size: 1rem !important;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #111827;
+    margin: 0.25em 0 0.35em;
+  }
+  .dark .flowbite-wysiwyg-content .ProseMirror.format h1,
+  .dark .flowbite-wysiwyg-content .ProseMirror.format h2,
+  .dark .flowbite-wysiwyg-content .ProseMirror.format h3,
+  .dark .flowbite-wysiwyg-content .ProseMirror.format h4 {
+    color: #f3f4f6;
+  }
+  /* Inline lettergrootte-marks: iets steviger line-height zodat 24–40px zichtbaar blijft */
+  .flowbite-wysiwyg-content .ProseMirror.format [style*="font-size"] {
+    line-height: 1.35;
+  }
   /* Inline Heroicons in WYSIWYG-inhoud (editor + website prose/format) */
   .wysiwyg-inline-icon {
     display: inline-flex;

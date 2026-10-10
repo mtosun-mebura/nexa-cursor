@@ -302,6 +302,28 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
+                                Nexa Suite-boekingen accepteren
+                            </td>
+                            <td>
+                                <input type="hidden" name="accepts_nexa_suite_bookings" value="0">
+                                <label class="kt-label flex items-center gap-2 mb-0" for="accepts_nexa_suite_bookings">
+                                    <input type="checkbox"
+                                           name="accepts_nexa_suite_bookings"
+                                           id="accepts_nexa_suite_bookings"
+                                           value="1"
+                                           class="kt-switch kt-switch-sm shrink-0"
+                                           {{ old('accepts_nexa_suite_bookings', $company->accepts_nexa_suite_bookings ?? true) ? 'checked' : '' }}>
+                                    <span class="text-sm text-muted-foreground">Ontvang ritten vanaf nexasuite.nl / de marktplaats (bij een online chauffeur binnen de straal).</span>
+                                </label>
+                                @error('accepts_nexa_suite_bookings')
+                                    <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                                       data-laravel-field="accepts_nexa_suite_bookings"
+                                       data-laravel-message="{{ $message }}">{{ $message }}</p>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
                                 Website
                             </td>
                             <td>

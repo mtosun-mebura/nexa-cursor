@@ -5,20 +5,20 @@
             <span class="booking-module-v2-map-empty-msg">{{ !empty($bookingLiveFleetShowsStatus) ? 'Taxi’s van dit bedrijf verschijnen hier live (vrij of bezet).' : (!empty($bookingMarketplaceFleet) ? 'Beschikbare taxi’s in de buurt verschijnen hier live.' : 'Kies een ophaal- of bestemmingsadres om de kaart te vullen.') }}</span>
         </div>
         @if(!empty($bookingLiveFleetShowsStatus))
-        <div class="booking-module-v2-map-legend-bar">
-            <div class="booking-module-v2-map-legend" data-booking-live-taxi-legend>
+        <div class="booking-module-v2-map-legend-bar" role="group" aria-label="Kaartweergave taxi’s">
+            <button type="button" class="booking-live-map-mode-btn is-active" data-booking-live-available aria-pressed="true" aria-label="Toon live beschikbare taxi’s">
                 Live taxi’s · <span class="booking-live-legend-free">Vrij</span> · <span class="booking-live-legend-busy">Bezet</span>
-            </div>
-            <button type="button" class="booking-live-show-all-btn" data-booking-live-show-all aria-label="Toon alle auto’s">
+            </button>
+            <button type="button" class="booking-live-map-mode-btn" data-booking-live-show-all aria-pressed="false" aria-label="Toon alle auto’s">
                 Alle auto’s
             </button>
         </div>
         @elseif(!empty($bookingMarketplaceFleet))
-        <div class="booking-module-v2-map-legend-bar">
-            <div class="booking-module-v2-map-legend" data-booking-live-taxi-legend>
+        <div class="booking-module-v2-map-legend-bar" role="group" aria-label="Kaartweergave taxi’s">
+            <button type="button" class="booking-live-map-mode-btn is-active" data-booking-live-available aria-pressed="true" aria-label="Toon live beschikbare taxi’s">
                 Live beschikbare taxi’s
-            </div>
-            <button type="button" class="booking-live-show-all-btn" data-booking-live-show-all aria-label="Toon alle auto’s">
+            </button>
+            <button type="button" class="booking-live-map-mode-btn" data-booking-live-show-all aria-pressed="false" aria-label="Toon alle auto’s">
                 Alle auto’s
             </button>
         </div>

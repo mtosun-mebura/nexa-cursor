@@ -182,10 +182,14 @@ function asOfferList(raw: unknown): DispatchOffer[] {
 }
 
 export function fetchDriverMe(token: string) {
-  return apiRequest<{ user: DriverUser; permissions?: DriverPermissions }>(
-    '/api/taxi/v1/driver/me',
-    { token }
-  );
+  return apiRequest<{
+    user: DriverUser;
+    permissions?: DriverPermissions;
+    meta?: {
+      poll_interval_ms?: number;
+      gps_refresh_seconds?: number;
+    };
+  }>('/api/taxi/v1/driver/me', { token });
 }
 
 export function updateDriverAccent(token: string, accent: string) {

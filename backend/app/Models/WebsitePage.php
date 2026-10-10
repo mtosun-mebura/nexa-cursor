@@ -16,6 +16,9 @@ class WebsitePage extends Model
      */
     public const CENTRAL_WELCOME_SLUG = 'nexa-centraal-welkom';
 
+    /** Welkom-slug voor het Nexa Taxi-reizigersmerk (nexataxi.nl). */
+    public const NEXA_TAXI_WELCOME_SLUG = 'nexa-taxi-welkom';
+
     /** Neutrale footer-tagline voor alle modules (niet Skillmatching-specifiek). */
     public const DEFAULT_FOOTER_TAGLINE = 'Ontdek wat wij voor u kunnen betekenen. Bekijk onze diensten of neem contact op; we helpen u graag verder.';
 
@@ -50,7 +53,13 @@ class WebsitePage extends Model
 
     public static function isCentralMarketingWelcomeSlug(?string $slug): bool
     {
-        return $slug !== null && $slug !== '' && strtolower($slug) === strtolower(self::CENTRAL_WELCOME_SLUG);
+        if ($slug === null || $slug === '') {
+            return false;
+        }
+        $lower = strtolower($slug);
+
+        return $lower === strtolower(self::CENTRAL_WELCOME_SLUG)
+            || $lower === strtolower(self::NEXA_TAXI_WELCOME_SLUG);
     }
 
     public function isPublicHomeNavItem(): bool
@@ -114,6 +123,7 @@ class WebsitePage extends Model
         'module_name',
         'frontend_theme_id',
         'company_id',
+        'site_brand',
         'is_active',
         'show_in_menu',
         'sort_order',

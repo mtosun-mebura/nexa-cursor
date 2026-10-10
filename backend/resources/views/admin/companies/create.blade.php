@@ -49,6 +49,17 @@
                                    {{ old('is_active', true) ? 'checked' : '' }}/>
                             Actief
                         </label>
+                        <span class="text-muted-foreground">|</span>
+                        <label class="kt-label" for="accepts_nexa_suite_bookings">
+                            <input type="hidden" name="accepts_nexa_suite_bookings" value="0">
+                            <input type="checkbox"
+                                   class="kt-switch kt-switch-sm"
+                                   id="accepts_nexa_suite_bookings"
+                                   name="accepts_nexa_suite_bookings"
+                                   value="1"
+                                   {{ old('accepts_nexa_suite_bookings', true) ? 'checked' : '' }}/>
+                            Nexa Suite-boekingen
+                        </label>
                     </div>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">

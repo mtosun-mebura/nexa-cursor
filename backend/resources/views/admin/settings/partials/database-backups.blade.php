@@ -213,6 +213,21 @@
         min-width: 2.75rem;
         max-width: 2.75rem;
         padding-inline: 0.375rem !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+
+    #content #database-backups-table .database-backups-col-select .kt-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 2rem;
+        margin: 0;
+    }
+
+    #content #database-backups-table .database-backups-col-select .kt-checkbox {
+        margin: 0;
     }
 
     /* Deze lijstkop heeft py-3 in plaats van py-5, dus zakt de prullenbak mee. */

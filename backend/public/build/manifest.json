@@ -16,7 +16,7 @@
     "name": "runtime-dom.esm-bundler"
   },
   "resources/css/app.css": {
-    "file": "assets/app-54dJcp-R.css",
+    "file": "assets/app--VlfQzRQ.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -80,7 +80,7 @@
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-DRqTMkS1.js",
+    "file": "assets/website-page-builder-v2-HuHmogiG.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
@@ -89,7 +89,7 @@
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-CdGO7Cqi.css",
+      "assets/website-page-builder-v2-C5oQkqz8.css",
       "assets/nexa-smooth-accordion-CT5NIOwF.css"
     ]
   }

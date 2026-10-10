@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BootstrapSession, Capabilities } from '../api/auth';
 import { setUnauthorizedHandler } from '../api/client';
-import { stopBackgroundLocation } from '../location/background';
+import { stopDriverLocationTracking } from '../location/tracking';
 
 const SESSION_KEY = 'nexa_taxi_native_session';
 const GUEST_ROUTE_KEY = 'nexa_taxi_guest_route';
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const forceReLogin = useCallback(async () => {
     try {
-      await stopBackgroundLocation();
+      await stopDriverLocationTracking();
     } catch {
       /* ignore */
     }
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await stopBackgroundLocation();
+      await stopDriverLocationTracking();
     } catch {
       /* ignore */
     }

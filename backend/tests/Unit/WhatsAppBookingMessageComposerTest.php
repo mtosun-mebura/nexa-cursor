@@ -88,7 +88,7 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $composed = $composer->composeStatus(
             $ride,
             WhatsAppBookingMessageComposer::EVENT_STARTED,
-            ['driver_name' => 'Piet'],
+            ['driver_name' => 'Piet', 'license_plate' => 'AB-123-C'],
             1
         );
 
@@ -98,11 +98,28 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertSame('—', $composed['template_params'][3]);
         $this->assertSame('Piet', $composed['template_params'][4]);
         $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][6]);
-        $this->assertCount(7, $composed['template_params']);
+        $this->assertSame('AB-123-C', $composed['template_params'][7]);
+        $this->assertCount(8, $composed['template_params']);
         $this->assertStringContainsString('reactie op uw taxirit bij Taxi Royaal', $composed['preview']);
         $this->assertStringContainsString('Status: Rit gestart — chauffeur onderweg.', $composed['preview']);
         $this->assertStringContainsString('Chauffeur: Piet', $composed['preview']);
+        $this->assertStringContainsString('Kenteken: AB-123-C', $composed['preview']);
         $this->assertStringContainsString('Ophaaladres: Dam 1, Amsterdam', $composed['preview']);
+    }
+
+    #[Test]
+    public function status_meta_body_places_license_plate_under_driver(): void
+    {
+        $body = WhatsAppBookingMessageComposer::META_BODY_STATUS;
+        $chauffeurPos = strpos($body, 'Chauffeur: {{5}}');
+        $kentekenPos = strpos($body, 'Kenteken: {{8}}');
+        $ophalenPos = strpos($body, 'Ophaalmoment: {{6}}');
+
+        $this->assertNotFalse($chauffeurPos);
+        $this->assertNotFalse($kentekenPos);
+        $this->assertNotFalse($ophalenPos);
+        $this->assertTrue($chauffeurPos < $kentekenPos);
+        $this->assertTrue($kentekenPos < $ophalenPos);
     }
 
     #[Test]
@@ -138,5 +155,28 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_CANCELLED, $events);
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_REDISPATCHED, $events);
         $this->assertNotContains(WhatsAppBookingMessageComposer::EVENT_COMPLETED, $events);
+    }
+
+    #[Test]
+    public function pickup_proposal_sample_includes_license_plate_under_driver(): void
+    {
+        $whatsapp = Mockery::mock(WhatsAppBusinessService::class);
+        $env = Mockery::mock(EnvService::class);
+        $env->shouldReceive('get')->andReturn('');
+
+        $composer = new WhatsAppBookingMessageComposer(
+            new TaxiBookingSummaryText,
+            $whatsapp,
+            $env
+        );
+
+        $sample = $composer->samplePickupProposalPreview();
+        $body = WhatsAppBookingMessageComposer::META_BODY_PICKUP_PROPOSAL;
+
+        $this->assertCount(9, $sample['params']);
+        $this->assertSame('AB-123-L', $sample['params'][8]);
+        $this->assertStringContainsString('Chauffeur: Piet Chauffeur', $sample['preview']);
+        $this->assertStringContainsString('Kenteken: AB-123-L', $sample['preview']);
+        $this->assertTrue(strpos($body, 'Chauffeur: {{8}}') < strpos($body, 'Kenteken: {{9}}'));
     }
 }

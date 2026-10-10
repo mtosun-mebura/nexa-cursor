@@ -141,7 +141,9 @@
             'bus' => asset('images/gps/car-bus.png'),
         ]
         : [];
-    $nearbyTaxisUrl = $bookingMarketplaceFleet ? route('nexataxi.booking.nearby-taxis') : '';
+    $nearbyTaxisUrl = ($bookingMarketplaceFleet || $bookingMarketplacePersonRange)
+        ? route('nexataxi.booking.nearby-taxis')
+        : '';
     $bookingLiveMapPosition = 'beside_card';
     if ($bookingSplitMapV2) {
         $rawLiveMapPosition = strtolower(trim((string) ($sectionStyle['live_map_position'] ?? 'beside_card')));
@@ -466,12 +468,14 @@
                     </div>
                     <p class="hidden mb-4 text-sm font-bold text-yellow-400 dark:text-yellow-300" data-baggage-van-upgrade-notice role="status"></p>
                     <p class="hidden mb-4 text-sm text-slate-600 dark:text-slate-300" data-marketplace-note role="status"></p>
+                    <p class="hidden mb-4 text-sm text-slate-600 dark:text-slate-300" data-marketplace-availability role="status"></p>
                     <div class="space-y-4" data-offers-list></div>
                     <p class="text-sm mt-3 text-slate-600 dark:text-slate-300 hidden" data-offers-empty>Geen aanbiedingen beschikbaar voor de huidige invoer.</p>
                 </div>
 
                 <div class="hidden" id="booking-panel-trip" role="tabpanel" aria-labelledby="booking-tab-trip" data-step-panel="trip">
                     <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['trip'] ?? 'Reisgegevens') }}</h3>
+                    <p class="hidden mb-4 text-sm text-slate-600 dark:text-slate-300" data-marketplace-availability role="status"></p>
                     <div class="booking-trip-layout">
                         <div class="booking-trip-left space-y-5">
                             <label class="booking-module-field-heading block font-semibold text-heading">Waar wil je heen?</label>
@@ -709,6 +713,7 @@
                     <div class="booking-confirm-root w-full max-w-none mx-0">
                         <h3 class="booking-module-step-heading font-semibold mb-2" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
                         <p class="hidden mb-3 text-sm text-slate-600 dark:text-slate-300" data-marketplace-note role="status"></p>
+                        <p class="hidden mb-3 text-sm text-slate-600 dark:text-slate-300" data-marketplace-availability role="status"></p>
 
                         <div class="booking-confirm-wireframe rounded-2xl border bg-stone-100/90 dark:bg-slate-950/40 shadow-[0_2px_12px_rgba(15,23,42,0.06)] overflow-hidden w-full">
                             {{-- Route volle breedte; daaronder voertuig links + details rechts — compact, zonder interne scroll --}}
@@ -1186,8 +1191,11 @@
     max-width: calc(100% - 3.5rem);
     pointer-events: none;
 }
-[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-module-v2-map-legend,
-[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-show-all-btn {
+[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-map-mode-btn {
+    pointer-events: auto;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
     padding: 0.3rem 0.55rem;
     border-radius: 999px;
     background: rgba(15, 23, 42, 0.82);
@@ -1198,18 +1206,13 @@
     letter-spacing: 0.01em;
     line-height: 1.2;
 }
-[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-show-all-btn {
-    pointer-events: auto;
-    cursor: pointer;
-    white-space: nowrap;
-    font-family: inherit;
-}
-[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-show-all-btn.is-active {
+[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-map-mode-btn.is-active {
     color: #fff7ed;
     border-color: rgba(251, 146, 60, 0.85);
+    box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.35);
 }
-[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-show-all-btn:hover,
-[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-show-all-btn:focus-visible {
+[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-map-mode-btn:hover,
+[data-nexataxi-booking-module][data-booking-marketplace-fleet] .booking-live-map-mode-btn:focus-visible {
     background: rgba(15, 23, 42, 0.95);
     color: #fff7ed;
     outline: none;
@@ -1253,11 +1256,11 @@
 .booking-live-taxi-marker.is-occupied .booking-live-taxi-marker__status {
     background: #dc2626;
 }
-.booking-module-v2-map-legend .booking-live-legend-free {
+.booking-live-map-mode-btn .booking-live-legend-free {
     color: #16a34a;
     font-weight: 700;
 }
-.booking-module-v2-map-legend .booking-live-legend-busy {
+.booking-live-map-mode-btn .booking-live-legend-busy {
     color: #dc2626;
     font-weight: 700;
 }
@@ -3529,6 +3532,7 @@ section#boek-rit[data-nexataxi-booking-module],
     var mapsApiKey = @json($mapsApiKey);
     var bookingSplitMapV2 = @json($bookingSplitMapV2);
     var bookingMarketplaceFleet = @json($bookingMarketplaceFleet);
+    var bookingMarketplaceDispatch = @json(!empty($bookingMarketplacePersonRange));
     var bookingLiveFleetShowsStatus = @json(!empty($bookingLiveFleetShowsStatus));
     var bookingNoVehicles = @json(!empty($bookingNoVehicles));
     var nearbyTaxisUrl = @json($nearbyTaxisUrl);
@@ -6143,6 +6147,7 @@ section#boek-rit[data-nexataxi-booking-module],
         if (waypoint.type === 'pickup') {
             state.pickup_lat = coords.lat;
             state.pickup_lng = coords.lng;
+            syncMarketplaceAvailabilityPolling();
             return;
         }
         if (waypoint.type === 'dropoff') {
@@ -7198,6 +7203,11 @@ section#boek-rit[data-nexataxi-booking-module],
     var liveTaxiOverlays = {};
     var liveTaxiPrevPositions = {};
     var liveTaxiPollTimer = null;
+    var marketplaceAvailabilityPollTimer = null;
+    var marketplaceDispatchReady = null;
+    var marketplaceAvailabilityCheckInFlight = false;
+    var marketplaceAvailabilityLastPickupKey = '';
+    var MARKETPLACE_UNAVAILABLE_MESSAGE = 'Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.';
     var liveTaxiDidFit = false;
     var liveTaxiFittedWithPickup = false;
     var liveTaxiFitRetryTimer = null;
@@ -7208,10 +7218,77 @@ section#boek-rit[data-nexataxi-booking-module],
     var liveTaxiExpectZoomIn = false;
     var liveTaxiViewportWatchBound = false;
     var liveTaxiUserZoomed = false;
+    var liveTaxiViewportPinned = false;
+    var liveTaxiMapMode = 'live';
     var liveTaxiShowAllBound = false;
     var liveTaxiShowAllAt = 0;
     var liveTaxiCount = 0;
+    var liveFleetCarColorApplied = '';
     var BookingTaxiOverlay = null;
+
+    function normalizeFleetCarColorHex(value) {
+        var raw = String(value || '').trim();
+        if (/^#([A-Fa-f0-9]{3})$/.test(raw)) {
+            return ('#' + raw[1] + raw[1] + raw[2] + raw[2] + raw[3] + raw[3]).toLowerCase();
+        }
+        if (/^#([A-Fa-f0-9]{6})$/.test(raw)) {
+            return raw.toLowerCase();
+        }
+        return '';
+    }
+
+    function resolveFleetCarColor(taxi) {
+        var fromTaxi = normalizeFleetCarColorHex(taxi && taxi.color);
+        if (fromTaxi) return fromTaxi;
+        var fromConfig = normalizeFleetCarColorHex(config.logic && config.logic.live_fleet_car_color);
+        if (fromConfig) return fromConfig;
+        return '#ea580c';
+    }
+
+    function withFleetCarColor(taxi) {
+        if (!taxi || typeof taxi !== 'object') return taxi;
+        var next = Object.assign({}, taxi);
+        next.color = resolveFleetCarColor(taxi);
+        return next;
+    }
+
+    function applyFleetCarColorToAllLiveTaxis(color) {
+        var hex = normalizeFleetCarColorHex(color) || resolveFleetCarColor(null);
+        if (!hex) return;
+        if (config.logic) {
+            config.logic.live_fleet_car_color = hex;
+        }
+        liveFleetCarColorApplied = hex;
+        Object.keys(liveTaxiOverlays).forEach(function (id) {
+            var overlay = liveTaxiOverlays[id];
+            if (!overlay) return;
+            if (overlay.taxi) {
+                overlay.taxi.color = hex;
+            }
+            if (overlay.carEl) {
+                var img = overlay.carEl.querySelector('img');
+                applyBookingTaxiTint(img, overlay.taxi && overlay.taxi.car_style, hex);
+            }
+        });
+    }
+
+    function syncFleetCarColorFromPayload(payload, vehicles) {
+        var fromPayload = normalizeFleetCarColorHex(payload && payload.fleet_car_color);
+        var fromVehicle = '';
+        if (!fromPayload && Array.isArray(vehicles)) {
+            for (var i = 0; i < vehicles.length; i++) {
+                fromVehicle = normalizeFleetCarColorHex(vehicles[i] && vehicles[i].color);
+                if (fromVehicle) break;
+            }
+        }
+        var hex = fromPayload || fromVehicle || resolveFleetCarColor(null);
+        if (!hex) return;
+        if (hex !== liveFleetCarColorApplied) {
+            applyFleetCarColorToAllLiveTaxis(hex);
+        } else if (config.logic) {
+            config.logic.live_fleet_car_color = hex;
+        }
+    }
 
     function bookingTaxiHeading(from, to) {
         if (!from || !to) return 0;
@@ -7250,7 +7327,7 @@ section#boek-rit[data-nexataxi-booking-module],
             this.div.appendChild(badge);
             this.div.appendChild(wrap);
             this.applyTaxiStatus(this.taxi);
-            applyBookingTaxiTint(img, this.taxi && this.taxi.car_style, this.taxi && this.taxi.color);
+            applyBookingTaxiTint(img, this.taxi && this.taxi.car_style, resolveFleetCarColor(this.taxi));
             var panes = this.getPanes();
             if (panes && panes.overlayMouseTarget) {
                 panes.overlayMouseTarget.appendChild(this.div);
@@ -7293,7 +7370,7 @@ section#boek-rit[data-nexataxi-booking-module],
             this.applyTaxiStatus(taxi);
             if (this.carEl) {
                 var img = this.carEl.querySelector('img');
-                applyBookingTaxiTint(img, taxi && taxi.car_style, taxi && taxi.color);
+                applyBookingTaxiTint(img, taxi && taxi.car_style, resolveFleetCarColor(taxi));
             }
             this.draw();
         };
@@ -7396,6 +7473,81 @@ section#boek-rit[data-nexataxi-booking-module],
         return Math.max(1, Math.min(30, seconds)) * 1000;
     }
 
+    function marketplaceAvailabilityCheckMs() {
+        var seconds = parseInt(config.logic && config.logic.marketplace_availability_check_seconds != null
+            ? config.logic.marketplace_availability_check_seconds
+            : 3, 10);
+        if (isNaN(seconds)) seconds = 3;
+        return Math.max(1, Math.min(30, seconds)) * 1000;
+    }
+
+    function marketplaceRadiusKm() {
+        var km = parseFloat(config.logic && config.logic.marketplace_radius_km != null
+            ? config.logic.marketplace_radius_km
+            : 10);
+        if (isNaN(km) || km <= 0) km = 10;
+        return Math.max(1, Math.min(100, km));
+    }
+
+    function setMarketplaceAvailabilityStatus(message, tone) {
+        if (!getBookingModuleRoot()) return;
+        var els = root.querySelectorAll('[data-marketplace-availability]');
+        els.forEach(function(el) {
+            el.textContent = message || '';
+            el.classList.toggle('hidden', !message);
+            el.classList.remove('text-red-600', 'dark:text-red-300', 'text-amber-700', 'dark:text-amber-300', 'text-slate-600', 'dark:text-slate-300', 'text-emerald-700', 'dark:text-emerald-300');
+            if (!message) return;
+            if (tone === 'error') {
+                el.classList.add('text-red-600', 'dark:text-red-300');
+            } else if (tone === 'ok') {
+                el.classList.add('text-emerald-700', 'dark:text-emerald-300');
+            } else if (tone === 'wait') {
+                el.classList.add('text-amber-700', 'dark:text-amber-300');
+            } else {
+                el.classList.add('text-slate-600', 'dark:text-slate-300');
+            }
+        });
+    }
+
+    function applyMarketplaceDispatchReady(ready, options) {
+        options = options || {};
+        if (!bookingMarketplaceDispatch) return;
+        // Zonder ophaallocatie geen statusmelding (kaartpoll mag dit niet forceren).
+        if (!isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
+            marketplaceDispatchReady = null;
+            setMarketplaceAvailabilityStatus('', '');
+            return;
+        }
+        var prev = marketplaceDispatchReady;
+        marketplaceDispatchReady = !!ready;
+        if (marketplaceDispatchReady) {
+            setMarketplaceAvailabilityStatus('Er is een taxicentrale in de buurt beschikbaar. Je kunt de boeking voortzetten.', 'ok');
+            var errEl = root.querySelector('[data-booking-error]');
+            if (errEl && String(errEl.textContent || '') === MARKETPLACE_UNAVAILABLE_MESSAGE) {
+                clearError();
+            }
+            if (prev === false && options.requestQuotes !== false) {
+                requestQuotes();
+            }
+            return;
+        }
+        setMarketplaceAvailabilityStatus(MARKETPLACE_UNAVAILABLE_MESSAGE + ' We blijven dit automatisch controleren.', 'error');
+    }
+
+    function ensureMarketplaceDispatchReady() {
+        if (!bookingMarketplaceDispatch) return true;
+        if (!isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
+            setMarketplaceAvailabilityStatus('', '');
+            showError('Kies een ophaallocatie zodat we de dichtstbijzijnde taxicentrale kunnen bepalen.');
+            return false;
+        }
+        if (marketplaceDispatchReady === true) return true;
+        showError(MARKETPLACE_UNAVAILABLE_MESSAGE);
+        setMarketplaceAvailabilityStatus(MARKETPLACE_UNAVAILABLE_MESSAGE + ' We blijven dit automatisch controleren.', 'error');
+        checkMarketplaceAvailability(true);
+        return false;
+    }
+
     function syncLiveMapEmptyState() {
         if (!getBookingModuleRoot()) return;
         var emptyEl = root.querySelector('[data-booking-live-map-empty]');
@@ -7410,7 +7562,8 @@ section#boek-rit[data-nexataxi-booking-module],
         if (!Overlay) return;
         var nextIds = {};
         var points = [];
-        (Array.isArray(vehicles) ? vehicles : []).forEach(function (taxi) {
+        (Array.isArray(vehicles) ? vehicles : []).forEach(function (rawTaxi) {
+            var taxi = withFleetCarColor(rawTaxi);
             if (!taxi || !taxi.id || !isValidMapCoord(taxi.lat, taxi.lng)) return;
             nextIds[taxi.id] = true;
             var pos = { lat: Number(taxi.lat), lng: Number(taxi.lng) };
@@ -7483,15 +7636,77 @@ section#boek-rit[data-nexataxi-booking-module],
 
     function syncLiveTaxiShowAllButton() {
         if (!getBookingModuleRoot()) return;
-        var btn = root.querySelector('[data-booking-live-show-all]');
-        if (!btn) return;
-        btn.setAttribute('aria-pressed', liveTaxiUserZoomed ? 'true' : 'false');
-        btn.classList.toggle('is-active', liveTaxiUserZoomed);
+        var liveActive = !liveTaxiUserZoomed && liveTaxiMapMode === 'live';
+        var allActive = !liveTaxiUserZoomed && liveTaxiMapMode === 'all';
+        var liveBtn = root.querySelector('[data-booking-live-available]');
+        var allBtn = root.querySelector('[data-booking-live-show-all]');
+        if (liveBtn) {
+            liveBtn.setAttribute('aria-pressed', liveActive ? 'true' : 'false');
+            liveBtn.classList.toggle('is-active', liveActive);
+        }
+        if (allBtn) {
+            allBtn.setAttribute('aria-pressed', allActive ? 'true' : 'false');
+            allBtn.classList.toggle('is-active', allActive);
+        }
     }
 
     function setLiveTaxiUserZoomed(value) {
         liveTaxiUserZoomed = !!value;
+        if (liveTaxiUserZoomed) {
+            liveTaxiViewportPinned = false;
+        }
         syncLiveTaxiShowAllButton();
+    }
+
+    function isLiveAvailableTaxi(taxi) {
+        if (!taxi) return false;
+        if (taxi.busy === true) return false;
+        if (String(taxi.status || '') === 'occupied') return false;
+        return true;
+    }
+
+    function collectLiveAvailableTaxiPoints() {
+        var points = [];
+        Object.keys(liveTaxiOverlays).forEach(function (id) {
+            var overlay = liveTaxiOverlays[id];
+            var taxi = overlay && overlay.taxi;
+            var pos = liveTaxiPrevPositions[id];
+            if (!pos || !isValidMapCoord(pos.lat, pos.lng)) return;
+            if (!isLiveAvailableTaxi(taxi)) return;
+            points.push({ lat: Number(pos.lat), lng: Number(pos.lng) });
+        });
+        return points;
+    }
+
+    function fitLiveTaxiModePoints(points) {
+        if (!liveRouteMap || !points || !points.length) return false;
+        if (liveTaxiFitRetryTimer) {
+            clearTimeout(liveTaxiFitRetryTimer);
+            liveTaxiFitRetryTimer = null;
+        }
+        liveTaxiShowAllAt = Date.now();
+        liveTaxiExpectZoomIn = true;
+        liveTaxiDidFit = true;
+        liveTaxiFittedWithPickup = isValidMapCoord(state.pickup_lat, state.pickup_lng);
+        liveTaxiViewportPinned = true;
+        setLiveTaxiUserZoomed(false);
+        fitLiveRouteViewport(points, {
+            padding: { top: 48, right: 36, bottom: 48, left: 36 },
+            maxZoom: 14,
+        });
+        return true;
+    }
+
+    function showLiveAvailableTaxis() {
+        if (!liveRouteMap) return;
+        liveTaxiMapMode = 'live';
+        var points = collectLiveAvailableTaxiPoints();
+        if (!points.length) {
+            points = collectLiveTaxiPoints();
+        }
+        if (!fitLiveTaxiModePoints(points)) {
+            syncLiveTaxiShowAllButton();
+        }
     }
 
     function beginLiveTaxiFitFromCode() {
@@ -7505,86 +7720,30 @@ section#boek-rit[data-nexataxi-booking-module],
             setTimeout(function () {
                 if (generation !== liveTaxiFitGeneration) return;
                 liveTaxiFitFromCode = false;
-            }, 50);
-        });
-    }
-
-    function tightenLiveTaxiViewport(points, maxZoom) {
-        if (!liveRouteMap || liveTaxiUserZoomed || !points || !points.length) {
-            liveTaxiExpectZoomIn = false;
-            return;
-        }
-        var zoom = liveRouteMap.getZoom();
-        if (typeof zoom !== 'number' || typeof maxZoom !== 'number' || zoom >= maxZoom) {
-            liveTaxiExpectZoomIn = false;
-            return;
-        }
-        var previous = zoom;
-        var target = Math.min(maxZoom, zoom + 2);
-        if (target <= zoom) {
-            liveTaxiExpectZoomIn = false;
-            return;
-        }
-        liveTaxiExpectZoomIn = true;
-        beginLiveTaxiFitFromCode();
-        liveRouteMap.setZoom(target);
-        if (!window.google || !google.maps || !google.maps.event) {
-            liveTaxiExpectZoomIn = false;
-            return;
-        }
-        google.maps.event.addListenerOnce(liveRouteMap, 'idle', function () {
-            if (liveTaxiUserZoomed) {
                 liveTaxiExpectZoomIn = false;
-                return;
-            }
-            if (liveTaxiPointsInsideMap(points)) {
-                liveTaxiExpectZoomIn = false;
-                return;
-            }
-            var fallback = Math.min(maxZoom, previous + 1);
-            if (fallback > previous && fallback < target) {
-                liveTaxiExpectZoomIn = true;
-                beginLiveTaxiFitFromCode();
-                liveRouteMap.setZoom(fallback);
-                google.maps.event.addListenerOnce(liveRouteMap, 'idle', function () {
-                    if (liveTaxiUserZoomed || liveTaxiPointsInsideMap(points)) {
-                        liveTaxiExpectZoomIn = false;
-                        return;
-                    }
-                    liveTaxiExpectZoomIn = true;
-                    beginLiveTaxiFitFromCode();
-                    liveRouteMap.setZoom(previous);
-                    google.maps.event.addListenerOnce(liveRouteMap, 'idle', function () {
-                        liveTaxiExpectZoomIn = false;
-                    });
-                });
-                return;
-            }
-            liveTaxiExpectZoomIn = true;
-            beginLiveTaxiFitFromCode();
-            liveRouteMap.setZoom(previous);
-            google.maps.event.addListenerOnce(liveRouteMap, 'idle', function () {
-                liveTaxiExpectZoomIn = false;
-            });
+            }, 120);
         });
     }
 
     function showAllLiveTaxis() {
-        liveTaxiShowAllAt = Date.now();
-        liveTaxiExpectZoomIn = true;
-        setLiveTaxiUserZoomed(false);
-        maybeFitLiveTaxiViewport(collectLiveTaxiPoints(), { force: true });
+        if (!liveRouteMap) return;
+        liveTaxiMapMode = 'all';
+        var points = collectLiveTaxiPoints();
+        if (!fitLiveTaxiModePoints(points)) {
+            syncLiveTaxiShowAllButton();
+        }
     }
 
     function maybeFitLiveTaxiViewport(points, options) {
         options = options || {};
         var force = !!options.force;
         if (!liveRouteMap || !points || !points.length) return;
+        // Na “Alle auto’s” of handmatige zoom: niet blijven najagen / oscillereren.
+        if (!force && (liveTaxiUserZoomed || liveTaxiViewportPinned || (Date.now() - liveTaxiShowAllAt < 2500))) return;
         var hasPickup = isValidMapCoord(state.pickup_lat, state.pickup_lng);
         var needsInitialFit = !liveTaxiDidFit || (hasPickup && !liveTaxiFittedWithPickup && !liveTaxisHaveRouteViewport());
         var needsZoomOut = liveTaxiDidFit && !liveTaxiPointsInsideMap(points);
         if (!force && !needsInitialFit && !needsZoomOut) return;
-        if (!force && needsZoomOut && liveTaxiUserZoomed) return;
         if (needsInitialFit && liveTaxisHaveRouteViewport() && !needsZoomOut && !force) {
             liveTaxiDidFit = true;
             liveTaxiFittedWithPickup = true;
@@ -7592,7 +7751,7 @@ section#boek-rit[data-nexataxi-booking-module],
         }
         if (needsZoomOut && !force) {
             var now = Date.now();
-            if (now - liveTaxiZoomOutAt < 700) return;
+            if (now - liveTaxiZoomOutAt < 1500) return;
             liveTaxiZoomOutAt = now;
         }
 
@@ -7602,39 +7761,21 @@ section#boek-rit[data-nexataxi-booking-module],
         var fitPoints = force ? (points || []).slice() : collectLiveTaxiFitPoints(points);
         var currentZoom = liveRouteMap.getZoom();
         var fitOptions = {
-            padding: { top: 44, right: 24, bottom: 24, left: 24 },
-            maxZoom: (!force && needsZoomOut && typeof currentZoom === 'number') ? currentZoom : 16,
+            padding: { top: 48, right: 36, bottom: 48, left: 36 },
+            maxZoom: (!force && needsZoomOut && typeof currentZoom === 'number')
+                ? currentZoom
+                : (force ? 14 : 15),
         };
-        fitLiveRouteViewport(fitPoints, fitOptions);
         if (liveTaxiFitRetryTimer) {
             clearTimeout(liveTaxiFitRetryTimer);
+            liveTaxiFitRetryTimer = null;
         }
-        liveTaxiFitRetryTimer = setTimeout(function () {
-            triggerLiveRouteMapResize();
-            fitLiveRouteViewport(fitPoints, fitOptions);
-            if (window.google && google.maps && google.maps.event) {
-                google.maps.event.addListenerOnce(liveRouteMap, 'idle', function () {
-                    tightenLiveTaxiViewport(fitPoints, fitOptions.maxZoom);
-                });
-            } else {
-                liveTaxiExpectZoomIn = false;
-            }
-        }, 350);
+        fitLiveRouteViewport(fitPoints, fitOptions);
     }
 
     function bindLiveTaxiShowAllButton() {
         if (liveTaxiShowAllBound) return;
         liveTaxiShowAllBound = true;
-        document.addEventListener('click', function (event) {
-            var target = event.target && event.target.nodeType === 3 ? event.target.parentElement : event.target;
-            var btn = target && target.closest
-                ? target.closest('[data-booking-live-show-all]')
-                : null;
-            if (!btn) return;
-            if (!getBookingModuleRoot() || !root.contains(btn)) return;
-            event.preventDefault();
-            showAllLiveTaxis();
-        }, true);
         syncLiveTaxiShowAllButton();
     }
 
@@ -7667,41 +7808,118 @@ section#boek-rit[data-nexataxi-booking-module],
             if (typeof zoom === 'number') liveTaxiLastZoom = zoom;
             if (!liveTaxiDidFit) return;
             if (typeof previous !== 'number' || typeof zoom !== 'number' || zoom <= previous + 0.05) return;
-            if (liveTaxiExpectZoomIn || (Date.now() - liveTaxiShowAllAt < 1200)) return;
+            if (liveTaxiFitFromCode || liveTaxiExpectZoomIn || (Date.now() - liveTaxiShowAllAt < 2500)) return;
             setLiveTaxiUserZoomed(true);
         });
-        google.maps.event.addListener(liveRouteMap, 'idle', function () {
-            if (liveTaxiFitFromCode || liveTaxiUserZoomed) return;
-            maybeFitLiveTaxiViewport(collectLiveTaxiPoints());
-        });
+        // Geen auto-fit op idle: dat veroorzaakte zoom-oscillatie met fitBounds/poll.
     }
 
-    function fetchNearbyTaxis() {
-        if (!bookingMarketplaceFleet || !nearbyTaxisUrl) return;
+    function fetchNearbyTaxis(options) {
+        options = options || {};
+        if (!nearbyTaxisUrl) return Promise.resolve();
+        if (!bookingMarketplaceFleet && !bookingMarketplaceDispatch) return Promise.resolve();
         var params = new URLSearchParams({ section_key: String(sectionKey || '') });
         if (pageId) params.set('page_id', String(pageId));
         if (bookingModuleName) params.set('module', String(bookingModuleName));
+        if (bookingMarketplaceDispatch || bookingMarketplaceFleet) {
+            params.set('radius_km', String(marketplaceRadiusKm()));
+        }
         if (isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
             params.set('lat', String(state.pickup_lat));
             params.set('lng', String(state.pickup_lng));
         }
-        fetch(nearbyTaxisUrl + '?' + params.toString(), {
+        return fetch(nearbyTaxisUrl + '?' + params.toString(), {
             headers: { Accept: 'application/json' },
             credentials: 'same-origin',
         })
             .then(function (res) { return res.ok ? res.json() : Promise.reject(res); })
             .then(function (payload) {
-                if (!payload || !Array.isArray(payload.vehicles)) return;
-                upsertLiveTaxis(payload.vehicles);
+                if (payload && Array.isArray(payload.vehicles) && bookingMarketplaceFleet) {
+                    syncFleetCarColorFromPayload(payload, payload.vehicles);
+                    upsertLiveTaxis(payload.vehicles);
+                } else if (payload) {
+                    syncFleetCarColorFromPayload(payload, payload.vehicles || []);
+                }
+                if (
+                    bookingMarketplaceDispatch
+                    && payload
+                    && payload.marketplace
+                    && isValidMapCoord(state.pickup_lat, state.pickup_lng)
+                ) {
+                    applyMarketplaceDispatchReady(!!payload.marketplace.dispatch_ready, {
+                        requestQuotes: options.requestQuotes !== false,
+                    });
+                }
+                return payload;
             })
             .catch(function () { /* laat laatste posities staan bij een mislukte poll */ });
     }
 
+    function checkMarketplaceAvailability(force) {
+        if (!bookingMarketplaceDispatch || !nearbyTaxisUrl) return Promise.resolve();
+        if (!isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
+            marketplaceDispatchReady = null;
+            marketplaceAvailabilityLastPickupKey = '';
+            setMarketplaceAvailabilityStatus('', '');
+            return Promise.resolve();
+        }
+        var pickupKey = String(state.pickup_lat) + ',' + String(state.pickup_lng);
+        if (!force && marketplaceAvailabilityCheckInFlight && marketplaceAvailabilityLastPickupKey === pickupKey) {
+            return Promise.resolve();
+        }
+        marketplaceAvailabilityLastPickupKey = pickupKey;
+        marketplaceAvailabilityCheckInFlight = true;
+        if (marketplaceDispatchReady !== true) {
+            setMarketplaceAvailabilityStatus('We zoeken naar een beschikbare taxicentrale in de buurt…', 'wait');
+        }
+        return fetchNearbyTaxis({ requestQuotes: true }).finally(function () {
+            marketplaceAvailabilityCheckInFlight = false;
+        });
+    }
+
+    function startMarketplaceAvailabilityPolling() {
+        if (!bookingMarketplaceDispatch) return;
+        if (!isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
+            stopMarketplaceAvailabilityPolling();
+            setMarketplaceAvailabilityStatus('', '');
+            return;
+        }
+        checkMarketplaceAvailability(true);
+        if (marketplaceAvailabilityPollTimer) {
+            clearInterval(marketplaceAvailabilityPollTimer);
+            marketplaceAvailabilityPollTimer = null;
+        }
+        marketplaceAvailabilityPollTimer = setInterval(function () {
+            checkMarketplaceAvailability(false);
+        }, marketplaceAvailabilityCheckMs());
+    }
+
+    function stopMarketplaceAvailabilityPolling() {
+        if (marketplaceAvailabilityPollTimer) {
+            clearInterval(marketplaceAvailabilityPollTimer);
+            marketplaceAvailabilityPollTimer = null;
+        }
+    }
+
+    function syncMarketplaceAvailabilityPolling() {
+        if (!bookingMarketplaceDispatch) return;
+        if (!isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
+            stopMarketplaceAvailabilityPolling();
+            marketplaceDispatchReady = null;
+            marketplaceAvailabilityLastPickupKey = '';
+            setMarketplaceAvailabilityStatus('', '');
+            return;
+        }
+        startMarketplaceAvailabilityPolling();
+    }
+
     function startLiveTaxiPolling() {
         if (!bookingMarketplaceFleet) return;
-        fetchNearbyTaxis();
+        fetchNearbyTaxis({ requestQuotes: false });
         if (liveTaxiPollTimer) return;
-        liveTaxiPollTimer = setInterval(fetchNearbyTaxis, liveFleetRefreshMs());
+        liveTaxiPollTimer = setInterval(function () {
+            fetchNearbyTaxis({ requestQuotes: false });
+        }, liveFleetRefreshMs());
     }
 
     function bindConfirmWireframeHeightSync() {
@@ -8040,6 +8258,9 @@ section#boek-rit[data-nexataxi-booking-module],
         liveTaxiZoomOutAt = 0;
         liveTaxiLastZoom = null;
         liveTaxiExpectZoomIn = false;
+        liveTaxiViewportPinned = false;
+        liveTaxiShowAllAt = 0;
+        liveTaxiMapMode = 'live';
         setLiveTaxiUserZoomed(false);
         routeCalcSeq += 1;
         clearLiveRouteMapOverlays();
@@ -8180,8 +8401,9 @@ section#boek-rit[data-nexataxi-booking-module],
                 state.pickup_lng = coords.lng;
                 if (bookingMarketplaceFleet) {
                     liveTaxiFittedWithPickup = false;
-                    fetchNearbyTaxis();
+                    fetchNearbyTaxis({ requestQuotes: false });
                 }
+                syncMarketplaceAvailabilityPolling();
             } else if (fieldName === 'dropoff_address') {
                 state.dropoff_lat = coords.lat;
                 state.dropoff_lng = coords.lng;
@@ -8684,6 +8906,7 @@ section#boek-rit[data-nexataxi-booking-module],
                 });
                 state.dropoff_lat = points[points.length - 1].lat;
                 state.dropoff_lng = points[points.length - 1].lng;
+                syncMarketplaceAvailabilityPolling();
                 return fetchOsrmRouteForPoints(points, seq);
             })
             .catch(function() {
@@ -8851,6 +9074,7 @@ section#boek-rit[data-nexataxi-booking-module],
                 setFieldError('return_at', 'Vul het retourmoment in.');
                 return false;
             }
+            if (!ensureMarketplaceDispatchReady()) return false;
         }
         if (currentStepKey === 'contact') {
             return validateContactStepFields();
@@ -8885,6 +9109,10 @@ section#boek-rit[data-nexataxi-booking-module],
         }
         if (state.return_trip && !String(state.return_at || '').trim()) {
             setFieldError('return_at', 'Vul het retourmoment in.');
+            setStepByKey('trip');
+            return false;
+        }
+        if (!ensureMarketplaceDispatchReady()) {
             setStepByKey('trip');
             return false;
         }
@@ -8998,10 +9226,11 @@ section#boek-rit[data-nexataxi-booking-module],
     function submitBooking(sendToWhatsapp) {
         if (bookingNoVehicles) return;
         if (bookingSubmitInFlight || bookingSubmitted) return;
+        syncStateFromFields();
+        if (!ensureMarketplaceDispatchReady()) return;
         bookingSubmitInFlight = true;
         clearError();
         setConfirmModalSubmitting(true);
-        syncStateFromFields();
         var paymentMethod = getSelectedPaymentMethod();
         var returnUrl = bookingReturnUrl || window.location.href || '';
         if (returnUrl.indexOf('#') !== -1) returnUrl = returnUrl.split('#')[0];
@@ -9615,6 +9844,7 @@ section#boek-rit[data-nexataxi-booking-module],
                 if (field === 'pickup_address' && coords) {
                     state.pickup_lat = coords.lat;
                     state.pickup_lng = coords.lng;
+                    syncMarketplaceAvailabilityPolling();
                 } else if (field === 'dropoff_address' && coords) {
                     state.dropoff_lat = coords.lat;
                     state.dropoff_lng = coords.lng;
@@ -9893,6 +10123,7 @@ section#boek-rit[data-nexataxi-booking-module],
                 state.pickup_lat = null;
                 state.pickup_lng = null;
                 state.pickup_gps_locked = false;
+                syncMarketplaceAvailabilityPolling();
             } else if (field === 'dropoff_address') {
                 state.dropoff_place_id = null;
                 state.dropoff_lat = null;
@@ -10142,6 +10373,7 @@ section#boek-rit[data-nexataxi-booking-module],
             state.pickup_lng = lng;
             state.pickup_gps_locked = true;
             syncStateFromFields();
+            syncMarketplaceAvailabilityPolling();
             hideSuggestionPanel('pickup');
             if (bookingSplitMapV2) {
                 syncLiveMapForRouteInputs({ force: true, animateLabel: 'A' });
@@ -10388,9 +10620,17 @@ section#boek-rit[data-nexataxi-booking-module],
 
     root.addEventListener('click', function(e) {
         var clickEl = e.target && e.target.nodeType === 3 ? e.target.parentElement : e.target;
+        var liveAvailableBtn = clickEl && clickEl.closest ? clickEl.closest('[data-booking-live-available]') : null;
+        if (liveAvailableBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            showLiveAvailableTaxis();
+            return;
+        }
         var showAllTaxisBtn = clickEl && clickEl.closest ? clickEl.closest('[data-booking-live-show-all]') : null;
         if (showAllTaxisBtn) {
             e.preventDefault();
+            e.stopPropagation();
             showAllLiveTaxis();
             return;
         }
@@ -10520,6 +10760,7 @@ section#boek-rit[data-nexataxi-booking-module],
                     indexStopoverRows();
                 }
                 syncStateFromFields();
+                syncMarketplaceAvailabilityPolling();
                 state.summary_route_polyline = '';
                 liveRouteCalcLastSignature = '';
                 liveRouteMapRenderSignature = '';
@@ -10723,6 +10964,9 @@ section#boek-rit[data-nexataxi-booking-module],
         if (bookingMarketplaceFleet) {
             bindLiveTaxiShowAllButton();
             startLiveTaxiPolling();
+        }
+        if (bookingMarketplaceDispatch) {
+            syncMarketplaceAvailabilityPolling();
         }
         if (bookingSplitMapV2) {
             bindConfirmWireframeHeightSync();

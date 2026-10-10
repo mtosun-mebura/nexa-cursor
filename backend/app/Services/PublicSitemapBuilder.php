@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\GeneralSetting;
 use App\Models\WebsitePage;
+use App\Support\CentralSiteBrand;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Bouwt een Google-compatibele XML-sitemap voor de huidige host (platform of tenant).
@@ -32,6 +34,17 @@ class PublicSitemapBuilder
             $pages = $this->websiteBuilder
                 ->loadAllPagesForAdminIndex($companyId, $companyId !== null)
                 ->filter(fn ($page) => $page instanceof WebsitePage && (bool) $page->is_active);
+
+            if ($companyId === null && Schema::hasColumn((new WebsitePage)->getTable(), 'site_brand')) {
+                $pages = $pages->filter(function ($page) {
+                    if (! $page instanceof WebsitePage) {
+                        return false;
+                    }
+                    $pageBrand = (string) ($page->site_brand ?? '');
+
+                    return $pageBrand === CentralSiteBrand::NEXASUITE || $pageBrand === '';
+                });
+            }
 
             foreach ($pages as $page) {
                 $loc = $this->publicUrlForPage($page);

@@ -24,6 +24,7 @@ class TaxiCustomerRideStatusNotificationService
      * @param  array{
      *     driver_name?: string|null,
      *     driver_phone?: string|null,
+     *     license_plate?: string|null,
      *     extra_lines?: list<string>,
      *     stopovers?: list<string>,
      *     return_at?: string|null,

@@ -1074,14 +1074,33 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const appHeader = (
     <View style={styles.header}>
       <View style={styles.logoBar}>
-        <Image
-          source={logoSource}
-          style={styles.logo}
-          resizeMode="contain"
-          accessibilityLabel="NEXA | taxi"
-        />
+        <Pressable
+          onPress={goToBookTab}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Naar Boeken"
+        >
+          <Image
+            source={logoSource}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="NEXA | taxi"
+          />
+        </Pressable>
       </View>
       <View style={styles.headerTitleRow}>
+        <Pressable
+          onPress={onBack}
+          hitSlop={8}
+          style={styles.headerBackBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Naar startpagina"
+        >
+          <Ionicons name="home-outline" size={22} color={colors.text} />
+        </Pressable>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {headerTitle}
+        </Text>
         {tab === 'rides' && showArchivedRides ? (
           <Pressable
             onPress={() => setShowArchivedRides(false)}
@@ -1094,10 +1113,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         ) : (
           <View style={styles.headerBackBtn} />
         )}
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {headerTitle}
-        </Text>
-        <View style={styles.headerBackBtn} />
       </View>
     </View>
   );
@@ -1714,8 +1729,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         })}
       </Card>
 
-      <PrimaryButton title="Rit boeken" onPress={goToBookTab} />
-      <GhostButton title="Terug naar start" onPress={onBack} />
     </ScrollView>
   );
 
