@@ -304,7 +304,7 @@
                 };
             },
             parseHTML() {
-                return [{ tag: 'span', getAttrs: function (node) { return (node.style && node.style.fontSize) ? { fontSize: node.style.fontSize } : {}; } }];
+                return [{ tag: 'span', getAttrs: function (node) { return (node.style && node.style.fontSize) ? { fontSize: node.style.fontSize } : false; } }];
             },
             renderHTML: function (_a) {
                 var mark = _a.mark;
@@ -312,10 +312,19 @@
                 return ['span', { style: 'font-size: ' + mark.attrs.fontSize }, 0];
             },
             addCommands() {
-                var self = this;
                 return {
-                    setFontSize: function (fontSize) { return function (_a) { var chain = _a.chain; return fontSize ? chain().focus().setMark(self.name, { fontSize: fontSize }).run() : chain().focus().unsetMark(self.name).run(); }; },
-                    unsetFontSize: function () { return function (_a) { var chain = _a.chain; return chain().focus().unsetMark(self.name).run(); }; }
+                    setFontSize: function (fontSize) {
+                        return function (_a) {
+                            var commands = _a.commands;
+                            if (!fontSize) return commands.unsetMark('fontSize');
+                            return commands.setMark('fontSize', { fontSize: fontSize });
+                        };
+                    },
+                    unsetFontSize: function () {
+                        return function (_a) {
+                            return _a.commands.unsetMark('fontSize');
+                        };
+                    }
                 };
             }
         });
@@ -332,7 +341,7 @@
                 };
             },
             parseHTML() {
-                return [{ tag: 'span', getAttrs: function (node) { return (node.style && node.style.fontFamily) ? { fontFamily: node.style.fontFamily } : {}; } }];
+                return [{ tag: 'span', getAttrs: function (node) { return (node.style && node.style.fontFamily) ? { fontFamily: node.style.fontFamily } : false; } }];
             },
             renderHTML: function (_a) {
                 var mark = _a.mark;
@@ -340,10 +349,19 @@
                 return ['span', { style: 'font-family: ' + mark.attrs.fontFamily }, 0];
             },
             addCommands() {
-                var self = this;
                 return {
-                    setFontFamily: function (fontFamily) { return function (_a) { var chain = _a.chain; return fontFamily ? chain().focus().setMark(self.name, { fontFamily: fontFamily }).run() : chain().focus().unsetMark(self.name).run(); }; },
-                    unsetFontFamily: function () { return function (_a) { var chain = _a.chain; return chain().focus().unsetMark(self.name).run(); }; }
+                    setFontFamily: function (fontFamily) {
+                        return function (_a) {
+                            var commands = _a.commands;
+                            if (!fontFamily) return commands.unsetMark('fontFamily');
+                            return commands.setMark('fontFamily', { fontFamily: fontFamily });
+                        };
+                    },
+                    unsetFontFamily: function () {
+                        return function (_a) {
+                            return _a.commands.unsetMark('fontFamily');
+                        };
+                    }
                 };
             }
         });
@@ -426,10 +444,19 @@
                 return ['span', { style: 'color: ' + mark.attrs.color }, 0];
             },
             addCommands() {
-                var self = this;
                 return {
-                    setColor: function (color) { return function (_a) { var chain = _a.chain; return color ? chain().focus().setMark(self.name, { color: color }).run() : chain().focus().unsetMark(self.name).run(); }; },
-                    unsetColor: function () { return function (_a) { var chain = _a.chain; return chain().focus().unsetMark(self.name).run(); }; }
+                    setColor: function (color) {
+                        return function (_a) {
+                            var commands = _a.commands;
+                            if (!color) return commands.unsetMark('textColor');
+                            return commands.setMark('textColor', { color: color });
+                        };
+                    },
+                    unsetColor: function () {
+                        return function (_a) {
+                            return _a.commands.unsetMark('textColor');
+                        };
+                    }
                 };
             }
         });
@@ -482,8 +509,99 @@
         wrapper._flowbiteEditor = editor;
         wrapper._wysiwygIcons = wysiwygIcons;
 
-        function q(id) { return document.getElementById(prefix + id) || wrapper.querySelector('[id="' + prefix + id + '"]'); }
-        function on(id, fn) { const el = q(id); if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); }); }
+        /* Altijd eerst binnen deze wrapper zoeken: bij config-modal bestaan er
+           twee editors met dezelfde id’s; getElementById pakt dan de verkeerde knop. */
+        function q(id) {
+            var local = wrapper.querySelector('[id="' + prefix + id + '"]');
+            if (local) return local;
+            return document.getElementById(prefix + id);
+        }
+        /**
+         * Selectie bewaren: bij klik op toolbar/select verdwijnt de ProseMirror-selectie
+         * vaak al vóór mousedown op de knop. Daarom ook continuous lastUsefulSelection.
+         */
+        var savedToolbarSelection = null;
+        var lastUsefulSelection = null;
+        function captureSelectionRange() {
+            try {
+                var sel = editor.state.selection;
+                return { from: sel.from, to: sel.to, empty: sel.empty };
+            } catch (e) {
+                return null;
+            }
+        }
+        function rememberToolbarSelection() {
+            var sel = captureSelectionRange();
+            if (!sel) return;
+            savedToolbarSelection = sel;
+            if (!sel.empty) lastUsefulSelection = sel;
+        }
+        function resolveToolbarSelection() {
+            var current = captureSelectionRange();
+            if (savedToolbarSelection && !savedToolbarSelection.empty) return savedToolbarSelection;
+            if (lastUsefulSelection && !lastUsefulSelection.empty) return lastUsefulSelection;
+            if (current && !current.empty) return current;
+            return savedToolbarSelection || current || lastUsefulSelection;
+        }
+        /** Bij lege caret: hele tekstblok selecteren zodat lettergrootte/kleur/font zichtbaar werken. */
+        function expandCollapsedToParentBlock() {
+            try {
+                var sel = editor.state.selection;
+                if (!sel.empty) return;
+                var $from = sel.$from;
+                var depth = $from.depth;
+                while (depth > 0 && !$from.node(depth).isTextblock) depth -= 1;
+                if (depth <= 0) return;
+                var from = $from.start(depth);
+                var to = $from.end(depth);
+                if (to > from) editor.commands.setTextSelection({ from: from, to: to });
+            } catch (e) {}
+        }
+        function restoreToolbarSelection(opts) {
+            var target = resolveToolbarSelection();
+            if (target && typeof target.from === 'number') {
+                try {
+                    editor.commands.setTextSelection({ from: target.from, to: target.to });
+                } catch (e) {}
+            }
+            if (opts && opts.expandIfEmpty) expandCollapsedToParentBlock();
+        }
+        function runToolbarCommand(fn, opts) {
+            editor.chain().focus().run();
+            restoreToolbarSelection(opts || {});
+            fn();
+            if (textarea) textarea.value = editor.getHTML();
+            scheduleToolbarUpdate();
+            savedToolbarSelection = captureSelectionRange();
+            if (savedToolbarSelection && !savedToolbarSelection.empty) {
+                lastUsefulSelection = savedToolbarSelection;
+            }
+        }
+        function on(id, fn, opts) {
+            var el = q(id);
+            if (!el) return;
+            el.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                rememberToolbarSelection();
+            });
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                runToolbarCommand(fn, opts);
+            });
+        }
+        editor.on('selectionUpdate', function () {
+            var sel = captureSelectionRange();
+            if (sel && !sel.empty) lastUsefulSelection = sel;
+        });
+        /* Capture-fase: selectie vastleggen vóórdat focus naar toolbar springt. */
+        var toolbarEl = wrapper.querySelector('.flowbite-wysiwyg-toolbar');
+        if (toolbarEl) {
+            toolbarEl.addEventListener('pointerdown', function (e) {
+                var t = e.target;
+                if (!t || !toolbarEl.contains(t)) return;
+                rememberToolbarSelection();
+            }, true);
+        }
 
         function normalizeLinkUrl(raw) {
             var url = (raw || '').trim();
@@ -616,33 +734,55 @@
         on('-toggleHR', () => { if (editor.chain().focus().setHorizontalRule) editor.chain().focus().setHorizontalRule().run(); });
         on('-undo', () => editor.chain().focus().undo().run());
         on('-redo', () => editor.chain().focus().redo().run());
-        on('-setParagraph', () => editor.chain().focus().setParagraph().run());
+        on('-setParagraph', () => { editor.chain().focus().setParagraph().run(); });
         on('-clearFormat', () => {
-            editor.chain().focus().selectAll().unsetAllMarks().run();
+            editor.chain().focus().unsetAllMarks().run();
             try { editor.chain().focus().clearNodes().run(); } catch (e) {}
         });
-        on('-setH1', () => editor.chain().focus().toggleHeading({ level: 1 }).run());
-        on('-setH2', () => editor.chain().focus().toggleHeading({ level: 2 }).run());
-        on('-setH3', () => editor.chain().focus().toggleHeading({ level: 3 }).run());
-        on('-setH4', () => editor.chain().focus().toggleHeading({ level: 4 }).run());
+        on('-setH1', () => { editor.chain().focus().setHeading({ level: 1 }).run(); });
+        on('-setH2', () => { editor.chain().focus().setHeading({ level: 2 }).run(); });
+        on('-setH3', () => { editor.chain().focus().setHeading({ level: 3 }).run(); });
+        on('-setH4', () => { editor.chain().focus().setHeading({ level: 4 }).run(); });
 
+        var markOpts = { expandIfEmpty: true };
         var fontSizeSelect = q('-fontSize');
-        if (fontSizeSelect) fontSizeSelect.addEventListener('change', function () {
-            var v = fontSizeSelect.value;
-            editor.chain().focus()[v ? 'setFontSize' : 'unsetFontSize'](v || undefined).run();
-        });
+        if (fontSizeSelect) {
+            fontSizeSelect.addEventListener('mousedown', rememberToolbarSelection);
+            fontSizeSelect.addEventListener('focus', rememberToolbarSelection);
+            fontSizeSelect.addEventListener('change', function () {
+                var v = fontSizeSelect.value;
+                runToolbarCommand(function () {
+                    if (v) editor.chain().focus().setFontSize(v).run();
+                    else editor.chain().focus().unsetFontSize().run();
+                }, markOpts);
+            });
+        }
         var fontFamilySelect = q('-fontFamily');
-        if (fontFamilySelect) fontFamilySelect.addEventListener('change', function () {
-            var v = fontFamilySelect.value;
-            editor.chain().focus()[v ? 'setFontFamily' : 'unsetFontFamily'](v || undefined).run();
-        });
+        if (fontFamilySelect) {
+            fontFamilySelect.addEventListener('mousedown', rememberToolbarSelection);
+            fontFamilySelect.addEventListener('focus', rememberToolbarSelection);
+            fontFamilySelect.addEventListener('change', function () {
+                var v = fontFamilySelect.value;
+                runToolbarCommand(function () {
+                    if (v) editor.chain().focus().setFontFamily(v).run();
+                    else editor.chain().focus().unsetFontFamily().run();
+                }, markOpts);
+            });
+        }
 
         var textColorInput = q('-textColor');
-        if (textColorInput) textColorInput.addEventListener('input', function () {
-            var v = textColorInput.value;
-            if (v) editor.chain().focus().setColor(v).run();
-        });
-        on('-unsetTextColor', () => editor.chain().focus().unsetColor().run());
+        if (textColorInput) {
+            textColorInput.addEventListener('mousedown', rememberToolbarSelection);
+            textColorInput.addEventListener('focus', rememberToolbarSelection);
+            textColorInput.addEventListener('input', function () {
+                var v = textColorInput.value;
+                if (!v) return;
+                runToolbarCommand(function () {
+                    editor.chain().focus().setColor(v).run();
+                }, markOpts);
+            });
+        }
+        on('-unsetTextColor', () => { editor.chain().focus().unsetColor().run(); }, markOpts);
 
         on('-addImage', () => {
             const input = wrapper.querySelector('.flowbite-wysiwyg-image-input');

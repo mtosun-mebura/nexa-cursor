@@ -80,6 +80,7 @@ export function DriverSettleRideModal({
   const [localRide, setLocalRide] = useState<DriverActiveRide | null>(ride);
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sendingInvoice, setSendingInvoice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openPayment, setOpenPayment] = useState<RideOpenPayment | null>(null);
   const [invoice, setInvoice] = useState<RideInvoiceSummary | null>(null);
@@ -113,6 +114,8 @@ export function DriverSettleRideModal({
     setOpenPayment(null);
     setError(null);
     setInvoiceMessage(null);
+    setSendingInvoice(false);
+    setBusy(false);
   }, [visible, ride?.id]);
 
   useEffect(() => {
@@ -270,6 +273,7 @@ export function DriverSettleRideModal({
       return;
     }
     setBusy(true);
+    setSendingInvoice(true);
     setError(null);
     setInvoiceMessage(null);
     try {
@@ -280,6 +284,7 @@ export function DriverSettleRideModal({
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Factuur versturen mislukt.');
     } finally {
+      setSendingInvoice(false);
       setBusy(false);
     }
   }
@@ -423,17 +428,25 @@ export function DriverSettleRideModal({
                 <Pressable
                   style={[
                     styles.btn,
-                    styles.btnGhost,
+                    styles.btnSuccess,
                     (busy || invoice?.can_send === false) && styles.btnDisabled,
                   ]}
                   disabled={busy || invoice?.can_send === false}
                   onPress={onSendInvoice}
+                  accessibilityState={{ busy: sendingInvoice }}
                 >
-                  <Text style={styles.btnGhostText}>
-                    {invoice?.invoice_leg_label
-                      ? `Factuur ${invoice.invoice_leg_label} versturen`
-                      : 'Factuur versturen'}
-                  </Text>
+                  {sendingInvoice ? (
+                    <View style={styles.btnLoading}>
+                      <ActivityIndicator color="#fff" />
+                      <Text style={styles.btnSuccessText}>Bezig…</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.btnSuccessText}>
+                      {invoice?.invoice_leg_label
+                        ? `Factuur ${invoice.invoice_leg_label} versturen`
+                        : 'Factuur versturen'}
+                    </Text>
+                  )}
                 </Pressable>
               </>
             )}
@@ -537,12 +550,20 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     btnPrimary: { backgroundColor: accentHex, flex: 1 },
     btnPrimaryText: { color: '#fff', fontWeight: '800' },
+    btnSuccess: { backgroundColor: colors.success },
+    btnSuccessText: { color: '#fff', fontWeight: '800' },
     btnGhost: {
       flex: 1,
       borderWidth: 1,
       borderColor: hexAlpha(accentHex, 0.45),
     },
     btnGhostText: { color: colors.text, fontWeight: '700' },
+    btnLoading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
     btnDisabled: { opacity: 0.45 },
   });
 }

@@ -15,6 +15,7 @@ use App\Modules\NexaTaxi\Support\RideAlertTone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
+use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
@@ -129,6 +130,14 @@ class DriverAuthController extends Controller
         $availability = $this->driverAvailability($moduleDb, (int) $user->id);
         $isOnline = $availability && $availability->is_online;
         $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
+        $gpsAppearance = app(TaxiGpsTrackingSettingsService::class)->appearance($companyId);
+        $gpsRefreshSeconds = max(
+            TaxiGpsTrackingSettingsService::MIN_REFRESH_SECONDS,
+            min(
+                TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS,
+                (int) ($gpsAppearance['refresh_seconds'] ?? 1)
+            )
+        );
 
         return response()->json([
             'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline, $availability),
@@ -138,6 +147,7 @@ class DriverAuthController extends Controller
             ],
             'meta' => [
                 'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
+                'gps_refresh_seconds' => $gpsRefreshSeconds,
             ],
         ]);
     }

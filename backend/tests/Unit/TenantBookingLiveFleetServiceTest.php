@@ -213,6 +213,23 @@ class TenantBookingLiveFleetServiceTest extends TestCase
     }
 
     #[Test]
+    public function merge_clamps_marketplace_availability_check_seconds(): void
+    {
+        $defaults = app(NexaTaxiBookingPricingService::class)->mergeSectionConfig([]);
+        $this->assertSame(3, $defaults['logic']['marketplace_availability_check_seconds']);
+
+        $high = app(NexaTaxiBookingPricingService::class)->mergeSectionConfig([
+            'logic' => ['marketplace_availability_check_seconds' => 99],
+        ]);
+        $this->assertSame(30, $high['logic']['marketplace_availability_check_seconds']);
+
+        $ok = app(NexaTaxiBookingPricingService::class)->mergeSectionConfig([
+            'logic' => ['marketplace_availability_check_seconds' => 5],
+        ]);
+        $this->assertSame(5, $ok['logic']['marketplace_availability_check_seconds']);
+    }
+
+    #[Test]
     public function demo_vehicles_move_along_a_path_over_time(): void
     {
         Http::fake();

@@ -246,6 +246,7 @@ class AdminCompanyWizardController extends AdminCompanyController
         $data['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
         $data['is_main'] = $request->has('is_main') ? (bool) $request->input('is_main') : false;
         $data['is_active'] = $request->has('is_active') ? (bool) $request->input('is_active') : false;
+        $data['accepts_nexa_suite_bookings'] = $request->boolean('accepts_nexa_suite_bookings');
 
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {
             $data['industry'] = $request->input('branch_select');
@@ -648,6 +649,7 @@ class AdminCompanyWizardController extends AdminCompanyController
         $companyData['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
         $companyData['is_main'] = $request->has('is_main') ? (bool) $request->input('is_main') : false;
         $companyData['is_active'] = $request->has('is_active') ? (bool) $request->input('is_active') : true;
+        $companyData['accepts_nexa_suite_bookings'] = $request->boolean('accepts_nexa_suite_bookings');
 
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {
             $companyData['industry'] = $request->input('branch_select');
@@ -728,6 +730,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             'is_intermediary' => 'nullable|boolean',
             'is_main' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
+            'accepts_nexa_suite_bookings' => 'nullable|boolean',
             'contact_first_name' => 'required|string|max:255',
             'contact_last_name' => 'required|string|max:255',
             'package_key' => ['required', 'string', 'max:80', Rule::in($packageKeys)],

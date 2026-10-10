@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeContext';
+import { tabBarBottomPadding } from './tabBarSafeArea';
 
 export type DriverTabKey =
   | 'trips'
@@ -50,7 +51,7 @@ export function DriverTabBar({
       style={[
         styles.bar,
         {
-          paddingBottom: Math.max(4, insets.bottom > 0 ? insets.bottom - 8 : 4),
+          paddingBottom: tabBarBottomPadding(insets.bottom),
           borderTopColor: colors.border,
           backgroundColor: colors.tabBar,
         },

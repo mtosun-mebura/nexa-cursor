@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useKeepAwake } from 'expo-keep-awake';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, StatusBar, View } from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
@@ -211,6 +212,7 @@ function RootNavigator() {
 }
 
 function AppShell() {
+  useKeepAwake();
   const { colors, colorScheme } = useTheme();
   return (
     <>

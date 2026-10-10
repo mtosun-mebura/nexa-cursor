@@ -123,12 +123,27 @@ class NexaTaxiBookingController extends Controller
             $sectionKey,
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $configRadiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
+            $resolved['config']['logic']['marketplace_radius_km'] ?? null
+        );
+        if ($radiusKm === null) {
+            $radiusKm = $configRadiusKm;
+        }
         $company = ! empty($resolved['tenant_company_id'])
             ? Company::query()->find((int) $resolved['tenant_company_id'])
             : null;
         $fleet = app(\App\Services\TenantBookingLiveFleetService::class);
-        if ($fleet->isMarketplaceSection($sectionKey)) {
+        $isMarketplace = $fleet->isMarketplaceSection($sectionKey);
+        $fleetCarColor = $this->normalizeBookingFleetCarColor(
+            $resolved['config']['logic']['live_fleet_car_color'] ?? null
+        );
+        if ($isMarketplace) {
             $vehicles = app(\App\Services\NearbyAvailableTaxiFleetService::class)->vehicles($lat, $lng, $radiusKm);
+            $vehicles = array_map(static function (array $vehicle) use ($fleetCarColor): array {
+                $vehicle['color'] = $fleetCarColor;
+
+                return $vehicle;
+            }, $vehicles);
         } else {
             $vehicles = $fleet->vehiclesForSection(
                 $sectionKey,
@@ -139,11 +154,38 @@ class NexaTaxiBookingController extends Controller
             );
         }
 
-        return response()->json([
+        $payload = [
             'vehicles' => $vehicles,
             'radius_km' => $radiusKm,
+            'fleet_car_color' => $fleetCarColor,
             'server_now' => now()->toIso8601String(),
-        ]);
+        ];
+
+        if ($isMarketplace) {
+            $dispatchReady = false;
+            $candidateCount = 0;
+            if ($lat !== null && $lng !== null) {
+                $matches = app(NearestTaxiTenantResolver::class)->resolveNearby(
+                    $lat,
+                    $lng,
+                    NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
+                    $configRadiusKm
+                );
+                $candidateCount = count($matches);
+                $dispatchReady = $candidateCount > 0;
+            }
+            $payload['marketplace'] = [
+                'dispatch_ready' => $dispatchReady,
+                'candidate_count' => $candidateCount,
+                'radius_km' => $configRadiusKm,
+                'check_seconds' => max(
+                    1,
+                    min(30, (int) ($resolved['config']['logic']['marketplace_availability_check_seconds'] ?? 3))
+                ),
+            ];
+        }
+
+        return response()->json($payload);
     }
 
     public function submit(Request $request): JsonResponse
@@ -1155,6 +1197,20 @@ class NexaTaxiBookingController extends Controller
         }
 
         return ['config' => $default, 'tenant_company_id' => null];
+    }
+
+    private function normalizeBookingFleetCarColor(mixed $value): string
+    {
+        $raw = trim((string) ($value ?? ''));
+        if (preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $raw)) {
+            if (strlen($raw) === 4) {
+                return '#'.$raw[1].$raw[1].$raw[2].$raw[2].$raw[3].$raw[3];
+            }
+
+            return strtolower($raw);
+        }
+
+        return '#ea580c';
     }
 
     private function isTaxiBookingModuleSectionKey(string $sectionKey): bool

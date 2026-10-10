@@ -386,7 +386,7 @@
                                                 Chauffeur dispatch → Klantmelding bij acceptatie
                                             @endif
                                             (WhatsApp communicatie klant). Rit afgerond staat standaard uit.
-                                            Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> opmerking, <code>@{{5}}</code> chauffeur, <code>@{{6}}</code> ophaalmoment, <code>@{{7}}</code> ophaaladres.
+                                            Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> opmerking, <code>@{{5}}</code> chauffeur, <code>@{{6}}</code> ophaalmoment, <code>@{{7}}</code> ophaaladres, <code>@{{8}}</code> kenteken (onder chauffeur in Meta-body).
                                         </p>
                                     </td>
                                 </tr>
@@ -394,7 +394,7 @@
                                     <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst (status)</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
-                                            Kopieer naar Meta als Hulpmiddel-sjabloon. <code>@{{3}}</code> (status) en <code>@{{4}}</code> (opmerking) wisselen per gebeurtenis; chauffeur en ophaalgegevens vullen automatisch.
+                                            Kopieer naar Meta als Hulpmiddel-sjabloon. <code>@{{3}}</code> (status) en <code>@{{4}}</code> (opmerking) wisselen per gebeurtenis; chauffeur, kenteken (<code>@{{8}}</code>) en ophaalgegevens vullen automatisch bij toewijzing en chauffeur onderweg.
                                         </p>
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['status'] ?? '' }}</pre>
                                     </td>
@@ -473,7 +473,8 @@
                                             <code>@{{5}}</code> voorstel,
                                             <code>@{{6}}</code> ophaaladres,
                                             <code>@{{7}}</code> afleveradres,
-                                            <code>@{{8}}</code> chauffeur.
+                                            <code>@{{8}}</code> chauffeur,
+                                            <code>@{{9}}</code> kenteken.
                                             Bronnummer: bedrijfsveld <code>phone</code> van de tenant (internationaal +31…).
                                             Na Weigeren mag de klant een los tekstbericht sturen als opmerking.
                                             Lokaal en op test: <a href="{{ route('admin.whatsapp-pickup-proposal-mock.index') }}" class="underline">WhatsApp voorstel-test</a>
@@ -486,7 +487,7 @@
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
                                             Kopieer naar Meta als Utility-sjabloon en voeg twee <strong>Snel antwoord</strong>-knoppen toe.
-                                            Elke parameter <code>@{{1}}</code>–<code>@{{8}}</code> mag maar 1× in de body staan.
+                                            Elke parameter <code>@{{1}}</code>–<code>@{{9}}</code> mag maar 1× in de body staan.
                                             Zet het telefoonnummer (<code>@{{3}}</code>) op een eigen regel zodat het in WhatsApp klikbaar is.
                                             Geen website- of bel-knop in hetzelfde sjabloon: Quick Reply en Call-to-action mogen niet gemengd.
                                         </p>

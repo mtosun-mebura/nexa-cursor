@@ -154,6 +154,8 @@ class AdminCompanyController extends Controller
             'longitude' => 'nullable|numeric|between:-180,180',
             'description' => 'nullable|string|max:5000',
             'is_intermediary' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'accepts_nexa_suite_bookings' => 'nullable|boolean',
             'locations' => 'nullable|array',
             'locations.*.name' => 'required_with:locations|string|max:255|min:2',
             'locations.*.street' => 'nullable|string|max:255',
@@ -204,6 +206,10 @@ class AdminCompanyController extends Controller
 
         // Handle checkbox - if not present in request, set to false
         $companyData['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
+        $companyData['is_active'] = $request->boolean('is_active');
+        $companyData['accepts_nexa_suite_bookings'] = $request->has('accepts_nexa_suite_bookings')
+            ? $request->boolean('accepts_nexa_suite_bookings')
+            : true;
 
         // Handle branch selection: if branch_select is set and not "other", use that value for industry
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {
@@ -484,6 +490,7 @@ class AdminCompanyController extends Controller
             'is_intermediary' => 'nullable|boolean',
             'is_main' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
+            'accepts_nexa_suite_bookings' => 'nullable|boolean',
             'contact_first_name' => 'nullable|string|max:255',
             'contact_middle_name' => 'nullable|string|max:255',
             'contact_last_name' => 'nullable|string|max:255',
@@ -528,6 +535,7 @@ class AdminCompanyController extends Controller
         $data['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
         $data['is_main'] = $request->boolean('is_main');
         $data['is_active'] = $request->boolean('is_active');
+        $data['accepts_nexa_suite_bookings'] = $request->boolean('accepts_nexa_suite_bookings');
 
         // Handle branch selection: if branch_select is set and not "other", use that value for industry
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {

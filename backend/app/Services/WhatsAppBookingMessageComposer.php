@@ -44,7 +44,8 @@ TXT;
 
     /**
      * Universeel status-sjabloon (klant) — één Meta-template voor acceptatie, afwijzing, start, afronding, enz.
-     * {{1}} klant, {{2}} bedrijf, {{3}} status, {{4}} opmerking, {{5}} chauffeur, {{6}} ophaalmoment, {{7}} ophaaladres.
+     * {{1}} klant, {{2}} bedrijf, {{3}} status, {{4}} opmerking, {{5}} chauffeur, {{6}} ophaalmoment,
+     * {{7}} ophaaladres, {{8}} kenteken.
      */
     public const META_BODY_STATUS = <<<'TXT'
 Beste {{1}},
@@ -55,6 +56,7 @@ Status: {{3}}.
 Opmerking: {{4}}.
 
 Chauffeur: {{5}}
+Kenteken: {{8}}
 Ophaalmoment: {{6}}
 Ophaaladres: {{7}}
 
@@ -66,7 +68,7 @@ TXT;
      * In Meta hoeft geen payload of webhook op de knop: de knoptekst komt via de app-webhook binnen.
      * Elke body-parameter komt maximaal 1× voor (Meta-eis), in leesvolgorde:
      * {{1}} klant, {{2}} bedrijf, {{3}} telefoon tenant, {{4}} huidig ophaalmoment,
-     * {{5}} voorgesteld moment, {{6}} ophaaladres, {{7}} afleveradres, {{8}} chauffeur.
+     * {{5}} voorgesteld moment, {{6}} ophaaladres, {{7}} afleveradres, {{8}} chauffeur, {{9}} kenteken.
      */
     public const META_BODY_PICKUP_PROPOSAL = <<<'TXT'
 Beste {{1}},
@@ -81,6 +83,7 @@ Voorgesteld ophaalmoment: {{5}}
 Ophaaladres: {{6}}
 Afleveradres: {{7}}
 Chauffeur: {{8}}
+Kenteken: {{9}}
 
 Kies Accepteren of Weigeren.
 Bij Weigeren kunt u daarna een korte opmerking sturen voor de chauffeur.
@@ -315,6 +318,7 @@ TXT;
      *     section_config?: array<string, mixed>,
      *     driver_name?: string|null,
      *     driver_phone?: string|null,
+     *     license_plate?: string|null,
      *     remark?: string|null,
      *     extra_lines?: list<string>
      * }  $context
@@ -351,6 +355,8 @@ TXT;
             $driverName = '—';
         }
 
+        $licensePlate = $this->resolveStatusLicensePlate($ride, $context);
+
         $pickupAt = $ride->pickup_at
             ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
             : '—';
@@ -359,6 +365,7 @@ TXT;
             $pickupAddress = '—';
         }
 
+        // Volgorde = Meta {{1}}…{{8}} (kenteken is {{8}}, onder Chauffeur in de body).
         $params = [
             $customerName,
             $companyName,
@@ -367,11 +374,13 @@ TXT;
             $driverName,
             $pickupAt,
             mb_substr($pickupAddress, 0, 1024),
+            $licensePlate,
         ];
         $preview = $this->renderPreview(self::META_BODY_STATUS, $params);
         $detailsBlock = trim(implode("\n", array_filter([
             $remark !== '—' ? 'Opmerking: '.$remark : null,
             $driverName !== '—' ? 'Chauffeur: '.$driverName : null,
+            $licensePlate !== '—' ? 'Kenteken: '.$licensePlate : null,
             $pickupAt !== '—' ? 'Ophaalmoment: '.$pickupAt : null,
             $pickupAddress !== '—' ? 'Ophaaladres: '.$pickupAddress : null,
         ])));
@@ -384,6 +393,40 @@ TXT;
             'status_label' => $statusLabel,
             'event' => $event,
         ];
+    }
+
+    /**
+     * @param  array{license_plate?: string|null}  $context
+     */
+    protected function resolveStatusLicensePlate(RideRequest $ride, array $context): string
+    {
+        $fromContext = trim((string) ($context['license_plate'] ?? ''));
+        if ($fromContext !== '') {
+            return mb_substr($fromContext, 0, 64);
+        }
+
+        try {
+            if ($ride->relationLoaded('vehicle') && $ride->vehicle) {
+                $plate = trim((string) ($ride->vehicle->license_plate ?? ''));
+
+                return $plate !== '' ? mb_substr($plate, 0, 64) : '—';
+            }
+
+            $vehicleId = (int) ($ride->vehicle_id ?? 0);
+            if ($vehicleId <= 0) {
+                return '—';
+            }
+
+            $conn = $ride->getConnectionName();
+            $query = $conn
+                ? \App\Modules\NexaTaxi\Models\Vehicle::on($conn)
+                : \App\Modules\NexaTaxi\Models\Vehicle::query();
+            $plate = trim((string) ($query->whereKey($vehicleId)->value('license_plate') ?? ''));
+
+            return $plate !== '' ? mb_substr($plate, 0, 64) : '—';
+        } catch (\Throwable) {
+            return '—';
+        }
     }
 
     /**
@@ -546,11 +589,12 @@ TXT;
             'Piet Chauffeur',
             '16-07-2026 14:30',
             'Dam 1, Amsterdam',
+            'XX-999-X',
         ];
 
         return [
             'preview' => $this->renderPreview(self::META_BODY_STATUS, $params),
-            'details' => "Opmerking: —\nChauffeur: Piet Chauffeur\nOphaalmoment: 16-07-2026 14:30\nOphaaladres: Dam 1, Amsterdam",
+            'details' => "Opmerking: —\nChauffeur: Piet Chauffeur\nKenteken: XX-999-X\nOphaalmoment: 16-07-2026 14:30\nOphaaladres: Dam 1, Amsterdam",
             'params' => $params,
         ];
     }
@@ -709,6 +753,7 @@ TXT;
             (string) ($ride->pickup_address ?: '—'),
             (string) ($ride->dropoff_address ?: '—'),
             $driverName,
+            $this->resolveStatusLicensePlate($ride, []),
         ];
     }
 
@@ -723,9 +768,10 @@ TXT;
             '+31531234567',
             '13-08-2026 08:25',
             '13-08-2026 09:15',
-            'Deurningerstraat 153, Enschede',
-            'KFC Spaansland, Enschede',
+            'Maanstraat 2, 1234AB, Amsterdam',
+            'Hoogstraat 100, 4567RT, Amsterdam',
             'Piet Chauffeur',
+            'AB-123-L',
         ];
 
         return [

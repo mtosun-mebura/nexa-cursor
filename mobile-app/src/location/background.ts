@@ -7,6 +7,12 @@ export const LOCATION_TASK = 'nexa-taxi-driver-location';
 const TOKEN_KEY = 'nexa_taxi_location_token';
 const VEHICLE_KEY = 'nexa_taxi_location_vehicle';
 
+export function clampGpsRefreshSeconds(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(30, Math.max(1, Math.round(n)));
+}
+
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   if (error) {
     return;
@@ -22,6 +28,8 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   }
   const vehicleRaw = await SecureStore.getItemAsync(VEHICLE_KEY);
   const vehicleId = vehicleRaw ? Number(vehicleRaw) : null;
+  const heading = latest.coords.heading;
+  const speed = latest.coords.speed;
 
   try {
     await fetch(`${API_BASE_URL}/api/taxi/v1/driver/availability/location`, {
@@ -35,8 +43,8 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
         lat: latest.coords.latitude,
         lng: latest.coords.longitude,
         accuracy: latest.coords.accuracy ?? undefined,
-        heading: latest.coords.heading ?? undefined,
-        speed: latest.coords.speed ?? undefined,
+        ...(heading != null && heading >= 0 ? { heading } : {}),
+        ...(speed != null && speed >= 0 ? { speed } : {}),
         ...(vehicleId ? { vehicle_id: vehicleId } : {}),
       }),
     });
@@ -54,7 +62,11 @@ export async function prepareBackgroundLocation(token: string, vehicleId?: numbe
   }
 }
 
-export async function startBackgroundLocation(token: string, vehicleId?: number | null) {
+export async function startBackgroundLocation(
+  token: string,
+  vehicleId?: number | null,
+  refreshSeconds: number = 1
+) {
   await prepareBackgroundLocation(token, vehicleId);
 
   const foreground = await Location.requestForegroundPermissionsAsync();
@@ -69,16 +81,19 @@ export async function startBackgroundLocation(token: string, vehicleId?: number 
     );
   }
 
+  const seconds = clampGpsRefreshSeconds(refreshSeconds);
+  const intervalMs = seconds * 1000;
+
   const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
   if (started) {
-    return;
+    await Location.stopLocationUpdatesAsync(LOCATION_TASK);
   }
 
   await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-    accuracy: Location.Accuracy.High,
-    timeInterval: 8000,
-    distanceInterval: 25,
-    deferredUpdatesInterval: 8000,
+    accuracy: Location.Accuracy.BestForNavigation,
+    timeInterval: intervalMs,
+    distanceInterval: seconds <= 2 ? 0 : 5,
+    deferredUpdatesInterval: intervalMs,
     showsBackgroundLocationIndicator: true,
     pausesUpdatesAutomatically: false,
     activityType: Location.ActivityType.AutomotiveNavigation,

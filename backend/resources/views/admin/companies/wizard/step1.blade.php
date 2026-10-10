@@ -272,6 +272,21 @@
                         </label>
                     </td>
                 </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Nexa Suite-boekingen accepteren</td>
+                    <td class="min-w-48 w-full">
+                        <input type="hidden" name="accepts_nexa_suite_bookings" value="0">
+                        <label class="kt-label flex items-center gap-2 mb-0" for="wizard_accepts_nexa_suite_bookings">
+                            <input type="checkbox"
+                                   class="kt-switch kt-switch-sm shrink-0"
+                                   id="wizard_accepts_nexa_suite_bookings"
+                                   name="accepts_nexa_suite_bookings"
+                                   value="1"
+                                   {{ old('accepts_nexa_suite_bookings', $company->accepts_nexa_suite_bookings ?? true) ? 'checked' : '' }}>
+                            <span class="text-sm text-muted-foreground">Ontvang ritten vanaf nexasuite.nl / de marktplaats</span>
+                        </label>
+                    </td>
+                </tr>
             </table>
         </div>
     </div>

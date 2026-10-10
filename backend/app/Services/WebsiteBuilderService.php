@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\CentralSiteBrand;
 use App\Support\NexaMarketplaceFeeCopy;
 use App\Support\NexaPublicCopy;
 use App\Support\Tenancy\TenantFrontendUrl;
@@ -286,6 +287,14 @@ class WebsiteBuilderService
         }
 
         $query->whereNull($table.'.company_id');
+        // Centrale pagina's: Suite-merk of legacy zonder brand (nexataxi.nl is tenant).
+        $connection = $query->getConnection()->getName();
+        if (Schema::connection($connection)->hasColumn($table, 'site_brand')) {
+            $query->where(function (Builder $inner) use ($table) {
+                $inner->where($table.'.site_brand', CentralSiteBrand::NEXASUITE)
+                    ->orWhereNull($table.'.site_brand');
+            });
+        }
     }
 
     /**
@@ -542,7 +551,7 @@ class WebsiteBuilderService
             }
         }
 
-        // NEXA Suite-hoofdwebsite (geen tenant): geen Mijn Taxi / portaal-knop.
+        // Centrale marketingwebsite (geen tenant): geen Mijn Taxi / portaal-knop.
         // Staging-preview mag wél de knop tonen o.b.v. module-config (admin-voorbeeld).
         if (! $forStagingPreview) {
             $resolvedTenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
@@ -1337,6 +1346,14 @@ class WebsiteBuilderService
      */
     public function getHomePageForModule(?string $moduleName = null): ?WebsitePage
     {
+        $tenantId = $this->resolvedPublicTenantCompanyId();
+        if ($tenantId !== null) {
+            $nexaTaxi = app(NexaTaxiWelcomePageService::class)->resolveCompany();
+            if ($nexaTaxi !== null && (int) $nexaTaxi->id === (int) $tenantId) {
+                app(NexaTaxiWelcomePageService::class)->ensureMarketingPagesExist($nexaTaxi);
+            }
+        }
+
         if ($moduleName === null) {
             $brandingModule = $this->getBrandingModule();
             $moduleName = $brandingModule ? $brandingModule->name : null;
@@ -2058,6 +2075,7 @@ class WebsiteBuilderService
 
     /**
      * Marketing-landingspagina voor het centrale domein (geen tenant). Geen tenant-scope: vaste slug + null company.
+     * nexataxi.nl is een tenant-domein (bedrijf Nexa Taxi), geen centrale welkom.
      */
     public function getCentralMarketingWelcomePage(): ?WebsitePage
     {
@@ -2068,6 +2086,12 @@ class WebsiteBuilderService
         $table = (new WebsitePage)->getTable();
         if (Schema::hasColumn($table, 'company_id')) {
             $q->whereNull($table.'.company_id');
+        }
+        if (Schema::hasColumn($table, 'site_brand')) {
+            $q->where(function (Builder $inner) use ($table) {
+                $inner->where($table.'.site_brand', CentralSiteBrand::NEXASUITE)
+                    ->orWhereNull($table.'.site_brand');
+            });
         }
 
         $page = $q->first();
@@ -2146,6 +2170,15 @@ class WebsiteBuilderService
             app(CentralWelcomePageService::class)->ensureMarketingPagesExist();
         }
 
+        $tenantId = $this->resolvedPublicTenantCompanyId();
+        if ($tenantId !== null) {
+            $nexaTaxi = app(NexaTaxiWelcomePageService::class)->resolveCompany();
+            if ($nexaTaxi !== null && (int) $nexaTaxi->id === (int) $tenantId
+                && in_array(strtolower($slug), NexaTaxiWelcomePageService::marketingSlugs(), true)) {
+                app(NexaTaxiWelcomePageService::class)->ensureMarketingPagesExist($nexaTaxi);
+            }
+        }
+
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
         $page = $this->firstActiveWebsitePage(
@@ -2163,8 +2196,15 @@ class WebsiteBuilderService
             return null;
         }
 
-        if ($this->resolvedPublicTenantCompanyId() === null && strtolower($slug) === CentralWelcomePageService::BOEK_SLUG) {
-            return app(CentralWelcomePageService::class)->ensureBookingModuleOnBoekPage($page);
+        if (strtolower($slug) === CentralWelcomePageService::BOEK_SLUG) {
+            $nexaTaxi = app(NexaTaxiWelcomePageService::class)->resolveCompany();
+            if ($tenantId !== null && $nexaTaxi !== null && (int) $nexaTaxi->id === (int) $tenantId
+                && (int) ($page->company_id ?? 0) === (int) $tenantId) {
+                return app(NexaTaxiWelcomePageService::class)->ensureBookingModuleOnBoekPage($page);
+            }
+            if ($tenantId === null) {
+                return app(CentralWelcomePageService::class)->ensureBookingModuleOnBoekPage($page);
+            }
         }
 
         return $page;

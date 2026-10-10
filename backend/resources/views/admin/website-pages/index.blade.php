@@ -38,6 +38,9 @@
             @if(!empty($wtc['visible']) && !empty($wtc['effective_company']))
                 <p class="text-sm text-muted-foreground mt-2 mb-0">
                     <span class="text-foreground font-medium">Actieve tenant:</span> {{ $wtc['effective_company']->name }}
+                    @if(strcasecmp((string) $wtc['effective_company']->name, 'Nexa Taxi') === 0)
+                        <span class="text-muted-foreground">· publiek op nexataxi.nl (marktplaatsboeking)</span>
+                    @endif
                 </p>
             @endif
         </div>
