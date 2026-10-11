@@ -12,6 +12,7 @@ use App\Models\WebsitePage;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\CustomerMarketplaceBookingService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -432,6 +433,69 @@ class NexaSuiteMarketplaceTest extends TestCase
     }
 
     #[Test]
+    public function customer_quote_counts_online_taxi_shown_on_map_when_company_has_no_active_vehicles(): void
+    {
+        [$near, $vehicle] = $this->twoTaxiTenants();
+        $vehicle->update(['active' => false]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 31,
+            'company_id' => $near->id,
+            'is_online' => true,
+            'lat' => 52.371,
+            'lng' => 4.901,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $nearby = $this->getJson(route('nexataxi.booking.nearby-taxis', [
+            'section_key' => 'component:taxi.algemene_boekingsmodule',
+            'lat' => 52.37,
+            'lng' => 4.90,
+            'radius_km' => 10,
+        ]));
+        $nearby->assertOk();
+        $this->assertCount(1, $nearby->json('vehicles'));
+
+        $quote = $this->customerQuoteAt(52.37, 4.90);
+        $this->assertSame(1, $quote['marketplace']['candidate_count']);
+        $this->assertTrue($quote['marketplace']['taxi_available']);
+    }
+
+    #[Test]
+    public function nearby_taxis_hides_taxis_of_company_that_cannot_take_bookings(): void
+    {
+        [$near, $vehicle] = $this->twoTaxiTenants();
+        CompanyBillingProfile::query()->create([
+            'company_id' => $near->id,
+            'billing_mode' => 'custom',
+            'billing_email' => 'factuur@taxi.test',
+            'access_restriction' => 'bookings',
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 32,
+            'company_id' => $near->id,
+            'vehicle_id' => $vehicle->id,
+            'is_online' => true,
+            'lat' => 52.371,
+            'lng' => 4.901,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $nearby = $this->getJson(route('nexataxi.booking.nearby-taxis', [
+            'section_key' => 'component:taxi.algemene_boekingsmodule',
+            'lat' => 52.37,
+            'lng' => 4.90,
+            'radius_km' => 10,
+        ]));
+        $nearby->assertOk();
+        $this->assertCount(0, $nearby->json('vehicles'));
+
+        $quote = $this->customerQuoteAt(52.37, 4.90);
+        $this->assertSame(0, $quote['marketplace']['candidate_count']);
+    }
+
+    #[Test]
     public function nearby_taxis_endpoint_is_empty_for_tenant_v2_module(): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
@@ -557,6 +621,25 @@ class NexaSuiteMarketplaceTest extends TestCase
             ->get(route('admin.nexa-suite-bookings.invoices', ['period' => '08-2026']))
             ->assertOk()
             ->assertSee('data-kt-date-picker-type="month"', false);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function customerQuoteAt(float $lat, float $lng): array
+    {
+        $this->mock(NexaTaxiBookingPricingService::class, function ($mock): void {
+            $mock->shouldReceive('getDefaultSectionConfig')->andReturn(['logic' => []]);
+            $mock->shouldReceive('buildQuotes')->andReturn(['offers' => [['id' => 'offer-1', 'price' => 20.0]]]);
+        });
+
+        return app(CustomerMarketplaceBookingService::class)->quote([
+            'distance_meters' => 5000,
+            'duration_seconds' => 600,
+            'passengers' => 1,
+            'pickup_lat' => $lat,
+            'pickup_lng' => $lng,
+        ]);
     }
 
     /**
