@@ -202,13 +202,15 @@ class NearestTaxiTenantResolver
     /**
      * Bedrijven die nu marketplace-ritten mogen ontvangen. Zelfde set voor de live-kaart
      * en voor quote/boeking, zodat een getoonde taxi ook echt boekbaar is.
+     * Alleen een volledige facturatieblokkade sluit uit (net als de chauffeur-app); de
+     * blokkade "boekingen" geldt voor de eigen website-boeking van het bedrijf.
      *
      * @return Collection<int, Company>
      */
     public function bookableCompanies(): Collection
     {
         return $this->eligibleCompanies()
-            ->reject(fn (Company $company) => $this->billingAccess->isBookingBlocked($company))
+            ->reject(fn (Company $company) => $this->billingAccess->isFullyBlocked($company))
             ->filter(fn (Company $company) => $this->canReceiveMarketplaceRides($company))
             ->values();
     }

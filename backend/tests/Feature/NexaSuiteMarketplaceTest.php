@@ -462,14 +462,25 @@ class NexaSuiteMarketplaceTest extends TestCase
     }
 
     #[Test]
-    public function nearby_taxis_hides_taxis_of_company_that_cannot_take_bookings(): void
+    public function online_taxi_stays_on_map_and_bookable_when_only_website_bookings_are_blocked(): void
+    {
+        $this->assertMarketplaceTaxiCountWithRestriction('bookings', 1);
+    }
+
+    #[Test]
+    public function fully_blocked_company_is_hidden_from_map_and_quote(): void
+    {
+        $this->assertMarketplaceTaxiCountWithRestriction('full', 0);
+    }
+
+    private function assertMarketplaceTaxiCountWithRestriction(string $restriction, int $expected): void
     {
         [$near, $vehicle] = $this->twoTaxiTenants();
         CompanyBillingProfile::query()->create([
             'company_id' => $near->id,
             'billing_mode' => 'custom',
             'billing_email' => 'factuur@taxi.test',
-            'access_restriction' => 'bookings',
+            'access_restriction' => $restriction,
         ]);
         DriverAvailability::on('module_taxi')->create([
             'driver_id' => 32,
@@ -489,10 +500,10 @@ class NexaSuiteMarketplaceTest extends TestCase
             'radius_km' => 10,
         ]));
         $nearby->assertOk();
-        $this->assertCount(0, $nearby->json('vehicles'));
+        $this->assertCount($expected, $nearby->json('vehicles'));
 
         $quote = $this->customerQuoteAt(52.37, 4.90);
-        $this->assertSame(0, $quote['marketplace']['candidate_count']);
+        $this->assertSame($expected, $quote['marketplace']['candidate_count']);
     }
 
     #[Test]
