@@ -1620,6 +1620,6 @@
     window.addEventListener('nexa-customer-screen', mountTheme);
 })();
 </script>
-<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=42" defer></script>
+<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=43" defer></script>
 </body>
 </html>
